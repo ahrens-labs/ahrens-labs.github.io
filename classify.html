@@ -2810,8 +2810,9 @@
                             <div id="weekDueOnlyWrapper" class="mt-3 hidden">
                                 <label class="inline-flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
                                     <input id="inputWeekDueOnly" type="checkbox" onchange="updateRepeatInputs()">
-                                    Due Friday (end of week)
+                                    One assignment due per week
                                 </label>
+                                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Choose the due date and time below — defaults to Friday, but you can change it for each week.</p>
                             </div>
                             <div id="repeatDaysWrapper" class="mt-3 hidden">
                                 <div class="text-xs text-slate-500 dark:text-slate-400 mb-2">Repeat on</div>
@@ -3809,7 +3810,7 @@
                 lead: 'Repeat spawns the next copy automatically when you complete one.',
                 bullets: [
                     'Choose <strong>Daily</strong>, <strong>Weekly</strong>, or <strong>Custom weekdays</strong> for the pattern',
-                    '<strong>Due Friday (end of week)</strong> on weekly repeat = one assignment due each week, not every day',
+                    '<strong>One assignment due per week</strong> on weekly repeat = one copy each week; pick any due day and time',
                     'Finishing today\'s copy creates the next occurrence with the same settings'
                 ],
                 target: '#cl-wt-repeat-panel',
@@ -4896,8 +4897,10 @@
             const normalizedDueDateBase = isExactDateTask
                 ? null
                 : (task.dueDate || task.due || normalizedEventDate || null);
+            const weekKeyForDue = task.week
+                || (normalizedDueDateBase ? getWeekKeyFromDateStr(normalizedDueDateBase) : null);
             const normalizedDueDate = weekDueOnly
-                ? getWeekEndDateFromWeekKey(task.week || (normalizedDueDateBase ? getWeekKeyFromDateStr(normalizedDueDateBase) : null))
+                ? getWeekDueDateForRepeat(weekKeyForDue, { dueDate: normalizedDueDateBase || task.dueDate || null })
                 : normalizedDueDateBase;
             const normalizedWeek = task.week
                 || (normalizedDueDate ? getWeekKeyFromDateStr(normalizedDueDate) : null)
@@ -6203,9 +6206,14 @@
             let load = 0;
             tasks.forEach(t => {
                 if(!t || t.completed || t.id === excludeTaskId) return;
-                const assignedDate = dateById.has(t.id)
-                    ? dateById.get(t.id)
-                    : ((isUserScheduleLocked(t) || (t.date && t.time)) ? t.date : null);
+                let assignedDate = null;
+                if(dateById.has(t.id)) {
+                    assignedDate = dateById.get(t.id);
+                } else if(isUserScheduleLocked(t) && t.date) {
+                    assignedDate = t.date;
+                } else if(t.date && t.time) {
+                    assignedDate = t.date;
+                }
                 if(assignedDate === dateStr) load += parseInt(t.duration, 10) || 30;
             });
             return load;
@@ -9966,11 +9974,9 @@
                     return;
                 }
                 if(!weekInput.value) weekInput.value = getCurrentWeekKey();
-                const { endStr } = getWeekBoundsFromWeekKey(weekInput.value);
-                dueDateInput.value = endStr;
-                dueDateInput.disabled = true;
-                dueTimeInput.value = '';
-                dueTimeInput.disabled = true;
+                dueDateInput.disabled = false;
+                dueTimeInput.disabled = false;
+                syncWeekDueDateInputToWeek(weekInput.value, dueDateInput);
                 timeInput.value = '';
                 dateInput.value = '';
             }
@@ -10084,8 +10090,10 @@
                 days = [0, 1, 2, 3, 4, 5, 6];
             }
             if(weekDueOnly) {
+                const dueDate = document.getElementById('inputDueDate')?.value || '';
+                const weekday = getWeekdayFromDateStr(dueDate) ?? 5;
                 return {
-                    rule: normalizeRepeatRule({ type: 'weekly', days: [5] }),
+                    rule: normalizeRepeatRule({ type: 'weekly', days: [weekday] }),
                     weekDueOnly: true
                 };
             }
@@ -10110,12 +10118,39 @@
             return getCurrentWeekKey();
         }
 
-        function getWeekEndDateFromWeekKey(weekKey) {
-            if(!weekKey) return null;
+        function getWeekdayFromDateStr(dateStr) {
+            if(!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return null;
+            return new Date(`${dateStr}T00:00:00`).getDay();
+        }
+
+        function getDateInWeekForWeekday(weekKey, weekday) {
+            if(!weekKey || weekday == null) return null;
             const { start } = getWeekBoundsFromWeekKey(weekKey);
-            const friday = new Date(start);
-            friday.setDate(start.getDate() + 4);
-            return getDateStrLocal(friday);
+            const date = new Date(start);
+            const daysFromMonday = weekday === 0 ? 6 : weekday - 1;
+            date.setDate(start.getDate() + daysFromMonday);
+            return getDateStrLocal(date);
+        }
+
+        function getWeekDueDateForRepeat(weekKey, templateTask = {}) {
+            if(!weekKey) return null;
+            const templateDue = templateTask.dueDate || null;
+            const weekday = getWeekdayFromDateStr(templateDue) ?? 5;
+            return getDateInWeekForWeekday(weekKey, weekday);
+        }
+
+        function getWeekEndDateFromWeekKey(weekKey) {
+            return getDateInWeekForWeekday(weekKey, 5);
+        }
+
+        function syncWeekDueDateInputToWeek(weekKey, dueDateInput) {
+            if(!weekKey || !dueDateInput) return;
+            const { startStr, endStr } = getWeekBoundsFromWeekKey(weekKey);
+            const currentDue = dueDateInput.value;
+            if(!currentDue || currentDue < startStr || currentDue > endStr) {
+                const weekday = getWeekdayFromDateStr(currentDue) ?? 5;
+                dueDateInput.value = getDateInWeekForWeekday(weekKey, weekday);
+            }
         }
 
         function pickRepeatTemplate(groupTasks = []) {
@@ -10146,7 +10181,7 @@
                     scheduleType: templateTask.weekDueOnly ? 'week' : 'date',
                     assignmentMode: templateTask.weekDueOnly ? 'ADJUSTABLE' : (templateIsFixed ? 'FIXED' : 'ADJUSTABLE'),
                     date: templateTask.weekDueOnly ? null : dateStr,
-                    dueDate: templateTask.weekDueOnly ? getWeekEndDateFromWeekKey(weekKey) : null,
+                    dueDate: templateTask.weekDueOnly ? getWeekDueDateForRepeat(weekKey, templateTask) : null,
                     week: weekKey,
                     time: templateTask.weekDueOnly ? null : (templateIsFixed ? (templateTask.time || null) : null),
                     timeSource: templateTask.weekDueOnly ? null : (templateIsFixed && templateTask.time ? 'user' : null),
@@ -10155,7 +10190,7 @@
                     repeatGroupId: groupId,
                     repeatWeekKey: weekKey,
                     repeatRule: rule,
-                    dueTime: null,
+                    dueTime: templateTask.weekDueOnly ? (templateTask.dueTime || null) : null,
                     weekDueOnly: Boolean(templateTask.weekDueOnly),
                     repeatNoAutoTime: Boolean(templateTask.repeatNoAutoTime)
                 });
@@ -10243,9 +10278,9 @@
             const week = scheduleType === 'week' ? (weekRaw || getCurrentWeekKey()) : weekRaw;
             const isExactDateSchedule = scheduleType === 'date' && !weekDueOnly;
             const dueDate = weekDueOnly
-                ? getWeekEndDateFromWeekKey(week)
+                ? (dueDateRaw || getWeekDueDateForRepeat(week, { dueDate: null }))
                 : (isExactDateSchedule ? null : dueDateRaw);
-            const dueTime = weekDueOnly ? null : dueTimeRaw;
+            const dueTime = dueTimeRaw;
 
             if(scheduleType === 'week' && !week) {
                 showNotification("Please choose a target week", 'error');
@@ -10385,6 +10420,16 @@
                 if(existingTask?.repeatGroupId) {
                     tasks = tasks.map(t => {
                         if(t.repeatGroupId !== groupId) return t;
+                        const isEditedInstance = t.id === editingId;
+                        const instanceWeekKey = t.repeatWeekKey || t.week || startWeekKey;
+                        const instanceDueDate = weekDueOnly
+                            ? (isEditedInstance
+                                ? (dueDateRaw || getWeekDueDateForRepeat(instanceWeekKey, normalizedTaskData))
+                                : t.dueDate)
+                            : (isExactDateSchedule ? null : t.dueDate);
+                        const instanceDueTime = weekDueOnly
+                            ? (isEditedInstance ? dueTimeRaw : t.dueTime)
+                            : normalizedTaskData.dueTime;
                         const updated = {
                             ...t,
                             title,
@@ -10395,10 +10440,8 @@
                             scheduleType: weekDueOnly ? 'week' : t.scheduleType,
                             assignmentMode: weekDueOnly ? 'ADJUSTABLE' : (inputTimeValue ? (isFixedInput ? 'FIXED' : 'ADJUSTABLE') : 'ADJUSTABLE'),
                             date: weekDueOnly ? null : t.date,
-                            dueDate: weekDueOnly
-                                ? getWeekEndDateFromWeekKey(t.repeatWeekKey || t.week || startWeekKey)
-                                : (isExactDateSchedule ? null : t.dueDate),
-                            week: t.repeatWeekKey || t.week || startWeekKey,
+                            dueDate: instanceDueDate,
+                            week: instanceWeekKey,
                             time: weekDueOnly ? null : t.time,
                             timeSource: weekDueOnly ? null : (inputTimeValue
                                 ? (((preserveAutoSource || preserveAdjustableAuto) && !isFixedInput) ? 'auto' : 'user')
@@ -10408,7 +10451,7 @@
                             duration: normalizedTaskData.duration,
                             notes: normalizedTaskData.notes,
                             color: normalizedTaskData.color,
-                            dueTime: weekDueOnly ? null : normalizedTaskData.dueTime,
+                            dueTime: instanceDueTime,
                             mustBeBefore: normalizedTaskData.mustBeBefore,
                             mustBeAfter: normalizedTaskData.mustBeAfter,
                             mustBeDifferentDay: normalizedTaskData.mustBeDifferentDay,
@@ -10419,20 +10462,22 @@
                         if(!weekDueOnly && inputTimeValue) {
                             updated.time = inputTimeValue;
                         }
-                        return updated;
+                        return normalizeTask(updated);
                     });
 
                     const groupTasks = tasks.filter(t => t.repeatGroupId === groupId);
                     const weekKeys = Array.from(new Set(groupTasks.map(t => t.repeatWeekKey).filter(Boolean))).sort((a, b) => a.localeCompare(b));
                     let activeWeek = weekKeys.find(wk => groupTasks.filter(t => t.repeatWeekKey === wk).some(t => !t.completed));
                     if(!activeWeek) activeWeek = startWeekKey || weekKeys[weekKeys.length - 1];
-                    if(activeWeek) {
+                    if(activeWeek && !weekDueOnly) {
                         syncRepeatExceptionsForWeek(groupId, activeWeek);
                         tasks = tasks.filter(t => {
                             if(t.repeatGroupId !== groupId || t.completed) return true;
                             return !taskOccurrenceDateInWeek(t, activeWeek);
                         });
                         addRepeatWeekOccurrences(groupId, activeWeek, repeatRule, template);
+                    } else if(activeWeek && weekDueOnly) {
+                        syncRepeatExceptionsForWeek(groupId, activeWeek);
                     }
                     showNotification("Recurring assignment updated!", 'success');
                 } else {
@@ -10490,7 +10535,7 @@
             document.getElementById('inputScheduleType').value = t.scheduleType || (t.week ? 'week' : (t.date ? 'date' : 'flexible'));
             document.getElementById('inputDate').value = t.date || '';
             document.getElementById('inputDueDate').value = taskHasSeparateDueDate(t) ? (t.dueDate || '') : '';
-            document.getElementById('inputWeek').value = t.week || getCurrentWeekKey();
+            document.getElementById('inputWeek').value = t.repeatWeekKey || t.week || getCurrentWeekKey();
             document.getElementById('inputTime').value = t.time || '';
             document.getElementById('inputDueTime').value = t.dueTime || '';
             document.getElementById('inputDuration').value = t.duration || '';
