@@ -7019,11 +7019,78 @@
             const {
                 weekKeys = getRelevantUpcomingWeekKeys(),
                 forceRebuildAutoSlots = true,
-                weeksAhead = 12
+                weeksAhead = 12,
+                onClose = null
             } = options || {};
             reAutoScheduleWeeks(weekKeys, forceRebuildAutoSlots, false);
             ensureAllEventsScheduled(weeksAhead, false);
-            saveData({ skipAutoSchedule: true, skipUndoRecord: true });
+            finalizeClassifyModalSave({ onClose, skipScheduleRefresh: true });
+        }
+
+        function closeClassifyModalImmediate(modalId, panelId, cleanup) {
+            const modal = document.getElementById(modalId);
+            const panel = document.getElementById(panelId);
+            if(panel) {
+                panel.classList.remove('scale-100', 'opacity-100');
+                panel.classList.add('scale-95', 'opacity-0');
+            }
+            if(modal) {
+                modal.classList.add('hidden');
+                if(modalId === 'taskModal') modal.classList.add('pointer-events-none');
+            }
+            if(typeof cleanup === 'function') cleanup();
+        }
+
+        function refreshClassifyLikeReload(options = {}) {
+            const {
+                seedTaskIds = [],
+                previousSnapshots = [],
+                weekKeys = null,
+                skipScheduleRefresh = false
+            } = options || {};
+
+            updateDateDisplay();
+            updateSubjectSuggestions();
+
+            if(!skipScheduleRefresh) {
+                enforceNoPastUnstartedTimes();
+                const seeds = Array.from(new Set((seedTaskIds || []).filter(Boolean)));
+                if(seeds.length) reconcileBeforeAfterSchedule(seeds);
+                const keys = Array.from(new Set((weekKeys || []).filter(Boolean)));
+                if(keys.length) {
+                    reAutoScheduleWeeks(keys, true, false);
+                    ensureAllEventsScheduled(12, false);
+                } else if((seedTaskIds && seedTaskIds.length) || (previousSnapshots && previousSnapshots.length)) {
+                    refreshScheduleForSavedTasks(seedTaskIds, previousSnapshots);
+                } else {
+                    refreshAdjustableScheduling();
+                    ensureAllEventsScheduled(12, false);
+                }
+            }
+
+            renderAll();
+        }
+
+        function finalizeClassifyModalSave(options = {}) {
+            const {
+                onClose = null,
+                seedTaskIds = [],
+                previousSnapshots = [],
+                weekKeys = null,
+                skipScheduleRefresh = false,
+                skipUndoRecord = true,
+                cloudSyncNew = false
+            } = options || {};
+
+            if(typeof onClose === 'function') onClose();
+            refreshClassifyLikeReload({
+                seedTaskIds,
+                previousSnapshots,
+                weekKeys,
+                skipScheduleRefresh
+            });
+            saveData({ skipAutoSchedule: true, skipUndoRecord });
+            if(cloudSyncNew) syncClassifyDataToCloud();
         }
 
         function updateClassifyUndoButton() {
@@ -7423,18 +7490,20 @@
             } catch (error) {
                 console.error('renderDashboard failed:', error);
             }
-            const activeTab = ['dashboard', 'tasks', 'calendar', 'analytics'].find(id => {
-                const tab = document.getElementById(id + 'Tab');
-                return tab && !tab.classList.contains('hidden');
-            }) || 'dashboard';
-            if(activeTab === 'tasks') {
-                try { renderTaskList(); } catch (error) { console.error('renderTaskList failed:', error); }
+            try {
+                renderTaskList();
+            } catch (error) {
+                console.error('renderTaskList failed:', error);
             }
-            if(activeTab === 'calendar') {
-                try { renderCalendar(); } catch (error) { console.error('renderCalendar failed:', error); }
+            try {
+                renderCalendar();
+            } catch (error) {
+                console.error('renderCalendar failed:', error);
             }
-            if(activeTab === 'analytics') {
-                try { renderAnalytics(); } catch (error) { console.error('renderAnalytics failed:', error); }
+            try {
+                renderAnalytics();
+            } catch (error) {
+                console.error('renderAnalytics failed:', error);
             }
             scheduleClassifyHotspotRefresh();
         }
@@ -8299,15 +8368,13 @@
         }
 
         function closeBreakEditModal() {
-            const modal = document.getElementById('breakEditModal');
-            const panel = document.getElementById('breakEditPanel');
-            if(!modal || !panel) return;
-            panel.classList.add('scale-95', 'opacity-0');
-            panel.classList.remove('scale-100', 'opacity-100');
-            setTimeout(() => {
-                modal.classList.add('hidden');
+            closeClassifyModalImmediate('breakEditModal', 'breakEditPanel', () => {
                 pendingBreakEdit = null;
-            }, 200);
+            });
+        }
+
+        function closeBreakEditModalImmediate() {
+            closeBreakEditModal();
         }
 
         function saveBreakEdit() {
@@ -8346,10 +8413,12 @@
             addRule(newRule);
 
             scheduleRules = normalizeScheduleRules({ ...scheduleRules, breakRules: rules });
-            renderBreakRulesList();
-            persistClassifyScheduleRefresh({ weekKeys: [getWeekKeyFromDateStr(pendingBreakEdit.dateStr)] });
+            const weekKey = getWeekKeyFromDateStr(pendingBreakEdit.dateStr);
             showNotification('Break updated', 'success');
-            closeBreakEditModal();
+            persistClassifyScheduleRefresh({
+                weekKeys: [weekKey],
+                onClose: closeBreakEditModalImmediate
+            });
         }
 
         function removeBreakRuleFromModal() {
@@ -8362,10 +8431,12 @@
                 ...scheduleRules,
                 breakRules: (scheduleRules.breakRules || []).filter(r => r.id !== pendingBreakEdit.ruleId)
             });
-            renderBreakRulesList();
-            persistClassifyScheduleRefresh({ weekKeys: [getWeekKeyFromDateStr(pendingBreakEdit.dateStr)] });
+            const weekKey = getWeekKeyFromDateStr(pendingBreakEdit.dateStr);
             showNotification('Break rule removed', 'success');
-            closeBreakEditModal();
+            persistClassifyScheduleRefresh({
+                weekKeys: [weekKey],
+                onClose: closeBreakEditModalImmediate
+            });
         }
 
         let pendingTimeTaskId = null;
@@ -8389,17 +8460,14 @@
         }
 
         function closeTimeModal() {
-            const panel = document.getElementById('timePanel');
-            panel.classList.add('scale-95', 'opacity-0');
-            setTimeout(() => {
-                document.getElementById('timeModal').classList.add('hidden');
+            closeClassifyModalImmediate('timeModal', 'timePanel', () => {
                 pendingTimeTaskId = null;
                 document.getElementById('timeInput').value = '';
                 document.getElementById('completionPercent').value = '';
                 document.getElementById('completionRemaining').value = '';
                 const finishDifferentDay = document.getElementById('completionFinishDifferentDay');
                 if(finishDifferentDay) finishDifferentDay.checked = false;
-            }, 200);
+            });
         }
 
         function getSubjectStats() {
@@ -8521,9 +8589,15 @@
                 return;
             }
 
-            saveData({ skipUndoRecord: true });
-            renderSubjectManager();
             showNotification(`Saved subject "${targetSubject}"`, 'success');
+            finalizeClassifyModalSave({
+                onClose: closeSubjectManagerImmediate,
+                skipScheduleRefresh: true
+            });
+        }
+
+        function closeSubjectManagerImmediate() {
+            closeClassifyModalImmediate('subjectsModal', 'subjectsPanel');
         }
 
         function openSubjectManager() {
@@ -8539,14 +8613,7 @@
         }
 
         function closeSubjectManager() {
-            const modal = document.getElementById('subjectsModal');
-            const panel = document.getElementById('subjectsPanel');
-            if(!modal || !panel) return;
-            panel.classList.add('scale-95', 'opacity-0');
-            panel.classList.remove('scale-100', 'opacity-100');
-            setTimeout(() => {
-                modal.classList.add('hidden');
-            }, 200);
+            closeSubjectManagerImmediate();
         }
 
         function renderBlockedTimesList() {
@@ -8723,14 +8790,11 @@
         }
 
         function closeBlockedTimesModal() {
-            const modal = document.getElementById('blockedTimesModal');
-            const panel = document.getElementById('blockedTimesPanel');
-            if(!modal || !panel) return;
-            panel.classList.add('scale-95', 'opacity-0');
-            panel.classList.remove('scale-100', 'opacity-100');
-            setTimeout(() => {
-                modal.classList.add('hidden');
-            }, 200);
+            closeClassifyModalImmediate('blockedTimesModal', 'blockedTimesPanel');
+        }
+
+        function closeBlockedTimesModalImmediate() {
+            closeBlockedTimesModal();
         }
 
         function getRelevantUpcomingWeekKeys() {
@@ -8787,10 +8851,8 @@
                 defaultBreakLabel,
                 breakRules: scheduleRules.breakRules || []
             });
-            renderScheduleOverridesList();
-            refreshOverrideCurrentTimesPreview();
-            persistClassifyScheduleRefresh();
             showNotification('Default schedule saved and week auto-updated', 'success');
+            persistClassifyScheduleRefresh({ onClose: closeBlockedTimesModalImmediate });
         }
 
         function addScheduleDateOverride() {
@@ -8816,10 +8878,11 @@
                 ...scheduleRules,
                 dateOverrides: existing
             });
-            renderScheduleOverridesList();
-            refreshOverrideCurrentTimesPreview();
-            persistClassifyScheduleRefresh({ weekKeys: [getWeekKeyFromDateStr(normalized.date)] });
             showNotification('Date override saved and week auto-updated', 'success');
+            persistClassifyScheduleRefresh({
+                weekKeys: [getWeekKeyFromDateStr(normalized.date)],
+                onClose: closeBlockedTimesModalImmediate
+            });
         }
 
         function removeScheduleDateOverride(dateStr) {
@@ -9236,6 +9299,7 @@
             }
 
             recordClassifyUndoPoint({ force: true });
+            let carryOver = null;
 
             if(mode === 'partial') {
                 task.completed = true;
@@ -9247,7 +9311,7 @@
 
                 const assignmentDay = task.date || task.completedDate;
                 const finishOnDifferentDay = Boolean(document.getElementById('completionFinishDifferentDay')?.checked);
-                const carryOver = normalizeTask({
+                carryOver = normalizeTask({
                     ...task,
                     id: generateId(),
                     title: `${partialBaseTitle} (${partialRemainingPercent}% remaining)`,
@@ -9296,9 +9360,15 @@
                 reconcileBeforeAfterSchedule([task.id]);
             }
             reAutoScheduleAfterCompletion(task, spawned > 0);
-            saveData({ skipAutoSchedule: true, skipUndoRecord: true });
-            syncClassifyDataToCloud();
+            const completionSeedIds = mode === 'partial'
+                ? [task.id, carryOver?.id].filter(Boolean)
+                : [task.id];
             closeTimeModal();
+            finalizeClassifyModalSave({
+                seedTaskIds: completionSeedIds,
+                skipScheduleRefresh: true,
+                cloudSyncNew: true
+            });
             enforceBreakAfterCompletion(task);
             setTimeout(() => {
                 showBreakReminder(task);
@@ -10090,13 +10160,12 @@
 
         function finishTaskEditorSave({ seedTaskIds = [], previousSnapshots = [], cloudSyncNew = false } = {}) {
             clearForm();
-            closeModalImmediate();
-            renderAll();
-            const seeds = Array.from(new Set((seedTaskIds || []).filter(Boolean)));
-            reconcileBeforeAfterSchedule(seeds);
-            refreshScheduleForSavedTasks(seedTaskIds, previousSnapshots);
-            saveData({ skipAutoSchedule: true, skipUndoRecord: true });
-            if(cloudSyncNew) syncClassifyDataToCloud();
+            finalizeClassifyModalSave({
+                onClose: closeModalImmediate,
+                seedTaskIds,
+                previousSnapshots,
+                cloudSyncNew
+            });
         }
 
         function clearForm() {
