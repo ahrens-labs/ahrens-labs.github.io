@@ -2222,10 +2222,19 @@
                     <!-- Exactly Expected Rate -->
                     <div class="cl-panel">
                         <h3 class="cl-section-title flex items-center gap-2">
-                            <i class="fa-solid fa-bullseye text-red-500"></i> Exactly Expected
+                            <i class="fa-solid fa-equals text-emerald-500"></i> Exactly Expected
                         </h3>
-                        <div class="text-3xl font-bold text-red-600 mb-1" id="exactlyExpectedRate">--</div>
+                        <div class="text-3xl font-bold text-emerald-600 mb-1" id="exactlyExpectedRate">--</div>
                         <p class="text-xs text-slate-500 dark:text-slate-400" id="exactlyExpectedLabel">Matched estimate exactly</p>
+                    </div>
+
+                    <!-- On-Target Rate -->
+                    <div class="cl-panel">
+                        <h3 class="cl-section-title flex items-center gap-2">
+                            <i class="fa-solid fa-bullseye text-red-500"></i> On-Target
+                        </h3>
+                        <div class="text-3xl font-bold text-red-600 mb-1" id="onTargetRate">--</div>
+                        <p class="text-xs text-slate-500 dark:text-slate-400" id="onTargetLabel">Within 10% of estimate</p>
                     </div>
                     
                     <div class="cl-panel">
@@ -11186,6 +11195,8 @@
             const overExpectedLabelEl = document.getElementById('overExpectedLabel');
             const exactlyExpectedEl = document.getElementById('exactlyExpectedRate');
             const exactlyExpectedLabelEl = document.getElementById('exactlyExpectedLabel');
+            const onTargetEl = document.getElementById('onTargetRate');
+            const onTargetLabelEl = document.getElementById('onTargetLabel');
             if(underExpectedEl && underExpectedLabelEl) {
                 if(completedWithEstimate.length === 0) {
                     underExpectedEl.innerText = '--';
@@ -11198,10 +11209,20 @@
                         exactlyExpectedEl.innerText = '--';
                         exactlyExpectedLabelEl.innerText = 'No completed assignments with estimates yet';
                     }
+                    if(onTargetEl && onTargetLabelEl) {
+                        onTargetEl.innerText = '--';
+                        onTargetLabelEl.innerText = 'No completed assignments with estimates yet';
+                    }
                 } else {
                     const underCount = completedWithEstimate.filter(t => Number(t.actualMinutes) < Number(t.duration)).length;
                     const exactlyCount = completedWithEstimate.filter(t => Number(t.actualMinutes) === Number(t.duration)).length;
                     const overCount = completedWithEstimate.filter(t => Number(t.actualMinutes) > Number(t.duration)).length;
+                    const onTargetCount = completedWithEstimate.filter(t => {
+                        const est = Number(t.duration);
+                        const actual = Number(t.actualMinutes);
+                        if(!Number.isFinite(est) || est <= 0 || !Number.isFinite(actual)) return false;
+                        return Math.abs(actual - est) <= (est * 0.10);
+                    }).length;
                     const underRate = Math.round((underCount / completedWithEstimate.length) * 100);
                     underExpectedEl.innerText = `${underRate}%`;
                     underExpectedLabelEl.innerText = `${underCount} of ${completedWithEstimate.length} under estimate`;
@@ -11214,6 +11235,11 @@
                         const exactlyRate = Math.round((exactlyCount / completedWithEstimate.length) * 100);
                         exactlyExpectedEl.innerText = `${exactlyRate}%`;
                         exactlyExpectedLabelEl.innerText = `${exactlyCount} of ${completedWithEstimate.length} matched exactly`;
+                    }
+                    if(onTargetEl && onTargetLabelEl) {
+                        const onTargetRate = Math.round((onTargetCount / completedWithEstimate.length) * 100);
+                        onTargetEl.innerText = `${onTargetRate}%`;
+                        onTargetLabelEl.innerText = `${onTargetCount} of ${completedWithEstimate.length} within 10%`;
                     }
                 }
             }
