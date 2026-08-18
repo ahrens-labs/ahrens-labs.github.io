@@ -3111,12 +3111,8 @@
 
         function taskHasEffectiveScheduleOnDate(task, dateStr, scheduleCache = null) {
             if(!task || !dateStr) return false;
-            const todayStr = getDateStrLocal();
             if(task.time && task.date === dateStr) {
-                const isPastUnstartedToday = dateStr === todayStr &&
-                    !isAssignmentStarted(task) &&
-                    timeToMin(task.time) < getNowMinRoundedTo5();
-                if(!isPastUnstartedToday) return true;
+                if(!isPastUnstartedAutoSlotToday(task, dateStr)) return true;
             }
             let schedule = scheduleCache?.get(dateStr);
             if(!schedule) {
@@ -5509,7 +5505,7 @@
         }
 
         function clearTaskScheduledTimeIfAdjustable(task) {
-            if(isUserScheduleLocked(task)) return false;
+            if(isUserScheduleLocked(task) || isFixedTask(task)) return false;
             return clearTaskScheduledTime(task);
         }
 
@@ -6260,10 +6256,15 @@
             task.assignmentMode = 'ADJUSTABLE';
             return true;
         }
-        function isTaskScheduledBeforeNow(task) {
-            if(!task?.date || !task?.time) return false;
-            if(task.date !== getDateStrLocal()) return false;
+        function isPastUnstartedAutoSlotToday(task, dateStr = getDateStrLocal()) {
+            if(!task?.time || dateStr !== getDateStrLocal()) return false;
+            if(isAssignmentStarted(task)) return false;
+            if(isFixedTask(task) || isUserScheduleLocked(task)) return false;
             return timeToMin(task.time) < getNowMinRoundedTo5();
+        }
+
+        function shouldPreserveScheduledSlot(task) {
+            return Boolean(task && (isFixedTask(task) || isUserScheduleLocked(task)));
         }
         function enforceNoPastUnstartedTimes() {
             const todayStr = getDateStrLocal();
@@ -6272,11 +6273,8 @@
             (tasks || []).forEach(task => {
                 if(!task || task.completed || task.date !== todayStr || !task.time) return;
                 if(isAssignmentStarted(task)) return;
+                if(shouldPreserveScheduledSlot(task)) return;
                 if(timeToMin(task.time) >= nowMin) return;
-                if(isFixedTask(task)) {
-                    task.assignmentMode = 'ADJUSTABLE';
-                    task.startedAt = null;
-                }
                 task.time = null;
                 task.timeSource = null;
                 task.assignmentMode = 'ADJUSTABLE';
@@ -7455,17 +7453,11 @@
         function getSmartSchedule(dateStr) {
             if(isDateInVacation(dateStr)) return [];
             let dayTasks = tasks.filter(t => !t.completed && isTaskVisibleInClassify(t) && t.date === dateStr);
-            const todayStr = getDateStrLocal();
-            const isPastUnstartedToday = (t) =>
-                dateStr === todayStr &&
-                !isAssignmentStarted(t) &&
-                t.time &&
-                timeToMin(t.time) < getNowMinRoundedTo5();
             let fixed = dayTasks
-                .filter(t => t.time && !isPastUnstartedToday(t))
+                .filter(t => t.time && !isPastUnstartedAutoSlotToday(t, dateStr))
                 .sort((a,b) => a.time.localeCompare(b.time));
             const depOrderedFloating = orderTasksByDependencies(
-                dayTasks.filter(t => !t.time || isPastUnstartedToday(t))
+                dayTasks.filter(t => !t.time || isPastUnstartedAutoSlotToday(t, dateStr))
             );
             let floating = [...depOrderedFloating.ordered].sort(compareTasksForScheduling);
             let schedule = [];
@@ -11199,7 +11191,7 @@
             // Reset only auto-scheduled slots; user-locked placements stay put.
             weekTasks.forEach(t => {
                 if(!t.date || !processDates.includes(t.date) || t.completed) return;
-                if(isUserScheduleLocked(t) || t.repeatNoAutoTime) return;
+                if(isUserScheduleLocked(t) || isFixedTask(t) || t.repeatNoAutoTime) return;
                 if(!t.time) return;
                 if(
                     forceRebuildAutoSlots ||
