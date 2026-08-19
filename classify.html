@@ -2739,9 +2739,9 @@
                                 <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Subject</label>
                                 <div class="relative">
                                     <i class="fa-solid fa-book absolute left-3 top-1/2 -translate-y-1/2 text-red-400/60 text-sm"></i>
-                                    <input id="inputSubject" type="text" autocomplete="off" list="subjectSuggestions" oninput="handleSubjectInput(this.value)" class="w-full h-11 pl-9 pr-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all" placeholder="Math">
+                                    <input id="inputSubject" type="text" autocomplete="off" oninput="handleSubjectInput(this.value)" onfocus="handleSubjectInputFocus()" onblur="handleSubjectInputBlur()" class="w-full h-11 pl-9 pr-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all" placeholder="Math">
+                                    <div id="subjectSuggestionMenu" class="hidden absolute z-50 left-0 right-0 top-full mt-1 max-h-48 overflow-y-auto rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 shadow-lg"></div>
                                 </div>
-                                <datalist id="subjectSuggestions"></datalist>
                             </div>
                             <div>
                                 <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Color</label>
@@ -7182,10 +7182,12 @@
                 try {
                     if(typeof work === 'function') work();
                     saveData({ skipAutoSchedule: true, skipUndoRecord });
+                    renderAll();
                 } catch (error) {
                     console.error('Deferred classify schedule work failed:', error);
                     try {
                         saveData({ skipAutoSchedule: true, skipUndoRecord });
+                        renderAll();
                     } catch (saveError) {
                         console.error('Deferred classify save failed:', saveError);
                     }
@@ -7764,14 +7766,65 @@
             scheduleClassifyHotspotRefresh();
         }
 
-        function updateSubjectSuggestions() {
+        function updateSubjectSuggestions(filter = '') {
             const datalist = document.getElementById('subjectSuggestions');
-            if(!datalist) return;
+            const needle = String(filter || '').trim().toLowerCase();
+            const sorted = getAllSubjectNames().filter(s => !needle || s.toLowerCase().includes(needle));
+            if(datalist) {
+                datalist.innerHTML = sorted.map(s => `<option value="${s.replace(/"/g, '&quot;')}"></option>`).join('');
+            }
+        }
+
+        function getAllSubjectNames() {
             const subjects = new Set();
             Object.keys(subjectColors || {}).forEach(s => { if(s && s.trim()) subjects.add(s.trim()); });
             (tasks || []).forEach(t => { if(t?.subject && t.subject.trim()) subjects.add(t.subject.trim()); });
-            const sorted = Array.from(subjects).sort((a,b) => a.localeCompare(b));
-            datalist.innerHTML = sorted.map(s => `<option value="${s.replace(/"/g, '&quot;')}"></option>`).join('');
+            return Array.from(subjects).sort((a, b) => a.localeCompare(b));
+        }
+
+        let subjectSuggestionBlurTimer = null;
+
+        function hideSubjectSuggestionMenu() {
+            const menu = document.getElementById('subjectSuggestionMenu');
+            if(menu) {
+                menu.classList.add('hidden');
+                menu.innerHTML = '';
+            }
+        }
+
+        function selectSubjectSuggestion(value) {
+            if(subjectSuggestionBlurTimer) {
+                clearTimeout(subjectSuggestionBlurTimer);
+                subjectSuggestionBlurTimer = null;
+            }
+            const input = document.getElementById('inputSubject');
+            if(input) input.value = value;
+            hideSubjectSuggestionMenu();
+            handleSubjectInput(value);
+        }
+
+        function renderSubjectSuggestionMenu(filter = '') {
+            const menu = document.getElementById('subjectSuggestionMenu');
+            if(!menu) return;
+            const needle = String(filter || '').trim().toLowerCase();
+            const matches = getAllSubjectNames().filter(s => !needle || s.toLowerCase().includes(needle));
+            if(matches.length === 0 || (matches.length === 1 && matches[0].toLowerCase() === needle)) {
+                hideSubjectSuggestionMenu();
+                return;
+            }
+            menu.innerHTML = '';
+            matches.slice(0, 12).forEach(subject => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'block w-full text-left px-3 py-2 text-sm text-slate-800 dark:text-slate-100 hover:bg-red-50 dark:hover:bg-red-950/40';
+                btn.textContent = subject;
+                btn.addEventListener('mousedown', (event) => {
+                    event.preventDefault();
+                    selectSubjectSuggestion(subject);
+                });
+                menu.appendChild(btn);
+            });
+            menu.classList.remove('hidden');
         }
 
         // --- Smart Scheduling Algorithm ---
@@ -10256,6 +10309,21 @@
         function handleSubjectInput(subjectName) {
             syncSubjectColor(subjectName);
             syncDependencyDropdownOptions();
+            renderSubjectSuggestionMenu(subjectName);
+            updateSubjectSuggestions(subjectName);
+        }
+
+        function handleSubjectInputFocus() {
+            if(subjectSuggestionBlurTimer) {
+                clearTimeout(subjectSuggestionBlurTimer);
+                subjectSuggestionBlurTimer = null;
+            }
+            const input = document.getElementById('inputSubject');
+            renderSubjectSuggestionMenu(input?.value || '');
+        }
+
+        function handleSubjectInputBlur() {
+            subjectSuggestionBlurTimer = setTimeout(hideSubjectSuggestionMenu, 150);
         }
 
         function updateScheduleInputs() {
@@ -10413,12 +10481,13 @@
                 seedTaskIds,
                 previousSnapshots,
                 cloudSyncNew,
-                skipScheduleRefresh: true
+                skipScheduleRefresh: false
             });
         }
 
         function clearForm() {
             editingId = null;
+            hideSubjectSuggestionMenu();
             document.getElementById('inputTitle').value = '';
             document.getElementById('inputSubject').value = '';
             document.getElementById('inputScheduleType').value = 'date';
@@ -10692,26 +10761,37 @@
             );
             const isFixedInput = scheduleType === 'date' && !weekDueOnly && Boolean(date) && Boolean(inputTimeValue) && !preserveAdjustableAuto;
             const assignmentMode = isFixedInput ? 'FIXED' : 'ADJUSTABLE';
+            const keepAutoCalendarPlacement = !isExactDateSchedule && Boolean(existingTask);
 
             const baseTaskData = {
                 id: editingId || generateId(),
                 title: title,
                 subject: subject,
-                date: scheduleType === 'date' ? (date || null) : null,
-                dateSource: scheduleType === 'date' && date ? 'user' : null,
+                date: isExactDateSchedule
+                    ? (date || null)
+                    : (keepAutoCalendarPlacement ? (existingTask.date || null) : null),
+                dateSource: isExactDateSchedule && date
+                    ? 'user'
+                    : (keepAutoCalendarPlacement ? (existingTask.dateSource || null) : null),
                 dueDate: dueDate,
                 week: scheduleType === 'week'
                     ? week
                     : (dueDate ? getWeekKeyFromDateStr(dueDate) : ((scheduleType === 'date' && date) ? getWeekKeyFromDateStr(date) : null)),
                 scheduleType: scheduleType,
-                assignmentMode,
-                time: inputTimeValue,
-                timeSource: inputTimeValue
-                    ? (((preserveAutoSource || preserveAdjustableAuto) && assignmentMode === 'ADJUSTABLE') ? 'auto' : 'user')
-                    : null,
+                assignmentMode: isExactDateSchedule
+                    ? assignmentMode
+                    : (keepAutoCalendarPlacement ? (existingTask.assignmentMode || 'ADJUSTABLE') : 'ADJUSTABLE'),
+                time: isExactDateSchedule
+                    ? inputTimeValue
+                    : (keepAutoCalendarPlacement ? (existingTask.time || null) : null),
+                timeSource: isExactDateSchedule
+                    ? (inputTimeValue
+                        ? (((preserveAutoSource || preserveAdjustableAuto) && assignmentMode === 'ADJUSTABLE') ? 'auto' : 'user')
+                        : null)
+                    : (keepAutoCalendarPlacement ? (existingTask.timeSource || null) : null),
                 startedAt: (assignmentMode === 'FIXED' && existingTask?.startedAt && existingTask.time === inputTimeValue)
                     ? existingTask.startedAt
-                    : null,
+                    : (keepAutoCalendarPlacement ? (existingTask.startedAt || null) : null),
                 dueTime: dueTime,
                 duration: document.getElementById('inputDuration').value || null,
                 priority: document.getElementById('inputPriority').value,
