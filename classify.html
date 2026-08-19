@@ -10816,6 +10816,7 @@
 
             const proceedSave = () => {
                 const saveBtn = document.querySelector('#taskModal button[type="submit"][form="taskForm"]');
+                const isCreatingNewTask = !editingId;
                 setActionButtonBusy(saveBtn, true, 'Saving…');
                 recordClassifyUndoPoint({ force: true });
                 const previousTaskSnapshot = captureTaskScheduleSnapshot(
@@ -10849,7 +10850,6 @@
                 }
                 if(repeatRule.type === 'none') {
                     const previousTask = editingId ? tasks.find(t => t.id === editingId) : null;
-                    const isCreatingNewTask = !editingId;
                     if(existingTask?.repeatGroupId) {
                         tasks = tasks.map(t => t.id === editingId
                             ? { ...normalizedTaskData, repeatGroupId: null, repeatWeekKey: null, repeatRule: normalizeRepeatRule({ type: 'none' }) }
@@ -10870,9 +10870,7 @@
                     });
                     setActionButtonBusy(saveBtn, false);
                     showNotification(
-                        existingTask?.repeatGroupId
-                            ? "Assignment updated!"
-                            : (editingId ? "Assignment updated!" : "Assignment created!"),
+                        isCreatingNewTask ? "Assignment created!" : "Assignment updated!",
                         'success'
                     );
                     return;
@@ -10973,7 +10971,7 @@
                 });
                 setActionButtonBusy(saveBtn, false);
                 showNotification(
-                    existingTask?.repeatGroupId ? "Recurring assignment updated!" : "Recurring assignment created!",
+                    isCreatingNewTask ? "Recurring assignment created!" : "Recurring assignment updated!",
                     'success'
                 );
             };
