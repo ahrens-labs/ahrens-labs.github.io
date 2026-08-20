@@ -292,15 +292,41 @@
         .cl-command-bar__inner {
             display: flex;
             align-items: center;
-            gap: 0.65rem;
+            gap: 0.75rem;
             max-width: 72rem;
             margin: 0 auto;
             padding: 0.55rem 1rem;
         }
-        .cl-command-bar__icon {
-            color: #ef4444;
-            font-size: 0.85rem;
+        .cl-command-bar__intro {
+            display: none;
+            flex-direction: column;
+            gap: 0.1rem;
             flex-shrink: 0;
+            min-width: 7.5rem;
+        }
+        @media (min-width: 768px) {
+            .cl-command-bar__intro { display: flex; }
+        }
+        .cl-command-bar__title {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.78rem;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            text-transform: uppercase;
+            color: #64748b;
+        }
+        .dark .cl-command-bar__title { color: #94a3b8; }
+        .cl-command-bar__title i { color: #ef4444; font-size: 0.72rem; }
+        .cl-command-bar__desc {
+            font-size: 0.72rem;
+            color: #94a3b8;
+            line-height: 1.2;
+        }
+        .dark .cl-command-bar__desc { color: #64748b; }
+        .cl-command-bar__icon {
+            display: none;
         }
         .cl-command-bar__input {
             flex: 1;
@@ -326,6 +352,19 @@
             font-size: 0.68rem;
             color: #94a3b8;
             white-space: nowrap;
+            flex-shrink: 0;
+        }
+        .cl-command-bar__hint kbd {
+            font-family: inherit;
+            font-size: 0.65rem;
+            padding: 0.1rem 0.35rem;
+            border-radius: 0.25rem;
+            border: 1px solid rgba(148, 163, 184, 0.45);
+            background: rgba(248, 250, 252, 0.8);
+        }
+        .dark .cl-command-bar__hint kbd {
+            background: rgba(30, 41, 59, 0.8);
+            border-color: rgba(100, 116, 139, 0.5);
         }
         @media (min-width: 900px) {
             .cl-command-bar__hint { display: inline; }
@@ -1893,8 +1932,11 @@
         </div>
         <div id="classifyCommandBar" class="cl-command-bar">
             <div class="cl-command-bar__inner">
-                <i class="fa-solid fa-terminal cl-command-bar__icon" aria-hidden="true"></i>
-                <input id="classifyCommandInput" type="text" autocomplete="off" spellcheck="false" class="cl-command-bar__input" placeholder="move Speech to friday 5pm · Speech after Math · complete Speech · add Essay due friday 30m" aria-label="Classify command line">
+                <div class="cl-command-bar__intro">
+                    <span class="cl-command-bar__title"><i class="fa-solid fa-terminal" aria-hidden="true"></i> Command line</span>
+                    <span class="cl-command-bar__desc">Type an edit in plain English, then press Enter</span>
+                </div>
+                <input id="classifyCommandInput" type="text" autocomplete="off" spellcheck="false" class="cl-command-bar__input" placeholder="move Speech to friday · Mow to 10:45am · start Math · new assignment" aria-label="Classify command line — edit assignments in plain English" title="Examples: move Speech to friday 5pm, Speech due today at 3pm, Speech after Math, delete Speech, complete Speech, add Essay due friday">
                 <span class="cl-command-bar__hint"><kbd>/</kbd> focus</span>
             </div>
         </div>
@@ -2541,7 +2583,7 @@
                     <i class="fa-solid fa-chevron-right text-slate-400 text-sm"></i>
                 </button>
             </div>
-            <p class="cl-settings-kbd-hint">Press <kbd>Q</kbd> anywhere to add a new assignment. <kbd>Ctrl+N</kbd> also works. <kbd>/</kbd> focuses the command line.</p>
+            <p class="cl-settings-kbd-hint">Press <kbd>Q</kbd> for a new assignment. <kbd>/</kbd> focuses the command line for edits like move, due, start, or delete.</p>
             <div class="mt-4 flex justify-end">
                 <button onclick="closeClassifySettings()" class="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-semibold transition-colors" type="button">Done</button>
             </div>
@@ -8771,6 +8813,19 @@
             saturday: 6, sat: 6
         };
 
+        const QUICK_ENTRY_DATE_WORDS = '(?:today|todat|tomorrow|tommorow|monday|mon|tuesday|tue|tues|wednesday|wed|thursday|thu|thur|thurs|friday|fri|saturday|sat|sunday|sun)';
+
+        function normalizeClassifyCommandText(text) {
+            return String(text || '')
+                .replace(/\btodat\b/gi, 'today')
+                .replace(/\btomo?r+ow\b/gi, 'tomorrow')
+                .trim();
+        }
+
+        function looksLikeScheduleDateText(text) {
+            return new RegExp(`\\b${QUICK_ENTRY_DATE_WORDS}\\b`, 'i').test(String(text || ''));
+        }
+
         function updateAssignmentEntryMode() {
             const mode = document.getElementById('inputEntryMode')?.value || 'manual';
             const isAutomatic = mode === 'automatic';
@@ -8805,7 +8860,7 @@
             const normalized = String(token || '').trim().toLowerCase();
             if(!normalized) return null;
             const todayStr = getDateStrLocal();
-            if(normalized === 'today') return todayStr;
+            if(normalized === 'today' || normalized === 'todat') return todayStr;
             if(normalized === 'tomorrow' || normalized === 'tommorow') return addDaysToDateStr(todayStr, 1);
             const weekday = QUICK_ENTRY_WEEKDAYS[normalized];
             if(weekday == null) return null;
@@ -8864,10 +8919,10 @@
             };
             if(!working) return result;
 
-            const weekdayPattern = '(?:today|tomorrow|tommorow|monday|mon|tuesday|tue|tues|wednesday|wed|thursday|thu|thur|thurs|friday|fri|saturday|sat|sunday|sun)';
+            const weekdayPattern = QUICK_ENTRY_DATE_WORDS;
             const timeCapture = '(\\d{1,2}(?::\\d{2})?\\s*(?:am|pm)?)';
             const optionalTime = `(?:\\s+(?:at\\s+)?${timeCapture})?`;
-            const duePattern = new RegExp(`\\b(?:due|by)\\s+(?:on\\s+)?(${weekdayPattern})${optionalTime}`, 'i');
+            const duePattern = new RegExp(`\\b(?:due|by)\\s+(?:to\\s+)?(?:on\\s+)?(${weekdayPattern})${optionalTime}`, 'i');
             const dueMatch = working.match(duePattern);
             if(dueMatch) {
                 result.scheduleType = 'week';
@@ -8924,10 +8979,14 @@
         }
 
         function parseClassifyCommandLine(text) {
-            const raw = String(text || '').trim();
+            const raw = normalizeClassifyCommandText(text);
             if(!raw) return { error: 'Enter a command.' };
 
-            const addMatch = raw.match(/^(?:add|create|new)\s+(?:assignment\s+)?(.+)$/i);
+            if(/^new\s+assignment$/i.test(raw)) {
+                return { action: 'openNew' };
+            }
+
+            const addMatch = raw.match(/^(?:add|create)\s+(?:assignment\s+)?(.+)$/i);
             if(addMatch) {
                 const rest = addMatch[1].trim();
                 const splitRe = /\s+(?=due|by|after|before|different|\d+\s*m|\d+m|high|low|urgent|subject|on|for|today|tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/i;
@@ -8944,6 +9003,18 @@
             if(match) {
                 return { action: 'move', taskQuery: match[1].trim(), destination: match[2].trim() };
             }
+
+            match = raw.match(/^(.+?)\s+to\s+(.+)$/i);
+            if(match) {
+                const dest = match[2].trim().replace(/^at\s+/i, '');
+                const parsedTime = parseQuickEntryTime(dest);
+                if(parsedTime && !looksLikeScheduleDateText(dest)) {
+                    return { action: 'setTime', taskQuery: match[1].trim(), time: parsedTime };
+                }
+            }
+
+            match = raw.match(/^start\s+(.+)$/i);
+            if(match) return { action: 'start', taskQuery: match[1].trim() };
 
             match = raw.match(/^(.+?)\s+(?:must\s+be\s+)?(after|before)\s+(.+)$/i);
             if(match) {
@@ -8965,7 +9036,7 @@
                 };
             }
 
-            match = raw.match(/^(?:set\s+)?(.+?)\s+due\s+(.+)$/i);
+            match = raw.match(/^(?:set\s+)?(.+?)\s+due(?:\s+to)?\s+(.+)$/i);
             if(match) {
                 return { action: 'due', taskQuery: match[1].trim(), destination: match[2].trim() };
             }
@@ -9003,7 +9074,7 @@
             match = raw.match(/^(?:set\s+)?(.+?)\s+subject\s+(.+)$/i);
             if(match) return { action: 'subject', taskQuery: match[1].trim(), subject: match[2].trim() };
 
-            return { error: 'Could not understand command. Try: move Speech to friday 5pm, Speech after Math, or complete Speech.' };
+            return { error: 'Could not understand that command. Try move Speech to friday, Mow to 10:45am, start Math, or new assignment.' };
         }
 
         function parseMoveDestination(text) {
@@ -9063,6 +9134,11 @@
             if(parsed.error) {
                 showNotification(parsed.error, 'error');
                 return false;
+            }
+
+            if(parsed.action === 'openNew') {
+                openModal();
+                return true;
             }
 
             if(parsed.action === 'create') {
@@ -9164,14 +9240,52 @@
                 return true;
             }
 
+            if(parsed.action === 'start') {
+                if(task.completed) {
+                    showNotification(`"${task.title}" is already complete.`, 'info');
+                    return false;
+                }
+                startAssignment(taskId);
+                return true;
+            }
+
+            if(parsed.action === 'setTime') {
+                const timeLabel = minToTime(timeToMin(parsed.time));
+                if(task.date) {
+                    moveTaskToDateTime(taskId, task.date, parsed.time);
+                    showNotification(`Set "${task.title}" to ${timeLabel} on ${formatDateLabel(task.date)}`, 'success');
+                    return true;
+                }
+                if(isTargetWeekAssignment(task) && task.dueDate && !task.date) {
+                    mutateClassifyData(() => {
+                        tasks = tasks.map(t => t.id === taskId
+                            ? normalizeTask({ ...t, dueTime: parsed.time })
+                            : t);
+                    }, { seedTaskIds: [taskId] });
+                    showNotification(`Set "${task.title}" due time to ${timeLabel}`, 'success');
+                    return true;
+                }
+                const dateStr = task.date || getTaskDueDate(task) || getDateStrLocal();
+                moveTaskToDateTime(taskId, dateStr, parsed.time);
+                showNotification(`Set "${task.title}" to ${timeLabel} on ${formatDateLabel(dateStr)}`, 'success');
+                return true;
+            }
+
             if(parsed.action === 'delete') {
-                mutateClassifyData(() => {
-                    if(task.repeatGroupId) recordDeletedRepeatOccurrence(task.repeatGroupId, task);
-                    tasks = tasks.filter(t => t.id !== taskId);
-                    removeDependencyReferences([taskId]);
-                    syncAllTaskDependencies();
-                }, { seedTaskIds: [taskId] });
-                showNotification(`Deleted "${task.title}"`, 'success');
+                confirmAction(
+                    'Delete Assignment?',
+                    `${confirmBoldName(task.title)} will be permanently deleted.`,
+                    'Delete',
+                    () => {
+                        mutateClassifyData(() => {
+                            if(task.repeatGroupId) recordDeletedRepeatOccurrence(task.repeatGroupId, task);
+                            tasks = tasks.filter(t => t.id !== taskId);
+                            removeDependencyReferences([taskId]);
+                            syncAllTaskDependencies();
+                        }, { seedTaskIds: [taskId] });
+                        showNotification(`Deleted "${task.title}"`, 'success');
+                    }
+                );
                 return true;
             }
 
@@ -9348,7 +9462,7 @@
         }
 
         function parseAssignmentQuickEntry(text, { title = '', excludeTaskId = null } = {}) {
-            let working = String(text || '').trim();
+            let working = normalizeClassifyCommandText(text).trim();
             const result = {
                 subject: null,
                 duration: null,
@@ -9425,10 +9539,10 @@
                 working = stripQuickEntryMatch(working, difficultyMatch);
             }
 
-            const weekdayPattern = '(?:today|tomorrow|tommorow|monday|mon|tuesday|tue|tues|wednesday|wed|thursday|thu|thur|thurs|friday|fri|saturday|sat|sunday|sun)';
+            const weekdayPattern = QUICK_ENTRY_DATE_WORDS;
             const timeCapture = '(\\d{1,2}(?::\\d{2})?\\s*(?:am|pm)?)';
             const optionalTime = `(?:\\s+(?:at\\s+)?${timeCapture})?`;
-            const duePattern = new RegExp(`\\b(?:due|by)\\s+(?:on\\s+)?(${weekdayPattern})${optionalTime}`, 'i');
+            const duePattern = new RegExp(`\\b(?:due|by)\\s+(?:to\\s+)?(?:on\\s+)?(${weekdayPattern})${optionalTime}`, 'i');
             const dueMatch = working.match(duePattern);
             if(dueMatch) {
                 result.scheduleType = 'week';
