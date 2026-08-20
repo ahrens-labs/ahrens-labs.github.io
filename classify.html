@@ -9076,6 +9076,59 @@
             return null;
         }
 
+        function looksLikeCommandScheduleDestination(text) {
+            const raw = String(text || '').trim();
+            if(!raw) return false;
+            if(looksLikeScheduleDateText(raw)) return true;
+            const fragment = parseQuickEntryScheduleFragment(raw);
+            return Boolean(fragment.dueDate || fragment.date || fragment.dueTime || fragment.time);
+        }
+
+        function parseCommandMoveMatch(commandText) {
+            let match = commandText.match(/^move\s+(.+?)\s+to\s+(.+)$/i)
+                || commandText.match(/^schedule\s+(.+?)\s+(?:to|on|for)\s+(.+)$/i)
+                || commandText.match(/^reschedule\s+(.+?)\s+(?:to|on|for)\s+(.+)$/i);
+            if(match) {
+                return {
+                    taskQuery: match[1].trim(),
+                    destination: match[2].trim()
+                };
+            }
+            match = commandText.match(/^move\s+(.+?)\s+(.+)$/i);
+            if(!match) return null;
+            const taskQuery = match[1].trim();
+            const destination = match[2].trim();
+            if(!taskQuery || !destination || /^to$/i.test(taskQuery)) return null;
+            if(!looksLikeCommandScheduleDestination(destination)) return null;
+            return { taskQuery, destination };
+        }
+
+        function parseCommandTaskToMatch(commandText, presetTaskQuery) {
+            const match = commandText.match(/^(.+?)\s+to\s+(.+)$/i);
+            if(!match) return null;
+            const taskQuery = match[1].trim();
+            const dest = match[2].trim().replace(/^at\s+/i, '');
+            if(!taskQuery || !dest) return null;
+            const parsedTime = parseQuickEntryTime(dest);
+            if(parsedTime && !looksLikeScheduleDateText(dest)) {
+                return applyPresetTaskQuery({ action: 'setTime', taskQuery, time: parsedTime }, presetTaskQuery);
+            }
+            if(looksLikeCommandScheduleDestination(dest)) {
+                return applyPresetTaskQuery({ action: 'move', taskQuery, destination: dest }, presetTaskQuery);
+            }
+            return null;
+        }
+
+        function parseCommandBareTimeMatch(commandText, presetTaskQuery) {
+            const match = commandText.match(/^(.+?)\s+(?:at\s+)?(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)$/i);
+            if(!match) return null;
+            const parsedTime = parseQuickEntryTime(match[2].trim());
+            if(!parsedTime) return null;
+            const taskQuery = match[1].trim();
+            if(!taskQuery || /^(move|schedule|reschedule|due|set)$/i.test(taskQuery)) return null;
+            return applyPresetTaskQuery({ action: 'setTime', taskQuery, time: parsedTime }, presetTaskQuery);
+        }
+
         function resolveQuickEntryDateToken(token, { allowPast = false } = {}) {
             const normalized = String(token || '').trim().toLowerCase();
             if(!normalized) return null;
@@ -9259,8 +9312,13 @@
                     depQuery: match[2].trim()
                 };
             }
+            match = body.match(/^(?:at\s+)?(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)$/i);
+            if(match) {
+                const parsedTime = parseQuickEntryTime(match[1].trim());
+                if(parsedTime) return { action: 'setTime', taskQuery, time: parsedTime };
+            }
             if(parseQuickEntryScheduleFragment(body).dueDate || parseQuickEntryScheduleFragment(body).date) {
-                return { action: 'due', taskQuery, destination: body };
+                return { action: 'move', taskQuery, destination: body };
             }
             return null;
         }
@@ -9389,31 +9447,22 @@
                 return { action: 'create', title, details };
             }
 
-            let match = commandText.match(/^move\s+(.+?)\s+to\s+(.+)$/i)
-                || commandText.match(/^schedule\s+(.+?)\s+(?:to|on|for)\s+(.+)$/i)
-                || commandText.match(/^reschedule\s+(.+?)\s+(?:to|on|for)\s+(.+)$/i);
-            if(match) {
+            const moveMatch = parseCommandMoveMatch(commandText);
+            if(moveMatch) {
                 return applyPresetTaskQuery({
                     action: 'move',
-                    taskQuery: match[1].trim(),
-                    destination: match[2].trim()
+                    taskQuery: moveMatch.taskQuery,
+                    destination: moveMatch.destination
                 }, presetTaskQuery);
             }
 
-            match = commandText.match(/^(.+?)\s+to\s+(.+)$/i);
-            if(match) {
-                const dest = match[2].trim().replace(/^at\s+/i, '');
-                const parsedTime = parseQuickEntryTime(dest);
-                if(parsedTime && !looksLikeScheduleDateText(dest)) {
-                    return applyPresetTaskQuery({
-                        action: 'setTime',
-                        taskQuery: match[1].trim(),
-                        time: parsedTime
-                    }, presetTaskQuery);
-                }
-            }
+            const taskToMatch = parseCommandTaskToMatch(commandText, presetTaskQuery);
+            if(taskToMatch) return taskToMatch;
 
-            match = commandText.match(/^start\s+(.+)$/i);
+            const bareTimeMatch = parseCommandBareTimeMatch(commandText, presetTaskQuery);
+            if(bareTimeMatch) return bareTimeMatch;
+
+            let match = commandText.match(/^start\s+(.+)$/i);
             if(match) return applyPresetTaskQuery({ action: 'start', taskQuery: match[1].trim() }, presetTaskQuery);
 
             match = commandText.match(/^(?:edit|open)\s+(.+)$/i);
@@ -9603,15 +9652,24 @@
             const fragment = parseQuickEntryScheduleFragment(text);
             const raw = String(text || '').trim();
             const hasDueKeyword = /\b(due|by)\b/i.test(raw);
+            const moveTime = fragment.time || fragment.dueTime || null;
             if(!hasDueKeyword && fragment.dueDate && fragment.scheduleType === 'week') {
                 return {
                     scheduleType: 'date',
                     date: fragment.dueDate,
                     dueDate: null,
-                    dueTime: fragment.dueTime || null,
-                    time: null,
+                    dueTime: null,
+                    time: moveTime,
                     week: null,
-                    exactDateTiming: 'adjustable'
+                    exactDateTiming: moveTime ? 'fixed' : 'adjustable'
+                };
+            }
+            if(fragment.scheduleType === 'date' && fragment.date && moveTime && !fragment.time) {
+                return {
+                    ...fragment,
+                    time: moveTime,
+                    dueTime: null,
+                    exactDateTiming: 'fixed'
                 };
             }
             return fragment;
@@ -9620,15 +9678,16 @@
         function buildTaskUpdatesFromScheduleFragment(fragment) {
             if(!fragment?.scheduleType) return null;
             if(fragment.scheduleType === 'date' && fragment.date) {
-                const hasFixedTime = Boolean(fragment.time);
+                const timeVal = fragment.time || fragment.dueTime || null;
+                const hasFixedTime = Boolean(timeVal);
                 return {
                     scheduleType: 'date',
                     date: fragment.date,
                     dateSource: 'user',
                     dueDate: null,
-                    dueTime: fragment.dueTime || null,
+                    dueTime: null,
                     week: getWeekKeyFromDateStr(fragment.date),
-                    time: hasFixedTime ? fragment.time : null,
+                    time: hasFixedTime ? timeVal : null,
                     timeSource: hasFixedTime ? 'user' : null,
                     assignmentMode: hasFixedTime ? 'FIXED' : 'ADJUSTABLE',
                     startedAt: null
@@ -10059,14 +10118,15 @@
                     showNotification(`Could not parse date/time from "${parsed.destination}".`, 'error');
                     return false;
                 }
-                if(parsed.action === 'move' && updates.scheduleType === 'date' && updates.date && updates.time) {
-                    moveTaskToDateTime(taskId, updates.date, updates.time);
-                    showNotification(`Moved "${task.title}" to ${formatDateLabel(updates.date)} at ${minToTime(timeToMin(updates.time))}`, 'success');
-                    return true;
-                }
-                if(parsed.action === 'move' && updates.scheduleType === 'date' && updates.date && !updates.time) {
-                    moveTaskToDateTime(taskId, updates.date, null);
-                    showNotification(`Moved "${task.title}" to ${formatDateLabel(updates.date)}`, 'success');
+                if(parsed.action === 'move' && updates.scheduleType === 'date' && updates.date) {
+                    const moveTime = updates.time || updates.dueTime || null;
+                    moveTaskToDateTime(taskId, updates.date, moveTime);
+                    showNotification(
+                        moveTime
+                            ? `Moved "${task.title}" to ${formatDateLabel(updates.date)} at ${minToTime(timeToMin(moveTime))}`
+                            : `Moved "${task.title}" to ${formatDateLabel(updates.date)}`,
+                        'success'
+                    );
                     return true;
                 }
                 mutateClassifyData(() => {
