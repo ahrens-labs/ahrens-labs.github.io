@@ -1935,7 +1935,7 @@
                 <div class="cl-command-bar__intro">
                     <span class="cl-command-bar__title"><i class="fa-solid fa-terminal" aria-hidden="true"></i> Command line</span>
                 </div>
-                <input id="classifyCommandInput" type="text" autocomplete="off" spellcheck="false" class="cl-command-bar__input" placeholder="new · undo · move Speech to friday · start Math" aria-label="Command line" title="Type a command and press Enter. Try new, undo, edit, duplicate, find, start, delete, or move Speech to friday.">
+                <input id="classifyCommandInput" type="text" autocomplete="off" spellcheck="false" class="cl-command-bar__input" placeholder="new · undo · Speech Writing · start Math" aria-label="Command line" title="Speech Writing changes subject. Duplicate names: type a number to pick. Also: move, edit, delete, find.">
                 <span class="cl-command-bar__hint"><kbd>/</kbd> focus</span>
             </div>
         </div>
@@ -8896,31 +8896,111 @@
             return resolved;
         }
 
-        function resolveTaskReference(query, excludeId = null) {
+        function resolveTaskReference(query, excludeId = null, options = {}) {
             const needle = String(query || '').trim().toLowerCase();
             if(!needle) return { error: 'Missing assignment name.' };
             const candidates = (tasks || []).filter(t => t.id !== excludeId && !t.completed);
 
+            const filterByCurrentSubject = (list, subjectFilter) => {
+                if(!subjectFilter) return list;
+                const filterNeedle = String(subjectFilter || '').trim().toLowerCase();
+                return list.filter(t => {
+                    const subject = String(t.subject || '').trim().toLowerCase();
+                    return subject === filterNeedle || subject.includes(filterNeedle);
+                });
+            };
+
+            const buildAmbiguousResult = (list) => ({
+                ambiguous: true,
+                options: list.slice(0, 8).map((t, index) => ({
+                    id: t.id,
+                    label: formatCommandTaskOption(t, index + 1)
+                }))
+            });
+
+            const resolveCandidateList = (list, taskQueryRaw) => {
+                if(list.length === 1) return { id: list[0].id, task: list[0] };
+                if(list.length === 0) return null;
+                if(!options.skipSubjectSplit) {
+                    const splitMatch = String(taskQueryRaw || '').trim().match(/^(.+?)\s+([A-Za-z][A-Za-z0-9&' -]+)$/);
+                    if(splitMatch) {
+                        const filtered = filterByCurrentSubject(list, splitMatch[2]);
+                        if(filtered.length === 1) return { id: filtered[0].id, task: filtered[0] };
+                    }
+                }
+                if(options.subjectFilter) {
+                    const filtered = filterByCurrentSubject(list, options.subjectFilter);
+                    if(filtered.length === 1) return { id: filtered[0].id, task: filtered[0] };
+                }
+                return buildAmbiguousResult(list);
+            };
+
             const exactTitle = candidates.filter(t => String(t.title || '').trim().toLowerCase() === needle);
-            if(exactTitle.length === 1) return { id: exactTitle[0].id, task: exactTitle[0] };
-            if(exactTitle.length > 1) return { ambiguous: exactTitle.map(t => t.title) };
+            const exactResolved = resolveCandidateList(exactTitle, query);
+            if(exactResolved) {
+                if(exactResolved.ambiguous || exactResolved.id) return exactResolved;
+            }
 
             const containsTitle = candidates.filter(t => String(t.title || '').trim().toLowerCase().includes(needle));
             if(containsTitle.length === 1) return { id: containsTitle[0].id, task: containsTitle[0] };
             if(containsTitle.length > 1) {
                 const starts = containsTitle.filter(t => String(t.title || '').trim().toLowerCase().startsWith(needle));
-                if(starts.length === 1) return { id: starts[0].id, task: starts[0] };
-                return { ambiguous: containsTitle.slice(0, 5).map(t => t.title) };
+                const pool = starts.length > 0 ? starts : containsTitle;
+                const containsResolved = resolveCandidateList(pool, query);
+                if(containsResolved) return containsResolved;
             }
 
             const exactSubject = candidates.filter(t => String(t.subject || '').trim().toLowerCase() === needle);
-            if(exactSubject.length === 1) return { id: exactSubject[0].id, task: exactSubject[0] };
-            if(exactSubject.length > 1) return { ambiguous: exactSubject.slice(0, 5).map(t => t.title) };
+            const exactSubjectResolved = resolveCandidateList(exactSubject, query);
+            if(exactSubjectResolved) {
+                if(exactSubjectResolved.ambiguous || exactSubjectResolved.id) return exactSubjectResolved;
+            }
 
             const containsSubject = candidates.filter(t => String(t.subject || '').trim().toLowerCase().includes(needle));
             if(containsSubject.length === 1) return { id: containsSubject[0].id, task: containsSubject[0] };
 
             return { error: `No assignment found for "${String(query || '').trim()}".` };
+        }
+
+        function formatCommandTaskOption(task, index) {
+            const dueDate = getTaskDueDate(task);
+            const duePart = dueDate ? formatDateLabel(dueDate) : 'No date';
+            return `${index}. ${task.title} (${task.subject || 'General'}, ${duePart})`;
+        }
+
+        let pendingCommandDisambiguation = null;
+
+        const COMMAND_SUBJECT_RESERVED_WORDS = new Set([
+            'today', 'todat', 'tomorrow', 'tommorow', 'monday', 'mon', 'tuesday', 'tue', 'tues',
+            'wednesday', 'wed', 'thursday', 'thu', 'thur', 'thurs', 'friday', 'fri', 'saturday', 'sat',
+            'sunday', 'sun', 'after', 'before', 'due', 'high', 'medium', 'low', 'urgent', 'easy', 'hard',
+            'missed', 'notes', 'subject', 'priority', 'duration', 'remove', 'clear', 'reset', 'unlock'
+        ]);
+
+        function parseAssignmentSubjectCommand(raw) {
+            const match = String(raw || '').trim().match(/^(.+?)\s+([A-Za-z][A-Za-z0-9&' -]+)$/);
+            if(!match) return null;
+            const taskQuery = match[1].trim();
+            const subject = match[2].trim();
+            if(!taskQuery || !subject || subject.length > 50) return null;
+            const lower = subject.toLowerCase();
+            if(COMMAND_SUBJECT_RESERVED_WORDS.has(lower)) return null;
+            if(/^\d/.test(subject)) return null;
+            if(parseQuickEntryTime(subject)) return null;
+            if(looksLikeScheduleDateText(subject)) return null;
+            return { action: 'subject', taskQuery, subject };
+        }
+
+        function resolveCommandTaskReference(parsed) {
+            if(parsed.taskId) {
+                const task = tasks.find(t => t.id === parsed.taskId);
+                return task ? { id: task.id, task } : { error: 'Assignment not found.' };
+            }
+            if(!parsed.taskQuery) return { error: 'Missing assignment name.' };
+            return resolveTaskReference(parsed.taskQuery, parsed.excludeTaskId || null, {
+                skipSubjectSplit: parsed.action === 'subject',
+                subjectFilter: parsed.subjectFilter || null
+            });
         }
 
         function findTaskIdByTitleQuery(query, excludeId = null) {
@@ -9004,6 +9084,24 @@
         function parseClassifyCommandLine(text) {
             const raw = normalizeClassifyCommandText(text);
             if(!raw) return { error: 'Enter a command.' };
+
+            if(/^\d+$/.test(raw) && pendingCommandDisambiguation) {
+                const pick = parseInt(raw, 10);
+                const option = pendingCommandDisambiguation.options[pick - 1];
+                if(!option) {
+                    return { error: `Pick a number from 1 to ${pendingCommandDisambiguation.options.length}.` };
+                }
+                if(pendingCommandDisambiguation.pickTarget === 'dependency') {
+                    return {
+                        ...pendingCommandDisambiguation.parsed,
+                        depTaskId: option.id
+                    };
+                }
+                return {
+                    ...pendingCommandDisambiguation.parsed,
+                    taskId: option.id
+                };
+            }
 
             if(/^new(?:\s+assignment)?$/i.test(raw)) {
                 return { action: 'openNew' };
@@ -9167,7 +9265,10 @@
             match = raw.match(/^(?:set\s+)?(.+?)\s+subject\s+(.+)$/i);
             if(match) return { action: 'subject', taskQuery: match[1].trim(), subject: match[2].trim() };
 
-            return { error: 'Could not understand that command. Try edit Speech, Speech today, remove after Math, or duplicate Speech.' };
+            const subjectCommand = parseAssignmentSubjectCommand(raw);
+            if(subjectCommand) return subjectCommand;
+
+            return { error: 'Could not understand that command. Try Speech Writing, Speech Math, or a number after a duplicate match.' };
         }
 
         function parseMoveDestination(text) {
@@ -9327,16 +9428,21 @@
                 return true;
             }
 
-            const taskRef = resolveTaskReference(parsed.taskQuery);
+            const taskRef = resolveCommandTaskReference(parsed);
             if(taskRef.error) {
                 showNotification(taskRef.error, 'error');
                 return false;
             }
             if(taskRef.ambiguous) {
-                showNotification(`Multiple matches: ${taskRef.ambiguous.join(', ')}. Be more specific.`, 'error');
-                return false;
+                pendingCommandDisambiguation = { parsed, options: taskRef.options };
+                showNotification(
+                    `Multiple matches — type a number: ${taskRef.options.map(o => o.label).join(' · ')}`,
+                    'info'
+                );
+                return true;
             }
 
+            pendingCommandDisambiguation = null;
             const task = taskRef.task;
             const taskId = task.id;
 
@@ -9507,45 +9613,72 @@
             }
 
             if(parsed.action === 'removeDependency') {
-                const depRef = resolveTaskReference(parsed.depQuery, taskId);
-                if(depRef.error) {
-                    showNotification(depRef.error, 'error');
-                    return false;
-                }
-                if(depRef.ambiguous) {
-                    showNotification(`Multiple dependency matches: ${depRef.ambiguous.join(', ')}`, 'error');
-                    return false;
+                let depId = parsed.depTaskId || null;
+                let depTask = depId ? tasks.find(t => t.id === depId) : null;
+                if(!depId) {
+                    const depRef = resolveTaskReference(parsed.depQuery, taskId);
+                    if(depRef.error) {
+                        showNotification(depRef.error, 'error');
+                        return false;
+                    }
+                    if(depRef.ambiguous) {
+                        pendingCommandDisambiguation = {
+                            parsed: { action: 'removeDependency', taskId, depType: parsed.depType, depQuery: null },
+                            options: depRef.options,
+                            pickTarget: 'dependency'
+                        };
+                        showNotification(
+                            `Multiple dependency matches — type a number: ${depRef.options.map(o => o.label).join(' · ')}`,
+                            'info'
+                        );
+                        return true;
+                    }
+                    depId = depRef.id;
+                    depTask = depRef.task;
                 }
                 mutateClassifyData(() => {
                     tasks = tasks.map(t => {
                         if(t.id !== taskId) return t;
                         const next = { ...t };
                         if(parsed.depType === 'after') {
-                            next.mustBeAfter = (next.mustBeAfter || []).filter(id => id !== depRef.id);
+                            next.mustBeAfter = (next.mustBeAfter || []).filter(id => id !== depId);
                         } else {
-                            next.mustBeBefore = (next.mustBeBefore || []).filter(id => id !== depRef.id);
+                            next.mustBeBefore = (next.mustBeBefore || []).filter(id => id !== depId);
                         }
                         return next;
                     });
                     applyReciprocalDependenciesForTask(taskId);
                     syncAllTaskDependencies();
-                }, { seedTaskIds: [taskId, depRef.id] });
-                const depTask = tasks.find(t => t.id === depRef.id);
+                }, { seedTaskIds: [taskId, depId] });
                 showNotification(`Removed "${task.title}" ${parsed.depType} "${depTask?.title || parsed.depQuery}"`, 'success');
                 return true;
             }
 
             if(parsed.action === 'dependency') {
-                const depRef = resolveTaskReference(parsed.depQuery, taskId);
-                if(depRef.error) {
-                    showNotification(depRef.error, 'error');
-                    return false;
+                let depId = parsed.depTaskId || null;
+                let depTask = depId ? tasks.find(t => t.id === depId) : null;
+                if(!depId) {
+                    const depRef = resolveTaskReference(parsed.depQuery, taskId);
+                    if(depRef.error) {
+                        showNotification(depRef.error, 'error');
+                        return false;
+                    }
+                    if(depRef.ambiguous) {
+                        pendingCommandDisambiguation = {
+                            parsed: { action: 'dependency', taskId, depType: parsed.depType, depQuery: null },
+                            options: depRef.options,
+                            pickTarget: 'dependency'
+                        };
+                        showNotification(
+                            `Multiple dependency matches — type a number: ${depRef.options.map(o => o.label).join(' · ')}`,
+                            'info'
+                        );
+                        return true;
+                    }
+                    depId = depRef.id;
+                    depTask = depRef.task;
                 }
-                if(depRef.ambiguous) {
-                    showNotification(`Multiple dependency matches: ${depRef.ambiguous.join(', ')}`, 'error');
-                    return false;
-                }
-                if(depRef.id === taskId) {
+                if(depId === taskId) {
                     showNotification('An assignment cannot depend on itself.', 'error');
                     return false;
                 }
@@ -9554,20 +9687,19 @@
                         if(t.id !== taskId) return t;
                         const next = { ...t };
                         if(parsed.depType === 'after') {
-                            next.mustBeAfter = Array.from(new Set([...(next.mustBeAfter || []), depRef.id]));
-                            next.mustBeBefore = (next.mustBeBefore || []).filter(id => id !== depRef.id);
+                            next.mustBeAfter = Array.from(new Set([...(next.mustBeAfter || []), depId]));
+                            next.mustBeBefore = (next.mustBeBefore || []).filter(id => id !== depId);
                         } else if(parsed.depType === 'before') {
-                            next.mustBeBefore = Array.from(new Set([...(next.mustBeBefore || []), depRef.id]));
-                            next.mustBeAfter = (next.mustBeAfter || []).filter(id => id !== depRef.id);
+                            next.mustBeBefore = Array.from(new Set([...(next.mustBeBefore || []), depId]));
+                            next.mustBeAfter = (next.mustBeAfter || []).filter(id => id !== depId);
                         } else {
-                            next.mustBeDifferentDay = Array.from(new Set([...(next.mustBeDifferentDay || []), depRef.id]));
+                            next.mustBeDifferentDay = Array.from(new Set([...(next.mustBeDifferentDay || []), depId]));
                         }
                         return next;
                     });
                     applyReciprocalDependenciesForTask(taskId);
                     syncAllTaskDependencies();
-                }, { seedTaskIds: [taskId, depRef.id] });
-                const depTask = tasks.find(t => t.id === depRef.id);
+                }, { seedTaskIds: [taskId, depId] });
                 const relation = parsed.depType === 'before' ? 'before' : (parsed.depType === 'differentDay' ? 'on a different day than' : 'after');
                 showNotification(`"${task.title}" must be ${relation} "${depTask?.title || parsed.depQuery}"`, 'success');
                 return true;
