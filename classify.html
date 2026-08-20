@@ -9076,6 +9076,92 @@
             return null;
         }
 
+        function parseFlexibleCommandTime(text, { startMin = null } = {}) {
+            const parsed = parseQuickEntryTime(text);
+            if(parsed) return parsed;
+            const bare = String(text || '').trim().match(/^(\d{1,2})(?::(\d{2}))?$/);
+            if(!bare) return null;
+            let hour = parseInt(bare[1], 10);
+            const minute = parseInt(bare[2] || '0', 10);
+            if(hour < 0 || hour > 23 || minute > 59) return null;
+            if(hour <= 12 && !bare[2] && startMin != null) {
+                const startHour = Math.floor(startMin / 60);
+                if(hour < startHour && hour <= 7) hour += 12;
+            }
+            if(hour <= 12 && hour >= 1 && !bare[2] && startMin == null && hour >= 1 && hour <= 7) {
+                hour += 12;
+            }
+            return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+        }
+
+        function parseCommandTimeRange(text) {
+            const raw = String(text || '').trim().replace(/\s+/g, ' ');
+            if(!raw) return null;
+            const splitMatch = raw.match(/^(.+?)\s*(?:-|–|—|\bto\b)\s*(.+)$/i);
+            if(!splitMatch) return null;
+            const start = parseFlexibleCommandTime(splitMatch[1].trim());
+            if(!start) return null;
+            const end = parseFlexibleCommandTime(splitMatch[2].trim(), { startMin: timeToMin(start) });
+            if(!end || timeToMin(end) <= timeToMin(start)) return null;
+            return { start, end };
+        }
+
+        function mapScheduleFieldToken(token) {
+            const lower = String(token || '').trim().toLowerCase().replace(/\s+/g, ' ');
+            if(lower === 'lunch start') return 'lunchStart';
+            if(lower === 'lunch end') return 'lunchEnd';
+            if(lower === 'day start' || lower === 'start') return 'start';
+            if(lower === 'day end' || lower === 'end') return 'end';
+            return null;
+        }
+
+        function parseScheduleSetCommand(commandText) {
+            const match = String(commandText || '').trim().match(
+                new RegExp(`^(?:(default)\\s+|(${QUICK_ENTRY_DATE_WORDS})\\s+)?(lunch\\s+start|lunch\\s+end|day\\s+start|day\\s+end|start|end)\\s+(.+)$`, 'i')
+            );
+            if(!match) return null;
+            const scopeToken = match[1] || match[2] || null;
+            const field = mapScheduleFieldToken(match[3]);
+            const time = parseFlexibleCommandTime(match[4].trim());
+            if(!field || !time) return null;
+            if(scopeToken && String(scopeToken).toLowerCase() === 'default') {
+                return { action: 'scheduleSet', field, time, scope: 'default', date: null };
+            }
+            if(scopeToken) {
+                const date = resolveQuickEntryDateToken(scopeToken);
+                if(!date) return null;
+                return { action: 'scheduleSet', field, time, scope: 'override', date };
+            }
+            return { action: 'scheduleSet', field, time, scope: 'default', date: null };
+        }
+
+        function parseBlockTimeCommandText(text) {
+            let working = String(text || '').trim();
+            if(!working) return null;
+            let date = getDateStrLocal();
+            const forMatch = working.match(new RegExp(`^for\\s+(${QUICK_ENTRY_DATE_WORDS})\\b\\s*(.+)$`, 'i'));
+            if(forMatch) {
+                date = resolveQuickEntryDateToken(forMatch[1]);
+                working = forMatch[2].trim();
+            }
+            const dateMatch = working.match(new RegExp(`^(${QUICK_ENTRY_DATE_WORDS})\\b\\s+(.+)$`, 'i'));
+            if(dateMatch) {
+                date = resolveQuickEntryDateToken(dateMatch[1]);
+                working = dateMatch[2].trim();
+            }
+            const range = parseCommandTimeRange(working);
+            if(!range || !date) return null;
+            return { date, start: range.start, end: range.end };
+        }
+
+        function parseBlockTimeCommand(commandText) {
+            const match = String(commandText || '').trim().match(/^(?:add\s+)?block(?:ed)?\s+time(?:\s+for)?\s+(.+)$/i);
+            if(!match) return null;
+            const parsed = parseBlockTimeCommandText(match[1]);
+            if(!parsed) return null;
+            return { action: 'blockTimeAdd', ...parsed };
+        }
+
         function looksLikeCommandScheduleDestination(text) {
             const raw = String(text || '').trim();
             if(!raw) return false;
@@ -9431,6 +9517,12 @@
             const commandText = peeled.body;
             const presetTaskQuery = peeled.taskQuery;
 
+            const scheduleSetCommand = parseScheduleSetCommand(commandText);
+            if(scheduleSetCommand) return scheduleSetCommand;
+
+            const blockTimeCommand = parseBlockTimeCommand(commandText);
+            if(blockTimeCommand) return blockTimeCommand;
+
             if(presetTaskQuery) {
                 const presetParsed = parsePresetTaskCommand(commandText, presetTaskQuery);
                 if(presetParsed) return presetParsed;
@@ -9462,8 +9554,13 @@
             const bareTimeMatch = parseCommandBareTimeMatch(commandText, presetTaskQuery);
             if(bareTimeMatch) return bareTimeMatch;
 
-            let match = commandText.match(/^start\s+(.+)$/i);
-            if(match) return applyPresetTaskQuery({ action: 'start', taskQuery: match[1].trim() }, presetTaskQuery);
+            let             match = commandText.match(/^start\s+(.+)$/i);
+            if(match) {
+                const startTarget = match[1].trim();
+                if(!parseFlexibleCommandTime(startTarget)) {
+                    return applyPresetTaskQuery({ action: 'start', taskQuery: startTarget }, presetTaskQuery);
+                }
+            }
 
             match = commandText.match(/^(?:edit|open)\s+(.+)$/i);
             if(match) return applyPresetTaskQuery({ action: 'edit', taskQuery: match[1].trim() }, presetTaskQuery);
@@ -9645,7 +9742,117 @@
                 return { error: `Could not understand command for "${presetTaskQuery}". Try due tomorrow at 5pm, target week, or exact date.` };
             }
 
-            return { error: 'Could not understand that command. Try timeline subject Writing, "timeline" due tomorrow at 5pm, or timeline target week.' };
+            return { error: 'Could not understand that command. Try lunch start 11am, end 3pm, block time tomorrow 1pm-3pm, or add block time for today 10:15 to 11.' };
+        }
+
+        function applyScheduleSetFromCommand(parsed) {
+            const clock = normalizeClockValue(parsed.time, null);
+            if(!clock) {
+                showNotification('Could not parse that time.', 'error');
+                return false;
+            }
+            const field = parsed.field;
+            const savedDefaults = getSavedScheduleDefaults();
+            recordClassifyUndoPoint({ force: true });
+
+            if(parsed.scope === 'default') {
+                const next = normalizeScheduleRules({ ...scheduleRules });
+                if(field === 'start') next.defaultStart = clock;
+                else if(field === 'end') next.defaultEnd = clock;
+                else if(field === 'lunchStart') next.defaultLunchStart = clock;
+                else if(field === 'lunchEnd') next.defaultLunchEnd = clock;
+                if(timeToMin(next.defaultEnd) <= timeToMin(next.defaultStart)) {
+                    showNotification('Day end must be after day start.', 'error');
+                    return false;
+                }
+                if(timeToMin(next.defaultLunchEnd) <= timeToMin(next.defaultLunchStart)) {
+                    showNotification('Lunch end must be after lunch start.', 'error');
+                    return false;
+                }
+                scheduleRules = normalizeScheduleRules(next);
+                persistClassifyScheduleRefresh();
+                showNotification(`Default ${fieldLabelForScheduleField(field)} set to ${minToTime(timeToMin(clock))}`, 'success');
+                return true;
+            }
+
+            const date = parsed.date || getDateStrLocal();
+            const existing = (scheduleRules.dateOverrides || []).find(o => o.date === date);
+            const base = existing || {
+                date,
+                start: savedDefaults.defaultStart,
+                end: savedDefaults.defaultEnd,
+                lunchStart: savedDefaults.defaultLunchStart,
+                lunchEnd: savedDefaults.defaultLunchEnd
+            };
+            const override = { ...base };
+            if(field === 'start') override.start = clock;
+            else if(field === 'end') override.end = clock;
+            else if(field === 'lunchStart') override.lunchStart = clock;
+            else if(field === 'lunchEnd') override.lunchEnd = clock;
+            const normalized = normalizeScheduleOverride(override);
+            if(!normalized) {
+                showNotification('Enter valid schedule times for that date.', 'error');
+                return false;
+            }
+            scheduleRules = normalizeScheduleRules({
+                ...scheduleRules,
+                dateOverrides: [
+                    ...(scheduleRules.dateOverrides || []).filter(o => o.date !== date),
+                    normalized
+                ]
+            });
+            persistClassifyScheduleRefresh({ weekKeys: [getWeekKeyFromDateStr(date)] });
+            showNotification(
+                `${formatDateLabel(date)} ${fieldLabelForScheduleField(field)} set to ${minToTime(timeToMin(clock))}`,
+                'success'
+            );
+            return true;
+        }
+
+        function fieldLabelForScheduleField(field) {
+            if(field === 'lunchStart') return 'lunch start';
+            if(field === 'lunchEnd') return 'lunch end';
+            if(field === 'start') return 'day start';
+            if(field === 'end') return 'day end';
+            return field;
+        }
+
+        function addBlockedTimeEntry({ date, start, end, label = null }) {
+            if(!date || !start || !end) {
+                showNotification('Choose date, start time, and end time', 'error');
+                return false;
+            }
+            if(timeToMin(end) <= timeToMin(start)) {
+                showNotification('Blocked end time must be after start time', 'error');
+                return false;
+            }
+            const overlap = normalizeBlockedTimes(blockedTimes).some(b =>
+                b.date === date
+                && isBlockedTimeActiveOnDate(b, date)
+                && isTimeRangeOverlapping(timeToMin(start), timeToMin(end), timeToMin(b.start), timeToMin(b.end))
+            );
+            if(overlap) {
+                showNotification('Blocked time overlaps an existing block', 'error');
+                return false;
+            }
+            recordClassifyUndoPoint({ force: true });
+            blockedTimes.push({
+                id: generateId(),
+                date,
+                start,
+                end,
+                repeatRule: normalizeRepeatRule({ type: 'none' }),
+                repeatStartDate: date,
+                label: label || null
+            });
+            blockedTimes = normalizeBlockedTimes(blockedTimes);
+            renderBlockedTimesList();
+            persistClassifyScheduleRefresh({ weekKeys: [getWeekKeyFromDateStr(date)] });
+            showNotification(
+                `Blocked ${formatDateLabel(date)} ${minToTime(timeToMin(start))}-${minToTime(timeToMin(end))}`,
+                'success'
+            );
+            return true;
         }
 
         function parseMoveDestination(text) {
@@ -9742,6 +9949,14 @@
                     searchInput.focus();
                 }
                 return true;
+            }
+
+            if(parsed.action === 'scheduleSet') {
+                return applyScheduleSetFromCommand(parsed);
+            }
+
+            if(parsed.action === 'blockTimeAdd') {
+                return addBlockedTimeEntry(parsed);
             }
 
             if(parsed.action === 'create') {
