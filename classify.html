@@ -2204,7 +2204,7 @@
                     <!-- Under Expected Rate -->
                     <div class="cl-panel">
                         <h3 class="cl-section-title flex items-center gap-2">
-                            <i class="fa-solid fa-gauge-simple-low text-emerald-500"></i> Under Expected
+                            <i class="fa-solid fa-gauge-simple-low" id="underExpectedIcon"></i> Under Expected
                         </h3>
                         <div class="text-3xl font-bold mb-1" id="underExpectedRate">--</div>
                         <p class="text-xs text-slate-500 dark:text-slate-400" id="underExpectedLabel">Completed under estimate</p>
@@ -2213,7 +2213,7 @@
                     <!-- Over Expected Rate -->
                     <div class="cl-panel">
                         <h3 class="cl-section-title flex items-center gap-2">
-                            <i class="fa-solid fa-gauge-simple-high text-rose-500"></i> Over Expected
+                            <i class="fa-solid fa-gauge-simple-high" id="overExpectedIcon"></i> Over Expected
                         </h3>
                         <div class="text-3xl font-bold mb-1" id="overExpectedRate">--</div>
                         <p class="text-xs text-slate-500 dark:text-slate-400" id="overExpectedLabel">Completed over estimate</p>
@@ -2222,7 +2222,7 @@
                     <!-- Exactly Expected Rate -->
                     <div class="cl-panel">
                         <h3 class="cl-section-title flex items-center gap-2">
-                            <i class="fa-solid fa-equals text-emerald-500"></i> Exactly Expected
+                            <i class="fa-solid fa-equals" id="exactlyExpectedIcon"></i> Exactly Expected
                         </h3>
                         <div class="text-3xl font-bold mb-1" id="exactlyExpectedRate">--</div>
                         <p class="text-xs text-slate-500 dark:text-slate-400" id="exactlyExpectedLabel">Matched estimate exactly</p>
@@ -2231,7 +2231,7 @@
                     <!-- On-Target Rate -->
                     <div class="cl-panel">
                         <h3 class="cl-section-title flex items-center gap-2">
-                            <i class="fa-solid fa-bullseye text-red-500"></i> On-Target
+                            <i class="fa-solid fa-bullseye" id="onTargetIcon"></i> On-Target
                         </h3>
                         <div class="text-3xl font-bold mb-1" id="onTargetRate">--</div>
                         <p class="text-xs text-slate-500 dark:text-slate-400" id="onTargetLabel">Within 10% of estimate</p>
@@ -11391,18 +11391,19 @@
             return 'bad';
         }
 
-        function applyAnalyticsRateColor(el, percent, mode) {
-            if(!el) return;
-            el.classList.remove(...ANALYTICS_RATE_COLOR_CLASSES);
+        function applyAnalyticsRateColor(el, percent, mode, iconEl = null) {
+            const targets = [el, iconEl].filter(Boolean);
+            if(targets.length === 0) return;
+            targets.forEach(target => target.classList.remove(...ANALYTICS_RATE_COLOR_CLASSES));
             const tone = getAnalyticsRateTone(percent, mode);
             if(tone === 'good') {
-                el.classList.add('text-emerald-600', 'dark:text-emerald-400');
+                targets.forEach(target => target.classList.add('text-emerald-600', 'dark:text-emerald-400'));
             } else if(tone === 'mid') {
-                el.classList.add('text-amber-500', 'dark:text-amber-400');
+                targets.forEach(target => target.classList.add('text-amber-500', 'dark:text-amber-400'));
             } else if(tone === 'bad') {
-                el.classList.add('text-rose-600', 'dark:text-rose-400');
+                targets.forEach(target => target.classList.add('text-rose-600', 'dark:text-rose-400'));
             } else {
-                el.classList.add('text-slate-500', 'dark:text-slate-400');
+                targets.forEach(target => target.classList.add('text-slate-500', 'dark:text-slate-400'));
             }
         }
 
@@ -11517,31 +11518,35 @@
             // Under Expected Rate
             const underExpectedEl = document.getElementById('underExpectedRate');
             const underExpectedLabelEl = document.getElementById('underExpectedLabel');
+            const underExpectedIconEl = document.getElementById('underExpectedIcon');
             const overExpectedEl = document.getElementById('overExpectedRate');
             const overExpectedLabelEl = document.getElementById('overExpectedLabel');
+            const overExpectedIconEl = document.getElementById('overExpectedIcon');
             const exactlyExpectedEl = document.getElementById('exactlyExpectedRate');
             const exactlyExpectedLabelEl = document.getElementById('exactlyExpectedLabel');
+            const exactlyExpectedIconEl = document.getElementById('exactlyExpectedIcon');
             const onTargetEl = document.getElementById('onTargetRate');
             const onTargetLabelEl = document.getElementById('onTargetLabel');
+            const onTargetIconEl = document.getElementById('onTargetIcon');
             if(underExpectedEl && underExpectedLabelEl) {
                 if(completedWithEstimate.length === 0) {
                     underExpectedEl.innerText = '--';
                     underExpectedLabelEl.innerText = 'No completed assignments with estimates yet';
-                    applyAnalyticsRateColor(underExpectedEl, null, 'higher-better');
+                    applyAnalyticsRateColor(underExpectedEl, null, 'higher-better', underExpectedIconEl);
                     if(overExpectedEl && overExpectedLabelEl) {
                         overExpectedEl.innerText = '--';
                         overExpectedLabelEl.innerText = 'No completed assignments with estimates yet';
-                        applyAnalyticsRateColor(overExpectedEl, null, 'lower-better');
+                        applyAnalyticsRateColor(overExpectedEl, null, 'lower-better', overExpectedIconEl);
                     }
                     if(exactlyExpectedEl && exactlyExpectedLabelEl) {
                         exactlyExpectedEl.innerText = '--';
                         exactlyExpectedLabelEl.innerText = 'No completed assignments with estimates yet';
-                        applyAnalyticsRateColor(exactlyExpectedEl, null, 'higher-better');
+                        applyAnalyticsRateColor(exactlyExpectedEl, null, 'higher-better', exactlyExpectedIconEl);
                     }
                     if(onTargetEl && onTargetLabelEl) {
                         onTargetEl.innerText = '--';
                         onTargetLabelEl.innerText = 'No completed assignments with estimates yet';
-                        applyAnalyticsRateColor(onTargetEl, null, 'higher-better-strict');
+                        applyAnalyticsRateColor(onTargetEl, null, 'higher-better-strict', onTargetIconEl);
                     }
                 } else {
                     const underCount = completedWithEstimate.filter(t => Number(t.actualMinutes) < Number(t.duration)).length;
@@ -11556,24 +11561,24 @@
                     const underRate = Math.round((underCount / completedWithEstimate.length) * 100);
                     underExpectedEl.innerText = `${underRate}%`;
                     underExpectedLabelEl.innerText = `${underCount} of ${completedWithEstimate.length} under estimate`;
-                    applyAnalyticsRateColor(underExpectedEl, underRate, 'higher-better');
+                    applyAnalyticsRateColor(underExpectedEl, underRate, 'higher-better', underExpectedIconEl);
                     if(overExpectedEl && overExpectedLabelEl) {
                         const overRate = Math.round((overCount / completedWithEstimate.length) * 100);
                         overExpectedEl.innerText = `${overRate}%`;
                         overExpectedLabelEl.innerText = `${overCount} of ${completedWithEstimate.length} over estimate`;
-                        applyAnalyticsRateColor(overExpectedEl, overRate, 'lower-better');
+                        applyAnalyticsRateColor(overExpectedEl, overRate, 'lower-better', overExpectedIconEl);
                     }
                     if(exactlyExpectedEl && exactlyExpectedLabelEl) {
                         const exactlyRate = Math.round((exactlyCount / completedWithEstimate.length) * 100);
                         exactlyExpectedEl.innerText = `${exactlyRate}%`;
                         exactlyExpectedLabelEl.innerText = `${exactlyCount} of ${completedWithEstimate.length} matched exactly`;
-                        applyAnalyticsRateColor(exactlyExpectedEl, exactlyRate, 'higher-better');
+                        applyAnalyticsRateColor(exactlyExpectedEl, exactlyRate, 'higher-better', exactlyExpectedIconEl);
                     }
                     if(onTargetEl && onTargetLabelEl) {
                         const onTargetRate = Math.round((onTargetCount / completedWithEstimate.length) * 100);
                         onTargetEl.innerText = `${onTargetRate}%`;
                         onTargetLabelEl.innerText = `${onTargetCount} of ${completedWithEstimate.length} within 10%`;
-                        applyAnalyticsRateColor(onTargetEl, onTargetRate, 'higher-better-strict');
+                        applyAnalyticsRateColor(onTargetEl, onTargetRate, 'higher-better-strict', onTargetIconEl);
                     }
                 }
             }
