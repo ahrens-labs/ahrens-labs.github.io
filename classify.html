@@ -9132,7 +9132,13 @@
                 if(!date) return null;
                 return { action: 'scheduleSet', field, time, scope: 'override', date };
             }
-            return { action: 'scheduleSet', field, time, scope: 'default', date: null };
+            return {
+                action: 'scheduleSet',
+                field,
+                time,
+                scope: 'override',
+                date: getDateStrLocal()
+            };
         }
 
         function parseBlockTimeCommandText(text) {
