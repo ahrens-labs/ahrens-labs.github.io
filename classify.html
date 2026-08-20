@@ -9178,6 +9178,67 @@
             return null;
         }
 
+        function parseScheduleLunchRangeCommand(commandText) {
+            let working = String(commandText || '').trim();
+            if(!working) return null;
+
+            const defaultLunchMatch = working.match(/^default\s+lunch\b\s*(.+)$/i);
+            if(defaultLunchMatch) {
+                const range = parseCommandTimeRange(defaultLunchMatch[1].trim());
+                if(!range) return null;
+                return {
+                    action: 'scheduleSetLunchRange',
+                    scope: 'default',
+                    date: null,
+                    lunchStart: range.start,
+                    lunchEnd: range.end
+                };
+            }
+
+            let scope = 'override';
+            let date = getDateStrLocal();
+
+            const leadingDateMatch = working.match(new RegExp(`^(${QUICK_ENTRY_DATE_WORDS})\\s+lunch\\b\\s*(.+)$`, 'i'));
+            if(leadingDateMatch) {
+                date = resolveQuickEntryDateToken(leadingDateMatch[1]);
+                working = leadingDateMatch[2].trim();
+                const range = parseCommandTimeRange(working);
+                if(!range || !date) return null;
+                return {
+                    action: 'scheduleSetLunchRange',
+                    scope,
+                    date,
+                    lunchStart: range.start,
+                    lunchEnd: range.end
+                };
+            }
+
+            if(!/^lunch\b/i.test(working)) return null;
+            working = working.replace(/^lunch\s+/i, '').trim();
+
+            if(/^default\b/i.test(working)) {
+                scope = 'default';
+                working = working.replace(/^default\s+/i, '').trim();
+            } else {
+                const dateMatch = working.match(new RegExp(`^(${QUICK_ENTRY_DATE_WORDS})\\b\\s*(.+)$`, 'i'));
+                if(dateMatch) {
+                    date = resolveQuickEntryDateToken(dateMatch[1]);
+                    working = dateMatch[2].trim();
+                }
+            }
+
+            const range = parseCommandTimeRange(working);
+            if(!range) return null;
+            if(scope !== 'default' && !date) return null;
+            return {
+                action: 'scheduleSetLunchRange',
+                scope,
+                date: scope === 'default' ? null : date,
+                lunchStart: range.start,
+                lunchEnd: range.end
+            };
+        }
+
         function parseScheduleSetCommand(commandText) {
             const match = String(commandText || '').trim().match(
                 new RegExp(`^(?:(default)\\s+|(${QUICK_ENTRY_DATE_WORDS})\\s+)?(lunch\\s+start|lunch\\s+end|day\\s+start|day\\s+end|start|end)\\s+(.+)$`, 'i')
@@ -9733,6 +9794,9 @@
             const commandText = peeled.body;
             const presetTaskQuery = peeled.taskQuery;
 
+            const scheduleLunchRangeCommand = parseScheduleLunchRangeCommand(commandText);
+            if(scheduleLunchRangeCommand) return scheduleLunchRangeCommand;
+
             const scheduleSetCommand = parseScheduleSetCommand(commandText);
             if(scheduleSetCommand) return scheduleSetCommand;
 
@@ -10024,6 +10088,71 @@
             return true;
         }
 
+        function applyScheduleSetLunchRangeFromCommand(parsed) {
+            const lunchStart = normalizeClockValue(parsed.lunchStart, null);
+            const lunchEnd = normalizeClockValue(parsed.lunchEnd, null);
+            if(!lunchStart || !lunchEnd) {
+                showNotification('Could not parse lunch times.', 'error');
+                return false;
+            }
+            if(timeToMin(lunchEnd) <= timeToMin(lunchStart)) {
+                showNotification('Lunch end must be after lunch start.', 'error');
+                return false;
+            }
+
+            recordClassifyUndoPoint({ force: true });
+            const savedDefaults = getSavedScheduleDefaults();
+
+            if(parsed.scope === 'default') {
+                const next = normalizeScheduleRules({ ...scheduleRules });
+                next.defaultLunchStart = lunchStart;
+                next.defaultLunchEnd = lunchEnd;
+                if(timeToMin(next.defaultEnd) <= timeToMin(next.defaultStart)) {
+                    showNotification('Day end must be after day start.', 'error');
+                    return false;
+                }
+                scheduleRules = normalizeScheduleRules(next);
+                persistClassifyScheduleRefresh();
+                showNotification(
+                    `Default lunch set to ${minToTime(timeToMin(lunchStart))}-${minToTime(timeToMin(lunchEnd))}`,
+                    'success'
+                );
+                return true;
+            }
+
+            const date = parsed.date || getDateStrLocal();
+            const existing = (scheduleRules.dateOverrides || []).find(o => o.date === date);
+            const base = existing || {
+                date,
+                start: savedDefaults.defaultStart,
+                end: savedDefaults.defaultEnd,
+                lunchStart: savedDefaults.defaultLunchStart,
+                lunchEnd: savedDefaults.defaultLunchEnd
+            };
+            const normalized = normalizeScheduleOverride({
+                ...base,
+                lunchStart,
+                lunchEnd
+            });
+            if(!normalized) {
+                showNotification('Enter valid schedule times for that date.', 'error');
+                return false;
+            }
+            scheduleRules = normalizeScheduleRules({
+                ...scheduleRules,
+                dateOverrides: [
+                    ...(scheduleRules.dateOverrides || []).filter(o => o.date !== date),
+                    normalized
+                ]
+            });
+            persistClassifyScheduleRefresh({ weekKeys: [getWeekKeyFromDateStr(date)] });
+            showNotification(
+                `${formatDateLabel(date)} lunch set to ${minToTime(timeToMin(lunchStart))}-${minToTime(timeToMin(lunchEnd))}`,
+                'success'
+            );
+            return true;
+        }
+
         function fieldLabelForScheduleField(field) {
             if(field === 'lunchStart') return 'lunch start';
             if(field === 'lunchEnd') return 'lunch end';
@@ -10168,6 +10297,10 @@
 
             if(parsed.action === 'scheduleSet') {
                 return applyScheduleSetFromCommand(parsed);
+            }
+
+            if(parsed.action === 'scheduleSetLunchRange') {
+                return applyScheduleSetLunchRangeFromCommand(parsed);
             }
 
             if(parsed.action === 'blockTimeAdd') {
