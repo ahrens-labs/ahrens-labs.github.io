@@ -2727,13 +2727,29 @@
             <!-- Scrollable Content Area -->
             <form id="taskForm" class="flex-1 overflow-y-auto" autocomplete="off" onsubmit="event.preventDefault(); saveTask();">
             <div class="p-6 md:p-8 space-y-5">
+                <div id="entryModeWrapper" class="rounded-xl border border-slate-200/70 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-800/40 p-4">
+                    <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Entry Mode</label>
+                    <select id="inputEntryMode" onchange="updateAssignmentEntryMode()" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
+                        <option value="manual" selected>Manual — use the full form</option>
+                        <option value="automatic">Automatic — type details in one box</option>
+                    </select>
+                </div>
+
+                <div class="rounded-xl border border-slate-200/70 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-800/40 p-4 space-y-2">
+                    <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Assignment Name <span class="text-rose-500">*</span></label>
+                    <input id="inputTitle" type="text" autocomplete="off" maxlength="100" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all" placeholder="e.g. History Essay" required>
+                </div>
+
+                <div id="automaticEntryPanel" class="hidden rounded-xl border border-slate-200/70 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-800/40 p-4 space-y-3">
+                    <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Details</label>
+                    <textarea id="inputQuickDetails" rows="4" autocomplete="off" class="w-full px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none resize-y transition-all" placeholder="due on friday at 5:00 PM 30m Writing must be after History Essay"></textarea>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Try keywords like <span class="font-medium">today</span>, <span class="font-medium">tomorrow</span>, <span class="font-medium">due on friday at 5pm</span>, <span class="font-medium">30m</span>, subject names, <span class="font-medium">must be after Essay 1</span>, <span class="font-medium">high priority</span>.</p>
+                </div>
+
+                <div id="manualEntryPanels" class="space-y-5">
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
                     <div class="rounded-xl border border-slate-200/70 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-800/40 p-4 space-y-4">
                         <div class="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Basics</div>
-                        <div>
-                            <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Assignment Name <span class="text-rose-500">*</span></label>
-                            <input id="inputTitle" type="text" autocomplete="off" maxlength="100" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all" placeholder="e.g. History Essay" required>
-                        </div>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Subject</label>
@@ -2921,6 +2937,7 @@
                     <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Notes & Links</label>
                     <textarea id="inputNotes" rows="3" maxlength="500" class="w-full px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none resize-none transition-all" placeholder="Chapter 4, pages 10-15..."></textarea>
                     <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">URLs clickable | Max 500 chars</p>
+                </div>
                 </div>
             </div>
             </form>
@@ -8640,6 +8657,275 @@
             renderDependencyList('differentDay');
         }
 
+        const QUICK_ENTRY_WEEKDAYS = {
+            sunday: 0, sun: 0,
+            monday: 1, mon: 1,
+            tuesday: 2, tue: 2, tues: 2,
+            wednesday: 3, wed: 3,
+            thursday: 4, thu: 4, thur: 4, thurs: 4,
+            friday: 5, fri: 5,
+            saturday: 6, sat: 6
+        };
+
+        function updateAssignmentEntryMode() {
+            const mode = document.getElementById('inputEntryMode')?.value || 'manual';
+            const isAutomatic = mode === 'automatic';
+            document.getElementById('automaticEntryPanel')?.classList.toggle('hidden', !isAutomatic);
+            document.getElementById('manualEntryPanels')?.classList.toggle('hidden', isAutomatic);
+        }
+
+        function parseQuickEntryTime(text) {
+            const raw = String(text || '').trim();
+            if(!raw) return null;
+            const twelveHour = raw.match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)$/i);
+            if(twelveHour) {
+                let hour = parseInt(twelveHour[1], 10);
+                const minute = parseInt(twelveHour[2] || '0', 10);
+                const meridiem = twelveHour[3].toLowerCase();
+                if(hour < 1 || hour > 12 || minute > 59) return null;
+                if(meridiem === 'pm' && hour !== 12) hour += 12;
+                if(meridiem === 'am' && hour === 12) hour = 0;
+                return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+            }
+            const twentyFour = raw.match(/^(\d{1,2}):(\d{2})$/);
+            if(twentyFour) {
+                const hour = parseInt(twentyFour[1], 10);
+                const minute = parseInt(twentyFour[2], 10);
+                if(hour > 23 || minute > 59) return null;
+                return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+            }
+            return null;
+        }
+
+        function resolveQuickEntryDateToken(token, { allowPast = false } = {}) {
+            const normalized = String(token || '').trim().toLowerCase();
+            if(!normalized) return null;
+            const todayStr = getDateStrLocal();
+            if(normalized === 'today') return todayStr;
+            if(normalized === 'tomorrow' || normalized === 'tommorow') return addDaysToDateStr(todayStr, 1);
+            const weekday = QUICK_ENTRY_WEEKDAYS[normalized];
+            if(weekday == null) return null;
+            const base = parseDateStr(todayStr);
+            if(!base) return null;
+            let diff = weekday - base.getDay();
+            if(diff < 0) diff += 7;
+            const resolved = addDaysToDateStr(todayStr, diff);
+            if(!allowPast && resolved < todayStr) return addDaysToDateStr(resolved, 7);
+            return resolved;
+        }
+
+        function findTaskIdByTitleQuery(query, excludeId = null) {
+            const needle = String(query || '').trim().toLowerCase();
+            if(!needle) return null;
+            const candidates = (tasks || []).filter(t => t.id !== excludeId && !t.completed);
+            const exact = candidates.find(t => String(t.title || '').trim().toLowerCase() === needle);
+            if(exact) return exact.id;
+            const contains = candidates.filter(t => String(t.title || '').trim().toLowerCase().includes(needle));
+            if(contains.length === 1) return contains[0].id;
+            if(contains.length > 1) {
+                const starts = contains.filter(t => String(t.title || '').trim().toLowerCase().startsWith(needle));
+                if(starts.length === 1) return starts[0].id;
+            }
+            return null;
+        }
+
+        function stripQuickEntryMatch(text, match) {
+            if(!match || match.index == null) return text;
+            const before = text.slice(0, match.index);
+            const after = text.slice(match.index + match[0].length);
+            return `${before} ${after}`.replace(/\s{2,}/g, ' ').trim();
+        }
+
+        function parseAssignmentQuickEntry(text, { title = '', excludeTaskId = null } = {}) {
+            let working = String(text || '').trim();
+            const result = {
+                subject: null,
+                duration: null,
+                scheduleType: null,
+                date: null,
+                dueDate: null,
+                dueTime: null,
+                time: null,
+                exactDateTiming: 'adjustable',
+                week: null,
+                priority: null,
+                difficulty: null,
+                mustBeAfter: [],
+                mustBeBefore: [],
+                mustBeDifferentDay: [],
+                notes: null,
+                warnings: [],
+                errors: []
+            };
+
+            if(!working) {
+                result.errors.push('Please enter assignment details in the quick entry box.');
+                return result;
+            }
+
+            const dependencyPatterns = [
+                { type: 'after', regex: /\bmust\s+be\s+after\s+(.+?)(?=\bmust\s+be\s+(?:after|before|on\s+a\s+different\s+day)|$)/gi },
+                { type: 'before', regex: /\bmust\s+be\s+before\s+(.+?)(?=\bmust\s+be\s+(?:after|before|on\s+a\s+different\s+day)|$)/gi },
+                { type: 'differentDay', regex: /\bmust\s+be\s+on\s+a\s+different\s+day\s+(?:than|from)\s+(.+?)(?=\bmust\s+be\s+(?:after|before|on\s+a\s+different\s+day)|$)/gi },
+                { type: 'differentDay', regex: /\bdifferent\s+day\s+(?:than|from)\s+(.+?)(?=\bmust\s+be\s+(?:after|before|on\s+a\s+different\s+day)|$)/gi }
+            ];
+            dependencyPatterns.forEach(({ type, regex }) => {
+                regex.lastIndex = 0;
+                let match;
+                while((match = regex.exec(working)) !== null) {
+                    const query = match[1].replace(/[.,;]+$/, '').trim();
+                    const taskId = findTaskIdByTitleQuery(query, excludeTaskId);
+                    if(taskId) {
+                        const listKey = type === 'before' ? 'mustBeBefore' : (type === 'differentDay' ? 'mustBeDifferentDay' : 'mustBeAfter');
+                        if(!result[listKey].includes(taskId)) result[listKey].push(taskId);
+                    } else if(query) {
+                        result.warnings.push(`Could not find assignment "${query}" for dependency.`);
+                    }
+                    working = stripQuickEntryMatch(working, match);
+                    regex.lastIndex = 0;
+                }
+            });
+
+            const durationMatch = working.match(/\b(\d+(?:\.\d+)?)\s*(?:m|min|mins|minutes?)\b/i)
+                || working.match(/\b(\d+(?:\.\d+)?)\s*(?:h|hr|hrs|hours?)\b/i);
+            if(durationMatch) {
+                const value = parseFloat(durationMatch[1]);
+                const isHours = /h|hr|hrs|hour/i.test(durationMatch[0]);
+                const minutes = Math.max(1, Math.round(isHours ? value * 60 : value));
+                result.duration = String(minutes);
+                working = stripQuickEntryMatch(working, durationMatch);
+            }
+
+            const priorityMatch = working.match(/\b(high|medium|low|urgent)\s+priority\b/i)
+                || working.match(/\bpriority\s+(high|medium|low|urgent)\b/i)
+                || working.match(/\b(high|low|urgent)\b/i);
+            if(priorityMatch) {
+                const level = priorityMatch[1].toLowerCase();
+                result.priority = level === 'urgent' ? 'High' : (level.charAt(0).toUpperCase() + level.slice(1));
+                working = stripQuickEntryMatch(working, priorityMatch);
+            }
+
+            const difficultyMatch = working.match(/\b(easy|medium|hard)\s+difficulty\b/i)
+                || working.match(/\bdifficulty\s+(easy|medium|hard)\b/i);
+            if(difficultyMatch) {
+                const level = difficultyMatch[1].toLowerCase();
+                result.difficulty = level.charAt(0).toUpperCase() + level.slice(1);
+                working = stripQuickEntryMatch(working, difficultyMatch);
+            }
+
+            const weekdayPattern = '(?:today|tomorrow|tommorow|monday|mon|tuesday|tue|tues|wednesday|wed|thursday|thu|thur|thurs|friday|fri|saturday|sat|sunday|sun)';
+            const timeCapture = '(\\d{1,2}(?::\\d{2})?\\s*(?:am|pm)?)';
+            const duePattern = new RegExp(`\\bdue\\s+(?:on|by)?\\s*(${weekdayPattern})(?:\\s+at\\s+${timeCapture})?`, 'i');
+            const dueMatch = working.match(duePattern);
+            if(dueMatch) {
+                result.scheduleType = 'week';
+                result.dueDate = resolveQuickEntryDateToken(dueMatch[1]);
+                const parsedDueTime = parseQuickEntryTime(String(dueMatch[2] || '').trim());
+                if(parsedDueTime) result.dueTime = parsedDueTime;
+                if(result.dueDate) result.week = getWeekKeyFromDateStr(result.dueDate);
+                working = stripQuickEntryMatch(working, dueMatch);
+            }
+
+            const eventPattern = new RegExp(`\\b(?:on|for)\\s+(${weekdayPattern})(?:\\s+at\\s+${timeCapture})?`, 'i');
+            const eventMatch = !dueMatch ? working.match(eventPattern) : null;
+            if(eventMatch) {
+                result.scheduleType = 'date';
+                result.date = resolveQuickEntryDateToken(eventMatch[1]);
+                const parsedEventTime = parseQuickEntryTime(String(eventMatch[2] || '').trim());
+                if(parsedEventTime) {
+                    result.time = parsedEventTime;
+                    result.exactDateTiming = 'fixed';
+                }
+                working = stripQuickEntryMatch(working, eventMatch);
+            }
+
+            if(!result.scheduleType) {
+                const bareDayMatch = working.match(new RegExp(`\\b(${weekdayPattern})\\b`, 'i'));
+                if(bareDayMatch) {
+                    result.scheduleType = 'date';
+                    result.date = resolveQuickEntryDateToken(bareDayMatch[1]);
+                    working = stripQuickEntryMatch(working, bareDayMatch);
+                }
+            }
+
+            const subjects = getAllSubjectNames().sort((a, b) => b.length - a.length);
+            for(const subject of subjects) {
+                const pattern = new RegExp(`\\b${subject.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+                const subjectMatch = working.match(pattern);
+                if(subjectMatch) {
+                    result.subject = subject;
+                    working = stripQuickEntryMatch(working, subjectMatch);
+                    break;
+                }
+            }
+
+            if(!result.subject) {
+                const titleLower = String(title || '').trim().toLowerCase();
+                const leftoverWords = working.split(/\s+/).filter(Boolean);
+                const candidate = leftoverWords.find(word => {
+                    const clean = word.replace(/[.,;:!?]+$/, '');
+                    if(!/^[A-Za-z][A-Za-z0-9&'-]*$/.test(clean)) return false;
+                    const lower = clean.toLowerCase();
+                    if(['due', 'on', 'at', 'must', 'be', 'after', 'before', 'minutes', 'minute', 'mins', 'min'].includes(lower)) return false;
+                    if(titleLower.includes(lower)) return false;
+                    return true;
+                });
+                if(candidate) {
+                    result.subject = candidate.replace(/[.,;:!?]+$/, '');
+                    working = working.replace(new RegExp(`\\b${candidate.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`), ' ').replace(/\s{2,}/g, ' ').trim();
+                }
+            }
+
+            working = working.replace(/\b(at|on|by|due)\b/gi, ' ').replace(/\s{2,}/g, ' ').trim();
+            if(working) result.notes = working.substring(0, 500);
+
+            if(!result.scheduleType) {
+                result.scheduleType = 'flexible';
+            }
+            if(result.scheduleType === 'week' && !result.week) {
+                result.week = getCurrentWeekKey();
+            }
+            if(result.scheduleType === 'week' && !result.dueDate) {
+                result.errors.push('Could not parse a due date. Try "due on friday at 5pm".');
+            }
+            if(result.scheduleType === 'date' && !result.date) {
+                result.errors.push('Could not parse an event date. Try "on friday" or "today".');
+            }
+            if(!result.subject) {
+                result.warnings.push('No subject detected — using General.');
+                result.subject = 'General';
+            }
+
+            return result;
+        }
+
+        function applyQuickEntryToForm(parsed) {
+            if(!parsed) return;
+            document.getElementById('inputSubject').value = parsed.subject || 'General';
+            document.getElementById('inputDuration').value = parsed.duration || '';
+            document.getElementById('inputPriority').value = parsed.priority || 'Medium';
+            document.getElementById('inputDifficulty').value = parsed.difficulty || 'Medium';
+            document.getElementById('inputNotes').value = parsed.notes || '';
+            document.getElementById('inputRepeatType').value = 'none';
+            document.getElementById('inputWeekDueOnly').checked = false;
+            setCheckedDays('.repeat-day', []);
+            updateRepeatInputs();
+
+            const scheduleType = parsed.scheduleType || 'flexible';
+            document.getElementById('inputScheduleType').value = scheduleType;
+            document.getElementById('inputExactDateTiming').value = parsed.exactDateTiming || 'adjustable';
+            document.getElementById('inputDate').value = parsed.date || '';
+            document.getElementById('inputDueDate').value = parsed.dueDate || '';
+            document.getElementById('inputWeek').value = parsed.week || getCurrentWeekKey();
+            document.getElementById('inputTime').value = parsed.time || '';
+            document.getElementById('inputDueTime').value = parsed.dueTime || '';
+
+            syncSubjectColor(parsed.subject || 'General');
+            lastScheduleTypeInput = null;
+            updateScheduleInputs();
+            populateDependencySelects(parsed.mustBeAfter || [], parsed.mustBeBefore || [], parsed.mustBeDifferentDay || []);
+        }
+
         // Notification Toast
         function showNotification(message, type = 'success') {
             const toast = document.createElement('div');
@@ -10604,6 +10890,10 @@
             editingId = null;
             lastScheduleTypeInput = null;
             hideSubjectSuggestionMenu();
+            document.getElementById('inputEntryMode').value = 'manual';
+            document.getElementById('inputQuickDetails').value = '';
+            document.getElementById('entryModeWrapper')?.classList.remove('hidden');
+            updateAssignmentEntryMode();
             document.getElementById('inputTitle').value = '';
             document.getElementById('inputSubject').value = '';
             document.getElementById('inputScheduleType').value = 'date';
@@ -10813,6 +11103,32 @@
         }
 
         function saveTask() {
+            const entryMode = document.getElementById('inputEntryMode')?.value || 'manual';
+            if(entryMode === 'automatic' && !editingId) {
+                const quickText = document.getElementById('inputQuickDetails')?.value?.trim() || '';
+                const quickTitle = document.getElementById('inputTitle').value.trim();
+                if(!quickTitle) {
+                    showNotification('Please enter an assignment name', 'error');
+                    document.getElementById('inputTitle').focus();
+                    return;
+                }
+                if(!quickText) {
+                    showNotification('Please enter assignment details in the quick entry box', 'error');
+                    document.getElementById('inputQuickDetails')?.focus();
+                    return;
+                }
+                const parsed = parseAssignmentQuickEntry(quickText, { title: quickTitle, excludeTaskId: editingId });
+                if(parsed.errors?.length) {
+                    showNotification(parsed.errors[0], 'error');
+                    document.getElementById('inputQuickDetails')?.focus();
+                    return;
+                }
+                applyQuickEntryToForm(parsed);
+                if(parsed.warnings?.length) {
+                    showNotification(parsed.warnings.join(' '), 'info');
+                }
+            }
+
             const title = document.getElementById('inputTitle').value.trim();
             const subject = (document.getElementById('inputSubject').value || 'General').trim();
             const color = document.getElementById('inputColor').value;
@@ -11139,6 +11455,9 @@
             const t = tasks.find(t => t.id === id);
             if(!t) return;
             editingId = id;
+            document.getElementById('entryModeWrapper')?.classList.add('hidden');
+            document.getElementById('automaticEntryPanel')?.classList.add('hidden');
+            document.getElementById('manualEntryPanels')?.classList.remove('hidden');
             const scheduleMode = getTaskScheduleMode(t);
             document.getElementById('modalHeading').innerText = 'Edit Assignment';
             document.getElementById('inputTitle').value = t.title;
