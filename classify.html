@@ -9162,6 +9162,153 @@
             return { action: 'blockTimeAdd', ...parsed };
         }
 
+        const CLASSIFY_TAB_ALIASES = {
+            dashboard: ['dashboard', 'home', 'main'],
+            tasks: ['tasks', 'task', 'assignments', 'assignment', 'list', 'todo', 'todos'],
+            calendar: ['calendar', 'cal', 'schedule'],
+            analytics: ['analytics', 'stats', 'statistics', 'insights']
+        };
+
+        const CLASSIFY_CALENDAR_MODE_ALIASES = {
+            month: ['month', 'monthly'],
+            week: ['week', 'weekly'],
+            day: ['day', 'daily']
+        };
+
+        const CLASSIFY_NAV_PANEL_ALIASES = {
+            settings: ['settings', 'preferences', 'options'],
+            blocks: ['blocks', 'block', 'blocked', 'blocked times', 'block times', 'blocked time', 'block time'],
+            subjects: ['subjects', 'subject manager', 'manage subjects']
+        };
+
+        function resolveClassifyTabToken(token) {
+            const needle = String(token || '').trim().toLowerCase();
+            if(!needle) return null;
+            for(const [tab, aliases] of Object.entries(CLASSIFY_TAB_ALIASES)) {
+                if(tab === needle || aliases.includes(needle)) return tab;
+            }
+            for(const [tab, aliases] of Object.entries(CLASSIFY_TAB_ALIASES)) {
+                if(aliases.some(alias => alias.startsWith(needle) || needle.startsWith(alias))) return tab;
+            }
+            return null;
+        }
+
+        function resolveCalendarModeToken(token) {
+            const needle = String(token || '').trim().toLowerCase().replace(/\s+view$/, '');
+            if(!needle) return null;
+            for(const [mode, aliases] of Object.entries(CLASSIFY_CALENDAR_MODE_ALIASES)) {
+                if(mode === needle || aliases.includes(needle)) return mode;
+            }
+            return null;
+        }
+
+        function resolveNavigationPanelToken(text) {
+            const needle = String(text || '').trim().toLowerCase();
+            if(!needle) return null;
+            for(const [panel, aliases] of Object.entries(CLASSIFY_NAV_PANEL_ALIASES)) {
+                if(aliases.includes(needle)) return panel;
+            }
+            for(const [panel, aliases] of Object.entries(CLASSIFY_NAV_PANEL_ALIASES)) {
+                if(aliases.some(alias => needle.includes(alias))) return panel;
+            }
+            return null;
+        }
+
+        function normalizeNavigationTaskFilter(token) {
+            const needle = String(token || '').trim().toLowerCase();
+            const map = {
+                today: 'active',
+                active: 'active',
+                week: 'thisweek',
+                thisweek: 'thisweek',
+                'this week': 'thisweek',
+                overdue: 'overdue',
+                completed: 'completed',
+                done: 'completed',
+                weekplan: 'weekplan',
+                planning: 'weekplan',
+                plan: 'weekplan',
+                all: 'all'
+            };
+            return map[needle] || null;
+        }
+
+        function parseNavigationCommand(commandText) {
+            const raw = String(commandText || '').trim();
+            if(!raw) return null;
+
+            const verbMatch = raw.match(/^(?:open|switch(?:\s+to)?|go(?:\s+to)?|show|view|tab)\s+(.+)$/i);
+            const targetText = verbMatch ? verbMatch[1].trim() : raw;
+            if(!targetText) return null;
+
+            const panel = resolveNavigationPanelToken(targetText);
+            if(panel) return { action: 'navigate', panel };
+
+            const tasksFilterMatch = targetText.match(/^(?:tasks|assignments|list)\s+(.+)$/i);
+            if(tasksFilterMatch) {
+                const filter = normalizeNavigationTaskFilter(tasksFilterMatch[1]);
+                if(filter) return { action: 'navigate', tab: 'tasks', taskFilter: filter };
+            }
+
+            const parts = targetText.split(/\s+/).filter(Boolean);
+            const firstTab = resolveClassifyTabToken(parts[0]);
+            if(firstTab === 'calendar') {
+                const modeParts = parts.slice(1).join(' ').replace(/\s+view$/i, '').trim();
+                const calendarMode = resolveCalendarModeToken(modeParts);
+                if(calendarMode) {
+                    return { action: 'navigate', tab: 'calendar', calendarMode };
+                }
+                return { action: 'navigate', tab: 'calendar' };
+            }
+
+            const wholeTab = resolveClassifyTabToken(targetText);
+            if(wholeTab) return { action: 'navigate', tab: wholeTab };
+
+            if(firstTab) return { action: 'navigate', tab: firstTab };
+
+            return null;
+        }
+
+        function executeNavigationCommand(parsed) {
+            if(parsed.panel === 'settings') {
+                openClassifySettings();
+                showNotification('Opened settings', 'info');
+                return true;
+            }
+            if(parsed.panel === 'blocks') {
+                openBlockedTimesModal();
+                showNotification('Opened blocked times', 'info');
+                return true;
+            }
+            if(parsed.panel === 'subjects') {
+                openSubjectManager();
+                showNotification('Opened subjects', 'info');
+                return true;
+            }
+            if(!parsed.tab) return false;
+
+            if(parsed.calendarMode) {
+                setCalendarViewMode(parsed.calendarMode);
+            }
+            switchTab(parsed.tab);
+            if(parsed.taskFilter) {
+                const taskFilter = document.getElementById('taskFilter');
+                if(taskFilter) taskFilter.value = parsed.taskFilter;
+                renderTaskList();
+            }
+
+            const tabLabels = {
+                dashboard: 'Dashboard',
+                tasks: 'Tasks',
+                calendar: 'Calendar',
+                analytics: 'Analytics'
+            };
+            const modeSuffix = parsed.calendarMode ? ` (${parsed.calendarMode} view)` : '';
+            const filterSuffix = parsed.taskFilter ? ` (${parsed.taskFilter})` : '';
+            showNotification(`Opened ${tabLabels[parsed.tab] || parsed.tab}${modeSuffix}${filterSuffix}`, 'info');
+            return true;
+        }
+
         function looksLikeCommandScheduleDestination(text) {
             const raw = String(text || '').trim();
             if(!raw) return false;
@@ -9523,6 +9670,9 @@
             const blockTimeCommand = parseBlockTimeCommand(commandText);
             if(blockTimeCommand) return blockTimeCommand;
 
+            const navigationCommand = parseNavigationCommand(commandText);
+            if(navigationCommand) return navigationCommand;
+
             if(presetTaskQuery) {
                 const presetParsed = parsePresetTaskCommand(commandText, presetTaskQuery);
                 if(presetParsed) return presetParsed;
@@ -9742,7 +9892,7 @@
                 return { error: `Could not understand command for "${presetTaskQuery}". Try due tomorrow at 5pm, target week, or exact date.` };
             }
 
-            return { error: 'Could not understand that command. Try lunch start 11am, end 3pm, block time tomorrow 1pm-3pm, or add block time for today 10:15 to 11.' };
+            return { error: 'Could not understand that command. Try open analytics, switch calendar week, open settings, or tasks overdue.' };
         }
 
         function applyScheduleSetFromCommand(parsed) {
@@ -9957,6 +10107,10 @@
 
             if(parsed.action === 'blockTimeAdd') {
                 return addBlockedTimeEntry(parsed);
+            }
+
+            if(parsed.action === 'navigate') {
+                return executeNavigationCommand(parsed);
             }
 
             if(parsed.action === 'create') {
