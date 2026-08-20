@@ -2707,6 +2707,43 @@
         </div>
     </div>
 
+    <!-- Modal: New Assignment Entry Choice -->
+    <div id="assignmentEntryChoiceModal" class="cl-modal-root hidden pointer-events-none">
+        <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-md transition-opacity pointer-events-auto" onclick="closeAssignmentEntryChoice()"></div>
+        <div class="relative w-full max-w-md modal-panel rounded-2xl scale-95 opacity-0 transition-all duration-300 pointer-events-auto mx-4" id="assignmentEntryChoicePanel">
+            <div class="border-b border-slate-200 dark:border-slate-700 px-6 py-5">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-2xl font-display font-bold text-slate-900 dark:text-white">New Assignment</h3>
+                    <button onclick="closeAssignmentEntryChoice()" class="text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 text-lg transition-colors" type="button"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <p class="text-sm text-slate-600 dark:text-slate-300 mt-2">How would you like to add it?</p>
+            </div>
+            <div class="p-6 space-y-3">
+                <button type="button" onclick="chooseAssignmentEntryMode('manual')" class="w-full flex items-start gap-4 rounded-xl border border-slate-200/70 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-800/40 p-4 text-left hover:border-red-300 dark:hover:border-red-700 hover:bg-red-50/50 dark:hover:bg-red-950/20 transition-all">
+                    <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-red-600">
+                        <i class="fa-solid fa-list-check"></i>
+                    </span>
+                    <span>
+                        <span class="block text-base font-semibold text-slate-900 dark:text-white">Manual</span>
+                        <span class="block text-sm text-slate-600 dark:text-slate-300 mt-1">Fill out the full form with schedule, priority, repeats, and dependencies.</span>
+                    </span>
+                </button>
+                <button type="button" onclick="chooseAssignmentEntryMode('automatic')" class="w-full flex items-start gap-4 rounded-xl border border-slate-200/70 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-800/40 p-4 text-left hover:border-red-300 dark:hover:border-red-700 hover:bg-red-50/50 dark:hover:bg-red-950/20 transition-all">
+                    <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-red-600">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i>
+                    </span>
+                    <span>
+                        <span class="block text-base font-semibold text-slate-900 dark:text-white">Automatic</span>
+                        <span class="block text-sm text-slate-600 dark:text-slate-300 mt-1">Type a title and shorthand details like <span class="font-medium">due friday 5pm 30m Writing after History Essay</span>.</span>
+                    </span>
+                </button>
+            </div>
+            <div class="border-t border-slate-200 dark:border-slate-700 px-6 py-4 flex justify-end">
+                <button onclick="closeAssignmentEntryChoice()" class="px-5 py-2 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 font-medium transition-colors" type="button">Cancel</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal: Add/Edit Assignment -->
     <div id="taskModal" class="cl-modal-root hidden pointer-events-none">
         <!-- Backdrop -->
@@ -2727,13 +2764,7 @@
             <!-- Scrollable Content Area -->
             <form id="taskForm" class="flex-1 overflow-y-auto" autocomplete="off" onsubmit="event.preventDefault(); saveTask();">
             <div class="p-6 md:p-8 space-y-5">
-                <div id="entryModeWrapper" class="rounded-xl border border-slate-200/70 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-800/40 p-4">
-                    <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Entry Mode</label>
-                    <select id="inputEntryMode" onchange="updateAssignmentEntryMode()" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
-                        <option value="manual" selected>Manual — use the full form</option>
-                        <option value="automatic">Automatic — type details in one box</option>
-                    </select>
-                </div>
+                <input type="hidden" id="inputEntryMode" value="manual">
 
                 <div class="rounded-xl border border-slate-200/70 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-800/40 p-4 space-y-2">
                     <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Assignment Name <span class="text-rose-500">*</span></label>
@@ -2742,8 +2773,8 @@
 
                 <div id="automaticEntryPanel" class="hidden rounded-xl border border-slate-200/70 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-800/40 p-4 space-y-3">
                     <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Details</label>
-                    <textarea id="inputQuickDetails" rows="4" autocomplete="off" class="w-full px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none resize-y transition-all" placeholder="due on friday at 5:00 PM 30m Writing must be after History Essay"></textarea>
-                    <p class="text-xs text-slate-500 dark:text-slate-400">Try keywords like <span class="font-medium">today</span>, <span class="font-medium">tomorrow</span>, <span class="font-medium">due on friday at 5pm</span>, <span class="font-medium">30m</span>, subject names, <span class="font-medium">must be after Essay 1</span>, <span class="font-medium">high priority</span>.</p>
+                    <textarea id="inputQuickDetails" rows="4" autocomplete="off" class="w-full px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none resize-y transition-all" placeholder="due friday 5pm 30m Writing after History Essay"></textarea>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Shorthand works: <span class="font-medium">due friday</span>, <span class="font-medium">tomorrow 3pm</span>, <span class="font-medium">30m</span>, <span class="font-medium">after Essay 1</span>, <span class="font-medium">high priority</span>, subject names.</p>
                 </div>
 
                 <div id="manualEntryPanels" class="space-y-5">
@@ -4014,6 +4045,8 @@
             const heading = document.getElementById('modalHeading');
             if(heading) heading.textContent = 'New Assignment';
             if(typeof clearForm === 'function') clearForm();
+            document.getElementById('inputEntryMode').value = 'manual';
+            updateAssignmentEntryMode();
             configureWalkthroughAssignmentDemo(demo);
 
             taskModal.classList.remove('hidden', 'pointer-events-none');
@@ -8763,11 +8796,11 @@
                 return result;
             }
 
+            const dependencyStop = String.raw`\s+(?:due|by|on|for|before|after|different|\d+\s*(?:m|min|mins|minutes?|h|hr|hrs|hours?)\b|$)`;
             const dependencyPatterns = [
-                { type: 'after', regex: /\bmust\s+be\s+after\s+(.+?)(?=\bmust\s+be\s+(?:after|before|on\s+a\s+different\s+day)|$)/gi },
-                { type: 'before', regex: /\bmust\s+be\s+before\s+(.+?)(?=\bmust\s+be\s+(?:after|before|on\s+a\s+different\s+day)|$)/gi },
-                { type: 'differentDay', regex: /\bmust\s+be\s+on\s+a\s+different\s+day\s+(?:than|from)\s+(.+?)(?=\bmust\s+be\s+(?:after|before|on\s+a\s+different\s+day)|$)/gi },
-                { type: 'differentDay', regex: /\bdifferent\s+day\s+(?:than|from)\s+(.+?)(?=\bmust\s+be\s+(?:after|before|on\s+a\s+different\s+day)|$)/gi }
+                { type: 'after', regex: new RegExp(`\\b(?:must\\s+be\\s+)?after\\s+(.+?)(?=${dependencyStop})`, 'gi') },
+                { type: 'before', regex: new RegExp(`\\b(?:must\\s+be\\s+)?before\\s+(.+?)(?=${dependencyStop})`, 'gi') },
+                { type: 'differentDay', regex: /\b(?:must\s+be\s+on\s+a\s+different\s+day\s+(?:than|from)|different\s+day\s+(?:than|from))\s+(.+?)(?=\s+(?:due|by|on|for|before|after|different|\d+\s*(?:m|min|mins|minutes?|h|hr|hrs|hours?)\b)|$)/gi }
             ];
             dependencyPatterns.forEach(({ type, regex }) => {
                 regex.lastIndex = 0;
@@ -8787,7 +8820,8 @@
             });
 
             const durationMatch = working.match(/\b(\d+(?:\.\d+)?)\s*(?:m|min|mins|minutes?)\b/i)
-                || working.match(/\b(\d+(?:\.\d+)?)\s*(?:h|hr|hrs|hours?)\b/i);
+                || working.match(/\b(\d+(?:\.\d+)?)\s*(?:h|hr|hrs|hours?)\b/i)
+                || working.match(/\b(\d+(?:\.\d+)?)m\b/i);
             if(durationMatch) {
                 const value = parseFloat(durationMatch[1]);
                 const isHours = /h|hr|hrs|hour/i.test(durationMatch[0]);
@@ -8815,7 +8849,8 @@
 
             const weekdayPattern = '(?:today|tomorrow|tommorow|monday|mon|tuesday|tue|tues|wednesday|wed|thursday|thu|thur|thurs|friday|fri|saturday|sat|sunday|sun)';
             const timeCapture = '(\\d{1,2}(?::\\d{2})?\\s*(?:am|pm)?)';
-            const duePattern = new RegExp(`\\bdue\\s+(?:on|by)?\\s*(${weekdayPattern})(?:\\s+at\\s+${timeCapture})?`, 'i');
+            const optionalTime = `(?:\\s+(?:at\\s+)?${timeCapture})?`;
+            const duePattern = new RegExp(`\\b(?:due|by)\\s+(?:on\\s+)?(${weekdayPattern})${optionalTime}`, 'i');
             const dueMatch = working.match(duePattern);
             if(dueMatch) {
                 result.scheduleType = 'week';
@@ -8826,7 +8861,7 @@
                 working = stripQuickEntryMatch(working, dueMatch);
             }
 
-            const eventPattern = new RegExp(`\\b(?:on|for)\\s+(${weekdayPattern})(?:\\s+at\\s+${timeCapture})?`, 'i');
+            const eventPattern = new RegExp(`\\b(?:on|for)\\s+(${weekdayPattern})${optionalTime}`, 'i');
             const eventMatch = !dueMatch ? working.match(eventPattern) : null;
             if(eventMatch) {
                 result.scheduleType = 'date';
@@ -8840,11 +8875,29 @@
             }
 
             if(!result.scheduleType) {
-                const bareDayMatch = working.match(new RegExp(`\\b(${weekdayPattern})\\b`, 'i'));
+                const bareDayMatch = working.match(new RegExp(`\\b(${weekdayPattern})${optionalTime}`, 'i'));
                 if(bareDayMatch) {
-                    result.scheduleType = 'date';
-                    result.date = resolveQuickEntryDateToken(bareDayMatch[1]);
+                    result.scheduleType = 'week';
+                    result.dueDate = resolveQuickEntryDateToken(bareDayMatch[1]);
+                    const parsedBareTime = parseQuickEntryTime(String(bareDayMatch[2] || '').trim());
+                    if(parsedBareTime) result.dueTime = parsedBareTime;
+                    if(result.dueDate) result.week = getWeekKeyFromDateStr(result.dueDate);
                     working = stripQuickEntryMatch(working, bareDayMatch);
+                }
+            }
+
+            if(!result.dueTime && !result.time) {
+                const looseTimeMatch = working.match(new RegExp(`\\b${timeCapture}`, 'i'));
+                if(looseTimeMatch) {
+                    const parsedLooseTime = parseQuickEntryTime(String(looseTimeMatch[1] || '').trim());
+                    if(parsedLooseTime) {
+                        if(result.scheduleType === 'week' || result.dueDate) result.dueTime = parsedLooseTime;
+                        else if(result.scheduleType === 'date' && result.date) {
+                            result.time = parsedLooseTime;
+                            result.exactDateTiming = 'fixed';
+                        }
+                        working = stripQuickEntryMatch(working, looseTimeMatch);
+                    }
                 }
             }
 
@@ -8866,7 +8919,7 @@
                     const clean = word.replace(/[.,;:!?]+$/, '');
                     if(!/^[A-Za-z][A-Za-z0-9&'-]*$/.test(clean)) return false;
                     const lower = clean.toLowerCase();
-                    if(['due', 'on', 'at', 'must', 'be', 'after', 'before', 'minutes', 'minute', 'mins', 'min'].includes(lower)) return false;
+                    if(['due', 'on', 'at', 'by', 'for', 'must', 'be', 'after', 'before', 'minutes', 'minute', 'mins', 'min', 'high', 'low', 'urgent', 'easy', 'hard'].includes(lower)) return false;
                     if(titleLower.includes(lower)) return false;
                     return true;
                 });
@@ -8876,7 +8929,7 @@
                 }
             }
 
-            working = working.replace(/\b(at|on|by|due)\b/gi, ' ').replace(/\s{2,}/g, ' ').trim();
+            working = working.replace(/\b(at|on|by|due|for|after|before)\b/gi, ' ').replace(/\s{2,}/g, ' ').trim();
             if(working) result.notes = working.substring(0, 500);
 
             if(!result.scheduleType) {
@@ -8886,7 +8939,7 @@
                 result.week = getCurrentWeekKey();
             }
             if(result.scheduleType === 'week' && !result.dueDate) {
-                result.errors.push('Could not parse a due date. Try "due on friday at 5pm".');
+                result.errors.push('Could not parse a due date. Try "due friday" or "friday 5pm".');
             }
             if(result.scheduleType === 'date' && !result.date) {
                 result.errors.push('Could not parse an event date. Try "on friday" or "today".');
@@ -10840,15 +10893,68 @@
             }
         }
 
-        function openModal() {
+        let pendingNewAssignmentDate = null;
+
+        function openAssignmentEntryChoice() {
+            const choiceModal = document.getElementById('assignmentEntryChoiceModal');
+            const choicePanel = document.getElementById('assignmentEntryChoicePanel');
+            if(!choiceModal || !choicePanel) return;
+            choiceModal.classList.remove('hidden', 'pointer-events-none');
+            setTimeout(() => {
+                choicePanel.classList.remove('scale-95', 'opacity-0');
+                choicePanel.classList.add('scale-100', 'opacity-100');
+            }, 10);
+        }
+
+        function closeAssignmentEntryChoiceImmediate() {
+            const choiceModal = document.getElementById('assignmentEntryChoiceModal');
+            const choicePanel = document.getElementById('assignmentEntryChoicePanel');
+            if(choicePanel) {
+                choicePanel.classList.remove('scale-100', 'opacity-100');
+                choicePanel.classList.add('scale-95', 'opacity-0');
+            }
+            if(choiceModal) choiceModal.classList.add('hidden', 'pointer-events-none');
+        }
+
+        function closeAssignmentEntryChoice() {
+            pendingNewAssignmentDate = null;
+            const choicePanel = document.getElementById('assignmentEntryChoicePanel');
+            if(choicePanel) {
+                choicePanel.classList.remove('scale-100', 'opacity-100');
+                choicePanel.classList.add('scale-95', 'opacity-0');
+            }
+            setTimeout(() => closeAssignmentEntryChoiceImmediate(), 300);
+        }
+
+        function chooseAssignmentEntryMode(mode) {
+            const dateStr = pendingNewAssignmentDate;
+            pendingNewAssignmentDate = null;
+            closeAssignmentEntryChoiceImmediate();
+            openModalWithEntryMode(mode, { dateStr });
+        }
+
+        function openModalWithEntryMode(mode = 'manual', { dateStr = null } = {}) {
             editingId = null;
             document.getElementById('modalHeading').innerText = 'New Assignment';
             clearForm();
+            document.getElementById('inputEntryMode').value = mode === 'automatic' ? 'automatic' : 'manual';
+            updateAssignmentEntryMode();
+            if(dateStr && mode === 'manual') {
+                document.getElementById('inputDate').value = dateStr;
+                updateScheduleInputs();
+            }
             modal.classList.remove('hidden', 'pointer-events-none');
             setTimeout(() => {
                 modalPanel.classList.remove('scale-95', 'opacity-0');
                 modalPanel.classList.add('scale-100', 'opacity-100');
+                if(mode === 'automatic') document.getElementById('inputQuickDetails')?.focus();
+                else document.getElementById('inputTitle')?.focus();
             }, 10);
+        }
+
+        function openModal() {
+            pendingNewAssignmentDate = null;
+            openAssignmentEntryChoice();
         }
 
         function openModalForDate(dateStr) {
@@ -10856,8 +10962,8 @@
                 showNotification('Vacation day: scheduling is disabled for this date.', 'info');
                 return;
             }
-            openModal();
-            document.getElementById('inputDate').value = dateStr;
+            pendingNewAssignmentDate = dateStr;
+            openAssignmentEntryChoice();
         }
 
         function closeModal() {
@@ -10892,7 +10998,6 @@
             hideSubjectSuggestionMenu();
             document.getElementById('inputEntryMode').value = 'manual';
             document.getElementById('inputQuickDetails').value = '';
-            document.getElementById('entryModeWrapper')?.classList.remove('hidden');
             updateAssignmentEntryMode();
             document.getElementById('inputTitle').value = '';
             document.getElementById('inputSubject').value = '';
@@ -11455,7 +11560,7 @@
             const t = tasks.find(t => t.id === id);
             if(!t) return;
             editingId = id;
-            document.getElementById('entryModeWrapper')?.classList.add('hidden');
+            document.getElementById('inputEntryMode').value = 'manual';
             document.getElementById('automaticEntryPanel')?.classList.add('hidden');
             document.getElementById('manualEntryPanels')?.classList.remove('hidden');
             const scheduleMode = getTaskScheduleMode(t);
