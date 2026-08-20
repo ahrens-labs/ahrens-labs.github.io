@@ -5194,7 +5194,7 @@
                     makeRoomForStartedAssignment(task, date, startMin);
                     reconcileBeforeAfterSchedule([id]);
                     enforceNoOverlappingTimes(date, date);
-                    autoBlockWeekTimes(false, getWeekKeyFromDateStr(date), true, true);
+                    reoptimizeAffectedWeeks([getWeekKeyFromDateStr(date)]);
                     enforceNoOverlappingTimes(date, date);
                     saveData({ skipAutoSchedule: true, skipUndoRecord: true });
                 } catch (error) {
@@ -5809,8 +5809,23 @@
             if(weekKeys.size === 0) {
                 getRelevantUpcomingWeekKeys().forEach(weekKey => weekKeys.add(weekKey));
             }
-            reAutoScheduleWeeks(Array.from(weekKeys), true, false);
-            ensureAllEventsScheduled(12, false);
+            reoptimizeAffectedWeeks(Array.from(weekKeys));
+        }
+
+        function reoptimizeAffectedWeeks(weekKeys = null, options = {}) {
+            const { includeFlexible = true } = options || {};
+            const keys = Array.from(new Set((weekKeys || getRelevantUpcomingWeekKeys()).filter(Boolean)));
+            if(keys.length === 0) return 0;
+            let rebuilt = 0;
+            keys.forEach(weekKey => {
+                try {
+                    const result = replanWeekFromScratch(weekKey, includeFlexible);
+                    if(result?.complete) rebuilt += result.rebuilt || 0;
+                } catch (error) {
+                    console.error(`Week reoptimize failed for ${weekKey}:`, error);
+                }
+            });
+            return rebuilt;
         }
 
         function reconcileBeforeAfterSchedule(seedTaskIds = []) {
@@ -5858,8 +5873,7 @@
             seeds.forEach(id => collectWeekKeysForTasks([id]).forEach(wk => weekKeys.add(wk)));
 
             weekKeys.forEach(weekKey => {
-                assignWeekTaskDates(weekKey, true);
-                autoBlockWeekTimes(false, weekKey, true, true);
+                replanWeekFromScratch(weekKey, true);
             });
 
             return adjusted;
@@ -7332,18 +7346,29 @@
             if(skipScheduleRefresh) return;
 
             enforceNoPastUnstartedTimes();
-            const seeds = Array.from(new Set((seedTaskIds || []).filter(Boolean)));
-            if(seeds.length) reconcileBeforeAfterSchedule(seeds);
-            const keys = Array.from(new Set((weekKeys || []).filter(Boolean)));
-            if(keys.length) {
-                reAutoScheduleWeeks(keys, true, false);
-                ensureAllEventsScheduled(12, false);
-            } else if((seedTaskIds && seedTaskIds.length) || (previousSnapshots && previousSnapshots.length)) {
-                refreshScheduleForSavedTasks(seedTaskIds, previousSnapshots);
-            } else {
-                refreshAdjustableScheduling();
-                ensureAllEventsScheduled(12, false);
+            reconcileBeforeAfterSchedule(getAllBeforeAfterLinkedTaskIds());
+
+            let keys = Array.from(new Set((weekKeys || []).filter(Boolean)));
+            if(keys.length === 0 && ((seedTaskIds && seedTaskIds.length) || (previousSnapshots && previousSnapshots.length))) {
+                const weekKeySet = new Set();
+                const addWeekKeys = (ids = []) => {
+                    collectWeekKeysForTasks(ids).forEach(weekKey => weekKeySet.add(weekKey));
+                };
+                addWeekKeys(seedTaskIds);
+                (previousSnapshots || []).forEach(snapshot => {
+                    if(!snapshot) return;
+                    if(snapshot.id) addWeekKeys([snapshot.id]);
+                    if(snapshot.date) weekKeySet.add(getWeekKeyFromDateStr(snapshot.date));
+                    if(snapshot.dueDate) weekKeySet.add(getWeekKeyFromDateStr(snapshot.dueDate));
+                    if(snapshot.week) weekKeySet.add(snapshot.week);
+                    if(snapshot.repeatWeekKey) weekKeySet.add(snapshot.repeatWeekKey);
+                });
+                keys = Array.from(weekKeySet);
             }
+            if(keys.length === 0) {
+                keys = getRelevantUpcomingWeekKeys();
+            }
+            reoptimizeAffectedWeeks(keys);
         }
 
         function refreshClassifyLikeReload(options = {}) {
@@ -7428,6 +7453,7 @@
                 showNotification('Undid last change', 'info');
                 deferClassifyScheduleWork(() => {
                     reconcileDerivedStateAfterUndo();
+                    reoptimizeAffectedWeeks();
                 }, { skipUndoRecord: true });
             } finally {
                 classifyUndoApplying = false;
@@ -7452,23 +7478,8 @@
         }
 
         function refreshAdjustableScheduling(options = {}) {
-            const {
-                weekKeys = null,
-                forceRebuildAutoSlots = true
-            } = options || {};
-            const keys = Array.from(new Set((weekKeys || getRelevantUpcomingWeekKeys()).filter(Boolean)));
-            if(keys.length === 0) return 0;
-            let changed = 0;
-            keys.forEach(weekKey => {
-                try {
-                    prepareAdjustableTasksForRepack([weekKey], forceRebuildAutoSlots);
-                    planWeek(weekKey, true, true);
-                    changed += autoBlockWeekTimes(false, weekKey, true, forceRebuildAutoSlots) || 0;
-                } catch (error) {
-                    console.error(`Adjustable auto-schedule failed for ${weekKey}:`, error);
-                }
-            });
-            return changed;
+            const { weekKeys = null } = options || {};
+            return reoptimizeAffectedWeeks(weekKeys, { includeFlexible: true });
         }
 
         function saveData(options = {}) {
@@ -7494,7 +7505,7 @@
                 saveDataAutoScheduleGuard = true;
                 try {
                     reconcileBeforeAfterSchedule(getAllBeforeAfterLinkedTaskIds());
-                    refreshAdjustableScheduling();
+                    reoptimizeAffectedWeeks();
                 } catch (error) {
                     console.error('Adjustable auto-schedule failed:', error);
                 } finally {
@@ -11228,15 +11239,7 @@
                 flushClassifyUiImmediate({ skipUndoRecord: true });
 
                 deferClassifyScheduleWork(() => {
-                    planWeek(currentWeek, false);
-
-                    if((!task.date || !task.time) && dueWeek && dueWeek !== currentWeek) {
-                        task.week = dueWeek;
-                        planWeek(dueWeek, false);
-                    }
-
-                    const finalWeek = task.date ? getWeekKeyFromDateStr(task.date) : (task.week || currentWeek);
-                    autoBlockWeekTimes(false, finalWeek, true);
+                    reoptimizeAffectedWeeks([currentWeek, dueWeek].filter(Boolean));
 
                     if(task.date && task.time) {
                         showNotification(`Rescheduled "${task.title}"`, 'success');
@@ -11689,8 +11692,8 @@
 
             targets.forEach(task => {
                 const isTargetWeekTask = isTargetWeekAssignment(task);
-                const hasAssignedDate = !isTargetWeekTask && Boolean(task.date) && task.date >= todayStr;
-                const keepUserPlacement = isUserScheduleLocked(task) && hasAssignedDate && Boolean(task.time);
+                const hasCalendarSlot = Boolean(task.date) && task.date >= todayStr;
+                const keepUserPlacement = isUserScheduleLocked(task) && hasCalendarSlot && Boolean(task.time);
 
                 if(keepUserPlacement) {
                     if(task.date && task.date >= todayStr && !isTargetWeekAssignment(task)) {
@@ -11701,7 +11704,7 @@
                 }
 
                 // Adjustable tasks: clear auto placement so the scheduler can reshuffle freely.
-                if(hasAssignedDate && !isUserScheduleLocked(task)) {
+                if(hasCalendarSlot && !isUserScheduleLocked(task)) {
                     if(!isTargetWeekAssignment(task)) {
                         task.week = getWeekKeyFromDateStr(task.date);
                     }
@@ -11855,8 +11858,7 @@
             });
             weekKeys.forEach(weekKey => {
                 if(!weekKey) return;
-                planWeek(weekKey, true, true);
-                autoBlockWeekTimes(false, weekKey, true, true);
+                replanWeekFromScratch(weekKey, true);
             });
             const dateWeeks = new Set(
                 tasks
@@ -11865,7 +11867,7 @@
             );
             dateWeeks.forEach(weekKey => {
                 if(!weekKey) return;
-                autoBlockWeekTimes(false, weekKey, true, true);
+                replanWeekFromScratch(weekKey, true);
             });
             if(persist) saveData({ skipAutoSchedule: true, skipUndoRecord: true });
         }
