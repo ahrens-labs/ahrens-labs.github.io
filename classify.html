@@ -1934,9 +1934,8 @@
             <div class="cl-command-bar__inner">
                 <div class="cl-command-bar__intro">
                     <span class="cl-command-bar__title"><i class="fa-solid fa-terminal" aria-hidden="true"></i> Command line</span>
-                    <span class="cl-command-bar__desc">Type an edit in plain English, then press Enter</span>
                 </div>
-                <input id="classifyCommandInput" type="text" autocomplete="off" spellcheck="false" class="cl-command-bar__input" placeholder="move Speech to friday · edit Speech · duplicate Speech · find Math" aria-label="Classify command line — edit assignments in plain English" title="Also try: start, unstart, complete, missed, notes, easy/hard, remove after, clear time, undo, new assignment">
+                <input id="classifyCommandInput" type="text" autocomplete="off" spellcheck="false" class="cl-command-bar__input" placeholder="new · undo · move Speech to friday · start Math" aria-label="Command line" title="Type a command and press Enter. Try new, undo, edit, duplicate, find, start, delete, or move Speech to friday.">
                 <span class="cl-command-bar__hint"><kbd>/</kbd> focus</span>
             </div>
         </div>
@@ -8982,7 +8981,7 @@
             const raw = normalizeClassifyCommandText(text);
             if(!raw) return { error: 'Enter a command.' };
 
-            if(/^new\s+assignment$/i.test(raw)) {
+            if(/^new(?:\s+assignment)?$/i.test(raw)) {
                 return { action: 'openNew' };
             }
 
