@@ -3506,7 +3506,8 @@
             }
         }
 
-        async function refreshClassifyFromCloud() {
+        async function refreshClassifyFromCloud(options = {}) {
+            const { clearUndo = false } = options || {};
             if (classifySyncRefreshing) return;
             if (Date.now() < classifyUndoRemoteSuppressUntil) return;
             classifySyncRefreshing = true;
@@ -3514,7 +3515,10 @@
                 const loaded = await loadClassifyDataFromCloud();
                 if (loaded) {
                     persistClassifyLocally();
-                    classifyUndoStack = [];
+                    if(clearUndo) {
+                        classifyUndoStack = [];
+                        persistClassifyUndoStack();
+                    }
                     initClassifyUndoBaseline();
                     renderAll();
                     syncClassifyHotspotsSettingsState();
@@ -3540,7 +3544,7 @@
             classifySyncRefreshTimer = setTimeout(async () => {
                 if (!evt || evt.sourceClientId === classifySyncClientId) return;
                 pendingClassifyRemoteRefresh = true;
-                await refreshClassifyFromCloud();
+                await refreshClassifyFromCloud({ clearUndo: true });
             }, 120);
         }
 
@@ -3561,6 +3565,12 @@
                 const data = await response.json();
                 const next = data.fingerprint || '';
                 if (classifySyncFingerprint && next && next !== classifySyncFingerprint) {
+                    const recentLocalEdit = classifyUndoStack.length > 0 &&
+                        (Date.now() - classifyLastLocalMutationAt) < 120000;
+                    if(recentLocalEdit) {
+                        classifySyncFingerprint = next;
+                        return;
+                    }
                     pendingClassifyRemoteRefresh = true;
                     await refreshClassifyFromCloud();
                     return;
@@ -3919,6 +3929,7 @@
 
             // Enable cloud syncing after initial load/migrations
             cloudSyncEnabled = true;
+            loadClassifyUndoStack();
             initClassifyUndoBaseline();
             document.getElementById('btn-classify-undo')?.addEventListener('click', undoClassifyLastAction);
             renderAll();
@@ -7508,10 +7519,56 @@
 
         // --- Data Management ---
         const CLASSIFY_UNDO_LIMIT = 50;
+        const CLASSIFY_UNDO_STORAGE_KEY = 'plannerUndoStackV1';
         let classifyUndoStack = [];
         let classifyLastSavedSnapshot = null;
         let classifyUndoApplying = false;
         let classifyUndoRemoteSuppressUntil = 0;
+        let classifyLastLocalMutationAt = 0;
+
+        function persistClassifyUndoStack() {
+            try {
+                localStorage.setItem(
+                    plannerStorageKey(CLASSIFY_UNDO_STORAGE_KEY),
+                    JSON.stringify(classifyUndoStack)
+                );
+            } catch (error) {
+                while(classifyUndoStack.length > 1) {
+                    classifyUndoStack.shift();
+                    try {
+                        localStorage.setItem(
+                            plannerStorageKey(CLASSIFY_UNDO_STORAGE_KEY),
+                            JSON.stringify(classifyUndoStack)
+                        );
+                        return;
+                    } catch {
+                        /* keep trimming */
+                    }
+                }
+                try {
+                    localStorage.removeItem(plannerStorageKey(CLASSIFY_UNDO_STORAGE_KEY));
+                } catch {
+                    /* ignore */
+                }
+            }
+        }
+
+        function loadClassifyUndoStack() {
+            try {
+                const raw = safeJsonParse(localStorage.getItem(plannerStorageKey(CLASSIFY_UNDO_STORAGE_KEY)), []);
+                classifyUndoStack = Array.isArray(raw) ? raw.filter(Boolean) : [];
+            } catch {
+                classifyUndoStack = [];
+            }
+            updateClassifyUndoButton();
+        }
+
+        function discardLastClassifyUndoPoint() {
+            if(classifyUndoStack.length === 0) return;
+            classifyUndoStack.pop();
+            persistClassifyUndoStack();
+            updateClassifyUndoButton();
+        }
 
         function captureClassifyUndoSnapshot() {
             return {
@@ -7589,6 +7646,8 @@
             if(classifyUndoStack.length > CLASSIFY_UNDO_LIMIT) {
                 classifyUndoStack.shift();
             }
+            classifyLastLocalMutationAt = Date.now();
+            persistClassifyUndoStack();
             updateClassifyUndoButton();
         }
 
@@ -7820,10 +7879,12 @@
             classifyUndoApplying = true;
             try {
                 const snapshot = classifyUndoStack.pop();
+                persistClassifyUndoStack();
                 applyClassifyUndoSnapshot(snapshot);
                 reconcileDerivedStateAfterUndo();
                 classifyLastSavedSnapshot = captureClassifyUndoSnapshot();
-                classifyUndoRemoteSuppressUntil = Date.now() + 8000;
+                classifyLastLocalMutationAt = Date.now();
+                classifyUndoRemoteSuppressUntil = Date.now() + 30000;
                 flushClassifyUiImmediate({ skipUndoRecord: true });
                 flushClassifyCloudSync().then(() => updateClassifySyncFingerprint()).catch(() => {});
                 updateClassifyUndoButton();
@@ -7867,6 +7928,8 @@
                 if(classifyUndoStack.length > CLASSIFY_UNDO_LIMIT) {
                     classifyUndoStack.shift();
                 }
+                classifyLastLocalMutationAt = Date.now();
+                persistClassifyUndoStack();
                 updateClassifyUndoButton();
             }
 
@@ -7904,7 +7967,7 @@
             }
             renderAll();
             if(!classifyUndoApplying && !options.skipCloudSuppress) {
-                classifyUndoRemoteSuppressUntil = Date.now() + 5000;
+                classifyUndoRemoteSuppressUntil = Date.now() + 30000;
                 updateClassifySyncFingerprint().catch(() => {});
             }
         }
@@ -11343,8 +11406,7 @@
             tasks = recoloredTasks;
 
             if(!changed) {
-                classifyUndoStack.pop();
-                updateClassifyUndoButton();
+                discardLastClassifyUndoPoint();
                 showNotification('No subject changes to save', 'info');
                 return;
             }
@@ -13437,8 +13499,7 @@
                         );
                     }
                     if(conflict) {
-                        classifyUndoStack.pop();
-                        updateClassifyUndoButton();
+                        discardLastClassifyUndoPoint();
                         setActionButtonBusy(saveBtn, false);
                         showNotification(`Time conflict with fixed assignment "${conflict.title}". Pick a different start time.`, 'error');
                         return;
@@ -14209,8 +14270,7 @@
             const { assigned, preserved, rebuilt, complete } = replanWeekFromScratch(targetWeekKey, true);
             if(!complete) {
                 if(persist) {
-                    classifyUndoStack.pop();
-                    updateClassifyUndoButton();
+                    discardLastClassifyUndoPoint();
                 }
                 if(showToast) {
                     confirmAction(
@@ -15038,8 +15098,7 @@
                 ];
                 restoreWeekScheduleSnapshot(scheduleSnapshot);
                 if(showToast) {
-                    classifyUndoStack.pop();
-                    updateClassifyUndoButton();
+                    discardLastClassifyUndoPoint();
                     if(depOrdered.hasCycle) {
                         showNotification('Some before/after links form a cycle. Could not schedule everything.', 'error');
                     } else if(unresolvedViolations > 0) {
@@ -15070,8 +15129,7 @@
                 switchTab('calendar');
                 showNotification(`Auto time-blocked ${updated} assignment${updated > 1 ? 's' : ''} this week`, 'success');
             } else if(showToast) {
-                classifyUndoStack.pop();
-                updateClassifyUndoButton();
+                discardLastClassifyUndoPoint();
                 showNotification('No weekly assignments need time-blocking', 'info');
             }
             return updated;
