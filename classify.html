@@ -1936,7 +1936,7 @@
                     <span class="cl-command-bar__title"><i class="fa-solid fa-terminal" aria-hidden="true"></i> Command line</span>
                     <span class="cl-command-bar__desc">Type an edit in plain English, then press Enter</span>
                 </div>
-                <input id="classifyCommandInput" type="text" autocomplete="off" spellcheck="false" class="cl-command-bar__input" placeholder="move Speech to friday · Mow to 10:45am · start Math · new assignment" aria-label="Classify command line — edit assignments in plain English" title="Examples: move Speech to friday 5pm, Speech due today at 3pm, Speech after Math, delete Speech, complete Speech, add Essay due friday">
+                <input id="classifyCommandInput" type="text" autocomplete="off" spellcheck="false" class="cl-command-bar__input" placeholder="move Speech to friday · edit Speech · duplicate Speech · find Math" aria-label="Classify command line — edit assignments in plain English" title="Also try: start, unstart, complete, missed, notes, easy/hard, remove after, clear time, undo, new assignment">
                 <span class="cl-command-bar__hint"><kbd>/</kbd> focus</span>
             </div>
         </div>
@@ -9016,6 +9016,76 @@
             match = raw.match(/^start\s+(.+)$/i);
             if(match) return { action: 'start', taskQuery: match[1].trim() };
 
+            match = raw.match(/^(?:edit|open)\s+(.+)$/i);
+            if(match) return { action: 'edit', taskQuery: match[1].trim() };
+
+            match = raw.match(/^(?:duplicate|copy|clone)\s+(.+)$/i);
+            if(match) return { action: 'duplicate', taskQuery: match[1].trim() };
+
+            match = raw.match(/^(?:unstart|stop|unlock)\s+(.+)$/i);
+            if(match) return { action: 'unstart', taskQuery: match[1].trim() };
+
+            match = raw.match(/^(?:missed|mark\s+missed|skip)\s+(.+)$/i);
+            if(match) return { action: 'missed', taskQuery: match[1].trim() };
+
+            match = raw.match(/^(.+?)\s+missed$/i);
+            if(match) return { action: 'missed', taskQuery: match[1].trim() };
+
+            match = raw.match(/^(?:uncomplete|reopen|undo\s+complete)\s+(.+)$/i);
+            if(match) return { action: 'uncomplete', taskQuery: match[1].trim() };
+
+            match = raw.match(/^(?:find|search|show)\s+(.+)$/i);
+            if(match) return { action: 'find', query: match[1].trim() };
+
+            if(/^undo$/i.test(raw)) return { action: 'undo' };
+
+            match = raw.match(/^(?:remove|clear)\s+(.+?)\s+(after|before)\s+(.+)$/i);
+            if(match) {
+                return {
+                    action: 'removeDependency',
+                    taskQuery: match[1].trim(),
+                    depType: match[2].toLowerCase(),
+                    depQuery: match[3].trim()
+                };
+            }
+
+            match = raw.match(/^(.+?)\s+(?:remove|clear)\s+(after|before)\s+(.+)$/i);
+            if(match) {
+                return {
+                    action: 'removeDependency',
+                    taskQuery: match[1].trim(),
+                    depType: match[2].toLowerCase(),
+                    depQuery: match[3].trim()
+                };
+            }
+
+            match = raw.match(/^(?:clear|reset|unlock)\s+(?:time\s+(?:for\s+)?)?(.+)$/i);
+            if(match) return { action: 'clearTime', taskQuery: match[1].trim() };
+
+            match = raw.match(/^(.+?)\s+(?:clear|reset|unlock)\s+time$/i);
+            if(match) return { action: 'clearTime', taskQuery: match[1].trim() };
+
+            match = raw.match(/^(.+?)\s+notes\s+(.+)$/i);
+            if(match) return { action: 'notes', taskQuery: match[1].trim(), notes: match[2].trim() };
+
+            match = raw.match(/^(?:set\s+)?(.+?)\s+(?:difficulty\s+)?(easy|medium|hard)$/i)
+                || raw.match(/^(easy|medium|hard)\s+(.+)$/i);
+            if(match) {
+                const inverted = /^(easy|medium|hard)\s+/i.test(raw);
+                const level = (inverted ? match[1] : match[2]).toLowerCase();
+                return {
+                    action: 'difficulty',
+                    taskQuery: (inverted ? match[2] : match[1]).trim(),
+                    difficulty: level.charAt(0).toUpperCase() + level.slice(1)
+                };
+            }
+
+            match = raw.match(new RegExp(`^(.+?)\\s+(${QUICK_ENTRY_DATE_WORDS})(?:\\s+(?:at\\s+)?(\\d{1,2}(?::\\d{2})?\\s*(?:am|pm)?))?$`, 'i'));
+            if(match) {
+                const destination = match[2] + (match[3] ? ` at ${match[3]}` : '');
+                return { action: 'move', taskQuery: match[1].trim(), destination: destination.trim() };
+            }
+
             match = raw.match(/^(.+?)\s+(?:must\s+be\s+)?(after|before)\s+(.+)$/i);
             if(match) {
                 return {
@@ -9074,7 +9144,7 @@
             match = raw.match(/^(?:set\s+)?(.+?)\s+subject\s+(.+)$/i);
             if(match) return { action: 'subject', taskQuery: match[1].trim(), subject: match[2].trim() };
 
-            return { error: 'Could not understand that command. Try move Speech to friday, Mow to 10:45am, start Math, or new assignment.' };
+            return { error: 'Could not understand that command. Try edit Speech, Speech today, remove after Math, or duplicate Speech.' };
         }
 
         function parseMoveDestination(text) {
@@ -9138,6 +9208,22 @@
 
             if(parsed.action === 'openNew') {
                 openModal();
+                return true;
+            }
+
+            if(parsed.action === 'undo') {
+                undoClassifyLastAction();
+                return true;
+            }
+
+            if(parsed.action === 'find') {
+                switchTab('tasks');
+                const searchInput = document.getElementById('taskSearch');
+                if(searchInput) {
+                    searchInput.value = parsed.query || '';
+                    renderTaskList();
+                    searchInput.focus();
+                }
                 return true;
             }
 
@@ -9249,6 +9335,41 @@
                 return true;
             }
 
+            if(parsed.action === 'edit') {
+                editTask(taskId);
+                return true;
+            }
+
+            if(parsed.action === 'duplicate') {
+                duplicateTask(taskId);
+                return true;
+            }
+
+            if(parsed.action === 'unstart') {
+                unstartAssignment(taskId);
+                return true;
+            }
+
+            if(parsed.action === 'missed') {
+                markTaskMissed(taskId);
+                return true;
+            }
+
+            if(parsed.action === 'uncomplete') {
+                if(!task.completed) {
+                    showNotification(`"${task.title}" is not completed.`, 'info');
+                    return false;
+                }
+                mutateClassifyData(() => {
+                    tasks = tasks.map(t => t.id === taskId
+                        ? { ...t, completed: false, completedDate: null, actualMinutes: null }
+                        : t);
+                    if(task.repeatGroupId) clearRepeatOccurrenceException(task.repeatGroupId, task);
+                }, { seedTaskIds: [taskId] });
+                showNotification(`Reopened "${task.title}"`, 'success');
+                return true;
+            }
+
             if(parsed.action === 'setTime') {
                 const timeLabel = minToTime(timeToMin(parsed.time));
                 if(task.date) {
@@ -9325,6 +9446,69 @@
                     tasks = tasks.map(t => t.id === taskId ? { ...t, subject, color: subjectColors[subject] } : t);
                 }, { seedTaskIds: [taskId] });
                 showNotification(`Set "${task.title}" subject to ${subject}`, 'success');
+                return true;
+            }
+
+            if(parsed.action === 'notes') {
+                const notes = String(parsed.notes || '').substring(0, 500);
+                mutateClassifyData(() => {
+                    tasks = tasks.map(t => t.id === taskId ? { ...t, notes } : t);
+                }, { seedTaskIds: [taskId] });
+                showNotification(`Updated notes for "${task.title}"`, 'success');
+                return true;
+            }
+
+            if(parsed.action === 'difficulty') {
+                mutateClassifyData(() => {
+                    tasks = tasks.map(t => t.id === taskId ? { ...t, difficulty: parsed.difficulty } : t);
+                }, { seedTaskIds: [taskId] });
+                showNotification(`Set "${task.title}" difficulty to ${parsed.difficulty}`, 'success');
+                return true;
+            }
+
+            if(parsed.action === 'clearTime') {
+                mutateClassifyData(() => {
+                    tasks = tasks.map(t => {
+                        if(t.id !== taskId) return t;
+                        return normalizeTask({
+                            ...t,
+                            time: null,
+                            timeSource: null,
+                            assignmentMode: 'ADJUSTABLE',
+                            startedAt: null
+                        });
+                    });
+                }, { seedTaskIds: [taskId] });
+                showNotification(`Cleared fixed time for "${task.title}"`, 'success');
+                return true;
+            }
+
+            if(parsed.action === 'removeDependency') {
+                const depRef = resolveTaskReference(parsed.depQuery, taskId);
+                if(depRef.error) {
+                    showNotification(depRef.error, 'error');
+                    return false;
+                }
+                if(depRef.ambiguous) {
+                    showNotification(`Multiple dependency matches: ${depRef.ambiguous.join(', ')}`, 'error');
+                    return false;
+                }
+                mutateClassifyData(() => {
+                    tasks = tasks.map(t => {
+                        if(t.id !== taskId) return t;
+                        const next = { ...t };
+                        if(parsed.depType === 'after') {
+                            next.mustBeAfter = (next.mustBeAfter || []).filter(id => id !== depRef.id);
+                        } else {
+                            next.mustBeBefore = (next.mustBeBefore || []).filter(id => id !== depRef.id);
+                        }
+                        return next;
+                    });
+                    applyReciprocalDependenciesForTask(taskId);
+                    syncAllTaskDependencies();
+                }, { seedTaskIds: [taskId, depRef.id] });
+                const depTask = tasks.find(t => t.id === depRef.id);
+                showNotification(`Removed "${task.title}" ${parsed.depType} "${depTask?.title || parsed.depQuery}"`, 'success');
                 return true;
             }
 
