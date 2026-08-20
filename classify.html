@@ -3806,6 +3806,9 @@
 
             // Load account-backed planner state before first render
             await loadClassifyDataFromCloud();
+            if(consolidateSubjectNames()) {
+                saveData({ skipUndoRecord: true, skipAutoSchedule: true });
+            }
             await updateClassifySyncFingerprint();
 
             // Confetti setup
@@ -3850,7 +3853,7 @@
                 })).map(normalizeTask);
                 // Init Subject Colors from migrated tasks
                 tasks.forEach(t => {
-                    if(!subjectColors[t.subject]) subjectColors[t.subject] = t.color;
+                    setSubjectColorValue(t.subject, t.color);
                 });
                 saveData({ skipUndoRecord: true, skipAutoSchedule: true });
                 plannerRemove('plannerTasks'); // Clean up old key
@@ -5077,6 +5080,105 @@
             return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
         }
 
+        function subjectKey(name) {
+            return String(name || '').trim().toLowerCase();
+        }
+
+        function subjectsMatch(a, b) {
+            return subjectKey(a) === subjectKey(b);
+        }
+
+        function findExistingSubjectName(name) {
+            const key = subjectKey(name);
+            if(!key) return null;
+            if(key === 'general') return 'General';
+            for(const subject of Object.keys(subjectColors || {})) {
+                if(subjectKey(subject) === key) return subject.trim();
+            }
+            for(const task of tasks || []) {
+                const subject = String(task?.subject || '').trim();
+                if(subject && subjectKey(subject) === key) return subject;
+            }
+            return null;
+        }
+
+        function resolveCanonicalSubject(name) {
+            const trimmed = String(name || '').trim();
+            if(!trimmed) return 'General';
+            if(subjectKey(trimmed) === 'general') return 'General';
+            return findExistingSubjectName(trimmed) || trimmed;
+        }
+
+        function getSubjectColorValue(name) {
+            const canonical = findExistingSubjectName(name);
+            if(canonical && subjectColors[canonical]) return subjectColors[canonical];
+            const key = subjectKey(name);
+            for(const [subject, color] of Object.entries(subjectColors || {})) {
+                if(subjectKey(subject) === key) return color;
+            }
+            return null;
+        }
+
+        function setSubjectColorValue(name, color) {
+            const canonical = resolveCanonicalSubject(name);
+            const key = subjectKey(canonical);
+            Object.keys(subjectColors || {}).forEach(subject => {
+                if(subjectKey(subject) === key && subject !== canonical) delete subjectColors[subject];
+            });
+            subjectColors[canonical] = color;
+            return canonical;
+        }
+
+        function consolidateSubjectNames({ save = false } = {}) {
+            const canonicalByKey = new Map();
+            const scoreName = (subjectName) => {
+                let score = 0;
+                if(subjectColors[subjectName]) score += 1000;
+                score += (tasks || []).filter(t => subjectsMatch(t.subject, subjectName)).length;
+                return score;
+            };
+            const register = (subjectName) => {
+                const trimmed = String(subjectName || '').trim();
+                if(!trimmed) return;
+                const key = subjectKey(trimmed);
+                if(key === 'general') {
+                    canonicalByKey.set(key, 'General');
+                    return;
+                }
+                const existing = canonicalByKey.get(key);
+                if(!existing || scoreName(trimmed) > scoreName(existing)) {
+                    canonicalByKey.set(key, trimmed);
+                }
+            };
+            Object.keys(subjectColors || {}).forEach(register);
+            (tasks || []).forEach(task => register(task.subject));
+
+            let changed = false;
+            const nextColors = {};
+            Object.entries(subjectColors || {}).forEach(([subjectName, color]) => {
+                const canonical = canonicalByKey.get(subjectKey(subjectName)) || subjectName;
+                if(!nextColors[canonical]) nextColors[canonical] = color;
+                else if(!subjectsMatch(subjectName, canonical)) changed = true;
+            });
+            if(JSON.stringify(nextColors) !== JSON.stringify(subjectColors)) {
+                subjectColors = nextColors;
+                changed = true;
+            }
+
+            tasks = tasks.map(task => {
+                const canonical = canonicalByKey.get(subjectKey(task.subject || 'General'))
+                    || resolveCanonicalSubject(task.subject);
+                if((task.subject || '') !== canonical) {
+                    changed = true;
+                    return { ...task, subject: canonical };
+                }
+                return task;
+            });
+
+            if(changed && save) saveData({ skipUndoRecord: true, skipAutoSchedule: true });
+            return changed;
+        }
+
         function normalizeTask(task = {}) {
             const normalizedPriority = ['Low', 'Medium', 'High'].includes(task.priority) ? task.priority : 'Medium';
             const normalizedDifficulty = ['Easy', 'Medium', 'Hard'].includes(task.difficulty) ? task.difficulty : 'Medium';
@@ -5182,7 +5284,7 @@
             return enforceScheduleTypeFieldSeparation({
                 id: task.id || generateId(),
                 title: String(task.title || task.name || 'Untitled Assignment'),
-                subject: String(task.subject || 'General'),
+                subject: resolveCanonicalSubject(task.subject || 'General'),
                 date: normalizedEventDate,
                 dateSource: normalizedDateSource,
                 dueDate: normalizedDueDate,
@@ -7757,7 +7859,7 @@
 
         function getTaskColor(t) {
             if(!t) return '#dc2626';
-            return subjectColors[t.subject] || t.color || '#dc2626';
+            return getSubjectColorValue(t.subject) || t.color || '#dc2626';
         }
 
         function syncAllTaskDependencies() {
@@ -8075,10 +8177,16 @@
         }
 
         function getAllSubjectNames() {
-            const subjects = new Set();
-            Object.keys(subjectColors || {}).forEach(s => { if(s && s.trim()) subjects.add(s.trim()); });
-            (tasks || []).forEach(t => { if(t?.subject && t.subject.trim()) subjects.add(t.subject.trim()); });
-            return Array.from(subjects).sort((a, b) => a.localeCompare(b));
+            const subjects = new Map();
+            const addSubject = (name) => {
+                const trimmed = String(name || '').trim();
+                if(!trimmed) return;
+                const canonical = resolveCanonicalSubject(trimmed);
+                subjects.set(subjectKey(canonical), canonical);
+            };
+            Object.keys(subjectColors || {}).forEach(addSubject);
+            (tasks || []).forEach(t => addSubject(t.subject));
+            return Array.from(subjects.values()).sort((a, b) => a.localeCompare(b));
         }
 
         let subjectSuggestionBlurTimer = null;
@@ -9522,15 +9630,16 @@
                     showNotification(quickParsed.errors[0], 'error');
                     return false;
                 }
+                const subject = resolveCanonicalSubject(quickParsed.subject || 'General');
                 const sharedFields = {
                     id: generateId(),
                     title: parsed.title,
-                    subject: quickParsed.subject || 'General',
+                    subject,
                     scheduleType: quickParsed.scheduleType || 'flexible',
                     duration: quickParsed.duration || null,
                     priority: quickParsed.priority || 'Medium',
                     difficulty: quickParsed.difficulty || 'Medium',
-                    color: subjectColors[quickParsed.subject] || '#b91c1c',
+                    color: getSubjectColorValue(subject) || '#b91c1c',
                     mustBeBefore: quickParsed.mustBeBefore || [],
                     mustBeAfter: quickParsed.mustBeAfter || [],
                     mustBeDifferentDay: quickParsed.mustBeDifferentDay || [],
@@ -9541,7 +9650,7 @@
                     weekDueOnly: false,
                     repeatNoAutoTime: false
                 };
-                if(quickParsed.subject) subjectColors[quickParsed.subject] = sharedFields.color;
+                setSubjectColorValue(subject, sharedFields.color);
                 let baseTask;
                 if(quickParsed.scheduleType === 'date' && quickParsed.date) {
                     const fixed = quickParsed.exactDateTiming === 'fixed' && quickParsed.time;
@@ -9733,10 +9842,12 @@
             }
 
             if(parsed.action === 'subject') {
-                const subject = String(parsed.subject || '').trim() || 'General';
+                const subject = resolveCanonicalSubject(String(parsed.subject || '').trim() || 'General');
                 mutateClassifyData(() => {
-                    subjectColors[subject] = subjectColors[subject] || getTaskColor(task);
-                    tasks = tasks.map(t => t.id === taskId ? { ...t, subject, color: subjectColors[subject] } : t);
+                    setSubjectColorValue(subject, getSubjectColorValue(subject) || getTaskColor(task));
+                    tasks = tasks.map(t => t.id === taskId
+                        ? { ...t, subject, color: getSubjectColorValue(subject) || getTaskColor(t) }
+                        : t);
                 }, { seedTaskIds: [taskId] });
                 showNotification(`Set "${task.title}" subject to ${subject}`, 'success');
                 return true;
@@ -10159,6 +10270,7 @@
                 result.warnings.push('No subject detected — using General.');
                 result.subject = 'General';
             }
+            result.subject = resolveCanonicalSubject(result.subject);
 
             return result;
         }
@@ -10405,20 +10517,25 @@
 
         function getSubjectStats() {
             const stats = {};
-            (tasks || []).forEach(t => {
-                const subject = (t?.subject || 'General').trim() || 'General';
+            const ensureSubject = (name) => {
+                const subject = resolveCanonicalSubject(name || 'General');
                 if(!stats[subject]) {
-                    stats[subject] = { count: 0, color: subjectColors[subject] || t.color || '#dc2626' };
+                    stats[subject] = { count: 0, color: getSubjectColorValue(subject) || '#dc2626' };
                 }
+                return subject;
+            };
+            (tasks || []).forEach(t => {
+                const subject = ensureSubject(t?.subject || 'General');
                 stats[subject].count += 1;
                 if(!stats[subject].color && t.color) stats[subject].color = t.color;
             });
-            Object.keys(subjectColors || {}).forEach(subject => {
-                if(!subject || !subject.trim()) return;
-                if(!stats[subject]) stats[subject] = { count: 0, color: subjectColors[subject] };
-                if(subjectColors[subject]) stats[subject].color = subjectColors[subject];
+            Object.keys(subjectColors || {}).forEach(subjectName => {
+                if(!subjectName || !subjectName.trim()) return;
+                const subject = ensureSubject(subjectName);
+                const savedColor = getSubjectColorValue(subject);
+                if(savedColor) stats[subject].color = savedColor;
             });
-            if(!stats.General) stats.General = { count: 0, color: subjectColors.General || '#64748b' };
+            if(!stats.General) stats.General = { count: 0, color: getSubjectColorValue('General') || '#64748b' };
             return stats;
         }
 
@@ -10468,8 +10585,10 @@
             const nameInput = row.querySelector('[data-subject-name]');
             const colorInput = row.querySelector('[data-subject-color]');
             const requestedName = (nameInput?.value || original).trim();
-            const newName = original === 'General' ? 'General' : requestedName;
-            const newColor = (colorInput?.value || subjectColors[original] || '#dc2626').trim();
+            const newName = original === 'General'
+                ? 'General'
+                : resolveCanonicalSubject(requestedName);
+            const newColor = (colorInput?.value || getSubjectColorValue(original) || '#dc2626').trim();
 
             if(!newName) {
                 showNotification('Subject name cannot be empty', 'error');
@@ -10489,25 +10608,27 @@
             recordClassifyUndoPoint({ force: true });
             let changed = false;
 
-            if(newName !== original) {
+            if(!subjectsMatch(newName, original)) {
                 tasks = tasks.map(t => {
-                    if((t.subject || '').trim() === original) {
+                    if(subjectsMatch(t.subject, original)) {
                         return { ...t, subject: newName, color: newColor };
                     }
                     return t;
                 });
-                delete subjectColors[original];
+                Object.keys(subjectColors || {}).forEach(subjectName => {
+                    if(subjectsMatch(subjectName, original)) delete subjectColors[subjectName];
+                });
                 changed = true;
             }
 
             const targetSubject = newName;
-            if((subjectColors[targetSubject] || '').toLowerCase() !== newColor.toLowerCase()) {
-                subjectColors[targetSubject] = newColor;
+            setSubjectColorValue(targetSubject, newColor);
+            if((getSubjectColorValue(targetSubject) || '').toLowerCase() !== newColor.toLowerCase()) {
                 changed = true;
             }
 
             const recoloredTasks = tasks.map(t => {
-                if((t.subject || '').trim() === targetSubject && (t.color || '').toLowerCase() !== newColor.toLowerCase()) {
+                if(subjectsMatch(t.subject, targetSubject) && (t.color || '').toLowerCase() !== newColor.toLowerCase()) {
                     changed = true;
                     return { ...t, color: newColor };
                 }
@@ -11006,26 +11127,28 @@
         }
 
         function removeSubject(subjectName) {
-            const subject = (subjectName || '').trim();
-            if(!subject || subject === 'General') return;
-            const affected = tasks.filter(t => (t.subject || '').trim() === subject).length;
+            const subject = resolveCanonicalSubject((subjectName || '').trim());
+            if(!subject || subjectsMatch(subject, 'General')) return;
+            const affected = tasks.filter(t => subjectsMatch(t.subject, subject)).length;
             const message = affected > 0
                 ? `Remove ${confirmBoldName(subject)}? ${affected} assignment${affected === 1 ? '' : 's'} will be moved to General.`
                 : `Remove ${confirmBoldName(subject)} from your saved subjects?`;
             confirmAction('Remove Subject?', message, 'Remove', () => {
                 mutateClassifyData(() => {
                     tasks = tasks.map(t => {
-                        if((t.subject || '').trim() === subject) {
+                        if(subjectsMatch(t.subject, subject)) {
                             return {
                                 ...t,
                                 subject: 'General',
-                                color: subjectColors.General || '#64748b'
+                                color: getSubjectColorValue('General') || '#64748b'
                             };
                         }
                         return t;
                     });
-                    delete subjectColors[subject];
-                    if(!subjectColors.General) subjectColors.General = '#64748b';
+                    Object.keys(subjectColors || {}).forEach(subjectName => {
+                        if(subjectsMatch(subjectName, subject)) delete subjectColors[subjectName];
+                    });
+                    if(!getSubjectColorValue('General')) setSubjectColorValue('General', '#64748b');
                 });
                 renderSubjectManager();
                 showNotification(`Removed subject "${subject}"`, 'success');
@@ -11908,9 +12031,10 @@
         function syncSubjectColor(subjectName) {
             const colorInput = document.getElementById('inputColor');
             const label = document.getElementById('colorSyncLabel');
+            const savedColor = getSubjectColorValue(subjectName);
             
-            if (subjectColors[subjectName]) {
-                colorInput.value = subjectColors[subjectName];
+            if (savedColor) {
+                colorInput.value = savedColor;
                 label.innerText = "✓ Color synced";
                 label.classList.add('text-emerald-500', 'dark:text-emerald-400', 'font-bold');
                 label.classList.remove('text-slate-600', 'dark:text-slate-300');
@@ -11938,7 +12062,14 @@
         }
 
         function handleSubjectInputBlur() {
-            subjectSuggestionBlurTimer = setTimeout(hideSubjectSuggestionMenu, 150);
+            subjectSuggestionBlurTimer = setTimeout(() => {
+                hideSubjectSuggestionMenu();
+                const input = document.getElementById('inputSubject');
+                if(input && input.value.trim()) {
+                    input.value = resolveCanonicalSubject(input.value);
+                    syncSubjectColor(input.value);
+                }
+            }, 150);
         }
 
         function isExactDateFixedFromForm() {
@@ -12435,7 +12566,7 @@
             }
 
             const title = document.getElementById('inputTitle').value.trim();
-            const subject = (document.getElementById('inputSubject').value || 'General').trim();
+            const subject = resolveCanonicalSubject((document.getElementById('inputSubject').value || 'General').trim());
             const color = document.getElementById('inputColor').value;
             const scheduleTypeRaw = document.getElementById('inputScheduleType').value;
             const date = document.getElementById('inputDate').value;
@@ -12491,7 +12622,7 @@
                 return;
             }
             // Update Global Subject Color Map
-            subjectColors[subject] = color;
+            setSubjectColorValue(subject, color);
 
             const inputTimeValue = isExactDateFixed ? (document.getElementById('inputTime').value || null) : null;
             const repeatNoAutoTime = !weekDueOnly && repeatRule.type === 'daily' && !inputTimeValue;
