@@ -11757,12 +11757,15 @@
             }
 
             mutateClassifyData(() => {
+                const currentTask = tasks.find(t => t.id === taskId);
+                if(!currentTask) return;
+
                 if(timeStr) {
                     let conflict = findSchedulingConflict(
                         dateStr,
                         timeStr,
-                        getTaskDurationMinutes(task),
-                        task.id
+                        getTaskDurationMinutes(currentTask),
+                        currentTask.id
                     );
                     while(conflict && !isFixedTask(conflict) && !isUserTimeLockedTask(conflict)) {
                         conflict.time = null;
@@ -11771,15 +11774,13 @@
                         conflict = findSchedulingConflict(
                             dateStr,
                             timeStr,
-                            getTaskDurationMinutes(task),
-                            task.id
+                            getTaskDurationMinutes(currentTask),
+                            currentTask.id
                         );
                     }
                 }
 
-                const task = tasks.find(t => t.id === taskId);
-                if(!task) return;
-                const movedTask = applyExactDateCalendarMove(task, dateStr, timeStr || null);
+                const movedTask = applyExactDateCalendarMove(currentTask, dateStr, timeStr || null);
                 tasks = tasks.map(t => t.id === taskId ? movedTask : t);
             }, { seedTaskIds: [taskId] });
 
