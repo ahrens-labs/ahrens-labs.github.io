@@ -9686,11 +9686,7 @@
 
             const addMatch = commandText.match(/^(?:add|create)\s+(?:assignment\s+)?(.+)$/i);
             if(addMatch) {
-                const rest = addMatch[1].trim();
-                const splitRe = /\s+(?=due|by|after|before|different|\d+\s*m|\d+m|high|low|urgent|subject|on|for|today|tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/i;
-                const parts = rest.split(splitRe);
-                const title = (parts[0] || rest).trim();
-                const details = parts.slice(1).join(' ').trim();
+                const { title, details } = splitCreateAssignmentTitleAndDetails(addMatch[1].trim());
                 if(!title) return { error: 'Add a title, e.g. add Speech due friday.' };
                 return { action: 'create', title, details };
             }
@@ -9710,7 +9706,7 @@
             const bareTimeMatch = parseCommandBareTimeMatch(commandText, presetTaskQuery);
             if(bareTimeMatch) return bareTimeMatch;
 
-            let             match = commandText.match(/^start\s+(.+)$/i);
+            let match = commandText.match(/^start\s+(.+)$/i);
             if(match) {
                 const startTarget = match[1].trim();
                 if(!parseFlexibleCommandTime(startTarget)) {
@@ -10127,6 +10123,9 @@
                     return false;
                 }
                 const subject = resolveCanonicalSubject(quickParsed.subject || 'General');
+                const repeatRule = normalizeRepeatRule(quickParsed.repeatRule || { type: 'none' });
+                const hasRepeat = repeatRule.type !== 'none';
+                const weekDueOnly = hasRepeat ? Boolean(quickParsed.weekDueOnly) : false;
                 const sharedFields = {
                     id: generateId(),
                     title: parsed.title,
@@ -10142,8 +10141,8 @@
                     notes: quickParsed.notes || '',
                     completed: false,
                     completedDate: null,
-                    repeatRule: normalizeRepeatRule({ type: 'none' }),
-                    weekDueOnly: false,
+                    repeatRule: hasRepeat ? repeatRule : normalizeRepeatRule({ type: 'none' }),
+                    weekDueOnly,
                     repeatNoAutoTime: false
                 };
                 setSubjectColorValue(subject, sharedFields.color);
@@ -10186,13 +10185,44 @@
                         assignmentMode: 'ADJUSTABLE'
                     };
                 }
-                const normalizedTask = normalizeTask(baseTask);
-                mutateClassifyData(() => {
-                    tasks.push(normalizedTask);
-                    applyReciprocalDependenciesForTask(normalizedTask.id);
-                    syncAllTaskDependencies();
-                }, { seedTaskIds: [normalizedTask.id], cloudSyncNew: true });
-                showNotification(`Created "${normalizedTask.title}"`, 'success');
+                if(hasRepeat) {
+                    const groupId = generateId();
+                    const startWeekKey = getRepeatStartWeekKey({
+                        scheduleType: quickParsed.scheduleType,
+                        date: quickParsed.date,
+                        dueDate: quickParsed.dueDate,
+                        week: quickParsed.week
+                    });
+                    const template = normalizeTask({
+                        ...baseTask,
+                        repeatGroupId: groupId,
+                        repeatWeekKey: startWeekKey,
+                        repeatRule,
+                        weekDueOnly,
+                        repeatNoAutoTime: false
+                    });
+                    mutateClassifyData(() => {
+                        addRepeatWeekOccurrences(groupId, startWeekKey, repeatRule, template);
+                        tasks.filter(t => t.repeatGroupId === groupId).forEach(t => applyReciprocalDependenciesForTask(t.id));
+                        pruneRepeatFutureWeeks();
+                        syncAllTaskDependencies();
+                    }, { weekKeys: [startWeekKey], cloudSyncNew: true });
+                    const repeatLabel = formatRepeatLabel(repeatRule);
+                    showNotification(
+                        repeatLabel
+                            ? `Created recurring "${parsed.title}" (${repeatLabel})`
+                            : `Created recurring "${parsed.title}"`,
+                        'success'
+                    );
+                } else {
+                    const normalizedTask = normalizeTask(baseTask);
+                    mutateClassifyData(() => {
+                        tasks.push(normalizedTask);
+                        applyReciprocalDependenciesForTask(normalizedTask.id);
+                        syncAllTaskDependencies();
+                    }, { seedTaskIds: [normalizedTask.id], cloudSyncNew: true });
+                    showNotification(`Created "${normalizedTask.title}"`, 'success');
+                }
                 if(quickParsed.warnings?.length) showNotification(quickParsed.warnings.join(' '), 'info');
                 return true;
             }
@@ -10615,6 +10645,87 @@
             return `${before} ${after}`.replace(/\s{2,}/g, ' ').trim();
         }
 
+        const QUICK_ENTRY_REPEAT_WEEKDAY = '(?:monday|mon|tuesday|tue|tues|wednesday|wed|thursday|thu|thur|thurs|friday|fri|saturday|sat|sunday|sun)';
+
+        function extractQuickEntryWeekdays(text) {
+            const days = [];
+            const pattern = new RegExp(`\\b${QUICK_ENTRY_REPEAT_WEEKDAY}\\b`, 'gi');
+            let match;
+            while((match = pattern.exec(text)) !== null) {
+                const key = match[0].toLowerCase();
+                if(Object.prototype.hasOwnProperty.call(QUICK_ENTRY_WEEKDAYS, key)) {
+                    days.push(QUICK_ENTRY_WEEKDAYS[key]);
+                }
+            }
+            return Array.from(new Set(days)).sort((a, b) => a - b);
+        }
+
+        function weekdayNameForQuickEntry(weekday) {
+            const names = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+            return names[weekday] || 'friday';
+        }
+
+        function parseQuickEntryRepeatFragment(working) {
+            let match = working.match(/\b(?:repeats?\s+)?(?:every\s+day|daily)\b/i);
+            if(match) {
+                return {
+                    match,
+                    repeatRule: normalizeRepeatRule({ type: 'daily' }),
+                    weekDueOnly: false
+                };
+            }
+
+            match = working.match(/\b(?:repeats?\s+)?every\s+weekdays?\b/i);
+            if(match) {
+                return {
+                    match,
+                    repeatRule: normalizeRepeatRule({ type: 'custom', days: [1, 2, 3, 4, 5] }),
+                    weekDueOnly: false
+                };
+            }
+
+            match = working.match(new RegExp(`\\b(?:repeats?\\s+)?(?:every|weekly)(?:\\s+on)?\\s+((?:${QUICK_ENTRY_REPEAT_WEEKDAY})(?:\\s*(?:,|and|\\s+)\\s*(?:${QUICK_ENTRY_REPEAT_WEEKDAY}))*)\\b`, 'i'));
+            if(match) {
+                const days = extractQuickEntryWeekdays(match[0]);
+                if(days.length > 0) {
+                    return {
+                        match,
+                        repeatRule: normalizeRepeatRule({ type: days.length === 1 ? 'weekly' : 'custom', days }),
+                        weekDueOnly: days.length === 1
+                    };
+                }
+            }
+
+            match = working.match(/\b(?:repeats?\s+)?weekly\b/i);
+            if(match) {
+                return {
+                    match,
+                    repeatRule: normalizeRepeatRule({ type: 'weekly', days: [5] }),
+                    weekDueOnly: true
+                };
+            }
+
+            return null;
+        }
+
+        function splitCreateAssignmentTitleAndDetails(rest) {
+            const splitRe = /\s+(?=due|by|after|before|different|every|repeat|repeats|daily|weekly|\d+\s*m|\d+m|high|low|urgent|subject|on|for|today|tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/i;
+            const parts = rest.split(splitRe);
+            let titlePart = (parts[0] || rest).trim();
+            let details = parts.slice(1).join(' ').trim();
+            const titleWords = titlePart.split(/\s+/).filter(Boolean);
+            if(titleWords.length > 1) {
+                if(!details) {
+                    titlePart = titleWords[0];
+                    details = titleWords.slice(1).join(' ');
+                } else {
+                    details = `${titleWords.slice(1).join(' ')} ${details}`.trim();
+                    titlePart = titleWords[0];
+                }
+            }
+            return { title: titlePart, details };
+        }
+
         function parseAssignmentQuickEntry(text, { title = '', excludeTaskId = null } = {}) {
             let working = normalizeClassifyCommandText(text).trim();
             const result = {
@@ -10633,6 +10744,8 @@
                 mustBeBefore: [],
                 mustBeDifferentDay: [],
                 notes: null,
+                repeatRule: null,
+                weekDueOnly: false,
                 warnings: [],
                 errors: []
             };
@@ -10674,6 +10787,21 @@
                 const minutes = Math.max(1, Math.round(isHours ? value * 60 : value));
                 result.duration = String(minutes);
                 working = stripQuickEntryMatch(working, durationMatch);
+            }
+
+            const repeatParsed = parseQuickEntryRepeatFragment(working);
+            if(repeatParsed) {
+                result.repeatRule = repeatParsed.repeatRule;
+                result.weekDueOnly = repeatParsed.weekDueOnly;
+                working = stripQuickEntryMatch(working, repeatParsed.match);
+                if(repeatParsed.weekDueOnly && repeatParsed.repeatRule.days.length === 1) {
+                    const weekday = repeatParsed.repeatRule.days[0];
+                    if(!result.dueDate) {
+                        result.scheduleType = 'week';
+                        result.dueDate = resolveQuickEntryDateToken(weekdayNameForQuickEntry(weekday));
+                        if(result.dueDate) result.week = getWeekKeyFromDateStr(result.dueDate);
+                    }
+                }
             }
 
             const priorityMatch = working.match(/\b(high|medium|low|urgent)\s+priority\b/i)
@@ -10765,7 +10893,7 @@
                     const clean = word.replace(/[.,;:!?]+$/, '');
                     if(!/^[A-Za-z][A-Za-z0-9&'-]*$/.test(clean)) return false;
                     const lower = clean.toLowerCase();
-                    if(['due', 'on', 'at', 'by', 'for', 'must', 'be', 'after', 'before', 'minutes', 'minute', 'mins', 'min', 'high', 'low', 'urgent', 'easy', 'hard'].includes(lower)) return false;
+                    if(['due', 'on', 'at', 'by', 'for', 'must', 'be', 'after', 'before', 'minutes', 'minute', 'mins', 'min', 'high', 'low', 'urgent', 'easy', 'hard', 'every', 'repeat', 'repeats', 'daily', 'weekly', 'weekday', 'weekdays'].includes(lower)) return false;
                     if(titleLower.includes(lower)) return false;
                     return true;
                 });
@@ -10784,7 +10912,8 @@
             if(result.scheduleType === 'week' && !result.week) {
                 result.week = getCurrentWeekKey();
             }
-            if(result.scheduleType === 'week' && !result.dueDate) {
+            const hasRepeat = result.repeatRule && result.repeatRule.type !== 'none';
+            if(result.scheduleType === 'week' && !result.dueDate && !hasRepeat) {
                 result.errors.push('Could not parse a due date. Try "due friday" or "friday 5pm".');
             }
             if(result.scheduleType === 'date' && !result.date) {
@@ -10806,9 +10935,10 @@
             document.getElementById('inputPriority').value = parsed.priority || 'Medium';
             document.getElementById('inputDifficulty').value = parsed.difficulty || 'Medium';
             document.getElementById('inputNotes').value = parsed.notes || '';
-            document.getElementById('inputRepeatType').value = 'none';
-            document.getElementById('inputWeekDueOnly').checked = false;
-            setCheckedDays('.repeat-day', []);
+            const repeatRule = normalizeRepeatRule(parsed.repeatRule || { type: 'none' });
+            document.getElementById('inputRepeatType').value = repeatRule.type === 'none' ? 'none' : repeatRule.type;
+            document.getElementById('inputWeekDueOnly').checked = Boolean(parsed.weekDueOnly);
+            setCheckedDays('.repeat-day', repeatRule.days || []);
             updateRepeatInputs();
 
             const scheduleType = parsed.scheduleType || 'flexible';
