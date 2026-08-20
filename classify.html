@@ -5617,6 +5617,30 @@
             return task;
         }
 
+        function applyExactDateCalendarMove(task, dateStr, timeStr = null) {
+            if(!task || !dateStr) return task;
+            const started = isAssignmentStarted(task);
+            const updates = {
+                scheduleType: 'date',
+                date: dateStr,
+                dateSource: 'user',
+                dueDate: null,
+                week: null,
+                weekDueOnly: false
+            };
+            if(timeStr) {
+                updates.time = timeStr;
+                updates.timeSource = 'user';
+                updates.assignmentMode = 'FIXED';
+            } else if(!started) {
+                updates.time = null;
+                updates.timeSource = null;
+                updates.assignmentMode = 'ADJUSTABLE';
+                updates.startedAt = null;
+            }
+            return enforceScheduleTypeFieldSeparation(normalizeTask({ ...task, ...updates }));
+        }
+
         function getTaskTargetWeekKey(task) {
             if(!task) return null;
             if(task.repeatWeekKey && /^\d{4}-W\d{2}$/.test(task.repeatWeekKey)) return task.repeatWeekKey;
@@ -9156,9 +9180,9 @@
                     date: fragment.dueDate,
                     dueDate: null,
                     dueTime: fragment.dueTime || null,
-                    time: fragment.dueTime || null,
-                    week: getWeekKeyFromDateStr(fragment.dueDate),
-                    exactDateTiming: fragment.dueTime ? 'fixed' : 'adjustable'
+                    time: null,
+                    week: null,
+                    exactDateTiming: 'adjustable'
                 };
             }
             return fragment;
@@ -9571,8 +9595,10 @@
                 mutateClassifyData(() => {
                     tasks = tasks.map(t => {
                         if(t.id !== taskId) return t;
-                        const merged = normalizeTask(ensureTargetWeekScheduleType({ ...t, ...updates }));
-                        return merged;
+                        const merged = normalizeTask({ ...t, ...updates });
+                        return parsed.action === 'move'
+                            ? enforceScheduleTypeFieldSeparation(merged)
+                            : ensureTargetWeekScheduleType(merged);
                     });
                 }, { seedTaskIds: [taskId] });
                 const label = updates.dueDate
@@ -11168,24 +11194,9 @@
                     }
                 }
 
-                const dragUpdates = {
-                    date: dateStr,
-                    week: isTargetWeekAssignment(task)
-                        ? (task.week || getWeekKeyFromDateStr(dateStr))
-                        : getWeekKeyFromDateStr(dateStr),
-                    dateSource: isTargetWeekAssignment(task) ? 'auto' : 'user'
-                };
-                if(timeStr) {
-                    dragUpdates.time = timeStr;
-                    dragUpdates.timeSource = 'user';
-                    dragUpdates.assignmentMode = 'FIXED';
-                } else if(!isAssignmentStarted(task)) {
-                    dragUpdates.time = null;
-                    dragUpdates.timeSource = null;
-                    dragUpdates.assignmentMode = 'ADJUSTABLE';
-                }
-
-                const movedTask = ensureTargetWeekScheduleType(normalizeTask({ ...task, ...dragUpdates }));
+                const task = tasks.find(t => t.id === taskId);
+                if(!task) return;
+                const movedTask = applyExactDateCalendarMove(task, dateStr, timeStr || null);
                 tasks = tasks.map(t => t.id === taskId ? movedTask : t);
             }, { seedTaskIds: [taskId] });
 
