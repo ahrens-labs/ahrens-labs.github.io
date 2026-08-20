@@ -2768,6 +2768,13 @@
                                 <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Date (Event)</label>
                                 <input id="inputDate" type="date" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
                             </div>
+                            <div id="exactDateTimingWrapper" class="hidden">
+                                <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Event Timing</label>
+                                <select id="inputExactDateTiming" onchange="updateScheduleInputs()" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
+                                    <option value="adjustable" selected>Adjustable — auto-schedule start time</option>
+                                    <option value="fixed">Fixed — set a specific start time</option>
+                                </select>
+                            </div>
                         </div>
                         <div id="cl-wt-week-fields" class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div id="weekInputWrapper" class="hidden">
@@ -10384,6 +10391,14 @@
             subjectSuggestionBlurTimer = setTimeout(hideSubjectSuggestionMenu, 150);
         }
 
+        function isExactDateFixedFromForm() {
+            const scheduleType = document.getElementById('inputScheduleType')?.value || 'date';
+            const repeatType = document.getElementById('inputRepeatType')?.value || 'none';
+            const weekDueOnly = Boolean(document.getElementById('inputWeekDueOnly')?.checked) && repeatType === 'weekly';
+            if(scheduleType !== 'date' || weekDueOnly) return false;
+            return (document.getElementById('inputExactDateTiming')?.value || 'adjustable') === 'fixed';
+        }
+
         let lastScheduleTypeInput = null;
 
         function updateScheduleInputs() {
@@ -10392,6 +10407,8 @@
             const weekDueOnly = Boolean(document.getElementById('inputWeekDueOnly')?.checked) && repeatType === 'weekly';
             const weekWrapper = document.getElementById('weekInputWrapper');
             const eventDateWrapper = document.getElementById('eventDateWrapper');
+            const exactDateTimingWrapper = document.getElementById('exactDateTimingWrapper');
+            const exactDateTimingInput = document.getElementById('inputExactDateTiming');
             const startTimeWrapper = document.getElementById('startTimeWrapper');
             const dueDateWrapper = document.getElementById('dueDateWrapper');
             const dueTimeWrapper = document.getElementById('dueTimeWrapper');
@@ -10402,10 +10419,13 @@
             const dueTimeInput = document.getElementById('inputDueTime');
             if(!weekWrapper || !eventDateWrapper || !startTimeWrapper || !dueDateWrapper || !dueTimeWrapper || !dateInput || !dueDateInput || !weekInput || !timeInput || !dueTimeInput) return;
 
+            const exactDateFixed = isExactDateFixedFromForm();
+
             if(lastScheduleTypeInput && lastScheduleTypeInput !== scheduleType) {
                 if(scheduleType === 'date') {
                     weekInput.value = '';
                     dueDateInput.value = '';
+                    if(exactDateTimingInput) exactDateTimingInput.value = 'adjustable';
                 } else if(scheduleType === 'week') {
                     dateInput.value = '';
                     timeInput.value = '';
@@ -10418,6 +10438,7 @@
             }
             lastScheduleTypeInput = scheduleType;
             if(scheduleType === 'week') {
+                if(exactDateTimingWrapper) exactDateTimingWrapper.classList.add('hidden');
                 weekWrapper.classList.remove('hidden');
                 eventDateWrapper.classList.add('hidden');
                 startTimeWrapper.classList.add('hidden');
@@ -10429,6 +10450,7 @@
                 dueTimeInput.disabled = false;
                 if(!weekInput.value) weekInput.value = getCurrentWeekKey();
             } else if(scheduleType === 'flexible') {
+                if(exactDateTimingWrapper) exactDateTimingWrapper.classList.add('hidden');
                 weekWrapper.classList.add('hidden');
                 eventDateWrapper.classList.add('hidden');
                 startTimeWrapper.classList.add('hidden');
@@ -10439,16 +10461,23 @@
                 dueDateInput.disabled = false;
                 dueTimeInput.disabled = false;
             } else {
+                if(exactDateTimingWrapper) exactDateTimingWrapper.classList.remove('hidden');
                 weekWrapper.classList.add('hidden');
                 eventDateWrapper.classList.remove('hidden');
-                startTimeWrapper.classList.remove('hidden');
                 dueDateWrapper.classList.add('hidden');
                 dueTimeWrapper.classList.remove('hidden');
                 dateInput.disabled = false;
-                timeInput.disabled = false;
                 dueDateInput.value = '';
                 dueDateInput.disabled = true;
                 dueTimeInput.disabled = false;
+                if(exactDateFixed) {
+                    startTimeWrapper.classList.remove('hidden');
+                    timeInput.disabled = false;
+                } else {
+                    startTimeWrapper.classList.add('hidden');
+                    timeInput.value = '';
+                    timeInput.disabled = true;
+                }
             }
 
             if(weekDueOnly) {
@@ -10567,6 +10596,7 @@
             document.getElementById('inputTitle').value = '';
             document.getElementById('inputSubject').value = '';
             document.getElementById('inputScheduleType').value = 'date';
+            document.getElementById('inputExactDateTiming').value = 'adjustable';
             document.getElementById('inputDate').value = '';
             document.getElementById('inputDueDate').value = '';
             document.getElementById('inputWeek').value = getCurrentWeekKey();
@@ -10818,6 +10848,12 @@
                 showNotification("Please choose an event date", 'error');
                 return;
             }
+            const isExactDateFixed = isExactDateSchedule && isExactDateFixedFromForm();
+            if(isExactDateFixed && !document.getElementById('inputTime')?.value) {
+                showNotification('Please choose a start time for fixed exact-date events', 'error');
+                document.getElementById('inputTime')?.focus();
+                return;
+            }
             if(mustBeAfter.some(id => mustBeBefore.includes(id))) {
                 showNotification('An assignment cannot be both "before" and "after" the same item', 'error');
                 return;
@@ -10825,18 +10861,10 @@
             // Update Global Subject Color Map
             subjectColors[subject] = color;
 
-            const inputTimeValue = (scheduleType === 'date' && !weekDueOnly) ? (document.getElementById('inputTime').value || null) : null;
+            const inputTimeValue = isExactDateFixed ? (document.getElementById('inputTime').value || null) : null;
             const repeatNoAutoTime = !weekDueOnly && repeatRule.type === 'daily' && !inputTimeValue;
             const existingTask = editingId ? tasks.find(t => t.id === editingId) : null;
-            const preserveAutoSource = Boolean(existingTask && existingTask.timeSource === 'auto' && existingTask.time === inputTimeValue);
-            const preserveAdjustableAuto = Boolean(
-                existingTask &&
-                getTaskAssignmentMode(existingTask) === 'ADJUSTABLE' &&
-                existingTask.timeSource === 'auto' &&
-                existingTask.time === inputTimeValue
-            );
-            const isFixedInput = scheduleType === 'date' && !weekDueOnly && Boolean(date) && Boolean(inputTimeValue) && !preserveAdjustableAuto;
-            const assignmentMode = isFixedInput ? 'FIXED' : 'ADJUSTABLE';
+            const assignmentMode = isExactDateFixed ? 'FIXED' : 'ADJUSTABLE';
             const preserveStartedTargetWeekSlot = scheduleType === 'week'
                 && Boolean(existingTask)
                 && isAssignmentStarted(existingTask);
@@ -10871,9 +10899,7 @@
                     dueTime: dueTimeRaw,
                     week: null,
                     time: inputTimeValue,
-                    timeSource: inputTimeValue
-                        ? (((preserveAutoSource || preserveAdjustableAuto) && assignmentMode === 'ADJUSTABLE') ? 'auto' : 'user')
-                        : null,
+                    timeSource: inputTimeValue ? 'user' : null,
                     assignmentMode,
                     startedAt: (assignmentMode === 'FIXED' && existingTask?.startedAt && existingTask.time === inputTimeValue)
                         ? existingTask.startedAt
@@ -11009,13 +11035,13 @@
                             scheduleType: weekDueOnly
                                 ? 'week'
                                 : (isEditedInstance ? scheduleType : (isTargetWeekAssignment(t) ? 'week' : t.scheduleType)),
-                            assignmentMode: weekDueOnly ? 'ADJUSTABLE' : (inputTimeValue ? (isFixedInput ? 'FIXED' : 'ADJUSTABLE') : 'ADJUSTABLE'),
+                            assignmentMode: weekDueOnly ? 'ADJUSTABLE' : (isExactDateSchedule ? assignmentMode : t.assignmentMode),
                             date: weekDueOnly ? null : t.date,
                             dueDate: instanceDueDate,
                             week: instanceWeekKey,
-                            time: weekDueOnly ? null : t.time,
-                            timeSource: weekDueOnly ? null : (inputTimeValue
-                                ? (((preserveAutoSource || preserveAdjustableAuto) && !isFixedInput) ? 'auto' : 'user')
+                            time: weekDueOnly ? null : (isExactDateSchedule ? (isExactDateFixed ? inputTimeValue : null) : t.time),
+                            timeSource: weekDueOnly ? null : (isExactDateSchedule
+                                ? (isExactDateFixed && inputTimeValue ? 'user' : null)
                                 : t.timeSource),
                             priority: normalizedTaskData.priority,
                             difficulty: normalizedTaskData.difficulty,
@@ -11030,9 +11056,6 @@
                             weekDueOnly,
                             repeatNoAutoTime
                         };
-                        if(!weekDueOnly && inputTimeValue) {
-                            updated.time = inputTimeValue;
-                        }
                         return normalizeTask(updated);
                     });
 
@@ -11113,8 +11136,10 @@
                 ? 'week'
                 : (scheduleMode === 'date' ? 'date' : 'flexible');
             if(scheduleMode === 'date') {
+                const isFixedExact = getTaskAssignmentMode(t) === 'FIXED';
+                document.getElementById('inputExactDateTiming').value = isFixedExact ? 'fixed' : 'adjustable';
                 document.getElementById('inputDate').value = t.date || '';
-                document.getElementById('inputTime').value = t.time || '';
+                document.getElementById('inputTime').value = isFixedExact ? (t.time || '') : '';
                 document.getElementById('inputDueDate').value = '';
                 document.getElementById('inputDueTime').value = t.dueTime || '';
                 document.getElementById('inputWeek').value = getCurrentWeekKey();
