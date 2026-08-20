@@ -301,9 +301,10 @@
             background: rgba(2, 6, 23, 0.72);
         }
         .cl-command-disambiguation__inner {
-            max-width: 72rem;
-            margin: 0 auto;
-            padding: 0.45rem 1rem 0.65rem;
+            width: 100%;
+            max-width: none;
+            margin: 0;
+            padding: 0.45rem 1.25rem 0.65rem;
         }
         .cl-command-disambiguation__prompt {
             margin: 0 0 0.35rem;
@@ -333,18 +334,19 @@
             display: flex;
             align-items: center;
             gap: 0.75rem;
-            max-width: 72rem;
-            margin: 0 auto;
-            padding: 0.55rem 1rem;
+            width: 100%;
+            max-width: none;
+            margin: 0;
+            padding: 0.6rem 1.25rem;
         }
         .cl-command-bar__intro {
             display: none;
             flex-direction: column;
             gap: 0.1rem;
             flex-shrink: 0;
-            min-width: 7.5rem;
+            min-width: 6rem;
         }
-        @media (min-width: 768px) {
+        @media (min-width: 1024px) {
             .cl-command-bar__intro { display: flex; }
         }
         .cl-command-bar__title {
@@ -369,13 +371,16 @@
             display: none;
         }
         .cl-command-bar__input {
-            flex: 1;
+            flex: 1 1 auto;
+            width: 100%;
             min-width: 0;
             border: none;
             background: transparent;
             color: #0f172a;
             font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
-            font-size: 0.82rem;
+            font-size: 0.9rem;
+            line-height: 1.4;
+            padding: 0.35rem 0.15rem;
             outline: none;
         }
         .dark .cl-command-bar__input {
@@ -388,7 +393,7 @@
             color: #64748b;
         }
         .cl-command-bar__hint {
-            display: none;
+            display: inline;
             font-size: 0.68rem;
             color: #94a3b8;
             white-space: nowrap;
@@ -10110,6 +10115,7 @@
 
         function initClassifyCommandLine() {
             syncClassifyCommandLineVisibility();
+            bindClassifyCommandLineShortcut();
             const input = document.getElementById('classifyCommandInput');
             if(!input || input.dataset.bound === 'true') return;
             input.dataset.bound = 'true';
@@ -10128,12 +10134,43 @@
             });
         }
 
+        function isClassifyCommandSlash(event) {
+            return event && (event.key === '/' || event.code === 'Slash');
+        }
+
+        function shouldFocusClassifyCommandLineFromKey(event) {
+            if(!event || !isClassifyCommandSlash(event)) return false;
+            if(event.ctrlKey || event.metaKey || event.altKey) return false;
+            if(typeof isClassifyOrientationOpen === 'function' && isClassifyOrientationOpen()) return false;
+            const input = document.getElementById('classifyCommandInput');
+            if(!input || event.target === input) return false;
+            if(isTypingTarget(event.target)) return false;
+            return areClassifyCommandLineEnabled();
+        }
+
+        function focusClassifyCommandLineFromShortcut(event) {
+            if(!shouldFocusClassifyCommandLineFromKey(event)) return false;
+            event.preventDefault();
+            focusClassifyCommandLine();
+            return true;
+        }
+
         function focusClassifyCommandLine() {
             if(!areClassifyCommandLineEnabled()) return;
+            const bar = document.getElementById('classifyCommandBar');
             const input = document.getElementById('classifyCommandInput');
-            if(!input) return;
-            input.focus();
+            if(!input || !bar || bar.classList.contains('hidden')) return;
+            bar.scrollIntoView({ block: 'nearest' });
+            input.focus({ preventScroll: true });
             input.select();
+        }
+
+        function bindClassifyCommandLineShortcut() {
+            if(document.body.dataset.classifyCommandSlashBound === 'true') return;
+            document.body.dataset.classifyCommandSlashBound = 'true';
+            document.addEventListener('keydown', (event) => {
+                focusClassifyCommandLineFromShortcut(event);
+            }, true);
         }
 
         function stripQuickEntryMatch(text, match) {
@@ -11581,9 +11618,9 @@
                 }
                 return;
             }
-            if (e.key === '/' && !e.ctrlKey && !e.metaKey && !e.altKey && !isTypingTarget(e.target)) {
-                e.preventDefault();
-                focusClassifyCommandLine();
+            if (shouldFocusClassifyCommandLineFromKey(e)) {
+                focusClassifyCommandLineFromShortcut(e);
+                return;
             }
             if (e.key === 'q' && !e.ctrlKey && !e.metaKey && !e.altKey && !isTypingTarget(e.target)) {
                 e.preventDefault();
