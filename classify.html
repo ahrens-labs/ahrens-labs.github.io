@@ -10665,13 +10665,67 @@
             return names[weekday] || 'friday';
         }
 
+        function findCreateAssignmentDetailsStart(rest) {
+            const text = String(rest || '').trim();
+            if(!text) return -1;
+            const weekday = QUICK_ENTRY_DATE_WORDS;
+            const timePat = String.raw`\d{1,2}(?::\d{2})?\s*(?:am|pm)`;
+            const patterns = [
+                /\s+(?:due|by)\b/i,
+                /\s+(?:repeat\s+)?every\b/i,
+                /\s+(?:repeats?\s+)?(?:daily|weekly)\b/i,
+                /\s+(?:after|before|different)\b/i,
+                /\s+\d+\s*(?:m|min|mins|minutes?)\b/i,
+                /\s+\d+m\b/i,
+                /\s+(?:high|low|urgent)\b/i,
+                /\s+subject\b/i,
+                new RegExp(String.raw`\s+(?:on|for)\s+(?:${weekday})\b`, 'i'),
+                new RegExp(String.raw`\s+(?:today|tomorrow|${weekday})\b`, 'i'),
+                new RegExp(String.raw`\s+(?:at\s+)?${timePat}\b`, 'i')
+            ];
+            let earliest = text.length;
+            patterns.forEach(re => {
+                const match = text.match(re);
+                if(match && match.index != null && match.index < earliest) {
+                    earliest = match.index;
+                }
+            });
+            return earliest < text.length ? earliest : -1;
+        }
+
+        function peelCreateAssignmentSubjectFromTitle(titlePart, details) {
+            const titleWords = String(titlePart || '').trim().split(/\s+/).filter(Boolean);
+            if(titleWords.length <= 1) {
+                return { title: titlePart, details };
+            }
+            if(!details) {
+                return { title: titleWords[0], details: titleWords.slice(1).join(' ') };
+            }
+            return {
+                title: titleWords[0],
+                details: `${titleWords.slice(1).join(' ')} ${details}`.trim()
+            };
+        }
+
+        function rejoinDanglingEveryInTitle(titlePart, details) {
+            if(!/\bevery$/i.test(String(titlePart || '')) || !details) {
+                return { title: titlePart, details };
+            }
+            return {
+                title: String(titlePart).replace(/\s+every$/i, '').trim(),
+                details: `every ${details}`.trim()
+            };
+        }
+
         function parseQuickEntryRepeatFragment(working) {
+            const timeCapture = '(\\d{1,2}(?::\\d{2})?\\s*(?:am|pm)?)';
             let match = working.match(/\b(?:repeats?\s+)?(?:every\s+day|daily)\b/i);
             if(match) {
                 return {
                     match,
                     repeatRule: normalizeRepeatRule({ type: 'daily' }),
-                    weekDueOnly: false
+                    weekDueOnly: false,
+                    dueTime: null
                 };
             }
 
@@ -10680,18 +10734,21 @@
                 return {
                     match,
                     repeatRule: normalizeRepeatRule({ type: 'custom', days: [1, 2, 3, 4, 5] }),
-                    weekDueOnly: false
+                    weekDueOnly: false,
+                    dueTime: null
                 };
             }
 
-            match = working.match(new RegExp(`\\b(?:repeats?\\s+)?(?:every|weekly)(?:\\s+on)?\\s+((?:${QUICK_ENTRY_REPEAT_WEEKDAY})(?:\\s*(?:,|and|\\s+)\\s*(?:${QUICK_ENTRY_REPEAT_WEEKDAY}))*)\\b`, 'i'));
+            match = working.match(new RegExp(`\\b(?:repeats?\\s+)?(?:every|weekly)(?:\\s+on)?\\s+((?:${QUICK_ENTRY_REPEAT_WEEKDAY})(?:\\s*(?:,|and|\\s+)\\s*(?:${QUICK_ENTRY_REPEAT_WEEKDAY}))*)(?:\\s+(?:at\\s+)?${timeCapture})?\\b`, 'i'));
             if(match) {
-                const days = extractQuickEntryWeekdays(match[0]);
+                const days = extractQuickEntryWeekdays(match[1] || match[0]);
                 if(days.length > 0) {
+                    const dueTime = parseQuickEntryTime(String(match[2] || '').trim());
                     return {
                         match,
                         repeatRule: normalizeRepeatRule({ type: days.length === 1 ? 'weekly' : 'custom', days }),
-                        weekDueOnly: days.length === 1
+                        weekDueOnly: days.length === 1,
+                        dueTime: dueTime || null
                     };
                 }
             }
@@ -10701,7 +10758,8 @@
                 return {
                     match,
                     repeatRule: normalizeRepeatRule({ type: 'weekly', days: [5] }),
-                    weekDueOnly: true
+                    weekDueOnly: true,
+                    dueTime: null
                 };
             }
 
@@ -10709,20 +10767,12 @@
         }
 
         function splitCreateAssignmentTitleAndDetails(rest) {
-            const splitRe = /\s+(?=due|by|after|before|different|every|repeat|repeats|daily|weekly|\d+\s*m|\d+m|high|low|urgent|subject|on|for|today|tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/i;
-            const parts = rest.split(splitRe);
-            let titlePart = (parts[0] || rest).trim();
-            let details = parts.slice(1).join(' ').trim();
-            const titleWords = titlePart.split(/\s+/).filter(Boolean);
-            if(titleWords.length > 1) {
-                if(!details) {
-                    titlePart = titleWords[0];
-                    details = titleWords.slice(1).join(' ');
-                } else {
-                    details = `${titleWords.slice(1).join(' ')} ${details}`.trim();
-                    titlePart = titleWords[0];
-                }
-            }
+            const text = String(rest || '').trim();
+            const idx = findCreateAssignmentDetailsStart(text);
+            let titlePart = idx >= 0 ? text.slice(0, idx).trim() : text;
+            let details = idx >= 0 ? text.slice(idx).trim() : '';
+            ({ title: titlePart, details } = rejoinDanglingEveryInTitle(titlePart, details));
+            ({ title: titlePart, details } = peelCreateAssignmentSubjectFromTitle(titlePart, details));
             return { title: titlePart, details };
         }
 
@@ -10793,6 +10843,7 @@
             if(repeatParsed) {
                 result.repeatRule = repeatParsed.repeatRule;
                 result.weekDueOnly = repeatParsed.weekDueOnly;
+                if(repeatParsed.dueTime && !result.dueTime) result.dueTime = repeatParsed.dueTime;
                 working = stripQuickEntryMatch(working, repeatParsed.match);
                 if(repeatParsed.weekDueOnly && repeatParsed.repeatRule.days.length === 1) {
                     const weekday = repeatParsed.repeatRule.days[0];
