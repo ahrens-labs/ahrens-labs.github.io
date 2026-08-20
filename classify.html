@@ -3808,7 +3808,9 @@
         const storedScheduleRules = safeJsonParse(plannerGet('plannerScheduleRulesV1'), null);
         const storedVacations = safeJsonParse(plannerGet('plannerVacationsV1'), []);
         const storedRepeatSkips = safeJsonParse(plannerGet('plannerRepeatSkipsV1'), {});
-        let tasks = Array.isArray(storedTasks) ? storedTasks.filter(Boolean).map(normalizeTask) : [];
+        let subjectColors = safeJsonParse(plannerGet('plannerSubjectColors'), {}) || {};
+        let tasks = Array.isArray(storedTasks) ? storedTasks.filter(Boolean) : [];
+        tasks = tasks.map(normalizeTask);
         let completionHistory = Array.isArray(storedCompletionHistory)
             ? storedCompletionHistory.filter(Boolean).map(normalizeCompletionEntry)
             : [];
@@ -3816,7 +3818,6 @@
         let scheduleRules = normalizeScheduleRules(storedScheduleRules);
         let vacationRanges = normalizeVacationRanges(storedVacations);
         let repeatSkips = normalizeRepeatSkips(storedRepeatSkips);
-        let subjectColors = safeJsonParse(plannerGet('plannerSubjectColors'), {}) || {};
         let editingId = null;
         let currentCalendarDate = new Date();
         let calendarViewMode = plannerGet('calendarViewMode') || 'month';
