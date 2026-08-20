@@ -10782,12 +10782,31 @@
 
         function parseQuickEntryRepeatFragment(working) {
             const timeCapture = '(\\d{1,2}(?::\\d{2})?\\s*(?:am|pm)?)';
-            let match = working.match(/\b(?:repeats?\s+)?(?:every\s+day|daily)\b/i);
+            const weekdayGroup = `((?:${QUICK_ENTRY_REPEAT_WEEKDAY})(?:\\s*(?:,|and|\\s+)\\s*(?:${QUICK_ENTRY_REPEAT_WEEKDAY}))*)`;
+
+            let match = working.match(new RegExp(`\\b(?:due|by)\\s+(?:every|weekly)(?:\\s+on)?\\s+${weekdayGroup}(?:\\s+(?:at\\s+)?${timeCapture})?\\b`, 'i'));
+            if(match) {
+                const days = extractQuickEntryWeekdays(match[1] || '');
+                if(days.length > 0) {
+                    return {
+                        match,
+                        repeatRule: normalizeRepeatRule({ type: days.length === 1 ? 'weekly' : 'custom', days }),
+                        scheduleMode: 'week-due',
+                        weekDueOnly: days.length === 1,
+                        eventTime: null,
+                        dueTime: parseQuickEntryTime(String(match[2] || '').trim()) || null
+                    };
+                }
+            }
+
+            match = working.match(/\b(?:repeats?\s+)?(?:every\s+day|daily)\b/i);
             if(match) {
                 return {
                     match,
                     repeatRule: normalizeRepeatRule({ type: 'daily' }),
+                    scheduleMode: null,
                     weekDueOnly: false,
+                    eventTime: null,
                     dueTime: null
                 };
             }
@@ -10797,21 +10816,25 @@
                 return {
                     match,
                     repeatRule: normalizeRepeatRule({ type: 'custom', days: [1, 2, 3, 4, 5] }),
+                    scheduleMode: 'exact-date',
                     weekDueOnly: false,
+                    eventTime: null,
                     dueTime: null
                 };
             }
 
-            match = working.match(new RegExp(`\\b(?:repeats?\\s+)?(?:every|weekly)(?:\\s+on)?\\s+((?:${QUICK_ENTRY_REPEAT_WEEKDAY})(?:\\s*(?:,|and|\\s+)\\s*(?:${QUICK_ENTRY_REPEAT_WEEKDAY}))*)(?:\\s+(?:at\\s+)?${timeCapture})?\\b`, 'i'));
+            match = working.match(new RegExp(`\\b(?:repeats?\\s+)?(?:every|weekly)(?:\\s+on)?\\s+${weekdayGroup}(?:\\s+(?:at\\s+)?${timeCapture})?\\b`, 'i'));
             if(match) {
-                const days = extractQuickEntryWeekdays(match[1] || match[0]);
+                const days = extractQuickEntryWeekdays(match[1] || '');
                 if(days.length > 0) {
-                    const dueTime = parseQuickEntryTime(String(match[2] || '').trim());
+                    const inlineTime = parseQuickEntryTime(String(match[2] || '').trim());
                     return {
                         match,
                         repeatRule: normalizeRepeatRule({ type: days.length === 1 ? 'weekly' : 'custom', days }),
-                        weekDueOnly: days.length === 1,
-                        dueTime: dueTime || null
+                        scheduleMode: 'exact-date',
+                        weekDueOnly: false,
+                        eventTime: inlineTime || null,
+                        dueTime: null
                     };
                 }
             }
@@ -10821,12 +10844,45 @@
                 return {
                     match,
                     repeatRule: normalizeRepeatRule({ type: 'weekly', days: [5] }),
+                    scheduleMode: 'week-due',
                     weekDueOnly: true,
+                    eventTime: null,
                     dueTime: null
                 };
             }
 
             return null;
+        }
+
+        function applyQuickEntryRepeatSchedule(result, repeatParsed) {
+            if(!repeatParsed || !repeatParsed.repeatRule) return;
+            result.repeatRule = repeatParsed.repeatRule;
+            result.weekDueOnly = Boolean(repeatParsed.weekDueOnly);
+
+            if(repeatParsed.scheduleMode === 'week-due') {
+                result.scheduleType = 'week';
+                const weekday = repeatParsed.repeatRule.days[0];
+                if(weekday != null && !result.dueDate) {
+                    result.dueDate = resolveQuickEntryDateToken(weekdayNameForQuickEntry(weekday));
+                    if(result.dueDate) result.week = getWeekKeyFromDateStr(result.dueDate);
+                }
+                if(repeatParsed.dueTime && !result.dueTime) result.dueTime = repeatParsed.dueTime;
+                return;
+            }
+
+            if(repeatParsed.scheduleMode === 'exact-date') {
+                result.weekDueOnly = false;
+                result.scheduleType = 'date';
+                const weekday = repeatParsed.repeatRule.days[0];
+                if(weekday != null && !result.date) {
+                    result.date = resolveQuickEntryDateToken(weekdayNameForQuickEntry(weekday));
+                    if(result.date) result.week = getWeekKeyFromDateStr(result.date);
+                }
+                if(repeatParsed.eventTime) {
+                    result.time = repeatParsed.eventTime;
+                    result.exactDateTiming = 'fixed';
+                }
+            }
         }
 
         function splitCreateAssignmentTitleAndDetails(rest) {
@@ -10904,19 +10960,13 @@
 
             const repeatParsed = parseQuickEntryRepeatFragment(working);
             if(repeatParsed) {
-                result.repeatRule = repeatParsed.repeatRule;
-                result.weekDueOnly = repeatParsed.weekDueOnly;
-                if(repeatParsed.dueTime && !result.dueTime) result.dueTime = repeatParsed.dueTime;
+                applyQuickEntryRepeatSchedule(result, repeatParsed);
                 working = stripQuickEntryMatch(working, repeatParsed.match);
-                if(repeatParsed.weekDueOnly && repeatParsed.repeatRule.days.length === 1) {
-                    const weekday = repeatParsed.repeatRule.days[0];
-                    if(!result.dueDate) {
-                        result.scheduleType = 'week';
-                        result.dueDate = resolveQuickEntryDateToken(weekdayNameForQuickEntry(weekday));
-                        if(result.dueDate) result.week = getWeekKeyFromDateStr(result.dueDate);
-                    }
-                }
             }
+
+            const weekdayPattern = QUICK_ENTRY_DATE_WORDS;
+            const timeCapture = '(\\d{1,2}(?::\\d{2})?\\s*(?:am|pm)?)';
+            const optionalTime = `(?:\\s+(?:at\\s+)?${timeCapture})?`;
 
             const priorityMatch = working.match(/\b(high|medium|low|urgent)\s+priority\b/i)
                 || working.match(/\bpriority\s+(high|medium|low|urgent)\b/i)
@@ -10935,9 +10985,20 @@
                 working = stripQuickEntryMatch(working, difficultyMatch);
             }
 
-            const weekdayPattern = QUICK_ENTRY_DATE_WORDS;
-            const timeCapture = '(\\d{1,2}(?::\\d{2})?\\s*(?:am|pm)?)';
-            const optionalTime = `(?:\\s+(?:at\\s+)?${timeCapture})?`;
+            const dueTimeOnlyMatch = working.match(new RegExp(`\\b(?:due|by)\\s+(?:at\\s+)?${timeCapture}\\b`, 'i'));
+            if(dueTimeOnlyMatch) {
+                const parsedDueTimeOnly = parseQuickEntryTime(String(dueTimeOnlyMatch[1] || '').trim());
+                if(parsedDueTimeOnly) {
+                    result.dueTime = parsedDueTimeOnly;
+                    if(result.scheduleType === 'date') {
+                        result.exactDateTiming = 'adjustable';
+                    } else if(!result.scheduleType) {
+                        result.scheduleType = 'week';
+                    }
+                    working = stripQuickEntryMatch(working, dueTimeOnlyMatch);
+                }
+            }
+
             const duePattern = new RegExp(`\\b(?:due|by)\\s+(?:to\\s+)?(?:on\\s+)?(${weekdayPattern})${optionalTime}`, 'i');
             const dueMatch = working.match(duePattern);
             if(dueMatch) {
@@ -10975,12 +11036,16 @@
             }
 
             if(!result.dueTime && !result.time) {
-                const looseTimeMatch = working.match(new RegExp(`\\b${timeCapture}`, 'i'));
+                const looseTimeMatch = working.match(new RegExp(`\\b(?:at\\s+)?${timeCapture}`, 'i'));
                 if(looseTimeMatch) {
                     const parsedLooseTime = parseQuickEntryTime(String(looseTimeMatch[1] || '').trim());
                     if(parsedLooseTime) {
-                        if(result.scheduleType === 'week' || result.dueDate) result.dueTime = parsedLooseTime;
-                        else if(result.scheduleType === 'date' && result.date) {
+                        if(result.scheduleType === 'date' && result.date) {
+                            result.time = parsedLooseTime;
+                            result.exactDateTiming = 'fixed';
+                        } else if(result.scheduleType === 'week' || result.dueDate) {
+                            result.dueTime = parsedLooseTime;
+                        } else if(result.repeatRule && result.scheduleType === 'date') {
                             result.time = parsedLooseTime;
                             result.exactDateTiming = 'fixed';
                         }
