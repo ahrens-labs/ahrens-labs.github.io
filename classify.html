@@ -279,6 +279,57 @@
             background-clip: text;
             color: transparent;
         }
+        .cl-command-bar {
+            border-top: 1px solid rgba(226, 232, 240, 0.85);
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(8px);
+        }
+        .dark .cl-command-bar {
+            border-top-color: rgba(51, 65, 85, 0.85);
+            background: rgba(15, 23, 42, 0.88);
+        }
+        .cl-command-bar.hidden { display: none; }
+        .cl-command-bar__inner {
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+            max-width: 72rem;
+            margin: 0 auto;
+            padding: 0.55rem 1rem;
+        }
+        .cl-command-bar__icon {
+            color: #ef4444;
+            font-size: 0.85rem;
+            flex-shrink: 0;
+        }
+        .cl-command-bar__input {
+            flex: 1;
+            min-width: 0;
+            border: none;
+            background: transparent;
+            color: #0f172a;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+            font-size: 0.82rem;
+            outline: none;
+        }
+        .dark .cl-command-bar__input {
+            color: #f8fafc;
+        }
+        .cl-command-bar__input::placeholder {
+            color: #94a3b8;
+        }
+        .dark .cl-command-bar__input::placeholder {
+            color: #64748b;
+        }
+        .cl-command-bar__hint {
+            display: none;
+            font-size: 0.68rem;
+            color: #94a3b8;
+            white-space: nowrap;
+        }
+        @media (min-width: 900px) {
+            .cl-command-bar__hint { display: inline; }
+        }
         .classify-app .cl-greeting-title {
             line-height: 1.28;
             padding-bottom: 0.14em;
@@ -1840,6 +1891,13 @@
                 </button>
             </div>
         </div>
+        <div id="classifyCommandBar" class="cl-command-bar">
+            <div class="cl-command-bar__inner">
+                <i class="fa-solid fa-terminal cl-command-bar__icon" aria-hidden="true"></i>
+                <input id="classifyCommandInput" type="text" autocomplete="off" spellcheck="false" class="cl-command-bar__input" placeholder="move Speech to friday 5pm · Speech after Math · complete Speech · add Essay due friday 30m" aria-label="Classify command line">
+                <span class="cl-command-bar__hint"><kbd>/</kbd> focus</span>
+            </div>
+        </div>
         <div id="th-site-menu-backdrop" class="th-site-menu-backdrop" hidden></div>
         <div id="th-site-menu" class="th-site-menu" aria-hidden="true">
             <div class="th-site-menu-head">
@@ -2470,6 +2528,10 @@
                     <span class="cl-settings-item-label"><i class="fa-solid fa-lightbulb text-sky-500"></i>Help hotspots</span>
                     <span id="cl-settings-hotspots-state" class="text-sm font-semibold text-slate-500 dark:text-slate-400">On</span>
                 </button>
+                <button type="button" class="cl-settings-item" onclick="toggleClassifyCommandLine();">
+                    <span class="cl-settings-item-label"><i class="fa-solid fa-terminal text-violet-500"></i>Command line</span>
+                    <span id="cl-settings-commandline-state" class="text-sm font-semibold text-slate-500 dark:text-slate-400">On</span>
+                </button>
                 <button type="button" class="cl-settings-item" onclick="resetClassifyHotspotsSeen();">
                     <span class="cl-settings-item-label"><i class="fa-solid fa-rotate-left text-slate-500"></i>Reset help tips</span>
                     <i class="fa-solid fa-chevron-right text-slate-400 text-sm"></i>
@@ -2479,7 +2541,7 @@
                     <i class="fa-solid fa-chevron-right text-slate-400 text-sm"></i>
                 </button>
             </div>
-            <p class="cl-settings-kbd-hint">Press <kbd>Q</kbd> anywhere to add a new assignment. <kbd>Ctrl+N</kbd> also works.</p>
+            <p class="cl-settings-kbd-hint">Press <kbd>Q</kbd> anywhere to add a new assignment. <kbd>Ctrl+N</kbd> also works. <kbd>/</kbd> focuses the command line.</p>
             <div class="mt-4 flex justify-end">
                 <button onclick="closeClassifySettings()" class="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-semibold transition-colors" type="button">Done</button>
             </div>
@@ -3546,6 +3608,12 @@
             } else if(payload.hotspotsEnabled === false || payload.hotspotsEnabled === 'false') {
                 localStorage.setItem(plannerStorageKey('hotspotsEnabled'), 'false');
             }
+
+            if(payload.commandLineEnabled === true || payload.commandLineEnabled === 'true') {
+                localStorage.setItem(plannerStorageKey('commandLineEnabled'), 'true');
+            } else if(payload.commandLineEnabled === false || payload.commandLineEnabled === 'false') {
+                localStorage.setItem(plannerStorageKey('commandLineEnabled'), 'false');
+            }
         }
 
         function buildClassifyCloudPayload() {
@@ -3562,7 +3630,8 @@
                 walkthroughCompleted: plannerGet('walkthroughCompleted') === 'true'
                     || plannerGet('orientationCompleted') === 'true',
                 hotspotsSeen: normalizeHotspotsSeen(safeJsonParse(plannerGet('hotspotsSeen'), [])),
-                hotspotsEnabled: plannerGet('hotspotsEnabled') !== 'false'
+                hotspotsEnabled: plannerGet('hotspotsEnabled') !== 'false',
+                commandLineEnabled: plannerGet('commandLineEnabled') !== 'false'
             };
         }
 
@@ -3767,6 +3836,7 @@
             if(hasCompletedClassifyOrientation()) {
                 initClassifyHotspots();
             }
+            initClassifyCommandLine();
         });
 
         document.addEventListener('visibilitychange', () => {
@@ -3811,6 +3881,7 @@
         function openClassifySettings() {
             syncClassifySettingsDarkToggle();
             syncClassifyHotspotsSettingsState();
+            syncClassifyCommandLineSettingsState();
             const modal = document.getElementById('classifySettingsModal');
             const panel = document.getElementById('classifySettingsPanel');
             if (!modal || !panel) return;
@@ -8747,19 +8818,526 @@
             return resolved;
         }
 
-        function findTaskIdByTitleQuery(query, excludeId = null) {
+        function resolveTaskReference(query, excludeId = null) {
             const needle = String(query || '').trim().toLowerCase();
-            if(!needle) return null;
+            if(!needle) return { error: 'Missing assignment name.' };
             const candidates = (tasks || []).filter(t => t.id !== excludeId && !t.completed);
-            const exact = candidates.find(t => String(t.title || '').trim().toLowerCase() === needle);
-            if(exact) return exact.id;
-            const contains = candidates.filter(t => String(t.title || '').trim().toLowerCase().includes(needle));
-            if(contains.length === 1) return contains[0].id;
-            if(contains.length > 1) {
-                const starts = contains.filter(t => String(t.title || '').trim().toLowerCase().startsWith(needle));
-                if(starts.length === 1) return starts[0].id;
+
+            const exactTitle = candidates.filter(t => String(t.title || '').trim().toLowerCase() === needle);
+            if(exactTitle.length === 1) return { id: exactTitle[0].id, task: exactTitle[0] };
+            if(exactTitle.length > 1) return { ambiguous: exactTitle.map(t => t.title) };
+
+            const containsTitle = candidates.filter(t => String(t.title || '').trim().toLowerCase().includes(needle));
+            if(containsTitle.length === 1) return { id: containsTitle[0].id, task: containsTitle[0] };
+            if(containsTitle.length > 1) {
+                const starts = containsTitle.filter(t => String(t.title || '').trim().toLowerCase().startsWith(needle));
+                if(starts.length === 1) return { id: starts[0].id, task: starts[0] };
+                return { ambiguous: containsTitle.slice(0, 5).map(t => t.title) };
+            }
+
+            const exactSubject = candidates.filter(t => String(t.subject || '').trim().toLowerCase() === needle);
+            if(exactSubject.length === 1) return { id: exactSubject[0].id, task: exactSubject[0] };
+            if(exactSubject.length > 1) return { ambiguous: exactSubject.slice(0, 5).map(t => t.title) };
+
+            const containsSubject = candidates.filter(t => String(t.subject || '').trim().toLowerCase().includes(needle));
+            if(containsSubject.length === 1) return { id: containsSubject[0].id, task: containsSubject[0] };
+
+            return { error: `No assignment found for "${String(query || '').trim()}".` };
+        }
+
+        function findTaskIdByTitleQuery(query, excludeId = null) {
+            const resolved = resolveTaskReference(query, excludeId);
+            if(resolved.id) return resolved.id;
+            return null;
+        }
+
+        function parseQuickEntryScheduleFragment(text) {
+            let working = String(text || '').trim();
+            const result = {
+                scheduleType: null,
+                date: null,
+                dueDate: null,
+                dueTime: null,
+                time: null,
+                week: null,
+                exactDateTiming: 'adjustable'
+            };
+            if(!working) return result;
+
+            const weekdayPattern = '(?:today|tomorrow|tommorow|monday|mon|tuesday|tue|tues|wednesday|wed|thursday|thu|thur|thurs|friday|fri|saturday|sat|sunday|sun)';
+            const timeCapture = '(\\d{1,2}(?::\\d{2})?\\s*(?:am|pm)?)';
+            const optionalTime = `(?:\\s+(?:at\\s+)?${timeCapture})?`;
+            const duePattern = new RegExp(`\\b(?:due|by)\\s+(?:on\\s+)?(${weekdayPattern})${optionalTime}`, 'i');
+            const dueMatch = working.match(duePattern);
+            if(dueMatch) {
+                result.scheduleType = 'week';
+                result.dueDate = resolveQuickEntryDateToken(dueMatch[1]);
+                const parsedDueTime = parseQuickEntryTime(String(dueMatch[2] || '').trim());
+                if(parsedDueTime) result.dueTime = parsedDueTime;
+                if(result.dueDate) result.week = getWeekKeyFromDateStr(result.dueDate);
+                working = stripQuickEntryMatch(working, dueMatch);
+            }
+
+            const eventPattern = new RegExp(`\\b(?:on|for|to)\\s+(${weekdayPattern})${optionalTime}`, 'i');
+            const eventMatch = !dueMatch ? working.match(eventPattern) : null;
+            if(eventMatch) {
+                result.scheduleType = 'date';
+                result.date = resolveQuickEntryDateToken(eventMatch[1]);
+                const parsedEventTime = parseQuickEntryTime(String(eventMatch[2] || '').trim());
+                if(parsedEventTime) {
+                    result.time = parsedEventTime;
+                    result.exactDateTiming = 'fixed';
+                }
+                working = stripQuickEntryMatch(working, eventMatch);
+            }
+
+            if(!result.scheduleType) {
+                const bareDayMatch = working.match(new RegExp(`\\b(${weekdayPattern})${optionalTime}`, 'i'));
+                if(bareDayMatch) {
+                    result.scheduleType = 'week';
+                    result.dueDate = resolveQuickEntryDateToken(bareDayMatch[1]);
+                    const parsedBareTime = parseQuickEntryTime(String(bareDayMatch[2] || '').trim());
+                    if(parsedBareTime) result.dueTime = parsedBareTime;
+                    if(result.dueDate) result.week = getWeekKeyFromDateStr(result.dueDate);
+                    working = stripQuickEntryMatch(working, bareDayMatch);
+                }
+            }
+
+            if(!result.dueTime && !result.time) {
+                const looseTimeMatch = working.match(new RegExp(`\\b${timeCapture}`, 'i'));
+                if(looseTimeMatch) {
+                    const parsedLooseTime = parseQuickEntryTime(String(looseTimeMatch[1] || '').trim());
+                    if(parsedLooseTime) {
+                        if(result.scheduleType === 'week' || result.dueDate) result.dueTime = parsedLooseTime;
+                        else if(result.scheduleType === 'date' && result.date) {
+                            result.time = parsedLooseTime;
+                            result.exactDateTiming = 'fixed';
+                        } else {
+                            result.scheduleType = result.scheduleType || 'week';
+                            result.dueTime = parsedLooseTime;
+                        }
+                    }
+                }
+            }
+
+            return result;
+        }
+
+        function parseClassifyCommandLine(text) {
+            const raw = String(text || '').trim();
+            if(!raw) return { error: 'Enter a command.' };
+
+            const addMatch = raw.match(/^(?:add|create|new)\s+(?:assignment\s+)?(.+)$/i);
+            if(addMatch) {
+                const rest = addMatch[1].trim();
+                const splitRe = /\s+(?=due|by|after|before|different|\d+\s*m|\d+m|high|low|urgent|subject|on|for|today|tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/i;
+                const parts = rest.split(splitRe);
+                const title = (parts[0] || rest).trim();
+                const details = parts.slice(1).join(' ').trim();
+                if(!title) return { error: 'Add a title, e.g. add Speech due friday.' };
+                return { action: 'create', title, details };
+            }
+
+            let match = raw.match(/^move\s+(.+?)\s+to\s+(.+)$/i)
+                || raw.match(/^schedule\s+(.+?)\s+(?:to|on|for)\s+(.+)$/i)
+                || raw.match(/^reschedule\s+(.+?)\s+(?:to|on|for)\s+(.+)$/i);
+            if(match) {
+                return { action: 'move', taskQuery: match[1].trim(), destination: match[2].trim() };
+            }
+
+            match = raw.match(/^(.+?)\s+(?:must\s+be\s+)?(after|before)\s+(.+)$/i);
+            if(match) {
+                return {
+                    action: 'dependency',
+                    taskQuery: match[1].trim(),
+                    depType: match[2].toLowerCase(),
+                    depQuery: match[3].trim()
+                };
+            }
+
+            match = raw.match(/^(.+?)\s+different\s+day\s+(?:than|from)\s+(.+)$/i);
+            if(match) {
+                return {
+                    action: 'dependency',
+                    taskQuery: match[1].trim(),
+                    depType: 'differentDay',
+                    depQuery: match[2].trim()
+                };
+            }
+
+            match = raw.match(/^(?:set\s+)?(.+?)\s+due\s+(.+)$/i);
+            if(match) {
+                return { action: 'due', taskQuery: match[1].trim(), destination: match[2].trim() };
+            }
+
+            match = raw.match(/^(?:complete|done|finish|mark)\s+(.+)$/i);
+            if(match) return { action: 'complete', taskQuery: match[1].trim() };
+
+            match = raw.match(/^(?:delete|remove)\s+(.+)$/i);
+            if(match) return { action: 'delete', taskQuery: match[1].trim() };
+
+            match = raw.match(/^rename\s+(.+?)\s+to\s+(.+)$/i);
+            if(match) return { action: 'rename', taskQuery: match[1].trim(), newTitle: match[2].trim() };
+
+            match = raw.match(/^(?:set\s+)?(.+?)\s+priority\s+(high|medium|low|urgent)$/i)
+                || raw.match(/^(?:set\s+)?(.+?)\s+(high|medium|low|urgent)\s+priority$/i)
+                || raw.match(/^(?:set\s+)?(.+?)\s+(high|low|urgent)$/i);
+            if(match) {
+                const level = match[2].toLowerCase();
+                return {
+                    action: 'priority',
+                    taskQuery: match[1].trim(),
+                    priority: level === 'urgent' ? 'High' : (level.charAt(0).toUpperCase() + level.slice(1))
+                };
+            }
+
+            match = raw.match(/^(?:set\s+)?(.+?)\s+(?:duration\s+)?(\d+(?:\.\d+)?(?:\s*(?:m|min|mins|minutes?|h|hr|hrs|hours?)|m))$/i);
+            if(match) {
+                const durationToken = match[2];
+                const isHours = /h|hr|hrs|hour/i.test(durationToken);
+                const value = parseFloat(durationToken);
+                const minutes = Math.max(1, Math.round(isHours ? value * 60 : value));
+                return { action: 'duration', taskQuery: match[1].trim(), duration: String(minutes) };
+            }
+
+            match = raw.match(/^(?:set\s+)?(.+?)\s+subject\s+(.+)$/i);
+            if(match) return { action: 'subject', taskQuery: match[1].trim(), subject: match[2].trim() };
+
+            return { error: 'Could not understand command. Try: move Speech to friday 5pm, Speech after Math, or complete Speech.' };
+        }
+
+        function parseMoveDestination(text) {
+            const fragment = parseQuickEntryScheduleFragment(text);
+            const raw = String(text || '').trim();
+            const hasDueKeyword = /\b(due|by)\b/i.test(raw);
+            if(!hasDueKeyword && fragment.dueDate && fragment.scheduleType === 'week') {
+                return {
+                    scheduleType: 'date',
+                    date: fragment.dueDate,
+                    dueDate: null,
+                    dueTime: fragment.dueTime || null,
+                    time: fragment.dueTime || null,
+                    week: getWeekKeyFromDateStr(fragment.dueDate),
+                    exactDateTiming: fragment.dueTime ? 'fixed' : 'adjustable'
+                };
+            }
+            return fragment;
+        }
+
+        function buildTaskUpdatesFromScheduleFragment(fragment) {
+            if(!fragment?.scheduleType) return null;
+            if(fragment.scheduleType === 'date' && fragment.date) {
+                const hasFixedTime = Boolean(fragment.time);
+                return {
+                    scheduleType: 'date',
+                    date: fragment.date,
+                    dateSource: 'user',
+                    dueDate: null,
+                    dueTime: fragment.dueTime || null,
+                    week: getWeekKeyFromDateStr(fragment.date),
+                    time: hasFixedTime ? fragment.time : null,
+                    timeSource: hasFixedTime ? 'user' : null,
+                    assignmentMode: hasFixedTime ? 'FIXED' : 'ADJUSTABLE',
+                    startedAt: null
+                };
+            }
+            if((fragment.scheduleType === 'week' || fragment.dueDate) && fragment.dueDate) {
+                return {
+                    scheduleType: 'week',
+                    date: null,
+                    dateSource: null,
+                    dueDate: fragment.dueDate,
+                    dueTime: fragment.dueTime || null,
+                    week: fragment.week || getWeekKeyFromDateStr(fragment.dueDate),
+                    time: null,
+                    timeSource: null,
+                    assignmentMode: 'ADJUSTABLE',
+                    startedAt: null
+                };
             }
             return null;
+        }
+
+        function executeClassifyCommandLine(text) {
+            const parsed = parseClassifyCommandLine(text);
+            if(parsed.error) {
+                showNotification(parsed.error, 'error');
+                return false;
+            }
+
+            if(parsed.action === 'create') {
+                const detailsText = parsed.details || '';
+                const quickParsed = parseAssignmentQuickEntry(detailsText, { title: parsed.title });
+                if(quickParsed.errors?.length) {
+                    showNotification(quickParsed.errors[0], 'error');
+                    return false;
+                }
+                const sharedFields = {
+                    id: generateId(),
+                    title: parsed.title,
+                    subject: quickParsed.subject || 'General',
+                    scheduleType: quickParsed.scheduleType || 'flexible',
+                    duration: quickParsed.duration || null,
+                    priority: quickParsed.priority || 'Medium',
+                    difficulty: quickParsed.difficulty || 'Medium',
+                    color: subjectColors[quickParsed.subject] || '#b91c1c',
+                    mustBeBefore: quickParsed.mustBeBefore || [],
+                    mustBeAfter: quickParsed.mustBeAfter || [],
+                    mustBeDifferentDay: quickParsed.mustBeDifferentDay || [],
+                    notes: quickParsed.notes || '',
+                    completed: false,
+                    completedDate: null,
+                    repeatRule: normalizeRepeatRule({ type: 'none' }),
+                    weekDueOnly: false,
+                    repeatNoAutoTime: false
+                };
+                if(quickParsed.subject) subjectColors[quickParsed.subject] = sharedFields.color;
+                let baseTask;
+                if(quickParsed.scheduleType === 'date' && quickParsed.date) {
+                    const fixed = quickParsed.exactDateTiming === 'fixed' && quickParsed.time;
+                    baseTask = {
+                        ...sharedFields,
+                        date: quickParsed.date,
+                        dateSource: 'user',
+                        dueDate: null,
+                        dueTime: quickParsed.dueTime || null,
+                        week: null,
+                        time: fixed ? quickParsed.time : null,
+                        timeSource: fixed ? 'user' : null,
+                        assignmentMode: fixed ? 'FIXED' : 'ADJUSTABLE'
+                    };
+                } else if(quickParsed.scheduleType === 'week') {
+                    baseTask = {
+                        ...sharedFields,
+                        date: null,
+                        dateSource: null,
+                        dueDate: quickParsed.dueDate,
+                        dueTime: quickParsed.dueTime || null,
+                        week: quickParsed.week || getCurrentWeekKey(),
+                        time: null,
+                        timeSource: null,
+                        assignmentMode: 'ADJUSTABLE'
+                    };
+                } else {
+                    baseTask = {
+                        ...sharedFields,
+                        date: null,
+                        dateSource: null,
+                        dueDate: null,
+                        dueTime: null,
+                        week: null,
+                        time: null,
+                        timeSource: null,
+                        assignmentMode: 'ADJUSTABLE'
+                    };
+                }
+                const normalizedTask = normalizeTask(baseTask);
+                mutateClassifyData(() => {
+                    tasks.push(normalizedTask);
+                    applyReciprocalDependenciesForTask(normalizedTask.id);
+                    syncAllTaskDependencies();
+                }, { seedTaskIds: [normalizedTask.id], cloudSyncNew: true });
+                showNotification(`Created "${normalizedTask.title}"`, 'success');
+                if(quickParsed.warnings?.length) showNotification(quickParsed.warnings.join(' '), 'info');
+                return true;
+            }
+
+            const taskRef = resolveTaskReference(parsed.taskQuery);
+            if(taskRef.error) {
+                showNotification(taskRef.error, 'error');
+                return false;
+            }
+            if(taskRef.ambiguous) {
+                showNotification(`Multiple matches: ${taskRef.ambiguous.join(', ')}. Be more specific.`, 'error');
+                return false;
+            }
+
+            const task = taskRef.task;
+            const taskId = task.id;
+
+            if(parsed.action === 'complete') {
+                if(task.completed) {
+                    showNotification(`"${task.title}" is already complete.`, 'info');
+                    return false;
+                }
+                openTimeModal(taskId);
+                return true;
+            }
+
+            if(parsed.action === 'delete') {
+                mutateClassifyData(() => {
+                    if(task.repeatGroupId) recordDeletedRepeatOccurrence(task.repeatGroupId, task);
+                    tasks = tasks.filter(t => t.id !== taskId);
+                    removeDependencyReferences([taskId]);
+                    syncAllTaskDependencies();
+                }, { seedTaskIds: [taskId] });
+                showNotification(`Deleted "${task.title}"`, 'success');
+                return true;
+            }
+
+            if(parsed.action === 'rename') {
+                const newTitle = String(parsed.newTitle || '').trim();
+                if(!newTitle) {
+                    showNotification('Enter a new name.', 'error');
+                    return false;
+                }
+                mutateClassifyData(() => {
+                    tasks = tasks.map(t => t.id === taskId ? { ...t, title: newTitle.substring(0, 100) } : t);
+                }, { seedTaskIds: [taskId] });
+                showNotification(`Renamed to "${newTitle}"`, 'success');
+                return true;
+            }
+
+            if(parsed.action === 'priority') {
+                mutateClassifyData(() => {
+                    tasks = tasks.map(t => t.id === taskId ? { ...t, priority: parsed.priority } : t);
+                }, { seedTaskIds: [taskId] });
+                showNotification(`Set "${task.title}" to ${parsed.priority} priority`, 'success');
+                return true;
+            }
+
+            if(parsed.action === 'duration') {
+                mutateClassifyData(() => {
+                    tasks = tasks.map(t => t.id === taskId ? { ...t, duration: parsed.duration } : t);
+                }, { seedTaskIds: [taskId] });
+                showNotification(`Set "${task.title}" duration to ${parsed.duration}m`, 'success');
+                return true;
+            }
+
+            if(parsed.action === 'subject') {
+                const subject = String(parsed.subject || '').trim() || 'General';
+                mutateClassifyData(() => {
+                    subjectColors[subject] = subjectColors[subject] || getTaskColor(task);
+                    tasks = tasks.map(t => t.id === taskId ? { ...t, subject, color: subjectColors[subject] } : t);
+                }, { seedTaskIds: [taskId] });
+                showNotification(`Set "${task.title}" subject to ${subject}`, 'success');
+                return true;
+            }
+
+            if(parsed.action === 'dependency') {
+                const depRef = resolveTaskReference(parsed.depQuery, taskId);
+                if(depRef.error) {
+                    showNotification(depRef.error, 'error');
+                    return false;
+                }
+                if(depRef.ambiguous) {
+                    showNotification(`Multiple dependency matches: ${depRef.ambiguous.join(', ')}`, 'error');
+                    return false;
+                }
+                if(depRef.id === taskId) {
+                    showNotification('An assignment cannot depend on itself.', 'error');
+                    return false;
+                }
+                mutateClassifyData(() => {
+                    tasks = tasks.map(t => {
+                        if(t.id !== taskId) return t;
+                        const next = { ...t };
+                        if(parsed.depType === 'after') {
+                            next.mustBeAfter = Array.from(new Set([...(next.mustBeAfter || []), depRef.id]));
+                            next.mustBeBefore = (next.mustBeBefore || []).filter(id => id !== depRef.id);
+                        } else if(parsed.depType === 'before') {
+                            next.mustBeBefore = Array.from(new Set([...(next.mustBeBefore || []), depRef.id]));
+                            next.mustBeAfter = (next.mustBeAfter || []).filter(id => id !== depRef.id);
+                        } else {
+                            next.mustBeDifferentDay = Array.from(new Set([...(next.mustBeDifferentDay || []), depRef.id]));
+                        }
+                        return next;
+                    });
+                    applyReciprocalDependenciesForTask(taskId);
+                    syncAllTaskDependencies();
+                }, { seedTaskIds: [taskId, depRef.id] });
+                const depTask = tasks.find(t => t.id === depRef.id);
+                const relation = parsed.depType === 'before' ? 'before' : (parsed.depType === 'differentDay' ? 'on a different day than' : 'after');
+                showNotification(`"${task.title}" must be ${relation} "${depTask?.title || parsed.depQuery}"`, 'success');
+                return true;
+            }
+
+            if(parsed.action === 'move' || parsed.action === 'due') {
+                const fragment = parsed.action === 'move'
+                    ? parseMoveDestination(parsed.destination)
+                    : parseQuickEntryScheduleFragment(parsed.destination);
+                const updates = buildTaskUpdatesFromScheduleFragment(fragment);
+                if(!updates) {
+                    showNotification(`Could not parse date/time from "${parsed.destination}".`, 'error');
+                    return false;
+                }
+                if(parsed.action === 'move' && updates.scheduleType === 'date' && updates.date && updates.time) {
+                    moveTaskToDateTime(taskId, updates.date, updates.time);
+                    showNotification(`Moved "${task.title}" to ${formatDateLabel(updates.date)} at ${minToTime(timeToMin(updates.time))}`, 'success');
+                    return true;
+                }
+                if(parsed.action === 'move' && updates.scheduleType === 'date' && updates.date && !updates.time) {
+                    moveTaskToDateTime(taskId, updates.date, null);
+                    showNotification(`Moved "${task.title}" to ${formatDateLabel(updates.date)}`, 'success');
+                    return true;
+                }
+                mutateClassifyData(() => {
+                    tasks = tasks.map(t => {
+                        if(t.id !== taskId) return t;
+                        const merged = normalizeTask(ensureTargetWeekScheduleType({ ...t, ...updates }));
+                        return merged;
+                    });
+                }, { seedTaskIds: [taskId] });
+                const label = updates.dueDate
+                    ? `due ${formatDateLabel(updates.dueDate)}${updates.dueTime ? ` at ${minToTime(timeToMin(updates.dueTime))}` : ''}`
+                    : (updates.date ? `on ${formatDateLabel(updates.date)}${updates.time ? ` at ${minToTime(timeToMin(updates.time))}` : ''}` : 'updated');
+                showNotification(`${parsed.action === 'move' ? 'Moved' : 'Updated'} "${task.title}" ${label}`, 'success');
+                return true;
+            }
+
+            showNotification('Unsupported command.', 'error');
+            return false;
+        }
+
+        function areClassifyCommandLineEnabled() {
+            return plannerGet('commandLineEnabled') !== 'false';
+        }
+
+        function syncClassifyCommandLineVisibility() {
+            const bar = document.getElementById('classifyCommandBar');
+            if(!bar) return;
+            bar.classList.toggle('hidden', !areClassifyCommandLineEnabled());
+            syncClassifyChromeOffsets();
+        }
+
+        function syncClassifyCommandLineSettingsState() {
+            const el = document.getElementById('cl-settings-commandline-state');
+            if(el) el.textContent = areClassifyCommandLineEnabled() ? 'On' : 'Off';
+            syncClassifyCommandLineVisibility();
+        }
+
+        function toggleClassifyCommandLine() {
+            const next = !areClassifyCommandLineEnabled();
+            plannerSet('commandLineEnabled', next ? 'true' : 'false');
+            syncClassifyCommandLineSettingsState();
+            showNotification(`Command line ${next ? 'enabled' : 'disabled'}`, 'info');
+        }
+
+        function initClassifyCommandLine() {
+            syncClassifyCommandLineVisibility();
+            const input = document.getElementById('classifyCommandInput');
+            if(!input || input.dataset.bound === 'true') return;
+            input.dataset.bound = 'true';
+            input.addEventListener('keydown', (event) => {
+                if(event.key === 'Enter') {
+                    event.preventDefault();
+                    const value = input.value.trim();
+                    if(!value) return;
+                    if(executeClassifyCommandLine(value)) input.value = '';
+                }
+                if(event.key === 'Escape') {
+                    input.value = '';
+                    input.blur();
+                }
+            });
+        }
+
+        function focusClassifyCommandLine() {
+            if(!areClassifyCommandLineEnabled()) return;
+            const input = document.getElementById('classifyCommandInput');
+            if(!input) return;
+            input.focus();
+            input.select();
         }
 
         function stripQuickEntryMatch(text, match) {
@@ -10193,6 +10771,10 @@
                     prevClassifyOrientationStep();
                 }
                 return;
+            }
+            if (e.key === '/' && !e.ctrlKey && !e.metaKey && !e.altKey && !isTypingTarget(e.target)) {
+                e.preventDefault();
+                focusClassifyCommandLine();
             }
             if (e.key === 'q' && !e.ctrlKey && !e.metaKey && !e.altKey && !isTypingTarget(e.target)) {
                 e.preventDefault();
