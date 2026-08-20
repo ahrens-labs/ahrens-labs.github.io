@@ -1935,7 +1935,7 @@
                 <div class="cl-command-bar__intro">
                     <span class="cl-command-bar__title"><i class="fa-solid fa-terminal" aria-hidden="true"></i> Command line</span>
                 </div>
-                <input id="classifyCommandInput" type="text" autocomplete="off" spellcheck="false" class="cl-command-bar__input" placeholder="new · undo · Speech Writing · start Math" aria-label="Command line" title="Speech Writing changes subject. Duplicate names: type a number to pick. Also: move, edit, delete, find.">
+                <input id="classifyCommandInput" type="text" autocomplete="off" spellcheck="false" class="cl-command-bar__input" placeholder="new · &quot;timeline&quot; due tomorrow at 5pm · target week · exact date" aria-label="Command line" title="Quote an assignment name to target it exactly. Examples: &quot;timeline&quot; due tomorrow at 5pm, timeline target week, timeline exact date.">
                 <span class="cl-command-bar__hint"><kbd>/</kbd> focus</span>
             </div>
         </div>
@@ -5617,6 +5617,43 @@
             return task;
         }
 
+        function applyScheduleModeSwitch(task, mode) {
+            if(!task || (mode !== 'week' && mode !== 'date')) return task;
+            const started = isAssignmentStarted(task);
+            if(mode === 'week') {
+                const dateStr = task.date || task.dueDate || getTaskDueDate(task);
+                const week = task.week || (dateStr ? getWeekKeyFromDateStr(dateStr) : getCurrentWeekKey());
+                const dueDate = task.dueDate || dateStr || getWeekDueDateForRepeat(week, { dueDate: null });
+                const updates = {
+                    scheduleType: 'week',
+                    weekDueOnly: true,
+                    week,
+                    dueDate,
+                    dueTime: task.dueTime || null
+                };
+                if(!started) {
+                    updates.date = null;
+                    updates.dateSource = null;
+                    updates.time = null;
+                    updates.timeSource = null;
+                    updates.assignmentMode = 'ADJUSTABLE';
+                    updates.startedAt = null;
+                }
+                return enforceScheduleTypeFieldSeparation(normalizeTask({ ...task, ...updates }));
+            }
+            const dateStr = task.date || task.dueDate || getTaskDueDate(task);
+            const timeStr = task.time || task.dueTime || null;
+            if(dateStr) return applyExactDateCalendarMove(task, dateStr, timeStr);
+            return enforceScheduleTypeFieldSeparation(normalizeTask({
+                ...task,
+                scheduleType: 'date',
+                weekDueOnly: false,
+                week: null,
+                dueDate: null,
+                dueTime: null
+            }));
+        }
+
         function applyExactDateCalendarMove(task, dateStr, timeStr = null) {
             if(!task || !dateStr) return task;
             const started = isAssignmentStarted(task);
@@ -8974,7 +9011,8 @@
             'today', 'todat', 'tomorrow', 'tommorow', 'monday', 'mon', 'tuesday', 'tue', 'tues',
             'wednesday', 'wed', 'thursday', 'thu', 'thur', 'thurs', 'friday', 'fri', 'saturday', 'sat',
             'sunday', 'sun', 'after', 'before', 'due', 'high', 'medium', 'low', 'urgent', 'easy', 'hard',
-            'missed', 'notes', 'subject', 'priority', 'duration', 'remove', 'clear', 'reset', 'unlock'
+            'missed', 'notes', 'subject', 'priority', 'duration', 'remove', 'clear', 'reset', 'unlock',
+            'exact', 'target'
         ]);
 
         function parseAssignmentSubjectCommand(raw) {
@@ -8985,6 +9023,7 @@
             if(!taskQuery || !subject || subject.length > 50) return null;
             const lower = subject.toLowerCase();
             if(COMMAND_SUBJECT_RESERVED_WORDS.has(lower)) return null;
+            if(/^(target\s+week|exact(?:\s+date)?)$/i.test(subject)) return null;
             if(/^\d/.test(subject)) return null;
             if(parseQuickEntryTime(subject)) return null;
             if(looksLikeScheduleDateText(subject)) return null;
@@ -9001,6 +9040,60 @@
                 skipSubjectSplit: parsed.action === 'subject',
                 subjectFilter: parsed.subjectFilter || null
             });
+        }
+
+        function peelQuotedAssignmentCommand(raw) {
+            const match = String(raw || '').trim().match(/^["'](.+?)["']\s+(.+)$/);
+            if(!match) return { body: String(raw || '').trim(), taskQuery: null };
+            return { body: match[2].trim(), taskQuery: match[1].trim() };
+        }
+
+        function applyPresetTaskQuery(parsed, taskQuery) {
+            if(!parsed || !taskQuery || parsed.error) return parsed;
+            if(Object.prototype.hasOwnProperty.call(parsed, 'taskQuery')) parsed.taskQuery = taskQuery;
+            return parsed;
+        }
+
+        function parsePresetTaskCommand(body, taskQuery) {
+            if(!taskQuery || !body) return null;
+            let match = body.match(/^due(?:\s+to)?\s+(.+)$/i);
+            if(match) return { action: 'due', taskQuery, destination: match[1].trim() };
+            match = body.match(/^move\s+to\s+(.+)$/i)
+                || body.match(/^schedule\s+(?:to|on|for)\s+(.+)$/i)
+                || body.match(/^reschedule\s+(?:to|on|for)\s+(.+)$/i);
+            if(match) return { action: 'move', taskQuery, destination: match[1].trim() };
+            match = body.match(/^to\s+(.+)$/i);
+            if(match) {
+                const dest = match[1].trim().replace(/^at\s+/i, '');
+                const parsedTime = parseQuickEntryTime(dest);
+                if(parsedTime && !looksLikeScheduleDateText(dest)) {
+                    return { action: 'setTime', taskQuery, time: parsedTime };
+                }
+                return { action: 'move', taskQuery, destination: dest };
+            }
+            if(/^(?:to\s+)?target\s+week$/i.test(body)) return { action: 'scheduleMode', taskQuery, mode: 'week' };
+            if(/^(?:to\s+)?exact(?:\s+date)?$/i.test(body)) return { action: 'scheduleMode', taskQuery, mode: 'date' };
+            if(/^start$/i.test(body)) return { action: 'start', taskQuery };
+            if(/^(?:complete|done|finish)$/i.test(body)) return { action: 'complete', taskQuery };
+            if(/^(?:delete|remove)$/i.test(body)) return { action: 'delete', taskQuery };
+            if(/^(?:edit|open)$/i.test(body)) return { action: 'edit', taskQuery };
+            match = body.match(/^notes\s+(.+)$/i);
+            if(match) return { action: 'notes', taskQuery, notes: match[1].trim() };
+            match = body.match(/^subject\s+(.+)$/i);
+            if(match) return { action: 'subject', taskQuery, subject: match[1].trim() };
+            match = body.match(/^(after|before)\s+(.+)$/i);
+            if(match) {
+                return {
+                    action: 'dependency',
+                    taskQuery,
+                    depType: match[1].toLowerCase(),
+                    depQuery: match[2].trim()
+                };
+            }
+            if(parseQuickEntryScheduleFragment(body).dueDate || parseQuickEntryScheduleFragment(body).date) {
+                return { action: 'due', taskQuery, destination: body };
+            }
+            return null;
         }
 
         function findTaskIdByTitleQuery(query, excludeId = null) {
@@ -9107,7 +9200,16 @@
                 return { action: 'openNew' };
             }
 
-            const addMatch = raw.match(/^(?:add|create)\s+(?:assignment\s+)?(.+)$/i);
+            const peeled = peelQuotedAssignmentCommand(raw);
+            const commandText = peeled.body;
+            const presetTaskQuery = peeled.taskQuery;
+
+            if(presetTaskQuery) {
+                const presetParsed = parsePresetTaskCommand(commandText, presetTaskQuery);
+                if(presetParsed) return presetParsed;
+            }
+
+            const addMatch = commandText.match(/^(?:add|create)\s+(?:assignment\s+)?(.+)$/i);
             if(addMatch) {
                 const rest = addMatch[1].trim();
                 const splitRe = /\s+(?=due|by|after|before|different|\d+\s*m|\d+m|high|low|urgent|subject|on|for|today|tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/i;
@@ -9118,157 +9220,219 @@
                 return { action: 'create', title, details };
             }
 
-            let match = raw.match(/^move\s+(.+?)\s+to\s+(.+)$/i)
-                || raw.match(/^schedule\s+(.+?)\s+(?:to|on|for)\s+(.+)$/i)
-                || raw.match(/^reschedule\s+(.+?)\s+(?:to|on|for)\s+(.+)$/i);
+            let match = commandText.match(/^move\s+(.+?)\s+to\s+(.+)$/i)
+                || commandText.match(/^schedule\s+(.+?)\s+(?:to|on|for)\s+(.+)$/i)
+                || commandText.match(/^reschedule\s+(.+?)\s+(?:to|on|for)\s+(.+)$/i);
             if(match) {
-                return { action: 'move', taskQuery: match[1].trim(), destination: match[2].trim() };
+                return applyPresetTaskQuery({
+                    action: 'move',
+                    taskQuery: match[1].trim(),
+                    destination: match[2].trim()
+                }, presetTaskQuery);
             }
 
-            match = raw.match(/^(.+?)\s+to\s+(.+)$/i);
+            match = commandText.match(/^(.+?)\s+to\s+(.+)$/i);
             if(match) {
                 const dest = match[2].trim().replace(/^at\s+/i, '');
                 const parsedTime = parseQuickEntryTime(dest);
                 if(parsedTime && !looksLikeScheduleDateText(dest)) {
-                    return { action: 'setTime', taskQuery: match[1].trim(), time: parsedTime };
+                    return applyPresetTaskQuery({
+                        action: 'setTime',
+                        taskQuery: match[1].trim(),
+                        time: parsedTime
+                    }, presetTaskQuery);
                 }
             }
 
-            match = raw.match(/^start\s+(.+)$/i);
-            if(match) return { action: 'start', taskQuery: match[1].trim() };
+            match = commandText.match(/^start\s+(.+)$/i);
+            if(match) return applyPresetTaskQuery({ action: 'start', taskQuery: match[1].trim() }, presetTaskQuery);
 
-            match = raw.match(/^(?:edit|open)\s+(.+)$/i);
-            if(match) return { action: 'edit', taskQuery: match[1].trim() };
+            match = commandText.match(/^(?:edit|open)\s+(.+)$/i);
+            if(match) return applyPresetTaskQuery({ action: 'edit', taskQuery: match[1].trim() }, presetTaskQuery);
 
-            match = raw.match(/^(?:duplicate|copy|clone)\s+(.+)$/i);
-            if(match) return { action: 'duplicate', taskQuery: match[1].trim() };
+            match = commandText.match(/^(?:duplicate|copy|clone)\s+(.+)$/i);
+            if(match) return applyPresetTaskQuery({ action: 'duplicate', taskQuery: match[1].trim() }, presetTaskQuery);
 
-            match = raw.match(/^(?:unstart|stop|unlock)\s+(.+)$/i);
-            if(match) return { action: 'unstart', taskQuery: match[1].trim() };
+            match = commandText.match(/^(?:unstart|stop|unlock)\s+(.+)$/i);
+            if(match) return applyPresetTaskQuery({ action: 'unstart', taskQuery: match[1].trim() }, presetTaskQuery);
 
-            match = raw.match(/^(?:missed|mark\s+missed|skip)\s+(.+)$/i);
-            if(match) return { action: 'missed', taskQuery: match[1].trim() };
+            match = commandText.match(/^(?:missed|mark\s+missed|skip)\s+(.+)$/i);
+            if(match) return applyPresetTaskQuery({ action: 'missed', taskQuery: match[1].trim() }, presetTaskQuery);
 
-            match = raw.match(/^(.+?)\s+missed$/i);
-            if(match) return { action: 'missed', taskQuery: match[1].trim() };
+            match = commandText.match(/^(.+?)\s+missed$/i);
+            if(match) return applyPresetTaskQuery({ action: 'missed', taskQuery: match[1].trim() }, presetTaskQuery);
 
-            match = raw.match(/^(?:uncomplete|reopen|undo\s+complete)\s+(.+)$/i);
-            if(match) return { action: 'uncomplete', taskQuery: match[1].trim() };
+            match = commandText.match(/^(?:uncomplete|reopen|undo\s+complete)\s+(.+)$/i);
+            if(match) return applyPresetTaskQuery({ action: 'uncomplete', taskQuery: match[1].trim() }, presetTaskQuery);
 
-            match = raw.match(/^(?:find|search|show)\s+(.+)$/i);
+            match = commandText.match(/^(?:find|search|show)\s+(.+)$/i);
             if(match) return { action: 'find', query: match[1].trim() };
 
-            if(/^undo$/i.test(raw)) return { action: 'undo' };
+            if(/^undo$/i.test(commandText)) return { action: 'undo' };
 
-            match = raw.match(/^(?:remove|clear)\s+(.+?)\s+(after|before)\s+(.+)$/i);
+            match = commandText.match(/^(?:remove|clear)\s+(.+?)\s+(after|before)\s+(.+)$/i);
             if(match) {
-                return {
+                return applyPresetTaskQuery({
                     action: 'removeDependency',
                     taskQuery: match[1].trim(),
                     depType: match[2].toLowerCase(),
                     depQuery: match[3].trim()
-                };
+                }, presetTaskQuery);
             }
 
-            match = raw.match(/^(.+?)\s+(?:remove|clear)\s+(after|before)\s+(.+)$/i);
+            match = commandText.match(/^(.+?)\s+(?:remove|clear)\s+(after|before)\s+(.+)$/i);
             if(match) {
-                return {
+                return applyPresetTaskQuery({
                     action: 'removeDependency',
                     taskQuery: match[1].trim(),
                     depType: match[2].toLowerCase(),
                     depQuery: match[3].trim()
-                };
+                }, presetTaskQuery);
             }
 
-            match = raw.match(/^(?:clear|reset|unlock)\s+(?:time\s+(?:for\s+)?)?(.+)$/i);
-            if(match) return { action: 'clearTime', taskQuery: match[1].trim() };
+            match = commandText.match(/^(?:clear|reset|unlock)\s+(?:time\s+(?:for\s+)?)?(.+)$/i);
+            if(match) return applyPresetTaskQuery({ action: 'clearTime', taskQuery: match[1].trim() }, presetTaskQuery);
 
-            match = raw.match(/^(.+?)\s+(?:clear|reset|unlock)\s+time$/i);
-            if(match) return { action: 'clearTime', taskQuery: match[1].trim() };
+            match = commandText.match(/^(.+?)\s+(?:clear|reset|unlock)\s+time$/i);
+            if(match) return applyPresetTaskQuery({ action: 'clearTime', taskQuery: match[1].trim() }, presetTaskQuery);
 
-            match = raw.match(/^(.+?)\s+notes\s+(.+)$/i);
-            if(match) return { action: 'notes', taskQuery: match[1].trim(), notes: match[2].trim() };
-
-            match = raw.match(/^(?:set\s+)?(.+?)\s+(?:difficulty\s+)?(easy|medium|hard)$/i)
-                || raw.match(/^(easy|medium|hard)\s+(.+)$/i);
+            match = commandText.match(/^(.+?)\s+notes\s+(.+)$/i);
             if(match) {
-                const inverted = /^(easy|medium|hard)\s+/i.test(raw);
+                return applyPresetTaskQuery({
+                    action: 'notes',
+                    taskQuery: match[1].trim(),
+                    notes: match[2].trim()
+                }, presetTaskQuery);
+            }
+
+            match = commandText.match(/^(?:set\s+)?(.+?)\s+due(?:\s+to)?\s+(.+)$/i);
+            if(match) {
+                return applyPresetTaskQuery({
+                    action: 'due',
+                    taskQuery: match[1].trim(),
+                    destination: match[2].trim()
+                }, presetTaskQuery);
+            }
+
+            match = commandText.match(/^(?:set\s+)?(.+?)\s+(?:to\s+)?target\s+week$/i);
+            if(match) {
+                return applyPresetTaskQuery({
+                    action: 'scheduleMode',
+                    taskQuery: match[1].trim(),
+                    mode: 'week'
+                }, presetTaskQuery);
+            }
+
+            match = commandText.match(/^(?:set\s+)?(.+?)\s+(?:to\s+)?exact(?:\s+date)?$/i);
+            if(match) {
+                return applyPresetTaskQuery({
+                    action: 'scheduleMode',
+                    taskQuery: match[1].trim(),
+                    mode: 'date'
+                }, presetTaskQuery);
+            }
+
+            match = commandText.match(/^(?:set\s+)?(.+?)\s+(?:difficulty\s+)?(easy|medium|hard)$/i)
+                || commandText.match(/^(easy|medium|hard)\s+(.+)$/i);
+            if(match) {
+                const inverted = /^(easy|medium|hard)\s+/i.test(commandText);
                 const level = (inverted ? match[1] : match[2]).toLowerCase();
-                return {
+                return applyPresetTaskQuery({
                     action: 'difficulty',
                     taskQuery: (inverted ? match[2] : match[1]).trim(),
                     difficulty: level.charAt(0).toUpperCase() + level.slice(1)
-                };
+                }, presetTaskQuery);
             }
 
-            match = raw.match(new RegExp(`^(.+?)\\s+(${QUICK_ENTRY_DATE_WORDS})(?:\\s+(?:at\\s+)?(\\d{1,2}(?::\\d{2})?\\s*(?:am|pm)?))?$`, 'i'));
-            if(match) {
+            match = commandText.match(new RegExp(`^(.+?)\\s+(${QUICK_ENTRY_DATE_WORDS})(?:\\s+(?:at\\s+)?(\\d{1,2}(?::\\d{2})?\\s*(?:am|pm)?))?$`, 'i'));
+            if(match && !/\s(due|by)$/i.test(match[1].trim())) {
                 const destination = match[2] + (match[3] ? ` at ${match[3]}` : '');
-                return { action: 'move', taskQuery: match[1].trim(), destination: destination.trim() };
+                return applyPresetTaskQuery({
+                    action: 'move',
+                    taskQuery: match[1].trim(),
+                    destination: destination.trim()
+                }, presetTaskQuery);
             }
 
-            match = raw.match(/^(.+?)\s+(?:must\s+be\s+)?(after|before)\s+(.+)$/i);
+            match = commandText.match(/^(.+?)\s+(?:must\s+be\s+)?(after|before)\s+(.+)$/i);
             if(match) {
-                return {
+                return applyPresetTaskQuery({
                     action: 'dependency',
                     taskQuery: match[1].trim(),
                     depType: match[2].toLowerCase(),
                     depQuery: match[3].trim()
-                };
+                }, presetTaskQuery);
             }
 
-            match = raw.match(/^(.+?)\s+different\s+day\s+(?:than|from)\s+(.+)$/i);
+            match = commandText.match(/^(.+?)\s+different\s+day\s+(?:than|from)\s+(.+)$/i);
             if(match) {
-                return {
+                return applyPresetTaskQuery({
                     action: 'dependency',
                     taskQuery: match[1].trim(),
                     depType: 'differentDay',
                     depQuery: match[2].trim()
-                };
+                }, presetTaskQuery);
             }
 
-            match = raw.match(/^(?:set\s+)?(.+?)\s+due(?:\s+to)?\s+(.+)$/i);
+            match = commandText.match(/^(?:complete|done|finish|mark)\s+(.+)$/i);
+            if(match) return applyPresetTaskQuery({ action: 'complete', taskQuery: match[1].trim() }, presetTaskQuery);
+
+            match = commandText.match(/^(?:delete|remove)\s+(.+)$/i);
+            if(match) return applyPresetTaskQuery({ action: 'delete', taskQuery: match[1].trim() }, presetTaskQuery);
+
+            match = commandText.match(/^rename\s+(.+?)\s+to\s+(.+)$/i);
             if(match) {
-                return { action: 'due', taskQuery: match[1].trim(), destination: match[2].trim() };
+                return applyPresetTaskQuery({
+                    action: 'rename',
+                    taskQuery: match[1].trim(),
+                    newTitle: match[2].trim()
+                }, presetTaskQuery);
             }
 
-            match = raw.match(/^(?:complete|done|finish|mark)\s+(.+)$/i);
-            if(match) return { action: 'complete', taskQuery: match[1].trim() };
-
-            match = raw.match(/^(?:delete|remove)\s+(.+)$/i);
-            if(match) return { action: 'delete', taskQuery: match[1].trim() };
-
-            match = raw.match(/^rename\s+(.+?)\s+to\s+(.+)$/i);
-            if(match) return { action: 'rename', taskQuery: match[1].trim(), newTitle: match[2].trim() };
-
-            match = raw.match(/^(?:set\s+)?(.+?)\s+priority\s+(high|medium|low|urgent)$/i)
-                || raw.match(/^(?:set\s+)?(.+?)\s+(high|medium|low|urgent)\s+priority$/i)
-                || raw.match(/^(?:set\s+)?(.+?)\s+(high|low|urgent)$/i);
+            match = commandText.match(/^(?:set\s+)?(.+?)\s+priority\s+(high|medium|low|urgent)$/i)
+                || commandText.match(/^(?:set\s+)?(.+?)\s+(high|medium|low|urgent)\s+priority$/i)
+                || commandText.match(/^(?:set\s+)?(.+?)\s+(high|low|urgent)$/i);
             if(match) {
                 const level = match[2].toLowerCase();
-                return {
+                return applyPresetTaskQuery({
                     action: 'priority',
                     taskQuery: match[1].trim(),
                     priority: level === 'urgent' ? 'High' : (level.charAt(0).toUpperCase() + level.slice(1))
-                };
+                }, presetTaskQuery);
             }
 
-            match = raw.match(/^(?:set\s+)?(.+?)\s+(?:duration\s+)?(\d+(?:\.\d+)?(?:\s*(?:m|min|mins|minutes?|h|hr|hrs|hours?)|m))$/i);
+            match = commandText.match(/^(?:set\s+)?(.+?)\s+(?:duration\s+)?(\d+(?:\.\d+)?(?:\s*(?:m|min|mins|minutes?|h|hr|hrs|hours?)|m))$/i);
             if(match) {
                 const durationToken = match[2];
                 const isHours = /h|hr|hrs|hour/i.test(durationToken);
                 const value = parseFloat(durationToken);
                 const minutes = Math.max(1, Math.round(isHours ? value * 60 : value));
-                return { action: 'duration', taskQuery: match[1].trim(), duration: String(minutes) };
+                return applyPresetTaskQuery({
+                    action: 'duration',
+                    taskQuery: match[1].trim(),
+                    duration: String(minutes)
+                }, presetTaskQuery);
             }
 
-            match = raw.match(/^(?:set\s+)?(.+?)\s+subject\s+(.+)$/i);
-            if(match) return { action: 'subject', taskQuery: match[1].trim(), subject: match[2].trim() };
+            match = commandText.match(/^(?:set\s+)?(.+?)\s+subject\s+(.+)$/i);
+            if(match) {
+                return applyPresetTaskQuery({
+                    action: 'subject',
+                    taskQuery: match[1].trim(),
+                    subject: match[2].trim()
+                }, presetTaskQuery);
+            }
 
-            const subjectCommand = parseAssignmentSubjectCommand(raw);
+            const subjectCommand = presetTaskQuery
+                ? null
+                : parseAssignmentSubjectCommand(commandText);
             if(subjectCommand) return subjectCommand;
 
-            return { error: 'Could not understand that command. Try Speech Writing, Speech Math, or a number after a duplicate match.' };
+            if(presetTaskQuery) {
+                return { error: `Could not understand command for "${presetTaskQuery}". Try due tomorrow at 5pm, target week, or exact date.` };
+            }
+
+            return { error: 'Could not understand that command. Try "timeline" due tomorrow at 5pm, timeline target week, or timeline exact date.' };
         }
 
         function parseMoveDestination(text) {
@@ -9702,6 +9866,20 @@
                 }, { seedTaskIds: [taskId, depId] });
                 const relation = parsed.depType === 'before' ? 'before' : (parsed.depType === 'differentDay' ? 'on a different day than' : 'after');
                 showNotification(`"${task.title}" must be ${relation} "${depTask?.title || parsed.depQuery}"`, 'success');
+                return true;
+            }
+
+            if(parsed.action === 'scheduleMode') {
+                const toWeek = parsed.mode === 'week';
+                mutateClassifyData(() => {
+                    tasks = tasks.map(t => t.id === taskId
+                        ? applyScheduleModeSwitch(t, parsed.mode)
+                        : t);
+                }, { seedTaskIds: [taskId] });
+                showNotification(
+                    `"${task.title}" switched to ${toWeek ? 'target week' : 'exact date'}`,
+                    'success'
+                );
                 return true;
             }
 
