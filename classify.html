@@ -280,6 +280,8 @@
             color: transparent;
         }
         .cl-command-bar {
+            display: flex;
+            flex-direction: column;
             border-top: 1px solid rgba(226, 232, 240, 0.85);
             background: rgba(255, 255, 255, 0.92);
             backdrop-filter: blur(8px);
@@ -289,6 +291,44 @@
             background: rgba(15, 23, 42, 0.88);
         }
         .cl-command-bar.hidden { display: none; }
+        .cl-command-disambiguation {
+            border-top: 1px solid rgba(226, 232, 240, 0.85);
+            background: rgba(248, 250, 252, 0.96);
+        }
+        .cl-command-disambiguation.hidden { display: none; }
+        .dark .cl-command-disambiguation {
+            border-top-color: rgba(51, 65, 85, 0.85);
+            background: rgba(2, 6, 23, 0.72);
+        }
+        .cl-command-disambiguation__inner {
+            max-width: 72rem;
+            margin: 0 auto;
+            padding: 0.45rem 1rem 0.65rem;
+        }
+        .cl-command-disambiguation__prompt {
+            margin: 0 0 0.35rem;
+            font-size: 0.72rem;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+            text-transform: uppercase;
+            color: #64748b;
+        }
+        .dark .cl-command-disambiguation__prompt { color: #94a3b8; }
+        .cl-command-disambiguation__list {
+            margin: 0;
+            padding: 0;
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.2rem;
+        }
+        .cl-command-disambiguation__item {
+            font-size: 0.82rem;
+            line-height: 1.35;
+            color: #334155;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        }
+        .dark .cl-command-disambiguation__item { color: #cbd5e1; }
         .cl-command-bar__inner {
             display: flex;
             align-items: center;
@@ -1937,6 +1977,12 @@
                 </div>
                 <input id="classifyCommandInput" type="text" autocomplete="off" spellcheck="false" class="cl-command-bar__input" placeholder="new · &quot;timeline&quot; due tomorrow at 5pm · target week · exact date" aria-label="Command line" title="Quote an assignment name to target it exactly. Examples: &quot;timeline&quot; due tomorrow at 5pm, timeline target week, timeline exact date.">
                 <span class="cl-command-bar__hint"><kbd>/</kbd> focus</span>
+            </div>
+            <div id="classifyCommandDisambiguation" class="cl-command-disambiguation hidden" aria-live="polite">
+                <div class="cl-command-disambiguation__inner">
+                    <p id="classifyCommandDisambiguationPrompt" class="cl-command-disambiguation__prompt">Multiple matches — type a number:</p>
+                    <ul id="classifyCommandDisambiguationList" class="cl-command-disambiguation__list"></ul>
+                </div>
             </div>
         </div>
         <div id="th-site-menu-backdrop" class="th-site-menu-backdrop" hidden></div>
@@ -9115,27 +9161,36 @@
 
         let pendingCommandDisambiguation = null;
 
-        const COMMAND_SUBJECT_RESERVED_WORDS = new Set([
-            'today', 'todat', 'tomorrow', 'tommorow', 'monday', 'mon', 'tuesday', 'tue', 'tues',
-            'wednesday', 'wed', 'thursday', 'thu', 'thur', 'thurs', 'friday', 'fri', 'saturday', 'sat',
-            'sunday', 'sun', 'after', 'before', 'due', 'high', 'medium', 'low', 'urgent', 'easy', 'hard',
-            'missed', 'notes', 'subject', 'priority', 'duration', 'remove', 'clear', 'reset', 'unlock',
-            'exact', 'target'
-        ]);
+        function renderCommandDisambiguationPicker() {
+            const panel = document.getElementById('classifyCommandDisambiguation');
+            const list = document.getElementById('classifyCommandDisambiguationList');
+            const prompt = document.getElementById('classifyCommandDisambiguationPrompt');
+            if(!panel || !list) return;
+            if(!pendingCommandDisambiguation?.options?.length) {
+                panel.classList.add('hidden');
+                list.replaceChildren();
+                syncClassifyChromeOffsets();
+                return;
+            }
+            if(prompt) {
+                prompt.textContent = pendingCommandDisambiguation.pickTarget === 'dependency'
+                    ? 'Multiple dependency matches — type a number:'
+                    : 'Multiple matches — type a number:';
+            }
+            list.replaceChildren();
+            pendingCommandDisambiguation.options.forEach(option => {
+                const item = document.createElement('li');
+                item.className = 'cl-command-disambiguation__item';
+                item.textContent = option.label;
+                list.appendChild(item);
+            });
+            panel.classList.remove('hidden');
+            syncClassifyChromeOffsets();
+        }
 
-        function parseAssignmentSubjectCommand(raw) {
-            const match = String(raw || '').trim().match(/^(.+?)\s+([A-Za-z][A-Za-z0-9&' -]+)$/);
-            if(!match) return null;
-            const taskQuery = match[1].trim();
-            const subject = match[2].trim();
-            if(!taskQuery || !subject || subject.length > 50) return null;
-            const lower = subject.toLowerCase();
-            if(COMMAND_SUBJECT_RESERVED_WORDS.has(lower)) return null;
-            if(/^(target\s+week|exact(?:\s+date)?)$/i.test(subject)) return null;
-            if(/^\d/.test(subject)) return null;
-            if(parseQuickEntryTime(subject)) return null;
-            if(looksLikeScheduleDateText(subject)) return null;
-            return { action: 'subject', taskQuery, subject };
+        function clearCommandDisambiguation() {
+            pendingCommandDisambiguation = null;
+            renderCommandDisambiguationPicker();
         }
 
         function resolveCommandTaskReference(parsed) {
@@ -9531,16 +9586,11 @@
                 }, presetTaskQuery);
             }
 
-            const subjectCommand = presetTaskQuery
-                ? null
-                : parseAssignmentSubjectCommand(commandText);
-            if(subjectCommand) return subjectCommand;
-
             if(presetTaskQuery) {
                 return { error: `Could not understand command for "${presetTaskQuery}". Try due tomorrow at 5pm, target week, or exact date.` };
             }
 
-            return { error: 'Could not understand that command. Try "timeline" due tomorrow at 5pm, timeline target week, or timeline exact date.' };
+            return { error: 'Could not understand that command. Try timeline subject Writing, "timeline" due tomorrow at 5pm, or timeline target week.' };
         }
 
         function parseMoveDestination(text) {
@@ -9596,6 +9646,12 @@
         }
 
         function executeClassifyCommandLine(text) {
+            const trimmed = String(text || '').trim();
+            if(pendingCommandDisambiguation && trimmed && !/^\d+$/.test(trimmed)) {
+                showNotification('Type a number from the list below to pick an assignment.', 'info');
+                return false;
+            }
+
             const parsed = parseClassifyCommandLine(text);
             if(parsed.error) {
                 showNotification(parsed.error, 'error');
@@ -9708,14 +9764,12 @@
             }
             if(taskRef.ambiguous) {
                 pendingCommandDisambiguation = { parsed, options: taskRef.options };
-                showNotification(
-                    `Multiple matches — type a number: ${taskRef.options.map(o => o.label).join(' · ')}`,
-                    'info'
-                );
+                renderCommandDisambiguationPicker();
+                focusClassifyCommandLine();
                 return true;
             }
 
-            pendingCommandDisambiguation = null;
+            clearCommandDisambiguation();
             const task = taskRef.task;
             const taskId = task.id;
 
@@ -9902,10 +9956,8 @@
                             options: depRef.options,
                             pickTarget: 'dependency'
                         };
-                        showNotification(
-                            `Multiple dependency matches — type a number: ${depRef.options.map(o => o.label).join(' · ')}`,
-                            'info'
-                        );
+                        renderCommandDisambiguationPicker();
+                        focusClassifyCommandLine();
                         return true;
                     }
                     depId = depRef.id;
@@ -9944,10 +9996,8 @@
                             options: depRef.options,
                             pickTarget: 'dependency'
                         };
-                        showNotification(
-                            `Multiple dependency matches — type a number: ${depRef.options.map(o => o.label).join(' · ')}`,
-                            'info'
-                        );
+                        renderCommandDisambiguationPicker();
+                        focusClassifyCommandLine();
                         return true;
                     }
                     depId = depRef.id;
@@ -10071,6 +10121,7 @@
                 }
                 if(event.key === 'Escape') {
                     input.value = '';
+                    clearCommandDisambiguation();
                     input.blur();
                 }
             });
@@ -10622,8 +10673,9 @@
             }
 
             const targetSubject = newName;
-            setSubjectColorValue(targetSubject, newColor);
-            if((getSubjectColorValue(targetSubject) || '').toLowerCase() !== newColor.toLowerCase()) {
+            const priorColor = getSubjectColorValue(targetSubject);
+            if((priorColor || '').toLowerCase() !== newColor.toLowerCase()) {
+                setSubjectColorValue(targetSubject, newColor);
                 changed = true;
             }
 
