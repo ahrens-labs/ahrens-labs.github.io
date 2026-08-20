@@ -4926,9 +4926,11 @@
             const normalizedDueDate = weekDueOnly
                 ? getWeekDueDateForRepeat(weekKeyForDue, { dueDate: normalizedDueDateBase || task.dueDate || null })
                 : normalizedDueDateBase;
-            const normalizedWeek = task.week
-                || (normalizedDueDate ? getWeekKeyFromDateStr(normalizedDueDate) : null)
-                || (normalizedEventDate ? getWeekKeyFromDateStr(normalizedEventDate) : null);
+            const normalizedWeek = isExactDateTask
+                ? null
+                : (inferredScheduleType === 'flexible'
+                    ? null
+                    : (task.week || (normalizedDueDate ? getWeekKeyFromDateStr(normalizedDueDate) : null)));
             const normalizedTime = task.time || null;
             const normalizedSplitGroupId = task.splitGroupId || null;
             const normalizedSplitPercent = Number.isFinite(Number(task.splitPercent))
@@ -5008,7 +5010,7 @@
             const normalizedDuration = (Number.isFinite(durNum) && durNum > 0)
                 ? String(Math.max(1, Math.round(durNum)))
                 : (task.duration || null);
-            return {
+            return enforceScheduleTypeFieldSeparation({
                 id: task.id || generateId(),
                 title: String(task.title || task.name || 'Untitled Assignment'),
                 subject: String(task.subject || 'General'),
@@ -5041,7 +5043,7 @@
                 repeatRule,
                 weekDueOnly,
                 repeatNoAutoTime
-            };
+            });
         }
 
         function getTaskAssignmentMode(task) {
@@ -5169,11 +5171,12 @@
                 task.dueTime = preservedDueTime;
             } else {
                 task.scheduleType = 'date';
-                task.week = getWeekKeyFromDateStr(date);
+                task.week = null;
                 task.weekDueOnly = false;
                 task.dueDate = null;
                 task.dueTime = null;
             }
+            enforceScheduleTypeFieldSeparation(task);
 
             saveData({ skipAutoSchedule: true, skipUndoRecord: true });
             setStartButtonBusy(id, false);
@@ -5386,6 +5389,59 @@
             return task.scheduleType === 'week';
         }
 
+        function getTaskScheduleMode(task) {
+            if(!task) return 'flexible';
+            if(task.weekDueOnly || task.scheduleType === 'week') return 'week';
+            if(task.scheduleType === 'date') return 'date';
+            return 'flexible';
+        }
+
+        function enforceScheduleTypeFieldSeparation(task) {
+            if(!task) return task;
+            const mode = getTaskScheduleMode(task);
+
+            if(mode === 'date') {
+                task.dueDate = null;
+                task.week = null;
+                task.weekDueOnly = false;
+                return task;
+            }
+
+            if(mode === 'week') {
+                if(!task.week && task.dueDate) {
+                    task.week = getWeekKeyFromDateStr(task.dueDate);
+                }
+                const keepCalendarSlot = Boolean(
+                    task.date && (
+                        isAssignmentStarted(task) ||
+                        task.dateSource === 'auto' ||
+                        (task.timeSource === 'auto' && task.time)
+                    )
+                );
+                if(!keepCalendarSlot) {
+                    task.date = null;
+                    task.dateSource = null;
+                    task.time = null;
+                    task.timeSource = null;
+                    if(!isAssignmentStarted(task)) {
+                        task.startedAt = null;
+                        task.assignmentMode = 'ADJUSTABLE';
+                    }
+                }
+                return task;
+            }
+
+            task.week = null;
+            task.weekDueOnly = false;
+            task.date = null;
+            task.dateSource = null;
+            task.time = null;
+            task.timeSource = null;
+            task.startedAt = null;
+            task.assignmentMode = 'ADJUSTABLE';
+            return task;
+        }
+
         function ensureTargetWeekScheduleType(task) {
             if(!isTargetWeekAssignment(task)) return task;
             task.scheduleType = 'week';
@@ -5554,7 +5610,9 @@
                 const preservePlacement = isUserScheduleLocked(task) && Boolean(task.date);
                 if(preservePlacement) {
                     dateById.set(task.id, task.date);
-                    if(task.date) task.week = getWeekKeyFromDateStr(task.date);
+                    if(task.date && !isTargetWeekAssignment(task)) {
+                        task.week = getWeekKeyFromDateStr(task.date);
+                    }
                     return;
                 }
             });
@@ -9879,7 +9937,7 @@
                     week: isTargetWeekAssignment(task)
                         ? (task.week || getWeekKeyFromDateStr(dateStr))
                         : getWeekKeyFromDateStr(dateStr),
-                    dateSource: 'user'
+                    dateSource: isTargetWeekAssignment(task) ? 'auto' : 'user'
                 };
                 if(timeStr) {
                     dragUpdates.time = timeStr;
@@ -10326,6 +10384,8 @@
             subjectSuggestionBlurTimer = setTimeout(hideSubjectSuggestionMenu, 150);
         }
 
+        let lastScheduleTypeInput = null;
+
         function updateScheduleInputs() {
             const scheduleType = document.getElementById('inputScheduleType')?.value || 'date';
             const repeatType = document.getElementById('inputRepeatType')?.value || 'none';
@@ -10342,6 +10402,21 @@
             const dueTimeInput = document.getElementById('inputDueTime');
             if(!weekWrapper || !eventDateWrapper || !startTimeWrapper || !dueDateWrapper || !dueTimeWrapper || !dateInput || !dueDateInput || !weekInput || !timeInput || !dueTimeInput) return;
 
+            if(lastScheduleTypeInput && lastScheduleTypeInput !== scheduleType) {
+                if(scheduleType === 'date') {
+                    weekInput.value = '';
+                    dueDateInput.value = '';
+                } else if(scheduleType === 'week') {
+                    dateInput.value = '';
+                    timeInput.value = '';
+                    dueDateInput.value = dueDateInput.value || '';
+                } else {
+                    weekInput.value = '';
+                    dateInput.value = '';
+                    timeInput.value = '';
+                }
+            }
+            lastScheduleTypeInput = scheduleType;
             if(scheduleType === 'week') {
                 weekWrapper.classList.remove('hidden');
                 eventDateWrapper.classList.add('hidden');
@@ -10487,6 +10562,7 @@
 
         function clearForm() {
             editingId = null;
+            lastScheduleTypeInput = null;
             hideSubjectSuggestionMenu();
             document.getElementById('inputTitle').value = '';
             document.getElementById('inputSubject').value = '';
@@ -10761,42 +10837,19 @@
             );
             const isFixedInput = scheduleType === 'date' && !weekDueOnly && Boolean(date) && Boolean(inputTimeValue) && !preserveAdjustableAuto;
             const assignmentMode = isFixedInput ? 'FIXED' : 'ADJUSTABLE';
-            const keepAutoCalendarPlacement = !isExactDateSchedule && Boolean(existingTask);
+            const preserveStartedTargetWeekSlot = scheduleType === 'week'
+                && Boolean(existingTask)
+                && isAssignmentStarted(existingTask);
 
-            const baseTaskData = {
+            const sharedTaskFields = {
                 id: editingId || generateId(),
                 title: title,
                 subject: subject,
-                date: isExactDateSchedule
-                    ? (date || null)
-                    : (keepAutoCalendarPlacement ? (existingTask.date || null) : null),
-                dateSource: isExactDateSchedule && date
-                    ? 'user'
-                    : (keepAutoCalendarPlacement ? (existingTask.dateSource || null) : null),
-                dueDate: dueDate,
-                week: scheduleType === 'week'
-                    ? week
-                    : (dueDate ? getWeekKeyFromDateStr(dueDate) : ((scheduleType === 'date' && date) ? getWeekKeyFromDateStr(date) : null)),
                 scheduleType: scheduleType,
-                assignmentMode: isExactDateSchedule
-                    ? assignmentMode
-                    : (keepAutoCalendarPlacement ? (existingTask.assignmentMode || 'ADJUSTABLE') : 'ADJUSTABLE'),
-                time: isExactDateSchedule
-                    ? inputTimeValue
-                    : (keepAutoCalendarPlacement ? (existingTask.time || null) : null),
-                timeSource: isExactDateSchedule
-                    ? (inputTimeValue
-                        ? (((preserveAutoSource || preserveAdjustableAuto) && assignmentMode === 'ADJUSTABLE') ? 'auto' : 'user')
-                        : null)
-                    : (keepAutoCalendarPlacement ? (existingTask.timeSource || null) : null),
-                startedAt: (assignmentMode === 'FIXED' && existingTask?.startedAt && existingTask.time === inputTimeValue)
-                    ? existingTask.startedAt
-                    : (keepAutoCalendarPlacement ? (existingTask.startedAt || null) : null),
-                dueTime: dueTime,
                 duration: document.getElementById('inputDuration').value || null,
                 priority: document.getElementById('inputPriority').value,
                 difficulty: document.getElementById('inputDifficulty').value || 'Medium',
-                color: color, 
+                color: color,
                 mustBeBefore,
                 mustBeAfter,
                 mustBeDifferentDay,
@@ -10807,6 +10860,53 @@
                 weekDueOnly,
                 repeatNoAutoTime
             };
+
+            let baseTaskData;
+            if(isExactDateSchedule) {
+                baseTaskData = {
+                    ...sharedTaskFields,
+                    date: date || null,
+                    dateSource: date ? 'user' : null,
+                    dueDate: null,
+                    dueTime: dueTimeRaw,
+                    week: null,
+                    time: inputTimeValue,
+                    timeSource: inputTimeValue
+                        ? (((preserveAutoSource || preserveAdjustableAuto) && assignmentMode === 'ADJUSTABLE') ? 'auto' : 'user')
+                        : null,
+                    assignmentMode,
+                    startedAt: (assignmentMode === 'FIXED' && existingTask?.startedAt && existingTask.time === inputTimeValue)
+                        ? existingTask.startedAt
+                        : null
+                };
+            } else if(scheduleType === 'week') {
+                baseTaskData = {
+                    ...sharedTaskFields,
+                    date: preserveStartedTargetWeekSlot ? (existingTask.date || null) : null,
+                    dateSource: preserveStartedTargetWeekSlot ? (existingTask.dateSource || null) : null,
+                    dueDate: dueDate,
+                    dueTime: dueTimeRaw,
+                    week: week,
+                    time: preserveStartedTargetWeekSlot ? (existingTask.time || null) : null,
+                    timeSource: preserveStartedTargetWeekSlot ? (existingTask.timeSource || null) : null,
+                    assignmentMode: preserveStartedTargetWeekSlot ? (existingTask.assignmentMode || 'FIXED') : 'ADJUSTABLE',
+                    startedAt: preserveStartedTargetWeekSlot ? existingTask.startedAt : null
+                };
+            } else {
+                baseTaskData = {
+                    ...sharedTaskFields,
+                    date: null,
+                    dateSource: null,
+                    dueDate: dueDateRaw,
+                    dueTime: dueTimeRaw,
+                    week: null,
+                    time: null,
+                    timeSource: null,
+                    assignmentMode: 'ADJUSTABLE',
+                    startedAt: null
+                };
+            }
+
             const normalizedTaskData = normalizeTask(baseTaskData);
             normalizedTaskData.mustBeAfter = (normalizedTaskData.mustBeAfter || []).filter(id => id !== normalizedTaskData.id);
             normalizedTaskData.mustBeBefore = (normalizedTaskData.mustBeBefore || []).filter(id => id !== normalizedTaskData.id);
@@ -11005,17 +11105,32 @@
             const t = tasks.find(t => t.id === id);
             if(!t) return;
             editingId = id;
+            const scheduleMode = getTaskScheduleMode(t);
             document.getElementById('modalHeading').innerText = 'Edit Assignment';
             document.getElementById('inputTitle').value = t.title;
             document.getElementById('inputSubject').value = t.subject;
-            document.getElementById('inputScheduleType').value = isTargetWeekAssignment(t)
+            document.getElementById('inputScheduleType').value = scheduleMode === 'week'
                 ? 'week'
-                : (t.scheduleType || (t.week ? 'week' : (t.date ? 'date' : 'flexible')));
-            document.getElementById('inputDate').value = t.date || '';
-            document.getElementById('inputDueDate').value = taskHasSeparateDueDate(t) ? (t.dueDate || '') : '';
-            document.getElementById('inputWeek').value = t.repeatWeekKey || t.week || getCurrentWeekKey();
-            document.getElementById('inputTime').value = t.time || '';
-            document.getElementById('inputDueTime').value = t.dueTime || '';
+                : (scheduleMode === 'date' ? 'date' : 'flexible');
+            if(scheduleMode === 'date') {
+                document.getElementById('inputDate').value = t.date || '';
+                document.getElementById('inputTime').value = t.time || '';
+                document.getElementById('inputDueDate').value = '';
+                document.getElementById('inputDueTime').value = t.dueTime || '';
+                document.getElementById('inputWeek').value = getCurrentWeekKey();
+            } else if(scheduleMode === 'week') {
+                document.getElementById('inputDate').value = '';
+                document.getElementById('inputTime').value = '';
+                document.getElementById('inputDueDate').value = t.dueDate || '';
+                document.getElementById('inputDueTime').value = t.dueTime || '';
+                document.getElementById('inputWeek').value = t.repeatWeekKey || t.week || getCurrentWeekKey();
+            } else {
+                document.getElementById('inputDate').value = '';
+                document.getElementById('inputTime').value = '';
+                document.getElementById('inputDueDate').value = t.dueDate || '';
+                document.getElementById('inputDueTime').value = t.dueTime || '';
+                document.getElementById('inputWeek').value = getCurrentWeekKey();
+            }
             document.getElementById('inputDuration').value = t.duration || '';
             document.getElementById('inputPriority').value = t.priority;
             document.getElementById('inputDifficulty').value = t.difficulty || 'Medium';
@@ -11028,6 +11143,7 @@
             updateRepeatInputs();
             populateDependencySelects(t.mustBeAfter || [], t.mustBeBefore || [], t.mustBeDifferentDay || []);
             syncSubjectColor(t.subject);
+            lastScheduleTypeInput = document.getElementById('inputScheduleType').value;
             updateScheduleInputs();
 
             modal.classList.remove('hidden', 'pointer-events-none');
@@ -11547,7 +11663,7 @@
                 const keepUserPlacement = isUserScheduleLocked(task) && hasAssignedDate && Boolean(task.time);
 
                 if(keepUserPlacement) {
-                    if(task.date && task.date >= todayStr) {
+                    if(task.date && task.date >= todayStr && !isTargetWeekAssignment(task)) {
                         task.week = getWeekKeyFromDateStr(task.date);
                     }
                     preserved++;
@@ -11556,7 +11672,9 @@
 
                 // Adjustable tasks: clear auto placement so the scheduler can reshuffle freely.
                 if(hasAssignedDate && !isUserScheduleLocked(task)) {
-                    task.week = getWeekKeyFromDateStr(task.date);
+                    if(!isTargetWeekAssignment(task)) {
+                        task.week = getWeekKeyFromDateStr(task.date);
+                    }
                     task.time = null;
                     task.timeSource = null;
                     task.assignmentMode = 'ADJUSTABLE';
@@ -12266,7 +12384,9 @@
                     t.timeSource = 'auto';
                     if(!hasUserLockedCalendarDate(t)) {
                         t.dateSource = 'auto';
-                        t.week = getWeekKeyFromDateStr(nextDate);
+                        if(!isTargetWeekAssignment(t)) {
+                            t.week = getWeekKeyFromDateStr(nextDate);
+                        }
                     }
                 });
                 return { solved: true, unresolved: [] };
