@@ -840,16 +840,7 @@
           item.text = text.value;
           touchCard();
         });
-        remove.addEventListener('click', async () => {
-          if ((item.text || '').trim()) {
-            const ok = await showConfirm({
-              title: 'Remove item?',
-              message: 'Remove “' + item.text.trim() + '” from this checklist?',
-              okLabel: 'Remove',
-              danger: true,
-            });
-            if (!ok) return;
-          }
+        remove.addEventListener('click', () => {
           const card = activeCard();
           if (!card) return;
           card.sections.forEach((sec) => {
