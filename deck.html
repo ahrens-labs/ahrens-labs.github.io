@@ -415,12 +415,13 @@
       margin-bottom: 12px;
     }
     .dk-section-head {
-      display: flex;
-      align-items: center;
-      gap: 8px;
       margin-bottom: 10px;
     }
-    .dk-section-head .dk-section-title { flex: 1; }
+    .dk-section-foot {
+      margin-top: 10px;
+      display: flex;
+      justify-content: flex-end;
+    }
     .dk-card-checklist {
       background: #fff;
       border: 1px solid var(--dk-line);
@@ -2241,7 +2242,7 @@
             touchCard(card);
             renderCard();
           });
-          head.append(title, del);
+          head.append(title);
           const body = document.createElement('textarea');
           body.className = 'dk-section-body';
           body.placeholder = 'Write notes for this section…';
@@ -2250,7 +2251,10 @@
             sec.body = body.value;
             touchCard(card);
           });
-          box.append(head, body);
+          const foot = document.createElement('div');
+          foot.className = 'dk-section-foot';
+          foot.appendChild(del);
+          box.append(head, body, foot);
           list.appendChild(box);
         });
         renderChecklistEdit(card);
