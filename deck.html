@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Deck — Ahrens Labs</title>
-  <meta name="description" content="Deck — take notes and group them into decks so related things stay together.">
+  <meta name="description" content="Deck — organize notes in decks of cards, with sections and checklists.">
   <meta name="theme-color" content="#4f46e5">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -99,7 +99,6 @@
       font-size: 0.72rem;
       font-weight: 700;
       cursor: pointer;
-      transition: color 0.15s, background 0.15s;
     }
     .dk-bottom-nav-item:hover {
       color: var(--dk-brand);
@@ -115,7 +114,6 @@
       justify-content: center;
       width: 34px;
       height: 34px;
-      line-height: 1;
     }
     .dk-bottom-nav-icon img {
       width: 34px;
@@ -132,9 +130,7 @@
       stroke-linecap: round;
       stroke-linejoin: round;
     }
-    .dk-hero {
-      margin: 4px 0 18px;
-    }
+    .dk-hero { margin: 4px 0 18px; }
     .dk-hero h2 {
       margin: 0 0 6px;
       font-size: 1.65rem;
@@ -163,7 +159,6 @@
       font-weight: 700;
       font-size: 0.92rem;
       cursor: pointer;
-      text-decoration: none;
       display: inline-flex;
       align-items: center;
       justify-content: center;
@@ -184,51 +179,36 @@
       color: #b91c1c;
       border: 1px solid #fecaca;
     }
-    .dk-list {
-      display: grid;
-      gap: 10px;
+    .dk-btn-small {
+      padding: 6px 10px;
+      font-size: 0.8rem;
     }
-    .dk-deck-card,
-    .dk-note-card {
+    .dk-list { display: grid; gap: 10px; }
+    .dk-item-card {
       background: var(--dk-card);
       border: 1px solid var(--dk-line);
       border-radius: 16px;
       padding: 14px 16px;
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 12px;
-      cursor: pointer;
+      display: block;
       text-align: left;
       width: 100%;
       font: inherit;
       color: inherit;
+      cursor: pointer;
       box-shadow: 0 8px 24px rgba(49, 46, 129, 0.06);
     }
-    .dk-deck-card:hover,
-    .dk-note-card:hover {
-      border-color: #c7d2fe;
-    }
-    .dk-deck-card h3,
-    .dk-note-card h3 {
+    .dk-item-card:hover { border-color: #c7d2fe; }
+    .dk-item-card h3 {
       margin: 0 0 4px;
       font-size: 1.05rem;
       font-weight: 800;
       color: var(--dk-ink);
     }
-    .dk-deck-card p,
-    .dk-note-card p {
+    .dk-item-card p {
       margin: 0;
       color: var(--dk-muted);
       font-size: 0.86rem;
       line-height: 1.45;
-    }
-    .dk-note-card p {
-      display: -webkit-box;
-      -webkit-line-clamp: 3;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-      white-space: pre-wrap;
     }
     .dk-empty {
       background: #fff;
@@ -252,25 +232,79 @@
     }
     .dk-field input,
     .dk-field textarea,
-    .dk-field select {
+    .dk-field select,
+    .dk-section-title,
+    .dk-check-text,
+    .dk-check-add,
+    .dk-search {
       font: inherit;
       border: 1px solid var(--dk-line);
       border-radius: 10px;
       padding: 10px 12px;
       background: #fff;
       color: var(--dk-ink);
-    }
-    .dk-field textarea { min-height: 180px; resize: vertical; }
-    .dk-search {
       width: 100%;
-      font: inherit;
-      border: 1px solid var(--dk-line);
-      border-radius: 12px;
-      padding: 10px 12px;
-      background: #fff;
-      color: var(--dk-ink);
-      margin: 0 0 14px;
       box-sizing: border-box;
+    }
+    .dk-field textarea,
+    .dk-section-body { min-height: 120px; resize: vertical; }
+    .dk-search { margin: 0 0 14px; border-radius: 12px; }
+    .dk-section {
+      background: #fff;
+      border: 1px solid var(--dk-line);
+      border-radius: 16px;
+      padding: 14px;
+      margin-bottom: 12px;
+    }
+    .dk-section-head {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .dk-section-head .dk-section-title { flex: 1; }
+    .dk-section-kicker {
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--dk-brand);
+      margin: 0 0 8px;
+    }
+    .dk-check-list { display: grid; gap: 6px; }
+    .dk-check-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .dk-check-row input[type="checkbox"] {
+      width: 20px;
+      height: 20px;
+      accent-color: var(--dk-brand);
+      flex-shrink: 0;
+    }
+    .dk-check-row.done .dk-check-text {
+      text-decoration: line-through;
+      color: #94a3b8;
+      background: #f8fafc;
+    }
+    .dk-completed-label {
+      margin: 12px 0 6px;
+      font-size: 0.75rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #94a3b8;
+    }
+    .dk-check-remove {
+      border: 0;
+      background: transparent;
+      color: #94a3b8;
+      font-size: 1.1rem;
+      line-height: 1;
+      cursor: pointer;
+      padding: 4px;
+      flex-shrink: 0;
     }
     .dk-modal-backdrop {
       display: none;
@@ -353,7 +387,7 @@
         <section id="view-decks">
           <div class="dk-hero">
             <h2>Decks</h2>
-            <p>Group related notes into decks so school, projects, and ideas stay in their own piles. Saved on this device — sign in to keep a separate copy per account.</p>
+            <p>Group related cards into decks. Each card can have notes and checklists in separate sections.</p>
           </div>
           <div class="dk-toolbar">
             <button type="button" class="dk-btn dk-btn-primary" id="btn-new-deck">New deck</button>
@@ -361,44 +395,44 @@
           <div id="deck-list" class="dk-list"></div>
         </section>
 
-        <section id="view-notes" class="hidden">
+        <section id="view-cards" class="hidden">
           <div class="dk-hero">
-            <h2 id="notes-heading">Notes</h2>
-            <p id="notes-sub">Open a deck to see its notes.</p>
+            <h2 id="cards-heading">Cards</h2>
+            <p>Cards in this deck. Open one to add sections, notes, and checklists.</p>
           </div>
           <div class="dk-field">
             <label for="deck-name">Deck name</label>
             <input id="deck-name" type="text" maxlength="80" autocomplete="off">
           </div>
           <div class="dk-toolbar">
-            <button type="button" class="dk-btn dk-btn-primary" id="btn-new-note">New note</button>
+            <button type="button" class="dk-btn dk-btn-primary" id="btn-new-card">New card</button>
             <button type="button" class="dk-btn dk-btn-danger" id="btn-delete-deck">Delete deck</button>
           </div>
-          <input class="dk-search" id="note-search" type="search" placeholder="Search this deck…" autocomplete="off">
-          <div id="note-list" class="dk-list"></div>
+          <input class="dk-search" id="card-search" type="search" placeholder="Search cards…" autocomplete="off">
+          <div id="card-list" class="dk-list"></div>
         </section>
 
-        <section id="view-note" class="hidden">
+        <section id="view-card" class="hidden">
           <div class="dk-hero">
-            <h2 id="note-heading">Note</h2>
-            <p>Write freely, then keep it in this deck or move it to another.</p>
+            <h2 id="card-heading">Card</h2>
+            <p>Add note or checklist sections. Checked tasks are crossed off and moved under Completed.</p>
           </div>
           <div class="dk-toolbar">
-            <button type="button" class="dk-btn dk-btn-ghost" id="btn-back-notes">← Notes</button>
-            <button type="button" class="dk-btn dk-btn-primary" id="btn-save-note">Save</button>
-            <button type="button" class="dk-btn dk-btn-danger" id="btn-delete-note">Delete</button>
+            <button type="button" class="dk-btn dk-btn-ghost" id="btn-back-cards">← Cards</button>
+            <button type="button" class="dk-btn dk-btn-danger" id="btn-delete-card">Delete card</button>
           </div>
           <div class="dk-field">
-            <label for="note-title">Title</label>
-            <input id="note-title" type="text" maxlength="160" autocomplete="off" placeholder="What’s this about?">
+            <label for="card-title">Card title</label>
+            <input id="card-title" type="text" maxlength="160" autocomplete="off" placeholder="What’s this card for?">
           </div>
           <div class="dk-field">
-            <label for="note-body">Note</label>
-            <textarea id="note-body" placeholder="Write the details here…"></textarea>
+            <label for="card-deck">Deck</label>
+            <select id="card-deck"></select>
           </div>
-          <div class="dk-field">
-            <label for="note-deck">Deck</label>
-            <select id="note-deck"></select>
+          <div id="section-list"></div>
+          <div class="dk-toolbar">
+            <button type="button" class="dk-btn dk-btn-ghost" id="btn-add-text">Add note section</button>
+            <button type="button" class="dk-btn dk-btn-primary" id="btn-add-checklist">Add checklist</button>
           </div>
         </section>
       </div>
@@ -409,11 +443,11 @@
         <span class="dk-bottom-nav-icon" aria-hidden="true"><img src="img/deck-logo-128.png" alt="" width="34" height="34"></span>
         <span>Decks</span>
       </button>
-      <button type="button" class="dk-bottom-nav-item" data-dk-tab="notes">
+      <button type="button" class="dk-bottom-nav-item" data-dk-tab="cards">
         <span class="dk-bottom-nav-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h6"/></svg>
+          <svg viewBox="0 0 24 24"><rect x="3" y="5" width="13" height="16" rx="2"/><rect x="8" y="3" width="13" height="16" rx="2"/></svg>
         </span>
-        <span>Notes</span>
+        <span>Cards</span>
       </button>
     </nav>
   </div>
@@ -435,19 +469,58 @@
       const STORAGE_KEY = 'deck_data_' + uid;
 
       function uidId() {
-        return 'n' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+        return 'd' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
       }
 
-      function notesFromDeck(deck) {
-        if (Array.isArray(deck.notes)) return deck.notes;
-        if (Array.isArray(deck.cards)) {
-          return deck.cards.map((c) => ({
-            id: c.id || uidId(),
-            title: c.title || c.front || '',
-            body: c.body || c.back || '',
-            createdAt: c.createdAt || Date.now(),
-            updatedAt: c.updatedAt || Date.now(),
-          }));
+      function textSection(body, src) {
+        return {
+          id: (src && src.id) || uidId(),
+          type: 'text',
+          title: (src && src.title) || '',
+          body: body || '',
+        };
+      }
+
+      function checklistSection(src) {
+        return {
+          id: (src && src.id) || uidId(),
+          type: 'checklist',
+          title: (src && src.title) || '',
+          items: Array.isArray(src && src.items) ? src.items.map((it) => ({
+            id: it.id || uidId(),
+            text: it.text || '',
+            done: !!it.done,
+            doneAt: it.doneAt || null,
+          })) : [],
+        };
+      }
+
+      function cardFromLegacy(src) {
+        const title = src.title || src.front || '';
+        const body = src.body || src.back || '';
+        const sections = Array.isArray(src.sections)
+          ? src.sections.map(normalizeSection)
+          : (body ? [textSection(body)] : []);
+        return {
+          id: src.id || uidId(),
+          title: title,
+          createdAt: src.createdAt || Date.now(),
+          updatedAt: src.updatedAt || Date.now(),
+          sections: sections,
+        };
+      }
+
+      function normalizeSection(sec) {
+        if (!sec || sec.type === 'checklist') return checklistSection(sec || {});
+        return textSection(sec.body || '', sec);
+      }
+
+      function cardsFromDeck(deck) {
+        if (Array.isArray(deck.cards) && deck.cards.length) {
+          return deck.cards.map(cardFromLegacy);
+        }
+        if (Array.isArray(deck.notes)) {
+          return deck.notes.map(cardFromLegacy);
         }
         return [];
       }
@@ -459,7 +532,7 @@
             id: d.id || uidId(),
             name: d.name || 'Untitled',
             createdAt: d.createdAt || Date.now(),
-            notes: notesFromDeck(d),
+            cards: cardsFromDeck(d),
           }));
           return { decks };
         } catch {
@@ -467,14 +540,14 @@
         }
       }
 
-      function save(next) {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      function save() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
       }
 
       let state = load();
-      save(state);
+      save();
       let activeDeckId = state.decks[0] ? state.decks[0].id : null;
-      let activeNoteId = null;
+      let activeCardId = null;
       let modalResolve = null;
 
       const modalEl = document.getElementById('dk-modal');
@@ -505,10 +578,7 @@
         });
       }
 
-      function showConfirm(opts) {
-        return showModal(opts);
-      }
-
+      function showConfirm(opts) { return showModal(opts); }
       function showAlert(opts) {
         return showModal({
           title: opts.title || 'Deck',
@@ -532,13 +602,13 @@
 
       const views = {
         decks: document.getElementById('view-decks'),
-        notes: document.getElementById('view-notes'),
-        note: document.getElementById('view-note'),
+        cards: document.getElementById('view-cards'),
+        card: document.getElementById('view-card'),
       };
 
       function show(name) {
         Object.keys(views).forEach((k) => views[k].classList.toggle('hidden', k !== name));
-        const tab = name === 'note' ? 'notes' : name;
+        const tab = name === 'card' ? 'cards' : name;
         document.querySelectorAll('.dk-bottom-nav-item').forEach((btn) => {
           btn.classList.toggle('active', btn.getAttribute('data-dk-tab') === tab);
         });
@@ -546,15 +616,6 @@
 
       function deckById(id) {
         return state.decks.find((d) => d.id === id);
-      }
-
-      function noteCount(deck) {
-        return (deck.notes || []).length;
-      }
-
-      function snippet(text) {
-        const s = String(text || '').replace(/\s+/g, ' ').trim();
-        return s || 'Empty note';
       }
 
       function ensureActiveDeck() {
@@ -567,64 +628,88 @@
         return null;
       }
 
+      function activeCard() {
+        const deck = ensureActiveDeck();
+        if (!deck) return null;
+        return (deck.cards || []).find((c) => c.id === activeCardId) || null;
+      }
+
+      function cardCount(deck) {
+        return (deck.cards || []).length;
+      }
+
+      function cardSummary(card) {
+        const sections = card.sections || [];
+        const openTasks = sections.reduce((n, s) => {
+          if (s.type !== 'checklist') return n;
+          return n + (s.items || []).filter((it) => !it.done && (it.text || '').trim()).length;
+        }, 0);
+        const parts = [];
+        parts.push(sections.length + (sections.length === 1 ? ' section' : ' sections'));
+        if (openTasks) parts.push(openTasks + (openTasks === 1 ? ' open task' : ' open tasks'));
+        const text = sections.find((s) => s.type === 'text' && (s.body || '').trim());
+        if (text) {
+          const snip = text.body.replace(/\s+/g, ' ').trim();
+          return parts.join(' · ') + (snip ? ' · ' + snip.slice(0, 80) : '');
+        }
+        return parts.join(' · ') || 'Empty card';
+      }
+
       function renderDecks() {
         const list = document.getElementById('deck-list');
         if (!state.decks.length) {
-          list.innerHTML = '<div class="dk-empty"><strong>No decks yet.</strong><br>Create a deck, then drop notes into it.</div>';
+          list.innerHTML = '<div class="dk-empty"><strong>No decks yet.</strong><br>Create a deck, then add cards into it.</div>';
           return;
         }
         list.innerHTML = '';
         state.decks.forEach((d) => {
           const btn = document.createElement('button');
           btn.type = 'button';
-          btn.className = 'dk-deck-card';
-          const n = noteCount(d);
-          btn.innerHTML = '<div><h3></h3><p></p></div>';
+          btn.className = 'dk-item-card';
+          const n = cardCount(d);
+          btn.innerHTML = '<h3></h3><p></p>';
           btn.querySelector('h3').textContent = d.name || 'Untitled';
-          btn.querySelector('p').textContent = n + (n === 1 ? ' note' : ' notes');
+          btn.querySelector('p').textContent = n + (n === 1 ? ' card' : ' cards');
           btn.addEventListener('click', () => openDeck(d.id));
           list.appendChild(btn);
         });
       }
 
-      function renderNotes() {
+      function renderCards() {
         const deck = ensureActiveDeck();
-        if (!deck) {
-          showDecks();
-          return;
-        }
-        document.getElementById('notes-heading').textContent = deck.name || 'Notes';
-        document.getElementById('notes-sub').textContent = 'Notes in this deck stay grouped together.';
+        if (!deck) return showDecks();
+        document.getElementById('cards-heading').textContent = deck.name || 'Cards';
         document.getElementById('deck-name').value = deck.name || '';
-        const q = document.getElementById('note-search').value.trim().toLowerCase();
-        const notes = (deck.notes || []).filter((n) => {
+        const q = document.getElementById('card-search').value.trim().toLowerCase();
+        const cards = (deck.cards || []).filter((c) => {
           if (!q) return true;
-          return (n.title || '').toLowerCase().includes(q) || (n.body || '').toLowerCase().includes(q);
+          const hay = [c.title].concat((c.sections || []).map((s) => (s.title || '') + ' ' + (s.body || '') + ' ' + ((s.items || []).map((it) => it.text).join(' '))));
+          return hay.join(' ').toLowerCase().includes(q);
         });
-        const list = document.getElementById('note-list');
-        if (!deck.notes.length) {
-          list.innerHTML = '<div class="dk-empty">This deck is empty. Add a note to start grouping ideas here.</div>';
+        const list = document.getElementById('card-list');
+        if (!deck.cards.length) {
+          list.innerHTML = '<div class="dk-empty">This deck has no cards yet.</div>';
           return;
         }
-        if (!notes.length) {
-          list.innerHTML = '<div class="dk-empty">No notes match that search.</div>';
+        if (!cards.length) {
+          list.innerHTML = '<div class="dk-empty">No cards match that search.</div>';
           return;
         }
         list.innerHTML = '';
-        notes.slice().reverse().forEach((n) => {
+        cards.forEach((c) => {
           const btn = document.createElement('button');
           btn.type = 'button';
-          btn.className = 'dk-note-card';
-          btn.innerHTML = '<div><h3></h3><p></p></div>';
-          btn.querySelector('h3').textContent = n.title || 'Untitled note';
-          btn.querySelector('p').textContent = snippet(n.body);
-          btn.addEventListener('click', () => openNote(n.id));
+          btn.className = 'dk-item-card';
+          btn.innerHTML = '<h3></h3><p></p>';
+          btn.querySelector('h3').textContent = c.title || 'Untitled card';
+          btn.querySelector('p').textContent = cardSummary(c);
+          btn.addEventListener('click', () => openCard(c.id));
           list.appendChild(btn);
         });
       }
 
       function fillDeckSelect(selectedId) {
-        const sel = document.getElementById('note-deck');
+        const sel = document.getElementById('card-deck');
         sel.innerHTML = '';
         state.decks.forEach((d) => {
           const opt = document.createElement('option');
@@ -635,60 +720,211 @@
         });
       }
 
-      function renderNote() {
+      function checkRow(item, done) {
+        const row = document.createElement('div');
+        row.className = 'dk-check-row' + (done ? ' done' : '');
+        const box = document.createElement('input');
+        box.type = 'checkbox';
+        box.checked = done;
+        box.setAttribute('aria-label', 'Mark complete');
+        const text = document.createElement('input');
+        text.type = 'text';
+        text.className = 'dk-check-text';
+        text.value = item.text || '';
+        text.placeholder = 'Checklist item';
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'dk-check-remove';
+        remove.setAttribute('aria-label', 'Remove item');
+        remove.textContent = '×';
+        row.append(box, text, remove);
+        box.addEventListener('change', () => {
+          item.done = box.checked;
+          item.doneAt = box.checked ? Date.now() : null;
+          touchCard();
+          renderCard();
+        });
+        text.addEventListener('input', () => {
+          item.text = text.value;
+          touchCard();
+        });
+        remove.addEventListener('click', async () => {
+          if ((item.text || '').trim()) {
+            const ok = await showConfirm({
+              title: 'Remove item?',
+              message: 'Remove “' + item.text.trim() + '” from this checklist?',
+              okLabel: 'Remove',
+              danger: true,
+            });
+            if (!ok) return;
+          }
+          const card = activeCard();
+          if (!card) return;
+          card.sections.forEach((sec) => {
+            if (sec.type !== 'checklist') return;
+            sec.items = (sec.items || []).filter((it) => it.id !== item.id);
+          });
+          touchCard();
+          renderCard();
+        });
+        return row;
+      }
+
+      function renderChecklist(sec) {
+        const wrap = document.createElement('div');
+        const open = (sec.items || []).filter((it) => !it.done);
+        const done = (sec.items || []).filter((it) => it.done);
+        const openList = document.createElement('div');
+        openList.className = 'dk-check-list';
+        open.forEach((it) => openList.appendChild(checkRow(it, false)));
+        const add = document.createElement('input');
+        add.type = 'text';
+        add.className = 'dk-check-add';
+        add.dataset.sectionId = sec.id;
+        add.placeholder = 'Add a task…';
+        function commitAdd() {
+          const value = add.value.trim();
+          if (!value) return false;
+          sec.items.push({ id: uidId(), text: value, done: false, doneAt: null });
+          add.value = '';
+          touchCard();
+          renderCard();
+          const next = document.querySelector('.dk-check-add[data-section-id="' + sec.id + '"]');
+          if (next) next.focus();
+          return true;
+        }
+        add.addEventListener('keydown', (ev) => {
+          if (ev.key !== 'Enter') return;
+          ev.preventDefault();
+          commitAdd();
+        });
+        wrap.append(openList, add);
+        if (done.length) {
+          const label = document.createElement('div');
+          label.className = 'dk-completed-label';
+          label.textContent = 'Completed';
+          const doneList = document.createElement('div');
+          doneList.className = 'dk-check-list';
+          done.forEach((it) => doneList.appendChild(checkRow(it, true)));
+          wrap.append(label, doneList);
+        }
+        return wrap;
+      }
+
+      function renderCard() {
         const deck = ensureActiveDeck();
-        if (!deck) return showDecks();
-        const note = (deck.notes || []).find((n) => n.id === activeNoteId);
-        if (!note) return openDeck(deck.id);
-        document.getElementById('note-heading').textContent = note.title || 'Note';
-        document.getElementById('note-title').value = note.title || '';
-        document.getElementById('note-body').value = note.body || '';
+        const card = activeCard();
+        if (!deck || !card) return openDeck(activeDeckId);
+        document.getElementById('card-heading').textContent = card.title || 'Card';
+        document.getElementById('card-title').value = card.title || '';
         fillDeckSelect(deck.id);
+        const list = document.getElementById('section-list');
+        list.innerHTML = '';
+        if (!card.sections.length) {
+          const empty = document.createElement('div');
+          empty.className = 'dk-empty';
+          empty.innerHTML = '<strong>No sections yet.</strong><br>Add a note section or a checklist.';
+          list.appendChild(empty);
+        }
+        card.sections.forEach((sec) => {
+          const box = document.createElement('div');
+          box.className = 'dk-section';
+          const kicker = document.createElement('p');
+          kicker.className = 'dk-section-kicker';
+          kicker.textContent = sec.type === 'checklist' ? 'Checklist' : 'Note';
+          const head = document.createElement('div');
+          head.className = 'dk-section-head';
+          const title = document.createElement('input');
+          title.className = 'dk-section-title';
+          title.placeholder = sec.type === 'checklist' ? 'Checklist title (optional)' : 'Section title (optional)';
+          title.value = sec.title || '';
+          title.addEventListener('input', () => {
+            sec.title = title.value;
+            touchCard();
+          });
+          const del = document.createElement('button');
+          del.type = 'button';
+          del.className = 'dk-btn dk-btn-danger dk-btn-small';
+          del.textContent = 'Remove';
+          del.addEventListener('click', async () => {
+            const ok = await showConfirm({
+              title: 'Remove section?',
+              message: 'Remove this ' + (sec.type === 'checklist' ? 'checklist' : 'note') + ' section from the card?',
+              okLabel: 'Remove',
+              danger: true,
+            });
+            if (!ok) return;
+            card.sections = card.sections.filter((s) => s.id !== sec.id);
+            touchCard();
+            renderCard();
+          });
+          head.append(title, del);
+          box.append(kicker, head);
+          if (sec.type === 'checklist') {
+            box.appendChild(renderChecklist(sec));
+          } else {
+            const body = document.createElement('textarea');
+            body.className = 'dk-section-body';
+            body.placeholder = 'Write notes for this section…';
+            body.value = sec.body || '';
+            body.addEventListener('input', () => {
+              sec.body = body.value;
+              touchCard();
+            });
+            box.appendChild(body);
+          }
+          list.appendChild(box);
+        });
+      }
+
+      function touchCard() {
+        const card = activeCard();
+        if (!card) return;
+        card.updatedAt = Date.now();
+        save();
+      }
+
+      function persistCardMeta() {
+        const card = activeCard();
+        const deck = ensureActiveDeck();
+        if (!card || !deck) return;
+        card.title = document.getElementById('card-title').value.trim();
+        document.getElementById('card-heading').textContent = card.title || 'Card';
+        const destId = document.getElementById('card-deck').value;
+        if (destId && destId !== deck.id) {
+          const dest = deckById(destId);
+          if (dest) {
+            deck.cards = deck.cards.filter((c) => c.id !== card.id);
+            dest.cards.unshift(card);
+            activeDeckId = dest.id;
+          }
+        }
+        touchCard();
       }
 
       function showDecks() {
-        activeNoteId = null;
+        activeCardId = null;
         show('decks');
         renderDecks();
       }
 
       function openDeck(id) {
         activeDeckId = id;
-        activeNoteId = null;
-        show('notes');
-        renderNotes();
+        activeCardId = null;
+        show('cards');
+        renderCards();
       }
 
-      function openNote(id) {
-        activeNoteId = id;
-        show('note');
-        renderNote();
-      }
-
-      function persistNoteFields() {
-        const deck = deckById(activeDeckId);
-        if (!deck) return;
-        const note = (deck.notes || []).find((n) => n.id === activeNoteId);
-        if (!note) return;
-        note.title = document.getElementById('note-title').value.trim();
-        note.body = document.getElementById('note-body').value;
-        note.updatedAt = Date.now();
-        const destId = document.getElementById('note-deck').value;
-        if (destId && destId !== deck.id) {
-          const dest = deckById(destId);
-          if (dest) {
-            deck.notes = deck.notes.filter((n) => n.id !== note.id);
-            dest.notes.unshift(note);
-            activeDeckId = dest.id;
-          }
-        }
-        save(state);
+      function openCard(id) {
+        activeCardId = id;
+        show('card');
+        renderCard();
       }
 
       document.getElementById('btn-new-deck').addEventListener('click', () => {
-        const deck = { id: uidId(), name: 'New deck', createdAt: Date.now(), notes: [] };
+        const deck = { id: uidId(), name: 'New deck', createdAt: Date.now(), cards: [] };
         state.decks.unshift(deck);
-        save(state);
+        save();
         openDeck(deck.id);
         document.getElementById('deck-name').focus();
         document.getElementById('deck-name').select();
@@ -699,18 +935,18 @@
         if (!btn) return;
         const tab = btn.getAttribute('data-dk-tab');
         if (tab === 'decks') {
-          if (activeNoteId) persistNoteFields();
+          if (activeCardId) persistCardMeta();
           showDecks();
           return;
         }
-        if (tab === 'notes') {
-          if (activeNoteId) persistNoteFields();
+        if (tab === 'cards') {
+          if (activeCardId) persistCardMeta();
           const deck = ensureActiveDeck();
           if (!deck) {
             showDecks();
             showAlert({
               title: 'Create a deck first',
-              message: 'Make a deck, then add notes into it so related things stay grouped together.',
+              message: 'Make a deck, then add cards into it.',
             });
             return;
           }
@@ -722,27 +958,33 @@
         const deck = deckById(activeDeckId);
         if (!deck) return;
         deck.name = document.getElementById('deck-name').value.trim() || 'Untitled';
-        save(state);
-        document.getElementById('notes-heading').textContent = deck.name;
+        save();
+        document.getElementById('cards-heading').textContent = deck.name;
       });
 
-      document.getElementById('note-search').addEventListener('input', renderNotes);
+      document.getElementById('card-search').addEventListener('input', renderCards);
 
-      document.getElementById('btn-new-note').addEventListener('click', () => {
+      document.getElementById('btn-new-card').addEventListener('click', () => {
         const deck = ensureActiveDeck();
         if (!deck) return;
-        const note = { id: uidId(), title: '', body: '', createdAt: Date.now(), updatedAt: Date.now() };
-        deck.notes.unshift(note);
-        save(state);
-        openNote(note.id);
-        document.getElementById('note-title').focus();
+        const card = {
+          id: uidId(),
+          title: '',
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+          sections: [],
+        };
+        deck.cards.unshift(card);
+        save();
+        openCard(card.id);
+        document.getElementById('card-title').focus();
       });
 
       document.getElementById('btn-delete-deck').addEventListener('click', async () => {
         const deck = deckById(activeDeckId);
         if (!deck) return;
-        const n = noteCount(deck);
-        const extra = n ? ' and its ' + n + (n === 1 ? ' note' : ' notes') : '';
+        const n = cardCount(deck);
+        const extra = n ? ' and its ' + n + (n === 1 ? ' card' : ' cards') : '';
         const ok = await showConfirm({
           title: 'Delete deck?',
           message: 'Delete “' + (deck.name || 'this deck') + '”' + extra + '? This cannot be undone.',
@@ -752,41 +994,51 @@
         if (!ok) return;
         state.decks = state.decks.filter((d) => d.id !== activeDeckId);
         activeDeckId = state.decks[0] ? state.decks[0].id : null;
-        activeNoteId = null;
-        save(state);
+        activeCardId = null;
+        save();
         showDecks();
       });
 
-      document.getElementById('btn-back-notes').addEventListener('click', () => {
-        persistNoteFields();
+      document.getElementById('btn-back-cards').addEventListener('click', () => {
+        persistCardMeta();
         openDeck(activeDeckId);
       });
 
-      document.getElementById('btn-save-note').addEventListener('click', () => {
-        persistNoteFields();
-        openDeck(activeDeckId);
-      });
-
-      document.getElementById('btn-delete-note').addEventListener('click', async () => {
-        const deck = deckById(activeDeckId);
-        if (!deck) return;
-        const note = (deck.notes || []).find((n) => n.id === activeNoteId);
-        const label = (note && note.title) ? '“' + note.title + '”' : 'this note';
+      document.getElementById('btn-delete-card').addEventListener('click', async () => {
+        const deck = ensureActiveDeck();
+        const card = activeCard();
+        if (!deck || !card) return;
+        const label = card.title ? '“' + card.title + '”' : 'this card';
         const ok = await showConfirm({
-          title: 'Delete note?',
-          message: 'Delete ' + label + '? This cannot be undone.',
+          title: 'Delete card?',
+          message: 'Delete ' + label + ' and all of its sections? This cannot be undone.',
           okLabel: 'Delete',
           danger: true,
         });
         if (!ok) return;
-        deck.notes = deck.notes.filter((n) => n.id !== activeNoteId);
-        activeNoteId = null;
-        save(state);
+        deck.cards = deck.cards.filter((c) => c.id !== card.id);
+        activeCardId = null;
+        save();
         openDeck(deck.id);
       });
 
-      ['note-title', 'note-body', 'note-deck'].forEach((id) => {
-        document.getElementById(id).addEventListener('change', persistNoteFields);
+      document.getElementById('card-title').addEventListener('input', persistCardMeta);
+      document.getElementById('card-deck').addEventListener('change', persistCardMeta);
+
+      document.getElementById('btn-add-text').addEventListener('click', () => {
+        const card = activeCard();
+        if (!card) return;
+        card.sections.push(textSection(''));
+        touchCard();
+        renderCard();
+      });
+
+      document.getElementById('btn-add-checklist').addEventListener('click', () => {
+        const card = activeCard();
+        if (!card) return;
+        card.sections.push(checklistSection({ items: [] }));
+        touchCard();
+        renderCard();
       });
 
       showDecks();

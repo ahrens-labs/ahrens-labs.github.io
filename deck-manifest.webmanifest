@@ -2,7 +2,7 @@
   "id": "ahrenslabs-deck",
   "name": "Deck",
   "short_name": "Deck",
-  "description": "Deck — notes grouped into decks by Ahrens Labs.",
+  "description": "Deck — cards grouped into decks, with notes and checklists.",
   "start_url": "/deck.html",
   "scope": "/deck.html",
   "display": "standalone",
