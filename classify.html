@@ -5348,14 +5348,21 @@
                 : (task.dueDate || task.due || normalizedEventDate || null);
             const weekKeyForDue = task.week
                 || (normalizedDueDateBase ? getWeekKeyFromDateStr(normalizedDueDateBase) : null);
-            const normalizedDueDate = weekDueOnly
-                ? getWeekDueDateForRepeat(weekKeyForDue, { dueDate: normalizedDueDateBase || task.dueDate || null })
+            const isTargetWeekTask = inferredScheduleType === 'week';
+            let normalizedDueDate = (isTargetWeekTask || weekDueOnly)
+                ? resolveTargetWeekDueDate(
+                    { dueDate: normalizedDueDateBase || task.dueDate || null, week: weekKeyForDue || task.week || null },
+                    weekKeyForDue || task.week || null
+                )
                 : normalizedDueDateBase;
-            const normalizedWeek = isExactDateTask
+            let normalizedWeek = isExactDateTask
                 ? null
                 : (inferredScheduleType === 'flexible'
                     ? null
                     : (task.week || (normalizedDueDate ? getWeekKeyFromDateStr(normalizedDueDate) : null)));
+            if(isTargetWeekTask && !normalizedWeek) {
+                normalizedWeek = weekKeyForDue || task.week || getCurrentWeekKey();
+            }
             const normalizedTime = task.time || null;
             const normalizedSplitGroupId = task.splitGroupId || null;
             const normalizedSplitPercent = Number.isFinite(Number(task.splitPercent))
@@ -5867,9 +5874,26 @@
             return task;
         }
 
+        function resolveTargetWeekDueDate(task = {}, weekKey = null) {
+            const week = weekKey
+                || task.week
+                || (task.dueDate ? getWeekKeyFromDateStr(task.dueDate) : null)
+                || getCurrentWeekKey();
+            return getWeekDueDateForRepeat(week, { dueDate: task.dueDate || null });
+        }
+
         function ensureTargetWeekScheduleType(task) {
             if(!isTargetWeekAssignment(task)) return task;
             task.scheduleType = 'week';
+            if(!task.week) {
+                task.week = task.dueDate
+                    ? getWeekKeyFromDateStr(task.dueDate)
+                    : getCurrentWeekKey();
+            }
+            task.dueDate = resolveTargetWeekDueDate(task, task.week);
+            if(!task.week && task.dueDate) {
+                task.week = getWeekKeyFromDateStr(task.dueDate);
+            }
             return task;
         }
 
@@ -10765,15 +10789,19 @@
             const parseText = hasDueKeyword(raw) ? raw : `due ${raw}`;
             const fragment = parseQuickEntryScheduleFragment(parseText);
             const dueDate = fragment.dueDate || (hasDueKeyword(raw) ? fragment.date : null);
-            if(!dueDate && !fragment.dueTime) return fragment;
+            const weekKey = fragment.week || (dueDate ? getWeekKeyFromDateStr(dueDate) : getCurrentWeekKey());
+            const resolvedDueDate = dueDate || (fragment.dueTime || hasDueKeyword(raw) || fragment.scheduleType === 'week'
+                ? getWeekDueDateForRepeat(weekKey, { dueDate: null })
+                : null);
+            if(!resolvedDueDate && !fragment.dueTime) return fragment;
 
             return {
                 scheduleType: 'week',
                 date: null,
-                dueDate,
+                dueDate: resolvedDueDate,
                 dueTime: fragment.dueTime || null,
                 time: null,
-                week: fragment.week || (dueDate ? getWeekKeyFromDateStr(dueDate) : null),
+                week: weekKey,
                 exactDateTiming: 'adjustable'
             };
         }
@@ -11423,14 +11451,16 @@
                     startedAt: null
                 };
             }
-            if((fragment.scheduleType === 'week' || fragment.dueDate) && fragment.dueDate) {
+            if((fragment.scheduleType === 'week' || fragment.dueDate)) {
+                const week = fragment.week || getCurrentWeekKey();
+                const dueDate = fragment.dueDate || getWeekDueDateForRepeat(week, { dueDate: null });
                 return {
                     scheduleType: 'week',
                     date: null,
                     dateSource: null,
-                    dueDate: fragment.dueDate,
+                    dueDate,
                     dueTime: fragment.dueTime || null,
-                    week: fragment.week || getWeekKeyFromDateStr(fragment.dueDate),
+                    week: fragment.week || getWeekKeyFromDateStr(dueDate),
                     time: null,
                     timeSource: null,
                     assignmentMode: 'ADJUSTABLE',
@@ -11610,13 +11640,14 @@
                         assignmentMode: fixed ? 'FIXED' : 'ADJUSTABLE'
                     };
                 } else if(quickParsed.scheduleType === 'week') {
+                    const targetWeek = quickParsed.week || getCurrentWeekKey();
                     baseTask = {
                         ...sharedFields,
                         date: null,
                         dateSource: null,
-                        dueDate: quickParsed.dueDate,
+                        dueDate: quickParsed.dueDate || getWeekDueDateForRepeat(targetWeek, { dueDate: null }),
                         dueTime: quickParsed.dueTime || null,
-                        week: quickParsed.week || getCurrentWeekKey(),
+                        week: targetWeek,
                         time: null,
                         timeSource: null,
                         assignmentMode: 'ADJUSTABLE'
@@ -14449,6 +14480,7 @@
                 dueDateInput.disabled = false;
                 dueTimeInput.disabled = false;
                 if(!weekInput.value) weekInput.value = getCurrentWeekKey();
+                syncWeekDueDateInputToWeek(weekInput.value, dueDateInput);
             } else if(scheduleType === 'flexible') {
                 if(exactDateTimingWrapper) exactDateTimingWrapper.classList.add('hidden');
                 weekWrapper.classList.add('hidden');
@@ -14970,7 +15002,7 @@
             const scheduleType = weekDueOnly ? 'week' : scheduleTypeRaw;
             const week = scheduleType === 'week' ? (weekRaw || getCurrentWeekKey()) : weekRaw;
             const isExactDateSchedule = scheduleType === 'date' && !weekDueOnly;
-            const dueDate = weekDueOnly
+            const dueDate = (scheduleType === 'week' || weekDueOnly)
                 ? (dueDateRaw || getWeekDueDateForRepeat(week, { dueDate: null }))
                 : (isExactDateSchedule ? null : dueDateRaw);
             const dueTime = dueTimeRaw;
