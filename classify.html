@@ -3083,7 +3083,17 @@
                                     <input id="inputWeekDueOnly" type="checkbox" onchange="updateRepeatInputs()">
                                     One assignment due per week
                                 </label>
-                                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Choose the due date and time below — defaults to Friday, but you can change it for each week.</p>
+                                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Set which day and time each weekly copy is due.</p>
+                                <div id="weekDueOnlyFieldsWrapper" class="mt-3 hidden grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label for="inputWeekDueOnlyDueDate" class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Due Date</label>
+                                        <input id="inputWeekDueOnlyDueDate" type="date" onchange="handleWeekDueOnlyFieldChange()" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
+                                    </div>
+                                    <div>
+                                        <label for="inputWeekDueOnlyDueTime" class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Due Time</label>
+                                        <input id="inputWeekDueOnlyDueTime" type="time" onchange="handleWeekDueOnlyFieldChange()" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
+                                    </div>
+                                </div>
                             </div>
                             <div id="repeatDaysWrapper" class="mt-3 hidden">
                                 <div class="text-xs text-slate-500 dark:text-slate-400 mb-2">Repeat on</div>
@@ -13228,12 +13238,59 @@
                     return;
                 }
                 if(!weekInput.value) weekInput.value = getCurrentWeekKey();
+                dueDateWrapper.classList.add('hidden');
+                dueTimeWrapper.classList.add('hidden');
                 dueDateInput.disabled = false;
                 dueTimeInput.disabled = false;
                 syncWeekDueDateInputToWeek(weekInput.value, dueDateInput);
+                syncWeekDueOnlyFieldInputs(false);
                 timeInput.value = '';
                 dateInput.value = '';
             }
+        }
+
+        function syncWeekDueOnlyFieldInputs(fromRepeatFields = true) {
+            const dueDateInput = document.getElementById('inputDueDate');
+            const dueTimeInput = document.getElementById('inputDueTime');
+            const repeatDueDateInput = document.getElementById('inputWeekDueOnlyDueDate');
+            const repeatDueTimeInput = document.getElementById('inputWeekDueOnlyDueTime');
+            if(fromRepeatFields) {
+                if(dueDateInput && repeatDueDateInput) dueDateInput.value = repeatDueDateInput.value;
+                if(dueTimeInput && repeatDueTimeInput) dueTimeInput.value = repeatDueTimeInput.value;
+                return;
+            }
+            if(dueDateInput && repeatDueDateInput) repeatDueDateInput.value = dueDateInput.value;
+            if(dueTimeInput && repeatDueTimeInput) repeatDueTimeInput.value = dueTimeInput.value;
+        }
+
+        function handleWeekDueOnlyFieldChange() {
+            syncWeekDueOnlyFieldInputs(true);
+            const weekInput = document.getElementById('inputWeek');
+            const dueDateInput = document.getElementById('inputDueDate');
+            const repeatDueDateInput = document.getElementById('inputWeekDueOnlyDueDate');
+            if(weekInput?.value && dueDateInput) {
+                syncWeekDueDateInputToWeek(weekInput.value, dueDateInput);
+                if(repeatDueDateInput) repeatDueDateInput.value = dueDateInput.value;
+            }
+        }
+
+        function updateWeekDueOnlyFieldVisibility() {
+            const repeatType = document.getElementById('inputRepeatType')?.value || 'none';
+            const weekDueOnly = Boolean(document.getElementById('inputWeekDueOnly')?.checked) && repeatType === 'weekly';
+            const fieldsWrapper = document.getElementById('weekDueOnlyFieldsWrapper');
+            if(!fieldsWrapper) return;
+            fieldsWrapper.classList.toggle('hidden', !weekDueOnly);
+            if(!weekDueOnly) return;
+
+            const weekInput = document.getElementById('inputWeek');
+            const dueDateInput = document.getElementById('inputDueDate');
+            const repeatDueDateInput = document.getElementById('inputWeekDueOnlyDueDate');
+            if(!weekInput.value) weekInput.value = getCurrentWeekKey();
+            if(dueDateInput) syncWeekDueDateInputToWeek(weekInput.value, dueDateInput);
+            if(repeatDueDateInput && !repeatDueDateInput.value) {
+                repeatDueDateInput.value = dueDateInput?.value || getDateInWeekForWeekday(weekInput.value, 5);
+            }
+            syncWeekDueOnlyFieldInputs(false);
         }
 
         function getCheckedDays(selector) {
@@ -13269,6 +13326,7 @@
             } else {
                 wrapper.classList.add('hidden');
             }
+            updateWeekDueOnlyFieldVisibility();
             updateScheduleInputs();
         }
 
@@ -13405,6 +13463,10 @@
             document.getElementById('inputNotes').value = '';
             document.getElementById('inputRepeatType').value = 'none';
             document.getElementById('inputWeekDueOnly').checked = false;
+            const weekDueOnlyDueDate = document.getElementById('inputWeekDueOnlyDueDate');
+            const weekDueOnlyDueTime = document.getElementById('inputWeekDueOnlyDueTime');
+            if(weekDueOnlyDueDate) weekDueOnlyDueDate.value = '';
+            if(weekDueOnlyDueTime) weekDueOnlyDueTime.value = '';
             setCheckedDays('.repeat-day', []);
             document.getElementById('colorSyncLabel').innerText = 'Subject color';
             document.getElementById('modalHeading').innerText = 'New Assignment';
@@ -13627,6 +13689,7 @@
             const title = document.getElementById('inputTitle').value.trim();
             const subject = resolveCanonicalSubject((document.getElementById('inputSubject').value || 'General').trim());
             const color = document.getElementById('inputColor').value;
+            syncWeekDueOnlyFieldInputs(true);
             const scheduleTypeRaw = document.getElementById('inputScheduleType').value;
             const date = document.getElementById('inputDate').value;
             const dueDateRaw = document.getElementById('inputDueDate').value || null;
