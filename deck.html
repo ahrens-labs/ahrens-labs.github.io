@@ -160,18 +160,10 @@
     }
     .dk-context-bar .dk-btn-back { margin-right: auto; }
     .dk-secondary-actions { margin: 4px 0 16px; }
-    .dk-danger-zone {
-      margin-top: 28px;
-      padding-top: 18px;
-      border-top: 1px solid #fecaca;
-    }
-    .dk-danger-label {
-      margin: 0 0 10px;
-      font-size: 0.72rem;
-      font-weight: 800;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: #b91c1c;
+    .dk-footer-actions {
+      display: grid;
+      gap: 10px;
+      margin-top: 24px;
     }
     .dk-btn-block { width: 100%; }
     .dk-btn {
@@ -530,11 +522,10 @@
           <div id="cards-edit-mode" class="hidden">
             <nav class="dk-context-bar" aria-label="Deck settings actions">
               <button type="button" class="dk-btn dk-btn-back" id="btn-cancel-deck-edit">← Back to cards</button>
-              <button type="button" class="dk-btn dk-btn-primary" id="btn-save-deck">Save deck</button>
             </nav>
             <div class="dk-hero">
               <h2>Deck settings</h2>
-              <p>Rename this deck or delete it permanently.</p>
+              <p>Rename this deck or delete it.</p>
             </div>
             <div class="dk-field">
               <label for="deck-name">Deck name</label>
@@ -543,8 +534,8 @@
             <div class="dk-toolbar">
               <button type="button" class="dk-btn dk-btn-primary" id="btn-new-card-edit">+ New card in this deck</button>
             </div>
-            <div class="dk-danger-zone">
-              <p class="dk-danger-label">Danger zone</p>
+            <div class="dk-footer-actions">
+              <button type="button" class="dk-btn dk-btn-primary dk-btn-block" id="btn-save-deck">Save deck</button>
               <button type="button" class="dk-btn dk-btn-danger dk-btn-block" id="btn-delete-deck">Delete this deck</button>
             </div>
           </div>
@@ -563,7 +554,6 @@
           <div id="card-edit-mode" class="hidden">
             <nav class="dk-context-bar" aria-label="Edit card actions">
               <button type="button" class="dk-btn dk-btn-back" id="btn-cancel-card">← Back to card</button>
-              <button type="button" class="dk-btn dk-btn-primary" id="btn-save-card">Save changes</button>
             </nav>
             <div class="dk-hero">
               <h2 id="card-heading">Edit card</h2>
@@ -581,8 +571,8 @@
             <div class="dk-toolbar">
               <button type="button" class="dk-btn dk-btn-ghost dk-btn-block" id="btn-add-section">+ Add section</button>
             </div>
-            <div class="dk-danger-zone">
-              <p class="dk-danger-label">Danger zone</p>
+            <div class="dk-footer-actions">
+              <button type="button" class="dk-btn dk-btn-primary dk-btn-block" id="btn-save-card">Save changes</button>
               <button type="button" class="dk-btn dk-btn-danger dk-btn-block" id="btn-delete-card">Delete this card</button>
             </div>
           </div>
@@ -1106,7 +1096,7 @@
         const list = document.getElementById('section-view-list');
         list.innerHTML = '';
         if (!card.sections.length) {
-          list.innerHTML = '<div class="dk-empty">This card is empty. Tap Edit to add sections.</div>';
+          list.innerHTML = '<div class="dk-empty">This card is empty. Tap <strong>Edit card</strong> to add sections.</div>';
           return;
         }
         card.sections.forEach((sec) => {
