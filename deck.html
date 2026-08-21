@@ -256,6 +256,65 @@
       font-size: 0.78rem;
       white-space: nowrap;
     }
+    .dk-stack-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: #f8fafc;
+      border: 1px solid #c7d2fe;
+      border-radius: 12px;
+      padding: 10px 12px;
+    }
+    .dk-stack-open {
+      flex: 1 1 auto;
+      min-width: 0;
+      display: block;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      text-align: left;
+      font: inherit;
+      color: inherit;
+      cursor: pointer;
+    }
+    .dk-stack-open h3 {
+      margin: 0;
+      font-size: 0.92rem;
+      font-weight: 800;
+      color: var(--dk-ink);
+    }
+    .dk-stack-open p {
+      margin: 2px 0 0;
+      font-size: 0.76rem;
+      color: var(--dk-muted);
+    }
+    .dk-stack-badge {
+      display: inline-block;
+      margin-right: 6px;
+      font-size: 0.68rem;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--dk-brand);
+    }
+    .dk-item-actions {
+      display: flex;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    .dk-item-actions .dk-btn {
+      padding: 6px 9px;
+      font-size: 0.76rem;
+    }
+    .dk-cards-toolbar {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-left: auto;
+    }
+    .dk-cards-toolbar .dk-btn { white-space: nowrap; }
+    #dk-modal-field { margin-top: 14px; }
+    #dk-modal-field.hidden { display: none; }
     .dk-item-card {
       background: var(--dk-card);
       border: 1px solid var(--dk-line);
@@ -602,7 +661,7 @@
         <section id="view-decks">
           <div class="dk-hero">
             <h2>Decks</h2>
-            <p>Group related cards into decks. Each card can have note sections and one checklist.</p>
+            <p>Group cards and stacks into decks. Stacks hold cards; only decks hold stacks.</p>
           </div>
           <div class="dk-toolbar">
             <button type="button" class="dk-btn dk-btn-primary" id="btn-new-deck">New deck</button>
@@ -614,7 +673,13 @@
           <div id="cards-view-mode">
             <nav class="dk-context-bar" aria-label="Deck actions">
               <button type="button" class="dk-btn dk-btn-back" id="btn-back-decks">← All decks</button>
-              <button type="button" class="dk-btn dk-btn-primary" id="btn-new-card">+ New card</button>
+              <div class="dk-cards-toolbar" id="cards-toolbar-root">
+                <button type="button" class="dk-btn dk-btn-ghost" id="btn-new-stack">+ New stack</button>
+                <button type="button" class="dk-btn dk-btn-primary" id="btn-new-card">+ New card</button>
+              </div>
+              <div class="dk-cards-toolbar hidden" id="cards-toolbar-stack">
+                <button type="button" class="dk-btn dk-btn-primary" id="btn-new-card-stack">+ New card</button>
+              </div>
             </nav>
             <div class="dk-hero">
               <h2 id="cards-heading">Cards</h2>
@@ -651,8 +716,11 @@
         <section id="view-card" class="hidden">
           <div id="card-view-mode">
             <nav class="dk-context-bar" aria-label="Card actions">
-              <button type="button" class="dk-btn dk-btn-back" id="btn-back-cards">← Back to cards</button>
-              <button type="button" class="dk-btn dk-btn-primary" id="btn-edit-card">Edit card</button>
+              <button type="button" class="dk-btn dk-btn-back" id="btn-back-cards">← Back</button>
+              <div class="dk-cards-toolbar">
+                <button type="button" class="dk-btn dk-btn-ghost" id="btn-review-card">Review</button>
+                <button type="button" class="dk-btn dk-btn-primary" id="btn-edit-card">Edit card</button>
+              </div>
             </nav>
             <h2 id="card-view-title" class="dk-view-title">Card</h2>
             <p id="card-view-deck" class="dk-meta"></p>
@@ -726,6 +794,10 @@
     <div class="dk-modal" role="dialog" aria-modal="true" aria-labelledby="dk-modal-title" aria-describedby="dk-modal-message">
       <h3 id="dk-modal-title">Confirm</h3>
       <p id="dk-modal-message"></p>
+      <div id="dk-modal-field" class="dk-field hidden">
+        <label id="dk-modal-field-label" for="dk-modal-field-input">Name</label>
+        <input id="dk-modal-field-input" type="text" maxlength="80" autocomplete="off">
+      </div>
       <div class="dk-modal-actions">
         <button type="button" class="dk-btn dk-btn-ghost" id="dk-modal-cancel">Cancel</button>
         <button type="button" class="dk-btn dk-btn-primary" id="dk-modal-ok">OK</button>
@@ -818,6 +890,16 @@
         return [];
       }
 
+      function stacksFromDeck(deck) {
+        if (!Array.isArray(deck.stacks)) return [];
+        return deck.stacks.map((s) => ({
+          id: s.id || uidId(),
+          name: s.name || 'Untitled stack',
+          createdAt: s.createdAt || Date.now(),
+          cards: (Array.isArray(s.cards) ? s.cards : []).map(cardFromLegacy),
+        }));
+      }
+
       function load() {
         try {
           const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
@@ -826,6 +908,7 @@
             name: d.name || 'Untitled',
             createdAt: d.createdAt || Date.now(),
             cards: cardsFromDeck(d),
+            stacks: stacksFromDeck(d),
           }));
           return { decks };
         } catch {
@@ -840,21 +923,112 @@
       let state = load();
       save();
       let activeDeckId = state.decks[0] ? state.decks[0].id : null;
+      let activeStackId = null;
       let activeCardId = null;
       let deckEditing = false;
       let cardEditing = false;
       let reviewDeckId = null;
+      let reviewStackId = null;
+      let reviewScope = 'deck';
       let reviewCardId = null;
       let currentView = 'decks';
       let modalResolve = null;
+      let modalMode = 'confirm';
       let suppressRouteSync = false;
+
+      const modalField = document.getElementById('dk-modal-field');
+      const modalFieldLabel = document.getElementById('dk-modal-field-label');
+      const modalFieldInput = document.getElementById('dk-modal-field-input');
+
+      function stackById(deck, stackId) {
+        if (!deck || !stackId) return null;
+        return (deck.stacks || []).find((s) => s.id === stackId) || null;
+      }
+
+      function findCardInDeck(deckId, cardId) {
+        const deck = deckById(deckId);
+        if (!deck || !cardId) return null;
+        const root = (deck.cards || []).find((c) => c.id === cardId);
+        if (root) return { deck, stack: null, card: root };
+        for (const stack of deck.stacks || []) {
+          const card = (stack.cards || []).find((c) => c.id === cardId);
+          if (card) return { deck, stack, card };
+        }
+        return null;
+      }
+
+      function deckStats(deck) {
+        const rootCards = (deck.cards || []).length;
+        const stacks = (deck.stacks || []).length;
+        const stackCards = (deck.stacks || []).reduce((n, s) => n + (s.cards || []).length, 0);
+        return {
+          rootCards,
+          stacks,
+          totalCards: rootCards + stackCards,
+        };
+      }
+
+      function allReviewCards(deck, scope, stackId, cardId) {
+        if (!deck) return [];
+        if (scope === 'card' && cardId) {
+          const found = findCardInDeck(deck.id, cardId);
+          return found ? [found.card] : [];
+        }
+        if (scope === 'stack' && stackId) {
+          const stack = stackById(deck, stackId);
+          return stack ? (stack.cards || []).slice() : [];
+        }
+        const list = (deck.cards || []).slice();
+        (deck.stacks || []).forEach((stack) => {
+          list.push.apply(list, stack.cards || []);
+        });
+        return list;
+      }
 
       function parseCardsRoute(parts) {
         const deckId = parts[1] || null;
         if (!deckId) return { tab: 'cards' };
         if (parts[2] === 'settings') return { tab: 'cards', deckId, deckEdit: true };
+        if (parts[2] === 'stack' && parts[3]) {
+          const stackId = parts[3];
+          if (parts[4] === 'review') {
+            return {
+              tab: 'cards',
+              deckId,
+              stackId,
+              review: true,
+              reviewScope: 'stack',
+              cardId: parts[5] || null,
+            };
+          }
+          if (parts[4] === 'card' && parts[5]) {
+            return {
+              tab: 'cards',
+              deckId,
+              stackId,
+              cardId: parts[5],
+              cardEdit: parts[6] === 'edit',
+            };
+          }
+          return { tab: 'cards', deckId, stackId };
+        }
         if (parts[2] === 'review') {
-          return { tab: 'cards', deckId, review: true, cardId: parts[3] || null };
+          if (parts[3] === 'card' && parts[4]) {
+            return {
+              tab: 'cards',
+              deckId,
+              review: true,
+              reviewScope: 'card',
+              cardId: parts[4],
+            };
+          }
+          return {
+            tab: 'cards',
+            deckId,
+            review: true,
+            reviewScope: 'deck',
+            cardId: parts[3] || null,
+          };
         }
         if (parts[2] === 'card' && parts[3]) {
           return { tab: 'cards', deckId, cardId: parts[3], cardEdit: parts[4] === 'edit' };
@@ -881,16 +1055,26 @@
 
       function buildHash() {
         if (currentView === 'review' && reviewDeckId) {
+          if (reviewScope === 'stack' && reviewStackId) {
+            const base = '#/cards/' + reviewDeckId + '/stack/' + reviewStackId + '/review';
+            return reviewCardId ? base + '/' + reviewCardId : base;
+          }
+          if (reviewScope === 'card' && reviewCardId) {
+            return '#/cards/' + reviewDeckId + '/review/card/' + reviewCardId;
+          }
           const base = '#/cards/' + reviewDeckId + '/review';
           return reviewCardId ? base + '/' + reviewCardId : base;
         }
         if (currentView === 'card' && activeDeckId && activeCardId) {
-          const base = '#/cards/' + activeDeckId + '/card/' + activeCardId;
+          const loc = findCardInDeck(activeDeckId, activeCardId);
+          const stackPart = loc && loc.stack ? '/stack/' + loc.stack.id : '';
+          const base = '#/cards/' + activeDeckId + stackPart + '/card/' + activeCardId;
           return cardEditing ? base + '/edit' : base;
         }
         if (currentView === 'cards') {
           if (!activeDeckId) return '#/cards';
           if (deckEditing) return '#/cards/' + activeDeckId + '/settings';
+          if (activeStackId) return '#/cards/' + activeDeckId + '/stack/' + activeStackId;
           return '#/cards/' + activeDeckId;
         }
         return '#/decks';
@@ -907,19 +1091,25 @@
       }
 
       function cardInDeck(deckId, cardId) {
-        const deck = deckById(deckId);
-        if (!deck) return null;
-        return (deck.cards || []).find((c) => c.id === cardId) || null;
+        const found = findCardInDeck(deckId, cardId);
+        return found ? found.card : null;
+      }
+
+      function clearReviewState() {
+        reviewDeckId = null;
+        reviewStackId = null;
+        reviewScope = 'deck';
+        reviewCardId = null;
       }
 
       function applyRouteFromUrl(replaceInvalid) {
         const route = parseRoute();
         if (route.tab === 'decks') {
           activeCardId = null;
+          activeStackId = null;
           deckEditing = false;
           cardEditing = false;
-          reviewDeckId = null;
-          reviewCardId = null;
+          clearReviewState();
           show('decks');
           renderDecks();
           if (replaceInvalid) syncUrl(true);
@@ -928,10 +1118,10 @@
         const deck = route.deckId ? deckById(route.deckId) : ensureActiveDeck();
         if (!deck) {
           activeCardId = null;
+          activeStackId = null;
           deckEditing = false;
           cardEditing = false;
-          reviewDeckId = null;
-          reviewCardId = null;
+          clearReviewState();
           show('decks');
           renderDecks();
           syncUrl(true);
@@ -940,14 +1130,17 @@
         activeDeckId = deck.id;
         if (route.review) {
           activeCardId = null;
+          activeStackId = route.stackId || null;
           deckEditing = false;
           cardEditing = false;
           reviewDeckId = deck.id;
-          const cards = deck.cards || [];
+          reviewStackId = route.stackId || null;
+          reviewScope = route.reviewScope || 'deck';
+          const cards = allReviewCards(deck, reviewScope, reviewStackId, route.cardId);
           if (!cards.length) {
-            reviewDeckId = null;
-            reviewCardId = null;
-            show('cards');
+            clearReviewState();
+            show(route.stackId ? 'cards' : 'cards');
+            activeStackId = route.stackId || null;
             renderCards();
             syncUrl(true);
             return;
@@ -961,33 +1154,36 @@
           return;
         }
         if (route.cardId) {
-          const card = cardInDeck(deck.id, route.cardId);
-          if (!card) {
+          const found = findCardInDeck(deck.id, route.cardId);
+          if (!found) {
             activeCardId = null;
+            activeStackId = route.stackId || null;
             deckEditing = false;
             cardEditing = false;
-            reviewDeckId = null;
-            reviewCardId = null;
+            clearReviewState();
             show('cards');
             renderCards();
             syncUrl(true);
             return;
           }
-          activeCardId = card.id;
+          activeCardId = found.card.id;
+          activeStackId = found.stack ? found.stack.id : (route.stackId || null);
           deckEditing = false;
           cardEditing = !!route.cardEdit;
-          reviewDeckId = null;
-          reviewCardId = null;
+          clearReviewState();
           show('card');
           renderCard();
           syncUrl(replaceInvalid);
           return;
         }
         activeCardId = null;
+        activeStackId = route.stackId || null;
         deckEditing = !!route.deckEdit;
         cardEditing = false;
-        reviewDeckId = null;
-        reviewCardId = null;
+        clearReviewState();
+        if (activeStackId && !stackById(deck, activeStackId)) {
+          activeStackId = null;
+        }
         show('cards');
         renderCards();
         syncUrl(replaceInvalid);
@@ -1001,23 +1197,56 @@
 
       function closeModal(result) {
         modalEl.classList.remove('open');
+        modalField.classList.add('hidden');
         const resolve = modalResolve;
+        const mode = modalMode;
         modalResolve = null;
-        if (resolve) resolve(!!result);
+        modalMode = 'confirm';
+        if (!resolve) return;
+        if (mode === 'prompt') {
+          resolve(result ? modalFieldInput.value.trim() : null);
+          return;
+        }
+        resolve(!!result);
       }
 
       function showModal(opts) {
         return new Promise((resolve) => {
           if (modalResolve) modalResolve(false);
+          modalMode = 'confirm';
           modalResolve = resolve;
           modalTitle.textContent = opts.title || 'Confirm';
           modalMessage.textContent = opts.message || '';
+          modalField.classList.add('hidden');
           modalOk.textContent = opts.okLabel || 'OK';
           modalOk.className = 'dk-btn ' + (opts.danger ? 'dk-btn-danger' : 'dk-btn-primary');
           modalCancel.classList.toggle('hidden', !!opts.hideCancel);
           modalCancel.textContent = opts.cancelLabel || 'Cancel';
           modalEl.classList.add('open');
           modalOk.focus();
+        });
+      }
+
+      function showPrompt(opts) {
+        return new Promise((resolve) => {
+          if (modalResolve) modalResolve(false);
+          modalMode = 'prompt';
+          modalResolve = resolve;
+          modalTitle.textContent = opts.title || 'Name';
+          modalMessage.textContent = opts.message || '';
+          modalField.classList.remove('hidden');
+          modalFieldLabel.textContent = opts.label || 'Name';
+          modalFieldInput.value = opts.defaultValue || '';
+          modalFieldInput.maxLength = opts.maxLength || 80;
+          modalOk.textContent = opts.okLabel || 'Save';
+          modalOk.className = 'dk-btn dk-btn-primary';
+          modalCancel.classList.remove('hidden');
+          modalCancel.textContent = opts.cancelLabel || 'Cancel';
+          modalEl.classList.add('open');
+          setTimeout(() => {
+            modalFieldInput.focus();
+            modalFieldInput.select();
+          }, 0);
         });
       }
 
@@ -1033,6 +1262,12 @@
 
       modalCancel.addEventListener('click', () => closeModal(false));
       modalOk.addEventListener('click', () => closeModal(true));
+      modalFieldInput.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Enter' && modalMode === 'prompt') {
+          ev.preventDefault();
+          closeModal(true);
+        }
+      });
       modalEl.addEventListener('click', (ev) => {
         if (ev.target === modalEl) closeModal(false);
       });
@@ -1075,13 +1310,18 @@
       }
 
       function activeCard() {
-        const deck = ensureActiveDeck();
-        if (!deck) return null;
-        return (deck.cards || []).find((c) => c.id === activeCardId) || null;
+        if (!activeDeckId || !activeCardId) return null;
+        const found = findCardInDeck(activeDeckId, activeCardId);
+        return found ? found.card : null;
+      }
+
+      function activeCardLocation() {
+        if (!activeDeckId || !activeCardId) return null;
+        return findCardInDeck(activeDeckId, activeCardId);
       }
 
       function cardCount(deck) {
-        return (deck.cards || []).length;
+        return deckStats(deck).totalCards;
       }
 
       function cardSummary(card) {
@@ -1120,10 +1360,13 @@
           const open = document.createElement('button');
           open.type = 'button';
           open.className = 'dk-deck-open';
-          const n = cardCount(d);
+          const stats = deckStats(d);
           open.innerHTML = '<h3></h3><p></p>';
           open.querySelector('h3').textContent = d.name || 'Untitled';
-          open.querySelector('p').textContent = n + (n === 1 ? ' card' : ' cards');
+          const bits = [];
+          if (stats.totalCards) bits.push(stats.totalCards + (stats.totalCards === 1 ? ' card' : ' cards'));
+          if (stats.stacks) bits.push(stats.stacks + (stats.stacks === 1 ? ' stack' : ' stacks'));
+          open.querySelector('p').textContent = bits.length ? bits.join(' · ') : 'Empty deck';
           open.addEventListener('click', () => openDeck(d.id));
           const actions = document.createElement('div');
           actions.className = 'dk-deck-actions';
@@ -1131,10 +1374,10 @@
           reviewBtn.type = 'button';
           reviewBtn.className = 'dk-btn dk-btn-primary';
           reviewBtn.textContent = 'Review';
-          reviewBtn.disabled = !n;
+          reviewBtn.disabled = !stats.totalCards;
           reviewBtn.addEventListener('click', (ev) => {
             ev.stopPropagation();
-            openReview(d.id);
+            openReview(d.id, { scope: 'deck' });
           });
           const openBtn = document.createElement('button');
           openBtn.type = 'button';
@@ -1150,43 +1393,133 @@
         });
       }
 
+      function renderCardListItem(card, deckId, stackId) {
+        const row = document.createElement('article');
+        row.className = 'dk-item-card';
+        const main = document.createElement('button');
+        main.type = 'button';
+        main.className = 'dk-deck-open';
+        main.style.width = '100%';
+        main.innerHTML = '<h3></h3><p></p>';
+        main.querySelector('h3').textContent = card.title || 'Untitled card';
+        main.querySelector('p').textContent = cardSummary(card);
+        main.addEventListener('click', () => openCard(card.id, { edit: false, stackId: stackId || null }));
+        const actions = document.createElement('div');
+        actions.className = 'dk-item-actions';
+        const reviewBtn = document.createElement('button');
+        reviewBtn.type = 'button';
+        reviewBtn.className = 'dk-btn dk-btn-ghost';
+        reviewBtn.textContent = 'Review';
+        reviewBtn.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          openReview(deckId, { scope: 'card', cardId: card.id, stackId: stackId || null });
+        });
+        actions.appendChild(reviewBtn);
+        row.style.display = 'flex';
+        row.style.alignItems = 'center';
+        row.style.gap = '10px';
+        row.append(main, actions);
+        return row;
+      }
+
+      function renderStackItem(stack, deckId) {
+        const row = document.createElement('article');
+        row.className = 'dk-stack-item';
+        const n = (stack.cards || []).length;
+        const open = document.createElement('button');
+        open.type = 'button';
+        open.className = 'dk-stack-open';
+        open.innerHTML = '<h3></h3><p></p>';
+        open.querySelector('h3').innerHTML = '<span class="dk-stack-badge">Stack</span>' + (stack.name || 'Untitled stack');
+        open.querySelector('p').textContent = n + (n === 1 ? ' card' : ' cards');
+        open.addEventListener('click', () => openStack(stack.id));
+        const actions = document.createElement('div');
+        actions.className = 'dk-item-actions';
+        const reviewBtn = document.createElement('button');
+        reviewBtn.type = 'button';
+        reviewBtn.className = 'dk-btn dk-btn-ghost';
+        reviewBtn.textContent = 'Review';
+        reviewBtn.disabled = !n;
+        reviewBtn.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          openReview(deckId, { scope: 'stack', stackId: stack.id });
+        });
+        const openBtn = document.createElement('button');
+        openBtn.type = 'button';
+        openBtn.className = 'dk-btn dk-btn-primary';
+        openBtn.textContent = 'Open';
+        openBtn.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          openStack(stack.id);
+        });
+        actions.append(openBtn, reviewBtn);
+        row.append(open, actions);
+        return row;
+      }
+
       function renderCards() {
         const deck = ensureActiveDeck();
         if (!deck) return showDecks({ updateUrl: true });
-        document.getElementById('cards-heading').textContent = deck.name || 'Cards';
-        document.getElementById('cards-sub').textContent = cardCount(deck)
-          ? 'Tap a card to read it.'
-          : 'No cards yet — create one to get started.';
+        const stack = activeStackId ? stackById(deck, activeStackId) : null;
+        const inStack = !!stack;
+        document.getElementById('cards-toolbar-root').classList.toggle('hidden', inStack);
+        document.getElementById('cards-toolbar-stack').classList.toggle('hidden', !inStack);
+        document.getElementById('btn-back-decks').textContent = inStack
+          ? '← ' + (deck.name || 'Deck')
+          : '← All decks';
+        document.getElementById('cards-heading').textContent = inStack
+          ? (stack.name || 'Stack')
+          : (deck.name || 'Cards');
+        document.getElementById('cards-sub').textContent = inStack
+          ? ((stack.cards || []).length ? 'Cards in this stack.' : 'No cards in this stack yet.')
+          : (deckStats(deck).totalCards || deckStats(deck).stacks
+            ? 'Open a stack or card, or create something new.'
+            : 'Add a stack or card to get started.');
         document.getElementById('cards-view-mode').classList.toggle('hidden', deckEditing);
         document.getElementById('cards-edit-mode').classList.toggle('hidden', !deckEditing);
         if (deckEditing) {
           document.getElementById('deck-name').value = deck.name || '';
         }
         const q = document.getElementById('card-search').value.trim().toLowerCase();
+        const list = document.getElementById('card-list');
+        list.innerHTML = '';
+
+        if (inStack) {
+          const cards = (stack.cards || []).filter((c) => {
+            if (!q) return true;
+            return cardSearchHaystack(c).toLowerCase().includes(q);
+          });
+          if (!stack.cards.length) {
+            list.innerHTML = '<div class="dk-empty">This stack has no cards yet.</div>';
+            return;
+          }
+          if (!cards.length) {
+            list.innerHTML = '<div class="dk-empty">No cards match that search.</div>';
+            return;
+          }
+          cards.forEach((c) => list.appendChild(renderCardListItem(c, deck.id, stack.id)));
+          return;
+        }
+
+        const stacks = (deck.stacks || []).filter((s) => {
+          if (!q) return true;
+          const hay = (s.name || '') + ' ' + (s.cards || []).map((c) => cardSearchHaystack(c)).join(' ');
+          return hay.toLowerCase().includes(q);
+        });
         const cards = (deck.cards || []).filter((c) => {
           if (!q) return true;
           return cardSearchHaystack(c).toLowerCase().includes(q);
         });
-        const list = document.getElementById('card-list');
-        if (!deck.cards.length) {
-          list.innerHTML = '<div class="dk-empty">This deck has no cards yet.</div>';
+        if (!deck.stacks.length && !deck.cards.length) {
+          list.innerHTML = '<div class="dk-empty">This deck is empty. Add a stack or card.</div>';
           return;
         }
-        if (!cards.length) {
-          list.innerHTML = '<div class="dk-empty">No cards match that search.</div>';
+        if (!stacks.length && !cards.length) {
+          list.innerHTML = '<div class="dk-empty">Nothing matches that search.</div>';
           return;
         }
-        list.innerHTML = '';
-        cards.forEach((c) => {
-          const btn = document.createElement('button');
-          btn.type = 'button';
-          btn.className = 'dk-item-card';
-          btn.innerHTML = '<h3></h3><p></p>';
-          btn.querySelector('h3').textContent = c.title || 'Untitled card';
-          btn.querySelector('p').textContent = cardSummary(c);
-          btn.addEventListener('click', () => openCard(c.id, { edit: false }));
-          list.appendChild(btn);
-        });
+        stacks.forEach((s) => list.appendChild(renderStackItem(s, deck.id)));
+        cards.forEach((c) => list.appendChild(renderCardListItem(c, deck.id, null)));
       }
 
       function fillDeckSelect(selectedId) {
@@ -1356,11 +1689,17 @@
 
       function renderCardView() {
         const deck = ensureActiveDeck();
-        const card = activeCard();
+        const loc = activeCardLocation();
+        const card = loc ? loc.card : null;
         if (!deck || !card) return openDeck(activeDeckId, { updateUrl: true });
         document.getElementById('card-view-title').textContent = card.title || 'Untitled card';
-        document.getElementById('card-view-deck').textContent = 'In ' + (deck.name || 'Untitled');
-        document.getElementById('btn-back-cards').textContent = '← ' + (deck.name || 'Cards');
+        const where = loc.stack
+          ? 'In ' + (loc.stack.name || 'Stack') + ' · ' + (deck.name || 'Untitled')
+          : 'In ' + (deck.name || 'Untitled');
+        document.getElementById('card-view-deck').textContent = where;
+        document.getElementById('btn-back-cards').textContent = loc.stack
+          ? '← ' + (loc.stack.name || 'Stack')
+          : '← ' + (deck.name || 'Cards');
         document.getElementById('btn-edit-card').textContent = 'Edit card';
         const list = document.getElementById('section-view-list');
         const checklistWrap = document.getElementById('card-checklist-view');
@@ -1482,7 +1821,8 @@
       }
 
       function persistCardMeta() {
-        const card = activeCard();
+        const loc = activeCardLocation();
+        const card = loc ? loc.card : null;
         const deck = ensureActiveDeck();
         if (!card || !deck) return;
         card.title = document.getElementById('card-title').value.trim();
@@ -1491,21 +1831,26 @@
         if (destId && destId !== deck.id) {
           const dest = deckById(destId);
           if (dest) {
-            deck.cards = deck.cards.filter((c) => c.id !== card.id);
+            if (loc.stack) {
+              loc.stack.cards = loc.stack.cards.filter((c) => c.id !== card.id);
+            } else {
+              deck.cards = deck.cards.filter((c) => c.id !== card.id);
+            }
             dest.cards.unshift(card);
             activeDeckId = dest.id;
+            activeStackId = null;
           }
         }
-        touchCard();
+        touchCard(card);
         syncUrl(true);
       }
 
       function showDecks(opts) {
         activeCardId = null;
+        activeStackId = null;
         deckEditing = false;
         cardEditing = false;
-        reviewDeckId = null;
-        reviewCardId = null;
+        clearReviewState();
         show('decks');
         renderDecks();
         if (!opts || opts.updateUrl !== false) syncUrl(!!(opts && opts.replaceUrl));
@@ -1513,11 +1858,24 @@
 
       function openDeck(id, opts) {
         activeDeckId = id;
+        activeStackId = null;
         activeCardId = null;
         deckEditing = !!(opts && opts.edit);
         cardEditing = false;
-        reviewDeckId = null;
-        reviewCardId = null;
+        clearReviewState();
+        show('cards');
+        renderCards();
+        if (!opts || opts.updateUrl !== false) syncUrl(!!(opts && opts.replaceUrl));
+      }
+
+      function openStack(stackId, opts) {
+        const deck = ensureActiveDeck();
+        if (!deck || !stackById(deck, stackId)) return;
+        activeStackId = stackId;
+        activeCardId = null;
+        deckEditing = false;
+        cardEditing = false;
+        clearReviewState();
         show('cards');
         renderCards();
         if (!opts || opts.updateUrl !== false) syncUrl(!!(opts && opts.replaceUrl));
@@ -1525,9 +1883,13 @@
 
       function openCard(id, opts) {
         activeCardId = id;
+        if (opts && opts.stackId !== undefined) activeStackId = opts.stackId;
+        else {
+          const found = findCardInDeck(activeDeckId, id);
+          if (found) activeStackId = found.stack ? found.stack.id : null;
+        }
         cardEditing = !!(opts && opts.edit);
-        reviewDeckId = null;
-        reviewCardId = null;
+        clearReviewState();
         show('card');
         renderCard();
         if (!opts || opts.updateUrl !== false) syncUrl(!!(opts && opts.replaceUrl));
@@ -1537,27 +1899,46 @@
         return reviewDeckId ? deckById(reviewDeckId) : null;
       }
 
+      function reviewCardsList() {
+        const deck = reviewDeck();
+        if (!deck) return [];
+        return allReviewCards(deck, reviewScope, reviewStackId, reviewCardId);
+      }
+
       function reviewCard() {
         const deck = reviewDeck();
         if (!deck || !reviewCardId) return null;
         return cardInDeck(deck.id, reviewCardId);
       }
 
-      function openReview(deckId, cardId, opts) {
+      function openReview(deckId, opts) {
+        opts = opts || {};
         const deck = deckById(deckId);
-        if (!deck || !deck.cards.length) {
+        const scope = opts.scope || 'deck';
+        const stackId = opts.stackId || null;
+        const cards = deck ? allReviewCards(deck, scope, stackId, opts.cardId) : [];
+        if (!deck || !cards.length) {
           showAlert({
             title: 'Nothing to review',
-            message: 'Add cards to this deck before reviewing it.',
+            message: scope === 'stack'
+              ? 'Add cards to this stack before reviewing it.'
+              : scope === 'card'
+                ? 'This card is empty or missing.'
+                : 'Add cards to this deck before reviewing it.',
           });
           return;
         }
         activeDeckId = deck.id;
+        activeStackId = stackId;
         activeCardId = null;
         deckEditing = false;
         cardEditing = false;
         reviewDeckId = deck.id;
-        reviewCardId = cardId && cardInDeck(deck.id, cardId) ? cardId : deck.cards[0].id;
+        reviewStackId = stackId;
+        reviewScope = scope;
+        reviewCardId = opts.cardId && cardInDeck(deck.id, opts.cardId)
+          ? opts.cardId
+          : cards[0].id;
         show('review');
         renderReview();
         if (!opts || opts.updateUrl !== false) syncUrl(!!(opts && opts.replaceUrl));
@@ -1565,16 +1946,16 @@
 
       function exitReview(opts) {
         const deckId = reviewDeckId;
-        reviewDeckId = null;
-        reviewCardId = null;
-        if (deckId) openDeck(deckId, opts);
+        const stackId = reviewStackId;
+        clearReviewState();
+        if (deckId && stackId) openStack(stackId, opts);
+        else if (deckId) openDeck(deckId, opts);
         else showDecks(opts);
       }
 
       function reviewStep(delta) {
-        const deck = reviewDeck();
-        if (!deck) return;
-        const cards = deck.cards || [];
+        if (reviewScope === 'card') return;
+        const cards = reviewCardsList();
         const idx = cards.findIndex((c) => c.id === reviewCardId);
         if (idx < 0) return;
         const next = cards[idx + delta];
@@ -1587,13 +1968,22 @@
       function renderReview() {
         const deck = reviewDeck();
         const card = reviewCard();
-        if (!deck || !card) return exitReview({ updateUrl: true });
-        const cards = deck.cards || [];
+        const cards = reviewCardsList();
+        if (!deck || !card || !cards.length) return exitReview({ updateUrl: true });
         const idx = cards.findIndex((c) => c.id === card.id);
-        document.getElementById('review-deck-name').textContent = deck.name || 'Untitled';
-        document.getElementById('review-progress').textContent = (idx + 1) + ' / ' + cards.length;
-        document.getElementById('btn-review-prev').disabled = idx <= 0;
-        document.getElementById('btn-review-next').disabled = idx >= cards.length - 1;
+        let label = deck.name || 'Untitled';
+        if (reviewScope === 'stack' && reviewStackId) {
+          const stack = stackById(deck, reviewStackId);
+          if (stack) label = stack.name || 'Stack';
+        } else if (reviewScope === 'card') {
+          label = 'Single card';
+        }
+        document.getElementById('review-deck-name').textContent = label;
+        document.getElementById('review-progress').textContent = reviewScope === 'card'
+          ? 'Review'
+          : ((idx + 1) + ' / ' + cards.length);
+        document.getElementById('btn-review-prev').disabled = reviewScope === 'card' || idx <= 0;
+        document.getElementById('btn-review-next').disabled = reviewScope === 'card' || idx >= cards.length - 1;
         const body = document.getElementById('review-body');
         body.innerHTML = '';
         const title = document.createElement('h2');
@@ -1616,9 +2006,22 @@
         }
       }
 
+      function cardParentList(deck, stackId) {
+        if (stackId) {
+          const stack = stackById(deck, stackId);
+          if (!stack) return null;
+          if (!Array.isArray(stack.cards)) stack.cards = [];
+          return stack.cards;
+        }
+        if (!Array.isArray(deck.cards)) deck.cards = [];
+        return deck.cards;
+      }
+
       function createCard(openInEdit) {
         const deck = ensureActiveDeck();
         if (!deck) return;
+        const list = cardParentList(deck, activeStackId);
+        if (!list) return;
         const card = {
           id: uidId(),
           title: '',
@@ -1627,20 +2030,56 @@
           sections: [],
           checklist: [],
         };
-        deck.cards.unshift(card);
+        list.unshift(card);
         save();
-        openCard(card.id, { edit: !!openInEdit });
+        openCard(card.id, { edit: !!openInEdit, stackId: activeStackId });
       }
 
-      document.getElementById('btn-new-deck').addEventListener('click', () => {
-        const deck = { id: uidId(), name: 'New deck', createdAt: Date.now(), cards: [] };
+      async function createStack() {
+        const deck = ensureActiveDeck();
+        if (!deck || activeStackId) return;
+        const name = await showPrompt({
+          title: 'New stack',
+          message: 'Stacks group cards inside a deck. You cannot nest stacks inside stacks.',
+          label: 'Stack name',
+          okLabel: 'Create',
+        });
+        if (name === null) return;
+        if (!Array.isArray(deck.stacks)) deck.stacks = [];
+        const stack = {
+          id: uidId(),
+          name: name || 'Untitled stack',
+          createdAt: Date.now(),
+          cards: [],
+        };
+        deck.stacks.unshift(stack);
+        save();
+        openStack(stack.id);
+      }
+
+      document.getElementById('btn-new-deck').addEventListener('click', async () => {
+        const name = await showPrompt({
+          title: 'New deck',
+          message: 'Give your deck a name.',
+          label: 'Deck name',
+          okLabel: 'Create',
+        });
+        if (name === null) return;
+        const deck = {
+          id: uidId(),
+          name: name || 'Untitled',
+          createdAt: Date.now(),
+          cards: [],
+          stacks: [],
+        };
         state.decks.unshift(deck);
         save();
-        openDeck(deck.id, { edit: true, replaceUrl: false });
+        openDeck(deck.id);
       });
 
       document.getElementById('btn-back-decks').addEventListener('click', () => {
-        showDecks();
+        if (activeStackId) openDeck(activeDeckId);
+        else showDecks();
       });
 
       document.getElementById('dk-bottom-nav').addEventListener('click', (ev) => {
@@ -1687,13 +2126,17 @@
       document.getElementById('card-search').addEventListener('input', renderCards);
 
       document.getElementById('btn-new-card').addEventListener('click', () => createCard(true));
+      document.getElementById('btn-new-card-stack').addEventListener('click', () => createCard(true));
+      document.getElementById('btn-new-stack').addEventListener('click', () => createStack());
       document.getElementById('btn-new-card-edit').addEventListener('click', () => createCard(true));
 
       document.getElementById('btn-delete-deck').addEventListener('click', async () => {
         const deck = deckById(activeDeckId);
         if (!deck) return;
-        const n = cardCount(deck);
-        const extra = n ? ' and its ' + n + (n === 1 ? ' card' : ' cards') : '';
+        const stats = deckStats(deck);
+        const extra = stats.totalCards || stats.stacks
+          ? ' and everything in it'
+          : '';
         const ok = await showConfirm({
           title: 'Delete deck?',
           message: 'Delete “' + (deck.name || 'this deck') + '”' + extra + '? This cannot be undone.',
@@ -1710,7 +2153,19 @@
       });
 
       document.getElementById('btn-back-cards').addEventListener('click', () => {
-        openDeck(activeDeckId);
+        const loc = activeCardLocation();
+        if (loc && loc.stack) openStack(loc.stack.id);
+        else openDeck(activeDeckId);
+      });
+
+      document.getElementById('btn-review-card').addEventListener('click', () => {
+        const loc = activeCardLocation();
+        if (!loc) return;
+        openReview(activeDeckId, {
+          scope: 'card',
+          cardId: loc.card.id,
+          stackId: loc.stack ? loc.stack.id : null,
+        });
       });
 
       document.getElementById('btn-edit-card').addEventListener('click', () => setCardEditing(true));
@@ -1729,11 +2184,17 @@
           danger: true,
         });
         if (!ok) return;
-        deck.cards = deck.cards.filter((c) => c.id !== card.id);
+        const loc = activeCardLocation();
+        if (loc && loc.stack) {
+          loc.stack.cards = loc.stack.cards.filter((c) => c.id !== loc.card.id);
+        } else if (loc) {
+          deck.cards = deck.cards.filter((c) => c.id !== loc.card.id);
+        }
         activeCardId = null;
         cardEditing = false;
         save();
-        openDeck(deck.id, { replaceUrl: false });
+        if (activeStackId) openStack(activeStackId, { replaceUrl: false });
+        else openDeck(deck.id, { replaceUrl: false });
       });
 
       document.getElementById('card-title').addEventListener('input', persistCardMeta);
