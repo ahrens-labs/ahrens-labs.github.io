@@ -7822,6 +7822,7 @@
                 keys = getRelevantUpcomingWeekKeys();
             }
             reoptimizeAffectedWeeks(keys);
+            scheduleUnassignedTargetWeekTasksInWeeks(keys);
         }
 
         function refreshClassifyLikeReload(options = {}) {
@@ -10471,11 +10472,18 @@
                     );
                 } else {
                     const normalizedTask = normalizeTask(baseTask);
+                    const scheduleWeekKeys = quickParsed.scheduleType === 'week'
+                        ? [normalizedTask.week || getTaskTargetWeekKey(normalizedTask)].filter(Boolean)
+                        : null;
                     mutateClassifyData(() => {
                         tasks.push(normalizedTask);
                         applyReciprocalDependenciesForTask(normalizedTask.id);
                         syncAllTaskDependencies();
-                    }, { seedTaskIds: [normalizedTask.id], cloudSyncNew: true });
+                    }, {
+                        seedTaskIds: [normalizedTask.id],
+                        weekKeys: scheduleWeekKeys,
+                        cloudSyncNew: true
+                    });
                     showNotification(`Created "${normalizedTask.title}"`, 'success');
                 }
                 if(quickParsed.warnings?.length) showNotification(quickParsed.warnings.join(' '), 'info');
@@ -14608,6 +14616,21 @@
             if(task.weekDueOnly || task.scheduleType === 'week') return !task.date || !task.time;
             if(!task.date) return task.scheduleType !== 'date';
             return !task.time;
+        }
+
+        function scheduleUnassignedTargetWeekTasksInWeeks(weekKeys = []) {
+            const keys = Array.from(new Set((weekKeys || []).filter(Boolean)));
+            if(keys.length === 0) return 0;
+            let scheduled = 0;
+            keys.forEach(weekKey => {
+                const needsSchedule = tasks.some(t =>
+                    isTaskTargetedForWeek(t, weekKey, true) && taskNeedsCalendarScheduling(t)
+                );
+                if(!needsSchedule) return;
+                assignWeekTaskDates(weekKey, true);
+                scheduled += autoBlockWeekTimes(false, weekKey, true, true, true) || 0;
+            });
+            return scheduled;
         }
 
         function ensureAllEventsScheduled(weeksAhead = 12, persist = false) {
