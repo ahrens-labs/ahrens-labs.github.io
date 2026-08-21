@@ -548,7 +548,13 @@
       background: #fff5f5;
       box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12);
     }
-    .dk-card-move { margin-bottom: 16px; }
+    .dk-card-title-field { margin-bottom: 8px; }
+    .dk-card-title-field label {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--dk-muted);
+      letter-spacing: 0.02em;
+    }
     .dk-card-delete-wrap { margin-top: 28px; }
     .dk-card-preview-item {
       background: var(--dk-card);
@@ -814,12 +820,11 @@
             <button type="button" class="dk-btn dk-btn-back" id="btn-back-cards">← Back</button>
             <button type="button" class="dk-btn dk-btn-ghost" id="btn-review-card">Review</button>
           </nav>
-          <input id="card-title" class="dk-card-title-input" type="text" maxlength="160" autocomplete="off" placeholder="Card name" required aria-required="true">
-          <p id="card-view-deck" class="dk-meta"></p>
-          <div class="dk-field dk-card-move">
-            <label for="card-deck">Deck</label>
-            <select id="card-deck"></select>
+          <div class="dk-field dk-card-title-field">
+            <label for="card-title">Card title</label>
+            <input id="card-title" class="dk-card-title-input" type="text" maxlength="160" autocomplete="off" required aria-required="true">
           </div>
+          <p id="card-view-deck" class="dk-meta"></p>
           <div id="section-list"></div>
           <div class="dk-toolbar">
             <button type="button" class="dk-btn dk-btn-ghost dk-btn-block" id="btn-add-section">+ Add section</button>
@@ -2033,18 +2038,6 @@
         cards.forEach((c) => list.appendChild(renderCardListItem(c, deck.id, null)));
       }
 
-      function fillDeckSelect(selectedId) {
-        const sel = document.getElementById('card-deck');
-        sel.innerHTML = '';
-        state.decks.forEach((d) => {
-          const opt = document.createElement('option');
-          opt.value = d.id;
-          opt.textContent = d.name || 'Untitled';
-          if (d.id === selectedId) opt.selected = true;
-          sel.appendChild(opt);
-        });
-      }
-
       function checkRow(item, done, card, rerender) {
         const checklist = ensureCardChecklist(card);
         const row = document.createElement('div');
@@ -2204,7 +2197,6 @@
         const card = loc ? loc.card : null;
         if (!deck || !card) return openDeck(activeDeckId, { updateUrl: true });
         document.getElementById('card-title').value = card.title || '';
-        fillDeckSelect(deck.id);
         const where = loc.stack
           ? 'In ' + (loc.stack.name || 'Stack') + ' · ' + (deck.name || 'Untitled')
           : 'In ' + (deck.name || 'Untitled');
@@ -2348,20 +2340,6 @@
         const title = cardTitleInputValue();
         if (!title) return;
         card.title = title;
-        const destId = document.getElementById('card-deck').value;
-        if (destId && destId !== deck.id) {
-          const dest = deckById(destId);
-          if (dest) {
-            if (loc.stack) {
-              loc.stack.cards = loc.stack.cards.filter((c) => c.id !== card.id);
-            } else {
-              deck.cards = deck.cards.filter((c) => c.id !== card.id);
-            }
-            dest.cards.unshift(card);
-            activeDeckId = dest.id;
-            activeStackId = null;
-          }
-        }
         touchCard(card);
         syncUrl(true);
       }
@@ -2714,17 +2692,6 @@
       document.getElementById('card-title').addEventListener('input', () => {
         if (cardTitleInputValue()) persistCardMeta();
         else markCardTitleValidity();
-      });
-      document.getElementById('card-deck').addEventListener('change', () => {
-        if (!tryCommitCardMeta()) {
-          showAlert({
-            title: 'Name required',
-            message: 'Name this card before moving it to another deck.',
-          });
-          const loc = activeCardLocation();
-          const deck = ensureActiveDeck();
-          if (deck) fillDeckSelect(deck.id);
-        }
       });
 
       document.getElementById('btn-add-section').addEventListener('click', () => {
