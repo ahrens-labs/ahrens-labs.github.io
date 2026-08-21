@@ -9167,6 +9167,13 @@
 
         const QUICK_ENTRY_DATE_WORDS = '(?:today|todat|tomorrow|tommorow|monday|mon|tuesday|tue|tues|wednesday|wed|thursday|thu|thur|thurs|friday|fri|saturday|sat|sunday|sun)';
 
+        function stripAccidentalCommandLineSlash(text) {
+            const value = String(text || '');
+            if(value.startsWith('//')) return value.slice(1);
+            if(value.startsWith('/')) return value.slice(1);
+            return value;
+        }
+
         function normalizeClassifyCommandText(text) {
             return String(text || '')
                 .replace(/\btodat\b/gi, 'today')
@@ -10374,13 +10381,14 @@
         }
 
         function executeClassifyCommandLine(text) {
-            const trimmed = String(text || '').trim();
-            if(pendingCommandDisambiguation && trimmed && !/^\d+$/.test(trimmed)) {
+            const trimmed = normalizeClassifyCommandText(stripAccidentalCommandLineSlash(text));
+            if(!trimmed) return false;
+            if(pendingCommandDisambiguation && !/^\d+$/.test(trimmed)) {
                 showNotification('Type a number from the list below to pick an assignment.', 'info');
                 return false;
             }
 
-            const parsed = parseClassifyCommandLine(text);
+            const parsed = parseClassifyCommandLine(trimmed);
             if(parsed.error) {
                 showNotification(parsed.error, 'error');
                 return false;
