@@ -48,6 +48,7 @@
         { id: 'link', label: 'Link', href: '/link/dashboard', icon: 'img/link-favicon-48.png' },
         { id: 'digest', label: 'Digest', href: 'digest.html', icon: 'img/digest-favicon-48.png' },
         { id: 'platter', label: 'Platter', href: 'platter.html', icon: 'img/platter-favicon-48.png' },
+        { id: 'deck', label: 'Deck', href: 'deck.html', icon: 'img/deck-favicon-48.png' },
         { id: 'kyrachyng', label: 'Kyrachyng', href: 'kyrachyng.html' },
         { id: 'spud', label: 'Spud', href: 'spud.html' },
         { id: 'lotr', label: 'LOTR', href: 'lotr.html' },
@@ -94,6 +95,7 @@
     link: 'projects',
     sportsDigest: 'projects',
     platter: 'projects',
+    deck: 'projects',
     spud: 'projects',
     lotr: 'projects',
     kyrachyng: 'projects',
@@ -119,6 +121,7 @@
     link: 'link',
     digest: 'sportsDigest',
     platter: 'platter',
+    deck: 'deck',
     kyrachyng: 'kyrachyng',
     spud: 'spud',
     lotr: 'lotr',
@@ -264,6 +267,10 @@
 
     if (item.id === 'platter') {
       return current === 'platter.html' || current.startsWith('platter.html');
+    }
+
+    if (item.id === 'deck') {
+      return current === 'deck.html' || current.startsWith('deck.html');
     }
 
     if (item.id === 'link') {

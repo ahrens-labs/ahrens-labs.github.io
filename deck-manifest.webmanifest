@@ -1,0 +1,45 @@
+{
+  "id": "ahrenslabs-deck",
+  "name": "Deck",
+  "short_name": "Deck",
+  "description": "Deck — flashcard study decks by Ahrens Labs.",
+  "start_url": "/deck.html",
+  "scope": "/deck.html",
+  "display": "standalone",
+  "background_color": "#eef2ff",
+  "theme_color": "#4f46e5",
+  "orientation": "any",
+  "categories": ["education", "productivity"],
+  "icons": [
+    {
+      "src": "/img/deck-favicon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/img/deck-favicon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/img/deck-favicon-192-maskable.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/img/deck-favicon-512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/img/deck-favicon-180.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

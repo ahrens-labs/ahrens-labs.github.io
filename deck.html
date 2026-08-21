@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Deck — Ahrens Labs</title>
+  <meta name="description" content="Deck — make flashcard decks, flip through them, and study until they stick.">
+  <meta name="theme-color" content="#4f46e5">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/app-site-menu.css">
+  <link rel="icon" type="image/png" sizes="512x512" href="/img/deck-favicon-512.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="/img/deck-favicon-192.png">
+  <link rel="icon" type="image/png" sizes="128x128" href="/img/deck-favicon-128.png">
+  <link rel="icon" type="image/png" sizes="96x96" href="/img/deck-favicon-96.png">
+  <link rel="icon" type="image/png" sizes="48x48" href="/img/deck-favicon-48.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/img/deck-favicon-32.png">
+  <link rel="icon" href="/img/deck-favicon.ico" sizes="any">
+  <link rel="apple-touch-icon" sizes="180x180" href="/img/deck-favicon-180.png">
+  <link rel="manifest" href="/deck-manifest.webmanifest">
+  <script src="js/script.js"></script>
+  <script src="js/header_nav.js"></script>
+  <style>
+    :root {
+      --dk-ink: #0f172a;
+      --dk-muted: #64748b;
+      --dk-line: #e0e7ff;
+      --dk-card: #ffffff;
+      --dk-bg: #eef2ff;
+      --dk-brand: #4f46e5;
+      --dk-brand-2: #7c3aed;
+    }
+    .deck-logo {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      object-fit: contain;
+    }
+    body.deck-app {
+      min-height: 100dvh;
+      background: var(--dk-bg);
+      overflow-x: hidden;
+    }
+    body.deck-app .wrapper {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      flex: none;
+      background: transparent;
+    }
+    body.deck-app main.dk-main {
+      flex: none;
+      max-width: none;
+      margin: 0;
+      padding: 0;
+      display: block;
+    }
+    .dk-wrap {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 16px 16px calc(40px + env(safe-area-inset-bottom, 0px));
+      font-family: Inter, system-ui, sans-serif;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .dk-hero {
+      margin: 4px 0 18px;
+    }
+    .dk-hero h2 {
+      margin: 0 0 6px;
+      font-size: 1.65rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      color: var(--dk-ink);
+    }
+    .dk-hero p {
+      margin: 0;
+      color: var(--dk-muted);
+      font-size: 0.98rem;
+      line-height: 1.55;
+    }
+    .dk-toolbar {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin: 16px 0;
+    }
+    .dk-btn {
+      appearance: none;
+      border: 0;
+      border-radius: 10px;
+      padding: 10px 14px;
+      font: inherit;
+      font-weight: 700;
+      font-size: 0.92rem;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    .dk-btn-primary {
+      background: linear-gradient(135deg, var(--dk-brand), var(--dk-brand-2));
+      color: #fff;
+      box-shadow: 0 6px 16px rgba(79, 70, 229, 0.28);
+    }
+    .dk-btn-ghost {
+      background: #fff;
+      color: var(--dk-ink);
+      border: 1px solid var(--dk-line);
+    }
+    .dk-btn-danger {
+      background: #fff;
+      color: #b91c1c;
+      border: 1px solid #fecaca;
+    }
+    .dk-list {
+      display: grid;
+      gap: 10px;
+    }
+    .dk-deck-card {
+      background: var(--dk-card);
+      border: 1px solid var(--dk-line);
+      border-radius: 16px;
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      cursor: pointer;
+      text-align: left;
+      width: 100%;
+      font: inherit;
+      color: inherit;
+      box-shadow: 0 8px 24px rgba(49, 46, 129, 0.06);
+    }
+    .dk-deck-card:hover {
+      border-color: #c7d2fe;
+    }
+    .dk-deck-card h3 {
+      margin: 0 0 4px;
+      font-size: 1.05rem;
+      font-weight: 800;
+      color: var(--dk-ink);
+    }
+    .dk-deck-card p {
+      margin: 0;
+      color: var(--dk-muted);
+      font-size: 0.86rem;
+    }
+    .dk-empty {
+      background: #fff;
+      border: 1px dashed #c7d2fe;
+      border-radius: 16px;
+      padding: 28px 18px;
+      text-align: center;
+      color: var(--dk-muted);
+    }
+    .dk-empty strong { color: var(--dk-ink); }
+    .dk-field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+    .dk-field label {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: #475569;
+    }
+    .dk-field input,
+    .dk-field textarea {
+      font: inherit;
+      border: 1px solid var(--dk-line);
+      border-radius: 10px;
+      padding: 10px 12px;
+      background: #fff;
+      color: var(--dk-ink);
+    }
+    .dk-field textarea { min-height: 88px; resize: vertical; }
+    .dk-card-row {
+      background: #fff;
+      border: 1px solid var(--dk-line);
+      border-radius: 12px;
+      padding: 12px 14px;
+      display: grid;
+      gap: 4px;
+    }
+    .dk-card-row .front { font-weight: 700; color: var(--dk-ink); }
+    .dk-card-row .back { color: var(--dk-muted); font-size: 0.92rem; }
+    .dk-card-row-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .dk-flip {
+      perspective: 1000px;
+      min-height: 240px;
+      margin: 12px 0 18px;
+    }
+    .dk-flip-inner {
+      position: relative;
+      width: 100%;
+      min-height: 240px;
+      transform-style: preserve-3d;
+      transition: transform 0.45s ease;
+      cursor: pointer;
+    }
+    .dk-flip-inner.is-back { transform: rotateY(180deg); }
+    .dk-face {
+      position: absolute;
+      inset: 0;
+      backface-visibility: hidden;
+      background: #fff;
+      border: 1px solid var(--dk-line);
+      border-radius: 18px;
+      padding: 28px 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--dk-ink);
+      box-shadow: 0 16px 40px rgba(49, 46, 129, 0.12);
+    }
+    .dk-face.back {
+      transform: rotateY(180deg);
+      background: linear-gradient(180deg, #fff, #eef2ff);
+      font-weight: 600;
+    }
+    .dk-progress {
+      height: 8px;
+      background: #e0e7ff;
+      border-radius: 99px;
+      overflow: hidden;
+      margin: 8px 0 4px;
+    }
+    .dk-progress span {
+      display: block;
+      height: 100%;
+      background: linear-gradient(90deg, var(--dk-brand), var(--dk-brand-2));
+      width: 0;
+    }
+    .dk-hint { color: var(--dk-muted); font-size: 0.85rem; margin: 0 0 10px; }
+    .dk-study-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body class="dk-page deck-app">
+  <div class="wrapper">
+    <header class="th-app-header">
+      <div class="th-app-topbar">
+        <div class="th-topbar-start">
+          <button type="button" class="th-hamburger" id="th-site-menu-btn" aria-label="Open site menu" aria-expanded="false" aria-controls="th-site-menu">
+            <span></span><span></span><span></span>
+          </button>
+          <div class="th-topbar-brand">
+            <img src="img/deck-logo-128.png" alt="" class="deck-logo">
+            <h1 class="th-topbar-title">Deck</h1>
+          </div>
+        </div>
+        <div class="th-topbar-auth" id="header-auth-buttons">
+          <button type="button" id="header-login-btn" class="th-topbar-auth-btn th-topbar-auth-login" onclick="window.location.href='account.html?return=deck.html'">Login</button>
+          <button type="button" id="header-signup-btn" class="th-topbar-auth-btn th-topbar-auth-signup" onclick="window.location.href='account.html?return=deck.html'">Sign Up</button>
+          <span id="header-username" class="th-topbar-username"></span>
+        </div>
+      </div>
+      <div id="th-site-menu-backdrop" class="th-site-menu-backdrop" hidden></div>
+      <div id="th-site-menu" class="th-site-menu" aria-hidden="true">
+        <div class="th-site-menu-head">
+          <a href="index.html" class="th-site-menu-brand">
+            <img src="img/EagleLogo.png" alt="" class="header-logo">
+            <span>Ahrens Labs</span>
+          </a>
+          <button type="button" class="th-site-menu-close" id="th-site-menu-close" aria-label="Close menu">&times;</button>
+        </div>
+        <nav>
+          <ul></ul>
+        </nav>
+        <div class="th-site-menu-footer">
+          <a href="#" class="th-site-menu-signout al-site-menu-signout" id="th-site-menu-signout">Sign Out</a>
+        </div>
+      </div>
+    </header>
+
+    <main class="dk-main">
+      <div class="dk-wrap">
+        <section id="view-home">
+          <div class="dk-hero">
+            <h2>Your decks</h2>
+            <p>Make flashcard decks, flip through them, and study until they stick. Saved on this device — sign in to keep a separate copy per account.</p>
+          </div>
+          <div class="dk-toolbar">
+            <button type="button" class="dk-btn dk-btn-primary" id="btn-new-deck">New deck</button>
+            <button type="button" class="dk-btn dk-btn-ghost" id="btn-sample">Add sample deck</button>
+          </div>
+          <div id="deck-list" class="dk-list"></div>
+        </section>
+
+        <section id="view-edit" class="hidden">
+          <div class="dk-toolbar">
+            <button type="button" class="dk-btn dk-btn-ghost" id="btn-back-home">← Decks</button>
+            <button type="button" class="dk-btn dk-btn-primary" id="btn-study">Study</button>
+            <button type="button" class="dk-btn dk-btn-danger" id="btn-delete-deck">Delete deck</button>
+          </div>
+          <div class="dk-field">
+            <label for="deck-name">Deck name</label>
+            <input id="deck-name" type="text" maxlength="80" autocomplete="off">
+          </div>
+          <h3 style="margin:18px 0 8px;font-size:1.05rem;">Cards</h3>
+          <div class="dk-field">
+            <label for="card-front">Front</label>
+            <textarea id="card-front" placeholder="Prompt or question"></textarea>
+          </div>
+          <div class="dk-field">
+            <label for="card-back">Back</label>
+            <textarea id="card-back" placeholder="Answer"></textarea>
+          </div>
+          <div class="dk-toolbar">
+            <button type="button" class="dk-btn dk-btn-primary" id="btn-add-card">Add card</button>
+          </div>
+          <div id="card-list" class="dk-list"></div>
+        </section>
+
+        <section id="view-study" class="hidden">
+          <div class="dk-toolbar">
+            <button type="button" class="dk-btn dk-btn-ghost" id="btn-end-study">← Back to deck</button>
+          </div>
+          <p class="dk-hint" id="study-meta"></p>
+          <div class="dk-progress" aria-hidden="true"><span id="study-bar"></span></div>
+          <div class="dk-flip" id="study-flip">
+            <div class="dk-flip-inner" id="study-inner">
+              <div class="dk-face" id="study-front"></div>
+              <div class="dk-face back" id="study-back"></div>
+            </div>
+          </div>
+          <p class="dk-hint">Tap the card to flip. Mark whether you knew it.</p>
+          <div class="dk-study-actions">
+            <button type="button" class="dk-btn dk-btn-ghost" id="btn-again">Again</button>
+            <button type="button" class="dk-btn dk-btn-primary" id="btn-got-it">Got it</button>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    (function () {
+      const uid = localStorage.getItem('ahrenslabs_userId') || 'guest';
+      const STORAGE_KEY = 'deck_data_' + uid;
+
+      function uidId() {
+        return 'c' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+      }
+
+      function load() {
+        try {
+          const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+          return { decks: Array.isArray(raw.decks) ? raw.decks : [] };
+        } catch {
+          return { decks: [] };
+        }
+      }
+
+      function save(state) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      }
+
+      let state = load();
+      let activeDeckId = null;
+      let queue = [];
+      let qIndex = 0;
+      let known = 0;
+
+      const views = {
+        home: document.getElementById('view-home'),
+        edit: document.getElementById('view-edit'),
+        study: document.getElementById('view-study'),
+      };
+
+      function show(name) {
+        Object.keys(views).forEach((k) => views[k].classList.toggle('hidden', k !== name));
+      }
+
+      function deckById(id) {
+        return state.decks.find((d) => d.id === id);
+      }
+
+      function renderHome() {
+        const list = document.getElementById('deck-list');
+        if (!state.decks.length) {
+          list.innerHTML = '<div class="dk-empty"><strong>No decks yet.</strong><br>Create one, or add the sample deck to try studying.</div>';
+          return;
+        }
+        list.innerHTML = '';
+        state.decks.forEach((d) => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'dk-deck-card';
+          const n = (d.cards || []).length;
+          btn.innerHTML = '<div><h3></h3><p></p></div>';
+          btn.querySelector('h3').textContent = d.name || 'Untitled';
+          btn.querySelector('p').textContent = n + (n === 1 ? ' card' : ' cards');
+          btn.addEventListener('click', () => openDeck(d.id));
+          list.appendChild(btn);
+        });
+      }
+
+      function renderEdit() {
+        const deck = deckById(activeDeckId);
+        if (!deck) return showHome();
+        document.getElementById('deck-name').value = deck.name || '';
+        const list = document.getElementById('card-list');
+        list.innerHTML = '';
+        if (!deck.cards.length) {
+          list.innerHTML = '<div class="dk-empty">No cards in this deck yet.</div>';
+          return;
+        }
+        deck.cards.forEach((c) => {
+          const row = document.createElement('div');
+          row.className = 'dk-card-row';
+          const front = document.createElement('div');
+          front.className = 'front';
+          front.textContent = c.front;
+          const back = document.createElement('div');
+          back.className = 'back';
+          back.textContent = c.back;
+          const actions = document.createElement('div');
+          actions.className = 'dk-card-row-actions';
+          const del = document.createElement('button');
+          del.type = 'button';
+          del.className = 'dk-btn dk-btn-danger';
+          del.textContent = 'Remove';
+          del.addEventListener('click', () => {
+            deck.cards = deck.cards.filter((x) => x.id !== c.id);
+            save(state);
+            renderEdit();
+          });
+          actions.appendChild(del);
+          row.append(front, back, actions);
+          list.appendChild(row);
+        });
+      }
+
+      function showHome() {
+        activeDeckId = null;
+        show('home');
+        renderHome();
+      }
+
+      function openDeck(id) {
+        activeDeckId = id;
+        show('edit');
+        renderEdit();
+      }
+
+      document.getElementById('btn-new-deck').addEventListener('click', () => {
+        const deck = { id: uidId(), name: 'New deck', createdAt: Date.now(), cards: [] };
+        state.decks.unshift(deck);
+        save(state);
+        openDeck(deck.id);
+      });
+
+      document.getElementById('btn-sample').addEventListener('click', () => {
+        if (state.decks.some((d) => d.name === 'Getting started')) {
+          const existing = state.decks.find((d) => d.name === 'Getting started');
+          openDeck(existing.id);
+          return;
+        }
+        const deck = {
+          id: uidId(),
+          name: 'Getting started',
+          createdAt: Date.now(),
+          cards: [
+            { id: uidId(), front: 'What is Deck?', back: 'A flashcard app from Ahrens Labs. Make decks, flip cards, and study.' },
+            { id: uidId(), front: 'How do I study?', back: 'Open a deck, tap Study, flip the card, then choose Again or Got it.' },
+            { id: uidId(), front: 'Where is my data saved?', back: 'On this device in your browser. Sign in to keep a separate copy for your account.' },
+          ],
+        };
+        state.decks.unshift(deck);
+        save(state);
+        openDeck(deck.id);
+      });
+
+      document.getElementById('btn-back-home').addEventListener('click', showHome);
+
+      document.getElementById('deck-name').addEventListener('change', () => {
+        const deck = deckById(activeDeckId);
+        if (!deck) return;
+        deck.name = document.getElementById('deck-name').value.trim() || 'Untitled';
+        save(state);
+      });
+
+      document.getElementById('btn-add-card').addEventListener('click', () => {
+        const deck = deckById(activeDeckId);
+        if (!deck) return;
+        const front = document.getElementById('card-front').value.trim();
+        const back = document.getElementById('card-back').value.trim();
+        if (!front || !back) return;
+        deck.cards.push({ id: uidId(), front, back });
+        document.getElementById('card-front').value = '';
+        document.getElementById('card-back').value = '';
+        save(state);
+        renderEdit();
+      });
+
+      document.getElementById('btn-delete-deck').addEventListener('click', () => {
+        const deck = deckById(activeDeckId);
+        if (!deck) return;
+        if (!confirm('Delete “' + (deck.name || 'this deck') + '”?')) return;
+        state.decks = state.decks.filter((d) => d.id !== activeDeckId);
+        save(state);
+        showHome();
+      });
+
+      function renderStudyCard() {
+        const card = queue[qIndex];
+        const inner = document.getElementById('study-inner');
+        inner.classList.remove('is-back');
+        document.getElementById('study-front').textContent = card.front;
+        document.getElementById('study-back').textContent = card.back;
+        document.getElementById('study-meta').textContent =
+          'Card ' + (qIndex + 1) + ' of ' + queue.length + ' · ' + known + ' marked Got it';
+        const pct = queue.length ? Math.round((qIndex / queue.length) * 100) : 0;
+        document.getElementById('study-bar').style.width = pct + '%';
+      }
+
+      document.getElementById('btn-study').addEventListener('click', () => {
+        const deck = deckById(activeDeckId);
+        if (!deck || !deck.cards.length) {
+          alert('Add at least one card before studying.');
+          return;
+        }
+        queue = deck.cards.slice();
+        qIndex = 0;
+        known = 0;
+        show('study');
+        renderStudyCard();
+      });
+
+      document.getElementById('study-inner').addEventListener('click', () => {
+        document.getElementById('study-inner').classList.toggle('is-back');
+      });
+
+      function nextCard(gotIt) {
+        if (gotIt) known += 1;
+        else queue.push(queue[qIndex]);
+        qIndex += 1;
+        if (qIndex >= queue.length) {
+          document.getElementById('study-bar').style.width = '100%';
+          alert('Done — ' + known + ' marked Got it this round.');
+          show('edit');
+          renderEdit();
+          return;
+        }
+        renderStudyCard();
+      }
+
+      document.getElementById('btn-again').addEventListener('click', () => nextCard(false));
+      document.getElementById('btn-got-it').addEventListener('click', () => nextCard(true));
+      document.getElementById('btn-end-study').addEventListener('click', () => {
+        show('edit');
+        renderEdit();
+      });
+
+      showHome();
+    })();
+  </script>
+</body>
+</html>

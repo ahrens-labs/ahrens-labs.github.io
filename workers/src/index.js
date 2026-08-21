@@ -61,6 +61,7 @@ const HEADER_NAV_ALLOWED_IDS = new Set([
   'link',
   'sportsDigest',
   'platter',
+  'deck',
   'spud',
   'lotr',
   'kyrachyng',
