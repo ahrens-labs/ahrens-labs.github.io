@@ -248,12 +248,19 @@
     }
     .dk-field textarea { min-height: 120px; resize: vertical; }
     .dk-section-body {
-      min-height: 240px;
+      display: block;
+      width: calc(100% + 28px);
+      max-width: calc(100% + 28px);
+      margin: 0 -14px;
+      min-height: 120px;
       resize: vertical;
-      border-radius: 14px;
+      border-radius: 0;
+      border-left: 0;
+      border-right: 0;
       padding: 14px 16px;
       line-height: 1.65;
       font-size: 0.98rem;
+      box-sizing: border-box;
     }
     .dk-search { margin: 0 0 14px; border-radius: 12px; }
     .dk-section {
