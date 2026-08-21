@@ -879,8 +879,32 @@
 
   <script>
     (function () {
-      const uid = localStorage.getItem('ahrenslabs_userId') || 'guest';
-      const STORAGE_KEY = 'deck_data_' + uid;
+      function getStorageKey() {
+        const uid = localStorage.getItem('ahrenslabs_userId') || 'guest';
+        return 'deck_data_' + uid;
+      }
+
+      function deckApiBase() {
+        return window.AHRENS_LABS_API_BASE || window.AHRENS_API_URL || '';
+      }
+
+      const deckSyncClientId = (window.crypto && crypto.randomUUID)
+        ? crypto.randomUUID()
+        : ('dk-' + Math.random().toString(36).slice(2) + Date.now().toString(36));
+
+      let cloudSyncEnabled = false;
+      let suppressCloudSync = false;
+      let cloudSyncTimer = null;
+      let deckSyncFingerprint = '';
+      let deckSyncSocket = null;
+      let deckSyncPollTimer = null;
+      let deckSyncPingTimer = null;
+      let deckSyncReconnectTimer = null;
+      let deckSyncRefreshTimer = null;
+      let deckSyncRefreshing = false;
+      let deckResumeTimer = null;
+      let deckBootComplete = false;
+      let deckLastLocalMutationAt = 0;
 
       function uidId() {
         return 'd' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
@@ -972,29 +996,318 @@
         }));
       }
 
+      function parseDeckState(raw) {
+        const decks = (Array.isArray(raw?.decks) ? raw.decks : []).map((d) => ({
+          id: d.id || uidId(),
+          name: d.name || 'Untitled',
+          createdAt: d.createdAt || Date.now(),
+          cards: cardsFromDeck(d),
+          stacks: stacksFromDeck(d),
+        }));
+        return { decks };
+      }
+
       function load() {
         try {
-          const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
-          const decks = (Array.isArray(raw.decks) ? raw.decks : []).map((d) => ({
-            id: d.id || uidId(),
-            name: d.name || 'Untitled',
-            createdAt: d.createdAt || Date.now(),
-            cards: cardsFromDeck(d),
-            stacks: stacksFromDeck(d),
-          }));
-          return { decks };
+          return parseDeckState(JSON.parse(localStorage.getItem(getStorageKey()) || '{}'));
         } catch {
           return { decks: [] };
         }
       }
 
-      function save() {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      function readGuestDeckBackup() {
+        try {
+          return parseDeckState(JSON.parse(localStorage.getItem('deck_data_guest') || '{}'));
+        } catch {
+          return { decks: [] };
+        }
       }
 
-      let state = load();
-      save();
-      let activeDeckId = state.decks[0] ? state.decks[0].id : null;
+      function persistDeckLocally() {
+        localStorage.setItem(getStorageKey(), JSON.stringify(state));
+      }
+
+      function buildDeckCloudPayload() {
+        return { decks: Array.isArray(state.decks) ? state.decks : [] };
+      }
+
+      function reconcileActiveDeckSelection() {
+        if (activeDeckId && !deckById(activeDeckId)) {
+          activeDeckId = state.decks[0] ? state.decks[0].id : null;
+          activeStackId = null;
+          activeCardId = null;
+        }
+        if (activeCardId && activeDeckId) {
+          const found = findCardInDeck(activeDeckId, activeCardId);
+          if (!found) activeCardId = null;
+          else activeStackId = found.stack ? found.stack.id : null;
+        }
+        if (activeStackId && activeDeckId && !stackById(deckById(activeDeckId), activeStackId)) {
+          activeStackId = null;
+        }
+      }
+
+      function applyDeckCloudPayload(payload) {
+        suppressCloudSync = true;
+        state = parseDeckState(payload || {});
+        reconcileActiveDeckSelection();
+        suppressCloudSync = false;
+      }
+
+      function renderCurrentView() {
+        if (currentView === 'decks') renderDecks();
+        else if (currentView === 'cards') renderCards();
+        else if (currentView === 'card') renderCard();
+        else if (currentView === 'review') renderReview();
+      }
+
+      async function updateDeckSyncFingerprint() {
+        const sessionId = localStorage.getItem('ahrenslabs_sessionId');
+        if (!sessionId) return;
+        try {
+          const response = await fetch(deckApiBase() + '/api/deck/sync-version', {
+            method: 'GET',
+            headers: {
+              Authorization: 'Bearer ' + sessionId,
+              'X-Deck-Sync-Client': deckSyncClientId,
+            },
+          });
+          if (!response.ok) return;
+          const data = await response.json();
+          deckSyncFingerprint = data.fingerprint || '';
+        } catch {
+          /* ignore */
+        }
+      }
+
+      async function loadDeckFromCloud() {
+        const sessionId = localStorage.getItem('ahrenslabs_sessionId');
+        if (!sessionId) return false;
+        try {
+          const response = await fetch(deckApiBase() + '/api/deck/load', {
+            method: 'GET',
+            headers: { Authorization: 'Bearer ' + sessionId },
+          });
+          if (!response.ok) return false;
+          const data = await response.json();
+          const cloudDecks = Array.isArray(data.decks) ? data.decks : [];
+          if (!cloudDecks.length) return false;
+          applyDeckCloudPayload(data);
+          return true;
+        } catch (error) {
+          console.error('Failed to load deck data from cloud:', error);
+          return false;
+        }
+      }
+
+      function queueDeckCloudSync() {
+        if (!cloudSyncEnabled || suppressCloudSync) return;
+        const sessionId = localStorage.getItem('ahrenslabs_sessionId');
+        if (!sessionId) return;
+        if (cloudSyncTimer) clearTimeout(cloudSyncTimer);
+        cloudSyncTimer = setTimeout(() => {
+          syncDeckToCloud();
+        }, 700);
+      }
+
+      function flushDeckCloudSync() {
+        if (!cloudSyncEnabled || suppressCloudSync) return Promise.resolve();
+        const sessionId = localStorage.getItem('ahrenslabs_sessionId');
+        if (!sessionId) return Promise.resolve();
+        if (cloudSyncTimer) {
+          clearTimeout(cloudSyncTimer);
+          cloudSyncTimer = null;
+        }
+        return syncDeckToCloud();
+      }
+
+      async function syncDeckToCloud() {
+        if (!cloudSyncEnabled || suppressCloudSync) return;
+        const sessionId = localStorage.getItem('ahrenslabs_sessionId');
+        if (!sessionId) return;
+        try {
+          await fetch(deckApiBase() + '/api/deck/sync', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: 'Bearer ' + sessionId,
+              'X-Deck-Sync-Client': deckSyncClientId,
+            },
+            body: JSON.stringify(buildDeckCloudPayload()),
+          });
+          await updateDeckSyncFingerprint();
+        } catch (error) {
+          console.error('Failed to sync deck data to cloud:', error);
+        }
+      }
+
+      async function refreshDeckFromCloud() {
+        if (deckSyncRefreshing) return;
+        deckSyncRefreshing = true;
+        try {
+          const loaded = await loadDeckFromCloud();
+          if (loaded) {
+            persistDeckLocally();
+            renderCurrentView();
+          }
+          await updateDeckSyncFingerprint();
+        } finally {
+          deckSyncRefreshing = false;
+        }
+      }
+
+      function deckSyncWsUrl() {
+        const sessionId = localStorage.getItem('ahrenslabs_sessionId');
+        const base = deckApiBase()
+          .replace(/^http:\/\//i, 'ws://')
+          .replace(/^https:\/\//i, 'wss://');
+        return base + '/api/deck/live?session=' + encodeURIComponent(sessionId || '');
+      }
+
+      function scheduleDeckSyncRefresh(evt) {
+        clearTimeout(deckSyncRefreshTimer);
+        deckSyncRefreshTimer = setTimeout(async () => {
+          if (!evt || evt.sourceClientId === deckSyncClientId) return;
+          await refreshDeckFromCloud();
+        }, 120);
+      }
+
+      async function pollDeckSyncVersion() {
+        if (document.hidden || !cloudSyncEnabled || deckSyncRefreshing) return;
+        if (deckSyncSocket && deckSyncSocket.readyState === WebSocket.OPEN) return;
+        const sessionId = localStorage.getItem('ahrenslabs_sessionId');
+        if (!sessionId) return;
+        try {
+          const response = await fetch(deckApiBase() + '/api/deck/sync-version', {
+            method: 'GET',
+            headers: {
+              Authorization: 'Bearer ' + sessionId,
+              'X-Deck-Sync-Client': deckSyncClientId,
+            },
+          });
+          if (!response.ok) return;
+          const data = await response.json();
+          const next = data.fingerprint || '';
+          if (deckSyncFingerprint && next && next !== deckSyncFingerprint) {
+            const recentLocalEdit = (Date.now() - deckLastLocalMutationAt) < 120000;
+            if (recentLocalEdit) {
+              deckSyncFingerprint = next;
+              return;
+            }
+            await refreshDeckFromCloud();
+            return;
+          }
+          deckSyncFingerprint = next;
+        } catch {
+          ensureDeckSyncConnected();
+        }
+      }
+
+      function startDeckSyncPoll() {
+        clearInterval(deckSyncPollTimer);
+        const intervalMs = document.hidden ? 60000 : 15000;
+        deckSyncPollTimer = setInterval(pollDeckSyncVersion, intervalMs);
+      }
+
+      function ensureDeckSyncConnected() {
+        const sessionId = localStorage.getItem('ahrenslabs_sessionId');
+        if (!sessionId || !cloudSyncEnabled) return;
+        if (deckSyncSocket && deckSyncSocket.readyState === WebSocket.OPEN) return;
+        if (deckSyncSocket) {
+          try { deckSyncSocket.close(); } catch { /* ignore */ }
+          deckSyncSocket = null;
+        }
+        connectDeckSync();
+      }
+
+      function handleDeckResume() {
+        clearTimeout(deckResumeTimer);
+        deckResumeTimer = setTimeout(async () => {
+          if (!deckBootComplete) return;
+          startDeckSyncPoll();
+          ensureDeckSyncConnected();
+          const sessionId = localStorage.getItem('ahrenslabs_sessionId');
+          if (sessionId && cloudSyncEnabled) {
+            if (cloudSyncTimer) {
+              clearTimeout(cloudSyncTimer);
+              cloudSyncTimer = null;
+            }
+            await refreshDeckFromCloud();
+          } else {
+            await pollDeckSyncVersion();
+          }
+        }, 50);
+      }
+
+      function connectDeckSync() {
+        const sessionId = localStorage.getItem('ahrenslabs_sessionId');
+        if (!sessionId || !cloudSyncEnabled || deckSyncSocket) return;
+        try {
+          deckSyncSocket = new WebSocket(deckSyncWsUrl());
+        } catch {
+          deckSyncSocket = null;
+          return;
+        }
+        deckSyncSocket.addEventListener('open', () => {
+          clearInterval(deckSyncPingTimer);
+          deckSyncPingTimer = setInterval(() => {
+            if (deckSyncSocket && deckSyncSocket.readyState === WebSocket.OPEN) {
+              try { deckSyncSocket.send('ping'); } catch { /* ignore */ }
+            }
+          }, 25000);
+        });
+        deckSyncSocket.addEventListener('message', (e) => {
+          if (e.data === 'pong') return;
+          try {
+            scheduleDeckSyncRefresh(JSON.parse(e.data));
+          } catch {
+            /* ignore malformed payloads */
+          }
+        });
+        deckSyncSocket.addEventListener('close', () => {
+          deckSyncSocket = null;
+          clearInterval(deckSyncPingTimer);
+          clearTimeout(deckSyncReconnectTimer);
+          deckSyncReconnectTimer = setTimeout(connectDeckSync, 3000);
+        });
+        deckSyncSocket.addEventListener('error', () => {
+          try { deckSyncSocket.close(); } catch { /* ignore */ }
+        });
+      }
+
+      async function bootDeck() {
+        const guestBackup = readGuestDeckBackup();
+        state = load();
+        activeDeckId = state.decks[0] ? state.decks[0].id : null;
+        persistDeckLocally();
+
+        const sessionId = localStorage.getItem('ahrenslabs_sessionId');
+        if (sessionId) {
+          const hadCloud = await loadDeckFromCloud();
+          if (!hadCloud && guestBackup.decks.length) {
+            state = guestBackup;
+            activeDeckId = state.decks[0] ? state.decks[0].id : null;
+            persistDeckLocally();
+            await syncDeckToCloud();
+          } else {
+            persistDeckLocally();
+          }
+          await updateDeckSyncFingerprint();
+        }
+
+        cloudSyncEnabled = true;
+        applyRouteFromUrl(true);
+        connectDeckSync();
+        startDeckSyncPoll();
+        deckBootComplete = true;
+        await updateDeckSyncFingerprint();
+      }
+
+      function save() {
+        deckLastLocalMutationAt = Date.now();
+        persistDeckLocally();
+        queueDeckCloudSync();
+      }
       let activeStackId = null;
       let activeCardId = null;
       let deckEditing = false;
@@ -2442,8 +2755,14 @@
 
       window.addEventListener('popstate', () => applyRouteFromUrl(false));
       window.addEventListener('hashchange', () => applyRouteFromUrl(false));
+      window.addEventListener('beforeunload', () => { flushDeckCloudSync(); });
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) handleDeckResume();
+        else startDeckSyncPoll();
+      });
+      window.addEventListener('focus', handleDeckResume);
 
-      applyRouteFromUrl(true);
+      bootDeck();
     })();
   </script>
 </body>

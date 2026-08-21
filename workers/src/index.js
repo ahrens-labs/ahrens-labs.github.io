@@ -96,7 +96,7 @@ export default {
     const corsHeaders = {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Test-Secret, X-Tether-Sync-Client, X-Classify-Sync-Client, X-Platter-Sync-Client',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Test-Secret, X-Tether-Sync-Client, X-Classify-Sync-Client, X-Platter-Sync-Client, X-Deck-Sync-Client',
     };
 
     // Handle preflight requests
@@ -206,6 +206,14 @@ export default {
         return handleClassifySync(request, env, corsHeaders);
       } else if (path === '/api/classify/load' && request.method === 'GET') {
         return handleClassifyLoad(request, env, corsHeaders);
+      } else if (path === '/api/deck/live') {
+        return handleDeckLiveSync(request, env, corsHeaders);
+      } else if (path === '/api/deck/sync-version' && request.method === 'GET') {
+        return handleDeckSyncVersion(request, env, corsHeaders);
+      } else if (path === '/api/deck/sync' && request.method === 'POST') {
+        return handleDeckSync(request, env, corsHeaders);
+      } else if (path === '/api/deck/load' && request.method === 'GET') {
+        return handleDeckLoad(request, env, corsHeaders);
       } else if (path === '/api/kyrachyng/progress/sync' && request.method === 'POST') {
         return handleKyrachyngProgressSync(request, env, corsHeaders);
       } else if (path === '/api/kyrachyng/progress/load' && request.method === 'GET') {
@@ -2078,6 +2086,165 @@ async function handleClassifyLiveSync(request, env, corsHeaders) {
     });
   }
   return stub.fetch(request);
+}
+
+async function resolveDeckUserId(request, env) {
+  const url = new URL(request.url);
+  let sessionId = parseBearerToken(request.headers.get('Authorization'));
+  if (!sessionId) {
+    sessionId = String(url.searchParams.get('session') || '').trim() || null;
+  }
+  if (!sessionId) return null;
+  const sessionObjId = env.SESSION.idFromName(sessionId);
+  const session = env.SESSION.get(sessionObjId);
+  const userRes = await session.fetch(new Request('http://do/getUserId', { method: 'GET' }));
+  const userResult = await userRes.json();
+  return userResult.userId || null;
+}
+
+function deckSyncStub(env, userId) {
+  if (!env.DECK_SYNC || !userId) return null;
+  return env.DECK_SYNC.get(env.DECK_SYNC.idFromName(String(userId)));
+}
+
+function readDeckSyncClientId(request) {
+  const fromHeader = String(request.headers.get('X-Deck-Sync-Client') || '').trim();
+  return fromHeader ? fromHeader.slice(0, 64) : null;
+}
+
+async function notifyDeckSync(env, userId, payload) {
+  const stub = deckSyncStub(env, userId);
+  if (!stub) return;
+  try {
+    await stub.fetch(
+      new Request('http://do/notify', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      })
+    );
+  } catch {
+    /* sync is best-effort */
+  }
+}
+
+async function getDeckSyncFingerprint(env, userId) {
+  const userAccountId = env.USER_ACCOUNT.idFromName(userId);
+  const userAccount = env.USER_ACCOUNT.get(userAccountId);
+  const dataRes = await userAccount.fetch(new Request('http://do/getDeckSyncMeta', { method: 'GET' }));
+  if (!dataRes.ok) return '0';
+  const data = await dataRes.json();
+  return `${data?.lastUpdated || 0}::${data?.deckCount || 0}::${data?.cardCount || 0}`;
+}
+
+async function handleDeckLiveSync(request, env, corsHeaders) {
+  const userId = await resolveDeckUserId(request, env);
+  if (!userId) {
+    return new Response(JSON.stringify({ error: 'Not authenticated' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+  const stub = deckSyncStub(env, userId);
+  if (!stub) {
+    return new Response(JSON.stringify({ error: 'Sync unavailable' }), {
+      status: 503,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+  if (request.headers.get('Upgrade') !== 'websocket') {
+    return new Response(JSON.stringify({ error: 'Expected WebSocket upgrade' }), {
+      status: 426,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+  return stub.fetch(request);
+}
+
+async function handleDeckSyncVersion(request, env, corsHeaders) {
+  const userId = await resolveDeckUserId(request, env);
+  if (!userId) {
+    return new Response(JSON.stringify({ error: 'Not authenticated' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+  const fingerprint = await getDeckSyncFingerprint(env, userId);
+  return new Response(JSON.stringify({ fingerprint, ts: Date.now() }), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
+async function handleDeckSync(request, env, corsHeaders) {
+  const sessionId = parseBearerToken(request.headers.get('Authorization'));
+  if (!sessionId) {
+    return new Response(JSON.stringify({ error: 'Not authenticated' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+  const sessionObjId = env.SESSION.idFromName(sessionId);
+  const session = env.SESSION.get(sessionObjId);
+  const getUserReq = new Request('http://do/getUserId', { method: 'GET' });
+  const userRes = await session.fetch(getUserReq);
+  const userResult = await userRes.json();
+
+  if (!userResult.userId) {
+    return new Response(JSON.stringify({ error: 'Invalid session' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const deckData = await request.json();
+  const userAccountId = env.USER_ACCOUNT.idFromName(userResult.userId);
+  const userAccount = env.USER_ACCOUNT.get(userAccountId);
+  const updateReq = new Request('http://do/updateDeckData', {
+    method: 'POST',
+    body: JSON.stringify(deckData),
+  });
+  await userAccount.fetch(updateReq);
+
+  await notifyDeckSync(env, userResult.userId, {
+    type: 'deck',
+    ts: Date.now(),
+    sourceClientId: readDeckSyncClientId(request),
+  });
+
+  return new Response(JSON.stringify({ success: true }), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
+async function handleDeckLoad(request, env, corsHeaders) {
+  const sessionId = parseBearerToken(request.headers.get('Authorization'));
+  if (!sessionId) {
+    return new Response(JSON.stringify({ error: 'Not authenticated' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+  const sessionObjId = env.SESSION.idFromName(sessionId);
+  const session = env.SESSION.get(sessionObjId);
+  const getUserReq = new Request('http://do/getUserId', { method: 'GET' });
+  const userRes = await session.fetch(getUserReq);
+  const userResult = await userRes.json();
+
+  if (!userResult.userId) {
+    return new Response(JSON.stringify({ error: 'Invalid session' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const userAccountId = env.USER_ACCOUNT.idFromName(userResult.userId);
+  const userAccount = env.USER_ACCOUNT.get(userAccountId);
+  const getReq = new Request('http://do/getDeckData', { method: 'GET' });
+  const dataRes = await userAccount.fetch(getReq);
+  const deckData = await dataRes.json();
+
+  return new Response(JSON.stringify(deckData), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
 }
 
 async function handleClassifySyncVersion(request, env, corsHeaders) {
@@ -10100,6 +10267,22 @@ export class UserAccount {
         return new Response(JSON.stringify(meta), {
           headers: { 'Content-Type': 'application/json' }
         });
+      } else if (path === '/updateDeckData' && request.method === 'POST') {
+        const deckData = await request.json();
+        await this.updateDeckData(deckData);
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+      } else if (path === '/getDeckData' && request.method === 'GET') {
+        const deckData = await this.getDeckData();
+        return new Response(JSON.stringify(deckData), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+      } else if (path === '/getDeckSyncMeta' && request.method === 'GET') {
+        const meta = await this.getDeckSyncMeta();
+        return new Response(JSON.stringify(meta), {
+          headers: { 'Content-Type': 'application/json' }
+        });
       } else if (path === '/updateKyrachyngProgress' && request.method === 'POST') {
         const { completed } = await request.json();
         await this.updateKyrachyngProgress(completed);
@@ -10290,6 +10473,10 @@ export class UserAccount {
         },
         kyrachyng: {
           lessonsCompleted: []
+        },
+        deck: {
+          decks: [],
+          lastUpdated: null
         }
       },
       tether: {
@@ -11530,6 +11717,56 @@ export class UserAccount {
     return {
       lastUpdated: classify?.lastUpdated || 0,
       taskCount: tasks.length,
+    };
+  }
+
+  async updateDeckData(deckData) {
+    const userData = await this.storage.get('userData');
+    if (!userData) return;
+
+    if (!userData.games) userData.games = {};
+    if (!userData.games.deck) {
+      userData.games.deck = {
+        decks: [],
+        lastUpdated: null,
+      };
+    }
+
+    const decks = Array.isArray(deckData?.decks) ? deckData.decks : [];
+    userData.games.deck = {
+      ...userData.games.deck,
+      decks,
+      lastUpdated: Date.now(),
+    };
+    await this.storage.put('userData', userData);
+  }
+
+  async getDeckData() {
+    const userData = await this.storage.get('userData');
+    if (!userData || !userData.games || !userData.games.deck) {
+      return {
+        decks: [],
+        lastUpdated: null,
+      };
+    }
+    return userData.games.deck;
+  }
+
+  async getDeckSyncMeta() {
+    const userData = await this.storage.get('userData');
+    const deck = userData?.games?.deck;
+    const decks = Array.isArray(deck?.decks) ? deck.decks : [];
+    let cardCount = 0;
+    decks.forEach((entry) => {
+      cardCount += Array.isArray(entry?.cards) ? entry.cards.length : 0;
+      (Array.isArray(entry?.stacks) ? entry.stacks : []).forEach((stack) => {
+        cardCount += Array.isArray(stack?.cards) ? stack.cards.length : 0;
+      });
+    });
+    return {
+      lastUpdated: deck?.lastUpdated || 0,
+      deckCount: decks.length,
+      cardCount,
     };
   }
 

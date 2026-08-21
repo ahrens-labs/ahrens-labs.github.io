@@ -19,7 +19,8 @@ const PROTECTED_PAGE_BASENAMES = [
     'classify',
     'digest',
     'tether',
-    'platter'
+    'platter',
+    'deck'
 ];
 
 // Check if current page requires login
