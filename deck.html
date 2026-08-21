@@ -845,43 +845,54 @@
       let cardEditing = false;
       let reviewDeckId = null;
       let reviewCardId = null;
+      let currentView = 'decks';
       let modalResolve = null;
       let suppressRouteSync = false;
+
+      function parseCardsRoute(parts) {
+        const deckId = parts[1] || null;
+        if (!deckId) return { tab: 'cards' };
+        if (parts[2] === 'settings') return { tab: 'cards', deckId, deckEdit: true };
+        if (parts[2] === 'review') {
+          return { tab: 'cards', deckId, review: true, cardId: parts[3] || null };
+        }
+        if (parts[2] === 'card' && parts[3]) {
+          return { tab: 'cards', deckId, cardId: parts[3], cardEdit: parts[4] === 'edit' };
+        }
+        return { tab: 'cards', deckId };
+      }
 
       function parseRoute() {
         const raw = (location.hash || '#/decks').replace(/^#/, '').trim();
         const parts = raw.split('/').filter(Boolean);
-        if (!parts.length || parts[0] === 'decks') return { view: 'decks' };
+        if (!parts.length || parts[0] === 'decks') return { tab: 'decks' };
+        if (parts[0] === 'cards') return parseCardsRoute(parts);
         if (parts[0] === 'deck' && parts[1]) {
-          const deckId = parts[1];
-          if (parts[2] === 'review') {
-            return { view: 'review', deckId, cardId: parts[3] || null };
+          const tail = parts.slice(2);
+          if (tail[0] === 'review') return parseCardsRoute(['cards', parts[1], 'review', tail[1]].filter(Boolean));
+          if (tail[0] === 'settings') return parseCardsRoute(['cards', parts[1], 'settings']);
+          if (tail[0] === 'card' && tail[1]) {
+            return parseCardsRoute(['cards', parts[1], 'card', tail[1], tail[2]].filter(Boolean));
           }
-          if (parts[2] === 'settings') return { view: 'cards', deckId, deckEdit: true };
-          if (parts[2] === 'card' && parts[3]) {
-            return {
-              view: 'card',
-              deckId,
-              cardId: parts[3],
-              cardEdit: parts[4] === 'edit',
-            };
-          }
-          return { view: 'cards', deckId };
+          return parseCardsRoute(['cards', parts[1]]);
         }
-        return { view: 'decks' };
+        return { tab: 'decks' };
       }
 
       function buildHash() {
-        if (reviewDeckId) {
-          const base = '#/deck/' + reviewDeckId + '/review';
+        if (currentView === 'review' && reviewDeckId) {
+          const base = '#/cards/' + reviewDeckId + '/review';
           return reviewCardId ? base + '/' + reviewCardId : base;
         }
-        if (activeCardId && activeDeckId) {
-          const base = '#/deck/' + activeDeckId + '/card/' + activeCardId;
+        if (currentView === 'card' && activeDeckId && activeCardId) {
+          const base = '#/cards/' + activeDeckId + '/card/' + activeCardId;
           return cardEditing ? base + '/edit' : base;
         }
-        if (activeDeckId && deckEditing) return '#/deck/' + activeDeckId + '/settings';
-        if (activeDeckId) return '#/deck/' + activeDeckId;
+        if (currentView === 'cards') {
+          if (!activeDeckId) return '#/cards';
+          if (deckEditing) return '#/cards/' + activeDeckId + '/settings';
+          return '#/cards/' + activeDeckId;
+        }
         return '#/decks';
       }
 
@@ -903,8 +914,7 @@
 
       function applyRouteFromUrl(replaceInvalid) {
         const route = parseRoute();
-        if (route.view === 'decks') {
-          activeDeckId = state.decks[0] ? state.decks[0].id : null;
+        if (route.tab === 'decks') {
           activeCardId = null;
           deckEditing = false;
           cardEditing = false;
@@ -915,9 +925,8 @@
           if (replaceInvalid) syncUrl(true);
           return;
         }
-        const deck = deckById(route.deckId);
+        const deck = route.deckId ? deckById(route.deckId) : ensureActiveDeck();
         if (!deck) {
-          activeDeckId = state.decks[0] ? state.decks[0].id : null;
           activeCardId = null;
           deckEditing = false;
           cardEditing = false;
@@ -929,7 +938,7 @@
           return;
         }
         activeDeckId = deck.id;
-        if (route.view === 'review') {
+        if (route.review) {
           activeCardId = null;
           deckEditing = false;
           cardEditing = false;
@@ -951,36 +960,36 @@
           syncUrl(replaceInvalid);
           return;
         }
-        if (route.view === 'cards') {
-          activeCardId = null;
-          deckEditing = !!route.deckEdit;
-          cardEditing = false;
+        if (route.cardId) {
+          const card = cardInDeck(deck.id, route.cardId);
+          if (!card) {
+            activeCardId = null;
+            deckEditing = false;
+            cardEditing = false;
+            reviewDeckId = null;
+            reviewCardId = null;
+            show('cards');
+            renderCards();
+            syncUrl(true);
+            return;
+          }
+          activeCardId = card.id;
+          deckEditing = false;
+          cardEditing = !!route.cardEdit;
           reviewDeckId = null;
           reviewCardId = null;
-          show('cards');
-          renderCards();
+          show('card');
+          renderCard();
           syncUrl(replaceInvalid);
           return;
         }
-        const card = cardInDeck(deck.id, route.cardId);
-        if (!card) {
-          activeCardId = null;
-          deckEditing = false;
-          cardEditing = false;
-          reviewDeckId = null;
-          reviewCardId = null;
-          show('cards');
-          renderCards();
-          syncUrl(true);
-          return;
-        }
-        activeCardId = card.id;
-        deckEditing = false;
-        cardEditing = !!route.cardEdit;
+        activeCardId = null;
+        deckEditing = !!route.deckEdit;
+        cardEditing = false;
         reviewDeckId = null;
         reviewCardId = null;
-        show('card');
-        renderCard();
+        show('cards');
+        renderCards();
         syncUrl(replaceInvalid);
       }
 
@@ -1042,9 +1051,10 @@
       };
 
       function show(name) {
+        currentView = name;
         Object.keys(views).forEach((k) => views[k].classList.toggle('hidden', k !== name));
         document.body.classList.toggle('dk-reviewing', name === 'review');
-        const tab = name === 'card' || name === 'review' ? 'cards' : name;
+        const tab = name === 'decks' ? 'decks' : 'cards';
         document.querySelectorAll('.dk-bottom-nav-item').forEach((btn) => {
           btn.classList.toggle('active', btn.getAttribute('data-dk-tab') === tab);
         });
