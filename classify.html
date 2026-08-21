@@ -9722,6 +9722,41 @@
             return null;
         }
 
+        function applyQuickEntryBareDaySchedule(result, dayToken, parsedTime = null) {
+            const dateStr = resolveQuickEntryDateToken(dayToken);
+            if(!dateStr) return false;
+            result.scheduleType = 'date';
+            result.date = dateStr;
+            result.dueDate = null;
+            result.week = getWeekKeyFromDateStr(dateStr);
+            if(parsedTime) {
+                result.time = parsedTime;
+                result.exactDateTiming = 'fixed';
+                result.dueTime = null;
+            }
+            return true;
+        }
+
+        function applyQuickEntryLooseTime(result, parsedTime) {
+            if(!parsedTime) return;
+            if(result.scheduleType === 'date' && result.date) {
+                result.time = parsedTime;
+                result.exactDateTiming = 'fixed';
+                result.dueTime = null;
+                return;
+            }
+            if(result.scheduleType === 'week' || result.dueDate) {
+                result.dueTime = parsedTime;
+                return;
+            }
+            result.scheduleType = 'date';
+            result.date = getDateStrLocal();
+            result.week = getWeekKeyFromDateStr(result.date);
+            result.time = parsedTime;
+            result.exactDateTiming = 'fixed';
+            result.dueTime = null;
+        }
+
         function parseQuickEntryScheduleFragment(text) {
             let working = String(text || '').trim();
             const result = {
@@ -9765,11 +9800,8 @@
             if(!result.scheduleType) {
                 const bareDayMatch = working.match(new RegExp(`\\b(${weekdayPattern})${optionalTime}`, 'i'));
                 if(bareDayMatch) {
-                    result.scheduleType = 'week';
-                    result.dueDate = resolveQuickEntryDateToken(bareDayMatch[1]);
                     const parsedBareTime = parseQuickEntryTime(String(bareDayMatch[2] || '').trim());
-                    if(parsedBareTime) result.dueTime = parsedBareTime;
-                    if(result.dueDate) result.week = getWeekKeyFromDateStr(result.dueDate);
+                    applyQuickEntryBareDaySchedule(result, bareDayMatch[1], parsedBareTime || null);
                     working = stripQuickEntryMatch(working, bareDayMatch);
                 }
             }
@@ -9778,16 +9810,7 @@
                 const looseTimeMatch = working.match(new RegExp(`\\b${timeCapture}`, 'i'));
                 if(looseTimeMatch) {
                     const parsedLooseTime = parseQuickEntryTime(String(looseTimeMatch[1] || '').trim());
-                    if(parsedLooseTime) {
-                        if(result.scheduleType === 'week' || result.dueDate) result.dueTime = parsedLooseTime;
-                        else if(result.scheduleType === 'date' && result.date) {
-                            result.time = parsedLooseTime;
-                            result.exactDateTiming = 'fixed';
-                        } else {
-                            result.scheduleType = result.scheduleType || 'week';
-                            result.dueTime = parsedLooseTime;
-                        }
-                    }
+                    applyQuickEntryLooseTime(result, parsedLooseTime);
                 }
             }
 
@@ -11195,11 +11218,8 @@
             if(!result.scheduleType) {
                 const bareDayMatch = working.match(new RegExp(`\\b(${weekdayPattern})${optionalTime}`, 'i'));
                 if(bareDayMatch) {
-                    result.scheduleType = 'week';
-                    result.dueDate = resolveQuickEntryDateToken(bareDayMatch[1]);
                     const parsedBareTime = parseQuickEntryTime(String(bareDayMatch[2] || '').trim());
-                    if(parsedBareTime) result.dueTime = parsedBareTime;
-                    if(result.dueDate) result.week = getWeekKeyFromDateStr(result.dueDate);
+                    applyQuickEntryBareDaySchedule(result, bareDayMatch[1], parsedBareTime || null);
                     working = stripQuickEntryMatch(working, bareDayMatch);
                 }
             }
@@ -11209,15 +11229,7 @@
                 if(looseTimeMatch) {
                     const parsedLooseTime = parseQuickEntryTime(String(looseTimeMatch[1] || '').trim());
                     if(parsedLooseTime) {
-                        if(result.scheduleType === 'date' && result.date) {
-                            result.time = parsedLooseTime;
-                            result.exactDateTiming = 'fixed';
-                        } else if(result.scheduleType === 'week' || result.dueDate) {
-                            result.dueTime = parsedLooseTime;
-                        } else if(result.repeatRule && result.scheduleType === 'date') {
-                            result.time = parsedLooseTime;
-                            result.exactDateTiming = 'fixed';
-                        }
+                        applyQuickEntryLooseTime(result, parsedLooseTime);
                         working = stripQuickEntryMatch(working, looseTimeMatch);
                     }
                 }
@@ -11265,7 +11277,7 @@
                 result.errors.push('Could not parse a due date. Try "due friday" or "friday 5pm".');
             }
             if(result.scheduleType === 'date' && !result.date) {
-                result.errors.push('Could not parse an event date. Try "on friday" or "today".');
+                result.errors.push('Could not parse an event date. Try "friday", "tomorrow", or "today 5pm".');
             }
             if(!result.subject) {
                 result.warnings.push('No subject detected — using General.');
