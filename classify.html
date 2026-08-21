@@ -5965,6 +5965,7 @@
 
         function isTaskTargetedForWeek(task, weekKey, includeFlexible = false) {
             if(!task || task.completed || !weekKey) return false;
+            if(!isTargetWeekAssignment(task) && hasUserLockedCalendarDate(task)) return false;
             const { startStr, endStr } = getWeekBoundsFromWeekKey(weekKey);
             const inWeekRange = (dateStr) => Boolean(dateStr && dateStr >= startStr && dateStr <= endStr);
             const dueDate = getTaskDueDate(task);
@@ -6114,6 +6115,10 @@
 
             ordered.forEach(task => {
                 if(task.completed) return;
+                if(hasUserLockedCalendarDate(task)) {
+                    dateById.set(task.id, task.date);
+                    return;
+                }
                 const preservePlacement = isUserScheduleLocked(task) && Boolean(task.date);
                 if(preservePlacement) {
                     dateById.set(task.id, task.date);
@@ -9287,7 +9292,8 @@
                 const hour = parseInt(twentyFour[1], 10);
                 const minute = parseInt(twentyFour[2], 10);
                 if(hour > 23 || minute > 59) return null;
-                return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+                const hour24 = hour <= 12 ? inferHour24FromBareClock(hour, minute) : hour;
+                return `${String(hour24).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
             }
             const bare = raw.match(/^(\d{1,2})(?::(\d{2}))?$/);
             if(bare) {
@@ -10998,8 +11004,24 @@
         }
 
         function parseMoveDestination(text) {
-            const fragment = parseQuickEntryScheduleFragment(text);
             const raw = String(text || '').trim();
+            const bareDayMatch = raw.match(new RegExp(`^(${QUICK_ENTRY_DATE_WORDS})$`, 'i'));
+            if(bareDayMatch) {
+                const dateStr = resolveQuickEntryDateToken(bareDayMatch[1]);
+                if(dateStr) {
+                    return {
+                        scheduleType: 'date',
+                        date: dateStr,
+                        dueDate: null,
+                        dueTime: null,
+                        time: null,
+                        week: null,
+                        exactDateTiming: 'adjustable'
+                    };
+                }
+            }
+
+            const fragment = parseQuickEntryScheduleFragment(text);
             const hasDueKeyword = /\b(due|by)\b/i.test(raw);
             const moveTime = fragment.time || fragment.dueTime || null;
             if(!hasDueKeyword && fragment.dueDate && fragment.scheduleType === 'week') {
@@ -11013,12 +11035,15 @@
                     exactDateTiming: moveTime ? 'fixed' : 'adjustable'
                 };
             }
-            if(fragment.scheduleType === 'date' && fragment.date && moveTime && !fragment.time) {
+            if(fragment.scheduleType === 'date' && fragment.date) {
+                const resolvedTime = fragment.time || moveTime || null;
                 return {
                     ...fragment,
-                    time: moveTime,
+                    time: resolvedTime,
+                    dueDate: null,
                     dueTime: null,
-                    exactDateTiming: 'fixed'
+                    week: null,
+                    exactDateTiming: resolvedTime ? 'fixed' : 'adjustable'
                 };
             }
             return fragment;
@@ -15685,9 +15710,13 @@
             if(!task || !dateStr) return;
             task.date = dateStr;
             if(task.dateSource !== 'user') task.dateSource = 'auto';
-            if(isTargetWeekAssignment(task) || task.scheduleType === 'week' || task.weekDueOnly) {
+            if(isTargetWeekAssignment(task)) {
                 task.week = weekKey;
                 ensureTargetWeekScheduleType(task);
+            } else if(task.scheduleType === 'date') {
+                task.week = null;
+                task.weekDueOnly = false;
+                task.dueDate = null;
             }
         }
 
