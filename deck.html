@@ -207,10 +207,43 @@
       font-size: 0.8rem;
     }
     .dk-list { display: grid; gap: 10px; }
+    .dk-card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 10px;
+    }
+    .dk-card-grid > .dk-empty { grid-column: 1 / -1; }
+    @media (max-width: 640px) {
+      .dk-card-grid { grid-template-columns: 1fr; }
+    }
+    .dk-group-heading {
+      margin: 16px 0 8px;
+      font-size: 0.78rem;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--dk-muted);
+    }
+    .dk-group-heading:first-child { margin-top: 0; }
+    .dk-reorder-item { position: relative; }
+    .dk-reorder-item.dk-dragging { opacity: 0.45; }
+    .dk-reorder-item.dk-drop-target { box-shadow: 0 0 0 2px var(--dk-brand); }
+    .dk-drag-handle {
+      flex-shrink: 0;
+      border: 0;
+      background: transparent;
+      color: #94a3b8;
+      font-size: 1rem;
+      line-height: 1;
+      padding: 4px 6px;
+      cursor: grab;
+      touch-action: none;
+    }
+    .dk-drag-handle:active { cursor: grabbing; }
     .dk-deck-item {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
       background: var(--dk-card);
       border: 1px solid var(--dk-line);
       border-radius: 12px;
@@ -265,10 +298,29 @@
       margin-top: 12px;
     }
     .dk-list-actions .dk-btn { flex: 1; min-width: 0; }
+    .dk-card-preview-meta {
+      margin: 0 0 8px;
+      font-size: 0.76rem;
+      color: var(--dk-muted);
+    }
+    .dk-card-preview-item.dk-reorder-item {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 6px 8px;
+      align-items: start;
+    }
+    .dk-card-preview-item.dk-reorder-item .dk-drag-handle {
+      grid-row: span 2;
+      margin-top: 8px;
+    }
+    .dk-card-preview-item.dk-reorder-item .dk-item-actions {
+      grid-column: 2;
+      padding: 0 !important;
+    }
     .dk-stack-item {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
       background: #f8fafc;
       border: 1px solid #c7d2fe;
       border-radius: 12px;
@@ -781,7 +833,25 @@
           <div class="dk-toolbar">
             <button type="button" class="dk-btn dk-btn-primary" id="btn-new-deck">New deck</button>
           </div>
-          <div id="deck-list" class="dk-list"></div>
+          <div id="deck-list" class="dk-list dk-reorder-list"></div>
+        </section>
+
+        <section id="view-stacks" class="hidden">
+          <div class="dk-hero">
+            <h2>Stacks</h2>
+            <p>All stacks across your decks. Drag to reorder within a deck.</p>
+          </div>
+          <input class="dk-search" id="stack-search" type="search" placeholder="Search stacks…" autocomplete="off">
+          <div id="stack-list" class="dk-list"></div>
+        </section>
+
+        <section id="view-all-cards" class="hidden">
+          <div class="dk-hero">
+            <h2>Cards</h2>
+            <p>Every card across all decks.</p>
+          </div>
+          <input class="dk-search" id="all-cards-search" type="search" placeholder="Search all cards…" autocomplete="off">
+          <div id="all-cards-list" class="dk-card-grid"></div>
         </section>
 
         <section id="view-cards" class="hidden">
@@ -867,6 +937,12 @@
       <button type="button" class="dk-bottom-nav-item active" data-dk-tab="decks">
         <span class="dk-bottom-nav-icon" aria-hidden="true"><img src="img/deck-logo-128.png" alt="" width="34" height="34"></span>
         <span>Decks</span>
+      </button>
+      <button type="button" class="dk-bottom-nav-item" data-dk-tab="stacks">
+        <span class="dk-bottom-nav-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><rect x="3" y="10" width="18" height="4" rx="1"/><rect x="3" y="4" width="18" height="4" rx="1"/><rect x="3" y="16" width="18" height="4" rx="1"/></svg>
+        </span>
+        <span>Stacks</span>
       </button>
       <button type="button" class="dk-bottom-nav-item" data-dk-tab="cards">
         <span class="dk-bottom-nav-icon" aria-hidden="true">
@@ -1071,9 +1147,115 @@
 
       function renderCurrentView() {
         if (currentView === 'decks') renderDecks();
-        else if (currentView === 'cards') renderCards();
+        else if (currentView === 'stacks') renderStacksGlobal();
+        else if (currentView === 'all-cards') renderAllCards();
+        else if (currentView === 'deck-browse') renderCards();
         else if (currentView === 'card') renderCard();
         else if (currentView === 'review') renderReview();
+      }
+
+      function createDragHandle(label) {
+        const handle = document.createElement('button');
+        handle.type = 'button';
+        handle.className = 'dk-drag-handle';
+        handle.setAttribute('aria-label', label || 'Drag to reorder');
+        handle.textContent = '⋮⋮';
+        handle.addEventListener('click', (ev) => ev.stopPropagation());
+        return handle;
+      }
+
+      function moveArrayItemById(list, fromId, toId) {
+        if (!Array.isArray(list) || !fromId || !toId || fromId === toId) return false;
+        const fromIdx = list.findIndex((item) => item.id === fromId);
+        const toIdx = list.findIndex((item) => item.id === toId);
+        if (fromIdx < 0 || toIdx < 0) return false;
+        const next = list.slice();
+        const [item] = next.splice(fromIdx, 1);
+        next.splice(toIdx, 0, item);
+        list.length = 0;
+        next.forEach((entry) => list.push(entry));
+        return true;
+      }
+
+      function attachReorderList(container, onReorder) {
+        if (!container) return;
+        container.querySelectorAll('[data-reorder-id]').forEach((row) => {
+          row.addEventListener('dragstart', (ev) => {
+            if (!ev.target.closest('.dk-drag-handle')) {
+              ev.preventDefault();
+              return;
+            }
+            row.classList.add('dk-dragging');
+            ev.dataTransfer.effectAllowed = 'move';
+            ev.dataTransfer.setData('text/plain', row.dataset.reorderId || '');
+          });
+          row.addEventListener('dragend', () => {
+            row.classList.remove('dk-dragging');
+            container.querySelectorAll('.dk-drop-target').forEach((el) => el.classList.remove('dk-drop-target'));
+          });
+          row.addEventListener('dragover', (ev) => {
+            ev.preventDefault();
+            const dragId = ev.dataTransfer.getData('text/plain');
+            if (!dragId || row.dataset.reorderId === dragId) return;
+            row.classList.add('dk-drop-target');
+          });
+          row.addEventListener('dragleave', () => row.classList.remove('dk-drop-target'));
+          row.addEventListener('drop', (ev) => {
+            ev.preventDefault();
+            row.classList.remove('dk-drop-target');
+            const fromId = ev.dataTransfer.getData('text/plain');
+            const toId = row.dataset.reorderId;
+            if (!fromId || !toId || fromId === toId) return;
+            if (onReorder(fromId, toId)) save();
+          });
+        });
+      }
+
+      function reorderDecks(fromId, toId) {
+        return moveArrayItemById(state.decks, fromId, toId);
+      }
+
+      function reorderStacksInDeck(deckId, fromId, toId) {
+        const deck = deckById(deckId);
+        if (!deck || !Array.isArray(deck.stacks)) return false;
+        return moveArrayItemById(deck.stacks, fromId, toId);
+      }
+
+      function reorderCardsInDeck(deckId, fromId, toId) {
+        const deck = deckById(deckId);
+        if (!deck || !Array.isArray(deck.cards)) return false;
+        return moveArrayItemById(deck.cards, fromId, toId);
+      }
+
+      function reorderCardsInStack(deckId, stackId, fromId, toId) {
+        const deck = deckById(deckId);
+        const stack = deck ? stackById(deck, stackId) : null;
+        if (!stack || !Array.isArray(stack.cards)) return false;
+        return moveArrayItemById(stack.cards, fromId, toId);
+      }
+
+      function allStacksAcrossDecks() {
+        const list = [];
+        state.decks.forEach((deck) => {
+          (deck.stacks || []).forEach((stack) => list.push({ deck, stack }));
+        });
+        return list;
+      }
+
+      function allCardsAcrossDecks() {
+        const list = [];
+        state.decks.forEach((deck) => {
+          (deck.cards || []).forEach((card) => list.push({ deck, stack: null, card }));
+          (deck.stacks || []).forEach((stack) => {
+            (stack.cards || []).forEach((card) => list.push({ deck, stack, card }));
+          });
+        });
+        return list;
+      }
+
+      function cardLocationLabel(deck, stack) {
+        if (stack) return (deck.name || 'Deck') + ' · ' + (stack.name || 'Stack');
+        return deck.name || 'Deck';
       }
 
       async function updateDeckSyncFingerprint() {
@@ -1331,6 +1513,8 @@
       let reviewScope = 'deck';
       let reviewCardId = null;
       let currentView = 'decks';
+      let lastBrowseTab = 'decks';
+      let cardReturnView = 'all-cards';
       let modalResolve = null;
       let modalMode = 'confirm';
       let suppressRouteSync = false;
@@ -1384,15 +1568,13 @@
         return list;
       }
 
-      function parseCardsRoute(parts) {
-        const deckId = parts[1] || null;
-        if (!deckId) return { tab: 'cards' };
-        if (parts[2] === 'settings') return { tab: 'cards', deckId, deckEdit: true };
+      function parseDeckBrowseRoute(parts, deckId) {
+        if (parts[2] === 'settings') return { tab: 'deck-browse', deckId, deckEdit: true };
         if (parts[2] === 'stack' && parts[3]) {
           const stackId = parts[3];
           if (parts[4] === 'review') {
             return {
-              tab: 'cards',
+              tab: 'deck-browse',
               deckId,
               stackId,
               review: true,
@@ -1401,19 +1583,14 @@
             };
           }
           if (parts[4] === 'card' && parts[5]) {
-            return {
-              tab: 'cards',
-              deckId,
-              stackId,
-              cardId: parts[5],
-            };
+            return { tab: 'card', deckId, stackId, cardId: parts[5] };
           }
-          return { tab: 'cards', deckId, stackId };
+          return { tab: 'deck-browse', deckId, stackId };
         }
         if (parts[2] === 'review') {
           if (parts[3] === 'card' && parts[4]) {
             return {
-              tab: 'cards',
+              tab: 'deck-browse',
               deckId,
               review: true,
               reviewScope: 'card',
@@ -1421,7 +1598,7 @@
             };
           }
           return {
-            tab: 'cards',
+            tab: 'deck-browse',
             deckId,
             review: true,
             reviewScope: 'deck',
@@ -1429,24 +1606,38 @@
           };
         }
         if (parts[2] === 'card' && parts[3]) {
-          return { tab: 'cards', deckId, cardId: parts[3] };
+          return { tab: 'card', deckId, cardId: parts[3] };
         }
-        return { tab: 'cards', deckId };
+        return { tab: 'deck-browse', deckId };
+      }
+
+      function parseCardsRoute(parts) {
+        const deckId = parts[1] || null;
+        if (!deckId) return { tab: 'all-cards' };
+        return parseDeckBrowseRoute(parts, deckId);
+      }
+
+      function parseDecksRoute(parts) {
+        if (parts.length === 1) return { tab: 'decks' };
+        const deckId = parts[1];
+        if (!deckId) return { tab: 'decks' };
+        return parseDeckBrowseRoute(parts, deckId);
       }
 
       function parseRoute() {
         const raw = (location.hash || '#/decks').replace(/^#/, '').trim();
         const parts = raw.split('/').filter(Boolean);
-        if (!parts.length || parts[0] === 'decks') return { tab: 'decks' };
+        if (!parts.length || parts[0] === 'decks') return parseDecksRoute(parts.length ? parts : ['decks']);
+        if (parts[0] === 'stacks') return { tab: 'stacks' };
         if (parts[0] === 'cards') return parseCardsRoute(parts);
         if (parts[0] === 'deck' && parts[1]) {
           const tail = parts.slice(2);
-          if (tail[0] === 'review') return parseCardsRoute(['cards', parts[1], 'review', tail[1]].filter(Boolean));
-          if (tail[0] === 'settings') return parseCardsRoute(['cards', parts[1], 'settings']);
+          if (tail[0] === 'review') return parseDeckBrowseRoute(['decks', parts[1], 'review', tail[1]].filter(Boolean), parts[1]);
+          if (tail[0] === 'settings') return parseDeckBrowseRoute(['decks', parts[1], 'settings'], parts[1]);
           if (tail[0] === 'card' && tail[1]) {
-            return parseCardsRoute(['cards', parts[1], 'card', tail[1], tail[2]].filter(Boolean));
+            return parseDeckBrowseRoute(['decks', parts[1], 'card', tail[1], tail[2]].filter(Boolean), parts[1]);
           }
-          return parseCardsRoute(['cards', parts[1]]);
+          return parseDeckBrowseRoute(['decks', parts[1]], parts[1]);
         }
         return { tab: 'decks' };
       }
@@ -1454,27 +1645,28 @@
       function buildHash() {
         if (currentView === 'review' && reviewDeckId) {
           if (reviewScope === 'stack' && reviewStackId) {
-            const base = '#/cards/' + reviewDeckId + '/stack/' + reviewStackId + '/review';
+            const base = '#/decks/' + reviewDeckId + '/stack/' + reviewStackId + '/review';
             return reviewCardId ? base + '/' + reviewCardId : base;
           }
           if (reviewScope === 'card' && reviewCardId) {
-            return '#/cards/' + reviewDeckId + '/review/card/' + reviewCardId;
+            return '#/decks/' + reviewDeckId + '/review/card/' + reviewCardId;
           }
-          const base = '#/cards/' + reviewDeckId + '/review';
+          const base = '#/decks/' + reviewDeckId + '/review';
           return reviewCardId ? base + '/' + reviewCardId : base;
         }
         if (currentView === 'card' && activeDeckId && activeCardId) {
           const loc = findCardInDeck(activeDeckId, activeCardId);
           const stackPart = loc && loc.stack ? '/stack/' + loc.stack.id : '';
-          const base = '#/cards/' + activeDeckId + stackPart + '/card/' + activeCardId;
-          return base;
+          return '#/decks/' + activeDeckId + stackPart + '/card/' + activeCardId;
         }
-        if (currentView === 'cards') {
-          if (!activeDeckId) return '#/cards';
-          if (deckEditing) return '#/cards/' + activeDeckId + '/settings';
-          if (activeStackId) return '#/cards/' + activeDeckId + '/stack/' + activeStackId;
-          return '#/cards/' + activeDeckId;
+        if (currentView === 'deck-browse') {
+          if (!activeDeckId) return '#/stacks';
+          if (deckEditing) return '#/decks/' + activeDeckId + '/settings';
+          if (activeStackId) return '#/decks/' + activeDeckId + '/stack/' + activeStackId;
+          return '#/decks/' + activeDeckId;
         }
+        if (currentView === 'stacks') return '#/stacks';
+        if (currentView === 'all-cards') return '#/cards';
         return '#/decks';
       }
 
@@ -1527,7 +1719,48 @@
           if (replaceInvalid) syncUrl(true);
           return;
         }
-        const deck = route.deckId ? deckById(route.deckId) : ensureActiveDeck();
+        if (route.tab === 'stacks') {
+          activeCardId = null;
+          activeStackId = null;
+          deckEditing = false;
+          clearReviewState();
+          show('stacks');
+          renderStacksGlobal();
+          if (replaceInvalid) syncUrl(true);
+          return;
+        }
+        if (route.tab === 'all-cards') {
+          activeCardId = null;
+          activeStackId = null;
+          deckEditing = false;
+          clearReviewState();
+          show('all-cards');
+          renderAllCards();
+          if (replaceInvalid) syncUrl(true);
+          return;
+        }
+        if (route.tab === 'card') {
+          const deck = route.deckId ? deckById(route.deckId) : null;
+          if (!deck || !route.cardId) {
+            showDecks({ replaceUrl: true });
+            return;
+          }
+          const found = findCardInDeck(deck.id, route.cardId);
+          if (!found) {
+            openDeck(deck.id, { replaceUrl: true });
+            return;
+          }
+          activeDeckId = deck.id;
+          activeCardId = found.card.id;
+          activeStackId = found.stack ? found.stack.id : null;
+          deckEditing = false;
+          clearReviewState();
+          show('card');
+          renderCard();
+          syncUrl(replaceInvalid);
+          return;
+        }
+        const deck = route.deckId ? deckById(route.deckId) : null;
         if (!deck) {
           activeCardId = null;
           activeStackId = null;
@@ -1549,8 +1782,8 @@
           const cards = allReviewCards(deck, reviewScope, reviewStackId, route.cardId);
           if (!cards.length) {
             clearReviewState();
-            show(route.stackId ? 'cards' : 'cards');
             activeStackId = route.stackId || null;
+            show('deck-browse');
             renderCards();
             syncUrl(true);
             return;
@@ -1563,27 +1796,6 @@
           syncUrl(replaceInvalid);
           return;
         }
-        if (route.cardId) {
-          const found = findCardInDeck(deck.id, route.cardId);
-          if (!found) {
-            activeCardId = null;
-            activeStackId = route.stackId || null;
-          deckEditing = false;
-          clearReviewState();
-          show('cards');
-          renderCards();
-          syncUrl(true);
-          return;
-          }
-          activeCardId = found.card.id;
-          activeStackId = found.stack ? found.stack.id : (route.stackId || null);
-          deckEditing = false;
-          clearReviewState();
-          show('card');
-          renderCard();
-          syncUrl(replaceInvalid);
-          return;
-        }
         activeCardId = null;
         activeStackId = route.stackId || null;
         deckEditing = !!route.deckEdit;
@@ -1591,7 +1803,7 @@
         if (activeStackId && !stackById(deck, activeStackId)) {
           activeStackId = null;
         }
-        show('cards');
+        show('deck-browse');
         renderCards();
         syncUrl(replaceInvalid);
       }
@@ -1687,18 +1899,28 @@
 
       const views = {
         decks: document.getElementById('view-decks'),
-        cards: document.getElementById('view-cards'),
+        stacks: document.getElementById('view-stacks'),
+        'all-cards': document.getElementById('view-all-cards'),
+        'deck-browse': document.getElementById('view-cards'),
         card: document.getElementById('view-card'),
         review: document.getElementById('view-review'),
+      };
+
+      const navTabForView = {
+        decks: 'decks',
+        stacks: 'stacks',
+        'all-cards': 'cards',
+        'deck-browse': 'stacks',
       };
 
       function show(name) {
         currentView = name;
         Object.keys(views).forEach((k) => views[k].classList.toggle('hidden', k !== name));
         document.body.classList.toggle('dk-reviewing', name === 'review');
-        const tab = name === 'decks' ? 'decks' : 'cards';
+        if (navTabForView[name]) lastBrowseTab = navTabForView[name];
+        const activeTab = navTabForView[name] || lastBrowseTab;
         document.querySelectorAll('.dk-bottom-nav-item').forEach((btn) => {
-          btn.classList.toggle('active', btn.getAttribute('data-dk-tab') === tab);
+          btn.classList.toggle('active', btn.getAttribute('data-dk-tab') === activeTab);
         });
       }
 
@@ -1763,7 +1985,9 @@
         list.innerHTML = '';
         state.decks.forEach((d) => {
           const wrap = document.createElement('article');
-          wrap.className = 'dk-deck-item';
+          wrap.className = 'dk-deck-item dk-reorder-item';
+          wrap.dataset.reorderId = d.id;
+          wrap.appendChild(createDragHandle('Reorder deck'));
           const open = document.createElement('button');
           open.type = 'button';
           open.className = 'dk-deck-open';
@@ -1814,6 +2038,95 @@
           wrap.append(open, actions);
           list.appendChild(wrap);
         });
+        attachReorderList(list, (fromId, toId) => {
+          if (!reorderDecks(fromId, toId)) return false;
+          renderDecks();
+          return true;
+        });
+      }
+
+      function renderStacksGlobal() {
+        const list = document.getElementById('stack-list');
+        const q = document.getElementById('stack-search').value.trim().toLowerCase();
+        list.innerHTML = '';
+        let any = false;
+        state.decks.forEach((deck) => {
+          const stacks = (deck.stacks || []).filter((stack) => {
+            if (!q) return true;
+            const hay = (deck.name || '') + ' ' + (stack.name || '') + ' ' +
+              (stack.cards || []).map((c) => cardSearchHaystack(c)).join(' ');
+            return hay.toLowerCase().includes(q);
+          });
+          if (!stacks.length) return;
+          any = true;
+          const heading = document.createElement('div');
+          heading.className = 'dk-group-heading';
+          heading.textContent = deck.name || 'Untitled';
+          list.appendChild(heading);
+          const group = document.createElement('div');
+          group.className = 'dk-list dk-reorder-list';
+          stacks.forEach((stack) => {
+            const row = renderStackItem(stack, deck.id);
+            row.classList.add('dk-reorder-item');
+            row.dataset.reorderId = stack.id;
+            row.insertBefore(createDragHandle('Reorder stack'), row.firstChild);
+            group.appendChild(row);
+          });
+          attachReorderList(group, (fromId, toId) => {
+            if (!reorderStacksInDeck(deck.id, fromId, toId)) return false;
+            renderStacksGlobal();
+            return true;
+          });
+          list.appendChild(group);
+        });
+        if (!any) {
+          list.innerHTML = q
+            ? '<div class="dk-empty">No stacks match that search.</div>'
+            : '<div class="dk-empty"><strong>No stacks yet.</strong><br>Create a stack inside a deck to organize cards.</div>';
+        }
+      }
+
+      function renderAllCards() {
+        const list = document.getElementById('all-cards-list');
+        const q = document.getElementById('all-cards-search').value.trim().toLowerCase();
+        list.innerHTML = '';
+        const entries = allCardsAcrossDecks().filter(({ card }) => {
+          if (!q) return true;
+          return cardSearchHaystack(card).toLowerCase().includes(q);
+        });
+        if (!entries.length) {
+          list.innerHTML = q
+            ? '<div class="dk-empty">No cards match that search.</div>'
+            : '<div class="dk-empty"><strong>No cards yet.</strong><br>Create cards inside a deck to see them here.</div>';
+          return;
+        }
+        entries.forEach(({ deck, stack, card }) => {
+          list.appendChild(renderCardListItem(card, deck.id, stack ? stack.id : null, {
+            showLocation: true,
+            deckName: deck.name,
+            stackName: stack ? stack.name : null,
+          }));
+        });
+      }
+
+      function showStacks(opts) {
+        activeCardId = null;
+        activeStackId = null;
+        deckEditing = false;
+        clearReviewState();
+        show('stacks');
+        renderStacksGlobal();
+        if (!opts || opts.updateUrl !== false) syncUrl(!!(opts && opts.replaceUrl));
+      }
+
+      function showAllCards(opts) {
+        activeCardId = null;
+        activeStackId = null;
+        deckEditing = false;
+        clearReviewState();
+        show('all-cards');
+        renderAllCards();
+        if (!opts || opts.updateUrl !== false) syncUrl(!!(opts && opts.replaceUrl));
       }
 
       async function editDeckFromList(deckId) {
@@ -1862,9 +2175,14 @@
         }
       }
 
-      function renderCardListItem(card, deckId, stackId) {
+      function renderCardListItem(card, deckId, stackId, opts) {
+        opts = opts || {};
         const row = document.createElement('article');
         row.className = 'dk-card-preview-item';
+        if (opts.reorder) {
+          row.classList.add('dk-reorder-item');
+          row.dataset.reorderId = card.id;
+        }
         const open = document.createElement('button');
         open.type = 'button';
         open.className = 'dk-card-preview-open';
@@ -1874,12 +2192,23 @@
         title.className = 'dk-card-preview-title';
         title.textContent = card.title || 'Untitled card';
         inner.appendChild(title);
+        if (opts.showLocation) {
+          const meta = document.createElement('p');
+          meta.className = 'dk-card-preview-meta';
+          meta.textContent = opts.stackName
+            ? (opts.deckName || 'Deck') + ' · ' + opts.stackName
+            : (opts.deckName || 'Deck');
+          inner.appendChild(meta);
+        }
         const body = document.createElement('div');
         body.className = 'dk-card-preview-body';
         appendCardPreview(card, body);
         inner.appendChild(body);
         open.appendChild(inner);
-        open.addEventListener('click', () => openCard(card.id, { stackId: stackId || null }));
+        open.addEventListener('click', () => {
+          activeDeckId = deckId;
+          openCard(card.id, { stackId: stackId || null });
+        });
         const actions = document.createElement('div');
         actions.className = 'dk-item-actions';
         actions.style.padding = '0 12px 12px';
@@ -1893,6 +2222,9 @@
         });
         actions.appendChild(reviewBtn);
         row.append(open, actions);
+        if (opts.reorder) {
+          row.insertBefore(createDragHandle('Reorder card'), row.firstChild);
+        }
         return row;
       }
 
@@ -1958,7 +2290,10 @@
         open.innerHTML = '<h3></h3><p></p>';
         open.querySelector('h3').innerHTML = '<span class="dk-stack-badge">Stack</span>' + (stack.name || 'Untitled stack');
         open.querySelector('p').textContent = n + (n === 1 ? ' card' : ' cards');
-        open.addEventListener('click', () => openStack(stack.id));
+        open.addEventListener('click', () => {
+          activeDeckId = deckId;
+          openStack(stack.id);
+        });
         const actions = document.createElement('div');
         actions.className = 'dk-item-actions';
         const reviewBtn = document.createElement('button');
@@ -1976,6 +2311,7 @@
         openBtn.textContent = 'Open';
         openBtn.addEventListener('click', (ev) => {
           ev.stopPropagation();
+          activeDeckId = deckId;
           openStack(stack.id);
         });
         actions.append(openBtn, reviewBtn);
@@ -2008,6 +2344,7 @@
         }
         const q = document.getElementById('card-search').value.trim().toLowerCase();
         const list = document.getElementById('card-list');
+        list.className = 'dk-list';
         list.innerHTML = '';
 
         if (inStack) {
@@ -2023,7 +2360,13 @@
             list.innerHTML = '<div class="dk-empty">No cards match that search.</div>';
             return;
           }
-          cards.forEach((c) => list.appendChild(renderCardListItem(c, deck.id, stack.id)));
+          list.className = 'dk-card-grid dk-reorder-list';
+          cards.forEach((c) => list.appendChild(renderCardListItem(c, deck.id, stack.id, { reorder: true })));
+          attachReorderList(list, (fromId, toId) => {
+            if (!reorderCardsInStack(deck.id, stack.id, fromId, toId)) return false;
+            renderCards();
+            return true;
+          });
           return;
         }
 
@@ -2044,8 +2387,37 @@
           list.innerHTML = '<div class="dk-empty">Nothing matches that search.</div>';
           return;
         }
-        stacks.forEach((s) => list.appendChild(renderStackItem(s, deck.id)));
-        cards.forEach((c) => list.appendChild(renderCardListItem(c, deck.id, null)));
+        list.className = 'dk-list';
+        list.innerHTML = '';
+        if (stacks.length) {
+          const stackList = document.createElement('div');
+          stackList.className = 'dk-list dk-reorder-list';
+          stacks.forEach((s) => {
+            const row = renderStackItem(s, deck.id);
+            row.classList.add('dk-reorder-item');
+            row.dataset.reorderId = s.id;
+            row.insertBefore(createDragHandle('Reorder stack'), row.firstChild);
+            stackList.appendChild(row);
+          });
+          attachReorderList(stackList, (fromId, toId) => {
+            if (!reorderStacksInDeck(deck.id, fromId, toId)) return false;
+            renderCards();
+            return true;
+          });
+          list.appendChild(stackList);
+        }
+        if (cards.length) {
+          const cardGrid = document.createElement('div');
+          cardGrid.className = 'dk-card-grid dk-reorder-list';
+          cardGrid.style.marginTop = stacks.length ? '12px' : '0';
+          cards.forEach((c) => cardGrid.appendChild(renderCardListItem(c, deck.id, null, { reorder: true })));
+          attachReorderList(cardGrid, (fromId, toId) => {
+            if (!reorderCardsInDeck(deck.id, fromId, toId)) return false;
+            renderCards();
+            return true;
+          });
+          list.appendChild(cardGrid);
+        }
       }
 
       function checkRow(item, done, card, rerender) {
@@ -2320,9 +2692,8 @@
       }
 
       function routeMatchesActiveCard(route) {
-        if (route.tab !== 'cards' || route.cardId !== activeCardId || route.deckId !== activeDeckId) {
-          return false;
-        }
+        if (route.tab !== 'card') return false;
+        if (route.cardId !== activeCardId || route.deckId !== activeDeckId) return false;
         const loc = findCardInDeck(activeDeckId, activeCardId);
         const stackId = loc && loc.stack ? loc.stack.id : null;
         return (route.stackId || null) === stackId;
@@ -2386,7 +2757,7 @@
         activeCardId = null;
         deckEditing = !!(opts && opts.edit);
         clearReviewState();
-        show('cards');
+        show('deck-browse');
         renderCards();
         if (!opts || opts.updateUrl !== false) syncUrl(!!(opts && opts.replaceUrl));
       }
@@ -2398,12 +2769,15 @@
         activeCardId = null;
         deckEditing = false;
         clearReviewState();
-        show('cards');
+        show('deck-browse');
         renderCards();
         if (!opts || opts.updateUrl !== false) syncUrl(!!(opts && opts.replaceUrl));
       }
 
       function openCard(id, opts) {
+        if (currentView !== 'card' && currentView !== 'review') {
+          cardReturnView = currentView;
+        }
         activeCardId = id;
         if (opts && opts.stackId !== undefined) activeStackId = opts.stackId;
         else {
@@ -2632,19 +3006,19 @@
           });
           return;
         }
+        if (tab === 'stacks') {
+          ensureCardNamed().then((ok) => {
+            if (!ok) return;
+            deckEditing = false;
+            showStacks();
+          });
+          return;
+        }
         if (tab === 'cards') {
           ensureCardNamed().then((ok) => {
             if (!ok) return;
-            const deck = ensureActiveDeck();
-            if (!deck) {
-              showDecks();
-              showAlert({
-                title: 'Create a deck first',
-                message: 'Make a deck, then add cards into it.',
-              });
-              return;
-            }
-            openDeck(deck.id);
+            deckEditing = false;
+            showAllCards();
           });
         }
       });
@@ -2665,6 +3039,8 @@
       });
 
       document.getElementById('card-search').addEventListener('input', renderCards);
+      document.getElementById('stack-search').addEventListener('input', renderStacksGlobal);
+      document.getElementById('all-cards-search').addEventListener('input', renderAllCards);
 
       document.getElementById('btn-new-card').addEventListener('click', () => createCard());
       document.getElementById('btn-new-card-stack').addEventListener('click', () => createCard());
@@ -2675,6 +3051,14 @@
 
       document.getElementById('btn-back-cards').addEventListener('click', async () => {
         if (!(await ensureCardNamed())) return;
+        if (cardReturnView === 'all-cards') {
+          showAllCards();
+          return;
+        }
+        if (cardReturnView === 'stacks') {
+          showStacks();
+          return;
+        }
         const loc = activeCardLocation();
         if (loc && loc.stack) openStack(loc.stack.id);
         else openDeck(activeDeckId);
@@ -2754,6 +3138,9 @@
         else startDeckSyncPoll();
       });
       window.addEventListener('focus', handleDeckResume);
+      window.addEventListener('resize', () => {
+        if (currentView === 'card') fitAllSectionBodies();
+      });
 
       bootDeck();
     })();
