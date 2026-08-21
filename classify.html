@@ -746,20 +746,11 @@
             justify-content: space-between;
             gap: 0.5rem;
         }
-        body.classify-app .cl-week-task__content {
-            display: flex;
-            align-items: flex-start;
-            gap: 0.625rem;
-        }
         body.classify-app .cl-week-task__meta-row {
             display: flex;
             align-items: flex-start;
             gap: 0.625rem;
             margin-top: 0.25rem;
-        }
-        body.classify-app .cl-week-task__details {
-            flex: 1 1 0;
-            min-width: 0;
         }
         body.classify-app .cl-week-task__time {
             font-size: 0.75rem;
@@ -7862,6 +7853,17 @@
             }
             reoptimizeAffectedWeeks(keys);
             scheduleUnassignedTargetWeekTasksInWeeks(keys);
+            const immediateIds = new Set(seedTaskIds || []);
+            keys.forEach(weekKey => {
+                tasks.forEach(task => {
+                    if(!isTaskTargetedForWeek(task, weekKey, true)) return;
+                    if(!taskNeedsCalendarScheduling(task)) return;
+                    if(getTaskDueDate(task) || task.dueTime) immediateIds.add(task.id);
+                });
+            });
+            if(immediateIds.size > 0) {
+                scheduleTargetWeekTasksImmediately(Array.from(immediateIds));
+            }
         }
 
         function refreshClassifyLikeReload(options = {}) {
@@ -14719,17 +14721,107 @@
             return !task.time;
         }
 
+        function pickImmediateScheduleDateForTask(task, weekKey = null) {
+            if(!task) return null;
+            const todayStr = getDateStrLocal();
+            const resolvedWeekKey = weekKey || getTaskTargetWeekKey(task) || (getTaskDueDate(task) ? getWeekKeyFromDateStr(getTaskDueDate(task)) : null);
+            const dueDate = getTaskDueDate(task);
+            const weekDates = resolvedWeekKey
+                ? getWeekdayDateStringsFromWeekKey(resolvedWeekKey).filter(d => d >= todayStr && !isDateInVacation(d))
+                : [];
+            if(dueDate && dueDate >= todayStr && !isDateInVacation(dueDate) && !isDateBlockedForTask(task, dueDate)) {
+                if(!resolvedWeekKey || weekDates.includes(dueDate)) return dueDate;
+            }
+            const eligible = resolvedWeekKey
+                ? getScheduleEligibleDates(task, resolvedWeekKey, false).filter(d => !isDateBlockedForTask(task, d))
+                : (dueDate && dueDate >= todayStr ? [dueDate] : []);
+            const onOrBeforeDue = dueDate
+                ? eligible.filter(d => d <= dueDate)
+                : eligible;
+            const preferred = onOrBeforeDue.length ? onOrBeforeDue : eligible;
+            return sortScheduleDatesByPreference(preferred, resolvedWeekKey)[0] || null;
+        }
+
+        function tryPlaceTaskTimeOnDate(task, dateStr) {
+            if(!task || !dateStr) return false;
+            const todayStr = getDateStrLocal();
+            const duration = parseInt(task.duration, 10) || 30;
+            const daySchedule = getScheduleForDate(dateStr);
+            let dayStart = dateStr === todayStr
+                ? Math.max(timeToMin(daySchedule.start), getNowMinRoundedTo5())
+                : timeToMin(daySchedule.start);
+            const dayEnd = timeToMin(daySchedule.end);
+            const taskDue = getTaskDueDate(task);
+            const dueLimit = (task.dueTime && taskDue === dateStr) ? timeToMin(task.dueTime) : dayEnd;
+            const maxEnd = Math.min(dayEnd, dueLimit);
+            if(dayStart + duration > maxEnd) return false;
+
+            const busy = [
+                ...tasks.filter(t => t.id !== task.id && !t.completed && t.date === dateStr && t.time)
+                    .map(t => {
+                        const start = timeToMin(t.time);
+                        return buildBusySlotForTask(t, start, start + (parseInt(t.duration, 10) || 30), dateStr);
+                    }),
+                ...getBlockedSlotsForDate(dateStr)
+            ].sort((a, b) => a.start - b.start);
+            const options = getSlotOptionsForPriority(busy, dayStart, maxEnd, duration, 0, task.priority, task);
+            if(options.length === 0) return false;
+            const slot = options[Math.max(0, selectSlotIndexForPriority(options, task))];
+            task.time = minToInputTime(slot.start);
+            task.timeSource = 'auto';
+            task.assignmentMode = 'ADJUSTABLE';
+            return true;
+        }
+
+        function scheduleTargetWeekTasksImmediately(taskIds = []) {
+            const ids = Array.from(new Set((taskIds || []).filter(Boolean)));
+            if(ids.length === 0) return 0;
+            let scheduled = 0;
+
+            ids.forEach(id => {
+                const task = tasks.find(t => t.id === id);
+                if(!task || task.completed || task.repeatNoAutoTime) return;
+                if(!taskNeedsCalendarScheduling(task)) return;
+
+                const weekKey = getTaskTargetWeekKey(task) || getCurrentWeekKey();
+                if(!task.date) {
+                    const pickedDate = pickImmediateScheduleDateForTask(task, weekKey);
+                    if(!pickedDate) return;
+                    task.date = pickedDate;
+                    task.dateSource = 'auto';
+                    if(isTargetWeekAssignment(task) || task.scheduleType === 'week' || task.weekDueOnly) {
+                        task.week = weekKey;
+                        ensureTargetWeekScheduleType(task);
+                    }
+                }
+
+                if(!task.time && tryPlaceTaskTimeOnDate(task, task.date)) {
+                    scheduled++;
+                } else if(task.date && task.time) {
+                    scheduled++;
+                }
+            });
+
+            return scheduled;
+        }
+
         function scheduleUnassignedTargetWeekTasksInWeeks(weekKeys = []) {
             const keys = Array.from(new Set((weekKeys || []).filter(Boolean)));
             if(keys.length === 0) return 0;
             let scheduled = 0;
             keys.forEach(weekKey => {
-                const needsSchedule = tasks.some(t =>
+                const pending = tasks.filter(t =>
                     isTaskTargetedForWeek(t, weekKey, true) && taskNeedsCalendarScheduling(t)
                 );
-                if(!needsSchedule) return;
+                if(pending.length === 0) return;
                 assignWeekTaskDates(weekKey, true);
-                scheduled += autoBlockWeekTimes(false, weekKey, true, true, true) || 0;
+                autoBlockWeekTimes(false, weekKey, true, true, true);
+                const stillPending = tasks.filter(t =>
+                    isTaskTargetedForWeek(t, weekKey, true) && taskNeedsCalendarScheduling(t)
+                );
+                if(stillPending.length > 0) {
+                    scheduled += scheduleTargetWeekTasksImmediately(stillPending.map(t => t.id));
+                }
             });
             return scheduled;
         }
