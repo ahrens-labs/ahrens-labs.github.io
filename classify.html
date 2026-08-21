@@ -772,6 +772,23 @@
             line-height: 1.4;
             color: #64748b;
         }
+        body.classify-app .cl-week-task__notes {
+            margin-top: 0.375rem;
+            font-size: 0.6875rem;
+            line-height: 1.45;
+            color: #64748b;
+            border-left: 2px solid rgba(148, 163, 184, 0.55);
+            padding-left: 0.5rem;
+            word-break: break-word;
+            display: -webkit-box;
+            -webkit-line-clamp: 4;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        .dark body.classify-app .cl-week-task__notes {
+            color: #94a3b8;
+            border-left-color: rgba(100, 116, 139, 0.65);
+        }
         body.classify-app .cl-week-break {
             border-radius: 0.625rem;
             border: 1px dashed rgba(16, 185, 129, 0.45);
@@ -12780,6 +12797,9 @@
                     const timeLabel = item.type === 'overflow' ? 'Needs slot' : minToTime(item.start);
                     const duration = parseInt(t.duration, 10) || 30;
                     const timeValue = item.type === 'overflow' ? '' : minToInputTime(item.start);
+                    const notesHtml = t.notes
+                        ? `<div class="cl-week-task__notes" title="${escapeHtml(t.notes)}">${linkify(escapeHtml(t.notes))}</div>`
+                        : '';
                     return `
                         <div class="cl-week-task cursor-grab active:cursor-grabbing" style="border-left-color:${color}" draggable="true" ondragstart="handleTaskDragStart(event, '${t.id}')" ondragover="allowCalendarDrop(event)" ondrop="handleCalendarDropOnTask(event, '${dateStr}', '${timeValue}')">
                             <div class="cl-week-task__row">
@@ -12792,6 +12812,7 @@
                                 </div>
                             </div>
                             <div class="cl-week-task__meta">${timeLabel} · ${t.subject} · ${duration}m${isAssignmentStarted(t) ? ' · Started' : ''}</div>
+                            ${notesHtml}
                         </div>`;
                 }).join('');
 
