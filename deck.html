@@ -248,14 +248,23 @@
     .dk-deck-actions {
       display: flex;
       align-items: center;
+      flex-wrap: wrap;
+      justify-content: flex-end;
       gap: 6px;
       flex-shrink: 0;
+      max-width: 52%;
     }
     .dk-deck-actions .dk-btn {
-      padding: 7px 10px;
-      font-size: 0.78rem;
+      padding: 7px 9px;
+      font-size: 0.74rem;
       white-space: nowrap;
     }
+    .dk-list-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .dk-list-actions .dk-btn { flex: 1; min-width: 0; }
     .dk-stack-item {
       display: flex;
       align-items: center;
@@ -757,13 +766,6 @@
           <div id="cards-view-mode">
             <nav class="dk-context-bar" aria-label="Deck actions">
               <button type="button" class="dk-btn dk-btn-back" id="btn-back-decks">← All decks</button>
-              <div class="dk-cards-toolbar" id="cards-toolbar-root">
-                <button type="button" class="dk-btn dk-btn-ghost" id="btn-new-stack">+ New stack</button>
-                <button type="button" class="dk-btn dk-btn-primary" id="btn-new-card">+ New card</button>
-              </div>
-              <div class="dk-cards-toolbar hidden" id="cards-toolbar-stack">
-                <button type="button" class="dk-btn dk-btn-primary" id="btn-new-card-stack">+ New card</button>
-              </div>
             </nav>
             <div class="dk-hero">
               <h2 id="cards-heading">Cards</h2>
@@ -771,8 +773,12 @@
             </div>
             <input class="dk-search" id="card-search" type="search" placeholder="Search cards…" autocomplete="off">
             <div id="card-list" class="dk-list"></div>
-            <div class="dk-secondary-actions">
-              <button type="button" class="dk-btn dk-btn-ghost dk-btn-block" id="btn-edit-deck">Rename or delete deck…</button>
+            <div class="dk-list-actions" id="cards-list-actions-root">
+              <button type="button" class="dk-btn dk-btn-ghost" id="btn-new-stack">+ New stack</button>
+              <button type="button" class="dk-btn dk-btn-primary" id="btn-new-card">+ New card</button>
+            </div>
+            <div class="dk-list-actions hidden" id="cards-list-actions-stack">
+              <button type="button" class="dk-btn dk-btn-primary" id="btn-new-card-stack">+ New card</button>
             </div>
           </div>
           <div id="cards-edit-mode" class="hidden">
@@ -1439,10 +1445,72 @@
             ev.stopPropagation();
             openDeck(d.id);
           });
-          actions.append(openBtn, reviewBtn);
+          const editBtn = document.createElement('button');
+          editBtn.type = 'button';
+          editBtn.className = 'dk-btn dk-btn-ghost';
+          editBtn.textContent = 'Edit';
+          editBtn.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            editDeckFromList(d.id);
+          });
+          const deleteBtn = document.createElement('button');
+          deleteBtn.type = 'button';
+          deleteBtn.className = 'dk-btn dk-btn-danger';
+          deleteBtn.textContent = 'Delete';
+          deleteBtn.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            deleteDeckById(d.id);
+          });
+          actions.append(openBtn, reviewBtn, editBtn, deleteBtn);
           wrap.append(open, actions);
           list.appendChild(wrap);
         });
+      }
+
+      async function editDeckFromList(deckId) {
+        const deck = deckById(deckId);
+        if (!deck) return;
+        const name = await showPrompt({
+          title: 'Rename deck',
+          message: 'Choose a new name for this deck.',
+          label: 'Deck name',
+          defaultValue: deck.name || '',
+          okLabel: 'Save',
+        });
+        if (name === null) return;
+        deck.name = name.trim() || 'Untitled';
+        save();
+        renderDecks();
+      }
+
+      async function deleteDeckById(deckId) {
+        const deck = deckById(deckId);
+        if (!deck) return;
+        const stats = deckStats(deck);
+        const extra = stats.totalCards || stats.stacks
+          ? ' and everything in it'
+          : '';
+        const ok = await showConfirm({
+          title: 'Delete deck?',
+          message: 'Delete “' + (deck.name || 'this deck') + '”' + extra + '? This cannot be undone.',
+          okLabel: 'Delete',
+          danger: true,
+        });
+        if (!ok) return;
+        const wasActive = activeDeckId === deckId;
+        state.decks = state.decks.filter((d) => d.id !== deckId);
+        if (wasActive) {
+          activeDeckId = state.decks[0] ? state.decks[0].id : null;
+          activeCardId = null;
+          activeStackId = null;
+          deckEditing = false;
+        }
+        save();
+        if (wasActive && currentView !== 'decks') {
+          showDecks({ replaceUrl: false });
+        } else {
+          renderDecks();
+        }
       }
 
       function renderCardListItem(card, deckId, stackId) {
@@ -1571,8 +1639,8 @@
         if (!deck) return showDecks({ updateUrl: true });
         const stack = activeStackId ? stackById(deck, activeStackId) : null;
         const inStack = !!stack;
-        document.getElementById('cards-toolbar-root').classList.toggle('hidden', inStack);
-        document.getElementById('cards-toolbar-stack').classList.toggle('hidden', !inStack);
+        document.getElementById('cards-list-actions-root').classList.toggle('hidden', inStack || deckEditing);
+        document.getElementById('cards-list-actions-stack').classList.toggle('hidden', !inStack || deckEditing);
         document.getElementById('btn-back-decks').textContent = inStack
           ? '← ' + (deck.name || 'Deck')
           : '← All decks';
@@ -2175,7 +2243,6 @@
         }
       });
 
-      document.getElementById('btn-edit-deck').addEventListener('click', () => setDeckEditing(true));
       document.getElementById('btn-cancel-deck-edit').addEventListener('click', () => {
         const deck = deckById(activeDeckId);
         if (deck) document.getElementById('deck-name').value = deck.name || '';
@@ -2198,27 +2265,7 @@
       document.getElementById('btn-new-stack').addEventListener('click', () => createStack());
       document.getElementById('btn-new-card-edit').addEventListener('click', () => createCard(true));
 
-      document.getElementById('btn-delete-deck').addEventListener('click', async () => {
-        const deck = deckById(activeDeckId);
-        if (!deck) return;
-        const stats = deckStats(deck);
-        const extra = stats.totalCards || stats.stacks
-          ? ' and everything in it'
-          : '';
-        const ok = await showConfirm({
-          title: 'Delete deck?',
-          message: 'Delete “' + (deck.name || 'this deck') + '”' + extra + '? This cannot be undone.',
-          okLabel: 'Delete',
-          danger: true,
-        });
-        if (!ok) return;
-        state.decks = state.decks.filter((d) => d.id !== activeDeckId);
-        activeDeckId = state.decks[0] ? state.decks[0].id : null;
-        activeCardId = null;
-        deckEditing = false;
-        save();
-        showDecks({ replaceUrl: false });
-      });
+      document.getElementById('btn-delete-deck').addEventListener('click', () => deleteDeckById(activeDeckId));
 
       document.getElementById('btn-back-cards').addEventListener('click', () => {
         persistCardMeta();
