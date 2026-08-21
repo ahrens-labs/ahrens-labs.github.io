@@ -751,6 +751,12 @@
             align-items: flex-start;
             gap: 0.625rem;
         }
+        body.classify-app .cl-week-task__meta-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.625rem;
+            margin-top: 0.25rem;
+        }
         body.classify-app .cl-week-task__details {
             flex: 1 1 0;
             min-width: 0;
@@ -776,7 +782,9 @@
             color: #f8fafc;
         }
         body.classify-app .cl-week-task__meta {
-            margin-top: 0.25rem;
+            flex: 1 1 0;
+            min-width: 0;
+            margin-top: 0;
             font-size: 0.6875rem;
             line-height: 1.4;
             color: #64748b;
@@ -797,7 +805,7 @@
             overflow: hidden;
         }
         @media (max-width: 900px) {
-            body.classify-app .cl-week-task__content {
+            body.classify-app .cl-week-task__meta-row {
                 flex-direction: column;
                 gap: 0.375rem;
             }
@@ -12860,19 +12868,17 @@
                         : '';
                     return `
                         <div class="cl-week-task cursor-grab active:cursor-grabbing" style="border-left-color:${color}" draggable="true" ondragstart="handleTaskDragStart(event, '${t.id}')" ondragover="allowCalendarDrop(event)" ondrop="handleCalendarDropOnTask(event, '${dateStr}', '${timeValue}')">
-                            <div class="cl-week-task__content">
-                                <div class="cl-week-task__details">
-                                    <div class="cl-week-task__row">
-                                        <button onclick="editTask('${t.id}')" class="cl-week-task__title truncate">${t.title}</button>
-                                        <div class="cl-week-task__actions">
-                                            ${startAssignmentButtonHtml(t, { compact: true })}
-                                            <button onclick="event.stopPropagation(); toggleComplete('${t.id}')" title="Mark complete"><i class="fa-regular fa-circle text-xs"></i></button>
-                                            <button onclick="event.stopPropagation(); editTask('${t.id}')" title="Edit"><i class="fa-solid fa-pen text-[10px]"></i></button>
-                                            <button onclick="event.stopPropagation(); deleteTask('${t.id}')" title="Delete"><i class="fa-solid fa-trash text-[10px]"></i></button>
-                                        </div>
-                                    </div>
-                                    <div class="cl-week-task__meta">${timeLabel} · ${t.subject} · ${duration}m${isAssignmentStarted(t) ? ' · Started' : ''}</div>
+                            <div class="cl-week-task__row">
+                                <button onclick="editTask('${t.id}')" class="cl-week-task__title truncate">${t.title}</button>
+                                <div class="cl-week-task__actions">
+                                    ${startAssignmentButtonHtml(t, { compact: true })}
+                                    <button onclick="event.stopPropagation(); toggleComplete('${t.id}')" title="Mark complete"><i class="fa-regular fa-circle text-xs"></i></button>
+                                    <button onclick="event.stopPropagation(); editTask('${t.id}')" title="Edit"><i class="fa-solid fa-pen text-[10px]"></i></button>
+                                    <button onclick="event.stopPropagation(); deleteTask('${t.id}')" title="Delete"><i class="fa-solid fa-trash text-[10px]"></i></button>
                                 </div>
+                            </div>
+                            <div class="cl-week-task__meta-row">
+                                <div class="cl-week-task__meta">${timeLabel} · ${t.subject} · ${duration}m${isAssignmentStarted(t) ? ' · Started' : ''}</div>
                                 ${notesHtml}
                             </div>
                         </div>`;
