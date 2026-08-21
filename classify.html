@@ -10370,14 +10370,24 @@
             return { body: details, taskQuery: titlePart };
         }
 
+        function stripDurationTokensForScheduleDetect(text) {
+            return String(text || '')
+                .replace(/\b\d+(?:\.\d+)?\s*(?:m|min|mins|minutes?)\b/gi, ' ')
+                .replace(/\b\d+(?:\.\d+)?m\b/gi, ' ')
+                .replace(/\b\d+(?:\.\d+)?\s*(?:h|hr|hrs|hours?)\b/gi, ' ')
+                .replace(/\s{2,}/g, ' ')
+                .trim();
+        }
+
         function quickParsedHasScheduleUpdate(settingsBody) {
-            const text = String(settingsBody || '').trim();
+            const text = stripDurationTokensForScheduleDetect(settingsBody);
             if(!text) return false;
             const weekday = QUICK_ENTRY_DATE_WORDS;
             return /\b(?:due|by)\b/i.test(text)
                 || /\b(?:on|for)\s+/i.test(text)
                 || new RegExp(String.raw`\b(?:today|tomorrow|${weekday})\b`, 'i').test(text)
-                || /\b(?:at\s+)?\d{1,2}(?::\d{2})?\s*(?:am|pm)?\b/i.test(text)
+                || /\b(?:at\s+)?\d{1,2}:\d{2}\s*(?:am|pm)?\b/i.test(text)
+                || /\b(?:at\s+)?\d{1,2}\s*(?:am|pm)\b/i.test(text)
                 || /\btarget\s+week\b/i.test(text)
                 || /\bexact(?:\s+date)?\b/i.test(text)
                 || /\b(?:no\s+date|flexible|unscheduled)\b/i.test(text);
@@ -10403,26 +10413,45 @@
             };
         }
 
+        function createQuickEntryTouchedFlags() {
+            return {
+                duration: false,
+                priority: false,
+                difficulty: false,
+                notes: false,
+                subject: false,
+                schedule: false,
+                repeat: false,
+                dependencies: false
+            };
+        }
+
+        function assignmentSettingsTouchedAny(touched) {
+            return Boolean(touched && Object.values(touched).some(Boolean));
+        }
+
         function parseAssignmentSettingsCommand(body, taskQuery) {
             if(!taskQuery || !body) return null;
             const settingsBody = String(body || '').trim();
             if(!settingsBody || !looksLikeAssignmentSettingsBody(settingsBody)) return null;
-            const settings = parseAssignmentQuickEntry(settingsBody, { title: taskQuery });
+            const settings = parseAssignmentQuickEntry(settingsBody, { title: taskQuery, forUpdate: true });
             if(settings.errors?.length) return null;
+            if(!assignmentSettingsTouchedAny(settings.touched)) return null;
             return { action: 'updateSettings', taskQuery, settings, settingsBody };
         }
 
         function describeAssignmentSettingsChanges(quickParsed, settingsBody) {
+            const touched = quickParsed.touched || {};
             const parts = [];
-            if(quickParsed.duration) parts.push(`duration ${quickParsed.duration}m`);
-            if(quickParsed.priority) parts.push(`${quickParsed.priority.toLowerCase()} priority`);
-            if(quickParsed.difficulty) parts.push(`${quickParsed.difficulty.toLowerCase()} difficulty`);
-            if(quickParsed.subject) parts.push(`subject ${quickParsed.subject}`);
-            if(quickParsed.notes) parts.push('notes');
-            if(quickParsedHasRepeatUpdate(settingsBody)) {
+            if(touched.duration && quickParsed.duration) parts.push(`duration ${quickParsed.duration}m`);
+            if(touched.priority && quickParsed.priority) parts.push(`${quickParsed.priority.toLowerCase()} priority`);
+            if(touched.difficulty && quickParsed.difficulty) parts.push(`${quickParsed.difficulty.toLowerCase()} difficulty`);
+            if(touched.subject && quickParsed.subject) parts.push(`subject ${quickParsed.subject}`);
+            if(touched.notes && quickParsed.notes) parts.push('notes');
+            if(touched.repeat && quickParsedHasRepeatUpdate(settingsBody)) {
                 parts.push(formatRepeatLabel(normalizeRepeatRule(quickParsed.repeatRule || {})) || 'repeat');
             }
-            if(quickParsedHasScheduleUpdate(settingsBody)) {
+            if(touched.schedule && quickParsedHasScheduleUpdate(settingsBody)) {
                 if(/\b(?:due|by)\b/i.test(settingsBody) && quickParsed.dueDate) {
                     parts.push(`due ${formatDateLabel(quickParsed.dueDate)}${quickParsed.dueTime ? ` at ${minToTime(timeToMin(quickParsed.dueTime))}` : ''}`);
                 } else if(quickParsed.date) {
@@ -10435,21 +10464,25 @@
                     parts.push('exact date');
                 }
             }
-            if((quickParsed.mustBeAfter || []).length) parts.push('dependency after');
-            if((quickParsed.mustBeBefore || []).length) parts.push('dependency before');
-            if((quickParsed.mustBeDifferentDay || []).length) parts.push('different day rule');
+            if(touched.dependencies && (quickParsed.mustBeAfter || []).length) parts.push('dependency after');
+            if(touched.dependencies && (quickParsed.mustBeBefore || []).length) parts.push('dependency before');
+            if(touched.dependencies && (quickParsed.mustBeDifferentDay || []).length) parts.push('different day rule');
             return parts;
         }
 
         function applyAssignmentSettingsFromCommand(taskId, task, quickParsed, settingsBody) {
+            const touched = quickParsed.touched || {};
             const changeLabels = describeAssignmentSettingsChanges(quickParsed, settingsBody);
             if(changeLabels.length === 0) {
                 showNotification('No assignment settings found in that command.', 'error');
                 return false;
             }
 
-            const scheduleChanged = quickParsedHasScheduleUpdate(settingsBody);
-            const repeatChanged = quickParsedHasRepeatUpdate(settingsBody)
+            const scheduleModeChanged = /\btarget\s+week\b/i.test(settingsBody)
+                || /\bexact(?:\s+date)?\b/i.test(settingsBody)
+                || /\b(?:no\s+date|flexible|unscheduled)\b/i.test(settingsBody);
+            const scheduleChanged = touched.schedule || scheduleModeChanged;
+            const repeatChanged = touched.repeat
                 && normalizeRepeatRule(quickParsed.repeatRule || {}).type !== 'none';
             const dueKeyword = hasDueKeyword(settingsBody);
             const scheduleFragment = scheduleChanged
@@ -10461,41 +10494,46 @@
             const calendarMove = !dueKeyword && scheduleUpdates?.scheduleType === 'date' && scheduleUpdates.date
                 ? { date: scheduleUpdates.date, time: scheduleUpdates.time || scheduleUpdates.dueTime || null }
                 : null;
+            const needsScheduleRefresh = Boolean(scheduleChanged || repeatChanged || calendarMove);
 
             const weekKeys = new Set();
-            if(task.week) weekKeys.add(task.week);
-            if(task.repeatWeekKey) weekKeys.add(task.repeatWeekKey);
-            if(task.date) weekKeys.add(getWeekKeyFromDateStr(task.date));
-            if(scheduleUpdates?.week) weekKeys.add(scheduleUpdates.week);
-            if(scheduleUpdates?.date) weekKeys.add(getWeekKeyFromDateStr(scheduleUpdates.date));
-            if(scheduleUpdates?.dueDate) weekKeys.add(getWeekKeyFromDateStr(scheduleUpdates.dueDate));
+            if(needsScheduleRefresh) {
+                if(task.week) weekKeys.add(task.week);
+                if(task.repeatWeekKey) weekKeys.add(task.repeatWeekKey);
+                if(task.date) weekKeys.add(getWeekKeyFromDateStr(task.date));
+                if(scheduleUpdates?.week) weekKeys.add(scheduleUpdates.week);
+                if(scheduleUpdates?.date) weekKeys.add(getWeekKeyFromDateStr(scheduleUpdates.date));
+                if(scheduleUpdates?.dueDate) weekKeys.add(getWeekKeyFromDateStr(scheduleUpdates.dueDate));
+            }
 
             mutateClassifyData(() => {
                 let current = tasks.find(t => t.id === taskId);
                 if(!current) return;
 
                 const patch = {};
-                if(quickParsed.duration) patch.duration = quickParsed.duration;
-                if(quickParsed.priority) patch.priority = quickParsed.priority;
-                if(quickParsed.difficulty) patch.difficulty = quickParsed.difficulty;
-                if(quickParsed.notes != null && quickParsed.notes !== '') patch.notes = quickParsed.notes;
-                if(quickParsed.subject) {
+                if(touched.duration && quickParsed.duration) patch.duration = quickParsed.duration;
+                if(touched.priority && quickParsed.priority) patch.priority = quickParsed.priority;
+                if(touched.difficulty && quickParsed.difficulty) patch.difficulty = quickParsed.difficulty;
+                if(touched.notes && quickParsed.notes != null && quickParsed.notes !== '') patch.notes = quickParsed.notes;
+                if(touched.subject && quickParsed.subject) {
                     const subject = resolveCanonicalSubject(quickParsed.subject);
                     patch.subject = subject;
                     patch.color = getSubjectColorValue(subject) || getTaskColor(current);
                     setSubjectColorValue(subject, patch.color);
                 }
-                if((quickParsed.mustBeAfter || []).length) {
+                if(touched.dependencies && (quickParsed.mustBeAfter || []).length) {
                     patch.mustBeAfter = Array.from(new Set([...(current.mustBeAfter || []), ...quickParsed.mustBeAfter]));
                 }
-                if((quickParsed.mustBeBefore || []).length) {
+                if(touched.dependencies && (quickParsed.mustBeBefore || []).length) {
                     patch.mustBeBefore = Array.from(new Set([...(current.mustBeBefore || []), ...quickParsed.mustBeBefore]));
                 }
-                if((quickParsed.mustBeDifferentDay || []).length) {
+                if(touched.dependencies && (quickParsed.mustBeDifferentDay || []).length) {
                     patch.mustBeDifferentDay = Array.from(new Set([...(current.mustBeDifferentDay || []), ...quickParsed.mustBeDifferentDay]));
                 }
 
-                current = normalizeTask({ ...current, ...patch });
+                current = scheduleChanged || repeatChanged
+                    ? normalizeTask({ ...current, ...patch })
+                    : { ...current, ...patch };
 
                 if(/\btarget\s+week\b/i.test(settingsBody)) {
                     current = applyScheduleModeSwitch(current, 'week');
@@ -10564,9 +10602,15 @@
                 }
 
                 tasks = tasks.map(t => t.id === taskId ? current : t);
-                applyReciprocalDependenciesForTask(taskId);
-                syncAllTaskDependencies();
-            }, { seedTaskIds: [taskId], weekKeys: Array.from(weekKeys) });
+                if(touched.dependencies) {
+                    applyReciprocalDependenciesForTask(taskId);
+                    syncAllTaskDependencies();
+                }
+            }, {
+                seedTaskIds: needsScheduleRefresh ? [taskId] : [],
+                weekKeys: needsScheduleRefresh ? Array.from(weekKeys) : null,
+                skipScheduleRefresh: !needsScheduleRefresh
+            });
 
             if(calendarMove) {
                 moveTaskToDateTime(taskId, calendarMove.date, calendarMove.time);
@@ -11773,7 +11817,7 @@
             if(parsed.action === 'duration') {
                 mutateClassifyData(() => {
                     tasks = tasks.map(t => t.id === taskId ? { ...t, duration: parsed.duration } : t);
-                }, { seedTaskIds: [taskId] });
+                }, { skipScheduleRefresh: true });
                 showNotification(`Set "${task.title}" duration to ${parsed.duration}m`, 'success');
                 return true;
             }
@@ -12281,8 +12325,9 @@
             return { title: titlePart, details };
         }
 
-        function parseAssignmentQuickEntry(text, { title = '', excludeTaskId = null } = {}) {
+        function parseAssignmentQuickEntry(text, { title = '', excludeTaskId = null, forUpdate = false } = {}) {
             let working = normalizeClassifyCommandText(text).trim();
+            const touched = createQuickEntryTouchedFlags();
             const result = {
                 subject: null,
                 duration: null,
@@ -12302,11 +12347,14 @@
                 repeatRule: null,
                 weekDueOnly: false,
                 warnings: [],
-                errors: []
+                errors: [],
+                touched
             };
 
             if(!working) {
-                result.errors.push('Please enter assignment details in the quick entry box.');
+                if(!forUpdate) {
+                    result.errors.push('Please enter assignment details in the quick entry box.');
+                }
                 return result;
             }
 
@@ -12325,6 +12373,7 @@
                     if(taskId) {
                         const listKey = type === 'before' ? 'mustBeBefore' : (type === 'differentDay' ? 'mustBeDifferentDay' : 'mustBeAfter');
                         if(!result[listKey].includes(taskId)) result[listKey].push(taskId);
+                        touched.dependencies = true;
                     } else if(query) {
                         result.warnings.push(`Could not find assignment "${query}" for dependency.`);
                     }
@@ -12341,12 +12390,15 @@
                 const isHours = /h|hr|hrs|hour/i.test(durationMatch[0]);
                 const minutes = Math.max(1, Math.round(isHours ? value * 60 : value));
                 result.duration = String(minutes);
+                touched.duration = true;
                 working = stripQuickEntryMatch(working, durationMatch);
             }
 
             const repeatParsed = parseQuickEntryRepeatFragment(working);
             if(repeatParsed) {
                 applyQuickEntryRepeatSchedule(result, repeatParsed);
+                touched.repeat = true;
+                touched.schedule = true;
                 working = stripQuickEntryMatch(working, repeatParsed.match);
             }
 
@@ -12360,6 +12412,7 @@
             if(priorityMatch) {
                 const level = priorityMatch[1].toLowerCase();
                 result.priority = level === 'urgent' ? 'High' : (level.charAt(0).toUpperCase() + level.slice(1));
+                touched.priority = true;
                 working = stripQuickEntryMatch(working, priorityMatch);
             }
 
@@ -12368,6 +12421,7 @@
             if(difficultyMatch) {
                 const level = difficultyMatch[1].toLowerCase();
                 result.difficulty = level.charAt(0).toUpperCase() + level.slice(1);
+                touched.difficulty = true;
                 working = stripQuickEntryMatch(working, difficultyMatch);
             }
 
@@ -12376,6 +12430,7 @@
                 const parsedDueTimeOnly = parseQuickEntryTime(String(dueTimeOnlyMatch[1] || '').trim());
                 if(parsedDueTimeOnly) {
                     result.dueTime = parsedDueTimeOnly;
+                    touched.schedule = true;
                     if(result.scheduleType === 'date') {
                         result.exactDateTiming = 'adjustable';
                     } else if(!result.scheduleType) {
@@ -12393,6 +12448,7 @@
                 const parsedDueTime = parseQuickEntryTime(String(dueMatch[2] || '').trim());
                 if(parsedDueTime) result.dueTime = parsedDueTime;
                 if(result.dueDate) result.week = getWeekKeyFromDateStr(result.dueDate);
+                touched.schedule = true;
                 working = stripQuickEntryMatch(working, dueMatch);
             }
 
@@ -12406,6 +12462,7 @@
                     result.time = parsedEventTime;
                     result.exactDateTiming = 'fixed';
                 }
+                touched.schedule = true;
                 working = stripQuickEntryMatch(working, eventMatch);
             }
 
@@ -12414,6 +12471,7 @@
                 if(bareDayMatch) {
                     const parsedBareTime = parseQuickEntryTime(String(bareDayMatch[2] || '').trim());
                     applyQuickEntryBareDaySchedule(result, bareDayMatch[1], parsedBareTime || null);
+                    touched.schedule = true;
                     working = stripQuickEntryMatch(working, bareDayMatch);
                 }
             }
@@ -12424,6 +12482,7 @@
                     const parsedLooseTime = parseQuickEntryTime(String(looseTimeMatch[1] || '').trim());
                     if(parsedLooseTime) {
                         applyQuickEntryLooseTime(result, parsedLooseTime);
+                        touched.schedule = true;
                         working = stripQuickEntryMatch(working, looseTimeMatch);
                     }
                 }
@@ -12432,6 +12491,7 @@
             const notesMatch = working.match(/\bnotes\s+(.+)$/i);
             if(notesMatch) {
                 result.notes = parseNotesArgument(notesMatch[1]);
+                touched.notes = true;
                 working = stripQuickEntryMatch(working, notesMatch);
             }
 
@@ -12441,12 +12501,13 @@
                 const subjectMatch = working.match(pattern);
                 if(subjectMatch) {
                     result.subject = subject;
+                    touched.subject = true;
                     working = stripQuickEntryMatch(working, subjectMatch);
                     break;
                 }
             }
 
-            if(!result.subject) {
+            if(!forUpdate && !result.subject) {
                 const titleLower = String(title || '').trim().toLowerCase();
                 const leftoverWords = working.split(/\s+/).filter(Boolean);
                 const candidate = leftoverWords.find(word => {
@@ -12463,27 +12524,34 @@
                 }
             }
 
-            working = working.replace(/\b(at|on|by|due|for|after|before|notes)\b/gi, ' ').replace(/\s{2,}/g, ' ').trim();
-            if(working && !result.notes) result.notes = working.substring(0, 500);
+            if(!forUpdate) {
+                working = working.replace(/\b(at|on|by|due|for|after|before|notes)\b/gi, ' ').replace(/\s{2,}/g, ' ').trim();
+                if(working && !result.notes) result.notes = working.substring(0, 500);
+            }
 
-            if(!result.scheduleType) {
-                result.scheduleType = 'flexible';
+            if(!forUpdate) {
+                if(!result.scheduleType) {
+                    result.scheduleType = 'flexible';
+                }
+                if(result.scheduleType === 'week' && !result.week) {
+                    result.week = getCurrentWeekKey();
+                }
+                const hasRepeat = result.repeatRule && result.repeatRule.type !== 'none';
+                if(result.scheduleType === 'week' && !result.dueDate && !hasRepeat) {
+                    result.errors.push('Could not parse a due date. Try "due friday" or "friday 5pm".');
+                }
+                if(result.scheduleType === 'date' && !result.date) {
+                    result.errors.push('Could not parse an event date. Try "friday", "tomorrow", or "today 5pm".');
+                }
+                if(!result.subject) {
+                    result.warnings.push('No subject detected — using General.');
+                    result.subject = 'General';
+                }
             }
-            if(result.scheduleType === 'week' && !result.week) {
-                result.week = getCurrentWeekKey();
+
+            if(result.subject) {
+                result.subject = resolveCanonicalSubject(result.subject);
             }
-            const hasRepeat = result.repeatRule && result.repeatRule.type !== 'none';
-            if(result.scheduleType === 'week' && !result.dueDate && !hasRepeat) {
-                result.errors.push('Could not parse a due date. Try "due friday" or "friday 5pm".');
-            }
-            if(result.scheduleType === 'date' && !result.date) {
-                result.errors.push('Could not parse an event date. Try "friday", "tomorrow", or "today 5pm".');
-            }
-            if(!result.subject) {
-                result.warnings.push('No subject detected — using General.');
-                result.subject = 'General';
-            }
-            result.subject = resolveCanonicalSubject(result.subject);
 
             return result;
         }
