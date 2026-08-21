@@ -542,6 +542,12 @@
       box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
     }
     .dk-card-title-input::placeholder { color: #94a3b8; }
+    .dk-card-title-input--invalid,
+    .dk-card-title-input:required:invalid:not(:focus) {
+      border-color: #fca5a5;
+      background: #fff5f5;
+      box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12);
+    }
     .dk-card-move { margin-bottom: 16px; }
     .dk-card-delete-wrap { margin-top: 28px; }
     .dk-card-preview-item {
@@ -808,7 +814,7 @@
             <button type="button" class="dk-btn dk-btn-back" id="btn-back-cards">← Back</button>
             <button type="button" class="dk-btn dk-btn-ghost" id="btn-review-card">Review</button>
           </nav>
-          <input id="card-title" class="dk-card-title-input" type="text" maxlength="160" autocomplete="off" placeholder="Untitled card">
+          <input id="card-title" class="dk-card-title-input" type="text" maxlength="160" autocomplete="off" placeholder="Card name" required aria-required="true">
           <p id="card-view-deck" class="dk-meta"></p>
           <div class="dk-field dk-card-move">
             <label for="card-deck">Deck</label>
@@ -1167,6 +1173,21 @@
       }
 
       function applyRouteFromUrl(replaceInvalid) {
+        if (currentView === 'card' && activeCardId) {
+          const route = parseRoute();
+          if (!routeMatchesActiveCard(route) && !tryCommitCardMeta()) {
+            syncUrl(true);
+            showAlert({
+              title: 'Name required',
+              message: 'Every card needs a name. Enter one before continuing.',
+            }).then(() => {
+              const input = document.getElementById('card-title');
+              input.focus();
+              input.select();
+            });
+            return;
+          }
+        }
         const route = parseRoute();
         if (route.tab === 'decks') {
           activeCardId = null;
@@ -1928,6 +1949,7 @@
           list.appendChild(box);
         });
         renderChecklistEdit(card);
+        markCardTitleValidity();
         if (opts && opts.focusTitle) {
           const titleInput = document.getElementById('card-title');
           titleInput.focus();
@@ -1962,12 +1984,57 @@
         save();
       }
 
+      function cardTitleInputValue() {
+        return document.getElementById('card-title').value.trim();
+      }
+
+      function routeMatchesActiveCard(route) {
+        if (route.tab !== 'cards' || route.cardId !== activeCardId || route.deckId !== activeDeckId) {
+          return false;
+        }
+        const loc = findCardInDeck(activeDeckId, activeCardId);
+        const stackId = loc && loc.stack ? loc.stack.id : null;
+        return (route.stackId || null) === stackId;
+      }
+
+      function markCardTitleValidity() {
+        const input = document.getElementById('card-title');
+        const valid = !!cardTitleInputValue();
+        input.classList.toggle('dk-card-title-input--invalid', !valid);
+        return valid;
+      }
+
+      function tryCommitCardMeta() {
+        if (currentView !== 'card' || !activeCardId) return true;
+        if (!cardTitleInputValue()) {
+          markCardTitleValidity();
+          return false;
+        }
+        persistCardMeta();
+        markCardTitleValidity();
+        return true;
+      }
+
+      async function ensureCardNamed() {
+        if (tryCommitCardMeta()) return true;
+        await showAlert({
+          title: 'Name required',
+          message: 'Every card needs a name. Enter one before continuing.',
+        });
+        const input = document.getElementById('card-title');
+        input.focus();
+        input.select();
+        return false;
+      }
+
       function persistCardMeta() {
         const loc = activeCardLocation();
         const card = loc ? loc.card : null;
         const deck = ensureActiveDeck();
         if (!card || !deck) return;
-        card.title = document.getElementById('card-title').value.trim();
+        const title = cardTitleInputValue();
+        if (!title) return;
+        card.title = title;
         const destId = document.getElementById('card-deck').value;
         if (destId && destId !== deck.id) {
           const dest = deckById(destId);
@@ -2153,14 +2220,32 @@
         return deck.cards;
       }
 
-      function createCard(focusTitle) {
+      async function createCard() {
         const deck = ensureActiveDeck();
         if (!deck) return;
         const list = cardParentList(deck, activeStackId);
         if (!list) return;
+        let title = '';
+        while (!title) {
+          const name = await showPrompt({
+            title: 'New card',
+            message: 'Give your card a name.',
+            label: 'Card name',
+            maxLength: 160,
+            okLabel: 'Create',
+          });
+          if (name === null) return;
+          title = name.trim();
+          if (!title) {
+            await showAlert({
+              title: 'Name required',
+              message: 'A card name is required.',
+            });
+          }
+        }
         const card = {
           id: uidId(),
-          title: '',
+          title: title,
           createdAt: Date.now(),
           updatedAt: Date.now(),
           sections: [],
@@ -2168,7 +2253,7 @@
         };
         list.unshift(card);
         save();
-        openCard(card.id, { focusTitle: focusTitle !== false, stackId: activeStackId });
+        openCard(card.id, { stackId: activeStackId });
       }
 
       async function createStack() {
@@ -2223,23 +2308,27 @@
         if (!btn) return;
         const tab = btn.getAttribute('data-dk-tab');
         if (tab === 'decks') {
-          persistCardMeta();
-          deckEditing = false;
-          showDecks();
+          ensureCardNamed().then((ok) => {
+            if (!ok) return;
+            deckEditing = false;
+            showDecks();
+          });
           return;
         }
         if (tab === 'cards') {
-          persistCardMeta();
-          const deck = ensureActiveDeck();
-          if (!deck) {
-            showDecks();
-            showAlert({
-              title: 'Create a deck first',
-              message: 'Make a deck, then add cards into it.',
-            });
-            return;
-          }
-          openDeck(deck.id);
+          ensureCardNamed().then((ok) => {
+            if (!ok) return;
+            const deck = ensureActiveDeck();
+            if (!deck) {
+              showDecks();
+              showAlert({
+                title: 'Create a deck first',
+                message: 'Make a deck, then add cards into it.',
+              });
+              return;
+            }
+            openDeck(deck.id);
+          });
         }
       });
 
@@ -2260,24 +2349,24 @@
 
       document.getElementById('card-search').addEventListener('input', renderCards);
 
-      document.getElementById('btn-new-card').addEventListener('click', () => createCard(true));
-      document.getElementById('btn-new-card-stack').addEventListener('click', () => createCard(true));
+      document.getElementById('btn-new-card').addEventListener('click', () => createCard());
+      document.getElementById('btn-new-card-stack').addEventListener('click', () => createCard());
       document.getElementById('btn-new-stack').addEventListener('click', () => createStack());
-      document.getElementById('btn-new-card-edit').addEventListener('click', () => createCard(true));
+      document.getElementById('btn-new-card-edit').addEventListener('click', () => createCard());
 
       document.getElementById('btn-delete-deck').addEventListener('click', () => deleteDeckById(activeDeckId));
 
-      document.getElementById('btn-back-cards').addEventListener('click', () => {
-        persistCardMeta();
+      document.getElementById('btn-back-cards').addEventListener('click', async () => {
+        if (!(await ensureCardNamed())) return;
         const loc = activeCardLocation();
         if (loc && loc.stack) openStack(loc.stack.id);
         else openDeck(activeDeckId);
       });
 
-      document.getElementById('btn-review-card').addEventListener('click', () => {
+      document.getElementById('btn-review-card').addEventListener('click', async () => {
         const loc = activeCardLocation();
         if (!loc) return;
-        persistCardMeta();
+        if (!(await ensureCardNamed())) return;
         openReview(activeDeckId, {
           scope: 'card',
           cardId: loc.card.id,
@@ -2309,8 +2398,21 @@
         else openDeck(deck.id, { replaceUrl: false });
       });
 
-      document.getElementById('card-title').addEventListener('input', persistCardMeta);
-      document.getElementById('card-deck').addEventListener('change', persistCardMeta);
+      document.getElementById('card-title').addEventListener('input', () => {
+        if (cardTitleInputValue()) persistCardMeta();
+        else markCardTitleValidity();
+      });
+      document.getElementById('card-deck').addEventListener('change', () => {
+        if (!tryCommitCardMeta()) {
+          showAlert({
+            title: 'Name required',
+            message: 'Name this card before moving it to another deck.',
+          });
+          const loc = activeCardLocation();
+          const deck = ensureActiveDeck();
+          if (deck) fillDeckSelect(deck.id);
+        }
+      });
 
       document.getElementById('btn-add-section').addEventListener('click', () => {
         const card = activeCard();
