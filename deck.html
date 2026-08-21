@@ -387,24 +387,34 @@
       box-sizing: border-box;
     }
     .dk-field textarea { min-height: 120px; resize: vertical; }
+    .dk-note-text {
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 0.95rem;
+      font-weight: 400;
+      line-height: 1.6;
+      letter-spacing: 0.01em;
+      color: var(--dk-ink);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      text-rendering: optimizeLegibility;
+    }
     .dk-section-body {
       display: block;
       width: 100%;
       min-height: 120px;
       resize: vertical;
       border-radius: 12px;
-      border: 1px solid #c7d2fe;
+      border: 1px solid var(--dk-line);
       padding: 14px 16px;
-      line-height: 1.65;
-      font-size: 0.98rem;
       box-sizing: border-box;
       background: #fff;
-      box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04);
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
     }
     .dk-section-body:focus {
       outline: none;
-      border-color: var(--dk-brand);
-      box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+      border-color: #c7d2fe;
+      box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
     }
     .dk-search { margin: 0 0 14px; border-radius: 12px; }
     .dk-section {
@@ -632,10 +642,8 @@
     }
     .dk-section-view-body {
       margin: 0;
-      color: var(--dk-ink);
-      font-size: 0.95rem;
-      line-height: 1.6;
       white-space: pre-wrap;
+      overflow-wrap: anywhere;
     }
     .dk-section-view-empty {
       margin: 0;
@@ -2184,7 +2192,7 @@
           }
           if ((sec.body || '').trim()) {
             const body = document.createElement('p');
-            body.className = 'dk-section-view-body';
+            body.className = 'dk-section-view-body dk-note-text';
             body.textContent = sec.body;
             box.appendChild(body);
           }
@@ -2242,19 +2250,19 @@
             touchCard(card);
             renderCard();
           });
+          const top = document.createElement('div');
+          top.className = 'dk-section-top';
+          top.appendChild(del);
           head.append(title);
           const body = document.createElement('textarea');
-          body.className = 'dk-section-body';
+          body.className = 'dk-section-body dk-note-text';
           body.placeholder = 'Write notes for this section…';
           body.value = sec.body || '';
           body.addEventListener('input', () => {
             sec.body = body.value;
             touchCard(card);
           });
-          const foot = document.createElement('div');
-          foot.className = 'dk-section-foot';
-          foot.appendChild(del);
-          box.append(head, body, foot);
+          box.append(top, head, body);
           list.appendChild(box);
         });
         renderChecklistEdit(card);
