@@ -4072,7 +4072,7 @@
                 lead: 'Classify keeps your schoolwork organized and builds a specific schedule for when to do each assignment.',
                 bullets: [
                     'Add assignments, and Classify plans dates and times around your school-day rules',
-                    'Next: schedule modes, repeat, dependencies, Start, and block times'
+                    'Next: schedule modes, repeat, dependencies, Start, block times, and the command line'
                 ],
                 center: true,
                 tab: 'dashboard'
@@ -4169,12 +4169,30 @@
                 padding: 8
             },
             {
+                icon: 'fa-terminal',
+                title: 'Command line',
+                lead: 'Type quick commands at the top instead of opening the editor for everyday changes.',
+                bullets: [
+                    'Press <kbd>/</kbd> anywhere in Classify to focus the command line',
+                    '<strong>add</strong> Homework due friday 3pm math — create with schedule details in one line',
+                    '<strong>"timeline"</strong> due tomorrow at 5pm — quote a name to target an existing assignment',
+                    '<strong>move</strong>, <strong>start</strong>, <strong>complete</strong>, <strong>delete</strong>, and <strong>undo</strong> work too',
+                    'Toggle the bar in Settings if you want it hidden'
+                ],
+                target: '#classifyCommandBar',
+                fallbackTarget: '#classifyCommandInput',
+                tab: 'dashboard',
+                showCommandLine: true,
+                placement: 'bottom',
+                padding: 8
+            },
+            {
                 icon: 'fa-rocket',
                 title: 'You\'re set',
                 lead: 'You know the hard parts — time to add real assignments.',
                 bullets: [
                     'Red <strong>Undo</strong> reverses your last change if you make a mistake',
-                    'Press <kbd>Q</kbd> to create your first assignment',
+                    'Press <kbd>Q</kbd> to create an assignment, or <kbd>/</kbd> for the command line',
                     'Blinking <strong>?</strong> hotspots explain each area whenever you\'re ready'
                 ],
                 center: true,
@@ -4359,6 +4377,12 @@
 
             if(step.openBlockTimesModal) {
                 openWalkthroughBlockedTimesModal();
+            }
+
+            if(step.showCommandLine) {
+                const bar = document.getElementById('classifyCommandBar');
+                if(bar) bar.classList.remove('hidden');
+                syncClassifyChromeOffsets();
             }
 
             if(step.showStartDemo && step.tab === 'calendar') {
@@ -4656,6 +4680,7 @@
             clearClassifyOrientationTargetHighlight();
             document.body.classList.remove('classify-orientation-active');
             unbindClassifyOrientationLayoutHandler();
+            syncClassifyCommandLineVisibility();
             refreshClassifyHotspots();
             if(areClassifyHotspotsEnabled()) {
                 bindClassifyHotspotLayoutHandler();
@@ -4752,6 +4777,21 @@
                     '<kbd>Q</kbd> and <kbd>Ctrl+N</kbd> open the same assignment editor',
                     'The editor has schedule modes, repeat, and dependencies — use the walkthrough for those',
                     'Calendar and Assignments tabs also have a <strong>New</strong> button'
+                ],
+                walkthroughLink: true
+            },
+            {
+                id: 'command-line',
+                target: '#classifyCommandBar',
+                position: 'bottom-left',
+                icon: 'fa-terminal',
+                title: 'Command line',
+                lead: 'Fast text commands for create, move, due, start, and delete.',
+                bullets: [
+                    'Press <kbd>/</kbd> to focus the bar from anywhere',
+                    'Example: <strong>add</strong> Reading due thursday 30m english',
+                    'Example: <strong>"essay"</strong> move to friday 2pm',
+                    'Turn the bar off in Settings → Command line if you prefer the editor'
                 ],
                 walkthroughLink: true
             },
