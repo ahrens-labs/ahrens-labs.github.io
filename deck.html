@@ -238,6 +238,8 @@
       padding: 4px 6px;
       cursor: grab;
       touch-action: none;
+      user-select: none;
+      -webkit-user-drag: element;
     }
     .dk-drag-handle:active { cursor: grabbing; }
     .dk-deck-item {
@@ -1161,12 +1163,13 @@
       }
 
       function createDragHandle(label) {
-        const handle = document.createElement('button');
-        handle.type = 'button';
+        const handle = document.createElement('span');
         handle.className = 'dk-drag-handle';
+        handle.draggable = true;
+        handle.setAttribute('role', 'button');
+        handle.setAttribute('tabindex', '0');
         handle.setAttribute('aria-label', label || 'Drag to reorder');
         handle.textContent = '⋮⋮';
-        handle.addEventListener('click', (ev) => ev.stopPropagation());
         return handle;
       }
 
@@ -1175,33 +1178,20 @@
         const fromIdx = list.findIndex((item) => item.id === fromId);
         const toIdx = list.findIndex((item) => item.id === toId);
         if (fromIdx < 0 || toIdx < 0) return false;
-        const next = list.slice();
-        const [item] = next.splice(fromIdx, 1);
-        next.splice(toIdx, 0, item);
-        list.length = 0;
-        next.forEach((entry) => list.push(entry));
+        const [item] = list.splice(fromIdx, 1);
+        list.splice(toIdx, 0, item);
         return true;
       }
 
       function attachReorderList(container, onReorder) {
         if (!container) return;
+        let dragId = null;
+        let dragRow = null;
+
         container.querySelectorAll('[data-reorder-id]').forEach((row) => {
-          row.addEventListener('dragstart', (ev) => {
-            if (!ev.target.closest('.dk-drag-handle')) {
-              ev.preventDefault();
-              return;
-            }
-            row.classList.add('dk-dragging');
-            ev.dataTransfer.effectAllowed = 'move';
-            ev.dataTransfer.setData('text/plain', row.dataset.reorderId || '');
-          });
-          row.addEventListener('dragend', () => {
-            row.classList.remove('dk-dragging');
-            container.querySelectorAll('.dk-drop-target').forEach((el) => el.classList.remove('dk-drop-target'));
-          });
           row.addEventListener('dragover', (ev) => {
             ev.preventDefault();
-            const dragId = ev.dataTransfer.getData('text/plain');
+            ev.dataTransfer.dropEffect = 'move';
             if (!dragId || row.dataset.reorderId === dragId) return;
             row.classList.add('dk-drop-target');
           });
@@ -1209,10 +1199,29 @@
           row.addEventListener('drop', (ev) => {
             ev.preventDefault();
             row.classList.remove('dk-drop-target');
-            const fromId = ev.dataTransfer.getData('text/plain');
+            const fromId = dragId || ev.dataTransfer.getData('text/plain');
             const toId = row.dataset.reorderId;
+            dragId = null;
+            dragRow = null;
             if (!fromId || !toId || fromId === toId) return;
             if (onReorder(fromId, toId)) save();
+          });
+
+          const handle = row.querySelector('.dk-drag-handle');
+          if (!handle) return;
+          handle.addEventListener('dragstart', (ev) => {
+            dragId = row.dataset.reorderId || '';
+            dragRow = row;
+            row.classList.add('dk-dragging');
+            ev.dataTransfer.effectAllowed = 'move';
+            ev.dataTransfer.setData('text/plain', dragId);
+            ev.stopPropagation();
+          });
+          handle.addEventListener('dragend', () => {
+            dragId = null;
+            if (dragRow) dragRow.classList.remove('dk-dragging');
+            dragRow = null;
+            container.querySelectorAll('.dk-drop-target').forEach((el) => el.classList.remove('dk-drop-target'));
           });
         });
       }
