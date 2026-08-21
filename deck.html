@@ -2355,7 +2355,7 @@
             list.innerHTML = '<div class="dk-empty">No cards match that search.</div>';
             return;
           }
-          list.className = 'dk-card-grid dk-reorder-list';
+          list.className = 'dk-list dk-reorder-list';
           cards.forEach((c) => list.appendChild(renderCardListItem(c, deck.id, stack.id, { reorder: true })));
           attachReorderList(list, (fromId, toId) => {
             if (!reorderCardsInStack(deck.id, stack.id, fromId, toId)) return false;
@@ -2402,16 +2402,16 @@
           list.appendChild(stackList);
         }
         if (cards.length) {
-          const cardGrid = document.createElement('div');
-          cardGrid.className = 'dk-card-grid dk-reorder-list';
-          cardGrid.style.marginTop = stacks.length ? '12px' : '0';
-          cards.forEach((c) => cardGrid.appendChild(renderCardListItem(c, deck.id, null, { reorder: true })));
-          attachReorderList(cardGrid, (fromId, toId) => {
+          const cardList = document.createElement('div');
+          cardList.className = 'dk-list dk-reorder-list';
+          cardList.style.marginTop = stacks.length ? '12px' : '0';
+          cards.forEach((c) => cardList.appendChild(renderCardListItem(c, deck.id, null, { reorder: true })));
+          attachReorderList(cardList, (fromId, toId) => {
             if (!reorderCardsInDeck(deck.id, fromId, toId)) return false;
             renderCards();
             return true;
           });
-          list.appendChild(cardGrid);
+          list.appendChild(cardList);
         }
       }
 
