@@ -402,7 +402,8 @@
       display: block;
       width: 100%;
       min-height: 120px;
-      resize: vertical;
+      resize: none;
+      overflow: hidden;
       border-radius: 12px;
       border: 1px solid var(--dk-line);
       padding: 14px 16px;
@@ -2200,6 +2201,16 @@
         });
       }
 
+      function fitSectionBodyHeight(textarea) {
+        if (!textarea) return;
+        textarea.style.height = 'auto';
+        textarea.style.height = Math.max(120, textarea.scrollHeight) + 'px';
+      }
+
+      function fitAllSectionBodies() {
+        document.querySelectorAll('.dk-section-body').forEach(fitSectionBodyHeight);
+      }
+
       function renderCard(opts) {
         const deck = ensureActiveDeck();
         const loc = activeCardLocation();
@@ -2260,13 +2271,16 @@
           body.value = sec.body || '';
           body.addEventListener('input', () => {
             sec.body = body.value;
+            fitSectionBodyHeight(body);
             touchCard(card);
           });
           box.append(top, head, body);
           list.appendChild(box);
+          fitSectionBodyHeight(body);
         });
         renderChecklistEdit(card);
         markCardTitleValidity();
+        requestAnimationFrame(fitAllSectionBodies);
         if (opts && opts.focusTitle) {
           const titleInput = document.getElementById('card-title');
           titleInput.focus();
