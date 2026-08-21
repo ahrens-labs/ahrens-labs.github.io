@@ -481,7 +481,8 @@ body.th-site-menu-open .th-bottom-nav,
 body.th-site-menu-open .bottom-nav,
 body.th-site-menu-open .cl-app-footer,
 body.th-site-menu-open .sd-bottom-nav,
-body.th-site-menu-open .pl-bottom-nav {
+body.th-site-menu-open .pl-bottom-nav,
+body.th-site-menu-open .dk-bottom-nav {
   z-index: var(--th-site-chrome-z);
 }
 
@@ -490,7 +491,8 @@ body.th-page > footer,
 body.classify-app > footer:not(.cl-app-footer),
 body.link-app > footer,
 body.digest-app > footer,
-body.platter-app > footer {
+body.platter-app > footer,
+body.deck-app > footer {
   display: none !important;
 }
 
@@ -498,14 +500,16 @@ body.platter-app > footer {
 body.th-page,
 body.classify-app,
 body.digest-app,
-body.platter-app {
+body.platter-app,
+body.deck-app {
   justify-content: flex-start;
 }
 
 body.classify-app,
 body.digest-app,
 body.platter-app,
-body.th-page {
+body.th-page,
+body.deck-app {
   min-height: 100dvh;
   overflow-x: hidden;
 }
@@ -523,7 +527,8 @@ body.th-page .wrapper {
 }
 
 body.digest-app .wrapper,
-body.platter-app .wrapper {
+body.platter-app .wrapper,
+body.deck-app .wrapper {
   display: flex;
   flex-direction: column;
   width: 100%;
