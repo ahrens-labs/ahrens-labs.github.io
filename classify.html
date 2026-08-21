@@ -746,6 +746,15 @@
             justify-content: space-between;
             gap: 0.5rem;
         }
+        body.classify-app .cl-week-task__content {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.625rem;
+        }
+        body.classify-app .cl-week-task__details {
+            flex: 1 1 0;
+            min-width: 0;
+        }
         body.classify-app .cl-week-task__time {
             font-size: 0.75rem;
             font-weight: 700;
@@ -773,7 +782,9 @@
             color: #64748b;
         }
         body.classify-app .cl-week-task__notes {
-            margin-top: 0.375rem;
+            flex: 0 1 42%;
+            min-width: 0;
+            margin-top: 0;
             font-size: 0.6875rem;
             line-height: 1.45;
             color: #64748b;
@@ -784,6 +795,16 @@
             -webkit-line-clamp: 4;
             -webkit-box-orient: vertical;
             overflow: hidden;
+        }
+        @media (max-width: 900px) {
+            body.classify-app .cl-week-task__content {
+                flex-direction: column;
+                gap: 0.375rem;
+            }
+            body.classify-app .cl-week-task__notes {
+                flex: 1 1 auto;
+                width: 100%;
+            }
         }
         .dark body.classify-app .cl-week-task__notes {
             color: #94a3b8;
@@ -9654,8 +9675,9 @@
 
         function parseNotesArgument(text) {
             const parsed = parseQuotedPrefix(text);
-            if(parsed.quoted != null) return parsed.quoted.substring(0, 500);
-            return String(text || '').trim().substring(0, 500);
+            let value = parsed.quoted != null ? parsed.quoted : String(text || '').trim();
+            value = value.replace(/^notes\s+/i, '').trim();
+            return value.substring(0, 500);
         }
 
         function peelQuotedAssignmentCommand(raw) {
@@ -11243,6 +11265,12 @@
                 }
             }
 
+            const notesMatch = working.match(/\bnotes\s+(.+)$/i);
+            if(notesMatch) {
+                result.notes = parseNotesArgument(notesMatch[1]);
+                working = stripQuickEntryMatch(working, notesMatch);
+            }
+
             const subjects = getAllSubjectNames().sort((a, b) => b.length - a.length);
             for(const subject of subjects) {
                 const pattern = new RegExp(`\\b${subject.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
@@ -11271,8 +11299,8 @@
                 }
             }
 
-            working = working.replace(/\b(at|on|by|due|for|after|before)\b/gi, ' ').replace(/\s{2,}/g, ' ').trim();
-            if(working) result.notes = working.substring(0, 500);
+            working = working.replace(/\b(at|on|by|due|for|after|before|notes)\b/gi, ' ').replace(/\s{2,}/g, ' ').trim();
+            if(working && !result.notes) result.notes = working.substring(0, 500);
 
             if(!result.scheduleType) {
                 result.scheduleType = 'flexible';
@@ -12822,17 +12850,21 @@
                         : '';
                     return `
                         <div class="cl-week-task cursor-grab active:cursor-grabbing" style="border-left-color:${color}" draggable="true" ondragstart="handleTaskDragStart(event, '${t.id}')" ondragover="allowCalendarDrop(event)" ondrop="handleCalendarDropOnTask(event, '${dateStr}', '${timeValue}')">
-                            <div class="cl-week-task__row">
-                                <button onclick="editTask('${t.id}')" class="cl-week-task__title truncate">${t.title}</button>
-                                <div class="cl-week-task__actions">
-                                    ${startAssignmentButtonHtml(t, { compact: true })}
-                                    <button onclick="event.stopPropagation(); toggleComplete('${t.id}')" title="Mark complete"><i class="fa-regular fa-circle text-xs"></i></button>
-                                    <button onclick="event.stopPropagation(); editTask('${t.id}')" title="Edit"><i class="fa-solid fa-pen text-[10px]"></i></button>
-                                    <button onclick="event.stopPropagation(); deleteTask('${t.id}')" title="Delete"><i class="fa-solid fa-trash text-[10px]"></i></button>
+                            <div class="cl-week-task__content">
+                                <div class="cl-week-task__details">
+                                    <div class="cl-week-task__row">
+                                        <button onclick="editTask('${t.id}')" class="cl-week-task__title truncate">${t.title}</button>
+                                        <div class="cl-week-task__actions">
+                                            ${startAssignmentButtonHtml(t, { compact: true })}
+                                            <button onclick="event.stopPropagation(); toggleComplete('${t.id}')" title="Mark complete"><i class="fa-regular fa-circle text-xs"></i></button>
+                                            <button onclick="event.stopPropagation(); editTask('${t.id}')" title="Edit"><i class="fa-solid fa-pen text-[10px]"></i></button>
+                                            <button onclick="event.stopPropagation(); deleteTask('${t.id}')" title="Delete"><i class="fa-solid fa-trash text-[10px]"></i></button>
+                                        </div>
+                                    </div>
+                                    <div class="cl-week-task__meta">${timeLabel} · ${t.subject} · ${duration}m${isAssignmentStarted(t) ? ' · Started' : ''}</div>
                                 </div>
+                                ${notesHtml}
                             </div>
-                            <div class="cl-week-task__meta">${timeLabel} · ${t.subject} · ${duration}m${isAssignmentStarted(t) ? ' · Started' : ''}</div>
-                            ${notesHtml}
                         </div>`;
                 }).join('');
 
