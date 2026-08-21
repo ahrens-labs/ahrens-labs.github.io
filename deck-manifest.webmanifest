@@ -2,14 +2,14 @@
   "id": "ahrenslabs-deck",
   "name": "Deck",
   "short_name": "Deck",
-  "description": "Deck — flashcard study decks by Ahrens Labs.",
+  "description": "Deck — notes grouped into decks by Ahrens Labs.",
   "start_url": "/deck.html",
   "scope": "/deck.html",
   "display": "standalone",
   "background_color": "#eef2ff",
   "theme_color": "#4f46e5",
   "orientation": "any",
-  "categories": ["education", "productivity"],
+  "categories": ["productivity", "utilities"],
   "icons": [
     {
       "src": "/img/deck-favicon-512.png",

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Deck — Ahrens Labs</title>
-  <meta name="description" content="Deck — make flashcard decks, flip through them, and study until they stick.">
+  <meta name="description" content="Deck — take notes and group them into decks so related things stay together.">
   <meta name="theme-color" content="#4f46e5">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -115,7 +115,6 @@
       justify-content: center;
       width: 34px;
       height: 34px;
-      font-size: 1.1rem;
       line-height: 1;
     }
     .dk-bottom-nav-icon img {
@@ -153,7 +152,7 @@
       display: flex;
       gap: 8px;
       flex-wrap: wrap;
-      margin: 16px 0;
+      margin: 0 0 16px;
     }
     .dk-btn {
       appearance: none;
@@ -189,13 +188,14 @@
       display: grid;
       gap: 10px;
     }
-    .dk-deck-card {
+    .dk-deck-card,
+    .dk-note-card {
       background: var(--dk-card);
       border: 1px solid var(--dk-line);
       border-radius: 16px;
       padding: 14px 16px;
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       justify-content: space-between;
       gap: 12px;
       cursor: pointer;
@@ -205,19 +205,30 @@
       color: inherit;
       box-shadow: 0 8px 24px rgba(49, 46, 129, 0.06);
     }
-    .dk-deck-card:hover {
+    .dk-deck-card:hover,
+    .dk-note-card:hover {
       border-color: #c7d2fe;
     }
-    .dk-deck-card h3 {
+    .dk-deck-card h3,
+    .dk-note-card h3 {
       margin: 0 0 4px;
       font-size: 1.05rem;
       font-weight: 800;
       color: var(--dk-ink);
     }
-    .dk-deck-card p {
+    .dk-deck-card p,
+    .dk-note-card p {
       margin: 0;
       color: var(--dk-muted);
       font-size: 0.86rem;
+      line-height: 1.45;
+    }
+    .dk-note-card p {
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      white-space: pre-wrap;
     }
     .dk-empty {
       background: #fff;
@@ -240,7 +251,8 @@
       color: #475569;
     }
     .dk-field input,
-    .dk-field textarea {
+    .dk-field textarea,
+    .dk-field select {
       font: inherit;
       border: 1px solid var(--dk-line);
       border-radius: 10px;
@@ -248,76 +260,17 @@
       background: #fff;
       color: var(--dk-ink);
     }
-    .dk-field textarea { min-height: 88px; resize: vertical; }
-    .dk-card-row {
-      background: #fff;
+    .dk-field textarea { min-height: 180px; resize: vertical; }
+    .dk-search {
+      width: 100%;
+      font: inherit;
       border: 1px solid var(--dk-line);
       border-radius: 12px;
-      padding: 12px 14px;
-      display: grid;
-      gap: 4px;
-    }
-    .dk-card-row .front { font-weight: 700; color: var(--dk-ink); }
-    .dk-card-row .back { color: var(--dk-muted); font-size: 0.92rem; }
-    .dk-card-row-actions {
-      display: flex;
-      gap: 8px;
-      margin-top: 8px;
-    }
-    .dk-flip {
-      perspective: 1000px;
-      min-height: 240px;
-      margin: 12px 0 18px;
-    }
-    .dk-flip-inner {
-      position: relative;
-      width: 100%;
-      min-height: 240px;
-      transform-style: preserve-3d;
-      transition: transform 0.45s ease;
-      cursor: pointer;
-    }
-    .dk-flip-inner.is-back { transform: rotateY(180deg); }
-    .dk-face {
-      position: absolute;
-      inset: 0;
-      backface-visibility: hidden;
+      padding: 10px 12px;
       background: #fff;
-      border: 1px solid var(--dk-line);
-      border-radius: 18px;
-      padding: 28px 22px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      font-size: 1.25rem;
-      font-weight: 700;
       color: var(--dk-ink);
-      box-shadow: 0 16px 40px rgba(49, 46, 129, 0.12);
-    }
-    .dk-face.back {
-      transform: rotateY(180deg);
-      background: linear-gradient(180deg, #fff, #eef2ff);
-      font-weight: 600;
-    }
-    .dk-progress {
-      height: 8px;
-      background: #e0e7ff;
-      border-radius: 99px;
-      overflow: hidden;
-      margin: 8px 0 4px;
-    }
-    .dk-progress span {
-      display: block;
-      height: 100%;
-      background: linear-gradient(90deg, var(--dk-brand), var(--dk-brand-2));
-      width: 0;
-    }
-    .dk-hint { color: var(--dk-muted); font-size: 0.85rem; margin: 0 0 10px; }
-    .dk-study-actions {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
+      margin: 0 0 14px;
+      box-sizing: border-box;
     }
     .hidden { display: none !important; }
   </style>
@@ -361,82 +314,70 @@
 
     <main class="dk-main">
       <div class="dk-wrap">
-        <section id="view-home">
+        <section id="view-decks">
           <div class="dk-hero">
-            <h2>Your decks</h2>
-            <p>Make flashcard decks, flip through them, and study until they stick. Saved on this device — sign in to keep a separate copy per account.</p>
+            <h2>Decks</h2>
+            <p>Group related notes into decks so school, projects, and ideas stay in their own piles. Saved on this device — sign in to keep a separate copy per account.</p>
           </div>
           <div class="dk-toolbar">
             <button type="button" class="dk-btn dk-btn-primary" id="btn-new-deck">New deck</button>
-            <button type="button" class="dk-btn dk-btn-ghost" id="btn-sample">Add sample deck</button>
           </div>
           <div id="deck-list" class="dk-list"></div>
         </section>
 
-        <section id="view-edit" class="hidden">
+        <section id="view-notes" class="hidden">
           <div class="dk-hero">
-            <h2>Cards</h2>
-            <p>Name the deck, add flashcards, then study from the bar below.</p>
-          </div>
-          <div class="dk-toolbar">
-            <button type="button" class="dk-btn dk-btn-danger" id="btn-delete-deck">Delete deck</button>
+            <h2 id="notes-heading">Notes</h2>
+            <p id="notes-sub">Open a deck to see its notes.</p>
           </div>
           <div class="dk-field">
             <label for="deck-name">Deck name</label>
             <input id="deck-name" type="text" maxlength="80" autocomplete="off">
           </div>
-          <h3 style="margin:18px 0 8px;font-size:1.05rem;">Cards</h3>
-          <div class="dk-field">
-            <label for="card-front">Front</label>
-            <textarea id="card-front" placeholder="Prompt or question"></textarea>
-          </div>
-          <div class="dk-field">
-            <label for="card-back">Back</label>
-            <textarea id="card-back" placeholder="Answer"></textarea>
-          </div>
           <div class="dk-toolbar">
-            <button type="button" class="dk-btn dk-btn-primary" id="btn-add-card">Add card</button>
+            <button type="button" class="dk-btn dk-btn-primary" id="btn-new-note">New note</button>
+            <button type="button" class="dk-btn dk-btn-danger" id="btn-delete-deck">Delete deck</button>
           </div>
-          <div id="card-list" class="dk-list"></div>
+          <input class="dk-search" id="note-search" type="search" placeholder="Search this deck…" autocomplete="off">
+          <div id="note-list" class="dk-list"></div>
         </section>
 
-        <section id="view-study" class="hidden">
+        <section id="view-note" class="hidden">
           <div class="dk-hero">
-            <h2>Study</h2>
-            <p id="study-meta" class="dk-hint" style="margin:0;"></p>
+            <h2 id="note-heading">Note</h2>
+            <p>Write freely, then keep it in this deck or move it to another.</p>
           </div>
-          <div class="dk-progress" aria-hidden="true"><span id="study-bar"></span></div>
-          <div class="dk-flip" id="study-flip">
-            <div class="dk-flip-inner" id="study-inner">
-              <div class="dk-face" id="study-front"></div>
-              <div class="dk-face back" id="study-back"></div>
-            </div>
+          <div class="dk-toolbar">
+            <button type="button" class="dk-btn dk-btn-ghost" id="btn-back-notes">← Notes</button>
+            <button type="button" class="dk-btn dk-btn-primary" id="btn-save-note">Save</button>
+            <button type="button" class="dk-btn dk-btn-danger" id="btn-delete-note">Delete</button>
           </div>
-          <p class="dk-hint">Tap the card to flip. Mark whether you knew it.</p>
-          <div class="dk-study-actions">
-            <button type="button" class="dk-btn dk-btn-ghost" id="btn-again">Again</button>
-            <button type="button" class="dk-btn dk-btn-primary" id="btn-got-it">Got it</button>
+          <div class="dk-field">
+            <label for="note-title">Title</label>
+            <input id="note-title" type="text" maxlength="160" autocomplete="off" placeholder="What’s this about?">
+          </div>
+          <div class="dk-field">
+            <label for="note-body">Note</label>
+            <textarea id="note-body" placeholder="Write the details here…"></textarea>
+          </div>
+          <div class="dk-field">
+            <label for="note-deck">Deck</label>
+            <select id="note-deck"></select>
           </div>
         </section>
       </div>
     </main>
 
     <nav class="dk-bottom-nav" id="dk-bottom-nav" aria-label="Deck sections">
-      <button type="button" class="dk-bottom-nav-item active" data-dk-tab="home">
+      <button type="button" class="dk-bottom-nav-item active" data-dk-tab="decks">
         <span class="dk-bottom-nav-icon" aria-hidden="true"><img src="img/deck-logo-128.png" alt="" width="34" height="34"></span>
         <span>Decks</span>
       </button>
-      <button type="button" class="dk-bottom-nav-item" data-dk-tab="edit">
+      <button type="button" class="dk-bottom-nav-item" data-dk-tab="notes">
         <span class="dk-bottom-nav-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24"><rect x="4" y="5" width="14" height="16" rx="2"/><path d="M8 9h6M8 13h6M8 17h4"/><rect x="8" y="3" width="14" height="16" rx="2" opacity="0.35"/></svg>
+          <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h6"/></svg>
         </span>
-        <span>Cards</span>
-      </button>
-      <button type="button" class="dk-bottom-nav-item" data-dk-tab="study">
-        <span class="dk-bottom-nav-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24"><path d="M4 19V5a2 2 0 0 1 2-2h9"/><path d="M8 21h10a2 2 0 0 0 2-2V7"/><path d="m9 12 2 2 4-5"/></svg>
-        </span>
-        <span>Study</span>
+        <span>Notes</span>
       </button>
     </nav>
   </div>
@@ -447,39 +388,72 @@
       const STORAGE_KEY = 'deck_data_' + uid;
 
       function uidId() {
-        return 'c' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+        return 'n' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+      }
+
+      function notesFromDeck(deck) {
+        if (Array.isArray(deck.notes)) return deck.notes;
+        if (Array.isArray(deck.cards)) {
+          return deck.cards.map((c) => ({
+            id: c.id || uidId(),
+            title: c.title || c.front || '',
+            body: c.body || c.back || '',
+            createdAt: c.createdAt || Date.now(),
+            updatedAt: c.updatedAt || Date.now(),
+          }));
+        }
+        return [];
       }
 
       function load() {
         try {
           const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
-          return { decks: Array.isArray(raw.decks) ? raw.decks : [] };
+          const decks = (Array.isArray(raw.decks) ? raw.decks : []).map((d) => ({
+            id: d.id || uidId(),
+            name: d.name || 'Untitled',
+            createdAt: d.createdAt || Date.now(),
+            notes: notesFromDeck(d),
+          }));
+          return { decks };
         } catch {
           return { decks: [] };
         }
       }
 
-      function save(state) {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      function save(next) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
       }
 
       let state = load();
-      let activeDeckId = null;
-      let queue = [];
-      let qIndex = 0;
-      let known = 0;
+      save(state);
+      let activeDeckId = state.decks[0] ? state.decks[0].id : null;
+      let activeNoteId = null;
 
       const views = {
-        home: document.getElementById('view-home'),
-        edit: document.getElementById('view-edit'),
-        study: document.getElementById('view-study'),
+        decks: document.getElementById('view-decks'),
+        notes: document.getElementById('view-notes'),
+        note: document.getElementById('view-note'),
       };
 
       function show(name) {
         Object.keys(views).forEach((k) => views[k].classList.toggle('hidden', k !== name));
+        const tab = name === 'note' ? 'notes' : name;
         document.querySelectorAll('.dk-bottom-nav-item').forEach((btn) => {
-          btn.classList.toggle('active', btn.getAttribute('data-dk-tab') === name);
+          btn.classList.toggle('active', btn.getAttribute('data-dk-tab') === tab);
         });
+      }
+
+      function deckById(id) {
+        return state.decks.find((d) => d.id === id);
+      }
+
+      function noteCount(deck) {
+        return (deck.notes || []).length;
+      }
+
+      function snippet(text) {
+        const s = String(text || '').replace(/\s+/g, ' ').trim();
+        return s || 'Empty note';
       }
 
       function ensureActiveDeck() {
@@ -492,14 +466,10 @@
         return null;
       }
 
-      function deckById(id) {
-        return state.decks.find((d) => d.id === id);
-      }
-
-      function renderHome() {
+      function renderDecks() {
         const list = document.getElementById('deck-list');
         if (!state.decks.length) {
-          list.innerHTML = '<div class="dk-empty"><strong>No decks yet.</strong><br>Create one, or add the sample deck to try studying.</div>';
+          list.innerHTML = '<div class="dk-empty"><strong>No decks yet.</strong><br>Create a deck, then drop notes into it.</div>';
           return;
         }
         list.innerHTML = '';
@@ -507,124 +477,141 @@
           const btn = document.createElement('button');
           btn.type = 'button';
           btn.className = 'dk-deck-card';
-          const n = (d.cards || []).length;
+          const n = noteCount(d);
           btn.innerHTML = '<div><h3></h3><p></p></div>';
           btn.querySelector('h3').textContent = d.name || 'Untitled';
-          btn.querySelector('p').textContent = n + (n === 1 ? ' card' : ' cards');
+          btn.querySelector('p').textContent = n + (n === 1 ? ' note' : ' notes');
           btn.addEventListener('click', () => openDeck(d.id));
           list.appendChild(btn);
         });
       }
 
-      function renderEdit() {
-        const deck = deckById(activeDeckId);
-        if (!deck) return showHome();
-        document.getElementById('deck-name').value = deck.name || '';
-        const list = document.getElementById('card-list');
-        list.innerHTML = '';
-        if (!deck.cards.length) {
-          list.innerHTML = '<div class="dk-empty">No cards in this deck yet.</div>';
+      function renderNotes() {
+        const deck = ensureActiveDeck();
+        if (!deck) {
+          showDecks();
           return;
         }
-        deck.cards.forEach((c) => {
-          const row = document.createElement('div');
-          row.className = 'dk-card-row';
-          const front = document.createElement('div');
-          front.className = 'front';
-          front.textContent = c.front;
-          const back = document.createElement('div');
-          back.className = 'back';
-          back.textContent = c.back;
-          const actions = document.createElement('div');
-          actions.className = 'dk-card-row-actions';
-          const del = document.createElement('button');
-          del.type = 'button';
-          del.className = 'dk-btn dk-btn-danger';
-          del.textContent = 'Remove';
-          del.addEventListener('click', () => {
-            deck.cards = deck.cards.filter((x) => x.id !== c.id);
-            save(state);
-            renderEdit();
-          });
-          actions.appendChild(del);
-          row.append(front, back, actions);
-          list.appendChild(row);
+        document.getElementById('notes-heading').textContent = deck.name || 'Notes';
+        document.getElementById('notes-sub').textContent = 'Notes in this deck stay grouped together.';
+        document.getElementById('deck-name').value = deck.name || '';
+        const q = document.getElementById('note-search').value.trim().toLowerCase();
+        const notes = (deck.notes || []).filter((n) => {
+          if (!q) return true;
+          return (n.title || '').toLowerCase().includes(q) || (n.body || '').toLowerCase().includes(q);
+        });
+        const list = document.getElementById('note-list');
+        if (!deck.notes.length) {
+          list.innerHTML = '<div class="dk-empty">This deck is empty. Add a note to start grouping ideas here.</div>';
+          return;
+        }
+        if (!notes.length) {
+          list.innerHTML = '<div class="dk-empty">No notes match that search.</div>';
+          return;
+        }
+        list.innerHTML = '';
+        notes.slice().reverse().forEach((n) => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'dk-note-card';
+          btn.innerHTML = '<div><h3></h3><p></p></div>';
+          btn.querySelector('h3').textContent = n.title || 'Untitled note';
+          btn.querySelector('p').textContent = snippet(n.body);
+          btn.addEventListener('click', () => openNote(n.id));
+          list.appendChild(btn);
         });
       }
 
-      function showHome() {
-        show('home');
-        renderHome();
+      function fillDeckSelect(selectedId) {
+        const sel = document.getElementById('note-deck');
+        sel.innerHTML = '';
+        state.decks.forEach((d) => {
+          const opt = document.createElement('option');
+          opt.value = d.id;
+          opt.textContent = d.name || 'Untitled';
+          if (d.id === selectedId) opt.selected = true;
+          sel.appendChild(opt);
+        });
+      }
+
+      function renderNote() {
+        const deck = ensureActiveDeck();
+        if (!deck) return showDecks();
+        const note = (deck.notes || []).find((n) => n.id === activeNoteId);
+        if (!note) return openDeck(deck.id);
+        document.getElementById('note-heading').textContent = note.title || 'Note';
+        document.getElementById('note-title').value = note.title || '';
+        document.getElementById('note-body').value = note.body || '';
+        fillDeckSelect(deck.id);
+      }
+
+      function showDecks() {
+        activeNoteId = null;
+        show('decks');
+        renderDecks();
       }
 
       function openDeck(id) {
         activeDeckId = id;
-        show('edit');
-        renderEdit();
+        activeNoteId = null;
+        show('notes');
+        renderNotes();
       }
 
-      function startStudy() {
-        const deck = ensureActiveDeck();
-        if (!deck || !deck.cards.length) {
-          alert('Add at least one card before studying.');
-          if (deck) openDeck(deck.id);
-          else showHome();
-          return;
+      function openNote(id) {
+        activeNoteId = id;
+        show('note');
+        renderNote();
+      }
+
+      function persistNoteFields() {
+        const deck = deckById(activeDeckId);
+        if (!deck) return;
+        const note = (deck.notes || []).find((n) => n.id === activeNoteId);
+        if (!note) return;
+        note.title = document.getElementById('note-title').value.trim();
+        note.body = document.getElementById('note-body').value;
+        note.updatedAt = Date.now();
+        const destId = document.getElementById('note-deck').value;
+        if (destId && destId !== deck.id) {
+          const dest = deckById(destId);
+          if (dest) {
+            deck.notes = deck.notes.filter((n) => n.id !== note.id);
+            dest.notes.unshift(note);
+            activeDeckId = dest.id;
+          }
         }
-        queue = deck.cards.slice();
-        qIndex = 0;
-        known = 0;
-        show('study');
-        renderStudyCard();
+        save(state);
       }
 
       document.getElementById('btn-new-deck').addEventListener('click', () => {
-        const deck = { id: uidId(), name: 'New deck', createdAt: Date.now(), cards: [] };
+        const deck = { id: uidId(), name: 'New deck', createdAt: Date.now(), notes: [] };
         state.decks.unshift(deck);
         save(state);
         openDeck(deck.id);
-      });
-
-      document.getElementById('btn-sample').addEventListener('click', () => {
-        if (state.decks.some((d) => d.name === 'Getting started')) {
-          const existing = state.decks.find((d) => d.name === 'Getting started');
-          openDeck(existing.id);
-          return;
-        }
-        const deck = {
-          id: uidId(),
-          name: 'Getting started',
-          createdAt: Date.now(),
-          cards: [
-            { id: uidId(), front: 'What is Deck?', back: 'A flashcard app from Ahrens Labs. Make decks, flip cards, and study.' },
-            { id: uidId(), front: 'How do I study?', back: 'Open a deck, tap Study, flip the card, then choose Again or Got it.' },
-            { id: uidId(), front: 'Where is my data saved?', back: 'On this device in your browser. Sign in to keep a separate copy for your account.' },
-          ],
-        };
-        state.decks.unshift(deck);
-        save(state);
-        openDeck(deck.id);
+        document.getElementById('deck-name').focus();
+        document.getElementById('deck-name').select();
       });
 
       document.getElementById('dk-bottom-nav').addEventListener('click', (ev) => {
         const btn = ev.target.closest('[data-dk-tab]');
         if (!btn) return;
         const tab = btn.getAttribute('data-dk-tab');
-        if (tab === 'home') {
-          showHome();
+        if (tab === 'decks') {
+          if (activeNoteId) persistNoteFields();
+          showDecks();
           return;
         }
-        if (tab === 'edit') {
+        if (tab === 'notes') {
+          if (activeNoteId) persistNoteFields();
           const deck = ensureActiveDeck();
           if (!deck) {
-            alert('Create a deck first.');
-            showHome();
+            alert('Create a deck first, then add notes into it.');
+            showDecks();
             return;
           }
           openDeck(deck.id);
-          return;
         }
-        if (tab === 'study') startStudy();
       });
 
       document.getElementById('deck-name').addEventListener('change', () => {
@@ -632,65 +619,59 @@
         if (!deck) return;
         deck.name = document.getElementById('deck-name').value.trim() || 'Untitled';
         save(state);
+        document.getElementById('notes-heading').textContent = deck.name;
       });
 
-      document.getElementById('btn-add-card').addEventListener('click', () => {
-        const deck = deckById(activeDeckId);
+      document.getElementById('note-search').addEventListener('input', renderNotes);
+
+      document.getElementById('btn-new-note').addEventListener('click', () => {
+        const deck = ensureActiveDeck();
         if (!deck) return;
-        const front = document.getElementById('card-front').value.trim();
-        const back = document.getElementById('card-back').value.trim();
-        if (!front || !back) return;
-        deck.cards.push({ id: uidId(), front, back });
-        document.getElementById('card-front').value = '';
-        document.getElementById('card-back').value = '';
+        const note = { id: uidId(), title: '', body: '', createdAt: Date.now(), updatedAt: Date.now() };
+        deck.notes.unshift(note);
         save(state);
-        renderEdit();
+        openNote(note.id);
+        document.getElementById('note-title').focus();
       });
 
       document.getElementById('btn-delete-deck').addEventListener('click', () => {
         const deck = deckById(activeDeckId);
         if (!deck) return;
-        if (!confirm('Delete “' + (deck.name || 'this deck') + '”?')) return;
+        const n = noteCount(deck);
+        const extra = n ? ' and its ' + n + (n === 1 ? ' note' : ' notes') : '';
+        if (!confirm('Delete “' + (deck.name || 'this deck') + '”' + extra + '?')) return;
         state.decks = state.decks.filter((d) => d.id !== activeDeckId);
-        activeDeckId = null;
+        activeDeckId = state.decks[0] ? state.decks[0].id : null;
+        activeNoteId = null;
         save(state);
-        showHome();
+        showDecks();
       });
 
-      function renderStudyCard() {
-        const card = queue[qIndex];
-        const inner = document.getElementById('study-inner');
-        inner.classList.remove('is-back');
-        document.getElementById('study-front').textContent = card.front;
-        document.getElementById('study-back').textContent = card.back;
-        document.getElementById('study-meta').textContent =
-          'Card ' + (qIndex + 1) + ' of ' + queue.length + ' · ' + known + ' marked Got it';
-        const pct = queue.length ? Math.round((qIndex / queue.length) * 100) : 0;
-        document.getElementById('study-bar').style.width = pct + '%';
-      }
-
-      document.getElementById('study-inner').addEventListener('click', () => {
-        document.getElementById('study-inner').classList.toggle('is-back');
+      document.getElementById('btn-back-notes').addEventListener('click', () => {
+        persistNoteFields();
+        openDeck(activeDeckId);
       });
 
-      function nextCard(gotIt) {
-        if (gotIt) known += 1;
-        else queue.push(queue[qIndex]);
-        qIndex += 1;
-        if (qIndex >= queue.length) {
-          document.getElementById('study-bar').style.width = '100%';
-          alert('Done — ' + known + ' marked Got it this round.');
-          show('edit');
-          renderEdit();
-          return;
-        }
-        renderStudyCard();
-      }
+      document.getElementById('btn-save-note').addEventListener('click', () => {
+        persistNoteFields();
+        openDeck(activeDeckId);
+      });
 
-      document.getElementById('btn-again').addEventListener('click', () => nextCard(false));
-      document.getElementById('btn-got-it').addEventListener('click', () => nextCard(true));
+      document.getElementById('btn-delete-note').addEventListener('click', () => {
+        const deck = deckById(activeDeckId);
+        if (!deck) return;
+        if (!confirm('Delete this note?')) return;
+        deck.notes = deck.notes.filter((n) => n.id !== activeNoteId);
+        activeNoteId = null;
+        save(state);
+        openDeck(deck.id);
+      });
 
-      showHome();
+      ['note-title', 'note-body', 'note-deck'].forEach((id) => {
+        document.getElementById(id).addEventListener('change', persistNoteFields);
+      });
+
+      showDecks();
     })();
   </script>
 </body>
