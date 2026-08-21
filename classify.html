@@ -7353,8 +7353,22 @@
             if(rule.type === 'none') return block.date === dateStr;
             const startDate = block.repeatStartDate || block.date;
             if(startDate && dateStr < startDate) return false;
+            const repeatDays = getBlockedTimeRepeatDays(block);
+            if(repeatDays.length === 0) return false;
             const day = new Date(`${dateStr}T00:00:00`).getDay();
-            return (rule.days || []).includes(day);
+            return repeatDays.includes(day);
+        }
+
+        function getBlockedTimeRepeatDays(block) {
+            const rule = normalizeRepeatRule(block?.repeatRule || {});
+            if(rule.type === 'none') return [];
+            if(rule.type === 'daily') return [0, 1, 2, 3, 4, 5, 6];
+            if(Array.isArray(rule.days) && rule.days.length > 0) return rule.days;
+            const anchor = block?.repeatStartDate || block?.date;
+            if(anchor && /^\d{4}-\d{2}-\d{2}$/.test(anchor)) {
+                return [new Date(`${anchor}T00:00:00`).getDay()];
+            }
+            return [];
         }
         function getBlockedSlotsForDate(dateStr) {
             const schedule = getScheduleForDate(dateStr);
@@ -7857,6 +7871,7 @@
                 weekKeys = getRelevantUpcomingWeekKeys(),
                 forceRebuildAutoSlots = true,
                 weeksAhead = 12,
+                forceReplan = false,
                 onClose = null
             } = options || {};
 
@@ -7865,7 +7880,7 @@
 
             deferClassifyScheduleWork(() => {
                 reAutoScheduleWeeks(weekKeys, forceRebuildAutoSlots, false);
-                ensureAllEventsScheduled(weeksAhead, false);
+                ensureAllEventsScheduled(weeksAhead, false, { forceReplan });
             }, { skipUndoRecord: true });
         }
 
@@ -9519,15 +9534,14 @@
 
             const existRule = normalizeRepeatRule(existing.repeatRule || {});
             const candRule = normalizeRepeatRule(candidate.repeatRule || {});
-            const daySet = (rule, anchorDate) => {
+            const daySet = (block, rule) => {
                 if(rule.type === 'none') {
-                    return [new Date(`${anchorDate}T00:00:00`).getDay()];
+                    return [new Date(`${block.date}T00:00:00`).getDay()];
                 }
-                if(rule.type === 'daily') return [0, 1, 2, 3, 4, 5, 6];
-                return rule.days || [];
+                return getBlockedTimeRepeatDays(block);
             };
-            const existDays = daySet(existRule, existing.date);
-            const candDays = daySet(candRule, candidate.date);
+            const existDays = daySet(existing, existRule);
+            const candDays = daySet(candidate, candRule);
             return existDays.some(day => candDays.includes(day));
         }
 
@@ -10954,18 +10968,24 @@
                 return false;
             }
             recordClassifyUndoPoint({ force: true });
+            const anchorDate = normalizedRepeatRule.type !== 'none'
+                ? resolveAnchorDateForWeekdays(getBlockedTimeRepeatDays({ repeatRule: normalizedRepeatRule, date }))
+                : date;
             blockedTimes.push({
                 id: generateId(),
-                date,
+                date: anchorDate,
                 start,
                 end,
                 repeatRule: normalizedRepeatRule,
-                repeatStartDate: date,
+                repeatStartDate: anchorDate,
                 label: label || null
             });
             blockedTimes = normalizeBlockedTimes(blockedTimes);
             renderBlockedTimesList();
-            persistClassifyScheduleRefresh({ weekKeys: [getWeekKeyFromDateStr(date)] });
+            persistClassifyScheduleRefresh({
+                weekKeys: getBlockedTimeRefreshWeekKeys({ date: anchorDate, repeatRule: normalizedRepeatRule }),
+                forceReplan: normalizedRepeatRule.type !== 'none'
+            });
             const timeLabel = `${minToTime(timeToMin(start))}-${minToTime(timeToMin(end))}`;
             const repeatLabel = formatRepeatLabel(normalizedRepeatRule);
             showNotification(
@@ -12713,6 +12733,26 @@
             return Array.from(keys).filter(Boolean);
         }
 
+        function getUpcomingWeekKeys(weeksAhead = 12) {
+            const weekKeys = new Set(getRelevantUpcomingWeekKeys());
+            const today = new Date();
+            for(let i = 0; i < weeksAhead; i++) {
+                const candidate = new Date(today);
+                candidate.setDate(candidate.getDate() + (i * 7));
+                weekKeys.add(getWeekKey(candidate));
+            }
+            return Array.from(weekKeys).filter(Boolean);
+        }
+
+        function getBlockedTimeRefreshWeekKeys({ date, repeatRule, weeksAhead = 12 } = {}) {
+            const rule = normalizeRepeatRule(repeatRule || {});
+            if(rule.type === 'none') {
+                const weekKey = getWeekKeyFromDateStr(date);
+                return weekKey ? [weekKey] : getRelevantUpcomingWeekKeys();
+            }
+            return getUpcomingWeekKeys(weeksAhead);
+        }
+
         function reAutoScheduleWeeks(weekKeys = [], forceRebuildAutoSlots = true, persist = false) {
             const uniqueKeys = Array.from(new Set((weekKeys || []).filter(Boolean)));
             const changed = refreshAdjustableScheduling({
@@ -12863,17 +12903,23 @@
                 return;
             }
             const overlap = normalizeBlockedTimes(blockedTimes).some(b =>
-                b.date === date && isTimeRangeOverlapping(timeToMin(start), timeToMin(end), timeToMin(b.start), timeToMin(b.end))
+                blockedTimeEntriesOverlap(b, { date, start, end, repeatRule })
             );
             if(overlap) {
                 showNotification('Blocked time overlaps an existing block', 'error');
                 return;
             }
             recordClassifyUndoPoint({ force: true });
-            blockedTimes.push({ id: generateId(), date, start, end, repeatRule, repeatStartDate: date });
+            const anchorDate = repeatRule.type !== 'none'
+                ? resolveAnchorDateForWeekdays(repeatDays)
+                : date;
+            blockedTimes.push({ id: generateId(), date: anchorDate, start, end, repeatRule, repeatStartDate: anchorDate });
             blockedTimes = normalizeBlockedTimes(blockedTimes);
             renderBlockedTimesList();
-            persistClassifyScheduleRefresh({ weekKeys: [getWeekKeyFromDateStr(date)] });
+            persistClassifyScheduleRefresh({
+                weekKeys: getBlockedTimeRefreshWeekKeys({ date: anchorDate, repeatRule }),
+                forceReplan: repeatRule.type !== 'none'
+            });
             showNotification('Blocked time added', 'success');
         }
 
@@ -12952,8 +12998,12 @@
             recordClassifyUndoPoint({ force: true });
             blockedTimes = normalizeBlockedTimes(blockedTimes).filter(b => b.id !== blockId);
             renderBlockedTimesList();
+            const removedRule = normalizeRepeatRule(removed?.repeatRule || {});
             if(removed?.date) {
-                persistClassifyScheduleRefresh({ weekKeys: [getWeekKeyFromDateStr(removed.date)] });
+                persistClassifyScheduleRefresh({
+                    weekKeys: getBlockedTimeRefreshWeekKeys({ date: removed.date, repeatRule: removed.repeatRule }),
+                    forceReplan: removedRule.type !== 'none'
+                });
             } else {
                 saveData({ skipAutoSchedule: true, skipUndoRecord: true });
             }
@@ -15708,37 +15758,25 @@
             return scheduled;
         }
 
-        function ensureAllEventsScheduled(weeksAhead = 12, persist = false) {
-            if(!tasks.some(taskNeedsCalendarScheduling)) return;
-            const weekKeys = new Set();
-            const todayStr = getDateStrLocal();
-            const today = new Date();
-            for(let i = 0; i < weeksAhead; i++) {
-                const candidate = new Date(today);
-                candidate.setDate(candidate.getDate() + (i * 7));
-                weekKeys.add(getWeekKey(candidate));
-            }
-            // Include any week that already has active work so calendar view gets fully timed entries.
-            tasks.filter(t => !t.completed).forEach(t => {
-                const dueDate = getTaskDueDate(t);
-                if(t.date && t.date >= todayStr) weekKeys.add(getWeekKeyFromDateStr(t.date));
-                if(dueDate) weekKeys.add(getWeekKeyFromDateStr(dueDate));
-                const targetWeek = getTaskTargetWeekKey(t);
-                if(targetWeek) weekKeys.add(targetWeek);
-            });
+        function ensureAllEventsScheduled(weeksAhead = 12, persist = false, options = {}) {
+            const { forceReplan = false } = options || {};
+            if(!forceReplan && !tasks.some(taskNeedsCalendarScheduling)) return;
+            const weekKeys = new Set(getUpcomingWeekKeys(weeksAhead));
             weekKeys.forEach(weekKey => {
                 if(!weekKey) return;
                 replanWeekFromScratch(weekKey, true);
             });
-            const dateWeeks = new Set(
-                tasks
-                    .filter(t => taskNeedsCalendarScheduling(t) && t.date)
-                    .map(t => getWeekKeyFromDateStr(t.date))
-            );
-            dateWeeks.forEach(weekKey => {
-                if(!weekKey) return;
-                replanWeekFromScratch(weekKey, true);
-            });
+            if(!forceReplan) {
+                const dateWeeks = new Set(
+                    tasks
+                        .filter(t => taskNeedsCalendarScheduling(t) && t.date)
+                        .map(t => getWeekKeyFromDateStr(t.date))
+                );
+                dateWeeks.forEach(weekKey => {
+                    if(!weekKey) return;
+                    replanWeekFromScratch(weekKey, true);
+                });
+            }
             if(persist) saveData({ skipAutoSchedule: true, skipUndoRecord: true });
         }
 
