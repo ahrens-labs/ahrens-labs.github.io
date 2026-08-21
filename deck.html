@@ -3202,16 +3202,16 @@
         });
       });
 
-      function leaveCardEditor() {
+      function leaveCardEditor(loc) {
         const deck = ensureActiveDeck();
-        const loc = activeCardLocation();
+        const stackId = loc && loc.stack ? loc.stack.id : activeStackId;
         activeCardId = null;
         if (cardReturnView === 'decks') {
           showDecks({ replaceUrl: false });
         } else if (cardReturnView === 'all-cards') {
           showAllCards({ replaceUrl: false });
-        } else if (loc && loc.stack) {
-          openStack(loc.stack.id, { replaceUrl: false });
+        } else if (stackId && deck && stackById(deck, stackId)) {
+          openStack(stackId, { replaceUrl: false });
         } else if (deck) {
           openDeck(deck.id, { replaceUrl: false });
         } else {
@@ -3250,7 +3250,7 @@
         card.archivedAt = Date.now();
         touchCard(card);
         save();
-        leaveCardEditor();
+        leaveCardEditor(loc);
       });
 
       document.getElementById('btn-delete-card').addEventListener('click', async () => {
