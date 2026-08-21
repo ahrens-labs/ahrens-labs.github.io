@@ -656,6 +656,12 @@
       margin-top: 8px;
       padding: 10px 12px;
     }
+    .dk-card-preview-checklist {
+      padding: 0 12px 8px;
+    }
+    .dk-card-preview-item.dk-reorder-item .dk-card-preview-checklist {
+      grid-column: 2;
+    }
     .dk-card-preview-empty {
       margin: 0;
       color: var(--dk-muted);
@@ -2202,13 +2208,28 @@
         }
         const body = document.createElement('div');
         body.className = 'dk-card-preview-body';
-        appendCardPreview(card, body);
+        appendCardPreviewSections(card, body);
         inner.appendChild(body);
         open.appendChild(inner);
         open.addEventListener('click', () => {
           activeDeckId = deckId;
           openCard(card.id, { stackId: stackId || null });
         });
+        const checklistBlock = document.createElement('div');
+        checklistBlock.className = 'dk-card-preview-checklist';
+        checklistBlock.addEventListener('click', (ev) => ev.stopPropagation());
+        checklistBlock.addEventListener('mousedown', (ev) => ev.stopPropagation());
+        const checklistHost = document.createElement('div');
+        let checklistPanel = null;
+        if (renderChecklistView(card, checklistHost, renderCurrentView)) {
+          checklistPanel = document.createElement('div');
+          checklistPanel.className = 'dk-card-checklist';
+          const label = document.createElement('p');
+          label.className = 'dk-card-checklist-label';
+          label.textContent = 'Checklist';
+          checklistPanel.append(label, checklistHost);
+          checklistBlock.appendChild(checklistPanel);
+        }
         const actions = document.createElement('div');
         actions.className = 'dk-item-actions';
         actions.style.padding = '0 12px 12px';
@@ -2221,63 +2242,28 @@
           openReview(deckId, { scope: 'card', cardId: card.id, stackId: stackId || null });
         });
         actions.appendChild(reviewBtn);
-        row.append(open, actions);
+        if (checklistPanel) row.append(open, checklistBlock, actions);
+        else row.append(open, actions);
         if (opts.reorder) {
           row.insertBefore(createDragHandle('Reorder card'), row.firstChild);
         }
         return row;
       }
 
-      function renderChecklistStatic(card, host) {
-        host.innerHTML = '';
-        const checklist = ensureCardChecklist(card);
-        const visible = checklist.filter((it) => (it.text || '').trim());
-        if (!visible.length) return false;
-        const open = visible.filter((it) => !it.done);
-        const done = visible.filter((it) => it.done);
-        function staticRow(it) {
-          const row = document.createElement('div');
-          row.className = 'dk-check-static-row' + (it.done ? ' done' : '');
-          const mark = document.createElement('span');
-          mark.className = 'dk-check-static-mark';
-          mark.textContent = it.done ? '✓' : '○';
-          const text = document.createElement('span');
-          text.textContent = it.text;
-          row.append(mark, text);
-          return row;
-        }
-        const openList = document.createElement('div');
-        openList.className = 'dk-check-list';
-        open.forEach((it) => openList.appendChild(staticRow(it)));
-        host.appendChild(openList);
-        if (done.length) {
-          const label = document.createElement('div');
-          label.className = 'dk-completed-label';
-          label.textContent = 'Completed';
-          const doneList = document.createElement('div');
-          doneList.className = 'dk-check-list';
-          done.forEach((it) => doneList.appendChild(staticRow(it)));
-          host.append(label, doneList);
-        }
-        return true;
-      }
-
-      function appendCardPreview(card, host) {
-        if (!cardHasContent(card)) {
-          host.innerHTML = '<p class="dk-card-preview-empty">Empty card — tap to add notes or tasks</p>';
+      function appendCardPreviewSections(card, host) {
+        const sections = (card.sections || []).filter(sectionHasContent);
+        if (!sections.length) {
+          const hasChecklist = ensureCardChecklist(card).some((it) => (it.text || '').trim());
+          if (!hasChecklist) {
+            host.innerHTML = '<p class="dk-card-preview-empty">Empty card — tap to add notes or tasks</p>';
+          }
           return;
         }
         renderCardSectionsView(card, host, '');
-        const checklistHost = document.createElement('div');
-        if (renderChecklistStatic(card, checklistHost)) {
-          const wrap = document.createElement('div');
-          wrap.className = 'dk-card-checklist';
-          const label = document.createElement('p');
-          label.className = 'dk-card-checklist-label';
-          label.textContent = 'Checklist';
-          wrap.append(label, checklistHost);
-          host.appendChild(wrap);
-        }
+      }
+
+      function appendCardPreview(card, host) {
+        appendCardPreviewSections(card, host);
       }
 
       function renderStackItem(stack, deckId) {
@@ -2505,11 +2491,13 @@
         const text = document.createElement('span');
         text.textContent = item.text || 'Untitled item';
         row.append(box, text);
+        row.addEventListener('click', (ev) => ev.stopPropagation());
+        row.addEventListener('mousedown', (ev) => ev.stopPropagation());
         box.addEventListener('change', () => {
           item.done = box.checked;
           item.doneAt = box.checked ? Date.now() : null;
           touchCard(card);
-          (rerenderFn || renderCard)();
+          (rerenderFn || renderCurrentView)();
         });
         return row;
       }
