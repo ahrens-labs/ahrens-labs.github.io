@@ -7854,6 +7854,13 @@
             if(keys.length === 0) {
                 keys = getRelevantUpcomingWeekKeys();
             }
+            const seedIdsNeedingSchedule = (seedTaskIds || []).filter(id => {
+                const task = tasks.find(t => t.id === id);
+                return task && taskNeedsCalendarScheduling(task);
+            });
+            if(seedIdsNeedingSchedule.length > 0) {
+                scheduleTargetWeekTasksImmediately(seedIdsNeedingSchedule);
+            }
             reoptimizeAffectedWeeks(keys);
             scheduleUnassignedTargetWeekTasksInWeeks(keys);
             const immediateIds = new Set(seedTaskIds || []);
@@ -14724,25 +14731,61 @@
             return !task.time;
         }
 
-        function pickImmediateScheduleDateForTask(task, weekKey = null) {
-            if(!task) return null;
+        function getImmediateScheduleDatesForTask(task, weekKey = null) {
+            if(!task) return [];
             const todayStr = getDateStrLocal();
             const resolvedWeekKey = weekKey || getTaskTargetWeekKey(task) || (getTaskDueDate(task) ? getWeekKeyFromDateStr(getTaskDueDate(task)) : null);
             const dueDate = getTaskDueDate(task);
-            const weekDates = resolvedWeekKey
-                ? getWeekdayDateStringsFromWeekKey(resolvedWeekKey).filter(d => d >= todayStr && !isDateInVacation(d))
+            let eligible = resolvedWeekKey
+                ? getScheduleEligibleDates(task, resolvedWeekKey, false).filter(d => d >= todayStr && !isDateInVacation(d) && !isDateBlockedForTask(task, d))
                 : [];
-            if(dueDate && dueDate >= todayStr && !isDateInVacation(dueDate) && !isDateBlockedForTask(task, dueDate)) {
-                if(!resolvedWeekKey || weekDates.includes(dueDate)) return dueDate;
+            if(dueDate) {
+                const dueEligible = eligible.filter(d => d <= dueDate);
+                eligible = dueEligible.length ? dueEligible : eligible;
+                if(!eligible.includes(dueDate) && dueDate >= todayStr && !isDateInVacation(dueDate) && !isDateBlockedForTask(task, dueDate)) {
+                    eligible.push(dueDate);
+                }
+            } else if(!eligible.length && task.date && task.date >= todayStr) {
+                eligible = [task.date];
             }
-            const eligible = resolvedWeekKey
-                ? getScheduleEligibleDates(task, resolvedWeekKey, false).filter(d => !isDateBlockedForTask(task, d))
-                : (dueDate && dueDate >= todayStr ? [dueDate] : []);
-            const onOrBeforeDue = dueDate
-                ? eligible.filter(d => d <= dueDate)
-                : eligible;
-            const preferred = onOrBeforeDue.length ? onOrBeforeDue : eligible;
-            return sortScheduleDatesByPreference(preferred, resolvedWeekKey)[0] || null;
+            return sortScheduleDatesByPreference(eligible, resolvedWeekKey);
+        }
+
+        function pickImmediateScheduleDateForTask(task, weekKey = null) {
+            return getImmediateScheduleDatesForTask(task, weekKey)[0] || null;
+        }
+
+        function getMovableAutoBlockersOnDate(dateStr, excludeTaskId = null) {
+            return tasks.filter(t =>
+                t.id !== excludeTaskId &&
+                !t.completed &&
+                t.date === dateStr &&
+                t.time &&
+                !isUserScheduleLocked(t) &&
+                !isFixedTask(t)
+            ).sort((a, b) => {
+                const priorityDiff = getPriorityRank(b.priority) - getPriorityRank(a.priority);
+                if(priorityDiff !== 0) return priorityDiff;
+                return timeToMin(b.time) - timeToMin(a.time);
+            });
+        }
+
+        function bumpAutoTaskToAnotherDay(task, avoidDate, weekKey) {
+            if(!task || isUserScheduleLocked(task)) return false;
+            const eligible = getScheduleEligibleDates(task, weekKey, true)
+                .filter(d => d !== avoidDate && !isDateInVacation(d) && !isDateBlockedForTask(task, d));
+            for(const altDate of sortScheduleDatesByPreference(eligible, weekKey)) {
+                task.date = altDate;
+                if(task.dateSource !== 'user') task.dateSource = 'auto';
+                task.time = null;
+                task.timeSource = null;
+                task.assignmentMode = 'ADJUSTABLE';
+                if(tryPlaceTaskTimeOnDate(task, altDate)) return true;
+            }
+            task.time = null;
+            task.timeSource = null;
+            task.assignmentMode = 'ADJUSTABLE';
+            return false;
         }
 
         function tryPlaceTaskTimeOnDate(task, dateStr) {
@@ -14776,6 +14819,60 @@
             return true;
         }
 
+        function tryPlaceTaskTimeOnDateWithRepack(task, dateStr, weekKey, options = {}) {
+            const { maxEvictions = 16 } = options || {};
+            if(tryPlaceTaskTimeOnDate(task, dateStr)) {
+                return { placed: true, evicted: [] };
+            }
+
+            const evicted = [];
+            let attempts = 0;
+            while(attempts < maxEvictions) {
+                attempts++;
+                const blockers = getMovableAutoBlockersOnDate(dateStr, task.id);
+                if(blockers.length === 0) break;
+                const blocker = blockers[0];
+                if(bumpAutoTaskToAnotherDay(blocker, dateStr, weekKey)) {
+                    evicted.push(blocker.id);
+                } else {
+                    blocker.time = null;
+                    blocker.timeSource = null;
+                    blocker.assignmentMode = 'ADJUSTABLE';
+                    evicted.push(blocker.id);
+                }
+                if(tryPlaceTaskTimeOnDate(task, dateStr)) {
+                    return { placed: true, evicted };
+                }
+            }
+            return { placed: false, evicted };
+        }
+
+        function rescheduleDisplacedTasks(taskIds, weekKey, excludeTaskId = null) {
+            Array.from(new Set((taskIds || []).filter(id => id && id !== excludeTaskId))).forEach(id => {
+                const task = tasks.find(t => t.id === id);
+                if(!task || task.completed || task.time) return;
+                for(const dateStr of getImmediateScheduleDatesForTask(task, weekKey)) {
+                    if(hasUserLockedCalendarDate(task) && task.date && dateStr !== task.date) continue;
+                    if(!task.date || task.date !== dateStr) {
+                        if(hasUserLockedCalendarDate(task)) continue;
+                        task.date = dateStr;
+                        if(task.dateSource !== 'user') task.dateSource = 'auto';
+                    }
+                    if(tryPlaceTaskTimeOnDate(task, dateStr)) return;
+                }
+            });
+        }
+
+        function assignImmediateScheduleDate(task, dateStr, weekKey) {
+            if(!task || !dateStr) return;
+            task.date = dateStr;
+            if(task.dateSource !== 'user') task.dateSource = 'auto';
+            if(isTargetWeekAssignment(task) || task.scheduleType === 'week' || task.weekDueOnly) {
+                task.week = weekKey;
+                ensureTargetWeekScheduleType(task);
+            }
+        }
+
         function scheduleTargetWeekTasksImmediately(taskIds = []) {
             const ids = Array.from(new Set((taskIds || []).filter(Boolean)));
             if(ids.length === 0) return 0;
@@ -14787,19 +14884,33 @@
                 if(!taskNeedsCalendarScheduling(task)) return;
 
                 const weekKey = getTaskTargetWeekKey(task) || getCurrentWeekKey();
-                if(!task.date) {
-                    const pickedDate = pickImmediateScheduleDateForTask(task, weekKey);
-                    if(!pickedDate) return;
-                    task.date = pickedDate;
-                    task.dateSource = 'auto';
-                    if(isTargetWeekAssignment(task) || task.scheduleType === 'week' || task.weekDueOnly) {
-                        task.week = weekKey;
-                        ensureTargetWeekScheduleType(task);
+                const candidateDates = getImmediateScheduleDatesForTask(task, weekKey);
+                if(candidateDates.length === 0) return;
+
+                let placed = false;
+                let displaced = [];
+                for(const dateStr of candidateDates) {
+                    if(hasUserLockedCalendarDate(task) && task.date && dateStr !== task.date) continue;
+                    if(!task.time) {
+                        assignImmediateScheduleDate(task, dateStr, weekKey);
+                        const result = tryPlaceTaskTimeOnDateWithRepack(task, dateStr, weekKey);
+                        if(result.placed) {
+                            placed = true;
+                            displaced = result.evicted;
+                            break;
+                        }
+                        if(!hasUserLockedCalendarDate(task)) {
+                            task.time = null;
+                            task.timeSource = null;
+                        }
                     }
                 }
 
-                if(!task.time && tryPlaceTaskTimeOnDate(task, task.date)) {
+                if(placed) {
                     scheduled++;
+                    if(displaced.length > 0) {
+                        rescheduleDisplacedTasks(displaced, weekKey, task.id);
+                    }
                 } else if(task.date && task.time) {
                     scheduled++;
                 }
