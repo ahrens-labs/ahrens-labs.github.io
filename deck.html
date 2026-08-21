@@ -474,6 +474,35 @@
       box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
     }
     .dk-search { margin: 0 0 14px; border-radius: 12px; }
+    .dk-filter-bar {
+      display: flex;
+      gap: 6px;
+      margin: 0 0 14px;
+      flex-wrap: wrap;
+    }
+    .dk-filter-btn {
+      flex: 1 1 0;
+      min-width: 88px;
+      appearance: none;
+      border: 1px solid var(--dk-line);
+      border-radius: 999px;
+      padding: 8px 12px;
+      background: #fff;
+      color: var(--dk-muted);
+      font: inherit;
+      font-size: 0.82rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .dk-filter-btn:hover {
+      border-color: #c7d2fe;
+      color: var(--dk-brand);
+    }
+    .dk-filter-btn.active {
+      background: #eef2ff;
+      border-color: #c7d2fe;
+      color: var(--dk-brand);
+    }
     .dk-section {
       background: #fff;
       border: 1px solid var(--dk-line);
@@ -910,9 +939,14 @@
         <section id="view-all-cards" class="hidden">
           <div class="dk-hero">
             <h2>Cards</h2>
-            <p>Every card across all decks. Search includes archived cards.</p>
+            <p>Every card across all decks. Use the filter to browse archived cards.</p>
           </div>
           <input class="dk-search" id="all-cards-search" type="search" placeholder="Search by title, notes, or checklist…" autocomplete="off">
+          <div class="dk-filter-bar" role="tablist" aria-label="Card filter">
+            <button type="button" class="dk-filter-btn active" data-all-cards-filter="active" role="tab" aria-selected="true">Active</button>
+            <button type="button" class="dk-filter-btn" data-all-cards-filter="archived" role="tab" aria-selected="false">Archived</button>
+            <button type="button" class="dk-filter-btn" data-all-cards-filter="all" role="tab" aria-selected="false">All</button>
+          </div>
           <div id="all-cards-list" class="dk-card-grid"></div>
         </section>
 
@@ -1588,6 +1622,7 @@
       let currentView = 'decks';
       let lastBrowseTab = 'decks';
       let cardReturnView = 'all-cards';
+      let allCardsFilter = 'active';
       let modalResolve = null;
       let modalMode = 'confirm';
       let suppressRouteSync = false;
@@ -2217,18 +2252,51 @@
         }
       }
 
+      function countArchivedCardsAcrossDecks() {
+        return allCardsAcrossDecks().filter(({ card }) => isCardArchived(card)).length;
+      }
+
+      function allCardsEntriesFiltered() {
+        const q = document.getElementById('all-cards-search').value.trim().toLowerCase();
+        return allCardsAcrossDecks().filter(({ card }) => {
+          if (q && !cardMatchesSearch(card, q)) return false;
+          if (allCardsFilter === 'archived') return isCardArchived(card);
+          if (allCardsFilter === 'all') return true;
+          return !isCardArchived(card);
+        });
+      }
+
+      function updateAllCardsFilterUi() {
+        const archivedCount = countArchivedCardsAcrossDecks();
+        document.querySelectorAll('[data-all-cards-filter]').forEach((btn) => {
+          const filter = btn.getAttribute('data-all-cards-filter');
+          const active = filter === allCardsFilter;
+          btn.classList.toggle('active', active);
+          btn.setAttribute('aria-selected', active ? 'true' : 'false');
+          if (filter === 'archived') {
+            btn.textContent = archivedCount ? 'Archived (' + archivedCount + ')' : 'Archived';
+          } else if (filter === 'active') {
+            btn.textContent = 'Active';
+          } else {
+            btn.textContent = 'All';
+          }
+        });
+      }
+
       function renderAllCards() {
+        updateAllCardsFilterUi();
         const list = document.getElementById('all-cards-list');
         const q = document.getElementById('all-cards-search').value.trim().toLowerCase();
         list.innerHTML = '';
-        const entries = allCardsAcrossDecks().filter(({ card }) => {
-          if (!q) return !isCardArchived(card);
-          return cardMatchesSearch(card, q);
-        });
+        const entries = allCardsEntriesFiltered();
         if (!entries.length) {
-          list.innerHTML = q
-            ? '<div class="dk-empty">No cards match that search.</div>'
-            : '<div class="dk-empty"><strong>No cards yet.</strong><br>Create cards inside a deck to see them here.</div>';
+          if (q) {
+            list.innerHTML = '<div class="dk-empty">No cards match that search.</div>';
+          } else if (allCardsFilter === 'archived') {
+            list.innerHTML = '<div class="dk-empty"><strong>No archived cards.</strong><br>Archive a card to hide it from active lists while keeping its content.</div>';
+          } else {
+            list.innerHTML = '<div class="dk-empty"><strong>No cards yet.</strong><br>Create cards inside a deck to see them here.</div>';
+          }
           return;
         }
         entries.forEach(({ deck, stack, card }) => {
@@ -3167,6 +3235,12 @@
       document.getElementById('card-search').addEventListener('input', renderCards);
       document.getElementById('stack-search').addEventListener('input', renderStacksGlobal);
       document.getElementById('all-cards-search').addEventListener('input', renderAllCards);
+      document.querySelectorAll('[data-all-cards-filter]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          allCardsFilter = btn.getAttribute('data-all-cards-filter') || 'active';
+          renderAllCards();
+        });
+      });
       document.getElementById('deck-search').addEventListener('input', renderDecks);
 
       document.getElementById('btn-new-card').addEventListener('click', () => createCard());
@@ -3272,7 +3346,7 @@
           deck.cards = deck.cards.filter((c) => c.id !== loc.card.id);
         }
         save();
-        leaveCardEditor();
+        leaveCardEditor(loc);
       });
 
       document.getElementById('card-title').addEventListener('input', () => {
