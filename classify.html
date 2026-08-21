@@ -9627,10 +9627,23 @@
             });
         }
 
+        function parseQuotedPrefix(text) {
+            const raw = String(text || '').trim();
+            const match = raw.match(/^["']([^"']*)["'](?:\s+(.*))?$/s);
+            if(!match) return { quoted: null, rest: raw };
+            return { quoted: match[1].trim(), rest: (match[2] || '').trim() };
+        }
+
+        function parseNotesArgument(text) {
+            const parsed = parseQuotedPrefix(text);
+            if(parsed.quoted != null) return parsed.quoted.substring(0, 500);
+            return String(text || '').trim().substring(0, 500);
+        }
+
         function peelQuotedAssignmentCommand(raw) {
-            const match = String(raw || '').trim().match(/^["'](.+?)["']\s+(.+)$/);
-            if(!match) return { body: String(raw || '').trim(), taskQuery: null };
-            return { body: match[2].trim(), taskQuery: match[1].trim() };
+            const parsed = parseQuotedPrefix(String(raw || '').trim());
+            if(parsed.quoted == null) return { body: parsed.rest, taskQuery: null };
+            return { body: parsed.rest, taskQuery: parsed.quoted };
         }
 
         function applyPresetTaskQuery(parsed, taskQuery) {
@@ -9663,7 +9676,7 @@
             if(/^(?:delete|remove)$/i.test(body)) return { action: 'delete', taskQuery };
             if(/^(?:edit|open)$/i.test(body)) return { action: 'edit', taskQuery };
             match = body.match(/^notes\s+(.+)$/i);
-            if(match) return { action: 'notes', taskQuery, notes: match[1].trim() };
+            if(match) return { action: 'notes', taskQuery, notes: parseNotesArgument(match[1]) };
             match = body.match(/^subject\s+(.+)$/i);
             if(match) return { action: 'subject', taskQuery, subject: match[1].trim() };
             match = body.match(/^(after|before)\s+(.+)$/i);
@@ -9813,7 +9826,13 @@
 
             const addMatch = commandText.match(/^(?:add|create)\s+(?:assignment\s+)?(.+)$/i);
             if(addMatch) {
-                const { title, details } = splitCreateAssignmentTitleAndDetails(addMatch[1].trim());
+                const rest = addMatch[1].trim();
+                const quotedTitle = parseQuotedPrefix(rest);
+                if(quotedTitle.quoted != null) {
+                    if(!quotedTitle.quoted) return { error: 'Add a title, e.g. add "Speech Writing" due friday.' };
+                    return { action: 'create', title: quotedTitle.quoted, details: quotedTitle.rest };
+                }
+                const { title, details } = splitCreateAssignmentTitleAndDetails(rest);
                 if(!title) return { error: 'Add a title, e.g. add Speech due friday.' };
                 return { action: 'create', title, details };
             }
@@ -9895,7 +9914,7 @@
                 return applyPresetTaskQuery({
                     action: 'notes',
                     taskQuery: match[1].trim(),
-                    notes: match[2].trim()
+                    notes: parseNotesArgument(match[2])
                 }, presetTaskQuery);
             }
 
