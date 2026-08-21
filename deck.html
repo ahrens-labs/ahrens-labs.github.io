@@ -623,7 +623,12 @@
       color: var(--dk-muted);
       letter-spacing: 0.02em;
     }
-    .dk-card-delete-wrap { margin-top: 28px; }
+    .dk-card-delete-wrap {
+      margin-top: 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
     .dk-card-archived-banner {
       margin: 0 0 12px;
       padding: 10px 12px;
@@ -972,7 +977,8 @@
             <div id="card-checklist-edit-list"></div>
           </div>
           <div class="dk-card-delete-wrap">
-            <button type="button" class="dk-btn dk-btn-danger dk-btn-block" id="btn-archive-card">Archive this card</button>
+            <button type="button" class="dk-btn dk-btn-ghost dk-btn-block" id="btn-archive-card">Archive this card</button>
+            <button type="button" class="dk-btn dk-btn-danger dk-btn-block" id="btn-delete-card">Delete this card</button>
           </div>
         </section>
       </div>
@@ -2712,7 +2718,7 @@
           archiveBtn.className = 'dk-btn dk-btn-primary dk-btn-block';
         } else {
           archiveBtn.textContent = 'Archive this card';
-          archiveBtn.className = 'dk-btn dk-btn-danger dk-btn-block';
+          archiveBtn.className = 'dk-btn dk-btn-ghost dk-btn-block';
         }
         const list = document.getElementById('section-list');
         list.innerHTML = '';
@@ -3196,6 +3202,23 @@
         });
       });
 
+      function leaveCardEditor() {
+        const deck = ensureActiveDeck();
+        const loc = activeCardLocation();
+        activeCardId = null;
+        if (cardReturnView === 'decks') {
+          showDecks({ replaceUrl: false });
+        } else if (cardReturnView === 'all-cards') {
+          showAllCards({ replaceUrl: false });
+        } else if (loc && loc.stack) {
+          openStack(loc.stack.id, { replaceUrl: false });
+        } else if (deck) {
+          openDeck(deck.id, { replaceUrl: false });
+        } else {
+          showDecks({ replaceUrl: false });
+        }
+      }
+
       document.getElementById('btn-archive-card').addEventListener('click', async () => {
         const deck = ensureActiveDeck();
         const card = activeCard();
@@ -3227,16 +3250,29 @@
         card.archivedAt = Date.now();
         touchCard(card);
         save();
-        activeCardId = null;
-        if (cardReturnView === 'decks') {
-          showDecks({ replaceUrl: false });
-        } else if (cardReturnView === 'all-cards') {
-          showAllCards({ replaceUrl: false });
-        } else if (loc && loc.stack) {
-          openStack(loc.stack.id, { replaceUrl: false });
-        } else {
-          openDeck(deck.id, { replaceUrl: false });
+        leaveCardEditor();
+      });
+
+      document.getElementById('btn-delete-card').addEventListener('click', async () => {
+        const deck = ensureActiveDeck();
+        const card = activeCard();
+        if (!deck || !card) return;
+        const label = card.title ? '“' + card.title + '”' : 'this card';
+        const ok = await showConfirm({
+          title: 'Delete card?',
+          message: 'Delete ' + label + ' and all of its sections? This cannot be undone.',
+          okLabel: 'Delete',
+          danger: true,
+        });
+        if (!ok) return;
+        const loc = activeCardLocation();
+        if (loc && loc.stack) {
+          loc.stack.cards = loc.stack.cards.filter((c) => c.id !== loc.card.id);
+        } else if (loc) {
+          deck.cards = deck.cards.filter((c) => c.id !== loc.card.id);
         }
+        save();
+        leaveCardEditor();
       });
 
       document.getElementById('card-title').addEventListener('input', () => {
