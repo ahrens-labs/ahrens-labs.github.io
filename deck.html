@@ -150,6 +150,30 @@
       flex-wrap: wrap;
       margin: 0 0 16px;
     }
+    .dk-context-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin: 0 0 16px;
+      flex-wrap: wrap;
+    }
+    .dk-context-bar .dk-btn-back { margin-right: auto; }
+    .dk-secondary-actions { margin: 4px 0 16px; }
+    .dk-danger-zone {
+      margin-top: 28px;
+      padding-top: 18px;
+      border-top: 1px solid #fecaca;
+    }
+    .dk-danger-label {
+      margin: 0 0 10px;
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #b91c1c;
+    }
+    .dk-btn-block { width: 100%; }
     .dk-btn {
       appearance: none;
       border: 0;
@@ -170,6 +194,11 @@
       box-shadow: 0 6px 16px rgba(79, 70, 229, 0.28);
     }
     .dk-btn-ghost {
+      background: #fff;
+      color: var(--dk-ink);
+      border: 1px solid var(--dk-line);
+    }
+    .dk-btn-back {
       background: #fff;
       color: var(--dk-ink);
       border: 1px solid var(--dk-line);
@@ -249,18 +278,22 @@
     .dk-field textarea { min-height: 120px; resize: vertical; }
     .dk-section-body {
       display: block;
-      width: calc(100% + 28px);
-      max-width: calc(100% + 28px);
-      margin: 0 -14px;
+      width: 100%;
       min-height: 120px;
       resize: vertical;
-      border-radius: 0;
-      border-left: 0;
-      border-right: 0;
+      border-radius: 12px;
+      border: 1px solid #c7d2fe;
       padding: 14px 16px;
       line-height: 1.65;
       font-size: 0.98rem;
       box-sizing: border-box;
+      background: #fff;
+      box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04);
+    }
+    .dk-section-body:focus {
+      outline: none;
+      border-color: var(--dk-brand);
+      box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
     }
     .dk-search { margin: 0 0 14px; border-radius: 12px; }
     .dk-section {
@@ -480,53 +513,61 @@
 
         <section id="view-cards" class="hidden">
           <div id="cards-view-mode">
+            <nav class="dk-context-bar" aria-label="Deck actions">
+              <button type="button" class="dk-btn dk-btn-back" id="btn-back-decks">← All decks</button>
+              <button type="button" class="dk-btn dk-btn-primary" id="btn-new-card">+ New card</button>
+            </nav>
             <div class="dk-hero">
               <h2 id="cards-heading">Cards</h2>
-              <p id="cards-sub">Tap a card to read it. Use Edit deck to rename or delete this deck.</p>
-            </div>
-            <div class="dk-toolbar">
-              <button type="button" class="dk-btn dk-btn-primary" id="btn-new-card">New card</button>
-              <button type="button" class="dk-btn dk-btn-ghost" id="btn-edit-deck">Edit deck</button>
+              <p id="cards-sub">Tap a card to read it.</p>
             </div>
             <input class="dk-search" id="card-search" type="search" placeholder="Search cards…" autocomplete="off">
             <div id="card-list" class="dk-list"></div>
+            <div class="dk-secondary-actions">
+              <button type="button" class="dk-btn dk-btn-ghost dk-btn-block" id="btn-edit-deck">Rename or delete deck…</button>
+            </div>
           </div>
           <div id="cards-edit-mode" class="hidden">
+            <nav class="dk-context-bar" aria-label="Deck settings actions">
+              <button type="button" class="dk-btn dk-btn-back" id="btn-cancel-deck-edit">← Back to cards</button>
+              <button type="button" class="dk-btn dk-btn-primary" id="btn-save-deck">Save deck</button>
+            </nav>
             <div class="dk-hero">
-              <h2>Edit deck</h2>
-              <p>Rename this deck or manage its cards.</p>
+              <h2>Deck settings</h2>
+              <p>Rename this deck or delete it permanently.</p>
             </div>
             <div class="dk-field">
               <label for="deck-name">Deck name</label>
               <input id="deck-name" type="text" maxlength="80" autocomplete="off">
             </div>
             <div class="dk-toolbar">
-              <button type="button" class="dk-btn dk-btn-primary" id="btn-new-card-edit">New card</button>
-              <button type="button" class="dk-btn dk-btn-danger" id="btn-delete-deck">Delete deck</button>
-              <button type="button" class="dk-btn dk-btn-ghost" id="btn-done-deck">Done</button>
+              <button type="button" class="dk-btn dk-btn-primary" id="btn-new-card-edit">+ New card in this deck</button>
+            </div>
+            <div class="dk-danger-zone">
+              <p class="dk-danger-label">Danger zone</p>
+              <button type="button" class="dk-btn dk-btn-danger dk-btn-block" id="btn-delete-deck">Delete this deck</button>
             </div>
           </div>
         </section>
 
         <section id="view-card" class="hidden">
           <div id="card-view-mode">
-            <div class="dk-toolbar">
-              <button type="button" class="dk-btn dk-btn-ghost" id="btn-back-cards">← Cards</button>
-              <button type="button" class="dk-btn dk-btn-primary" id="btn-edit-card">Edit</button>
-            </div>
+            <nav class="dk-context-bar" aria-label="Card actions">
+              <button type="button" class="dk-btn dk-btn-back" id="btn-back-cards">← Back to cards</button>
+              <button type="button" class="dk-btn dk-btn-primary" id="btn-edit-card">Edit card</button>
+            </nav>
             <h2 id="card-view-title" class="dk-view-title">Card</h2>
             <p id="card-view-deck" class="dk-meta"></p>
             <div id="section-view-list"></div>
           </div>
           <div id="card-edit-mode" class="hidden">
+            <nav class="dk-context-bar" aria-label="Edit card actions">
+              <button type="button" class="dk-btn dk-btn-back" id="btn-cancel-card">← Back to card</button>
+              <button type="button" class="dk-btn dk-btn-primary" id="btn-save-card">Save changes</button>
+            </nav>
             <div class="dk-hero">
               <h2 id="card-heading">Edit card</h2>
-              <p>Change the title, move decks, or edit sections.</p>
-            </div>
-            <div class="dk-toolbar">
-              <button type="button" class="dk-btn dk-btn-ghost" id="btn-cancel-card">Cancel</button>
-              <button type="button" class="dk-btn dk-btn-primary" id="btn-done-card">Done</button>
-              <button type="button" class="dk-btn dk-btn-danger" id="btn-delete-card">Delete card</button>
+              <p>Update the title, move decks, or edit sections.</p>
             </div>
             <div class="dk-field">
               <label for="card-title">Card title</label>
@@ -538,7 +579,11 @@
             </div>
             <div id="section-list"></div>
             <div class="dk-toolbar">
-              <button type="button" class="dk-btn dk-btn-primary" id="btn-add-section">Add section</button>
+              <button type="button" class="dk-btn dk-btn-ghost dk-btn-block" id="btn-add-section">+ Add section</button>
+            </div>
+            <div class="dk-danger-zone">
+              <p class="dk-danger-label">Danger zone</p>
+              <button type="button" class="dk-btn dk-btn-danger dk-btn-block" id="btn-delete-card">Delete this card</button>
             </div>
           </div>
         </section>
@@ -658,6 +703,104 @@
       let deckEditing = false;
       let cardEditing = false;
       let modalResolve = null;
+      let suppressRouteSync = false;
+
+      function parseRoute() {
+        const raw = (location.hash || '#/decks').replace(/^#/, '').trim();
+        const parts = raw.split('/').filter(Boolean);
+        if (!parts.length || parts[0] === 'decks') return { view: 'decks' };
+        if (parts[0] === 'deck' && parts[1]) {
+          const deckId = parts[1];
+          if (parts[2] === 'settings') return { view: 'cards', deckId, deckEdit: true };
+          if (parts[2] === 'card' && parts[3]) {
+            return {
+              view: 'card',
+              deckId,
+              cardId: parts[3],
+              cardEdit: parts[4] === 'edit',
+            };
+          }
+          return { view: 'cards', deckId };
+        }
+        return { view: 'decks' };
+      }
+
+      function buildHash() {
+        if (activeCardId && activeDeckId) {
+          const base = '#/deck/' + activeDeckId + '/card/' + activeCardId;
+          return cardEditing ? base + '/edit' : base;
+        }
+        if (activeDeckId && deckEditing) return '#/deck/' + activeDeckId + '/settings';
+        if (activeDeckId) return '#/deck/' + activeDeckId;
+        return '#/decks';
+      }
+
+      function syncUrl(replace) {
+        if (suppressRouteSync) return;
+        const nextHash = buildHash();
+        if ((location.hash || '#/decks') === nextHash) return;
+        suppressRouteSync = true;
+        if (replace) history.replaceState(null, '', nextHash);
+        else history.pushState(null, '', nextHash);
+        suppressRouteSync = false;
+      }
+
+      function cardInDeck(deckId, cardId) {
+        const deck = deckById(deckId);
+        if (!deck) return null;
+        return (deck.cards || []).find((c) => c.id === cardId) || null;
+      }
+
+      function applyRouteFromUrl(replaceInvalid) {
+        const route = parseRoute();
+        if (route.view === 'decks') {
+          activeDeckId = state.decks[0] ? state.decks[0].id : null;
+          activeCardId = null;
+          deckEditing = false;
+          cardEditing = false;
+          show('decks');
+          renderDecks();
+          if (replaceInvalid) syncUrl(true);
+          return;
+        }
+        const deck = deckById(route.deckId);
+        if (!deck) {
+          activeDeckId = state.decks[0] ? state.decks[0].id : null;
+          activeCardId = null;
+          deckEditing = false;
+          cardEditing = false;
+          show('decks');
+          renderDecks();
+          syncUrl(true);
+          return;
+        }
+        activeDeckId = deck.id;
+        if (route.view === 'cards') {
+          activeCardId = null;
+          deckEditing = !!route.deckEdit;
+          cardEditing = false;
+          show('cards');
+          renderCards();
+          syncUrl(replaceInvalid);
+          return;
+        }
+        const card = cardInDeck(deck.id, route.cardId);
+        if (!card) {
+          activeCardId = null;
+          deckEditing = false;
+          cardEditing = false;
+          show('cards');
+          renderCards();
+          syncUrl(true);
+          return;
+        }
+        activeCardId = card.id;
+        deckEditing = false;
+        cardEditing = !!route.cardEdit;
+        show('card');
+        renderCard();
+        syncUrl(replaceInvalid);
+      }
 
       const modalEl = document.getElementById('dk-modal');
       const modalTitle = document.getElementById('dk-modal-title');
@@ -785,8 +928,11 @@
 
       function renderCards() {
         const deck = ensureActiveDeck();
-        if (!deck) return showDecks();
+        if (!deck) return showDecks({ updateUrl: true });
         document.getElementById('cards-heading').textContent = deck.name || 'Cards';
+        document.getElementById('cards-sub').textContent = cardCount(deck)
+          ? 'Tap a card to read it.'
+          : 'No cards yet — create one to get started.';
         document.getElementById('cards-view-mode').classList.toggle('hidden', deckEditing);
         document.getElementById('cards-edit-mode').classList.toggle('hidden', !deckEditing);
         if (deckEditing) {
@@ -952,9 +1098,11 @@
       function renderCardView() {
         const deck = ensureActiveDeck();
         const card = activeCard();
-        if (!deck || !card) return openDeck(activeDeckId);
+        if (!deck || !card) return openDeck(activeDeckId, { updateUrl: true });
         document.getElementById('card-view-title').textContent = card.title || 'Untitled card';
         document.getElementById('card-view-deck').textContent = 'In ' + (deck.name || 'Untitled');
+        document.getElementById('btn-back-cards').textContent = '← ' + (deck.name || 'Cards');
+        document.getElementById('btn-edit-card').textContent = 'Edit card';
         const list = document.getElementById('section-view-list');
         list.innerHTML = '';
         if (!card.sections.length) {
@@ -994,8 +1142,9 @@
       function renderCardEdit() {
         const deck = ensureActiveDeck();
         const card = activeCard();
-        if (!deck || !card) return openDeck(activeDeckId);
-        document.getElementById('card-heading').textContent = card.title || 'Card';
+        if (!deck || !card) return openDeck(activeDeckId, { updateUrl: true });
+        document.getElementById('card-heading').textContent = card.title || 'Edit card';
+        document.getElementById('btn-cancel-card').textContent = '← Back to card';
         document.getElementById('card-title').value = card.title || '';
         fillDeckSelect(deck.id);
         const list = document.getElementById('section-list');
@@ -1025,7 +1174,7 @@
           const del = document.createElement('button');
           del.type = 'button';
           del.className = 'dk-btn dk-btn-danger dk-btn-small';
-          del.textContent = 'Remove';
+          del.textContent = 'Remove section';
           del.addEventListener('click', async () => {
             const ok = await showConfirm({
               title: 'Remove section?',
@@ -1062,7 +1211,7 @@
         else renderCardView();
       }
 
-      function setDeckEditing(on) {
+      function setDeckEditing(on, opts) {
         deckEditing = !!on;
         renderCards();
         if (deckEditing) {
@@ -1070,17 +1219,28 @@
           input.focus();
           input.select();
         }
+        if (!opts || opts.updateUrl !== false) syncUrl(!!(opts && opts.replaceUrl));
       }
 
-      function setCardEditing(on) {
+      function setCardEditing(on, opts) {
         cardEditing = !!on;
         renderCard();
         if (cardEditing) document.getElementById('card-title').focus();
+        if (!opts || opts.updateUrl !== false) syncUrl(!!(opts && opts.replaceUrl));
       }
 
-      function finishCardEdit() {
+      function finishCardEdit(opts) {
         persistCardMeta();
-        setCardEditing(false);
+        setCardEditing(false, opts);
+      }
+
+      function finishDeckEdit(opts) {
+        const deck = deckById(activeDeckId);
+        if (deck) {
+          deck.name = document.getElementById('deck-name').value.trim() || 'Untitled';
+          save();
+        }
+        setDeckEditing(false, opts);
       }
 
       function touchCard() {
@@ -1106,23 +1266,26 @@
           }
         }
         touchCard();
+        syncUrl(true);
       }
 
-      function showDecks() {
+      function showDecks(opts) {
         activeCardId = null;
         deckEditing = false;
         cardEditing = false;
         show('decks');
         renderDecks();
+        if (!opts || opts.updateUrl !== false) syncUrl(!!(opts && opts.replaceUrl));
       }
 
-      function openDeck(id) {
+      function openDeck(id, opts) {
         activeDeckId = id;
         activeCardId = null;
-        deckEditing = false;
+        deckEditing = !!(opts && opts.edit);
         cardEditing = false;
         show('cards');
         renderCards();
+        if (!opts || opts.updateUrl !== false) syncUrl(!!(opts && opts.replaceUrl));
       }
 
       function openCard(id, opts) {
@@ -1130,6 +1293,7 @@
         cardEditing = !!(opts && opts.edit);
         show('card');
         renderCard();
+        if (!opts || opts.updateUrl !== false) syncUrl(!!(opts && opts.replaceUrl));
       }
 
       function createCard(openInEdit) {
@@ -1151,8 +1315,11 @@
         const deck = { id: uidId(), name: 'New deck', createdAt: Date.now(), cards: [] };
         state.decks.unshift(deck);
         save();
-        openDeck(deck.id);
-        setDeckEditing(true);
+        openDeck(deck.id, { edit: true, replaceUrl: false });
+      });
+
+      document.getElementById('btn-back-decks').addEventListener('click', () => {
+        showDecks();
       });
 
       document.getElementById('dk-bottom-nav').addEventListener('click', (ev) => {
@@ -1176,20 +1343,17 @@
             });
             return;
           }
-          deckEditing = false;
           openDeck(deck.id);
         }
       });
 
       document.getElementById('btn-edit-deck').addEventListener('click', () => setDeckEditing(true));
-      document.getElementById('btn-done-deck').addEventListener('click', () => {
+      document.getElementById('btn-cancel-deck-edit').addEventListener('click', () => {
         const deck = deckById(activeDeckId);
-        if (deck) {
-          deck.name = document.getElementById('deck-name').value.trim() || 'Untitled';
-          save();
-        }
+        if (deck) document.getElementById('deck-name').value = deck.name || '';
         setDeckEditing(false);
       });
+      document.getElementById('btn-save-deck').addEventListener('click', () => finishDeckEdit());
 
       document.getElementById('deck-name').addEventListener('change', () => {
         const deck = deckById(activeDeckId);
@@ -1221,7 +1385,7 @@
         activeCardId = null;
         deckEditing = false;
         save();
-        showDecks();
+        showDecks({ replaceUrl: false });
       });
 
       document.getElementById('btn-back-cards').addEventListener('click', () => {
@@ -1229,8 +1393,8 @@
       });
 
       document.getElementById('btn-edit-card').addEventListener('click', () => setCardEditing(true));
-      document.getElementById('btn-done-card').addEventListener('click', finishCardEdit);
-      document.getElementById('btn-cancel-card').addEventListener('click', () => setCardEditing(false));
+      document.getElementById('btn-save-card').addEventListener('click', () => finishCardEdit());
+      document.getElementById('btn-cancel-card').addEventListener('click', () => finishCardEdit());
 
       document.getElementById('btn-delete-card').addEventListener('click', async () => {
         const deck = ensureActiveDeck();
@@ -1248,7 +1412,7 @@
         activeCardId = null;
         cardEditing = false;
         save();
-        openDeck(deck.id);
+        openDeck(deck.id, { replaceUrl: false });
       });
 
       document.getElementById('card-title').addEventListener('input', persistCardMeta);
@@ -1262,7 +1426,10 @@
         renderCardEdit();
       });
 
-      showDecks();
+      window.addEventListener('popstate', () => applyRouteFromUrl(false));
+      window.addEventListener('hashchange', () => applyRouteFromUrl(false));
+
+      applyRouteFromUrl(true);
     })();
   </script>
 </body>
