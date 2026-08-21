@@ -624,6 +624,44 @@
       letter-spacing: 0.02em;
     }
     .dk-card-delete-wrap { margin-top: 28px; }
+    .dk-card-archived-banner {
+      margin: 0 0 12px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      color: #64748b;
+      font-size: 0.86rem;
+      font-weight: 600;
+    }
+    .dk-archived-badge {
+      display: inline-block;
+      margin-left: 8px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 0.68rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      background: #f1f5f9;
+      color: #64748b;
+      vertical-align: middle;
+    }
+    .dk-card-preview-item.is-archived {
+      border-style: dashed;
+      background: #fafafa;
+    }
+    .dk-search-results-heading {
+      margin: 0 0 10px;
+      font-size: 0.82rem;
+      font-weight: 800;
+      color: var(--dk-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .dk-search-results {
+      margin-bottom: 18px;
+    }
     .dk-card-preview-item {
       background: var(--dk-card);
       border: 1px solid var(--dk-line);
@@ -847,6 +885,8 @@
             <h2>Decks</h2>
             <p>Group cards and stacks into decks. Stacks hold cards; only decks hold stacks.</p>
           </div>
+          <input class="dk-search" id="deck-search" type="search" placeholder="Search cards by title, notes, or checklist…" autocomplete="off">
+          <div id="deck-search-results" class="dk-search-results hidden"></div>
           <div class="dk-toolbar">
             <button type="button" class="dk-btn dk-btn-primary" id="btn-new-deck">New deck</button>
           </div>
@@ -865,9 +905,9 @@
         <section id="view-all-cards" class="hidden">
           <div class="dk-hero">
             <h2>Cards</h2>
-            <p>Every card across all decks.</p>
+            <p>Every card across all decks. Search includes archived cards.</p>
           </div>
-          <input class="dk-search" id="all-cards-search" type="search" placeholder="Search all cards…" autocomplete="off">
+          <input class="dk-search" id="all-cards-search" type="search" placeholder="Search by title, notes, or checklist…" autocomplete="off">
           <div id="all-cards-list" class="dk-card-grid"></div>
         </section>
 
@@ -880,7 +920,7 @@
               <h2 id="cards-heading">Cards</h2>
               <p id="cards-sub">Tap a card to open and edit it.</p>
             </div>
-            <input class="dk-search" id="card-search" type="search" placeholder="Search cards…" autocomplete="off">
+            <input class="dk-search" id="card-search" type="search" placeholder="Search by title, notes, or checklist…" autocomplete="off">
             <div id="card-list" class="dk-list"></div>
             <div class="dk-list-actions" id="cards-list-actions-root">
               <button type="button" class="dk-btn dk-btn-primary" id="btn-new-stack">+ New stack</button>
@@ -922,6 +962,7 @@
             <input id="card-title" class="dk-card-title-input" type="text" maxlength="160" autocomplete="off" required aria-required="true">
           </div>
           <p id="card-view-deck" class="dk-meta"></p>
+          <p id="card-archived-banner" class="dk-card-archived-banner hidden">This card is archived. It stays hidden from deck lists until you unarchive it.</p>
           <div id="section-list"></div>
           <div class="dk-toolbar">
             <button type="button" class="dk-btn dk-btn-ghost dk-btn-block" id="btn-add-section">+ Add section</button>
@@ -931,7 +972,7 @@
             <div id="card-checklist-edit-list"></div>
           </div>
           <div class="dk-card-delete-wrap">
-            <button type="button" class="dk-btn dk-btn-danger dk-btn-block" id="btn-delete-card">Delete this card</button>
+            <button type="button" class="dk-btn dk-btn-danger dk-btn-block" id="btn-archive-card">Archive this card</button>
           </div>
         </section>
       </div>
@@ -1070,6 +1111,8 @@
           title: title,
           createdAt: src.createdAt || Date.now(),
           updatedAt: src.updatedAt || Date.now(),
+          archived: !!src.archived,
+          archivedAt: src.archivedAt || null,
           sections: sections,
           checklist: checklist,
         };
@@ -1565,14 +1608,36 @@
       }
 
       function deckStats(deck) {
-        const rootCards = (deck.cards || []).length;
+        const rootCards = countActiveCards(deck.cards);
         const stacks = (deck.stacks || []).length;
-        const stackCards = (deck.stacks || []).reduce((n, s) => n + (s.cards || []).length, 0);
+        const stackCards = (deck.stacks || []).reduce((n, s) => n + countActiveCards(s.cards), 0);
         return {
           rootCards,
           stacks,
           totalCards: rootCards + stackCards,
         };
+      }
+
+      function isCardArchived(card) {
+        return !!(card && card.archived);
+      }
+
+      function countActiveCards(cards) {
+        return (cards || []).filter((c) => !isCardArchived(c)).length;
+      }
+
+      function cardMatchesSearch(card, query) {
+        const q = (query || '').trim().toLowerCase();
+        if (!q) return true;
+        return cardSearchHaystack(card).toLowerCase().includes(q);
+      }
+
+      function filterCardsForDisplay(cards, query) {
+        const q = (query || '').trim().toLowerCase();
+        return (cards || []).filter((card) => {
+          if (!isCardArchived(card)) return !q || cardMatchesSearch(card, q);
+          return q && cardMatchesSearch(card, q);
+        });
       }
 
       function allReviewCards(deck, scope, stackId, cardId) {
@@ -1583,11 +1648,11 @@
         }
         if (scope === 'stack' && stackId) {
           const stack = stackById(deck, stackId);
-          return stack ? (stack.cards || []).slice() : [];
+          return stack ? filterCardsForDisplay(stack.cards || [], '') : [];
         }
-        const list = (deck.cards || []).slice();
+        const list = filterCardsForDisplay(deck.cards || [], '').slice();
         (deck.stacks || []).forEach((stack) => {
-          list.push.apply(list, stack.cards || []);
+          list.push.apply(list, filterCardsForDisplay(stack.cards || [], ''));
         });
         return list;
       }
@@ -2000,7 +2065,43 @@
           .join(' ');
       }
 
+      function appendArchivedBadge(titleEl) {
+        const badge = document.createElement('span');
+        badge.className = 'dk-archived-badge';
+        badge.textContent = 'Archived';
+        titleEl.appendChild(badge);
+      }
+
+      function renderDeckSearchResults() {
+        const host = document.getElementById('deck-search-results');
+        if (!host) return;
+        const q = document.getElementById('deck-search').value.trim().toLowerCase();
+        host.innerHTML = '';
+        host.classList.toggle('hidden', !q);
+        if (!q) return;
+        const entries = allCardsAcrossDecks().filter(({ card }) => cardMatchesSearch(card, q));
+        if (!entries.length) {
+          host.innerHTML = '<div class="dk-empty">No cards match that search.</div>';
+          return;
+        }
+        const heading = document.createElement('p');
+        heading.className = 'dk-search-results-heading';
+        heading.textContent = entries.length + (entries.length === 1 ? ' match' : ' matches');
+        host.appendChild(heading);
+        const list = document.createElement('div');
+        list.className = 'dk-list';
+        entries.forEach(({ deck, stack, card }) => {
+          list.appendChild(renderCardListItem(card, deck.id, stack ? stack.id : null, {
+            showLocation: true,
+            deckName: deck.name,
+            stackName: stack ? stack.name : null,
+          }));
+        });
+        host.appendChild(list);
+      }
+
       function renderDecks() {
+        renderDeckSearchResults();
         const list = document.getElementById('deck-list');
         if (!state.decks.length) {
           list.innerHTML = '<div class="dk-empty"><strong>No decks yet.</strong><br>Create a deck, then add cards into it.</div>';
@@ -2115,8 +2216,8 @@
         const q = document.getElementById('all-cards-search').value.trim().toLowerCase();
         list.innerHTML = '';
         const entries = allCardsAcrossDecks().filter(({ card }) => {
-          if (!q) return true;
-          return cardSearchHaystack(card).toLowerCase().includes(q);
+          if (!q) return !isCardArchived(card);
+          return cardMatchesSearch(card, q);
         });
         if (!entries.length) {
           list.innerHTML = q
@@ -2203,6 +2304,7 @@
         opts = opts || {};
         const row = document.createElement('article');
         row.className = 'dk-card-preview-item';
+        if (isCardArchived(card)) row.classList.add('is-archived');
         if (opts.reorder) {
           row.classList.add('dk-reorder-item');
           row.dataset.reorderId = card.id;
@@ -2215,6 +2317,7 @@
         const title = document.createElement('h3');
         title.className = 'dk-card-preview-title';
         title.textContent = card.title || 'Untitled card';
+        if (isCardArchived(card)) appendArchivedBadge(title);
         inner.appendChild(title);
         if (opts.showLocation) {
           const meta = document.createElement('p');
@@ -2287,7 +2390,7 @@
       function renderStackItem(stack, deckId) {
         const row = document.createElement('article');
         row.className = 'dk-stack-item';
-        const n = (stack.cards || []).length;
+        const n = countActiveCards(stack.cards);
         const open = document.createElement('button');
         open.type = 'button';
         open.className = 'dk-stack-open';
@@ -2337,7 +2440,9 @@
           ? (stack.name || 'Stack')
           : (deck.name || 'Cards');
         document.getElementById('cards-sub').textContent = inStack
-          ? ((stack.cards || []).length ? 'Cards in this stack.' : 'No cards in this stack yet.')
+          ? (countActiveCards(stack.cards)
+            ? 'Cards in this stack.'
+            : 'No cards in this stack yet.')
           : (deckStats(deck).totalCards || deckStats(deck).stacks
             ? 'Open a stack or card, or create something new.'
             : 'Add a stack or card to get started.');
@@ -2352,11 +2457,9 @@
         list.innerHTML = '';
 
         if (inStack) {
-          const cards = (stack.cards || []).filter((c) => {
-            if (!q) return true;
-            return cardSearchHaystack(c).toLowerCase().includes(q);
-          });
-          if (!stack.cards.length) {
+          const allInStack = stack.cards || [];
+          const cards = filterCardsForDisplay(allInStack, q);
+          if (!countActiveCards(allInStack) && !q) {
             list.innerHTML = '<div class="dk-empty">This stack has no cards yet.</div>';
             return;
           }
@@ -2375,20 +2478,19 @@
         }
 
         const stacks = (deck.stacks || []).filter((s) => {
-          if (!q) return true;
-          const hay = (s.name || '') + ' ' + (s.cards || []).map((c) => cardSearchHaystack(c)).join(' ');
-          return hay.toLowerCase().includes(q);
+          if (!q) return countActiveCards(s.cards) > 0;
+          if ((s.name || '').toLowerCase().includes(q)) return true;
+          return (s.cards || []).some((c) => cardMatchesSearch(c, q));
         });
-        const cards = (deck.cards || []).filter((c) => {
-          if (!q) return true;
-          return cardSearchHaystack(c).toLowerCase().includes(q);
-        });
-        if (!deck.stacks.length && !deck.cards.length) {
+        const cards = filterCardsForDisplay(deck.cards || [], q);
+        const hasActiveContent = countActiveCards(deck.cards) > 0
+          || (deck.stacks || []).some((s) => countActiveCards(s.cards) > 0);
+        if (!q && !hasActiveContent) {
           list.innerHTML = '<div class="dk-empty">This deck is empty. Add a stack or card.</div>';
           return;
         }
         if (!stacks.length && !cards.length) {
-          list.innerHTML = '<div class="dk-empty">Nothing matches that search.</div>';
+          list.innerHTML = '<div class="dk-empty">' + (q ? 'Nothing matches that search.' : 'This deck is empty. Add a stack or card.') + '</div>';
           return;
         }
         list.className = 'dk-list';
@@ -2602,6 +2704,16 @@
         document.getElementById('btn-back-cards').textContent = loc.stack
           ? '← ' + (loc.stack.name || 'Stack')
           : '← ' + (deck.name || 'Cards');
+        const archived = isCardArchived(card);
+        document.getElementById('card-archived-banner').classList.toggle('hidden', !archived);
+        const archiveBtn = document.getElementById('btn-archive-card');
+        if (archived) {
+          archiveBtn.textContent = 'Unarchive this card';
+          archiveBtn.className = 'dk-btn dk-btn-primary dk-btn-block';
+        } else {
+          archiveBtn.textContent = 'Archive this card';
+          archiveBtn.className = 'dk-btn dk-btn-danger dk-btn-block';
+        }
         const list = document.getElementById('section-list');
         list.innerHTML = '';
         if (!card.sections.length) {
@@ -2945,6 +3057,8 @@
           title: title,
           createdAt: Date.now(),
           updatedAt: Date.now(),
+          archived: false,
+          archivedAt: null,
           sections: [],
           checklist: [],
         };
@@ -3047,6 +3161,7 @@
       document.getElementById('card-search').addEventListener('input', renderCards);
       document.getElementById('stack-search').addEventListener('input', renderStacksGlobal);
       document.getElementById('all-cards-search').addEventListener('input', renderAllCards);
+      document.getElementById('deck-search').addEventListener('input', renderDecks);
 
       document.getElementById('btn-new-card').addEventListener('click', () => createCard());
       document.getElementById('btn-new-card-stack').addEventListener('click', () => createCard());
@@ -3081,28 +3196,47 @@
         });
       });
 
-      document.getElementById('btn-delete-card').addEventListener('click', async () => {
+      document.getElementById('btn-archive-card').addEventListener('click', async () => {
         const deck = ensureActiveDeck();
         const card = activeCard();
         if (!deck || !card) return;
+        const loc = activeCardLocation();
+        if (isCardArchived(card)) {
+          const label = card.title ? '“' + card.title + '”' : 'this card';
+          const ok = await showConfirm({
+            title: 'Unarchive card?',
+            message: 'Restore ' + label + ' to your deck lists?',
+            okLabel: 'Unarchive',
+          });
+          if (!ok) return;
+          card.archived = false;
+          card.archivedAt = null;
+          touchCard(card);
+          save();
+          renderCard();
+          return;
+        }
         const label = card.title ? '“' + card.title + '”' : 'this card';
         const ok = await showConfirm({
-          title: 'Delete card?',
-          message: 'Delete ' + label + ' and all of its sections? This cannot be undone.',
-          okLabel: 'Delete',
-          danger: true,
+          title: 'Archive card?',
+          message: 'Archive ' + label + '? You can find it again with search and unarchive it later.',
+          okLabel: 'Archive',
         });
         if (!ok) return;
-        const loc = activeCardLocation();
-        if (loc && loc.stack) {
-          loc.stack.cards = loc.stack.cards.filter((c) => c.id !== loc.card.id);
-        } else if (loc) {
-          deck.cards = deck.cards.filter((c) => c.id !== loc.card.id);
-        }
-        activeCardId = null;
+        card.archived = true;
+        card.archivedAt = Date.now();
+        touchCard(card);
         save();
-        if (activeStackId) openStack(activeStackId, { replaceUrl: false });
-        else openDeck(deck.id, { replaceUrl: false });
+        activeCardId = null;
+        if (cardReturnView === 'decks') {
+          showDecks({ replaceUrl: false });
+        } else if (cardReturnView === 'all-cards') {
+          showAllCards({ replaceUrl: false });
+        } else if (loc && loc.stack) {
+          openStack(loc.stack.id, { replaceUrl: false });
+        } else {
+          openDeck(deck.id, { replaceUrl: false });
+        }
       });
 
       document.getElementById('card-title').addEventListener('input', () => {
