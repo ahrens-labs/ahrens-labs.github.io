@@ -2020,7 +2020,7 @@
                 <div class="cl-command-bar__intro">
                     <span class="cl-command-bar__title"><i class="fa-solid fa-terminal" aria-hidden="true"></i> Command line</span>
                 </div>
-                <input id="classifyCommandInput" type="text" autocomplete="off" spellcheck="false" class="cl-command-bar__input" placeholder="new · &quot;timeline&quot; due tomorrow at 5pm · target week · exact date" aria-label="Command line" title="Quote an assignment name to target it exactly. Examples: &quot;timeline&quot; due tomorrow at 5pm, timeline target week, timeline exact date.">
+                <input id="classifyCommandInput" type="text" autocomplete="off" spellcheck="false" class="cl-command-bar__input" placeholder="help · auto plan · Science color purple · assignments in Math · vacation mar 10 to mar 17" aria-label="Command line" title="Type help for all commands. Quote an assignment name to target it, e.g. &quot;timeline&quot; due tomorrow at 5pm.">
                 <span class="cl-command-bar__hint"><kbd>/</kbd> focus</span>
             </div>
             <div id="classifyCommandDisambiguation" class="cl-command-disambiguation hidden" aria-live="polite">
@@ -4177,6 +4177,7 @@
                     '<strong>add</strong> Homework due friday 3pm math — create with schedule details in one line',
                     '<strong>"timeline"</strong> due tomorrow at 5pm — quote a name to target an existing assignment',
                     '<strong>move</strong>, <strong>start</strong>, <strong>complete</strong>, <strong>delete</strong>, and <strong>undo</strong> work too',
+                    '<strong>help</strong> lists subjects, planning, vacations, and more',
                     'Toggle the bar in Settings if you want it hidden'
                 ],
                 target: '#classifyCommandBar',
@@ -5907,6 +5908,27 @@
                 dueDate: null,
                 dueTime: null
             }));
+        }
+
+        function applyFlexibleScheduleMode(task) {
+            if(!task) return task;
+            const started = isAssignmentStarted(task);
+            const updates = {
+                scheduleType: 'flexible',
+                weekDueOnly: false,
+                week: null,
+                dueDate: null,
+                dueTime: null
+            };
+            if(!started) {
+                updates.date = null;
+                updates.dateSource = null;
+                updates.time = null;
+                updates.timeSource = null;
+                updates.assignmentMode = 'ADJUSTABLE';
+                updates.startedAt = null;
+            }
+            return enforceScheduleTypeFieldSeparation(normalizeTask({ ...task, ...updates }));
         }
 
         function applyExactDateCalendarMove(task, dateStr, timeStr = null) {
@@ -9861,6 +9883,300 @@
             return true;
         }
 
+        const CLASSIFY_COMMAND_HELP_HTML = `
+            <div class="text-left text-sm space-y-3 max-h-[60vh] overflow-y-auto">
+                <div><strong>Create &amp; edit</strong><br>
+                new · add Homework due friday · "timeline" due tomorrow at 5pm · rename X to Y · delete X · undo</div>
+                <div><strong>Schedule</strong><br>
+                move to friday 3pm · target week · exact date · flexible / no date · clear time · auto plan</div>
+                <div><strong>Subjects</strong><br>
+                Science color purple · Science color #2563eb · Writing color (32, 145, 87) · rename Science to Physics · delete Spanish · list subjects · assignments in Science</div>
+                <div><strong>Navigate</strong><br>
+                tasks overdue · calendar week · open settings · open subjects · today · next week · weekly planning</div>
+                <div><strong>Other</strong><br>
+                vacation mar 10 to mar 17 · clear completed · stats · help</div>
+            </div>`;
+
+        function showClassifyCommandHelp() {
+            confirmAction('Command Line Help', CLASSIFY_COMMAND_HELP_HTML, 'OK', () => {});
+            return true;
+        }
+
+        function resolveCommandDateToken(token, { allowPast = true } = {}) {
+            const raw = String(token || '').trim();
+            if(!raw) return null;
+            const quick = resolveQuickEntryDateToken(raw, { allowPast });
+            if(quick) return quick;
+            if(/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+            const monthNames = {
+                jan: 0, january: 0, feb: 1, february: 1, mar: 2, march: 2, apr: 3, april: 3,
+                may: 4, jun: 5, june: 5, jul: 6, july: 6, aug: 7, august: 7,
+                sep: 8, sept: 8, september: 8, oct: 9, october: 9, nov: 10, november: 10,
+                dec: 11, december: 11
+            };
+            const namedMatch = raw.match(/^([a-z]+)\s+(\d{1,2})(?:,?\s*(\d{4}))?$/i);
+            if(namedMatch) {
+                const monthKey = namedMatch[1].toLowerCase();
+                const month = monthNames[monthKey] ?? monthNames[monthKey.slice(0, 3)];
+                const day = parseInt(namedMatch[2], 10);
+                let year = namedMatch[3] ? parseInt(namedMatch[3], 10) : new Date().getFullYear();
+                if(month != null && day >= 1 && day <= 31) {
+                    const candidate = new Date(year, month, day);
+                    if(!namedMatch[3] && candidate < new Date(getDateStrLocal() + 'T00:00:00')) {
+                        year += 1;
+                    }
+                    return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                }
+            }
+            const slashMatch = raw.match(/^(\d{1,2})[\/-](\d{1,2})(?:[\/-](\d{2,4}))?$/);
+            if(slashMatch) {
+                const month = parseInt(slashMatch[1], 10);
+                const day = parseInt(slashMatch[2], 10);
+                let year = slashMatch[3] ? parseInt(slashMatch[3], 10) : new Date().getFullYear();
+                if(year < 100) year += 2000;
+                if(month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+                    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                }
+            }
+            return null;
+        }
+
+        function parseRenameTargetCommand(target, newTitleRaw, presetTaskQuery) {
+            const query = String(target || '').trim();
+            const newTitle = parseRenameTitleArgument(newTitleRaw);
+            if(!query) return { error: 'Missing name.' };
+            if(!newTitle) return { error: 'Enter a new name.' };
+            const taskRef = resolveTaskReference(query);
+            if(!taskRef.error && !taskRef.ambiguous) {
+                return applyPresetTaskQuery({ action: 'rename', taskQuery: query, newTitle }, presetTaskQuery);
+            }
+            const subject = resolveSubjectByQuery(query);
+            if(subject) {
+                return { action: 'renameSubject', subjectQuery: query, newName: newTitle };
+            }
+            return applyPresetTaskQuery({ action: 'rename', taskQuery: query, newTitle }, presetTaskQuery);
+        }
+
+        function renameSubjectByName(originalQuery, newName) {
+            const original = resolveSubjectByQuery(originalQuery);
+            if(!original) {
+                showNotification(`No subject found for "${String(originalQuery || '').trim()}".`, 'error');
+                return false;
+            }
+            if(subjectsMatch(original, 'General')) {
+                showNotification('General cannot be renamed.', 'error');
+                return false;
+            }
+            const targetName = resolveCanonicalSubject(String(newName || '').trim());
+            if(!targetName) {
+                showNotification('Enter a new subject name.', 'error');
+                return false;
+            }
+            if(subjectsMatch(targetName, original)) {
+                showNotification(`Subject is already named "${original}".`, 'info');
+                return false;
+            }
+            const color = getSubjectColorValue(original) || '#dc2626';
+            mutateClassifyData(() => {
+                tasks = tasks.map(t => (
+                    subjectsMatch(t.subject, original)
+                        ? { ...t, subject: targetName, color }
+                        : t
+                ));
+                Object.keys(subjectColors || {}).forEach(subjectKey => {
+                    if(subjectsMatch(subjectKey, original)) delete subjectColors[subjectKey];
+                });
+                setSubjectColorValue(targetName, color);
+            }, { skipScheduleRefresh: true });
+            showNotification(`Renamed subject "${original}" to "${targetName}"`, 'success');
+            return true;
+        }
+
+        function executeFilterSubjectCommand(subjectQuery) {
+            const subject = resolveSubjectByQuery(subjectQuery);
+            if(!subject) {
+                showNotification(`No subject found for "${String(subjectQuery || '').trim()}".`, 'error');
+                return false;
+            }
+            switchTab('tasks');
+            const taskFilter = document.getElementById('taskFilter');
+            const taskSearch = document.getElementById('taskSearch');
+            if(taskFilter) taskFilter.value = 'all';
+            if(taskSearch) taskSearch.value = subject;
+            renderTaskList();
+            showNotification(`Showing assignments in ${subject}`, 'info');
+            return true;
+        }
+
+        function executeListSubjectsCommand() {
+            const names = getAllSubjectNames();
+            if(names.length === 0) {
+                showNotification('No subjects saved yet.', 'info');
+                return true;
+            }
+            const lines = names.map(name => {
+                const color = getSubjectColorValue(name) || '#64748b';
+                const count = tasks.filter(t => subjectsMatch(t.subject, name) && !t.completed).length;
+                return `${name} (${count} active, ${color})`;
+            });
+            confirmAction(
+                'Subjects',
+                `<div class="text-left text-sm space-y-1">${lines.map(line => `<div>${line}</div>`).join('')}</div>`,
+                'OK',
+                () => {}
+            );
+            return true;
+        }
+
+        function executeClassifyStatsCommand() {
+            const today = getDateStrLocal();
+            const currentWeekKey = getCurrentWeekKey();
+            const { startStr: weekStart, endStr: weekEnd } = getWeekBoundsFromWeekKey(currentWeekKey);
+            const visible = tasks.filter(isTaskVisibleInClassify);
+            const active = visible.filter(t => !t.completed).length;
+            const overdue = visible.filter(t => {
+                const dueDate = getTaskDueDate(t);
+                return !t.completed && dueDate && dueDate < today;
+            }).length;
+            const dueThisWeek = visible.filter(t => {
+                if(t.completed) return false;
+                const dueDate = getTaskDueDate(t);
+                return (dueDate && dueDate >= weekStart && dueDate <= weekEnd) || t.week === currentWeekKey;
+            }).length;
+            const completed = visible.filter(t => t.completed).length;
+            showNotification(
+                `${active} active · ${overdue} overdue · ${dueThisWeek} this week · ${completed} done · ${getAllSubjectNames().length} subjects`,
+                'info'
+            );
+            return true;
+        }
+
+        function parsePlanWeekCommand(text) {
+            const raw = String(text || '').trim();
+            const match = raw.match(/^(?:auto[\s-]?plan|replan)(?:\s+week)?(?:\s+(.+))?$/i)
+                || raw.match(/^plan\s+week(?:\s+(.+))?$/i);
+            if(!match) return null;
+            let weekKey = getCurrentWeekKey();
+            const weekToken = (match[1] || '').trim();
+            if(weekToken) {
+                if(/^\d{4}-W\d{2}$/i.test(weekToken)) {
+                    weekKey = weekToken.toUpperCase();
+                } else {
+                    const dateStr = resolveCommandDateToken(weekToken);
+                    if(dateStr) weekKey = getWeekKeyFromDateStr(dateStr);
+                    else return { error: `Could not parse week from "${weekToken}".` };
+                }
+            }
+            return { action: 'planWeek', weekKey };
+        }
+
+        function parseVacationCommand(text) {
+            const raw = String(text || '').trim();
+            let match = raw.match(/^(?:add\s+)?vacation\s+(.+?)\s+(?:to|through|until|-)\s+(.+)$/i);
+            if(match) {
+                const start = resolveCommandDateToken(match[1]);
+                const end = resolveCommandDateToken(match[2]);
+                if(!start || !end) return { error: 'Could not parse vacation dates. Try vacation mar 10 to mar 17.' };
+                if(end < start) return { error: 'Vacation end must be on or after the start date.' };
+                return { action: 'addVacation', start, end };
+            }
+            match = raw.match(/^(?:remove|delete|clear)\s+vacation(?:\s+(.+?)\s+(?:to|-)\s+(.+))?$/i);
+            if(match) {
+                if(match[1] && match[2]) {
+                    const start = resolveCommandDateToken(match[1]);
+                    const end = resolveCommandDateToken(match[2]);
+                    if(!start || !end) return { error: 'Could not parse vacation dates to remove.' };
+                    return { action: 'removeVacation', start, end };
+                }
+                return { action: 'listVacations' };
+            }
+            if(/^list\s+vacations?$/i.test(raw)) return { action: 'listVacations' };
+            return null;
+        }
+
+        function addVacationFromCommand(start, end) {
+            const range = getDateRangeInclusive(start, end);
+            if(range.length === 0) {
+                showNotification('Vacation end must be on or after start date', 'error');
+                return false;
+            }
+            const affectedWeeks = new Set(range.map(dateStr => getWeekKeyFromDateStr(dateStr)));
+            mutateClassifyData(() => {
+                vacationRanges = normalizeVacationRanges([
+                    ...(vacationRanges || []),
+                    { id: generateId(), start, end }
+                ]);
+            }, { weekKeys: Array.from(affectedWeeks), skipScheduleRefresh: false });
+            renderVacationList();
+            showNotification(`Vacation planned: ${formatDateLabel(start)} – ${formatDateLabel(end)}`, 'success');
+            return true;
+        }
+
+        function removeVacationFromCommand(start, end) {
+            const ranges = normalizeVacationRanges(vacationRanges);
+            const match = ranges.find(v => v.start === start && v.end === end)
+                || ranges.find(v => v.start <= end && v.end >= start);
+            if(!match) {
+                showNotification('No matching vacation found.', 'error');
+                return false;
+            }
+            confirmAction(
+                'Remove Vacation?',
+                `Remove vacation ${formatDateLabel(match.start)} – ${formatDateLabel(match.end)}?`,
+                'Remove',
+                () => removeVacationRange(match.id)
+            );
+            return true;
+        }
+
+        function executeListVacationsCommand() {
+            const ranges = normalizeVacationRanges(vacationRanges);
+            if(ranges.length === 0) {
+                showNotification('No vacations scheduled.', 'info');
+                return true;
+            }
+            const lines = ranges.map(v => `${formatDateLabel(v.start)} – ${formatDateLabel(v.end)}`);
+            confirmAction(
+                'Vacations',
+                `<div class="text-left text-sm space-y-1">${lines.map(line => `<div>${line}</div>`).join('')}</div>`,
+                'OK',
+                () => {}
+            );
+            return true;
+        }
+
+        function parseCalendarNavigationCommand(text) {
+            const raw = String(text || '').trim();
+            if(/^today$/i.test(raw)) return { action: 'calendarNav', nav: 'today' };
+            let match = raw.match(/^(?:go\s+to\s+)?today(?:\'s)?\s+(week|month|day)$/i);
+            if(match) return { action: 'calendarNav', nav: 'today', unit: match[1].toLowerCase() };
+            match = raw.match(/^(next|previous|prev)\s+(week|month|day)$/i);
+            if(match) {
+                return {
+                    action: 'calendarNav',
+                    nav: match[1].toLowerCase().startsWith('p') ? 'prev' : 'next',
+                    unit: match[2].toLowerCase()
+                };
+            }
+            return null;
+        }
+
+        function executeCalendarNavigationCommand(parsed) {
+            if(parsed.nav === 'today') {
+                goToCurrentMonth();
+                if(parsed.unit) setCalendarViewMode(parsed.unit);
+            } else {
+                if(parsed.unit) setCalendarViewMode(parsed.unit);
+                changeCalendarPeriod(parsed.nav === 'next' ? 1 : -1);
+            }
+            switchTab('calendar');
+            showNotification(
+                parsed.nav === 'today' ? 'Jumped to today' : `${parsed.nav === 'next' ? 'Next' : 'Previous'} ${parsed.unit || calendarViewMode}`,
+                'info'
+            );
+            return true;
+        }
+
         function peelQuotedAssignmentCommand(raw) {
             const parsed = parseQuotedPrefix(String(raw || '').trim());
             if(parsed.quoted == null) return { body: parsed.rest, taskQuery: null };
@@ -9892,10 +10208,16 @@
             }
             if(/^(?:to\s+)?target\s+week$/i.test(body)) return { action: 'scheduleMode', taskQuery, mode: 'week' };
             if(/^(?:to\s+)?exact(?:\s+date)?$/i.test(body)) return { action: 'scheduleMode', taskQuery, mode: 'date' };
+            if(/^(?:to\s+)?(?:no\s+date(?:\s+yet)?|flexible|unscheduled)$/i.test(body)) {
+                return { action: 'scheduleMode', taskQuery, mode: 'flexible' };
+            }
             if(/^start$/i.test(body)) return { action: 'start', taskQuery };
             if(/^(?:complete|done|finish)$/i.test(body)) return { action: 'complete', taskQuery };
             if(/^(?:delete|remove)$/i.test(body)) return { action: 'delete', taskQuery };
             if(/^(?:edit|open)$/i.test(body)) return { action: 'edit', taskQuery };
+            if(/^clear\s+notes$/i.test(body)) return { action: 'clearNotes', taskQuery };
+            match = body.match(/^notes\s+add\s+(.+)$/i);
+            if(match) return { action: 'appendNotes', taskQuery, notes: parseNotesArgument(match[1]) };
             match = body.match(/^notes\s+(.+)$/i);
             if(match) return { action: 'notes', taskQuery, notes: parseNotesArgument(match[1]) };
             match = body.match(/^color(?:\s+to)?\s+(.+)$/i);
@@ -9907,9 +10229,9 @@
                 };
             }
             match = body.match(/^rename\s+to\s+(.+)$/i);
-            if(match) return { action: 'rename', taskQuery, newTitle: parseRenameTitleArgument(match[1]) };
+            if(match) return parseRenameTargetCommand(taskQuery, match[1], null);
             match = body.match(/^(?:title|name)\s+(.+)$/i);
-            if(match) return { action: 'rename', taskQuery, newTitle: parseRenameTitleArgument(match[1]) };
+            if(match) return parseRenameTargetCommand(taskQuery, match[1], null);
             match = body.match(/^subject\s+(.+)$/i);
             if(match) return { action: 'subject', taskQuery, subject: match[1].trim() };
             match = body.match(/^(after|before)\s+(.+)$/i);
@@ -10059,9 +10381,47 @@
                 return { action: 'openNew' };
             }
 
+            if(/^(?:help|\?|commands)$/i.test(raw)) {
+                return { action: 'help' };
+            }
+
             const peeled = peelQuotedAssignmentCommand(raw);
             const commandText = peeled.body;
             const presetTaskQuery = peeled.taskQuery;
+
+            if(/^(?:stats|summary|status)$/i.test(commandText)) {
+                return { action: 'stats' };
+            }
+
+            if(/^(?:clear|remove|delete)\s+completed(?:\s+assignments?)?$/i.test(commandText)) {
+                return { action: 'clearCompleted' };
+            }
+
+            if(/^weekly\s+planning$/i.test(commandText)) {
+                return { action: 'weeklyPlanning' };
+            }
+
+            const planWeekCommand = parsePlanWeekCommand(commandText);
+            if(planWeekCommand) return planWeekCommand;
+
+            const vacationCommand = parseVacationCommand(commandText);
+            if(vacationCommand) return vacationCommand;
+
+            const calendarNavCommand = parseCalendarNavigationCommand(commandText);
+            if(calendarNavCommand) return calendarNavCommand;
+
+            if(/^list\s+subjects$/i.test(commandText)) {
+                return { action: 'listSubjects' };
+            }
+
+            let subjectFilterMatch = commandText.match(/^(?:tasks|assignments|show)\s+(?:in|for)\s+(.+)$/i);
+            if(subjectFilterMatch) {
+                return { action: 'filterSubject', subjectQuery: subjectFilterMatch[1].trim() };
+            }
+            subjectFilterMatch = commandText.match(/^(.+?)\s+assignments$/i);
+            if(subjectFilterMatch && resolveSubjectByQuery(subjectFilterMatch[1].trim())) {
+                return { action: 'filterSubject', subjectQuery: subjectFilterMatch[1].trim() };
+            }
 
             const scheduleLunchRangeCommand = parseScheduleLunchRangeCommand(commandText);
             if(scheduleLunchRangeCommand) return scheduleLunchRangeCommand;
@@ -10165,6 +10525,15 @@
             match = commandText.match(/^(.+?)\s+(?:clear|reset|unlock)\s+time$/i);
             if(match) return applyPresetTaskQuery({ action: 'clearTime', taskQuery: match[1].trim() }, presetTaskQuery);
 
+            match = commandText.match(/^(.+?)\s+notes\s+add\s+(.+)$/i);
+            if(match) {
+                return applyPresetTaskQuery({
+                    action: 'appendNotes',
+                    taskQuery: match[1].trim(),
+                    notes: parseNotesArgument(match[2])
+                }, presetTaskQuery);
+            }
+
             match = commandText.match(/^(.+?)\s+notes\s+(.+)$/i);
             if(match) {
                 return applyPresetTaskQuery({
@@ -10172,6 +10541,11 @@
                     taskQuery: match[1].trim(),
                     notes: parseNotesArgument(match[2])
                 }, presetTaskQuery);
+            }
+
+            match = commandText.match(/^(.+?)\s+clear\s+notes$/i);
+            if(match) {
+                return applyPresetTaskQuery({ action: 'clearNotes', taskQuery: match[1].trim() }, presetTaskQuery);
             }
 
             match = commandText.match(/^(.+?)\s+color(?:\s+to)?\s+(.+)$/i);
@@ -10184,22 +10558,10 @@
             }
 
             match = commandText.match(/^(.+?)\s+rename\s+to\s+(.+)$/i);
-            if(match) {
-                return applyPresetTaskQuery({
-                    action: 'rename',
-                    taskQuery: match[1].trim(),
-                    newTitle: parseRenameTitleArgument(match[2])
-                }, presetTaskQuery);
-            }
+            if(match) return parseRenameTargetCommand(match[1].trim(), match[2], presetTaskQuery);
 
             match = commandText.match(/^(.+?)\s+(?:title|name)\s+(.+)$/i);
-            if(match) {
-                return applyPresetTaskQuery({
-                    action: 'rename',
-                    taskQuery: match[1].trim(),
-                    newTitle: parseRenameTitleArgument(match[2])
-                }, presetTaskQuery);
-            }
+            if(match) return parseRenameTargetCommand(match[1].trim(), match[2], presetTaskQuery);
 
             match = commandText.match(/^(?:set\s+)?(.+?)\s+due(?:\s+to)?\s+(.+)$/i);
             if(match) {
@@ -10225,6 +10587,15 @@
                     action: 'scheduleMode',
                     taskQuery: match[1].trim(),
                     mode: 'date'
+                }, presetTaskQuery);
+            }
+
+            match = commandText.match(/^(?:set\s+)?(.+?)\s+(?:to\s+)?(?:no\s+date(?:\s+yet)?|flexible|unscheduled)$/i);
+            if(match) {
+                return applyPresetTaskQuery({
+                    action: 'scheduleMode',
+                    taskQuery: match[1].trim(),
+                    mode: 'flexible'
                 }, presetTaskQuery);
             }
 
@@ -10277,13 +10648,7 @@
             if(match) return parseDeleteOrRemoveTargetCommand(match[1].trim(), presetTaskQuery);
 
             match = commandText.match(/^rename\s+(.+?)\s+to\s+(.+)$/i);
-            if(match) {
-                return applyPresetTaskQuery({
-                    action: 'rename',
-                    taskQuery: match[1].trim(),
-                    newTitle: parseRenameTitleArgument(match[2])
-                }, presetTaskQuery);
-            }
+            if(match) return parseRenameTargetCommand(match[1].trim(), match[2], presetTaskQuery);
 
             match = commandText.match(/^(?:set\s+)?(.+?)\s+priority\s+(high|medium|low|urgent)$/i)
                 || commandText.match(/^(?:set\s+)?(.+?)\s+(high|medium|low|urgent)\s+priority$/i)
@@ -10632,6 +10997,61 @@
                 return true;
             }
 
+            if(parsed.action === 'help') {
+                return showClassifyCommandHelp();
+            }
+
+            if(parsed.action === 'stats') {
+                return executeClassifyStatsCommand();
+            }
+
+            if(parsed.action === 'clearCompleted') {
+                openClearCompletedModal();
+                return true;
+            }
+
+            if(parsed.action === 'weeklyPlanning') {
+                startWeeklyPlanning();
+                return true;
+            }
+
+            if(parsed.action === 'planWeek') {
+                autoPlanWeekInternal(parsed.weekKey || getCurrentWeekKey(), {
+                    showToast: true,
+                    persist: true,
+                    switchToCalendar: true
+                });
+                return true;
+            }
+
+            if(parsed.action === 'addVacation') {
+                return addVacationFromCommand(parsed.start, parsed.end);
+            }
+
+            if(parsed.action === 'removeVacation') {
+                return removeVacationFromCommand(parsed.start, parsed.end);
+            }
+
+            if(parsed.action === 'listVacations') {
+                return executeListVacationsCommand();
+            }
+
+            if(parsed.action === 'calendarNav') {
+                return executeCalendarNavigationCommand(parsed);
+            }
+
+            if(parsed.action === 'listSubjects') {
+                return executeListSubjectsCommand();
+            }
+
+            if(parsed.action === 'filterSubject') {
+                return executeFilterSubjectCommand(parsed.subjectQuery);
+            }
+
+            if(parsed.action === 'renameSubject') {
+                return renameSubjectByName(parsed.subjectQuery, parsed.newName);
+            }
+
             if(parsed.action === 'create') {
                 const detailsText = parsed.details || '';
                 const quickParsed = parseAssignmentQuickEntry(detailsText, { title: parsed.title });
@@ -10911,6 +11331,32 @@
                 return true;
             }
 
+            if(parsed.action === 'appendNotes') {
+                const addition = String(parsed.notes || '').trim();
+                if(!addition) {
+                    showNotification('Enter notes to append.', 'error');
+                    return false;
+                }
+                mutateClassifyData(() => {
+                    tasks = tasks.map(t => {
+                        if(t.id !== taskId) return t;
+                        const existing = String(t.notes || '').trim();
+                        const combined = existing ? `${existing} ${addition}` : addition;
+                        return { ...t, notes: combined.substring(0, 500) };
+                    });
+                }, { seedTaskIds: [taskId] });
+                showNotification(`Appended notes on "${task.title}"`, 'success');
+                return true;
+            }
+
+            if(parsed.action === 'clearNotes') {
+                mutateClassifyData(() => {
+                    tasks = tasks.map(t => t.id === taskId ? { ...t, notes: '' } : t);
+                }, { seedTaskIds: [taskId] });
+                showNotification(`Cleared notes for "${task.title}"`, 'success');
+                return true;
+            }
+
             if(parsed.action === 'difficulty') {
                 mutateClassifyData(() => {
                     tasks = tasks.map(t => t.id === taskId ? { ...t, difficulty: parsed.difficulty } : t);
@@ -11026,16 +11472,17 @@
             }
 
             if(parsed.action === 'scheduleMode') {
-                const toWeek = parsed.mode === 'week';
                 mutateClassifyData(() => {
-                    tasks = tasks.map(t => t.id === taskId
-                        ? applyScheduleModeSwitch(t, parsed.mode)
-                        : t);
+                    tasks = tasks.map(t => {
+                        if(t.id !== taskId) return t;
+                        if(parsed.mode === 'flexible') return applyFlexibleScheduleMode(t);
+                        return applyScheduleModeSwitch(t, parsed.mode);
+                    });
                 }, { seedTaskIds: [taskId] });
-                showNotification(
-                    `"${task.title}" switched to ${toWeek ? 'target week' : 'exact date'}`,
-                    'success'
-                );
+                const modeLabel = parsed.mode === 'week'
+                    ? 'target week'
+                    : (parsed.mode === 'flexible' ? 'no date yet' : 'exact date');
+                showNotification(`"${task.title}" switched to ${modeLabel}`, 'success');
                 return true;
             }
 
