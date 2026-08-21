@@ -5903,7 +5903,7 @@
             if(mode === 'week') {
                 const dateStr = task.date || task.dueDate || getTaskDueDate(task);
                 const week = task.week || (dateStr ? getWeekKeyFromDateStr(dateStr) : getCurrentWeekKey());
-                const dueDate = task.dueDate || dateStr || getWeekDueDateForRepeat(week, { dueDate: null });
+                const dueDate = resolveTargetWeekDueDate(task, week);
                 const updates = {
                     scheduleType: 'week',
                     weekDueOnly: true,
@@ -6306,8 +6306,38 @@
                 addDate(task.completedDate);
                 addDate(getTaskDueDate(task));
                 addWeekKey(task.week);
+                addWeekKey(task.repeatWeekKey);
             });
             return weekKeys;
+        }
+
+        function getCommandLineScheduleRefreshOptions(...taskRefs) {
+            const weekKeys = new Set();
+            const seedTaskIds = [];
+            taskRefs.forEach(ref => {
+                if(!ref) return;
+                if(typeof ref === 'string') {
+                    seedTaskIds.push(ref);
+                    collectWeekKeysForTasks([ref]).forEach(weekKey => weekKeys.add(weekKey));
+                    return;
+                }
+                if(ref.id) {
+                    seedTaskIds.push(ref.id);
+                    collectWeekKeysForTasks([ref.id]).forEach(weekKey => weekKeys.add(weekKey));
+                }
+                if(ref.date) weekKeys.add(getWeekKeyFromDateStr(ref.date));
+                if(ref.dueDate) weekKeys.add(getWeekKeyFromDateStr(ref.dueDate));
+                if(ref.week) weekKeys.add(ref.week);
+                if(ref.repeatWeekKey) weekKeys.add(ref.repeatWeekKey);
+            });
+            if(weekKeys.size === 0) {
+                getRelevantUpcomingWeekKeys().forEach(weekKey => weekKeys.add(weekKey));
+            }
+            return {
+                seedTaskIds: Array.from(new Set(seedTaskIds.filter(Boolean))),
+                weekKeys: Array.from(weekKeys),
+                skipScheduleRefresh: false
+            };
         }
 
         function captureTaskScheduleSnapshot(task) {
@@ -10518,17 +10548,12 @@
             const calendarMove = !dueKeyword && scheduleUpdates?.scheduleType === 'date' && scheduleUpdates.date
                 ? { date: scheduleUpdates.date, time: scheduleUpdates.time || scheduleUpdates.dueTime || null }
                 : null;
-            const needsScheduleRefresh = Boolean(scheduleChanged || repeatChanged || calendarMove);
-
-            const weekKeys = new Set();
-            if(needsScheduleRefresh) {
-                if(task.week) weekKeys.add(task.week);
-                if(task.repeatWeekKey) weekKeys.add(task.repeatWeekKey);
-                if(task.date) weekKeys.add(getWeekKeyFromDateStr(task.date));
-                if(scheduleUpdates?.week) weekKeys.add(scheduleUpdates.week);
-                if(scheduleUpdates?.date) weekKeys.add(getWeekKeyFromDateStr(scheduleUpdates.date));
-                if(scheduleUpdates?.dueDate) weekKeys.add(getWeekKeyFromDateStr(scheduleUpdates.dueDate));
-            }
+            const previousSnapshot = captureTaskScheduleSnapshot(task);
+            const refreshOptions = getCommandLineScheduleRefreshOptions(task, previousSnapshot);
+            if(scheduleUpdates?.week) refreshOptions.weekKeys.push(scheduleUpdates.week);
+            if(scheduleUpdates?.date) refreshOptions.weekKeys.push(getWeekKeyFromDateStr(scheduleUpdates.date));
+            if(scheduleUpdates?.dueDate) refreshOptions.weekKeys.push(getWeekKeyFromDateStr(scheduleUpdates.dueDate));
+            refreshOptions.weekKeys = Array.from(new Set(refreshOptions.weekKeys.filter(Boolean)));
 
             mutateClassifyData(() => {
                 let current = tasks.find(t => t.id === taskId);
@@ -10582,7 +10607,8 @@
                         dueDate: current.dueDate,
                         week: current.week
                     });
-                    weekKeys.add(startWeekKey);
+                    refreshOptions.weekKeys.push(startWeekKey);
+                    refreshOptions.weekKeys = Array.from(new Set(refreshOptions.weekKeys.filter(Boolean)));
 
                     const template = normalizeTask({
                         ...current,
@@ -10630,11 +10656,7 @@
                     applyReciprocalDependenciesForTask(taskId);
                     syncAllTaskDependencies();
                 }
-            }, {
-                seedTaskIds: needsScheduleRefresh ? [taskId] : [],
-                weekKeys: needsScheduleRefresh ? Array.from(weekKeys) : null,
-                skipScheduleRefresh: !needsScheduleRefresh
-            });
+            }, refreshOptions);
 
             if(calendarMove) {
                 moveTaskToDateTime(taskId, calendarMove.date, calendarMove.time);
@@ -11778,7 +11800,7 @@
                         ? { ...t, completed: false, completedDate: null, actualMinutes: null }
                         : t);
                     if(task.repeatGroupId) clearRepeatOccurrenceException(task.repeatGroupId, task);
-                }, { seedTaskIds: [taskId] });
+                }, getCommandLineScheduleRefreshOptions(task));
                 showNotification(`Reopened "${task.title}"`, 'success');
                 return true;
             }
@@ -11795,7 +11817,7 @@
                         tasks = tasks.map(t => t.id === taskId
                             ? normalizeTask({ ...t, dueTime: parsed.time })
                             : t);
-                    }, { seedTaskIds: [taskId] });
+                    }, getCommandLineScheduleRefreshOptions(task));
                     showNotification(`Set "${task.title}" due time to ${timeLabel}`, 'success');
                     return true;
                 }
@@ -11816,7 +11838,7 @@
                             tasks = tasks.filter(t => t.id !== taskId);
                             removeDependencyReferences([taskId]);
                             syncAllTaskDependencies();
-                        }, { seedTaskIds: [taskId] });
+                        }, getCommandLineScheduleRefreshOptions(captureTaskScheduleSnapshot(task)));
                         showNotification(`Deleted "${task.title}"`, 'success');
                     }
                 );
@@ -11832,7 +11854,7 @@
                 const previousTitle = task.title;
                 mutateClassifyData(() => {
                     tasks = tasks.map(t => t.id === taskId ? { ...t, title: newTitle } : t);
-                }, { seedTaskIds: [taskId] });
+                }, getCommandLineScheduleRefreshOptions(task));
                 showNotification(`Renamed "${previousTitle}" to "${newTitle}"`, 'success');
                 return true;
             }
@@ -11840,7 +11862,7 @@
             if(parsed.action === 'priority') {
                 mutateClassifyData(() => {
                     tasks = tasks.map(t => t.id === taskId ? { ...t, priority: parsed.priority } : t);
-                }, { seedTaskIds: [taskId] });
+                }, getCommandLineScheduleRefreshOptions(task));
                 showNotification(`Set "${task.title}" to ${parsed.priority} priority`, 'success');
                 return true;
             }
@@ -11848,7 +11870,7 @@
             if(parsed.action === 'duration') {
                 mutateClassifyData(() => {
                     tasks = tasks.map(t => t.id === taskId ? { ...t, duration: parsed.duration } : t);
-                }, { skipScheduleRefresh: true });
+                }, getCommandLineScheduleRefreshOptions(task));
                 showNotification(`Set "${task.title}" duration to ${parsed.duration}m`, 'success');
                 return true;
             }
@@ -11869,7 +11891,7 @@
                     tasks = tasks.map(t => t.id === taskId
                         ? { ...t, subject, color: getSubjectColorValue(subject) || getTaskColor(t) }
                         : t);
-                }, { seedTaskIds: [taskId] });
+                }, getCommandLineScheduleRefreshOptions(task));
                 showNotification(`Set "${task.title}" subject to ${subject}`, 'success');
                 return true;
             }
@@ -11878,7 +11900,7 @@
                 const notes = String(parsed.notes || '').substring(0, 500);
                 mutateClassifyData(() => {
                     tasks = tasks.map(t => t.id === taskId ? { ...t, notes } : t);
-                }, { seedTaskIds: [taskId] });
+                }, getCommandLineScheduleRefreshOptions(task));
                 showNotification(`Updated notes for "${task.title}"`, 'success');
                 return true;
             }
@@ -11896,7 +11918,7 @@
                         const combined = existing ? `${existing} ${addition}` : addition;
                         return { ...t, notes: combined.substring(0, 500) };
                     });
-                }, { seedTaskIds: [taskId] });
+                }, getCommandLineScheduleRefreshOptions(task));
                 showNotification(`Appended notes on "${task.title}"`, 'success');
                 return true;
             }
@@ -11904,7 +11926,7 @@
             if(parsed.action === 'clearNotes') {
                 mutateClassifyData(() => {
                     tasks = tasks.map(t => t.id === taskId ? { ...t, notes: '' } : t);
-                }, { seedTaskIds: [taskId] });
+                }, getCommandLineScheduleRefreshOptions(task));
                 showNotification(`Cleared notes for "${task.title}"`, 'success');
                 return true;
             }
@@ -11912,7 +11934,7 @@
             if(parsed.action === 'difficulty') {
                 mutateClassifyData(() => {
                     tasks = tasks.map(t => t.id === taskId ? { ...t, difficulty: parsed.difficulty } : t);
-                }, { seedTaskIds: [taskId] });
+                }, getCommandLineScheduleRefreshOptions(task));
                 showNotification(`Set "${task.title}" difficulty to ${parsed.difficulty}`, 'success');
                 return true;
             }
@@ -11929,7 +11951,7 @@
                             startedAt: null
                         });
                     });
-                }, { seedTaskIds: [taskId] });
+                }, getCommandLineScheduleRefreshOptions(task));
                 showNotification(`Cleared fixed time for "${task.title}"`, 'success');
                 return true;
             }
@@ -11969,7 +11991,7 @@
                     });
                     applyReciprocalDependenciesForTask(taskId);
                     syncAllTaskDependencies();
-                }, { seedTaskIds: [taskId, depId] });
+                }, getCommandLineScheduleRefreshOptions(task, depTask));
                 showNotification(`Removed "${task.title}" ${parsed.depType} "${depTask?.title || parsed.depQuery}"`, 'success');
                 return true;
             }
@@ -12017,7 +12039,7 @@
                     });
                     applyReciprocalDependenciesForTask(taskId);
                     syncAllTaskDependencies();
-                }, { seedTaskIds: [taskId, depId] });
+                }, getCommandLineScheduleRefreshOptions(task, depTask));
                 const relation = parsed.depType === 'before' ? 'before' : (parsed.depType === 'differentDay' ? 'on a different day than' : 'after');
                 showNotification(`"${task.title}" must be ${relation} "${depTask?.title || parsed.depQuery}"`, 'success');
                 return true;
@@ -12030,7 +12052,7 @@
                         if(parsed.mode === 'flexible') return applyFlexibleScheduleMode(t);
                         return applyScheduleModeSwitch(t, parsed.mode);
                     });
-                }, { seedTaskIds: [taskId] });
+                }, getCommandLineScheduleRefreshOptions(task));
                 const modeLabel = parsed.mode === 'week'
                     ? 'target week'
                     : (parsed.mode === 'flexible' ? 'no date yet' : 'exact date');
@@ -12066,7 +12088,7 @@
                             ? enforceScheduleTypeFieldSeparation(merged)
                             : ensureTargetWeekScheduleType(merged);
                     });
-                }, { seedTaskIds: [taskId] });
+                }, getCommandLineScheduleRefreshOptions(task));
                 const label = updates.dueDate
                     ? `due ${formatDateLabel(updates.dueDate)}${updates.dueTime ? ` at ${minToTime(timeToMin(updates.dueTime))}` : ''}`
                     : (updates.date ? `on ${formatDateLabel(updates.date)}${updates.time ? ` at ${minToTime(timeToMin(updates.time))}` : ''}` : 'updated');
@@ -12326,6 +12348,11 @@
                 if(weekday != null && !result.dueDate) {
                     result.dueDate = resolveQuickEntryDateToken(weekdayNameForQuickEntry(weekday));
                     if(result.dueDate) result.week = getWeekKeyFromDateStr(result.dueDate);
+                }
+                if(!result.dueDate) {
+                    const weekKey = result.week || getCurrentWeekKey();
+                    result.dueDate = getWeekDueDateForRepeat(weekKey, { dueDate: null });
+                    result.week = getWeekKeyFromDateStr(result.dueDate);
                 }
                 if(repeatParsed.dueTime && !result.dueTime) result.dueTime = repeatParsed.dueTime;
                 return;
@@ -13949,6 +13976,8 @@
                 }
             }
 
+            const previousSnapshot = captureTaskScheduleSnapshot(task);
+
             mutateClassifyData(() => {
                 const currentTask = tasks.find(t => t.id === taskId);
                 if(!currentTask) return;
@@ -13975,7 +14004,7 @@
 
                 const movedTask = applyExactDateCalendarMove(currentTask, dateStr, timeStr || null);
                 tasks = tasks.map(t => t.id === taskId ? movedTask : t);
-            }, { seedTaskIds: [taskId] });
+            }, getCommandLineScheduleRefreshOptions(previousSnapshot, { date: dateStr, id: taskId }));
 
             renderCalendar();
         }
