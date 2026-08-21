@@ -272,6 +272,42 @@
       margin: 0 0 14px;
       box-sizing: border-box;
     }
+    .dk-modal-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 10100;
+      background: rgba(15, 23, 42, 0.45);
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .dk-modal-backdrop.open { display: flex; }
+    .dk-modal {
+      width: min(400px, 100%);
+      background: #fff;
+      border-radius: 18px;
+      padding: 22px;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.2);
+    }
+    .dk-modal h3 {
+      margin: 0 0 8px;
+      font-size: 1.15rem;
+      font-weight: 800;
+      color: var(--dk-ink);
+    }
+    .dk-modal p {
+      margin: 0;
+      color: var(--dk-muted);
+      font-size: 0.95rem;
+      line-height: 1.5;
+    }
+    .dk-modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 18px;
+    }
     .hidden { display: none !important; }
   </style>
 </head>
@@ -382,6 +418,17 @@
     </nav>
   </div>
 
+  <div class="dk-modal-backdrop" id="dk-modal" role="presentation">
+    <div class="dk-modal" role="dialog" aria-modal="true" aria-labelledby="dk-modal-title" aria-describedby="dk-modal-message">
+      <h3 id="dk-modal-title">Confirm</h3>
+      <p id="dk-modal-message"></p>
+      <div class="dk-modal-actions">
+        <button type="button" class="dk-btn dk-btn-ghost" id="dk-modal-cancel">Cancel</button>
+        <button type="button" class="dk-btn dk-btn-primary" id="dk-modal-ok">OK</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     (function () {
       const uid = localStorage.getItem('ahrenslabs_userId') || 'guest';
@@ -428,6 +475,60 @@
       save(state);
       let activeDeckId = state.decks[0] ? state.decks[0].id : null;
       let activeNoteId = null;
+      let modalResolve = null;
+
+      const modalEl = document.getElementById('dk-modal');
+      const modalTitle = document.getElementById('dk-modal-title');
+      const modalMessage = document.getElementById('dk-modal-message');
+      const modalCancel = document.getElementById('dk-modal-cancel');
+      const modalOk = document.getElementById('dk-modal-ok');
+
+      function closeModal(result) {
+        modalEl.classList.remove('open');
+        const resolve = modalResolve;
+        modalResolve = null;
+        if (resolve) resolve(!!result);
+      }
+
+      function showModal(opts) {
+        return new Promise((resolve) => {
+          if (modalResolve) modalResolve(false);
+          modalResolve = resolve;
+          modalTitle.textContent = opts.title || 'Confirm';
+          modalMessage.textContent = opts.message || '';
+          modalOk.textContent = opts.okLabel || 'OK';
+          modalOk.className = 'dk-btn ' + (opts.danger ? 'dk-btn-danger' : 'dk-btn-primary');
+          modalCancel.classList.toggle('hidden', !!opts.hideCancel);
+          modalCancel.textContent = opts.cancelLabel || 'Cancel';
+          modalEl.classList.add('open');
+          modalOk.focus();
+        });
+      }
+
+      function showConfirm(opts) {
+        return showModal(opts);
+      }
+
+      function showAlert(opts) {
+        return showModal({
+          title: opts.title || 'Deck',
+          message: opts.message || '',
+          okLabel: opts.okLabel || 'OK',
+          hideCancel: true,
+        });
+      }
+
+      modalCancel.addEventListener('click', () => closeModal(false));
+      modalOk.addEventListener('click', () => closeModal(true));
+      modalEl.addEventListener('click', (ev) => {
+        if (ev.target === modalEl) closeModal(false);
+      });
+      document.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Escape' && modalEl.classList.contains('open')) {
+          ev.preventDefault();
+          closeModal(false);
+        }
+      });
 
       const views = {
         decks: document.getElementById('view-decks'),
@@ -606,8 +707,11 @@
           if (activeNoteId) persistNoteFields();
           const deck = ensureActiveDeck();
           if (!deck) {
-            alert('Create a deck first, then add notes into it.');
             showDecks();
+            showAlert({
+              title: 'Create a deck first',
+              message: 'Make a deck, then add notes into it so related things stay grouped together.',
+            });
             return;
           }
           openDeck(deck.id);
@@ -634,12 +738,18 @@
         document.getElementById('note-title').focus();
       });
 
-      document.getElementById('btn-delete-deck').addEventListener('click', () => {
+      document.getElementById('btn-delete-deck').addEventListener('click', async () => {
         const deck = deckById(activeDeckId);
         if (!deck) return;
         const n = noteCount(deck);
         const extra = n ? ' and its ' + n + (n === 1 ? ' note' : ' notes') : '';
-        if (!confirm('Delete “' + (deck.name || 'this deck') + '”' + extra + '?')) return;
+        const ok = await showConfirm({
+          title: 'Delete deck?',
+          message: 'Delete “' + (deck.name || 'this deck') + '”' + extra + '? This cannot be undone.',
+          okLabel: 'Delete',
+          danger: true,
+        });
+        if (!ok) return;
         state.decks = state.decks.filter((d) => d.id !== activeDeckId);
         activeDeckId = state.decks[0] ? state.decks[0].id : null;
         activeNoteId = null;
@@ -657,10 +767,18 @@
         openDeck(activeDeckId);
       });
 
-      document.getElementById('btn-delete-note').addEventListener('click', () => {
+      document.getElementById('btn-delete-note').addEventListener('click', async () => {
         const deck = deckById(activeDeckId);
         if (!deck) return;
-        if (!confirm('Delete this note?')) return;
+        const note = (deck.notes || []).find((n) => n.id === activeNoteId);
+        const label = (note && note.title) ? '“' + note.title + '”' : 'this note';
+        const ok = await showConfirm({
+          title: 'Delete note?',
+          message: 'Delete ' + label + '? This cannot be undone.',
+          okLabel: 'Delete',
+          danger: true,
+        });
+        if (!ok) return;
         deck.notes = deck.notes.filter((n) => n.id !== activeNoteId);
         activeNoteId = null;
         save(state);
