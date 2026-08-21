@@ -9757,6 +9757,13 @@
             return value.substring(0, 500);
         }
 
+        function parseRenameTitleArgument(text) {
+            const parsed = parseQuotedPrefix(text);
+            let value = parsed.quoted != null ? parsed.quoted : String(text || '').trim();
+            value = value.replace(/^(?:title|name)\s+/i, '').trim();
+            return value.substring(0, 100);
+        }
+
         function peelQuotedAssignmentCommand(raw) {
             const parsed = parseQuotedPrefix(String(raw || '').trim());
             if(parsed.quoted == null) return { body: parsed.rest, taskQuery: null };
@@ -9794,6 +9801,10 @@
             if(/^(?:edit|open)$/i.test(body)) return { action: 'edit', taskQuery };
             match = body.match(/^notes\s+(.+)$/i);
             if(match) return { action: 'notes', taskQuery, notes: parseNotesArgument(match[1]) };
+            match = body.match(/^rename\s+to\s+(.+)$/i);
+            if(match) return { action: 'rename', taskQuery, newTitle: parseRenameTitleArgument(match[1]) };
+            match = body.match(/^(?:title|name)\s+(.+)$/i);
+            if(match) return { action: 'rename', taskQuery, newTitle: parseRenameTitleArgument(match[1]) };
             match = body.match(/^subject\s+(.+)$/i);
             if(match) return { action: 'subject', taskQuery, subject: match[1].trim() };
             match = body.match(/^(after|before)\s+(.+)$/i);
@@ -10058,6 +10069,24 @@
                 }, presetTaskQuery);
             }
 
+            match = commandText.match(/^(.+?)\s+rename\s+to\s+(.+)$/i);
+            if(match) {
+                return applyPresetTaskQuery({
+                    action: 'rename',
+                    taskQuery: match[1].trim(),
+                    newTitle: parseRenameTitleArgument(match[2])
+                }, presetTaskQuery);
+            }
+
+            match = commandText.match(/^(.+?)\s+(?:title|name)\s+(.+)$/i);
+            if(match) {
+                return applyPresetTaskQuery({
+                    action: 'rename',
+                    taskQuery: match[1].trim(),
+                    newTitle: parseRenameTitleArgument(match[2])
+                }, presetTaskQuery);
+            }
+
             match = commandText.match(/^(?:set\s+)?(.+?)\s+due(?:\s+to)?\s+(.+)$/i);
             if(match) {
                 return applyPresetTaskQuery({
@@ -10138,7 +10167,7 @@
                 return applyPresetTaskQuery({
                     action: 'rename',
                     taskQuery: match[1].trim(),
-                    newTitle: match[2].trim()
+                    newTitle: parseRenameTitleArgument(match[2])
                 }, presetTaskQuery);
             }
 
@@ -10177,7 +10206,7 @@
             }
 
             if(presetTaskQuery) {
-                return { error: `Could not understand command for "${presetTaskQuery}". Try due tomorrow at 5pm, target week, or exact date.` };
+                return { error: `Could not understand command for "${presetTaskQuery}". Try due tomorrow at 5pm, title "New Name", or target week.` };
             }
 
             return { error: 'Could not understand that command. Try open analytics, switch calendar week, open settings, or tasks overdue.' };
@@ -10700,15 +10729,16 @@
             }
 
             if(parsed.action === 'rename') {
-                const newTitle = String(parsed.newTitle || '').trim();
+                const newTitle = parseRenameTitleArgument(parsed.newTitle || '');
                 if(!newTitle) {
                     showNotification('Enter a new name.', 'error');
                     return false;
                 }
+                const previousTitle = task.title;
                 mutateClassifyData(() => {
-                    tasks = tasks.map(t => t.id === taskId ? { ...t, title: newTitle.substring(0, 100) } : t);
+                    tasks = tasks.map(t => t.id === taskId ? { ...t, title: newTitle } : t);
                 }, { seedTaskIds: [taskId] });
-                showNotification(`Renamed to "${newTitle}"`, 'success');
+                showNotification(`Renamed "${previousTitle}" to "${newTitle}"`, 'success');
                 return true;
             }
 
