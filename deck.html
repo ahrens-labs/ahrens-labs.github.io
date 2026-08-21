@@ -31,6 +31,8 @@
       --dk-bg: #eef2ff;
       --dk-brand: #4f46e5;
       --dk-brand-2: #7c3aed;
+      --dk-layout-max: 1200px;
+      --dk-layout-pad: 14px;
     }
     .deck-logo {
       width: 40px;
@@ -60,25 +62,12 @@
       display: block;
     }
     .dk-wrap {
-      max-width: 720px;
+      max-width: var(--dk-layout-max);
+      width: min(100%, var(--dk-layout-max));
       margin: 0 auto;
-      padding: 16px 16px calc(96px + env(safe-area-inset-bottom, 0px));
+      padding: 16px var(--dk-layout-pad) calc(96px + env(safe-area-inset-bottom, 0px));
       font-family: Inter, system-ui, sans-serif;
-      width: 100%;
       box-sizing: border-box;
-    }
-    @media (min-width: 768px) {
-      .dk-wrap {
-        max-width: 900px;
-        padding-left: 24px;
-        padding-right: 24px;
-      }
-    }
-    @media (min-width: 1024px) {
-      .dk-wrap { max-width: 1100px; }
-    }
-    @media (min-width: 1280px) {
-      .dk-wrap { max-width: 1280px; }
     }
     .dk-bottom-nav {
       position: fixed;
@@ -222,20 +211,10 @@
     .dk-list { display: grid; gap: 10px; }
     .dk-card-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
       gap: 10px;
     }
     .dk-card-grid > .dk-empty { grid-column: 1 / -1; }
-    @media (min-width: 768px) {
-      .dk-card-grid {
-        grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
-      }
-    }
-    @media (min-width: 1024px) {
-      .dk-card-grid {
-        grid-template-columns: repeat(auto-fill, minmax(min(100%, 360px), 1fr));
-      }
-    }
     @media (max-width: 640px) {
       .dk-card-grid { grid-template-columns: 1fr; }
     }
@@ -764,8 +743,15 @@
       background: var(--dk-bg);
       display: flex;
       flex-direction: column;
-      padding: calc(12px + env(safe-area-inset-top, 0px)) 16px calc(12px + env(safe-area-inset-bottom, 0px));
+      align-items: center;
+      padding: calc(12px + env(safe-area-inset-top, 0px)) var(--dk-layout-pad) calc(12px + env(safe-area-inset-bottom, 0px));
       box-sizing: border-box;
+    }
+    .dk-review-top,
+    .dk-review-body,
+    .dk-review-nav {
+      width: min(100%, var(--dk-layout-max));
+      max-width: var(--dk-layout-max);
     }
     .dk-review-top {
       display: flex;
