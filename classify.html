@@ -9764,6 +9764,103 @@
             return value.substring(0, 100);
         }
 
+        const NAMED_SUBJECT_COLORS = {
+            aliceblue: '#f0f8ff', antiquewhite: '#faebd7', aqua: '#00ffff', aquamarine: '#7fffd4',
+            azure: '#f0ffff', beige: '#f5f5dc', bisque: '#ffe4c4', black: '#000000',
+            blue: '#2563eb', brown: '#92400e', chocolate: '#d2691e', coral: '#ff7f50',
+            crimson: '#dc143c', cyan: '#06b6d4', fuchsia: '#d946ef', gold: '#eab308',
+            gray: '#64748b', green: '#16a34a', grey: '#64748b', indigo: '#4f46e5',
+            lavender: '#e6e6fa', lime: '#84cc16', magenta: '#d946ef', maroon: '#881337',
+            navy: '#1e3a8a', olive: '#84cc16', orange: '#ea580c', pink: '#db2777',
+            purple: '#9333ea', red: '#dc2626', rose: '#e11d48', salmon: '#fa8072',
+            silver: '#94a3b8', slate: '#64748b', teal: '#0d9488', violet: '#7c3aed',
+            white: '#f8fafc', yellow: '#ca8a04'
+        };
+
+        function parseSubjectColorArgument(text) {
+            let value = String(text || '').trim();
+            value = value.replace(/^to\s+/i, '').trim();
+            return value;
+        }
+
+        function clampColorChannel(value) {
+            return Math.max(0, Math.min(255, Math.round(Number(value))));
+        }
+
+        function rgbChannelsToHex(r, g, b) {
+            const toHex = (channel) => clampColorChannel(channel).toString(16).padStart(2, '0');
+            return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+        }
+
+        function parseSubjectColorValue(text) {
+            const raw = parseSubjectColorArgument(text);
+            if(!raw) return null;
+
+            const named = NAMED_SUBJECT_COLORS[String(raw).trim().toLowerCase()];
+            if(named) return named;
+
+            const hexMatch = raw.match(/^#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/);
+            if(hexMatch) {
+                let hex = hexMatch[1].toLowerCase();
+                if(hex.length === 3) hex = hex.split('').map(ch => ch + ch).join('');
+                return `#${hex}`;
+            }
+
+            const rgbMatch = raw.match(/^(?:rgb\s*)?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)$/i);
+            if(rgbMatch) return rgbChannelsToHex(rgbMatch[1], rgbMatch[2], rgbMatch[3]);
+
+            const commaMatch = raw.match(/^(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})$/);
+            if(commaMatch) return rgbChannelsToHex(commaMatch[1], commaMatch[2], commaMatch[3]);
+
+            return null;
+        }
+
+        function resolveSubjectByQuery(query) {
+            const needle = String(query || '').trim().toLowerCase();
+            if(!needle) return null;
+            const names = getAllSubjectNames();
+            const exact = names.find(name => name.toLowerCase() === needle);
+            if(exact) return exact;
+            const starts = names.filter(name => name.toLowerCase().startsWith(needle));
+            if(starts.length === 1) return starts[0];
+            const contains = names.filter(name => name.toLowerCase().includes(needle));
+            if(contains.length === 1) return contains[0];
+            return null;
+        }
+
+        function parseDeleteOrRemoveTargetCommand(target, presetTaskQuery) {
+            const query = String(target || '').trim();
+            if(!query) return { error: 'Missing name.' };
+            if(/^subject\s+/i.test(query)) {
+                return { action: 'deleteSubject', subjectQuery: query.replace(/^subject\s+/i, '').trim() };
+            }
+            const taskRef = resolveTaskReference(query);
+            if(!taskRef.error && !taskRef.ambiguous) {
+                return applyPresetTaskQuery({ action: 'delete', taskQuery: query }, presetTaskQuery);
+            }
+            const subject = resolveSubjectByQuery(query);
+            if(subject) return { action: 'deleteSubject', subjectQuery: query };
+            return applyPresetTaskQuery({ action: 'delete', taskQuery: query }, presetTaskQuery);
+        }
+
+        function applySubjectColorFromCommand(parsed) {
+            const subject = resolveSubjectByQuery(parsed.subjectQuery)
+                || resolveCanonicalSubject(String(parsed.subjectQuery || '').trim());
+            const color = parseSubjectColorValue(parsed.colorText);
+            if(!color) {
+                showNotification('Could not parse that color. Try purple, #a123b2, or (32, 145, 87).', 'error');
+                return false;
+            }
+            mutateClassifyData(() => {
+                setSubjectColorValue(subject, color);
+                tasks = tasks.map(t => (
+                    subjectsMatch(t.subject, subject) ? { ...t, color } : t
+                ));
+            }, { skipScheduleRefresh: true });
+            showNotification(`Set ${subject} color to ${color}`, 'success');
+            return true;
+        }
+
         function peelQuotedAssignmentCommand(raw) {
             const parsed = parseQuotedPrefix(String(raw || '').trim());
             if(parsed.quoted == null) return { body: parsed.rest, taskQuery: null };
@@ -9801,6 +9898,14 @@
             if(/^(?:edit|open)$/i.test(body)) return { action: 'edit', taskQuery };
             match = body.match(/^notes\s+(.+)$/i);
             if(match) return { action: 'notes', taskQuery, notes: parseNotesArgument(match[1]) };
+            match = body.match(/^color(?:\s+to)?\s+(.+)$/i);
+            if(match) {
+                return {
+                    action: 'subjectColor',
+                    subjectQuery: taskQuery,
+                    colorText: parseSubjectColorArgument(match[1])
+                };
+            }
             match = body.match(/^rename\s+to\s+(.+)$/i);
             if(match) return { action: 'rename', taskQuery, newTitle: parseRenameTitleArgument(match[1]) };
             match = body.match(/^(?:title|name)\s+(.+)$/i);
@@ -10069,6 +10174,15 @@
                 }, presetTaskQuery);
             }
 
+            match = commandText.match(/^(.+?)\s+color(?:\s+to)?\s+(.+)$/i);
+            if(match) {
+                return {
+                    action: 'subjectColor',
+                    subjectQuery: match[1].trim(),
+                    colorText: parseSubjectColorArgument(match[2])
+                };
+            }
+
             match = commandText.match(/^(.+?)\s+rename\s+to\s+(.+)$/i);
             if(match) {
                 return applyPresetTaskQuery({
@@ -10160,7 +10274,7 @@
             if(match) return applyPresetTaskQuery({ action: 'complete', taskQuery: match[1].trim() }, presetTaskQuery);
 
             match = commandText.match(/^(?:delete|remove)\s+(.+)$/i);
-            if(match) return applyPresetTaskQuery({ action: 'delete', taskQuery: match[1].trim() }, presetTaskQuery);
+            if(match) return parseDeleteOrRemoveTargetCommand(match[1].trim(), presetTaskQuery);
 
             match = commandText.match(/^rename\s+(.+?)\s+to\s+(.+)$/i);
             if(match) {
@@ -10498,6 +10612,24 @@
 
             if(parsed.action === 'navigate') {
                 return executeNavigationCommand(parsed);
+            }
+
+            if(parsed.action === 'subjectColor') {
+                return applySubjectColorFromCommand(parsed);
+            }
+
+            if(parsed.action === 'deleteSubject') {
+                const subject = resolveSubjectByQuery(parsed.subjectQuery);
+                if(!subject) {
+                    showNotification(`No subject found for "${String(parsed.subjectQuery || '').trim()}".`, 'error');
+                    return false;
+                }
+                if(subjectsMatch(subject, 'General')) {
+                    showNotification('General cannot be removed.', 'error');
+                    return false;
+                }
+                removeSubject(subject);
+                return true;
             }
 
             if(parsed.action === 'create') {
