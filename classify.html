@@ -9421,24 +9421,118 @@
         function parseBlockTimeCommandText(text) {
             let working = String(text || '').trim();
             if(!working) return null;
+
+            let repeatRule = normalizeRepeatRule({ type: 'none' });
+            let label = null;
+
+            const everySuffixMatch = working.match(/^(.+?)\s+every\s+(.+)$/i);
+            const everyPrefixMatch = !everySuffixMatch
+                ? working.match(/^every\s+(.+?)\s+(.+)$/i)
+                : null;
+            if(everySuffixMatch) {
+                working = everySuffixMatch[1].trim();
+                repeatRule = parseBlockRepeatRuleFromText(everySuffixMatch[2]);
+                if(repeatRule.type === 'none') return null;
+            } else if(everyPrefixMatch) {
+                repeatRule = parseBlockRepeatRuleFromText(everyPrefixMatch[1]);
+                if(repeatRule.type === 'none') return null;
+                working = everyPrefixMatch[2].trim();
+            }
+
             let date = getDateStrLocal();
             const forMatch = working.match(new RegExp(`^for\\s+(${QUICK_ENTRY_DATE_WORDS})\\b\\s*(.+)$`, 'i'));
             if(forMatch) {
                 date = resolveQuickEntryDateToken(forMatch[1]);
                 working = forMatch[2].trim();
             }
-            const dateMatch = working.match(new RegExp(`^(${QUICK_ENTRY_DATE_WORDS})\\b\\s+(.+)$`, 'i'));
+            const dateMatch = !forMatch
+                ? working.match(new RegExp(`^(${QUICK_ENTRY_DATE_WORDS})\\b\\s+(.+)$`, 'i'))
+                : null;
             if(dateMatch) {
                 date = resolveQuickEntryDateToken(dateMatch[1]);
                 working = dateMatch[2].trim();
             }
+
+            const quotedLabel = parseQuotedPrefix(working);
+            if(quotedLabel.quoted != null) {
+                label = quotedLabel.quoted || null;
+                working = quotedLabel.rest.trim();
+            }
+
             const range = parseCommandTimeRange(working);
-            if(!range || !date) return null;
-            return { date, start: range.start, end: range.end };
+            if(!range) return null;
+
+            if(repeatRule.type !== 'none') {
+                if(!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+                    date = resolveAnchorDateForWeekdays(repeatRule.days);
+                }
+            } else if(!date) {
+                return null;
+            }
+
+            return {
+                date,
+                start: range.start,
+                end: range.end,
+                repeatRule,
+                label
+            };
+        }
+
+        function parseBlockRepeatRuleFromText(text) {
+            const raw = String(text || '').trim();
+            if(!raw) return normalizeRepeatRule({ type: 'none' });
+            if(/^(?:day|days|daily)$/i.test(raw)) {
+                return normalizeRepeatRule({ type: 'daily' });
+            }
+            const weekdays = extractQuickEntryWeekdays(raw);
+            if(weekdays.length === 0) return normalizeRepeatRule({ type: 'none' });
+            if(weekdays.length === 7) return normalizeRepeatRule({ type: 'daily' });
+            if(weekdays.length === 1) return normalizeRepeatRule({ type: 'weekly', days: weekdays });
+            return normalizeRepeatRule({ type: 'custom', days: weekdays });
+        }
+
+        function resolveAnchorDateForWeekdays(days) {
+            const normalizedDays = Array.from(new Set(
+                (days || []).map(d => parseInt(d, 10)).filter(d => Number.isInteger(d) && d >= 0 && d <= 6)
+            ));
+            if(normalizedDays.length === 0) return getDateStrLocal();
+            const todayStr = getDateStrLocal();
+            const todayDow = new Date(`${todayStr}T00:00:00`).getDay();
+            let bestDiff = 7;
+            normalizedDays.forEach(day => {
+                let diff = day - todayDow;
+                if(diff < 0) diff += 7;
+                if(diff < bestDiff) bestDiff = diff;
+            });
+            return addDaysToDateStr(todayStr, bestDiff);
+        }
+
+        function blockedTimeEntriesOverlap(existing, candidate) {
+            if(!existing || !candidate) return false;
+            if(!isTimeRangeOverlapping(
+                timeToMin(existing.start),
+                timeToMin(existing.end),
+                timeToMin(candidate.start),
+                timeToMin(candidate.end)
+            )) return false;
+
+            const existRule = normalizeRepeatRule(existing.repeatRule || {});
+            const candRule = normalizeRepeatRule(candidate.repeatRule || {});
+            const daySet = (rule, anchorDate) => {
+                if(rule.type === 'none') {
+                    return [new Date(`${anchorDate}T00:00:00`).getDay()];
+                }
+                if(rule.type === 'daily') return [0, 1, 2, 3, 4, 5, 6];
+                return rule.days || [];
+            };
+            const existDays = daySet(existRule, existing.date);
+            const candDays = daySet(candRule, candidate.date);
+            return existDays.some(day => candDays.includes(day));
         }
 
         function parseBlockTimeCommand(commandText) {
-            const match = String(commandText || '').trim().match(/^(?:add\s+)?block(?:ed)?\s+time(?:\s+for)?\s+(.+)$/i);
+            const match = String(commandText || '').trim().match(/^(?:add\s+)?block(?:ed)?(?:\s+time)?(?:\s+for)?\s+(.+)$/i);
             if(!match) return null;
             const parsed = parseBlockTimeCommandText(match[1]);
             if(!parsed) return null;
@@ -9909,7 +10003,7 @@
                 <div><strong>Navigate</strong><br>
                 tasks overdue · calendar week · open settings · open subjects · today · next week · weekly planning</div>
                 <div><strong>Other</strong><br>
-                vacation mar 10 to mar 17 · clear completed · stats · help</div>
+                block 8-9:15 every monday · block every mon wed 3-4 · vacation mar 10 to mar 17 · clear completed · stats · help</div>
             </div>`;
 
         function showClassifyCommandHelp() {
@@ -10843,7 +10937,7 @@
             return field;
         }
 
-        function addBlockedTimeEntry({ date, start, end, label = null }) {
+        function addBlockedTimeEntry({ date, start, end, label = null, repeatRule = null }) {
             if(!date || !start || !end) {
                 showNotification('Choose date, start time, and end time', 'error');
                 return false;
@@ -10852,11 +10946,9 @@
                 showNotification('Blocked end time must be after start time', 'error');
                 return false;
             }
-            const overlap = normalizeBlockedTimes(blockedTimes).some(b =>
-                b.date === date
-                && isBlockedTimeActiveOnDate(b, date)
-                && isTimeRangeOverlapping(timeToMin(start), timeToMin(end), timeToMin(b.start), timeToMin(b.end))
-            );
+            const normalizedRepeatRule = normalizeRepeatRule(repeatRule || { type: 'none' });
+            const candidate = { date, start, end, repeatRule: normalizedRepeatRule };
+            const overlap = normalizeBlockedTimes(blockedTimes).some(b => blockedTimeEntriesOverlap(b, candidate));
             if(overlap) {
                 showNotification('Blocked time overlaps an existing block', 'error');
                 return false;
@@ -10867,15 +10959,19 @@
                 date,
                 start,
                 end,
-                repeatRule: normalizeRepeatRule({ type: 'none' }),
+                repeatRule: normalizedRepeatRule,
                 repeatStartDate: date,
                 label: label || null
             });
             blockedTimes = normalizeBlockedTimes(blockedTimes);
             renderBlockedTimesList();
             persistClassifyScheduleRefresh({ weekKeys: [getWeekKeyFromDateStr(date)] });
+            const timeLabel = `${minToTime(timeToMin(start))}-${minToTime(timeToMin(end))}`;
+            const repeatLabel = formatRepeatLabel(normalizedRepeatRule);
             showNotification(
-                `Blocked ${formatDateLabel(date)} ${minToTime(timeToMin(start))}-${minToTime(timeToMin(end))}`,
+                repeatLabel
+                    ? `Blocked ${timeLabel} (${repeatLabel.replace(/^Repeats\s+/i, 'repeats ')})`
+                    : `Blocked ${formatDateLabel(date)} ${timeLabel}`,
                 'success'
             );
             return true;
