@@ -10015,7 +10015,7 @@
         const CLASSIFY_COMMAND_HELP_HTML = `
             <div class="text-left text-sm space-y-3 max-h-[60vh] overflow-y-auto">
                 <div><strong>Create &amp; edit</strong><br>
-                new · add Homework due friday · "timeline" due tomorrow at 5pm · rename X to Y · delete X · undo</div>
+                new · add Homework due friday · "Quiz 30m" · Test every wednesday · "Lab" due friday · rename X to Y · delete X · undo</div>
                 <div><strong>Schedule</strong><br>
                 move to friday 3pm · target week · exact date · flexible / no date · clear time · auto plan</div>
                 <div><strong>Subjects</strong><br>
@@ -10312,6 +10312,268 @@
             return { body: parsed.rest, taskQuery: parsed.quoted };
         }
 
+        const COMMAND_LINE_LEADING_VERBS = /^(?:help|\?|commands|stats|summary|status|new|add|create|move|schedule|reschedule|complete|done|finish|mark|delete|remove|rename|start|undo|open|switch|go|list|block|vacation|plan|auto|weekly|clear|set|find|tasks|assignments|show|today|next|previous|prev|\d+$)/i;
+
+        function looksLikeAssignmentSettingsBody(body) {
+            const text = String(body || '').trim();
+            if(!text) return false;
+            const weekday = QUICK_ENTRY_DATE_WORDS;
+            const patterns = [
+                /\b(?:due|by)\b/i,
+                /\b(?:repeat\s+)?every\b/i,
+                /\b(?:repeats?\s+)?(?:daily|weekly)\b/i,
+                /\b(?:after|before|different)\b/i,
+                /\b\d+\s*(?:m|min|mins|minutes?)\b/i,
+                /\b\d+m\b/i,
+                /\b\d+\s*(?:h|hr|hrs|hours?)\b/i,
+                /\b(?:high|low|urgent)\b/i,
+                /\bsubject\b/i,
+                /\bnotes\b/i,
+                /\b(?:easy|hard|medium)\s+difficulty\b/i,
+                /\bdifficulty\b/i,
+                new RegExp(String.raw`\b(?:on|for|to)\s+(?:${weekday})\b`, 'i'),
+                new RegExp(String.raw`\b(?:today|tomorrow|${weekday})\b`, 'i'),
+                /\b(?:at\s+)?\d{1,2}(?::\d{2})?\s*(?:am|pm)?\b/i,
+                /\btarget\s+week\b/i,
+                /\bexact(?:\s+date)?\b/i,
+                /\bno\s+date\b/i,
+                /\bflexible\b/i,
+                /\bunscheduled\b/i
+            ];
+            return patterns.some(re => re.test(text));
+        }
+
+        function startsWithKnownCommandVerb(text) {
+            return COMMAND_LINE_LEADING_VERBS.test(String(text || '').trim());
+        }
+
+        function peelAssignmentNameCommand(raw) {
+            const quoted = peelQuotedAssignmentCommand(raw);
+            if(quoted.taskQuery) return quoted;
+
+            const text = String(raw || '').trim();
+            if(!text || startsWithKnownCommandVerb(text)) {
+                return { body: text, taskQuery: null };
+            }
+
+            const idx = findCreateAssignmentDetailsStart(text);
+            if(idx <= 0) return { body: text, taskQuery: null };
+
+            let titlePart = text.slice(0, idx).trim();
+            let details = text.slice(idx).trim();
+            ({ title: titlePart, details } = rejoinDanglingEveryInTitle(titlePart, details));
+
+            if(!titlePart || !details || !looksLikeAssignmentSettingsBody(details)) {
+                return { body: text, taskQuery: null };
+            }
+
+            return { body: details, taskQuery: titlePart };
+        }
+
+        function quickParsedHasScheduleUpdate(settingsBody) {
+            const text = String(settingsBody || '').trim();
+            if(!text) return false;
+            const weekday = QUICK_ENTRY_DATE_WORDS;
+            return /\b(?:due|by)\b/i.test(text)
+                || /\b(?:on|for)\s+/i.test(text)
+                || new RegExp(String.raw`\b(?:today|tomorrow|${weekday})\b`, 'i').test(text)
+                || /\b(?:at\s+)?\d{1,2}(?::\d{2})?\s*(?:am|pm)?\b/i.test(text)
+                || /\btarget\s+week\b/i.test(text)
+                || /\bexact(?:\s+date)?\b/i.test(text)
+                || /\b(?:no\s+date|flexible|unscheduled)\b/i.test(text);
+        }
+
+        function quickParsedHasRepeatUpdate(settingsBody) {
+            const text = String(settingsBody || '').trim();
+            if(!text) return false;
+            return /\b(?:repeat\s+)?every\b/i.test(text)
+                || /\b(?:repeats?\s+)?(?:daily|weekly)\b/i.test(text)
+                || /\bevery\s+weekdays?\b/i.test(text);
+        }
+
+        function buildScheduleFragmentFromQuickParsed(quickParsed) {
+            return {
+                scheduleType: quickParsed.scheduleType,
+                date: quickParsed.date,
+                dueDate: quickParsed.dueDate,
+                dueTime: quickParsed.dueTime,
+                time: quickParsed.time,
+                week: quickParsed.week,
+                exactDateTiming: quickParsed.exactDateTiming
+            };
+        }
+
+        function parseAssignmentSettingsCommand(body, taskQuery) {
+            if(!taskQuery || !body) return null;
+            const settingsBody = String(body || '').trim();
+            if(!settingsBody || !looksLikeAssignmentSettingsBody(settingsBody)) return null;
+            const settings = parseAssignmentQuickEntry(settingsBody, { title: taskQuery });
+            if(settings.errors?.length) return null;
+            return { action: 'updateSettings', taskQuery, settings, settingsBody };
+        }
+
+        function describeAssignmentSettingsChanges(quickParsed, settingsBody) {
+            const parts = [];
+            if(quickParsed.duration) parts.push(`duration ${quickParsed.duration}m`);
+            if(quickParsed.priority) parts.push(`${quickParsed.priority.toLowerCase()} priority`);
+            if(quickParsed.difficulty) parts.push(`${quickParsed.difficulty.toLowerCase()} difficulty`);
+            if(quickParsed.subject) parts.push(`subject ${quickParsed.subject}`);
+            if(quickParsed.notes) parts.push('notes');
+            if(quickParsedHasRepeatUpdate(settingsBody)) {
+                parts.push(formatRepeatLabel(normalizeRepeatRule(quickParsed.repeatRule || {})) || 'repeat');
+            }
+            if(quickParsedHasScheduleUpdate(settingsBody)) {
+                if(/\b(?:due|by)\b/i.test(settingsBody) && quickParsed.dueDate) {
+                    parts.push(`due ${formatDateLabel(quickParsed.dueDate)}${quickParsed.dueTime ? ` at ${minToTime(timeToMin(quickParsed.dueTime))}` : ''}`);
+                } else if(quickParsed.date) {
+                    parts.push(`on ${formatDateLabel(quickParsed.date)}${quickParsed.time ? ` at ${minToTime(timeToMin(quickParsed.time))}` : ''}`);
+                } else if(/\btarget\s+week\b/i.test(settingsBody)) {
+                    parts.push('target week');
+                } else if(/\b(?:no\s+date|flexible|unscheduled)\b/i.test(settingsBody)) {
+                    parts.push('no date yet');
+                } else if(/\bexact(?:\s+date)?\b/i.test(settingsBody)) {
+                    parts.push('exact date');
+                }
+            }
+            if((quickParsed.mustBeAfter || []).length) parts.push('dependency after');
+            if((quickParsed.mustBeBefore || []).length) parts.push('dependency before');
+            if((quickParsed.mustBeDifferentDay || []).length) parts.push('different day rule');
+            return parts;
+        }
+
+        function applyAssignmentSettingsFromCommand(taskId, task, quickParsed, settingsBody) {
+            const changeLabels = describeAssignmentSettingsChanges(quickParsed, settingsBody);
+            if(changeLabels.length === 0) {
+                showNotification('No assignment settings found in that command.', 'error');
+                return false;
+            }
+
+            const scheduleChanged = quickParsedHasScheduleUpdate(settingsBody);
+            const repeatChanged = quickParsedHasRepeatUpdate(settingsBody)
+                && normalizeRepeatRule(quickParsed.repeatRule || {}).type !== 'none';
+            const scheduleFragment = scheduleChanged ? buildScheduleFragmentFromQuickParsed(quickParsed) : null;
+            const scheduleUpdates = scheduleFragment ? buildTaskUpdatesFromScheduleFragment(scheduleFragment) : null;
+            const calendarMove = scheduleUpdates?.scheduleType === 'date' && scheduleUpdates.date
+                ? { date: scheduleUpdates.date, time: scheduleUpdates.time || scheduleUpdates.dueTime || null }
+                : null;
+
+            const weekKeys = new Set();
+            if(task.week) weekKeys.add(task.week);
+            if(task.repeatWeekKey) weekKeys.add(task.repeatWeekKey);
+            if(task.date) weekKeys.add(getWeekKeyFromDateStr(task.date));
+            if(scheduleUpdates?.week) weekKeys.add(scheduleUpdates.week);
+            if(scheduleUpdates?.date) weekKeys.add(getWeekKeyFromDateStr(scheduleUpdates.date));
+            if(scheduleUpdates?.dueDate) weekKeys.add(getWeekKeyFromDateStr(scheduleUpdates.dueDate));
+
+            mutateClassifyData(() => {
+                let current = tasks.find(t => t.id === taskId);
+                if(!current) return;
+
+                const patch = {};
+                if(quickParsed.duration) patch.duration = quickParsed.duration;
+                if(quickParsed.priority) patch.priority = quickParsed.priority;
+                if(quickParsed.difficulty) patch.difficulty = quickParsed.difficulty;
+                if(quickParsed.notes != null && quickParsed.notes !== '') patch.notes = quickParsed.notes;
+                if(quickParsed.subject) {
+                    const subject = resolveCanonicalSubject(quickParsed.subject);
+                    patch.subject = subject;
+                    patch.color = getSubjectColorValue(subject) || getTaskColor(current);
+                    setSubjectColorValue(subject, patch.color);
+                }
+                if((quickParsed.mustBeAfter || []).length) {
+                    patch.mustBeAfter = Array.from(new Set([...(current.mustBeAfter || []), ...quickParsed.mustBeAfter]));
+                }
+                if((quickParsed.mustBeBefore || []).length) {
+                    patch.mustBeBefore = Array.from(new Set([...(current.mustBeBefore || []), ...quickParsed.mustBeBefore]));
+                }
+                if((quickParsed.mustBeDifferentDay || []).length) {
+                    patch.mustBeDifferentDay = Array.from(new Set([...(current.mustBeDifferentDay || []), ...quickParsed.mustBeDifferentDay]));
+                }
+
+                current = normalizeTask({ ...current, ...patch });
+
+                if(/\btarget\s+week\b/i.test(settingsBody)) {
+                    current = applyScheduleModeSwitch(current, 'week');
+                } else if(/\bexact(?:\s+date)?\b/i.test(settingsBody)) {
+                    current = applyScheduleModeSwitch(current, 'date');
+                } else if(/\b(?:no\s+date|flexible|unscheduled)\b/i.test(settingsBody)) {
+                    current = applyFlexibleScheduleMode(current);
+                } else if(scheduleUpdates && !calendarMove) {
+                    current = normalizeTask({ ...current, ...scheduleUpdates });
+                    current = /\b(?:due|by)\b/i.test(settingsBody)
+                        ? ensureTargetWeekScheduleType(current)
+                        : enforceScheduleTypeFieldSeparation(current);
+                }
+
+                if(repeatChanged) {
+                    const repeatRule = normalizeRepeatRule(quickParsed.repeatRule || {});
+                    const weekDueOnly = Boolean(quickParsed.weekDueOnly);
+                    const groupId = current.repeatGroupId || generateId();
+                    const startWeekKey = getRepeatStartWeekKey({
+                        scheduleType: current.scheduleType,
+                        date: current.date,
+                        dueDate: current.dueDate,
+                        week: current.week
+                    });
+                    weekKeys.add(startWeekKey);
+
+                    const template = normalizeTask({
+                        ...current,
+                        id: generateId(),
+                        repeatGroupId: groupId,
+                        repeatWeekKey: startWeekKey,
+                        repeatRule,
+                        weekDueOnly,
+                        repeatNoAutoTime: false
+                    });
+
+                    if(current.repeatGroupId) {
+                        tasks = tasks.map(t => {
+                            if(t.repeatGroupId !== groupId) return t;
+                            return normalizeTask({
+                                ...t,
+                                title: current.title,
+                                subject: current.subject,
+                                color: current.color,
+                                duration: current.duration,
+                                priority: current.priority,
+                                difficulty: current.difficulty,
+                                notes: current.notes,
+                                repeatRule,
+                                weekDueOnly,
+                                dueTime: current.dueTime,
+                                mustBeAfter: current.mustBeAfter,
+                                mustBeBefore: current.mustBeBefore,
+                                mustBeDifferentDay: current.mustBeDifferentDay
+                            });
+                        });
+                        addRepeatWeekOccurrences(groupId, startWeekKey, repeatRule, template);
+                    } else {
+                        tasks = tasks.filter(t => t.id !== taskId);
+                        addRepeatWeekOccurrences(groupId, startWeekKey, repeatRule, template);
+                        applyReciprocalDependenciesForTask(template.id);
+                    }
+                    pruneRepeatFutureWeeks();
+                    syncAllTaskDependencies();
+                    return;
+                }
+
+                tasks = tasks.map(t => t.id === taskId ? current : t);
+                applyReciprocalDependenciesForTask(taskId);
+                syncAllTaskDependencies();
+            }, { seedTaskIds: [taskId], weekKeys: Array.from(weekKeys) });
+
+            if(calendarMove) {
+                moveTaskToDateTime(taskId, calendarMove.date, calendarMove.time);
+            }
+
+            if(quickParsed.warnings?.length) {
+                showNotification(quickParsed.warnings.join(' '), 'info');
+            }
+            showNotification(`Updated "${task.title}" (${changeLabels.join(', ')})`, 'success');
+            return true;
+        }
+
         function applyPresetTaskQuery(parsed, taskQuery) {
             if(!parsed || !taskQuery || parsed.error) return parsed;
             if(Object.prototype.hasOwnProperty.call(parsed, 'taskQuery')) parsed.taskQuery = taskQuery;
@@ -10380,6 +10642,8 @@
             if(parseQuickEntryScheduleFragment(body).dueDate || parseQuickEntryScheduleFragment(body).date) {
                 return { action: 'move', taskQuery, destination: body };
             }
+            const settingsParsed = parseAssignmentSettingsCommand(body, taskQuery);
+            if(settingsParsed) return settingsParsed;
             return null;
         }
 
@@ -10514,7 +10778,7 @@
                 return { action: 'help' };
             }
 
-            const peeled = peelQuotedAssignmentCommand(raw);
+            const peeled = peelAssignmentNameCommand(raw);
             const commandText = peeled.body;
             const presetTaskQuery = peeled.taskQuery;
 
@@ -11464,6 +11728,15 @@
                 }, { seedTaskIds: [taskId] });
                 showNotification(`Set "${task.title}" duration to ${parsed.duration}m`, 'success');
                 return true;
+            }
+
+            if(parsed.action === 'updateSettings') {
+                return applyAssignmentSettingsFromCommand(
+                    taskId,
+                    task,
+                    parsed.settings,
+                    parsed.settingsBody
+                );
             }
 
             if(parsed.action === 'subject') {
