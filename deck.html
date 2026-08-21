@@ -1267,7 +1267,7 @@
         host.appendChild(wrap);
       }
 
-      function viewCheckRow(item, card) {
+      function viewCheckRow(item, card, rerenderFn) {
         const row = document.createElement('label');
         row.className = 'dk-view-check-row' + (item.done ? ' done' : '');
         const box = document.createElement('input');
@@ -1280,12 +1280,12 @@
           item.done = box.checked;
           item.doneAt = box.checked ? Date.now() : null;
           touchCard(card);
-          renderCardView();
+          (rerenderFn || renderCardView)();
         });
         return row;
       }
 
-      function renderChecklistView(card, host) {
+      function renderChecklistView(card, host, rerenderFn) {
         host.innerHTML = '';
         const checklist = ensureCardChecklist(card);
         const open = checklist.filter((it) => !it.done && (it.text || '').trim());
@@ -1293,7 +1293,7 @@
         if (!open.length && !done.length) return false;
         const openList = document.createElement('div');
         openList.className = 'dk-check-list';
-        open.forEach((it) => openList.appendChild(viewCheckRow(it, card)));
+        open.forEach((it) => openList.appendChild(viewCheckRow(it, card, rerenderFn)));
         host.appendChild(openList);
         if (done.length) {
           const label = document.createElement('div');
@@ -1301,7 +1301,7 @@
           label.textContent = 'Completed';
           const doneList = document.createElement('div');
           doneList.className = 'dk-check-list';
-          done.forEach((it) => doneList.appendChild(viewCheckRow(it, card)));
+          done.forEach((it) => doneList.appendChild(viewCheckRow(it, card, rerenderFn)));
           host.append(label, doneList);
         }
         return true;
@@ -1593,32 +1593,15 @@
         const sectionsHost = document.createElement('div');
         renderCardSectionsView(card, sectionsHost, 'This card has no notes yet.');
         body.appendChild(sectionsHost);
-        const checklist = ensureCardChecklist(card);
-        const visibleChecklist = checklist.filter((it) => (it.text || '').trim());
-        if (visibleChecklist.length) {
+        const checklistHost = document.createElement('div');
+        if (renderChecklistView(card, checklistHost, renderReview)) {
           const box = document.createElement('div');
           box.className = 'dk-card-checklist';
           box.style.marginTop = '12px';
           const label = document.createElement('p');
           label.className = 'dk-card-checklist-label';
           label.textContent = 'Checklist';
-          box.appendChild(label);
-          const list = document.createElement('div');
-          visibleChecklist.forEach((it) => {
-            const row = document.createElement('div');
-            row.className = 'dk-view-check-row' + (it.done ? ' done' : '');
-            const mark = document.createElement('span');
-            mark.textContent = it.done ? '✓' : '○';
-            mark.style.width = '20px';
-            mark.style.flexShrink = '0';
-            mark.style.color = it.done ? '#94a3b8' : 'var(--dk-brand)';
-            const text = document.createElement('span');
-            text.textContent = it.text;
-            if (it.done) text.style.textDecoration = 'line-through';
-            row.append(mark, text);
-            list.appendChild(row);
-          });
-          box.appendChild(list);
+          box.append(label, checklistHost);
           body.appendChild(box);
         }
       }
