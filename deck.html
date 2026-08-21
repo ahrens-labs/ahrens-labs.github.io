@@ -278,6 +278,14 @@
       color: var(--dk-brand);
       margin: 0 0 8px;
     }
+    .dk-section-checklist-label {
+      margin: 14px 0 8px;
+      font-size: 0.75rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--dk-muted);
+    }
     .dk-check-list { display: grid; gap: 6px; }
     .dk-check-row {
       display: flex;
@@ -455,7 +463,7 @@
         <section id="view-decks">
           <div class="dk-hero">
             <h2>Decks</h2>
-            <p>Group related cards into decks. Each card can have notes and checklists in separate sections.</p>
+            <p>Group related cards into decks. Each card can have sections with notes and checklists together.</p>
           </div>
           <div class="dk-toolbar">
             <button type="button" class="dk-btn dk-btn-primary" id="btn-new-deck">New deck</button>
@@ -523,8 +531,7 @@
             </div>
             <div id="section-list"></div>
             <div class="dk-toolbar">
-              <button type="button" class="dk-btn dk-btn-ghost" id="btn-add-text">Add note section</button>
-              <button type="button" class="dk-btn dk-btn-primary" id="btn-add-checklist">Add checklist</button>
+              <button type="button" class="dk-btn dk-btn-primary" id="btn-add-section">Add section</button>
             </div>
           </div>
         </section>
@@ -565,26 +572,23 @@
         return 'd' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
       }
 
-      function textSection(body, src) {
-        return {
-          id: (src && src.id) || uidId(),
-          type: 'text',
-          title: (src && src.title) || '',
-          body: body || '',
-        };
+      function normalizeItems(raw) {
+        if (!Array.isArray(raw)) return [];
+        return raw.map((it) => ({
+          id: it.id || uidId(),
+          text: it.text || '',
+          done: !!it.done,
+          doneAt: it.doneAt || null,
+        }));
       }
 
-      function checklistSection(src) {
+      function section(src) {
+        src = src || {};
         return {
-          id: (src && src.id) || uidId(),
-          type: 'checklist',
-          title: (src && src.title) || '',
-          items: Array.isArray(src && src.items) ? src.items.map((it) => ({
-            id: it.id || uidId(),
-            text: it.text || '',
-            done: !!it.done,
-            doneAt: it.doneAt || null,
-          })) : [],
+          id: src.id || uidId(),
+          title: src.title || '',
+          body: src.body || '',
+          items: normalizeItems(src.items),
         };
       }
 
@@ -593,7 +597,7 @@
         const body = src.body || src.back || '';
         const sections = Array.isArray(src.sections)
           ? src.sections.map(normalizeSection)
-          : (body ? [textSection(body)] : []);
+          : (body ? [section({ body })] : []);
         return {
           id: src.id || uidId(),
           title: title,
@@ -604,8 +608,11 @@
       }
 
       function normalizeSection(sec) {
-        if (!sec || sec.type === 'checklist') return checklistSection(sec || {});
-        return textSection(sec.body || '', sec);
+        if (!sec) return section({});
+        if (sec.type === 'checklist') {
+          return section({ id: sec.id, title: sec.title, body: '', items: sec.items });
+        }
+        return section(sec);
       }
 
       function cardsFromDeck(deck) {
@@ -736,13 +743,12 @@
       function cardSummary(card) {
         const sections = card.sections || [];
         const openTasks = sections.reduce((n, s) => {
-          if (s.type !== 'checklist') return n;
           return n + (s.items || []).filter((it) => !it.done && (it.text || '').trim()).length;
         }, 0);
         const parts = [];
         parts.push(sections.length + (sections.length === 1 ? ' section' : ' sections'));
         if (openTasks) parts.push(openTasks + (openTasks === 1 ? ' open task' : ' open tasks'));
-        const text = sections.find((s) => s.type === 'text' && (s.body || '').trim());
+        const text = sections.find((s) => (s.body || '').trim());
         if (text) {
           const snip = text.body.replace(/\s+/g, ' ').trim();
           return parts.join(' · ') + (snip ? ' · ' + snip.slice(0, 80) : '');
@@ -819,7 +825,7 @@
         });
       }
 
-      function checkRow(item, done) {
+      function checkRow(item, done, sec) {
         const row = document.createElement('div');
         row.className = 'dk-check-row' + (done ? ' done' : '');
         const box = document.createElement('input');
@@ -848,12 +854,7 @@
           touchCard();
         });
         remove.addEventListener('click', () => {
-          const card = activeCard();
-          if (!card) return;
-          card.sections.forEach((sec) => {
-            if (sec.type !== 'checklist') return;
-            sec.items = (sec.items || []).filter((it) => it.id !== item.id);
-          });
+          sec.items = (sec.items || []).filter((it) => it.id !== item.id);
           touchCard();
           renderCardEdit();
         });
@@ -861,32 +862,29 @@
       }
 
       function renderChecklistEdit(sec) {
+        if (!Array.isArray(sec.items)) sec.items = [];
         const wrap = document.createElement('div');
-        const open = (sec.items || []).filter((it) => !it.done);
-        const done = (sec.items || []).filter((it) => it.done);
+        const open = sec.items.filter((it) => !it.done);
+        const done = sec.items.filter((it) => it.done);
         const openList = document.createElement('div');
         openList.className = 'dk-check-list';
-        open.forEach((it) => openList.appendChild(checkRow(it, false)));
+        open.forEach((it) => openList.appendChild(checkRow(it, false, sec)));
         const add = document.createElement('input');
         add.type = 'text';
         add.className = 'dk-check-add';
         add.dataset.sectionId = sec.id;
         add.placeholder = 'Add a task…';
-        function commitAdd() {
+        add.addEventListener('keydown', (ev) => {
+          if (ev.key !== 'Enter') return;
+          ev.preventDefault();
           const value = add.value.trim();
-          if (!value) return false;
+          if (!value) return;
           sec.items.push({ id: uidId(), text: value, done: false, doneAt: null });
           add.value = '';
           touchCard();
           renderCardEdit();
           const next = document.querySelector('.dk-check-add[data-section-id="' + sec.id + '"]');
           if (next) next.focus();
-          return true;
-        }
-        add.addEventListener('keydown', (ev) => {
-          if (ev.key !== 'Enter') return;
-          ev.preventDefault();
-          commitAdd();
         });
         wrap.append(openList, add);
         if (done.length) {
@@ -895,7 +893,7 @@
           label.textContent = 'Completed';
           const doneList = document.createElement('div');
           doneList.className = 'dk-check-list';
-          done.forEach((it) => doneList.appendChild(checkRow(it, true)));
+          done.forEach((it) => doneList.appendChild(checkRow(it, true, sec)));
           wrap.append(label, doneList);
         }
         return wrap;
@@ -922,13 +920,7 @@
       function renderChecklistView(sec, host) {
         const open = (sec.items || []).filter((it) => !it.done && (it.text || '').trim());
         const done = (sec.items || []).filter((it) => it.done && (it.text || '').trim());
-        if (!open.length && !done.length) {
-          const empty = document.createElement('p');
-          empty.className = 'dk-section-view-empty';
-          empty.textContent = 'No checklist items yet.';
-          host.appendChild(empty);
-          return;
-        }
+        if (!open.length && !done.length) return;
         const openList = document.createElement('div');
         openList.className = 'dk-check-list';
         open.forEach((it) => openList.appendChild(viewCheckRow(it)));
@@ -944,6 +936,12 @@
         }
       }
 
+      function sectionHasContent(sec) {
+        return !!(sec.title || '').trim()
+          || !!(sec.body || '').trim()
+          || (sec.items || []).some((it) => (it.text || '').trim());
+      }
+
       function renderCardView() {
         const deck = ensureActiveDeck();
         const card = activeCard();
@@ -953,7 +951,7 @@
         const list = document.getElementById('section-view-list');
         list.innerHTML = '';
         if (!card.sections.length) {
-          list.innerHTML = '<div class="dk-empty">This card is empty. Tap Edit to add notes or checklists.</div>';
+          list.innerHTML = '<div class="dk-empty">This card is empty. Tap Edit to add sections.</div>';
           return;
         }
         card.sections.forEach((sec) => {
@@ -961,7 +959,7 @@
           box.className = 'dk-section-view';
           const kicker = document.createElement('p');
           kicker.className = 'dk-section-kicker';
-          kicker.textContent = sec.type === 'checklist' ? 'Checklist' : 'Note';
+          kicker.textContent = 'Section';
           box.appendChild(kicker);
           if (sec.title) {
             const title = document.createElement('h3');
@@ -969,17 +967,17 @@
             title.textContent = sec.title;
             box.appendChild(title);
           }
-          if (sec.type === 'checklist') {
-            renderChecklistView(sec, box);
-          } else if ((sec.body || '').trim()) {
+          if ((sec.body || '').trim()) {
             const body = document.createElement('p');
             body.className = 'dk-section-view-body';
             body.textContent = sec.body;
             box.appendChild(body);
-          } else {
+          }
+          renderChecklistView(sec, box);
+          if (!sectionHasContent(sec)) {
             const empty = document.createElement('p');
             empty.className = 'dk-section-view-empty';
-            empty.textContent = 'No note text yet.';
+            empty.textContent = 'This section is empty.';
             box.appendChild(empty);
           }
           list.appendChild(box);
@@ -998,7 +996,7 @@
         if (!card.sections.length) {
           const empty = document.createElement('div');
           empty.className = 'dk-empty';
-          empty.innerHTML = '<strong>No sections yet.</strong><br>Add a note section or a checklist.';
+          empty.innerHTML = '<strong>No sections yet.</strong><br>Add a section, then write notes and checklist tasks in it.';
           list.appendChild(empty);
         }
         card.sections.forEach((sec) => {
@@ -1006,12 +1004,12 @@
           box.className = 'dk-section';
           const kicker = document.createElement('p');
           kicker.className = 'dk-section-kicker';
-          kicker.textContent = sec.type === 'checklist' ? 'Checklist' : 'Note';
+          kicker.textContent = 'Section';
           const head = document.createElement('div');
           head.className = 'dk-section-head';
           const title = document.createElement('input');
           title.className = 'dk-section-title';
-          title.placeholder = sec.type === 'checklist' ? 'Checklist title (optional)' : 'Section title (optional)';
+          title.placeholder = 'Section title (optional)';
           title.value = sec.title || '';
           title.addEventListener('input', () => {
             sec.title = title.value;
@@ -1024,7 +1022,7 @@
           del.addEventListener('click', async () => {
             const ok = await showConfirm({
               title: 'Remove section?',
-              message: 'Remove this ' + (sec.type === 'checklist' ? 'checklist' : 'note') + ' section from the card?',
+              message: 'Remove this section from the card?',
               okLabel: 'Remove',
               danger: true,
             });
@@ -1034,20 +1032,18 @@
             renderCardEdit();
           });
           head.append(title, del);
-          box.append(kicker, head);
-          if (sec.type === 'checklist') {
-            box.appendChild(renderChecklistEdit(sec));
-          } else {
-            const body = document.createElement('textarea');
-            body.className = 'dk-section-body';
-            body.placeholder = 'Write notes for this section…';
-            body.value = sec.body || '';
-            body.addEventListener('input', () => {
-              sec.body = body.value;
-              touchCard();
-            });
-            box.appendChild(body);
-          }
+          const body = document.createElement('textarea');
+          body.className = 'dk-section-body';
+          body.placeholder = 'Write notes for this section…';
+          body.value = sec.body || '';
+          body.addEventListener('input', () => {
+            sec.body = body.value;
+            touchCard();
+          });
+          const checkLabel = document.createElement('p');
+          checkLabel.className = 'dk-section-checklist-label';
+          checkLabel.textContent = 'Checklist';
+          box.append(kicker, head, body, checkLabel, renderChecklistEdit(sec));
           list.appendChild(box);
         });
       }
@@ -1251,18 +1247,10 @@
       document.getElementById('card-title').addEventListener('input', persistCardMeta);
       document.getElementById('card-deck').addEventListener('change', persistCardMeta);
 
-      document.getElementById('btn-add-text').addEventListener('click', () => {
+      document.getElementById('btn-add-section').addEventListener('click', () => {
         const card = activeCard();
         if (!card) return;
-        card.sections.push(textSection(''));
-        touchCard();
-        renderCardEdit();
-      });
-
-      document.getElementById('btn-add-checklist').addEventListener('click', () => {
-        const card = activeCard();
-        if (!card) return;
-        card.sections.push(checklistSection({ items: [] }));
+        card.sections.push(section({ body: '', items: [] }));
         touchCard();
         renderCardEdit();
       });
