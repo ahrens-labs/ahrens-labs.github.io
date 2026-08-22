@@ -145,6 +145,48 @@
       font-size: 0.98rem;
       line-height: 1.55;
     }
+    .dk-deck-hero-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .dk-deck-title-wrap {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+    .dk-deck-title-wrap h2 {
+      margin: 0 0 6px;
+    }
+    .dk-deck-title-editable {
+      cursor: text;
+      border-radius: 8px;
+      padding: 2px 4px;
+      margin-left: -4px;
+    }
+    .dk-deck-title-editable:hover {
+      background: rgba(79, 70, 229, 0.06);
+    }
+    .dk-deck-title-input {
+      display: block;
+      width: 100%;
+      margin: 0 0 6px;
+      padding: 0 4px;
+      border: 0;
+      border-bottom: 2px solid var(--dk-brand);
+      background: transparent;
+      font: inherit;
+      font-size: 1.65rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      color: var(--dk-ink);
+      box-sizing: border-box;
+    }
+    .dk-deck-title-input.hidden { display: none; }
+    .dk-deck-delete-btn {
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
     .dk-toolbar {
       display: flex;
       gap: 8px;
@@ -326,23 +368,13 @@
       line-height: 1.3;
     }
     .dk-deck-actions {
-      display: grid;
-      grid-template-columns: repeat(2, 72px);
-      grid-auto-rows: 1fr;
-      gap: 6px;
-      flex: 0 0 auto;
+      display: flex;
       flex-shrink: 0;
     }
     .dk-deck-actions .dk-btn {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 100%;
-      min-height: 32px;
-      padding: 7px 4px;
-      font-size: 0.72rem;
+      padding: 7px 12px;
+      font-size: 0.74rem;
       white-space: nowrap;
-      box-sizing: border-box;
     }
     .dk-list-actions {
       display: flex;
@@ -1008,7 +1040,13 @@
               <button type="button" class="dk-btn dk-btn-back" id="btn-back-decks">← All decks</button>
             </nav>
             <div class="dk-hero">
-              <h2 id="cards-heading">Cards</h2>
+              <div class="dk-deck-hero-head">
+                <div class="dk-deck-title-wrap">
+                  <h2 id="cards-heading">Cards</h2>
+                  <input id="deck-title-input" class="dk-deck-title-input hidden" type="text" maxlength="80" autocomplete="off" aria-label="Deck name">
+                </div>
+                <button type="button" class="dk-btn dk-btn-danger dk-btn-small dk-deck-delete-btn hidden" id="btn-delete-deck-top" aria-label="Delete deck">Delete</button>
+              </div>
               <p id="cards-sub">Tap a card to open and edit it.</p>
             </div>
             <input class="dk-search" id="card-search" type="search" placeholder="Search by title, notes, or checklist…" autocomplete="off">
@@ -1020,26 +1058,6 @@
             </div>
             <div class="dk-list-actions hidden" id="cards-list-actions-stack">
               <button type="button" class="dk-btn dk-btn-primary" id="btn-new-card-stack">+ New card</button>
-            </div>
-          </div>
-          <div id="cards-edit-mode" class="hidden">
-            <nav class="dk-context-bar" aria-label="Deck settings actions">
-              <button type="button" class="dk-btn dk-btn-back" id="btn-cancel-deck-edit">← Back to cards</button>
-            </nav>
-            <div class="dk-hero">
-              <h2>Deck settings</h2>
-              <p>Rename this deck or delete it.</p>
-            </div>
-            <div class="dk-field">
-              <label for="deck-name">Deck name</label>
-              <input id="deck-name" type="text" maxlength="80" autocomplete="off">
-            </div>
-            <div class="dk-toolbar">
-              <button type="button" class="dk-btn dk-btn-primary" id="btn-new-card-edit">+ New card in this deck</button>
-            </div>
-            <div class="dk-footer-actions">
-              <button type="button" class="dk-btn dk-btn-primary dk-btn-block" id="btn-save-deck">Save deck</button>
-              <button type="button" class="dk-btn dk-btn-danger dk-btn-block" id="btn-delete-deck">Delete this deck</button>
             </div>
           </div>
         </section>
@@ -1746,7 +1764,7 @@
       }
       let activeStackId = null;
       let activeCardId = null;
-      let deckEditing = false;
+      let deckTitleEditing = false;
       let reviewDeckId = null;
       let reviewStackId = null;
       let reviewScope = 'deck';
@@ -1836,7 +1854,7 @@
       }
 
       function parseDeckBrowseRoute(parts, deckId) {
-        if (parts[2] === 'settings') return { tab: 'deck-browse', deckId, deckEdit: true };
+        if (parts[2] === 'settings') return { tab: 'deck-browse', deckId };
         if (parts[2] === 'stack' && parts[3]) {
           const stackId = parts[3];
           if (parts[4] === 'review') {
@@ -1928,7 +1946,6 @@
         }
         if (currentView === 'deck-browse') {
           if (!activeDeckId) return '#/stacks';
-          if (deckEditing) return '#/decks/' + activeDeckId + '/settings';
           if (activeStackId) return '#/decks/' + activeDeckId + '/stack/' + activeStackId;
           return '#/decks/' + activeDeckId;
         }
@@ -1979,7 +1996,7 @@
         if (route.tab === 'decks') {
           activeCardId = null;
           activeStackId = null;
-          deckEditing = false;
+          deckTitleEditing = false;
           clearReviewState();
           show('decks');
           renderDecks();
@@ -1989,7 +2006,7 @@
         if (route.tab === 'stacks') {
           activeCardId = null;
           activeStackId = null;
-          deckEditing = false;
+          deckTitleEditing = false;
           clearReviewState();
           show('stacks');
           renderStacksGlobal();
@@ -1999,7 +2016,7 @@
         if (route.tab === 'all-cards') {
           activeCardId = null;
           activeStackId = null;
-          deckEditing = false;
+          deckTitleEditing = false;
           clearReviewState();
           show('all-cards');
           renderAllCards();
@@ -2020,7 +2037,7 @@
           activeDeckId = deck.id;
           activeCardId = found.card.id;
           activeStackId = found.stack ? found.stack.id : null;
-          deckEditing = false;
+          deckTitleEditing = false;
           clearReviewState();
           show('card');
           renderCard();
@@ -2031,7 +2048,7 @@
         if (!deck) {
           activeCardId = null;
           activeStackId = null;
-          deckEditing = false;
+          deckTitleEditing = false;
           clearReviewState();
           show('decks');
           renderDecks();
@@ -2042,7 +2059,7 @@
         if (route.review) {
           activeCardId = null;
           activeStackId = route.stackId || null;
-          deckEditing = false;
+          deckTitleEditing = false;
           reviewDeckId = deck.id;
           reviewStackId = route.stackId || null;
           reviewScope = route.reviewScope || 'deck';
@@ -2065,7 +2082,7 @@
         }
         activeCardId = null;
         activeStackId = route.stackId || null;
-        deckEditing = !!route.deckEdit;
+        deckTitleEditing = false;
         clearReviewState();
         if (activeStackId && !stackById(deck, activeStackId)) {
           activeStackId = null;
@@ -2313,31 +2330,7 @@
             ev.stopPropagation();
             openReview(d.id, { scope: 'deck' });
           });
-          const openBtn = document.createElement('button');
-          openBtn.type = 'button';
-          openBtn.className = 'dk-btn dk-btn-ghost';
-          openBtn.textContent = 'Open';
-          openBtn.addEventListener('click', (ev) => {
-            ev.stopPropagation();
-            openDeck(d.id);
-          });
-          const editBtn = document.createElement('button');
-          editBtn.type = 'button';
-          editBtn.className = 'dk-btn dk-btn-ghost';
-          editBtn.textContent = 'Edit';
-          editBtn.addEventListener('click', (ev) => {
-            ev.stopPropagation();
-            editDeckFromList(d.id);
-          });
-          const deleteBtn = document.createElement('button');
-          deleteBtn.type = 'button';
-          deleteBtn.className = 'dk-btn dk-btn-danger';
-          deleteBtn.textContent = 'Delete';
-          deleteBtn.addEventListener('click', (ev) => {
-            ev.stopPropagation();
-            deleteDeckById(d.id);
-          });
-          actions.append(openBtn, reviewBtn, editBtn, deleteBtn);
+          actions.appendChild(reviewBtn);
           wrap.append(open, actions);
           list.appendChild(wrap);
         });
@@ -2438,9 +2431,10 @@
       }
 
       function showStacks(opts) {
+        finishDeckTitleEdit(true);
         activeCardId = null;
         activeStackId = null;
-        deckEditing = false;
+        deckTitleEditing = false;
         clearReviewState();
         show('stacks');
         renderStacksGlobal();
@@ -2448,29 +2442,14 @@
       }
 
       function showAllCards(opts) {
+        finishDeckTitleEdit(true);
         activeCardId = null;
         activeStackId = null;
-        deckEditing = false;
+        deckTitleEditing = false;
         clearReviewState();
         show('all-cards');
         renderAllCards();
         if (!opts || opts.updateUrl !== false) syncUrl(!!(opts && opts.replaceUrl));
-      }
-
-      async function editDeckFromList(deckId) {
-        const deck = deckById(deckId);
-        if (!deck) return;
-        const name = await showPrompt({
-          title: 'Rename deck',
-          message: 'Choose a new name for this deck.',
-          label: 'Deck name',
-          defaultValue: deck.name || '',
-          okLabel: 'Save',
-        });
-        if (name === null) return;
-        deck.name = name.trim() || 'Untitled';
-        save();
-        renderDecks();
       }
 
       async function deleteDeckById(deckId) {
@@ -2493,7 +2472,7 @@
           activeDeckId = state.decks[0] ? state.decks[0].id : null;
           activeCardId = null;
           activeStackId = null;
-          deckEditing = false;
+          deckTitleEditing = false;
         }
         save();
         if (wasActive && currentView !== 'decks') {
@@ -2501,6 +2480,55 @@
         } else {
           renderDecks();
         }
+      }
+
+      function showDeckTitleEditor() {
+        if (activeStackId || deckTitleEditing) return;
+        const deck = ensureActiveDeck();
+        if (!deck) return;
+        const heading = document.getElementById('cards-heading');
+        const input = document.getElementById('deck-title-input');
+        input.value = deck.name || '';
+        heading.classList.add('hidden');
+        input.classList.remove('hidden');
+        deckTitleEditing = true;
+        input.focus();
+        input.select();
+      }
+
+      function finishDeckTitleEdit(saveChanges) {
+        const deck = ensureActiveDeck();
+        const heading = document.getElementById('cards-heading');
+        const input = document.getElementById('deck-title-input');
+        if (!deck || !deckTitleEditing) return;
+        if (saveChanges) {
+          deck.name = input.value.trim() || 'Untitled';
+          save();
+        }
+        heading.textContent = deck.name || 'Untitled';
+        heading.classList.remove('hidden');
+        input.classList.add('hidden');
+        deckTitleEditing = false;
+      }
+
+      function updateDeckBrowseHeading(deck, stack, inStack) {
+        const heading = document.getElementById('cards-heading');
+        const input = document.getElementById('deck-title-input');
+        const deleteBtn = document.getElementById('btn-delete-deck-top');
+        if (inStack) {
+          finishDeckTitleEdit(true);
+          heading.textContent = stack.name || 'Stack';
+          heading.classList.remove('hidden', 'dk-deck-title-editable');
+          input.classList.add('hidden');
+          deleteBtn.classList.add('hidden');
+          return;
+        }
+        deleteBtn.classList.remove('hidden');
+        if (deckTitleEditing) return;
+        heading.textContent = deck.name || 'Untitled';
+        heading.classList.remove('hidden');
+        heading.classList.add('dk-deck-title-editable');
+        input.classList.add('hidden');
       }
 
       function renderCardListItem(card, deckId, stackId, opts) {
@@ -2634,14 +2662,12 @@
         if (!deck) return showDecks({ updateUrl: true });
         const stack = activeStackId ? stackById(deck, activeStackId) : null;
         const inStack = !!stack;
-        document.getElementById('cards-list-actions-root').classList.toggle('hidden', inStack || deckEditing);
-        document.getElementById('cards-list-actions-stack').classList.toggle('hidden', !inStack || deckEditing);
+        document.getElementById('cards-list-actions-root').classList.toggle('hidden', inStack);
+        document.getElementById('cards-list-actions-stack').classList.toggle('hidden', !inStack);
         document.getElementById('btn-back-decks').textContent = inStack
           ? '← ' + (deck.name || 'Deck')
           : '← All decks';
-        document.getElementById('cards-heading').textContent = inStack
-          ? (stack.name || 'Stack')
-          : (deck.name || 'Cards');
+        updateDeckBrowseHeading(deck, stack, inStack);
         document.getElementById('cards-sub').textContent = inStack
           ? (countActiveCards(stack.cards)
             ? 'Cards in this stack.'
@@ -2649,11 +2675,6 @@
           : (deckHasStructure(deck)
             ? 'Open a stack or card, or create something new.'
             : 'Add a stack or card to get started.');
-        document.getElementById('cards-view-mode').classList.toggle('hidden', deckEditing);
-        document.getElementById('cards-edit-mode').classList.toggle('hidden', !deckEditing);
-        if (deckEditing) {
-          document.getElementById('deck-name').value = deck.name || '';
-        }
         const q = document.getElementById('card-search').value.trim().toLowerCase();
         const list = document.getElementById('card-list');
         const reorderHint = document.getElementById('cards-reorder-hint');
@@ -2716,7 +2737,7 @@
           attachReorderList(cardList, (fromId, toId) => reorderCardsInDeck(deck.id, fromId, toId));
           list.appendChild(cardList);
         }
-        if (reorderHint && !deckEditing && (stacks.length > 1 || cards.length > 1)) {
+        if (reorderHint && (stacks.length > 1 || cards.length > 1)) {
           reorderHint.classList.remove('hidden');
         }
       }
@@ -2973,26 +2994,6 @@
         }
       }
 
-      function setDeckEditing(on, opts) {
-        deckEditing = !!on;
-        renderCards();
-        if (deckEditing) {
-          const input = document.getElementById('deck-name');
-          input.focus();
-          input.select();
-        }
-        if (!opts || opts.updateUrl !== false) syncUrl(!!(opts && opts.replaceUrl));
-      }
-
-      function finishDeckEdit(opts) {
-        const deck = deckById(activeDeckId);
-        if (deck) {
-          deck.name = document.getElementById('deck-name').value.trim() || 'Untitled';
-          save();
-        }
-        setDeckEditing(false, opts);
-      }
-
       function touchCard(card) {
         const target = card || activeCard();
         if (!target) return;
@@ -3055,9 +3056,10 @@
       }
 
       function showDecks(opts) {
+        finishDeckTitleEdit(true);
         activeCardId = null;
         activeStackId = null;
-        deckEditing = false;
+        deckTitleEditing = false;
         clearReviewState();
         show('decks');
         renderDecks();
@@ -3065,10 +3067,11 @@
       }
 
       function openDeck(id, opts) {
+        finishDeckTitleEdit(true);
         activeDeckId = id;
         activeStackId = null;
         activeCardId = null;
-        deckEditing = !!(opts && opts.edit);
+        deckTitleEditing = false;
         clearReviewState();
         show('deck-browse');
         renderCards();
@@ -3076,11 +3079,11 @@
       }
 
       function openStack(stackId, opts) {
+        finishDeckTitleEdit(true);
         const deck = ensureActiveDeck();
         if (!deck || !stackById(deck, stackId)) return;
         activeStackId = stackId;
         activeCardId = null;
-        deckEditing = false;
         clearReviewState();
         show('deck-browse');
         renderCards();
@@ -3139,7 +3142,8 @@
         activeDeckId = deck.id;
         activeStackId = stackId;
         activeCardId = null;
-        deckEditing = false;
+        finishDeckTitleEdit(true);
+        deckTitleEditing = false;
         reviewDeckId = deck.id;
         reviewStackId = stackId;
         reviewScope = scope;
@@ -3316,7 +3320,7 @@
         if (tab === 'decks') {
           ensureCardNamed().then((ok) => {
             if (!ok) return;
-            deckEditing = false;
+            deckTitleEditing = false;
             showDecks();
           });
           return;
@@ -3324,7 +3328,7 @@
         if (tab === 'stacks') {
           ensureCardNamed().then((ok) => {
             if (!ok) return;
-            deckEditing = false;
+            deckTitleEditing = false;
             showStacks();
           });
           return;
@@ -3332,26 +3336,27 @@
         if (tab === 'cards') {
           ensureCardNamed().then((ok) => {
             if (!ok) return;
-            deckEditing = false;
+            deckTitleEditing = false;
             showAllCards();
           });
         }
       });
 
-      document.getElementById('btn-cancel-deck-edit').addEventListener('click', () => {
-        const deck = deckById(activeDeckId);
-        if (deck) document.getElementById('deck-name').value = deck.name || '';
-        setDeckEditing(false);
+      document.getElementById('cards-heading').addEventListener('click', () => {
+        if (activeStackId || currentView !== 'deck-browse') return;
+        showDeckTitleEditor();
       });
-      document.getElementById('btn-save-deck').addEventListener('click', () => finishDeckEdit());
-
-      document.getElementById('deck-name').addEventListener('change', () => {
-        const deck = deckById(activeDeckId);
-        if (!deck) return;
-        deck.name = document.getElementById('deck-name').value.trim() || 'Untitled';
-        save();
-        document.getElementById('cards-heading').textContent = deck.name;
+      document.getElementById('deck-title-input').addEventListener('blur', () => finishDeckTitleEdit(true));
+      document.getElementById('deck-title-input').addEventListener('keydown', (ev) => {
+        if (ev.key === 'Enter') {
+          ev.preventDefault();
+          finishDeckTitleEdit(true);
+        } else if (ev.key === 'Escape') {
+          ev.preventDefault();
+          finishDeckTitleEdit(false);
+        }
       });
+      document.getElementById('btn-delete-deck-top').addEventListener('click', () => deleteDeckById(activeDeckId));
 
       document.getElementById('card-search').addEventListener('input', renderCards);
       document.getElementById('stack-search').addEventListener('input', renderStacksGlobal);
@@ -3367,9 +3372,6 @@
       document.getElementById('btn-new-card').addEventListener('click', () => createCard());
       document.getElementById('btn-new-card-stack').addEventListener('click', () => createCard());
       document.getElementById('btn-new-stack').addEventListener('click', () => createStack());
-      document.getElementById('btn-new-card-edit').addEventListener('click', () => createCard());
-
-      document.getElementById('btn-delete-deck').addEventListener('click', () => deleteDeckById(activeDeckId));
 
       document.getElementById('btn-back-cards').addEventListener('click', async () => {
         if (!(await ensureCardNamed())) return;
