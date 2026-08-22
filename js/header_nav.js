@@ -270,7 +270,7 @@
     }
 
     if (item.id === 'deck') {
-      return current === 'deck.html' || current.startsWith('deck.html');
+      return path === '/deck' || path === '/deck/' || current === 'deck.html' || current.startsWith('deck.html');
     }
 
     if (item.id === 'link') {
