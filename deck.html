@@ -227,23 +227,66 @@
       color: var(--dk-muted);
     }
     .dk-group-heading:first-child { margin-top: 0; }
-    .dk-reorder-item { position: relative; }
-    .dk-reorder-item.dk-dragging { opacity: 0.45; }
-    .dk-reorder-item.dk-drop-target { box-shadow: 0 0 0 2px var(--dk-brand); }
+    .dk-reorder-item { position: relative; transition: box-shadow 0.12s ease; }
+    .dk-reorder-item.dk-dragging { opacity: 0.5; }
+    .dk-reorder-item.dk-drop-target {
+      box-shadow: 0 0 0 2px var(--dk-brand);
+      background: #f5f3ff;
+    }
+    .dk-reorder-controls {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      flex-shrink: 0;
+    }
+    .dk-reorder-btn {
+      appearance: none;
+      border: 1px solid var(--dk-line);
+      border-radius: 6px;
+      background: #fff;
+      color: var(--dk-muted);
+      width: 30px;
+      height: 26px;
+      padding: 0;
+      font-size: 0.9rem;
+      font-weight: 700;
+      line-height: 1;
+      cursor: pointer;
+    }
+    .dk-reorder-btn:hover:not(:disabled) {
+      border-color: #c7d2fe;
+      color: var(--dk-brand);
+      background: #eef2ff;
+    }
+    .dk-reorder-btn:disabled {
+      opacity: 0.3;
+      cursor: default;
+    }
     .dk-drag-handle {
       flex-shrink: 0;
-      border: 0;
-      background: transparent;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 30px;
+      height: 30px;
+      border: 1px dashed #cbd5e1;
+      border-radius: 8px;
+      background: #f8fafc;
       color: #94a3b8;
-      font-size: 1rem;
-      line-height: 1;
-      padding: 4px 6px;
+      padding: 0;
       cursor: grab;
       touch-action: none;
       user-select: none;
       -webkit-user-drag: element;
     }
     .dk-drag-handle:active { cursor: grabbing; }
+    .dk-drag-handle svg { display: block; }
+    .dk-reorder-hint {
+      margin: -6px 0 12px;
+      font-size: 0.78rem;
+      color: var(--dk-muted);
+    }
     .dk-deck-item {
       display: flex;
       align-items: center;
@@ -314,6 +357,10 @@
       align-items: start;
     }
     .dk-card-preview-item.dk-reorder-item .dk-drag-handle {
+      grid-row: span 1;
+      margin-top: 0;
+    }
+    .dk-card-preview-item.dk-reorder-item .dk-reorder-controls {
       grid-row: span 2;
       margin-top: 8px;
     }
@@ -917,7 +964,7 @@
         <section id="view-decks">
           <div class="dk-hero">
             <h2>Decks</h2>
-            <p>Group cards and stacks into decks. Stacks hold cards; only decks hold stacks.</p>
+            <p>Group cards and stacks into decks. Use ↑ ↓ or drag the grip to reorder decks.</p>
           </div>
           <input class="dk-search" id="deck-search" type="search" placeholder="Search cards by title, notes, or checklist…" autocomplete="off">
           <div id="deck-search-results" class="dk-search-results hidden"></div>
@@ -930,7 +977,7 @@
         <section id="view-stacks" class="hidden">
           <div class="dk-hero">
             <h2>Stacks</h2>
-            <p>All stacks across your decks. Drag to reorder within a deck.</p>
+            <p>All stacks across your decks. Use ↑ ↓ or drag the grip to reorder within a deck.</p>
           </div>
           <input class="dk-search" id="stack-search" type="search" placeholder="Search stacks…" autocomplete="off">
           <div id="stack-list" class="dk-list"></div>
@@ -960,6 +1007,7 @@
               <p id="cards-sub">Tap a card to open and edit it.</p>
             </div>
             <input class="dk-search" id="card-search" type="search" placeholder="Search by title, notes, or checklist…" autocomplete="off">
+            <p class="dk-reorder-hint hidden" id="cards-reorder-hint">Use ↑ ↓ or drag the grip to change order.</p>
             <div id="card-list" class="dk-list"></div>
             <div class="dk-list-actions" id="cards-list-actions-root">
               <button type="button" class="dk-btn dk-btn-primary" id="btn-new-stack">+ New stack</button>
@@ -1254,24 +1302,62 @@
         else if (currentView === 'review') renderReview();
       }
 
-      function createDragHandle(label) {
+      function createReorderControls(label) {
+        const wrap = document.createElement('div');
+        wrap.className = 'dk-reorder-controls';
+
+        const up = document.createElement('button');
+        up.type = 'button';
+        up.className = 'dk-reorder-btn dk-reorder-btn-up';
+        up.setAttribute('aria-label', 'Move up');
+        up.textContent = '↑';
+
         const handle = document.createElement('span');
         handle.className = 'dk-drag-handle';
         handle.draggable = true;
         handle.setAttribute('role', 'button');
         handle.setAttribute('tabindex', '0');
         handle.setAttribute('aria-label', label || 'Drag to reorder');
-        handle.textContent = '⋮⋮';
-        return handle;
+        handle.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="9" cy="7" r="1.5" fill="currentColor"/><circle cx="15" cy="7" r="1.5" fill="currentColor"/><circle cx="9" cy="12" r="1.5" fill="currentColor"/><circle cx="15" cy="12" r="1.5" fill="currentColor"/><circle cx="9" cy="17" r="1.5" fill="currentColor"/><circle cx="15" cy="17" r="1.5" fill="currentColor"/></svg>';
+
+        const down = document.createElement('button');
+        down.type = 'button';
+        down.className = 'dk-reorder-btn dk-reorder-btn-down';
+        down.setAttribute('aria-label', 'Move down');
+        down.textContent = '↓';
+
+        wrap.append(up, handle, down);
+        return wrap;
       }
 
-      function moveArrayItemById(list, fromId, toId) {
-        if (!Array.isArray(list) || !fromId || !toId || fromId === toId) return false;
-        const fromIdx = list.findIndex((item) => item.id === fromId);
-        const toIdx = list.findIndex((item) => item.id === toId);
-        if (fromIdx < 0 || toIdx < 0) return false;
-        const [item] = list.splice(fromIdx, 1);
-        list.splice(toIdx, 0, item);
+      function syncReorderButtons(container) {
+        const rows = [...container.querySelectorAll('[data-reorder-id]')];
+        rows.forEach((row, idx) => {
+          const up = row.querySelector('.dk-reorder-btn-up');
+          const down = row.querySelector('.dk-reorder-btn-down');
+          if (up) up.disabled = idx === 0;
+          if (down) down.disabled = idx === rows.length - 1;
+        });
+      }
+
+      function moveRowInDom(container, fromId, toId) {
+        const fromRow = container.querySelector('[data-reorder-id="' + fromId + '"]');
+        const toRow = container.querySelector('[data-reorder-id="' + toId + '"]');
+        if (!fromRow || !toRow || fromRow === toRow) return;
+        const rows = [...container.querySelectorAll('[data-reorder-id]')];
+        const fromIdx = rows.indexOf(fromRow);
+        const toIdx = rows.indexOf(toRow);
+        if (fromIdx < 0 || toIdx < 0) return;
+        if (fromIdx < toIdx) toRow.after(fromRow);
+        else container.insertBefore(fromRow, toRow);
+      }
+
+      function applyListReorder(container, fromId, toId, onReorder) {
+        if (!fromId || !toId || fromId === toId) return false;
+        if (!onReorder(fromId, toId)) return false;
+        moveRowInDom(container, fromId, toId);
+        syncReorderButtons(container);
+        save();
         return true;
       }
 
@@ -1287,7 +1373,10 @@
             if (!dragId || row.dataset.reorderId === dragId) return;
             row.classList.add('dk-drop-target');
           });
-          row.addEventListener('dragleave', () => row.classList.remove('dk-drop-target'));
+          row.addEventListener('dragleave', (ev) => {
+            if (ev.relatedTarget && row.contains(ev.relatedTarget)) return;
+            row.classList.remove('dk-drop-target');
+          });
           row.addEventListener('drop', (ev) => {
             ev.preventDefault();
             row.classList.remove('dk-drop-target');
@@ -1295,9 +1384,27 @@
             const toId = row.dataset.reorderId;
             dragId = null;
             dragRow = null;
-            if (!fromId || !toId || fromId === toId) return;
-            if (onReorder(fromId, toId)) save();
+            applyListReorder(container, fromId, toId, onReorder);
           });
+
+          const up = row.querySelector('.dk-reorder-btn-up');
+          if (up) {
+            up.addEventListener('click', (ev) => {
+              ev.stopPropagation();
+              const prev = row.previousElementSibling;
+              if (!prev || !prev.dataset.reorderId) return;
+              applyListReorder(container, row.dataset.reorderId, prev.dataset.reorderId, onReorder);
+            });
+          }
+          const down = row.querySelector('.dk-reorder-btn-down');
+          if (down) {
+            down.addEventListener('click', (ev) => {
+              ev.stopPropagation();
+              const next = row.nextElementSibling;
+              if (!next || !next.dataset.reorderId) return;
+              applyListReorder(container, row.dataset.reorderId, next.dataset.reorderId, onReorder);
+            });
+          }
 
           const handle = row.querySelector('.dk-drag-handle');
           if (!handle) return;
@@ -1316,6 +1423,18 @@
             container.querySelectorAll('.dk-drop-target').forEach((el) => el.classList.remove('dk-drop-target'));
           });
         });
+
+        syncReorderButtons(container);
+      }
+
+      function moveArrayItemById(list, fromId, toId) {
+        if (!Array.isArray(list) || !fromId || !toId || fromId === toId) return false;
+        const fromIdx = list.findIndex((item) => item.id === fromId);
+        const toIdx = list.findIndex((item) => item.id === toId);
+        if (fromIdx < 0 || toIdx < 0) return false;
+        const [item] = list.splice(fromIdx, 1);
+        list.splice(toIdx, 0, item);
+        return true;
       }
 
       function reorderDecks(fromId, toId) {
@@ -2158,7 +2277,7 @@
           const wrap = document.createElement('article');
           wrap.className = 'dk-deck-item dk-reorder-item';
           wrap.dataset.reorderId = d.id;
-          wrap.appendChild(createDragHandle('Reorder deck'));
+          wrap.appendChild(createReorderControls('Reorder deck'));
           const open = document.createElement('button');
           open.type = 'button';
           open.className = 'dk-deck-open';
@@ -2209,11 +2328,7 @@
           wrap.append(open, actions);
           list.appendChild(wrap);
         });
-        attachReorderList(list, (fromId, toId) => {
-          if (!reorderDecks(fromId, toId)) return false;
-          renderDecks();
-          return true;
-        });
+        attachReorderList(list, reorderDecks);
       }
 
       function renderStacksGlobal() {
@@ -2240,14 +2355,10 @@
             const row = renderStackItem(stack, deck.id);
             row.classList.add('dk-reorder-item');
             row.dataset.reorderId = stack.id;
-            row.insertBefore(createDragHandle('Reorder stack'), row.firstChild);
+            row.insertBefore(createReorderControls('Reorder stack'), row.firstChild);
             group.appendChild(row);
           });
-          attachReorderList(group, (fromId, toId) => {
-            if (!reorderStacksInDeck(deck.id, fromId, toId)) return false;
-            renderStacksGlobal();
-            return true;
-          });
+          attachReorderList(group, (fromId, toId) => reorderStacksInDeck(deck.id, fromId, toId));
           list.appendChild(group);
         });
         if (!any) {
@@ -2445,7 +2556,7 @@
         if (checklistPanel) row.append(open, checklistBlock, actions);
         else row.append(open, actions);
         if (opts.reorder) {
-          row.insertBefore(createDragHandle('Reorder card'), row.firstChild);
+          row.insertBefore(createReorderControls('Reorder card'), row.firstChild);
         }
         return row;
       }
@@ -2532,8 +2643,10 @@
         }
         const q = document.getElementById('card-search').value.trim().toLowerCase();
         const list = document.getElementById('card-list');
+        const reorderHint = document.getElementById('cards-reorder-hint');
         list.className = 'dk-list';
         list.innerHTML = '';
+        if (reorderHint) reorderHint.classList.add('hidden');
 
         if (inStack) {
           const allInStack = stack.cards || [];
@@ -2548,11 +2661,8 @@
           }
           list.className = 'dk-list dk-reorder-list';
           cards.forEach((c) => list.appendChild(renderCardListItem(c, deck.id, stack.id, { reorder: true })));
-          attachReorderList(list, (fromId, toId) => {
-            if (!reorderCardsInStack(deck.id, stack.id, fromId, toId)) return false;
-            renderCards();
-            return true;
-          });
+          attachReorderList(list, (fromId, toId) => reorderCardsInStack(deck.id, stack.id, fromId, toId));
+          if (reorderHint && cards.length > 1) reorderHint.classList.remove('hidden');
           return;
         }
 
@@ -2579,14 +2689,10 @@
             const row = renderStackItem(s, deck.id);
             row.classList.add('dk-reorder-item');
             row.dataset.reorderId = s.id;
-            row.insertBefore(createDragHandle('Reorder stack'), row.firstChild);
+            row.insertBefore(createReorderControls('Reorder stack'), row.firstChild);
             stackList.appendChild(row);
           });
-          attachReorderList(stackList, (fromId, toId) => {
-            if (!reorderStacksInDeck(deck.id, fromId, toId)) return false;
-            renderCards();
-            return true;
-          });
+          attachReorderList(stackList, (fromId, toId) => reorderStacksInDeck(deck.id, fromId, toId));
           list.appendChild(stackList);
         }
         if (cards.length) {
@@ -2594,12 +2700,11 @@
           cardList.className = 'dk-list dk-reorder-list';
           cardList.style.marginTop = stacks.length ? '12px' : '0';
           cards.forEach((c) => cardList.appendChild(renderCardListItem(c, deck.id, null, { reorder: true })));
-          attachReorderList(cardList, (fromId, toId) => {
-            if (!reorderCardsInDeck(deck.id, fromId, toId)) return false;
-            renderCards();
-            return true;
-          });
+          attachReorderList(cardList, (fromId, toId) => reorderCardsInDeck(deck.id, fromId, toId));
           list.appendChild(cardList);
+        }
+        if (reorderHint && !deckEditing && (stacks.length > 1 || cards.length > 1)) {
+          reorderHint.classList.remove('hidden');
         }
       }
 
