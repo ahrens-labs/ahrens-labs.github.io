@@ -4702,6 +4702,22 @@ function adminAppUsageFields(row) {
   );
   const appPlatter = appPlatterMenuCount > 0;
 
+  const deck = games && typeof games.deck === 'object' ? games.deck : null;
+  const deckList = Array.isArray(deck?.decks) ? deck.decks : [];
+  const appDeckCount = deckList.length;
+  let appDeckCardCount = 0;
+  for (const entry of deckList) {
+    if (!entry || typeof entry !== 'object') continue;
+    appDeckCardCount += Array.isArray(entry.cards) ? entry.cards.length : 0;
+    const stacks = Array.isArray(entry.stacks) ? entry.stacks : [];
+    for (const stack of stacks) {
+      appDeckCardCount += Array.isArray(stack?.cards) ? stack.cards.length : 0;
+    }
+  }
+  const appDeckLastUpdated =
+    deck?.lastUpdated != null && Number(deck.lastUpdated) > 0 ? Number(deck.lastUpdated) : null;
+  const appDeck = appDeckCount > 0;
+
   return {
     appClassify,
     appClassifyTaskCount,
@@ -4715,11 +4731,15 @@ function adminAppUsageFields(row) {
     appPlatter,
     appPlatterMenuCount,
     appPlatterHasActiveMenu,
+    appDeck,
+    appDeckCount,
+    appDeckCardCount,
+    appDeckLastUpdated,
     appLink: false,
     appLinkContactCount: 0,
     appLinkInteractionCount: 0,
     appLinkLastActivity: null,
-    appDataCount: Number(appClassify) + Number(appTether) + Number(appPlatter),
+    appDataCount: Number(appClassify) + Number(appTether) + Number(appPlatter) + Number(appDeck),
   };
 }
 
@@ -4810,6 +4830,7 @@ function enrichAdminAccountsLinkUsage(accounts, linkUsage) {
       Number(!!acc.appClassify) +
       Number(!!acc.appTether) +
       Number(!!acc.appPlatter) +
+      Number(!!acc.appDeck) +
       Number(!!acc.appLink);
   }
 }
