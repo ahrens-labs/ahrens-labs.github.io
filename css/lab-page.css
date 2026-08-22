@@ -17,10 +17,12 @@
 }
 
 .lab-group-heading {
-    font-family: "Space Grotesk", sans-serif;
+    font-family: var(--font-display);
     font-size: 1.25rem;
     color: #2c3e50;
     margin: 0 0 1rem;
+    text-transform: uppercase;
+    letter-spacing: var(--font-display-spacing);
 }
 
 .project-card-title {

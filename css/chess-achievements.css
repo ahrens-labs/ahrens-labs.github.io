@@ -42,7 +42,9 @@
 }
 
 .ca-hero h2 {
-  font-family: "Space Grotesk", sans-serif;
+  font-family: "Saira", sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
   font-size: clamp(1.45rem, 4vw, 2rem);
   font-weight: 900;
   margin: 0 0 0.5rem;
@@ -70,7 +72,9 @@
 }
 
 .ca-points-badge span {
-  font-family: "Space Grotesk", sans-serif;
+  font-family: "Saira", sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
   font-size: 1.25rem;
 }
 
