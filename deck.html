@@ -1361,6 +1361,14 @@
         return true;
       }
 
+      function clearReorderDragState(container, row) {
+        if (row) row.classList.remove('dk-dragging');
+        if (container) {
+          container.querySelectorAll('.dk-dragging').forEach((el) => el.classList.remove('dk-dragging'));
+          container.querySelectorAll('.dk-drop-target').forEach((el) => el.classList.remove('dk-drop-target'));
+        }
+      }
+
       function attachReorderList(container, onReorder) {
         if (!container) return;
         let dragId = null;
@@ -1379,9 +1387,10 @@
           });
           row.addEventListener('drop', (ev) => {
             ev.preventDefault();
-            row.classList.remove('dk-drop-target');
             const fromId = dragId || ev.dataTransfer.getData('text/plain');
             const toId = row.dataset.reorderId;
+            const movingRow = dragRow;
+            clearReorderDragState(container, movingRow);
             dragId = null;
             dragRow = null;
             applyListReorder(container, fromId, toId, onReorder);
@@ -1417,10 +1426,9 @@
             ev.stopPropagation();
           });
           handle.addEventListener('dragend', () => {
+            clearReorderDragState(container, dragRow);
             dragId = null;
-            if (dragRow) dragRow.classList.remove('dk-dragging');
             dragRow = null;
-            container.querySelectorAll('.dk-drop-target').forEach((el) => el.classList.remove('dk-drop-target'));
           });
         });
 
