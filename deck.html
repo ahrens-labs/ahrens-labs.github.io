@@ -37,7 +37,6 @@
     .deck-logo {
       width: 40px;
       height: 40px;
-      border-radius: 10px;
       object-fit: contain;
     }
     body.deck-app {
@@ -326,18 +325,43 @@
       line-height: 1.3;
     }
     .dk-deck-actions {
-      display: flex;
-      align-items: center;
-      flex-wrap: wrap;
-      justify-content: flex-end;
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
       gap: 6px;
       flex-shrink: 0;
-      max-width: 52%;
+      width: 152px;
     }
     .dk-deck-actions .dk-btn {
-      padding: 7px 9px;
-      font-size: 0.74rem;
+      padding: 7px 6px;
+      font-size: 0.72rem;
       white-space: nowrap;
+      width: 100%;
+      text-align: center;
+    }
+    @media (min-width: 900px) {
+      .dk-deck-actions {
+        display: flex;
+        flex-wrap: nowrap;
+        width: auto;
+      }
+      .dk-deck-actions .dk-btn {
+        width: auto;
+        padding: 7px 9px;
+        font-size: 0.74rem;
+      }
+    }
+    @media (max-width: 640px) {
+      .dk-deck-item {
+        flex-wrap: wrap;
+        align-items: flex-start;
+      }
+      .dk-deck-open {
+        flex: 1 1 calc(100% - 42px);
+      }
+      .dk-deck-actions {
+        flex: 1 1 100%;
+        width: 100%;
+      }
     }
     .dk-list-actions {
       display: flex;
@@ -931,7 +955,7 @@
             <span></span><span></span><span></span>
           </button>
           <div class="th-topbar-brand">
-            <img src="img/deck-logo-128.png" alt="" class="deck-logo">
+            <img src="img/deck-logo.svg" alt="" class="deck-logo">
             <h1 class="th-topbar-title">Deck</h1>
           </div>
         </div>
@@ -1081,7 +1105,7 @@
 
     <nav class="dk-bottom-nav" id="dk-bottom-nav" aria-label="Deck sections">
       <button type="button" class="dk-bottom-nav-item active" data-dk-tab="decks">
-        <span class="dk-bottom-nav-icon" aria-hidden="true"><img src="img/deck-logo-128.png" alt="" width="34" height="34"></span>
+        <span class="dk-bottom-nav-icon" aria-hidden="true"><img src="img/deck-logo.svg" alt="" width="34" height="34"></span>
         <span>Decks</span>
       </button>
       <button type="button" class="dk-bottom-nav-item" data-dk-tab="stacks">
