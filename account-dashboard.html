@@ -3033,6 +3033,19 @@
           return parts.join(' · ');
         }
 
+        function adminAppDeckDetail(a) {
+          if (!a?.appDeck) return 'None';
+          const decks = Number(a.appDeckCount) || 0;
+          const cards = Number(a.appDeckCardCount) || 0;
+          const parts = [
+            decks + ' deck' + (decks === 1 ? '' : 's'),
+            cards + ' card' + (cards === 1 ? '' : 's'),
+          ];
+          const rel = adminFormatRelativeTime(a.appDeckLastUpdated);
+          if (rel) parts.push('synced ' + rel);
+          return parts.join(' · ');
+        }
+
         function adminAppUsageBadgesHtml(a) {
           if (!a || typeof a !== 'object') return '';
           const badges = [];
@@ -3057,6 +3070,13 @@
                 '">Platter</span>'
             );
           }
+          if (a.appDeck) {
+            badges.push(
+              '<span class="admin-app-badge is-on" title="' +
+                escHtml(adminAppDeckDetail(a)) +
+                '">Deck</span>'
+            );
+          }
           if (a.appLink) {
             badges.push(
               '<span class="admin-app-badge is-on" title="' +
@@ -3065,7 +3085,7 @@
             );
           }
           if (!badges.length) {
-            return '<span class="admin-app-badge is-empty" title="No Classify, Tether, Platter, or Link data saved">—</span>';
+            return '<span class="admin-app-badge is-empty" title="No Classify, Tether, Platter, Deck, or Link data saved">—</span>';
           }
           return '<div class="admin-app-badges">' + badges.join('') + '</div>';
         }
@@ -3076,6 +3096,7 @@
           if (a.appClassify) parts.push('Classify');
           if (a.appTether) parts.push('Tether');
           if (a.appPlatter) parts.push('Platter');
+          if (a.appDeck) parts.push('Deck');
           if (a.appLink) parts.push('Link');
           return parts.length ? parts.join(', ') : 'None';
         }
@@ -3176,6 +3197,7 @@
           accountHtml += adminDetailRow('Classify', escHtml(adminAppClassifyDetail(a)));
           accountHtml += adminDetailRow('Tether', escHtml(adminAppTetherDetail(a)));
           accountHtml += adminDetailRow('Platter', escHtml(adminAppPlatterDetail(a)));
+          accountHtml += adminDetailRow('Deck', escHtml(adminAppDeckDetail(a)));
           accountHtml += adminDetailRow('Link', escHtml(adminAppLinkDetail(a)));
           accountHtml += '</dl></section>';
 
@@ -3363,6 +3385,7 @@
           const classifyCount = adminAccountsAccum.filter((a) => a.appClassify).length;
           const tetherCount = adminAccountsAccum.filter((a) => a.appTether).length;
           const platterCount = adminAccountsAccum.filter((a) => a.appPlatter).length;
+          const deckCount = adminAccountsAccum.filter((a) => a.appDeck).length;
           const linkCount = adminAccountsAccum.filter((a) => a.appLink).length;
           const anyAppCount = adminAccountsAccum.filter((a) => Number(a.appDataCount) > 0).length;
           const q = ((filterEl && filterEl.value) || '').trim();
@@ -3371,7 +3394,7 @@
           const filtNote = q || digestOnly || appsOnly ? ` · ${rows.length} match filter` : '';
           const selNote = adminSelectedKeys.size ? ` · ${adminSelectedKeys.size} selected` : '';
           meta.textContent =
-            `Loaded ${adminAccountsAccum.length} account${adminAccountsAccum.length === 1 ? '' : 's'} · ${trifangxDigestCount} TrifangX digest · ${sportsDigestCount} sports digest · ${anyAppCount} with app data (Classify ${classifyCount}, Tether ${tetherCount}, Platter ${platterCount}, Link ${linkCount})${filtNote}${selNote}` +
+            `Loaded ${adminAccountsAccum.length} account${adminAccountsAccum.length === 1 ? '' : 's'} · ${trifangxDigestCount} TrifangX digest · ${sportsDigestCount} sports digest · ${anyAppCount} with app data (Classify ${classifyCount}, Tether ${tetherCount}, Platter ${platterCount}, Deck ${deckCount}, Link ${linkCount})${filtNote}${selNote}` +
             (adminListHasMore ? ' · more pages available' : adminAccountsAccum.length ? ' · end of list' : '');
           if (moreBtn) moreBtn.disabled = !adminListHasMore;
           updateAdminGroupEmailToolbar();
@@ -3747,7 +3770,7 @@
             return s;
           };
           const lines = [
-            'username,email,user_id,apps,classify,classify_tasks,classify_completed,tether,tether_projects,tether_inbox,platter,platter_menus,link,link_contacts,link_interactions,trifangx_digest_on,trifangx_digest_eligible,trifangx_digest_scheduled,sports_digest_subscribed,sports_digest_teams,sports_digest_frequency,sports_digest_top_headlines,sports_digest_scheduled',
+            'username,email,user_id,apps,classify,classify_tasks,classify_completed,tether,tether_projects,tether_inbox,platter,platter_menus,deck,deck_count,deck_cards,link,link_contacts,link_interactions,trifangx_digest_on,trifangx_digest_eligible,trifangx_digest_scheduled,sports_digest_subscribed,sports_digest_teams,sports_digest_frequency,sports_digest_top_headlines,sports_digest_scheduled',
           ];
           for (const a of adminAccountsAccum) {
             lines.push(
@@ -3764,6 +3787,9 @@
                 escCsv(a.appTetherInboxCount || 0),
                 a.appPlatter ? 'yes' : 'no',
                 escCsv(a.appPlatterMenuCount || 0),
+                a.appDeck ? 'yes' : 'no',
+                escCsv(a.appDeckCount || 0),
+                escCsv(a.appDeckCardCount || 0),
                 a.appLink ? 'yes' : 'no',
                 escCsv(a.appLinkContactCount || 0),
                 escCsv(a.appLinkInteractionCount || 0),
