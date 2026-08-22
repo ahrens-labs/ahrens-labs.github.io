@@ -1168,7 +1168,7 @@
       }
 
       function cardsFromDeck(deck) {
-        if (Array.isArray(deck.cards) && deck.cards.length) {
+        if (Array.isArray(deck.cards)) {
           return deck.cards.map(cardFromLegacy);
         }
         if (Array.isArray(deck.notes)) {
@@ -1665,6 +1665,11 @@
 
       function countActiveCards(cards) {
         return (cards || []).filter((c) => !isCardArchived(c)).length;
+      }
+
+      function deckHasStructure(deck) {
+        if (!deck) return false;
+        return (deck.stacks || []).length > 0 || (deck.cards || []).length > 0;
       }
 
       function cardMatchesSearch(card, query) {
@@ -2517,7 +2522,7 @@
           ? (countActiveCards(stack.cards)
             ? 'Cards in this stack.'
             : 'No cards in this stack yet.')
-          : (deckStats(deck).totalCards || deckStats(deck).stacks
+          : (deckHasStructure(deck)
             ? 'Open a stack or card, or create something new.'
             : 'Add a stack or card to get started.');
         document.getElementById('cards-view-mode').classList.toggle('hidden', deckEditing);
@@ -2552,14 +2557,12 @@
         }
 
         const stacks = (deck.stacks || []).filter((s) => {
-          if (!q) return countActiveCards(s.cards) > 0;
+          if (!q) return true;
           if ((s.name || '').toLowerCase().includes(q)) return true;
           return (s.cards || []).some((c) => cardMatchesSearch(c, q));
         });
         const cards = filterCardsForDisplay(deck.cards || [], q);
-        const hasActiveContent = countActiveCards(deck.cards) > 0
-          || (deck.stacks || []).some((s) => countActiveCards(s.cards) > 0);
-        if (!q && !hasActiveContent) {
+        if (!q && !deckHasStructure(deck)) {
           list.innerHTML = '<div class="dk-empty">This deck is empty. Add a stack or card.</div>';
           return;
         }
