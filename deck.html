@@ -68,6 +68,12 @@
       font-family: Inter, system-ui, sans-serif;
       box-sizing: border-box;
     }
+    body.deck-app.dk-browsing .dk-wrap {
+      padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    }
+    body.deck-app.dk-browsing .dk-bottom-nav {
+      display: none;
+    }
     .dk-bottom-nav {
       position: fixed;
       left: 0;
@@ -144,6 +150,20 @@
       color: var(--dk-muted);
       font-size: 0.98rem;
       line-height: 1.55;
+    }
+    .dk-stack-context {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .dk-stack-context-label {
+      font-weight: 800;
+      color: var(--dk-ink);
+    }
+    .dk-stack-context-deck {
+      color: var(--dk-muted);
+      font-weight: 500;
     }
     .dk-deck-hero-head {
       display: flex;
@@ -2317,6 +2337,7 @@
         currentView = name;
         Object.keys(views).forEach((k) => views[k].classList.toggle('hidden', k !== name));
         document.body.classList.toggle('dk-reviewing', name === 'review');
+        document.body.classList.toggle('dk-browsing', name === 'deck-browse' || name === 'card');
         if (navTabForView[name]) lastBrowseTab = navTabForView[name];
         const activeTab = navTabForView[name] || lastBrowseTab;
         document.querySelectorAll('.dk-bottom-nav-item').forEach((btn) => {
@@ -2629,6 +2650,21 @@
         deckTitleEditing = false;
       }
 
+      function setStackContextSub(deck) {
+        const sub = document.getElementById('cards-sub');
+        sub.textContent = '';
+        const row = document.createElement('span');
+        row.className = 'dk-stack-context';
+        const label = document.createElement('span');
+        label.className = 'dk-stack-context-label';
+        label.textContent = 'Stack';
+        const deckName = document.createElement('span');
+        deckName.className = 'dk-stack-context-deck';
+        deckName.textContent = deck.name || 'Untitled';
+        row.append(label, deckName);
+        sub.appendChild(row);
+      }
+
       function updateDeckBrowseHeading(deck, stack, inStack) {
         const heading = document.getElementById('cards-heading');
         const headingWrap = heading.closest('.dk-deck-title-heading');
@@ -2785,13 +2821,13 @@
           ? '← ' + (deck.name || 'Deck')
           : '← All decks';
         updateDeckBrowseHeading(deck, stack, inStack);
-        document.getElementById('cards-sub').textContent = inStack
-          ? (countActiveCards(stack.cards)
-            ? 'Cards in this stack.'
-            : 'No cards in this stack yet.')
-          : (deckHasStructure(deck)
+        if (inStack) {
+          setStackContextSub(deck);
+        } else {
+          document.getElementById('cards-sub').textContent = deckHasStructure(deck)
             ? 'Tap a stack or card, or create something new.'
-            : 'Add a stack or card to get started.');
+            : 'Add a stack or card to get started.';
+        }
         const q = document.getElementById('card-search').value.trim().toLowerCase();
         const list = document.getElementById('card-list');
         const reorderHint = document.getElementById('cards-reorder-hint');
