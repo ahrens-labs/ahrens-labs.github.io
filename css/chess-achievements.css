@@ -42,7 +42,7 @@
 }
 
 .ca-hero h2 {
-  font-family: "Orbitron", sans-serif;
+  font-family: "Space Grotesk", sans-serif;
   font-size: clamp(1.45rem, 4vw, 2rem);
   font-weight: 900;
   margin: 0 0 0.5rem;
@@ -70,7 +70,7 @@
 }
 
 .ca-points-badge span {
-  font-family: "Orbitron", sans-serif;
+  font-family: "Space Grotesk", sans-serif;
   font-size: 1.25rem;
 }
 
