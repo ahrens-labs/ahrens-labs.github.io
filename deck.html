@@ -951,12 +951,13 @@
       color: var(--dk-ink);
     }
     .dk-review-nav {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
+      display: flex;
       gap: 10px;
       margin-top: 12px;
       flex-shrink: 0;
     }
+    #btn-review-prev { margin-right: auto; }
+    #btn-review-next { margin-left: auto; }
     body.deck-app.dk-reviewing .th-app-header,
     body.deck-app.dk-reviewing .dk-bottom-nav,
     body.deck-app.dk-reviewing .dk-wrap { display: none !important; }
@@ -2743,28 +2744,22 @@
           activeDeckId = deckId;
           openStack(stack.id);
         });
-        const actions = document.createElement('div');
-        actions.className = 'dk-item-actions';
         const reviewBtn = document.createElement('button');
         reviewBtn.type = 'button';
         reviewBtn.className = 'dk-btn dk-btn-ghost';
         reviewBtn.textContent = 'Review';
-        reviewBtn.disabled = !n;
         reviewBtn.addEventListener('click', (ev) => {
           ev.stopPropagation();
           openReview(deckId, { scope: 'stack', stackId: stack.id });
         });
-        const openBtn = document.createElement('button');
-        openBtn.type = 'button';
-        openBtn.className = 'dk-btn dk-btn-primary';
-        openBtn.textContent = 'Open';
-        openBtn.addEventListener('click', (ev) => {
-          ev.stopPropagation();
-          activeDeckId = deckId;
-          openStack(stack.id);
-        });
-        actions.append(openBtn, reviewBtn);
-        row.append(open, actions);
+        if (n) {
+          const actions = document.createElement('div');
+          actions.className = 'dk-item-actions';
+          actions.appendChild(reviewBtn);
+          row.append(open, actions);
+        } else {
+          row.append(open);
+        }
         return row;
       }
 
@@ -2784,7 +2779,7 @@
             ? 'Cards in this stack.'
             : 'No cards in this stack yet.')
           : (deckHasStructure(deck)
-            ? 'Open a stack or card, or create something new.'
+            ? 'Tap a stack or card, or create something new.'
             : 'Add a stack or card to get started.');
         const q = document.getElementById('card-search').value.trim().toLowerCase();
         const list = document.getElementById('card-list');
@@ -3287,6 +3282,18 @@
         syncUrl(true);
       }
 
+      function syncReviewNavButtons(scope, idx, total) {
+        const prevBtn = document.getElementById('btn-review-prev');
+        const nextBtn = document.getElementById('btn-review-next');
+        const nav = document.querySelector('.dk-review-nav');
+        const canStep = scope !== 'card' && total > 1;
+        const showPrev = canStep && idx > 0;
+        const showNext = canStep && idx < total - 1;
+        prevBtn.classList.toggle('hidden', !showPrev);
+        nextBtn.classList.toggle('hidden', !showNext);
+        if (nav) nav.classList.toggle('hidden', !showPrev && !showNext);
+      }
+
       function renderReview() {
         const deck = reviewDeck();
         const card = reviewCard();
@@ -3304,8 +3311,7 @@
         document.getElementById('review-progress').textContent = reviewScope === 'card'
           ? 'Review'
           : ((idx + 1) + ' / ' + cards.length);
-        document.getElementById('btn-review-prev').disabled = reviewScope === 'card' || idx <= 0;
-        document.getElementById('btn-review-next').disabled = reviewScope === 'card' || idx >= cards.length - 1;
+        syncReviewNavButtons(reviewScope, idx, cards.length);
         const body = document.getElementById('review-body');
         body.innerHTML = '';
         const title = document.createElement('h2');
