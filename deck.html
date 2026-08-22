@@ -300,10 +300,6 @@
       color: var(--dk-brand);
       background: #eef2ff;
     }
-    .dk-reorder-btn:disabled {
-      opacity: 0.3;
-      cursor: default;
-    }
     .dk-drag-handle {
       flex-shrink: 0;
       display: flex;
@@ -1355,11 +1351,27 @@
 
       function syncReorderButtons(container) {
         const rows = [...container.querySelectorAll('[data-reorder-id]')];
+        const canReorder = rows.length > 1;
         rows.forEach((row, idx) => {
-          const up = row.querySelector('.dk-reorder-btn-up');
-          const down = row.querySelector('.dk-reorder-btn-down');
-          if (up) up.disabled = idx === 0;
-          if (down) down.disabled = idx === rows.length - 1;
+          const controls = row.querySelector('.dk-reorder-controls');
+          if (!controls) return;
+          controls.classList.toggle('hidden', !canReorder);
+          if (!canReorder) return;
+
+          const up = controls.querySelector('.dk-reorder-btn-up');
+          const down = controls.querySelector('.dk-reorder-btn-down');
+          const handle = controls.querySelector('.dk-drag-handle');
+          const showUp = idx > 0;
+          const showDown = idx < rows.length - 1;
+          if (up) {
+            up.disabled = false;
+            up.classList.toggle('hidden', !showUp);
+          }
+          if (down) {
+            down.disabled = false;
+            down.classList.toggle('hidden', !showDown);
+          }
+          if (handle) handle.classList.remove('hidden');
         });
       }
 
