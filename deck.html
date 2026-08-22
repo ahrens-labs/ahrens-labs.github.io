@@ -18,8 +18,13 @@
   <link rel="icon" type="image/png" sizes="48x48" href="/img/deck-favicon-48.png">
   <link rel="icon" type="image/png" sizes="32x32" href="/img/deck-favicon-32.png">
   <link rel="icon" href="/img/deck-favicon.ico" sizes="any">
-  <link rel="apple-touch-icon" sizes="180x180" href="/img/deck-favicon-180.png">
-  <link rel="manifest" href="/deck-manifest.webmanifest">
+  <link rel="apple-touch-icon" sizes="180x180" href="/img/deck-favicon-180.png?v=2">
+  <link rel="manifest" href="/deck-manifest.webmanifest?v=2">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Deck">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="application-name" content="Deck">
   <script src="js/script.js"></script>
   <script src="js/header_nav.js"></script>
   <style>
@@ -242,8 +247,26 @@
       margin: 0 0 16px;
       flex-wrap: wrap;
     }
-    .dk-context-bar .dk-btn-back { margin-right: auto; }
-    .dk-secondary-actions { margin: 4px 0 16px; }
+    .dk-context-bar .dk-btn-back { margin-right: 0; }
+    .dk-context-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-left: auto;
+    }
+    .dk-deck-hero-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .dk-secondary-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin: 0 0 16px;
+    }
     .dk-footer-actions {
       display: flex;
       gap: 8px;
@@ -735,6 +758,40 @@
       font-weight: 600;
       color: var(--dk-muted);
     }
+    .dk-meta-link {
+      appearance: none;
+      border: 0;
+      background: transparent;
+      padding: 0;
+      font: inherit;
+      font-size: inherit;
+      font-weight: inherit;
+      text-align: left;
+      cursor: pointer;
+      color: var(--dk-muted);
+    }
+    .dk-meta-link:hover {
+      color: var(--dk-brand);
+      text-decoration: underline;
+    }
+    .dk-move-field { margin-top: 14px; }
+    .dk-move-field label {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: #475569;
+    }
+    .dk-move-field select {
+      width: 100%;
+      font: inherit;
+      border: 1px solid var(--dk-line);
+      border-radius: 10px;
+      padding: 10px 12px;
+      background: #fff;
+      color: var(--dk-ink);
+      box-sizing: border-box;
+    }
     .dk-view-title {
       margin: 0 0 8px;
       font-size: 1.5rem;
@@ -1086,6 +1143,11 @@
           <div id="cards-view-mode">
             <nav class="dk-context-bar" aria-label="Deck actions">
               <button type="button" class="dk-btn dk-btn-back" id="btn-back-decks">← All decks</button>
+              <div class="dk-context-actions">
+                <button type="button" class="dk-btn dk-btn-ghost dk-btn-small hidden" id="btn-browse-review">Review</button>
+                <button type="button" class="dk-btn dk-btn-primary dk-btn-small hidden" id="btn-new-card-stack-top">+ New card</button>
+                <button type="button" class="dk-btn dk-btn-ghost dk-btn-small hidden" id="btn-browse-share">Share</button>
+              </div>
             </nav>
             <div class="dk-hero">
               <div class="dk-deck-hero-head">
@@ -1093,7 +1155,10 @@
                   <h2 class="dk-deck-title-heading"><span id="cards-heading" class="dk-deck-title-text">Cards</span></h2>
                   <input id="deck-title-input" class="dk-deck-title-input hidden" type="text" maxlength="80" autocomplete="off" aria-label="Deck name">
                 </div>
-                <button type="button" class="dk-btn dk-btn-danger dk-btn-small dk-deck-delete-btn hidden" id="btn-delete-deck-top" aria-label="Delete deck">Delete</button>
+                <div class="dk-deck-hero-actions">
+                  <button type="button" class="dk-btn dk-btn-ghost dk-btn-small hidden" id="btn-deck-share">Share</button>
+                  <button type="button" class="dk-btn dk-btn-danger dk-btn-small dk-deck-delete-btn hidden" id="btn-delete-deck-top" aria-label="Delete deck">Delete</button>
+                </div>
               </div>
               <p id="cards-sub">Tap a card to open and edit it.</p>
             </div>
@@ -1104,9 +1169,7 @@
               <button type="button" class="dk-btn dk-btn-primary" id="btn-new-stack">+ New stack</button>
               <button type="button" class="dk-btn dk-btn-primary" id="btn-new-card">+ New card</button>
             </div>
-            <div class="dk-list-actions hidden" id="cards-list-actions-stack">
-              <button type="button" class="dk-btn dk-btn-primary" id="btn-new-card-stack">+ New card</button>
-            </div>
+            <div class="dk-list-actions hidden" id="cards-list-actions-stack"></div>
           </div>
         </section>
 
@@ -1119,7 +1182,10 @@
             <label for="card-title">Card title</label>
             <input id="card-title" class="dk-card-title-input" type="text" maxlength="160" autocomplete="off" required aria-required="true">
           </div>
-          <p id="card-view-deck" class="dk-meta"></p>
+          <button type="button" id="card-view-deck" class="dk-meta dk-meta-link"></button>
+          <div class="dk-secondary-actions">
+            <button type="button" class="dk-btn dk-btn-ghost dk-btn-small" id="btn-share-card">Share</button>
+          </div>
           <p id="card-archived-banner" class="dk-card-archived-banner hidden">This card is archived. It stays hidden from deck lists until you unarchive it.</p>
           <div id="section-list"></div>
           <div class="dk-toolbar">
@@ -1168,6 +1234,40 @@
         <span>Cards</span>
       </button>
     </nav>
+  </div>
+
+  <div class="dk-modal-backdrop" id="dk-share-modal" role="presentation">
+    <div class="dk-modal" role="dialog" aria-modal="true" aria-labelledby="dk-share-title">
+      <h3 id="dk-share-title">Share</h3>
+      <p id="dk-share-message"></p>
+      <div class="dk-field">
+        <label for="dk-share-input">Username or email</label>
+        <input id="dk-share-input" type="text" maxlength="120" autocomplete="username" placeholder="username or person@email.com">
+      </div>
+      <div class="dk-modal-actions">
+        <button type="button" class="dk-btn dk-btn-ghost" id="dk-share-cancel">Cancel</button>
+        <button type="button" class="dk-btn dk-btn-primary" id="dk-share-ok">Share</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="dk-modal-backdrop" id="dk-move-modal" role="presentation">
+    <div class="dk-modal" role="dialog" aria-modal="true" aria-labelledby="dk-move-title">
+      <h3 id="dk-move-title">Move card</h3>
+      <p>Choose where this card should live.</p>
+      <div class="dk-move-field">
+        <label for="dk-move-deck">Deck</label>
+        <select id="dk-move-deck"></select>
+      </div>
+      <div class="dk-move-field">
+        <label for="dk-move-stack">Stack</label>
+        <select id="dk-move-stack"></select>
+      </div>
+      <div class="dk-modal-actions">
+        <button type="button" class="dk-btn dk-btn-ghost" id="dk-move-cancel">Cancel</button>
+        <button type="button" class="dk-btn dk-btn-primary" id="dk-move-ok">Move</button>
+      </div>
+    </div>
   </div>
 
   <div class="dk-modal-backdrop" id="dk-modal" role="presentation">
@@ -2314,6 +2414,170 @@
         });
       }
 
+      const shareModalEl = document.getElementById('dk-share-modal');
+      const shareModalTitle = document.getElementById('dk-share-title');
+      const shareModalMessage = document.getElementById('dk-share-message');
+      const shareModalInput = document.getElementById('dk-share-input');
+      let shareModalContext = null;
+
+      function closeShareModal() {
+        shareModalEl.classList.remove('open');
+        shareModalContext = null;
+      }
+
+      function openShareModal(context) {
+        shareModalContext = context;
+        const labels = { deck: 'deck', stack: 'stack', card: 'card' };
+        const label = labels[context.type] || 'item';
+        shareModalTitle.textContent = 'Share ' + label;
+        shareModalMessage.textContent = 'Send a copy to another Ahrens Labs user by username or email.';
+        shareModalInput.value = '';
+        shareModalEl.classList.add('open');
+        setTimeout(() => shareModalInput.focus(), 0);
+      }
+
+      async function performShare() {
+        const context = shareModalContext;
+        if (!context) return closeShareModal();
+        const usernameOrEmail = shareModalInput.value.trim();
+        if (!usernameOrEmail) {
+          await showAlert({ title: 'Share', message: 'Enter a username or email.' });
+          return;
+        }
+        const sessionId = localStorage.getItem('ahrenslabs_sessionId');
+        if (!sessionId) {
+          closeShareModal();
+          await showAlert({
+            title: 'Sign in required',
+            message: 'Log in to your Ahrens Labs account to share decks with other users.',
+          });
+          return;
+        }
+        try {
+          const response = await fetch(deckApiBase() + '/api/deck/share', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: 'Bearer ' + sessionId,
+            },
+            body: JSON.stringify({
+              deckId: context.deckId,
+              stackId: context.stackId || undefined,
+              cardId: context.cardId || undefined,
+              usernameOrEmail,
+            }),
+          });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || 'Share failed');
+          closeShareModal();
+          await showAlert({
+            title: 'Shared',
+            message: 'Shared "' + (data.sharedName || 'item') + '" with ' + (data.sharedWith || 'that user') + '.',
+          });
+        } catch (error) {
+          await showAlert({ title: 'Share failed', message: error.message || 'Share failed' });
+        }
+      }
+
+      const moveModalEl = document.getElementById('dk-move-modal');
+      const moveDeckSelect = document.getElementById('dk-move-deck');
+      const moveStackSelect = document.getElementById('dk-move-stack');
+
+      function populateMoveStackSelect(deckId) {
+        moveStackSelect.innerHTML = '';
+        const root = document.createElement('option');
+        root.value = '';
+        root.textContent = 'No stack (deck cards)';
+        moveStackSelect.appendChild(root);
+        const deck = deckById(deckId);
+        (deck && deck.stacks ? deck.stacks : []).forEach((stack) => {
+          const opt = document.createElement('option');
+          opt.value = stack.id;
+          opt.textContent = stack.name || 'Untitled stack';
+          moveStackSelect.appendChild(opt);
+        });
+      }
+
+      function populateMoveDeckSelect(currentDeckId, currentStackId) {
+        moveDeckSelect.innerHTML = '';
+        state.decks.forEach((deck) => {
+          const opt = document.createElement('option');
+          opt.value = deck.id;
+          opt.textContent = deck.name || 'Untitled';
+          moveDeckSelect.appendChild(opt);
+        });
+        moveDeckSelect.value = currentDeckId || moveDeckSelect.value;
+        populateMoveStackSelect(moveDeckSelect.value);
+        moveStackSelect.value = currentStackId || '';
+      }
+
+      function openMoveCardModal() {
+        const loc = activeCardLocation();
+        if (!loc) return;
+        populateMoveDeckSelect(loc.deck.id, loc.stack ? loc.stack.id : '');
+        moveModalEl.classList.add('open');
+      }
+
+      function closeMoveModal() {
+        moveModalEl.classList.remove('open');
+      }
+
+      function moveCardToLocation(card, fromDeckId, fromStackId, toDeckId, toStackId) {
+        const fromDeck = deckById(fromDeckId);
+        const toDeck = deckById(toDeckId);
+        if (!fromDeck || !toDeck || !card) return false;
+        const fromStackIdNorm = fromStackId || null;
+        const toStackIdNorm = toStackId || null;
+        if (fromDeckId === toDeckId && fromStackIdNorm === toStackIdNorm) return false;
+
+        const fromList = fromStackIdNorm
+          ? (stackById(fromDeck, fromStackIdNorm) || {}).cards
+          : fromDeck.cards;
+        if (!Array.isArray(fromList)) return false;
+        const idx = fromList.findIndex((c) => c.id === card.id);
+        if (idx < 0) return false;
+
+        let toList = null;
+        if (toStackIdNorm) {
+          const stack = stackById(toDeck, toStackIdNorm);
+          if (!stack) return false;
+          if (!Array.isArray(stack.cards)) stack.cards = [];
+          toList = stack.cards;
+        } else {
+          if (!Array.isArray(toDeck.cards)) toDeck.cards = [];
+          toList = toDeck.cards;
+        }
+
+        const [moved] = fromList.splice(idx, 1);
+        toList.unshift(moved);
+        touchCard(moved);
+        save();
+        activeDeckId = toDeckId;
+        activeStackId = toStackIdNorm;
+        return true;
+      }
+
+      function confirmMoveCard() {
+        const loc = activeCardLocation();
+        if (!loc) return closeMoveModal();
+        const toDeckId = moveDeckSelect.value;
+        const toStackId = moveStackSelect.value || null;
+        const ok = moveCardToLocation(
+          loc.card,
+          loc.deck.id,
+          loc.stack ? loc.stack.id : null,
+          toDeckId,
+          toStackId
+        );
+        closeMoveModal();
+        if (!ok) {
+          showAlert({ title: 'Move card', message: 'That card is already in the selected location.' });
+          return;
+        }
+        renderCard();
+        syncUrl(true);
+      }
+
       modalCancel.addEventListener('click', () => closeModal(false));
       modalOk.addEventListener('click', () => closeModal(true));
       modalFieldInput.addEventListener('keydown', (ev) => {
@@ -2467,8 +2731,8 @@
           open.innerHTML = '<h3></h3><p></p>';
           open.querySelector('h3').textContent = d.name || 'Untitled';
           const bits = [];
-          if (stats.totalCards) bits.push(stats.totalCards + (stats.totalCards === 1 ? ' card' : ' cards'));
           if (stats.stacks) bits.push(stats.stacks + (stats.stacks === 1 ? ' stack' : ' stacks'));
+          if (stats.totalCards) bits.push(stats.totalCards + (stats.totalCards === 1 ? ' card' : ' cards'));
           open.querySelector('p').textContent = bits.length ? bits.join(' · ') : 'Empty deck';
           open.addEventListener('click', () => openDeck(d.id));
           const actions = document.createElement('div');
@@ -2778,18 +3042,6 @@
         main.className = 'dk-card-preview-main';
         main.appendChild(open);
         if (checklistPanel) main.appendChild(checklistBlock);
-        const actions = document.createElement('div');
-        actions.className = 'dk-item-actions';
-        const reviewBtn = document.createElement('button');
-        reviewBtn.type = 'button';
-        reviewBtn.className = 'dk-btn dk-btn-ghost dk-btn-block';
-        reviewBtn.textContent = 'Review';
-        reviewBtn.addEventListener('click', (ev) => {
-          ev.stopPropagation();
-          openReview(deckId, { scope: 'card', cardId: card.id, stackId: stackId || null });
-        });
-        actions.appendChild(reviewBtn);
-        main.appendChild(actions);
         if (opts.reorder) {
           row.insertBefore(createReorderControls('Reorder card'), row.firstChild);
         }
@@ -2799,13 +3051,7 @@
 
       function appendCardPreviewSections(card, host) {
         const sections = (card.sections || []).filter(sectionHasContent);
-        if (!sections.length) {
-          const hasChecklist = ensureCardChecklist(card).some((it) => (it.text || '').trim());
-          if (!hasChecklist) {
-            host.innerHTML = '<p class="dk-card-preview-empty">Empty card — tap to add notes or tasks</p>';
-          }
-          return;
-        }
+        if (!sections.length) return;
         renderCardSectionsView(card, host, '');
       }
 
@@ -2853,7 +3099,19 @@
         const stack = activeStackId ? stackById(deck, activeStackId) : null;
         const inStack = !!stack;
         document.getElementById('cards-list-actions-root').classList.toggle('hidden', inStack);
-        document.getElementById('cards-list-actions-stack').classList.toggle('hidden', !inStack);
+        document.getElementById('cards-list-actions-stack').classList.add('hidden');
+        const browseReview = document.getElementById('btn-browse-review');
+        const newCardTop = document.getElementById('btn-new-card-stack-top');
+        const browseShare = document.getElementById('btn-browse-share');
+        const deckShare = document.getElementById('btn-deck-share');
+        const deckStatsInfo = deckStats(deck);
+        browseReview.classList.toggle('hidden', inStack ? !countActiveCards(stack.cards) : !deckStatsInfo.totalCards);
+        newCardTop.classList.toggle('hidden', !inStack);
+        browseShare.classList.toggle('hidden', !inStack);
+        deckShare.classList.toggle('hidden', inStack);
+        browseReview.onclick = () => openReview(deck.id, inStack
+          ? { scope: 'stack', stackId: stack.id }
+          : { scope: 'deck' });
         document.getElementById('btn-back-decks').textContent = inStack
           ? '← ' + (deck.name || 'Deck')
           : '← All decks';
@@ -3109,6 +3367,7 @@
           ? 'In ' + (loc.stack.name || 'Stack') + ' · ' + (deck.name || 'Untitled')
           : 'In ' + (deck.name || 'Untitled');
         document.getElementById('card-view-deck').textContent = where;
+        document.getElementById('card-view-deck').title = 'Change deck or stack';
         document.getElementById('btn-back-cards').textContent = loc.stack
           ? '← ' + (loc.stack.name || 'Stack')
           : '← ' + (deck.name || 'Cards');
@@ -3573,7 +3832,43 @@
       document.getElementById('deck-search').addEventListener('input', renderDecks);
 
       document.getElementById('btn-new-card').addEventListener('click', () => createCard());
-      document.getElementById('btn-new-card-stack').addEventListener('click', () => createCard());
+      document.getElementById('btn-new-card-stack-top').addEventListener('click', () => createCard());
+      document.getElementById('btn-deck-share').addEventListener('click', () => {
+        if (!activeDeckId) return;
+        openShareModal({ type: 'deck', deckId: activeDeckId });
+      });
+      document.getElementById('btn-browse-share').addEventListener('click', () => {
+        if (!activeDeckId || !activeStackId) return;
+        openShareModal({ type: 'stack', deckId: activeDeckId, stackId: activeStackId });
+      });
+      document.getElementById('btn-share-card').addEventListener('click', () => {
+        const loc = activeCardLocation();
+        if (!loc) return;
+        openShareModal({
+          type: 'card',
+          deckId: loc.deck.id,
+          stackId: loc.stack ? loc.stack.id : null,
+          cardId: loc.card.id,
+        });
+      });
+      document.getElementById('dk-share-cancel').addEventListener('click', closeShareModal);
+      document.getElementById('dk-share-ok').addEventListener('click', performShare);
+      shareModalInput.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Enter') {
+          ev.preventDefault();
+          performShare();
+        }
+      });
+      shareModalEl.addEventListener('click', (ev) => {
+        if (ev.target === shareModalEl) closeShareModal();
+      });
+      document.getElementById('card-view-deck').addEventListener('click', openMoveCardModal);
+      moveDeckSelect.addEventListener('change', () => populateMoveStackSelect(moveDeckSelect.value));
+      document.getElementById('dk-move-cancel').addEventListener('click', closeMoveModal);
+      document.getElementById('dk-move-ok').addEventListener('click', confirmMoveCard);
+      moveModalEl.addEventListener('click', (ev) => {
+        if (ev.target === moveModalEl) closeMoveModal();
+      });
       document.getElementById('btn-new-stack').addEventListener('click', () => createStack());
 
       document.getElementById('btn-back-cards').addEventListener('click', async () => {
@@ -3719,6 +4014,12 @@
       });
 
       bootDeck();
+
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/deck-sw.js', { scope: '/deck.html' }).catch(function () {});
+        });
+      }
     })();
   </script>
 </body>

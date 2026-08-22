@@ -18,9 +18,9 @@ SOURCE_SVG = IMG / "deck-logo.svg"
 OUT_FAVICON_SVG = IMG / "deck-favicon.svg"
 CANVAS = 512
 
-DECK_FAVICON_FILL = 0.88
-DECK_PWA_ANY_FILL = 0.84
-DECK_PWA_MASKABLE_FILL = 0.72
+DECK_FAVICON_FILL = 0.76
+DECK_PWA_ANY_FILL = 0.72
+DECK_PWA_MASKABLE_FILL = 0.62
 
 FAVICON_SIZES: list[tuple[int, float, str]] = [
     (32, DECK_FAVICON_FILL, "deck-favicon-32.png"),

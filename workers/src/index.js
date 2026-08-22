@@ -32,6 +32,7 @@ import {
 import { handleTetherRequest } from './tether.js';
 export { TetherProject, TetherSync } from './tether.js';
 import { handlePlatterRequest } from './platter.js';
+import { handleDeckShareRequest } from './deck.js';
 export { PlatterMenu } from './platter.js';
 import { handleLinkRequest, handleLinkConsumeBridge, handleInternalUserProfile } from './link.js';
 
@@ -214,6 +215,8 @@ export default {
         return handleDeckSync(request, env, corsHeaders);
       } else if (path === '/api/deck/load' && request.method === 'GET') {
         return handleDeckLoad(request, env, corsHeaders);
+      } else if (path === '/api/deck/share' && request.method === 'POST') {
+        return handleDeckShareRequest(request, env, corsHeaders);
       } else if (path === '/api/kyrachyng/progress/sync' && request.method === 'POST') {
         return handleKyrachyngProgressSync(request, env, corsHeaders);
       } else if (path === '/api/kyrachyng/progress/load' && request.method === 'GET') {
