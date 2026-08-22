@@ -394,22 +394,22 @@
       color: var(--dk-muted);
     }
     .dk-card-preview-item.dk-reorder-item {
-      display: grid;
-      grid-template-columns: auto 1fr;
-      gap: 6px 8px;
-      align-items: start;
-    }
-    .dk-card-preview-item.dk-reorder-item .dk-drag-handle {
-      grid-row: span 1;
-      margin-top: 0;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
     }
     .dk-card-preview-item.dk-reorder-item .dk-reorder-controls {
-      grid-row: span 2;
+      flex-shrink: 0;
       margin-top: 8px;
     }
+    .dk-card-preview-main {
+      flex: 1 1 auto;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+    }
     .dk-card-preview-item.dk-reorder-item .dk-item-actions {
-      grid-column: 2;
-      padding: 0 !important;
+      padding: 0 16px 12px;
     }
     .dk-stack-item {
       display: flex;
@@ -814,18 +814,25 @@
       font-weight: 800;
       color: var(--dk-ink);
     }
+    .dk-card-preview-body {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
     .dk-card-preview-body .dk-section-view {
-      margin-bottom: 8px;
+      margin: 0;
+      width: 100%;
+      box-sizing: border-box;
     }
     .dk-card-preview-body .dk-card-checklist {
-      margin-top: 8px;
+      margin-top: 0;
       padding: 10px 12px;
     }
     .dk-card-preview-checklist {
-      padding: 0 12px 8px;
+      padding: 0 16px 8px;
     }
-    .dk-card-preview-item.dk-reorder-item .dk-card-preview-checklist {
-      grid-column: 2;
+    .dk-card-preview-item:not(.dk-reorder-item) .dk-item-actions {
+      padding: 0 16px 12px;
     }
     .dk-card-preview-empty {
       margin: 0;
@@ -2393,7 +2400,7 @@
         heading.textContent = entries.length + (entries.length === 1 ? ' match' : ' matches');
         host.appendChild(heading);
         const list = document.createElement('div');
-        list.className = 'dk-card-grid';
+        list.className = 'dk-list';
         entries.forEach(({ deck, stack, card }) => {
           list.appendChild(renderCardListItem(card, deck.id, stack ? stack.id : null, {
             showLocation: true,
@@ -2695,9 +2702,12 @@
           checklistPanel.append(label, checklistHost);
           checklistBlock.appendChild(checklistPanel);
         }
+        const main = document.createElement('div');
+        main.className = 'dk-card-preview-main';
+        main.appendChild(open);
+        if (checklistPanel) main.appendChild(checklistBlock);
         const actions = document.createElement('div');
         actions.className = 'dk-item-actions';
-        actions.style.padding = '0 12px 12px';
         const reviewBtn = document.createElement('button');
         reviewBtn.type = 'button';
         reviewBtn.className = 'dk-btn dk-btn-ghost dk-btn-block';
@@ -2707,11 +2717,11 @@
           openReview(deckId, { scope: 'card', cardId: card.id, stackId: stackId || null });
         });
         actions.appendChild(reviewBtn);
-        if (checklistPanel) row.append(open, checklistBlock, actions);
-        else row.append(open, actions);
+        main.appendChild(actions);
         if (opts.reorder) {
           row.insertBefore(createReorderControls('Reorder card'), row.firstChild);
         }
+        row.appendChild(main);
         return row;
       }
 
@@ -2800,7 +2810,7 @@
             list.innerHTML = '<div class="dk-empty">No cards match that search.</div>';
             return;
           }
-          list.className = 'dk-card-grid dk-reorder-list';
+          list.className = 'dk-list dk-reorder-list';
           cards.forEach((c) => list.appendChild(renderCardListItem(c, deck.id, stack.id, { reorder: true })));
           attachReorderList(list, (fromId, toId) => reorderCardsInStack(deck.id, stack.id, fromId, toId), (ids) => reorderCardsInStackByOrder(deck.id, stack.id, ids));
           if (reorderHint && cards.length > 1) reorderHint.classList.remove('hidden');
@@ -2838,7 +2848,7 @@
         }
         if (cards.length) {
           const cardList = document.createElement('div');
-          cardList.className = 'dk-card-grid dk-reorder-list';
+          cardList.className = 'dk-list dk-reorder-list';
           cardList.style.marginTop = stacks.length ? '12px' : '0';
           cards.forEach((c) => cardList.appendChild(renderCardListItem(c, deck.id, null, { reorder: true })));
           attachReorderList(cardList, (fromId, toId) => reorderCardsInDeck(deck.id, fromId, toId), (ids) => reorderCardsInDeckByOrder(deck.id, ids));
