@@ -151,19 +151,27 @@
       font-size: 0.98rem;
       line-height: 1.55;
     }
-    .dk-stack-context {
+    .dk-stack-meta {
       display: flex;
       align-items: baseline;
       gap: 8px;
       flex-wrap: wrap;
+      width: 100%;
+      margin: 0;
     }
-    .dk-stack-context-label {
-      font-weight: 800;
-      color: var(--dk-ink);
-    }
-    .dk-stack-context-deck {
+    .dk-stack-meta-deck {
       color: var(--dk-muted);
       font-weight: 500;
+    }
+    .dk-stack-meta-count {
+      margin-left: auto;
+      color: var(--dk-muted);
+      font-weight: 500;
+      white-space: nowrap;
+    }
+    .dk-hero p.dk-stack-meta {
+      font-size: 0.98rem;
+      line-height: 1.55;
     }
     .dk-deck-hero-head {
       display: flex;
@@ -462,6 +470,9 @@
       margin: 2px 0 0;
       font-size: 0.76rem;
       color: var(--dk-muted);
+    }
+    .dk-stack-open .dk-stack-meta {
+      margin-top: 4px;
     }
     .dk-stack-badge {
       display: inline-block;
@@ -2650,19 +2661,32 @@
         deckTitleEditing = false;
       }
 
-      function setStackContextSub(deck) {
-        const sub = document.getElementById('cards-sub');
-        sub.textContent = '';
-        const row = document.createElement('span');
-        row.className = 'dk-stack-context';
+      function stackCardCountLabel(stack) {
+        const n = countActiveCards(stack.cards);
+        return n + (n === 1 ? ' card' : ' cards');
+      }
+
+      function buildStackMetaRow(deck, stack) {
+        const row = document.createElement('p');
+        row.className = 'dk-stack-meta';
         const label = document.createElement('span');
-        label.className = 'dk-stack-context-label';
+        label.className = 'dk-stack-badge';
         label.textContent = 'Stack';
         const deckName = document.createElement('span');
-        deckName.className = 'dk-stack-context-deck';
-        deckName.textContent = deck.name || 'Untitled';
-        row.append(label, deckName);
-        sub.appendChild(row);
+        deckName.className = 'dk-stack-meta-deck';
+        deckName.textContent = (deck && deck.name) ? deck.name : 'Untitled';
+        const count = document.createElement('span');
+        count.className = 'dk-stack-meta-count';
+        count.textContent = stackCardCountLabel(stack);
+        row.append(label, deckName, count);
+        return row;
+      }
+
+      function setStackContextSub(deck, stack) {
+        const sub = document.getElementById('cards-sub');
+        const row = buildStackMetaRow(deck, stack);
+        row.id = 'cards-sub';
+        sub.replaceWith(row);
       }
 
       function updateDeckBrowseHeading(deck, stack, inStack) {
@@ -2780,13 +2804,14 @@
       function renderStackItem(stack, deckId) {
         const row = document.createElement('article');
         row.className = 'dk-stack-item';
+        const deck = deckById(deckId);
         const n = countActiveCards(stack.cards);
         const open = document.createElement('button');
         open.type = 'button';
         open.className = 'dk-stack-open';
-        open.innerHTML = '<h3></h3><p></p>';
-        open.querySelector('h3').innerHTML = '<span class="dk-stack-badge">Stack</span>' + (stack.name || 'Untitled stack');
-        open.querySelector('p').textContent = n + (n === 1 ? ' card' : ' cards');
+        const title = document.createElement('h3');
+        title.textContent = stack.name || 'Untitled stack';
+        open.append(title, buildStackMetaRow(deck, stack));
         open.addEventListener('click', () => {
           activeDeckId = deckId;
           openStack(stack.id);
@@ -2822,9 +2847,11 @@
           : '← All decks';
         updateDeckBrowseHeading(deck, stack, inStack);
         if (inStack) {
-          setStackContextSub(deck);
+          setStackContextSub(deck, stack);
         } else {
-          document.getElementById('cards-sub').textContent = deckHasStructure(deck)
+          const sub = document.getElementById('cards-sub');
+          sub.className = '';
+          sub.textContent = deckHasStructure(deck)
             ? 'Tap a stack or card, or create something new.'
             : 'Add a stack or card to get started.';
         }
