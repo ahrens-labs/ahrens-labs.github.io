@@ -22,3 +22,22 @@
     color: #2c3e50;
     margin: 0 0 1rem;
 }
+
+.project-card-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 0.5rem;
+}
+
+.project-card-title img {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    flex-shrink: 0;
+    object-fit: contain;
+}
+
+.project-card-title h4 {
+    margin: 0;
+}
