@@ -155,21 +155,30 @@
       flex: 1 1 auto;
       min-width: 0;
     }
-    .dk-deck-title-wrap h2 {
+    .dk-deck-title-wrap h2.dk-deck-title-heading {
       margin: 0 0 6px;
+      font-size: 1.65rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      color: var(--dk-ink);
     }
-    .dk-deck-title-editable {
+    .dk-deck-title-text {
+      display: inline;
+    }
+    .dk-deck-title-text.dk-deck-title-editable {
       cursor: text;
       border-radius: 8px;
       padding: 2px 4px;
-      margin-left: -4px;
+      margin: -2px -4px;
     }
-    .dk-deck-title-editable:hover {
+    .dk-deck-title-text.dk-deck-title-editable:hover {
       background: rgba(79, 70, 229, 0.06);
     }
     .dk-deck-title-input {
-      display: block;
-      width: 100%;
+      display: inline-block;
+      width: auto;
+      min-width: min(100%, 12rem);
+      max-width: 100%;
       margin: 0 0 6px;
       padding: 0 4px;
       border: 0;
@@ -1037,7 +1046,7 @@
             <div class="dk-hero">
               <div class="dk-deck-hero-head">
                 <div class="dk-deck-title-wrap">
-                  <h2 id="cards-heading">Cards</h2>
+                  <h2 class="dk-deck-title-heading"><span id="cards-heading" class="dk-deck-title-text">Cards</span></h2>
                   <input id="deck-title-input" class="dk-deck-title-input hidden" type="text" maxlength="80" autocomplete="off" aria-label="Deck name">
                 </div>
                 <button type="button" class="dk-btn dk-btn-danger dk-btn-small dk-deck-delete-btn hidden" id="btn-delete-deck-top" aria-label="Delete deck">Delete</button>
@@ -2585,9 +2594,10 @@
         const deck = ensureActiveDeck();
         if (!deck) return;
         const heading = document.getElementById('cards-heading');
+        const headingWrap = heading.closest('.dk-deck-title-heading');
         const input = document.getElementById('deck-title-input');
         input.value = deck.name || '';
-        heading.classList.add('hidden');
+        headingWrap.classList.add('hidden');
         input.classList.remove('hidden');
         deckTitleEditing = true;
         input.focus();
@@ -2597,6 +2607,7 @@
       function finishDeckTitleEdit(saveChanges) {
         const deck = ensureActiveDeck();
         const heading = document.getElementById('cards-heading');
+        const headingWrap = heading.closest('.dk-deck-title-heading');
         const input = document.getElementById('deck-title-input');
         if (!deck || !deckTitleEditing) return;
         if (saveChanges) {
@@ -2604,19 +2615,21 @@
           save();
         }
         heading.textContent = deck.name || 'Untitled';
-        heading.classList.remove('hidden');
+        headingWrap.classList.remove('hidden');
         input.classList.add('hidden');
         deckTitleEditing = false;
       }
 
       function updateDeckBrowseHeading(deck, stack, inStack) {
         const heading = document.getElementById('cards-heading');
+        const headingWrap = heading.closest('.dk-deck-title-heading');
         const input = document.getElementById('deck-title-input');
         const deleteBtn = document.getElementById('btn-delete-deck-top');
         if (inStack) {
           finishDeckTitleEdit(true);
           heading.textContent = stack.name || 'Stack';
-          heading.classList.remove('hidden', 'dk-deck-title-editable');
+          headingWrap.classList.remove('hidden');
+          heading.classList.remove('dk-deck-title-editable');
           input.classList.add('hidden');
           deleteBtn.classList.add('hidden');
           return;
@@ -2624,7 +2637,7 @@
         deleteBtn.classList.remove('hidden');
         if (deckTitleEditing) return;
         heading.textContent = deck.name || 'Untitled';
-        heading.classList.remove('hidden');
+        headingWrap.classList.remove('hidden');
         heading.classList.add('dk-deck-title-editable');
         input.classList.add('hidden');
       }
