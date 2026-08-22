@@ -289,6 +289,7 @@
     .dk-deck-item {
       display: flex;
       align-items: center;
+      flex-wrap: nowrap;
       gap: 8px;
       background: var(--dk-card);
       border: 1px solid var(--dk-line);
@@ -326,42 +327,22 @@
     }
     .dk-deck-actions {
       display: grid;
-      grid-template-columns: repeat(2, 1fr);
+      grid-template-columns: repeat(2, 72px);
+      grid-auto-rows: 1fr;
       gap: 6px;
+      flex: 0 0 auto;
       flex-shrink: 0;
-      width: 152px;
     }
     .dk-deck-actions .dk-btn {
-      padding: 7px 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      min-height: 32px;
+      padding: 7px 4px;
       font-size: 0.72rem;
       white-space: nowrap;
-      width: 100%;
-      text-align: center;
-    }
-    @media (min-width: 900px) {
-      .dk-deck-actions {
-        display: flex;
-        flex-wrap: nowrap;
-        width: auto;
-      }
-      .dk-deck-actions .dk-btn {
-        width: auto;
-        padding: 7px 9px;
-        font-size: 0.74rem;
-      }
-    }
-    @media (max-width: 640px) {
-      .dk-deck-item {
-        flex-wrap: wrap;
-        align-items: flex-start;
-      }
-      .dk-deck-open {
-        flex: 1 1 calc(100% - 42px);
-      }
-      .dk-deck-actions {
-        flex: 1 1 100%;
-        width: 100%;
-      }
+      box-sizing: border-box;
     }
     .dk-list-actions {
       display: flex;
