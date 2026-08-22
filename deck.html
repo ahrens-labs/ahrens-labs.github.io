@@ -263,8 +263,10 @@
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
       gap: 10px;
+      align-items: start;
     }
     .dk-card-grid > .dk-empty { grid-column: 1 / -1; }
+    .dk-card-grid > .dk-card-preview-item { align-self: start; }
     @media (max-width: 640px) {
       .dk-card-grid { grid-template-columns: 1fr; }
     }
@@ -814,7 +816,6 @@
     }
     .dk-card-preview-body .dk-section-view {
       margin-bottom: 8px;
-      padding: 10px 12px;
     }
     .dk-card-preview-body .dk-card-checklist {
       margin-top: 8px;
@@ -2392,7 +2393,7 @@
         heading.textContent = entries.length + (entries.length === 1 ? ' match' : ' matches');
         host.appendChild(heading);
         const list = document.createElement('div');
-        list.className = 'dk-list';
+        list.className = 'dk-card-grid';
         entries.forEach(({ deck, stack, card }) => {
           list.appendChild(renderCardListItem(card, deck.id, stack ? stack.id : null, {
             showLocation: true,
@@ -2799,7 +2800,7 @@
             list.innerHTML = '<div class="dk-empty">No cards match that search.</div>';
             return;
           }
-          list.className = 'dk-list dk-reorder-list';
+          list.className = 'dk-card-grid dk-reorder-list';
           cards.forEach((c) => list.appendChild(renderCardListItem(c, deck.id, stack.id, { reorder: true })));
           attachReorderList(list, (fromId, toId) => reorderCardsInStack(deck.id, stack.id, fromId, toId), (ids) => reorderCardsInStackByOrder(deck.id, stack.id, ids));
           if (reorderHint && cards.length > 1) reorderHint.classList.remove('hidden');
@@ -2837,7 +2838,7 @@
         }
         if (cards.length) {
           const cardList = document.createElement('div');
-          cardList.className = 'dk-list dk-reorder-list';
+          cardList.className = 'dk-card-grid dk-reorder-list';
           cardList.style.marginTop = stacks.length ? '12px' : '0';
           cards.forEach((c) => cardList.appendChild(renderCardListItem(c, deck.id, null, { reorder: true })));
           attachReorderList(cardList, (fromId, toId) => reorderCardsInDeck(deck.id, fromId, toId), (ids) => reorderCardsInDeckByOrder(deck.id, ids));
