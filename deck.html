@@ -154,17 +154,21 @@
     .dk-stack-meta {
       display: flex;
       align-items: baseline;
-      gap: 8px;
+      gap: 6px;
       flex-wrap: wrap;
       width: 100%;
       margin: 0;
+    }
+    .dk-stack-meta-dot {
+      color: var(--dk-muted);
+      font-weight: 700;
+      user-select: none;
     }
     .dk-stack-meta-deck {
       color: var(--dk-muted);
       font-weight: 500;
     }
     .dk-stack-meta-count {
-      margin-left: auto;
       color: var(--dk-muted);
       font-weight: 500;
       white-space: nowrap;
@@ -2666,6 +2670,14 @@
         return n + (n === 1 ? ' card' : ' cards');
       }
 
+      function stackMetaDot() {
+        const dot = document.createElement('span');
+        dot.className = 'dk-stack-meta-dot';
+        dot.setAttribute('aria-hidden', 'true');
+        dot.textContent = '·';
+        return dot;
+      }
+
       function buildStackMetaRow(deck, stack) {
         const row = document.createElement('p');
         row.className = 'dk-stack-meta';
@@ -2678,7 +2690,7 @@
         const count = document.createElement('span');
         count.className = 'dk-stack-meta-count';
         count.textContent = stackCardCountLabel(stack);
-        row.append(label, deckName, count);
+        row.append(label, stackMetaDot(), deckName, stackMetaDot(), count);
         return row;
       }
 
