@@ -1191,8 +1191,6 @@
                 <button type="button" class="dk-btn dk-btn-primary dk-btn-small hidden" id="btn-new-stack">+ New stack</button>
                 <button type="button" class="dk-btn dk-btn-primary dk-btn-small hidden" id="btn-new-card">+ New card</button>
                 <button type="button" class="dk-btn dk-btn-primary dk-btn-small hidden" id="btn-new-card-stack-top">+ New card</button>
-                <button type="button" class="dk-btn dk-btn-ghost dk-btn-small hidden" id="btn-browse-share">Share</button>
-                <button type="button" class="dk-btn dk-btn-ghost dk-btn-small hidden" id="btn-browse-clone">Clone</button>
               </div>
             </nav>
             <div class="dk-hero">
@@ -1204,6 +1202,8 @@
                 <div class="dk-deck-hero-actions">
                   <button type="button" class="dk-btn dk-btn-ghost dk-btn-small hidden" id="btn-deck-share">Share</button>
                   <button type="button" class="dk-btn dk-btn-ghost dk-btn-small hidden" id="btn-deck-clone">Clone</button>
+                  <button type="button" class="dk-btn dk-btn-ghost dk-btn-small hidden" id="btn-browse-share">Share</button>
+                  <button type="button" class="dk-btn dk-btn-ghost dk-btn-small hidden" id="btn-browse-clone">Clone</button>
                   <button type="button" class="dk-btn dk-btn-danger dk-btn-small dk-deck-delete-btn hidden" id="btn-delete-deck-top" aria-label="Delete deck">Delete</button>
                 </div>
               </div>
@@ -2812,14 +2812,6 @@
           open.addEventListener('click', () => openDeck(d.id));
           const actions = document.createElement('div');
           actions.className = 'dk-deck-actions';
-          const cloneBtn = document.createElement('button');
-          cloneBtn.type = 'button';
-          cloneBtn.className = 'dk-btn dk-btn-ghost';
-          cloneBtn.textContent = 'Clone';
-          cloneBtn.addEventListener('click', (ev) => {
-            ev.stopPropagation();
-            cloneDeckById(d.id);
-          });
           const reviewBtn = document.createElement('button');
           reviewBtn.type = 'button';
           reviewBtn.className = 'dk-btn dk-btn-primary';
@@ -2829,7 +2821,7 @@
             ev.stopPropagation();
             openReview(d.id, { scope: 'deck' });
           });
-          actions.append(cloneBtn, reviewBtn);
+          actions.appendChild(reviewBtn);
           body.append(createReorderControls('Reorder deck'), open, actions);
           wrap.appendChild(body);
           list.appendChild(wrap);
@@ -3247,18 +3239,14 @@
           activeDeckId = deckId;
           openStack(stack.id);
         });
-        const actions = document.createElement('div');
-        actions.className = 'dk-item-actions';
-        const cloneBtn = document.createElement('button');
-        cloneBtn.type = 'button';
-        cloneBtn.className = 'dk-btn dk-btn-ghost';
-        cloneBtn.textContent = 'Clone';
-        cloneBtn.addEventListener('click', (ev) => {
-          ev.stopPropagation();
-          cloneStackById(deckId, stack.id);
-        });
-        actions.appendChild(cloneBtn);
+        if (opts.reorder) {
+          body.append(createReorderControls('Reorder stack'), open);
+        } else {
+          body.append(open);
+        }
         if (n) {
+          const actions = document.createElement('div');
+          actions.className = 'dk-item-actions';
           const reviewBtn = document.createElement('button');
           reviewBtn.type = 'button';
           reviewBtn.className = 'dk-btn dk-btn-ghost';
@@ -3268,11 +3256,7 @@
             openReview(deckId, { scope: 'stack', stackId: stack.id });
           });
           actions.appendChild(reviewBtn);
-        }
-        if (opts.reorder) {
-          body.append(createReorderControls('Reorder stack'), open, actions);
-        } else {
-          body.append(open, actions);
+          body.appendChild(actions);
         }
         row.appendChild(body);
         return row;
