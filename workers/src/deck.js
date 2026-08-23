@@ -239,11 +239,61 @@ function extractSharePayload(deckEntry, type) {
   return null;
 }
 
+function preserveShareMeta(target, source) {
+  if (!source) return target;
+  if (!target.sharedId && source.sharedId) target.sharedId = source.sharedId;
+  if (!target.sharedRef && source.sharedRef) {
+    target.sharedRef = JSON.parse(JSON.stringify(source.sharedRef));
+  }
+  return target;
+}
+
+function mergeDeckShareMetadata(incoming, existing) {
+  if (!incoming) return incoming;
+  if (!existing) return incoming;
+  const merged = preserveShareMeta({ ...incoming }, existing);
+  const prevStacks = new Map((existing.stacks || []).filter(Boolean).map((s) => [s.id, s]));
+  const prevCards = new Map((existing.cards || []).filter(Boolean).map((c) => [c.id, c]));
+  merged.stacks = (Array.isArray(incoming.stacks) ? incoming.stacks : []).map((stack) => {
+    const prev = prevStacks.get(stack.id);
+    const mergedStack = prev ? preserveShareMeta({ ...stack }, prev) : { ...stack };
+    if (prev && Array.isArray(mergedStack.cards)) {
+      const prevStackCards = new Map((prev.cards || []).filter(Boolean).map((c) => [c.id, c]));
+      mergedStack.cards = mergedStack.cards.map((card) => {
+        const prevCard = prevStackCards.get(card.id);
+        return prevCard ? preserveShareMeta({ ...card }, prevCard) : card;
+      });
+    }
+    return mergedStack;
+  });
+  merged.cards = (Array.isArray(incoming.cards) ? incoming.cards : []).map((card) => {
+    const prev = prevCards.get(card.id);
+    return prev ? preserveShareMeta({ ...card }, prev) : card;
+  });
+  return merged;
+}
+
+function mergeDecksShareMetadata(incomingDecks, existingDecks) {
+  const existingById = new Map((existingDecks || []).filter(Boolean).map((d) => [d.id, d]));
+  return (Array.isArray(incomingDecks) ? incomingDecks : []).map((deck) => {
+    const existing = existingById.get(deck.id);
+    return existing ? mergeDeckShareMetadata(deck, existing) : deck;
+  });
+}
+
+function deckShareId(deck) {
+  if (!deck) return null;
+  return deck.sharedId || deck.sharedRef?.sharedId || null;
+}
+
 function applySharePayloadToDeckEntry(entry, record) {
   if (!record || !record.payload) return entry;
   const type = record.type;
   const payload = record.payload;
-  const next = { ...entry, updatedAt: record.updatedAt || Date.now() };
+  const next = preserveShareMeta({
+    ...entry,
+    updatedAt: record.updatedAt || Date.now(),
+  }, entry);
 
   if (type === 'deck') {
     next.name = payload.name || record.label || entry.name;
@@ -276,12 +326,49 @@ function collectSharedIdsFromDecks(decks) {
     if (deck?.sharedRef?.sharedId) ids.add(deck.sharedRef.sharedId);
     for (const stack of deck?.stacks || []) {
       if (stack?.sharedId) ids.add(stack.sharedId);
+      for (const card of stack?.cards || []) {
+        if (card?.sharedId) ids.add(card.sharedId);
+      }
     }
     for (const card of deck?.cards || []) {
       if (card?.sharedId) ids.add(card.sharedId);
     }
   }
   return ids;
+}
+
+function applyNestedSharePayload(deck, shareCache) {
+  let next = deck;
+  const stacks = (deck.stacks || []).map((stack) => {
+    if (stack.sharedId && shareCache.has(stack.sharedId)) {
+      const record = shareCache.get(stack.sharedId);
+      const payload = record?.payload;
+      const merged = payload && typeof payload === 'object' ? { ...payload } : { ...stack };
+      return preserveShareMeta(merged, stack);
+    }
+    const cards = (stack.cards || []).map((card) => {
+      if (card.sharedId && shareCache.has(card.sharedId)) {
+        const record = shareCache.get(card.sharedId);
+        const payload = record?.payload;
+        const merged = payload && typeof payload === 'object' ? { ...payload } : { ...card };
+        return preserveShareMeta(merged, card);
+      }
+      return card;
+    });
+    return cards === stack.cards ? stack : { ...stack, cards };
+  });
+  if (stacks !== deck.stacks) next = { ...next, stacks };
+  const cards = (deck.cards || []).map((card) => {
+    if (card.sharedId && shareCache.has(card.sharedId)) {
+      const record = shareCache.get(card.sharedId);
+      const payload = record?.payload;
+      const merged = payload && typeof payload === 'object' ? { ...payload } : { ...card };
+      return preserveShareMeta(merged, card);
+    }
+    return card;
+  });
+  if (cards !== deck.cards) next = { ...next, cards };
+  return next;
 }
 
 export async function hydrateDeckDataForUser(env, userId, deckData) {
@@ -302,13 +389,14 @@ export async function hydrateDeckDataForUser(env, userId, deckData) {
   );
 
   const hydrated = decks.map((deck) => {
-    if (deck.sharedId && shareCache.has(deck.sharedId)) {
-      return applySharePayloadToDeckEntry(deck, shareCache.get(deck.sharedId));
+    const shareId = deckShareId(deck);
+    if (shareId && shareCache.has(shareId)) {
+      return applyNestedSharePayload(
+        applySharePayloadToDeckEntry(deck, shareCache.get(shareId)),
+        shareCache
+      );
     }
-    if (deck.sharedRef?.sharedId && shareCache.has(deck.sharedRef.sharedId)) {
-      return applySharePayloadToDeckEntry(deck, shareCache.get(deck.sharedRef.sharedId));
-    }
-    return deck;
+    return applyNestedSharePayload(deck, shareCache);
   });
 
   return {
@@ -341,43 +429,66 @@ export async function buildDeckSyncFingerprintForUser(env, userId) {
   return parts.join('::');
 }
 
+async function pushShareUpdate(env, userId, shareId, deckEntry, updatedShareIds) {
+  if (!shareId || updatedShareIds.has(shareId)) return;
+  const record = await fetchDeckShare(env, shareId);
+  if (!record || !userCanEditShare(record, userId)) return;
+  const payload = extractSharePayload(deckEntry, record.type);
+  if (!payload) return;
+  const updated = {
+    ...record,
+    payload,
+    label: record.type === 'deck' ? (deckEntry.name || record.label) : record.label,
+    updatedAt: Date.now(),
+  };
+  await saveDeckShare(env, updated);
+  updatedShareIds.add(shareId);
+}
+
+function collectSharePushTargets(decks) {
+  const targets = [];
+  for (const deck of decks || []) {
+    const deckShare = deckShareId(deck);
+    if (deckShare) targets.push({ shareId: deckShare, deckEntry: deck });
+    for (const stack of deck.stacks || []) {
+      if (stack.sharedId) {
+        targets.push({
+          shareId: stack.sharedId,
+          deckEntry: { name: stack.name, cards: [], stacks: [stack] },
+        });
+      }
+      for (const card of stack.cards || []) {
+        if (card.sharedId) {
+          targets.push({
+            shareId: card.sharedId,
+            deckEntry: { name: card.title, cards: [card], stacks: [] },
+          });
+        }
+      }
+    }
+    for (const card of deck.cards || []) {
+      if (card.sharedId) {
+        targets.push({
+          shareId: card.sharedId,
+          deckEntry: { name: card.title, cards: [card], stacks: [] },
+        });
+      }
+    }
+  }
+  return targets;
+}
+
 export async function processDeckSyncPayload(env, userId, deckData, sourceClientId) {
-  const decks = Array.isArray(deckData?.decks) ? deckData.decks : [];
+  const existing = await getDeckDataForUser(env, userId);
+  const decks = mergeDecksShareMetadata(
+    Array.isArray(deckData?.decks) ? deckData.decks : [],
+    existing.decks
+  );
   const updatedShareIds = new Set();
 
   if (env.DECK_SHARE) {
-    for (const deck of decks) {
-      if (deck.sharedId) {
-        const record = await fetchDeckShare(env, deck.sharedId);
-        if (record && userCanEditShare(record, userId)) {
-          const payload = extractSharePayload(deck, record.type);
-          if (payload) {
-            const updated = {
-              ...record,
-              payload,
-              label: record.type === 'deck' ? (deck.name || record.label) : record.label,
-              updatedAt: Date.now(),
-            };
-            await saveDeckShare(env, updated);
-            updatedShareIds.add(deck.sharedId);
-          }
-        }
-      } else if (deck.sharedRef?.sharedId) {
-        const sharedId = deck.sharedRef.sharedId;
-        const record = await fetchDeckShare(env, sharedId);
-        if (record && userCanEditShare(record, userId)) {
-          const payload = extractSharePayload(deck, record.type);
-          if (payload) {
-            const updated = {
-              ...record,
-              payload,
-              updatedAt: Date.now(),
-            };
-            await saveDeckShare(env, updated);
-            updatedShareIds.add(sharedId);
-          }
-        }
-      }
+    for (const target of collectSharePushTargets(decks)) {
+      await pushShareUpdate(env, userId, target.shareId, target.deckEntry, updatedShareIds);
     }
   }
 

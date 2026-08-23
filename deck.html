@@ -1373,6 +1373,30 @@
         }));
       }
 
+      function deckShareId(deck) {
+        if (!deck) return null;
+        return deck.sharedId || deck.sharedRef?.sharedId || null;
+      }
+
+      function applyShareMetaToContext(context, sharedId) {
+        if (!context || !sharedId) return;
+        const deck = deckById(context.deckId);
+        if (!deck) return;
+        if (context.type === 'deck') {
+          deck.sharedId = sharedId;
+          return;
+        }
+        if (context.type === 'stack' && context.stackId) {
+          const stack = stackById(deck, context.stackId);
+          if (stack) stack.sharedId = sharedId;
+          return;
+        }
+        if (context.type === 'card' && context.cardId) {
+          const found = findCardInDeck(context.deckId, context.cardId);
+          if (found?.card) found.card.sharedId = sharedId;
+        }
+      }
+
       function parseDeckState(raw) {
         const decks = (Array.isArray(raw?.decks) ? raw.decks : []).map((d) => ({
           id: d.id || uidId(),
@@ -1820,7 +1844,7 @@
         const sessionId = localStorage.getItem('ahrenslabs_sessionId');
         if (!sessionId) return;
         try {
-          await fetch(deckApiBase() + '/api/deck/sync', {
+          const response = await fetch(deckApiBase() + '/api/deck/sync', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -1829,6 +1853,10 @@
             },
             body: JSON.stringify(buildDeckCloudPayload()),
           });
+          if (!response.ok) {
+            const data = await response.json().catch(() => ({}));
+            throw new Error(data.error || 'Sync failed');
+          }
           await updateDeckSyncFingerprint();
         } catch (error) {
           console.error('Failed to sync deck data to cloud:', error);
@@ -2445,6 +2473,7 @@
           return;
         }
         try {
+          await flushDeckCloudSync();
           const response = await fetch(deckApiBase() + '/api/deck/share', {
             method: 'POST',
             headers: {
@@ -2460,6 +2489,10 @@
           });
           const data = await response.json();
           if (!response.ok) throw new Error(data.error || 'Share failed');
+          if (data.sharedId) {
+            applyShareMetaToContext(context, data.sharedId);
+            persistDeckLocally();
+          }
           closeShareModal();
           await showAlert({
             title: 'Shared',
