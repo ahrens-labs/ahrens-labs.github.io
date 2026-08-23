@@ -48,6 +48,8 @@
       min-height: 100dvh;
       background: var(--dk-bg);
       overflow-x: hidden;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
       justify-content: flex-start;
       align-items: stretch;
     }
@@ -349,10 +351,13 @@
     .dk-group-heading:first-child { margin-top: 0; }
     .dk-reorder-list > [data-reorder-id].dk-reorder-enabled {
       cursor: grab;
-      touch-action: none;
+      touch-action: pan-y;
       -webkit-touch-callout: none;
       -webkit-user-select: none;
       user-select: none;
+    }
+    body.deck-app.dk-reorder-active {
+      touch-action: none;
     }
     .dk-reorder-enabled .dk-deck-open,
     .dk-reorder-enabled .dk-stack-open,
@@ -1690,6 +1695,9 @@
             startY: 0,
             pressRow: null,
             pressAt: 0,
+            pendingTouchRow: null,
+            pendingTouchMove: null,
+            pendingTouchEnd: null,
           };
 
           function cancelHold(drag) {
@@ -1698,6 +1706,26 @@
               drag.holdTimer = null;
             }
             drag.pendingRow = null;
+          }
+
+          function releasePendingTouchListeners(drag) {
+            const row = drag.pendingTouchRow;
+            if (row && drag.pendingTouchMove) {
+              row.removeEventListener('touchmove', drag.pendingTouchMove);
+              row.removeEventListener('touchend', drag.pendingTouchEnd);
+              row.removeEventListener('touchcancel', drag.pendingTouchEnd);
+            }
+            drag.pendingTouchRow = null;
+            drag.pendingTouchMove = null;
+            drag.pendingTouchEnd = null;
+          }
+
+          function resetReorderTouchState(drag) {
+            releasePendingTouchListeners(drag);
+            releaseDragListeners();
+            document.body.classList.remove('dk-reorder-active');
+            drag.pointerId = null;
+            drag.inputKind = null;
           }
 
           function finishDrag(drag) {
@@ -1755,6 +1783,12 @@
               try {
                 row.setPointerCapture(drag.pointerId);
               } catch (_) { /* ignore */ }
+            } else {
+              releasePendingTouchListeners(drag);
+              document.addEventListener('touchmove', onDocTouchMove, { passive: false });
+              document.addEventListener('touchend', onDocTouchEnd);
+              document.addEventListener('touchcancel', onDocTouchEnd);
+              document.body.classList.add('dk-reorder-active');
             }
           }
 
@@ -1762,7 +1796,7 @@
             const drag = container._dkDrag;
             if (drag.active) return;
             cancelHold(drag);
-            releaseDragListeners();
+            resetReorderTouchState(drag);
             drag.pendingRow = row;
             drag.pointerId = pointerId;
             drag.inputKind = inputKind;
@@ -1774,9 +1808,12 @@
               document.addEventListener('pointerup', onDocPointerEnd);
               document.addEventListener('pointercancel', onDocPointerEnd);
             } else {
-              document.addEventListener('touchmove', onDocTouchMove, { passive: false });
-              document.addEventListener('touchend', onDocTouchEnd);
-              document.addEventListener('touchcancel', onDocTouchEnd);
+              drag.pendingTouchRow = row;
+              drag.pendingTouchMove = onPendingTouchMove;
+              drag.pendingTouchEnd = onPendingTouchEnd;
+              row.addEventListener('touchmove', drag.pendingTouchMove, { passive: true });
+              row.addEventListener('touchend', drag.pendingTouchEnd);
+              row.addEventListener('touchcancel', drag.pendingTouchEnd);
             }
             drag.holdTimer = setTimeout(() => activateDrag(drag, row), DK_HOLD_MS);
           }
@@ -1785,7 +1822,10 @@
             if (drag.holdTimer && drag.pendingRow) {
               const dx = x - drag.startX;
               const dy = y - drag.startY;
-              if (Math.hypot(dx, dy) > holdMoveLimit(drag)) cancelHold(drag);
+              if (Math.hypot(dx, dy) > holdMoveLimit(drag)) {
+                cancelHold(drag);
+                if (drag.inputKind === 'touch') resetReorderTouchState(drag);
+              }
               return;
             }
             if (!drag.active || !drag.row) return;
@@ -1809,9 +1849,29 @@
               } catch (_) { /* ignore */ }
               drag.captureRow = null;
             }
-            drag.pointerId = null;
-            drag.inputKind = null;
-            releaseDragListeners();
+            resetReorderTouchState(drag);
+          }
+
+          function onPendingTouchMove(ev) {
+            const drag = container._dkDrag;
+            if (!drag || drag.inputKind !== 'touch' || !drag.holdTimer) return;
+            const touch = reorderTouchById(ev.touches, drag.pointerId);
+            if (!touch) return;
+            const dx = touch.clientX - drag.startX;
+            const dy = touch.clientY - drag.startY;
+            if (Math.hypot(dx, dy) > holdMoveLimit(drag)) {
+              cancelHold(drag);
+              resetReorderTouchState(drag);
+            }
+          }
+
+          function onPendingTouchEnd(ev) {
+            const drag = container._dkDrag;
+            if (!drag || drag.inputKind !== 'touch' || drag.active) return;
+            const touch = reorderTouchById(ev.changedTouches, drag.pointerId);
+            if (!touch) return;
+            cancelHold(drag);
+            resetReorderTouchState(drag);
           }
 
           function onDocPointerMove(ev) {
