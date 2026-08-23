@@ -5716,10 +5716,84 @@
             return false;
         }
 
+        function getRepeatGroupFixedTimeProfile(groupTasks = [], fallbackTask = null) {
+            const candidates = [...(groupTasks || [])];
+            if(fallbackTask) candidates.push(fallbackTask);
+            const best = candidates
+                .filter(t =>
+                    t &&
+                    !t.completed &&
+                    !t.weekDueOnly &&
+                    t.scheduleType === 'date' &&
+                    t.time &&
+                    (isFixedTask(t) || t.timeSource === 'user')
+                )
+                .sort((a, b) => {
+                    const aFixed = isFixedTask(a) ? 1 : 0;
+                    const bFixed = isFixedTask(b) ? 1 : 0;
+                    if(aFixed !== bFixed) return bFixed - aFixed;
+                    const aUser = a.timeSource === 'user' ? 1 : 0;
+                    const bUser = b.timeSource === 'user' ? 1 : 0;
+                    if(aUser !== bUser) return bUser - aUser;
+                    const aKey = a.repeatWeekKey || '';
+                    const bKey = b.repeatWeekKey || '';
+                    return bKey.localeCompare(aKey);
+                })[0];
+            if(!best?.time) return null;
+            return {
+                time: best.time,
+                timeSource: 'user',
+                assignmentMode: 'FIXED'
+            };
+        }
+
+        function applyRepeatFixedTimeProfile(task, profile) {
+            if(!task || !profile?.time) return task;
+            task.time = profile.time;
+            task.timeSource = 'user';
+            task.assignmentMode = 'FIXED';
+            return task;
+        }
+
+        function enforceRepeatGroupFixedTimes(groupId) {
+            if(!groupId) return;
+            const groupTasks = tasks.filter(t => t.repeatGroupId === groupId);
+            const profile = getRepeatGroupFixedTimeProfile(groupTasks);
+            if(!profile) return;
+            groupTasks.forEach(task => {
+                if(task.completed || task.weekDueOnly || task.scheduleType !== 'date') return;
+                applyRepeatFixedTimeProfile(task, profile);
+            });
+        }
+
+        function isRepeatFixedTimeTask(task) {
+            if(!task?.repeatGroupId || task.weekDueOnly || task.scheduleType !== 'date') return false;
+            if(isFixedTask(task) && task.time) return true;
+            const profile = getRepeatGroupFixedTimeProfile(
+                tasks.filter(t => t.repeatGroupId === task.repeatGroupId)
+            );
+            return Boolean(profile?.time);
+        }
+
+        function restoreRepeatFixedTimeIfMissing(task) {
+            if(!task?.repeatGroupId || task.completed || task.weekDueOnly || task.scheduleType !== 'date') {
+                return false;
+            }
+            if(task.time && (isFixedTask(task) || task.timeSource === 'user')) return false;
+            const profile = getRepeatGroupFixedTimeProfile(
+                tasks.filter(t => t.repeatGroupId === task.repeatGroupId)
+            );
+            if(!profile?.time) return false;
+            applyRepeatFixedTimeProfile(task, profile);
+            return true;
+        }
+
         function isUserScheduleLocked(task) {
             if(!task || task.completed) return false;
             if(isAssignmentStarted(task)) return true;
             if(isUserTimeLockedTask(task)) return true;
+            if(isFixedTask(task) && task.time) return true;
+            if(isRepeatFixedTimeTask(task)) return true;
             if(task.time && task.timeSource === 'user') return true;
             if(task.dateSource === 'user' && task.date && !task.time) return true;
             return false;
@@ -8110,7 +8184,7 @@
             if(keySet.size === 0) return;
             (tasks || []).forEach(t => {
                 if(!t || t.completed || t.repeatNoAutoTime) return;
-                if(isUserScheduleLocked(t)) return;
+                if(isUserScheduleLocked(t) || isFixedTask(t) || isRepeatFixedTimeTask(t)) return;
                 const taskWeek = t.date ? getWeekKeyFromDateStr(t.date) : t.week;
                 if(!taskWeek || !keySet.has(taskWeek)) return;
                 if(!forceRebuildAutoSlots && t.timeSource !== 'auto') return;
@@ -10619,11 +10693,12 @@
                         weekDueOnly,
                         repeatNoAutoTime: false
                     });
+                    const fixedProfile = getRepeatGroupFixedTimeProfile([current], template);
 
                     if(current.repeatGroupId) {
                         tasks = tasks.map(t => {
                             if(t.repeatGroupId !== groupId) return t;
-                            return normalizeTask({
+                            const updated = normalizeTask({
                                 ...t,
                                 title: current.title,
                                 subject: current.subject,
@@ -10639,6 +10714,10 @@
                                 mustBeBefore: current.mustBeBefore,
                                 mustBeDifferentDay: current.mustBeDifferentDay
                             });
+                            if(fixedProfile && !updated.weekDueOnly && updated.scheduleType === 'date') {
+                                applyRepeatFixedTimeProfile(updated, fixedProfile);
+                            }
+                            return updated;
                         });
                         addRepeatWeekOccurrences(groupId, startWeekKey, repeatRule, template);
                     } else {
@@ -10648,10 +10727,26 @@
                     }
                     pruneRepeatFutureWeeks();
                     syncAllTaskDependencies();
+                    enforceRepeatGroupFixedTimes(groupId);
                     return;
                 }
 
                 tasks = tasks.map(t => t.id === taskId ? current : t);
+                if(current.repeatGroupId) {
+                    if(scheduleUpdates?.assignmentMode === 'FIXED' && scheduleUpdates.time) {
+                        const profile = {
+                            time: scheduleUpdates.time,
+                            timeSource: 'user',
+                            assignmentMode: 'FIXED'
+                        };
+                        tasks.forEach(t => {
+                            if(t.repeatGroupId !== current.repeatGroupId || t.completed) return;
+                            if(t.weekDueOnly || t.scheduleType !== 'date') return;
+                            applyRepeatFixedTimeProfile(t, profile);
+                        });
+                    }
+                    enforceRepeatGroupFixedTimes(current.repeatGroupId);
+                }
                 if(touched.dependencies) {
                     applyReciprocalDependenciesForTask(taskId);
                     syncAllTaskDependencies();
@@ -14858,7 +14953,11 @@
         }
 
         function pickRepeatTemplate(groupTasks = []) {
-            const sorted = [...groupTasks].sort((a, b) => {
+            const fixedCandidates = groupTasks.filter(t =>
+                !t.weekDueOnly && t.scheduleType === 'date' && t.time && (isFixedTask(t) || t.timeSource === 'user')
+            );
+            const pool = fixedCandidates.length ? fixedCandidates : groupTasks;
+            const sorted = [...pool].sort((a, b) => {
                 const aKey = a.repeatWeekKey || '';
                 const bKey = b.repeatWeekKey || '';
                 if(aKey !== bKey) return bKey.localeCompare(aKey);
@@ -14898,20 +14997,24 @@
             }
             const existing = getRepeatGroupTasksForWeek(groupId, weekKey);
             const dates = getRepeatDatesForWeek(weekKey, rule);
+            const groupTasks = tasks.filter(t => t.repeatGroupId === groupId);
+            const fixedProfile = getRepeatGroupFixedTimeProfile(groupTasks, templateTask);
+            const templateIsFixed = Boolean(fixedProfile) || isFixedTask(templateTask);
+            const fixedTime = fixedProfile?.time || (templateIsFixed ? (templateTask.time || null) : null);
             let added = 0;
             dates.forEach(dateStr => {
                 if(isRepeatOccurrenceSuppressed(groupId, dateStr, weekKey)) return;
-                const templateIsFixed = isFixedTask(templateTask);
                 const occurrence = normalizeTask({
                     ...templateTask,
                     id: generateId(),
                     scheduleType: 'date',
                     assignmentMode: templateIsFixed ? 'FIXED' : 'ADJUSTABLE',
                     date: dateStr,
+                    dateSource: 'user',
                     dueDate: null,
                     week: weekKey,
-                    time: templateIsFixed ? (templateTask.time || null) : null,
-                    timeSource: templateIsFixed && templateTask.time ? 'user' : null,
+                    time: fixedTime,
+                    timeSource: fixedTime ? 'user' : null,
                     completed: false,
                     completedDate: null,
                     repeatGroupId: groupId,
@@ -14924,6 +15027,7 @@
                 tasks.push(occurrence);
                 added++;
             });
+            if(added > 0) enforceRepeatGroupFixedTimes(groupId);
             return added;
         }
 
@@ -14966,6 +15070,7 @@
                 if(groupTasks.some(t => t.repeatWeekKey === nextWeekKey)) return;
                 const template = pickRepeatTemplate(groupTasks);
                 created += addRepeatWeekOccurrences(groupId, nextWeekKey, template.repeatRule, template);
+                enforceRepeatGroupFixedTimes(groupId);
             });
             return created;
         }
@@ -15208,6 +15313,9 @@
                 });
 
                 if(existingTask?.repeatGroupId) {
+                    const groupFixedProfile = getRepeatGroupFixedTimeProfile(
+                        tasks.filter(t => t.repeatGroupId === groupId)
+                    );
                     tasks = tasks.map(t => {
                         if(t.repeatGroupId !== groupId) return t;
                         const isEditedInstance = t.id === editingId;
@@ -15220,6 +15328,24 @@
                         const instanceDueTime = weekDueOnly
                             ? (isEditedInstance ? dueTimeRaw : t.dueTime)
                             : normalizedTaskData.dueTime;
+                        let instanceTime = t.time;
+                        let instanceTimeSource = t.timeSource;
+                        let instanceAssignmentMode = t.assignmentMode;
+                        if(weekDueOnly) {
+                            instanceTime = null;
+                            instanceTimeSource = null;
+                            instanceAssignmentMode = 'ADJUSTABLE';
+                        } else if(isExactDateSchedule) {
+                            if(isExactDateFixed) {
+                                instanceTime = inputTimeValue;
+                                instanceTimeSource = inputTimeValue ? 'user' : null;
+                                instanceAssignmentMode = assignmentMode;
+                            } else if(groupFixedProfile) {
+                                instanceTime = null;
+                                instanceTimeSource = null;
+                                instanceAssignmentMode = 'ADJUSTABLE';
+                            }
+                        }
                         const updated = {
                             ...t,
                             title,
@@ -15230,14 +15356,12 @@
                             scheduleType: weekDueOnly
                                 ? 'week'
                                 : (isEditedInstance ? scheduleType : (isTargetWeekAssignment(t) ? 'week' : t.scheduleType)),
-                            assignmentMode: weekDueOnly ? 'ADJUSTABLE' : (isExactDateSchedule ? assignmentMode : t.assignmentMode),
+                            assignmentMode: weekDueOnly ? 'ADJUSTABLE' : (isExactDateSchedule ? instanceAssignmentMode : t.assignmentMode),
                             date: weekDueOnly ? null : t.date,
                             dueDate: instanceDueDate,
                             week: instanceWeekKey,
-                            time: weekDueOnly ? null : (isExactDateSchedule ? (isExactDateFixed ? inputTimeValue : null) : t.time),
-                            timeSource: weekDueOnly ? null : (isExactDateSchedule
-                                ? (isExactDateFixed && inputTimeValue ? 'user' : null)
-                                : t.timeSource),
+                            time: instanceTime,
+                            timeSource: instanceTimeSource,
                             priority: normalizedTaskData.priority,
                             difficulty: normalizedTaskData.difficulty,
                             duration: normalizedTaskData.duration,
@@ -15254,6 +15378,7 @@
                         return normalizeTask(updated);
                     });
 
+                    enforceRepeatGroupFixedTimes(groupId);
                     const groupTasks = tasks.filter(t => t.repeatGroupId === groupId);
                     const weekKeys = Array.from(new Set(groupTasks.map(t => t.repeatWeekKey).filter(Boolean))).sort((a, b) => a.localeCompare(b));
                     let activeWeek = weekKeys.find(wk => groupTasks.filter(t => t.repeatWeekKey === wk).some(t => !t.completed));
@@ -15878,6 +16003,7 @@
             let preserved = 0;
 
             targets.forEach(task => {
+                restoreRepeatFixedTimeIfMissing(task);
                 const isTargetWeekTask = isTargetWeekAssignment(task);
                 const hasCalendarSlot = Boolean(task.date) && task.date >= todayStr;
                 const keepUserPlacement = isUserScheduleLocked(task) && hasCalendarSlot && Boolean(task.time);
