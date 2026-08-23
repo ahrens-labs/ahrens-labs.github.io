@@ -4233,7 +4233,7 @@
         let classifyWalkthroughStartDemoActive = false;
 
         function getWalkthroughStartDemoDateStr() {
-            const { start } = getWeekBounds(currentCalendarDate);
+            const { start } = getWeekCalendarDisplayBounds(currentCalendarDate);
             const demoDate = new Date(start);
             demoDate.setDate(start.getDate() + 3);
             return getDateStrLocal(demoDate);
@@ -6637,8 +6637,19 @@
             return areWeekCalendarWeekendsIncluded() ? 7 : 5;
         }
 
+        function getWeekCalendarAnchorDate(baseDate = new Date()) {
+            const anchor = new Date(baseDate);
+            anchor.setHours(0, 0, 0, 0);
+            if(!areWeekCalendarWeekendsIncluded()) {
+                const day = anchor.getDay();
+                if(day === 0) anchor.setDate(anchor.getDate() + 1);
+                else if(day === 6) anchor.setDate(anchor.getDate() + 2);
+            }
+            return anchor;
+        }
+
         function getWeekCalendarDisplayBounds(baseDate = new Date()) {
-            const { start } = getWeekBounds(baseDate);
+            const { start } = getWeekBounds(getWeekCalendarAnchorDate(baseDate));
             const dayCount = getWeekCalendarDayCount();
             const end = new Date(start);
             end.setDate(start.getDate() + dayCount - 1);
@@ -14301,7 +14312,7 @@
             const includeWeekends = areWeekCalendarWeekendsIncluded();
             weekGrid.classList.toggle('cl-week-grid--weekdays', !includeWeekends);
             weekGrid.classList.toggle('cl-week-grid--full-week', includeWeekends);
-            const { start } = getWeekBounds(currentCalendarDate);
+            const { start } = getWeekCalendarDisplayBounds(currentCalendarDate);
             const dayCount = getWeekCalendarDayCount();
             for(let i = 0; i < dayCount; i++) {
                 const dayDate = new Date(start);
