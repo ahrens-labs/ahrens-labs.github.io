@@ -54,7 +54,8 @@ bindings = [
   { name = "CLASSIFY_SYNC", class_name = "TetherSync", script_name = "chess-accounts" },
   { name = "DECK_SYNC", class_name = "TetherSync", script_name = "chess-accounts" },
   { name = "PLATTER_SYNC", class_name = "TetherSync", script_name = "chess-accounts" },
-  { name = "PLATTER_MENU", class_name = "PlatterMenu", script_name = "chess-accounts" }
+  { name = "PLATTER_MENU", class_name = "PlatterMenu", script_name = "chess-accounts" },
+  { name = "DECK_SHARE", class_name = "DeckShare", script_name = "chess-accounts" }
 ]
 
 [[migrations]]
@@ -81,6 +82,10 @@ new_sqlite_classes = ["TetherSync"]
 [[migrations]]
 tag = "v6"
 new_sqlite_classes = ["PlatterMenu"]
+
+[[migrations]]
+tag = "v7"
+new_sqlite_classes = ["DeckShare"]
 
 # Sports Digest HTML builder — use service binding (workers cannot fetch *.workers.dev from another worker; error 1042).
 [[services]]

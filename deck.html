@@ -1378,6 +1378,7 @@
           archivedAt: src.archivedAt || null,
           sections: sections,
           checklist: checklist,
+          sharedId: src.sharedId || null,
         };
       }
 
@@ -1407,6 +1408,7 @@
           name: s.name || 'Untitled stack',
           createdAt: s.createdAt || Date.now(),
           cards: (Array.isArray(s.cards) ? s.cards : []).map(cardFromLegacy),
+          sharedId: s.sharedId || null,
         }));
       }
 
@@ -1415,10 +1417,25 @@
           id: d.id || uidId(),
           name: d.name || 'Untitled',
           createdAt: d.createdAt || Date.now(),
+          updatedAt: d.updatedAt || null,
           cards: cardsFromDeck(d),
           stacks: stacksFromDeck(d),
+          sharedId: d.sharedId || null,
+          sharedRef: d.sharedRef || null,
+          sharedFrom: d.sharedFrom || null,
         }));
         return { decks };
+      }
+
+      function deckIsShared(deck) {
+        return !!(deck && (deck.sharedId || deck.sharedRef || deck.sharedFrom));
+      }
+
+      function deckShareOwnerLabel(deck) {
+        if (!deck) return '';
+        if (deck.sharedRef && deck.sharedRef.ownerUsername) return deck.sharedRef.ownerUsername;
+        if (deck.sharedFrom && deck.sharedFrom.ownerUsername) return deck.sharedFrom.ownerUsername;
+        return '';
       }
 
       function load() {
@@ -2430,7 +2447,7 @@
         const labels = { deck: 'deck', stack: 'stack', card: 'card' };
         const label = labels[context.type] || 'item';
         shareModalTitle.textContent = 'Share ' + label;
-        shareModalMessage.textContent = 'Send a copy to another Ahrens Labs user by username or email.';
+        shareModalMessage.textContent = 'Give another Ahrens Labs user live access. Edits sync for everyone with access.';
         shareModalInput.value = '';
         shareModalEl.classList.add('open');
         setTimeout(() => shareModalInput.focus(), 0);
@@ -2472,8 +2489,9 @@
           closeShareModal();
           await showAlert({
             title: 'Shared',
-            message: 'Shared "' + (data.sharedName || 'item') + '" with ' + (data.sharedWith || 'that user') + '.',
+            message: 'Shared live access to "' + (data.sharedName || 'item') + '" with ' + (data.sharedWith || 'that user') + '. Changes sync automatically.',
           });
+          if (cloudSyncEnabled) await refreshDeckFromCloud();
         } catch (error) {
           await showAlert({ title: 'Share failed', message: error.message || 'Share failed' });
         }
@@ -2733,6 +2751,10 @@
           open.innerHTML = '<h3></h3><p></p>';
           open.querySelector('h3').textContent = d.name || 'Untitled';
           const bits = [];
+          if (deckIsShared(d)) {
+            const owner = deckShareOwnerLabel(d);
+            bits.push(owner ? 'Shared · ' + owner : 'Shared');
+          }
           if (stats.stacks) bits.push(stats.stacks + (stats.stacks === 1 ? ' stack' : ' stacks'));
           if (stats.totalCards) bits.push(stats.totalCards + (stats.totalCards === 1 ? ' card' : ' cards'));
           open.querySelector('p').textContent = bits.length ? bits.join(' · ') : 'Empty deck';

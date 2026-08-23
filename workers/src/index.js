@@ -32,8 +32,9 @@ import {
 import { handleTetherRequest } from './tether.js';
 export { TetherProject, TetherSync } from './tether.js';
 import { handlePlatterRequest } from './platter.js';
-import { handleDeckShareRequest } from './deck.js';
+import { handleDeckShareRequest, hydrateDeckDataForUser, processDeckSyncPayload, buildDeckSyncFingerprintForUser, DeckShare } from './deck.js';
 export { PlatterMenu } from './platter.js';
+export { DeckShare } from './deck.js';
 import { handleLinkRequest, handleLinkConsumeBridge, handleInternalUserProfile } from './link.js';
 
 /** Stored on `emailPreferences.digestTimeZone` for compatibility; digest send time uses UTC (see `getDigestSendUtcHM`). */
@@ -2131,12 +2132,7 @@ async function notifyDeckSync(env, userId, payload) {
 }
 
 async function getDeckSyncFingerprint(env, userId) {
-  const userAccountId = env.USER_ACCOUNT.idFromName(userId);
-  const userAccount = env.USER_ACCOUNT.get(userAccountId);
-  const dataRes = await userAccount.fetch(new Request('http://do/getDeckSyncMeta', { method: 'GET' }));
-  if (!dataRes.ok) return '0';
-  const data = await dataRes.json();
-  return `${data?.lastUpdated || 0}::${data?.deckCount || 0}::${data?.cardCount || 0}`;
+  return buildDeckSyncFingerprintForUser(env, userId);
 }
 
 async function handleDeckLiveSync(request, env, corsHeaders) {
@@ -2199,19 +2195,8 @@ async function handleDeckSync(request, env, corsHeaders) {
   }
 
   const deckData = await request.json();
-  const userAccountId = env.USER_ACCOUNT.idFromName(userResult.userId);
-  const userAccount = env.USER_ACCOUNT.get(userAccountId);
-  const updateReq = new Request('http://do/updateDeckData', {
-    method: 'POST',
-    body: JSON.stringify(deckData),
-  });
-  await userAccount.fetch(updateReq);
-
-  await notifyDeckSync(env, userResult.userId, {
-    type: 'deck',
-    ts: Date.now(),
-    sourceClientId: readDeckSyncClientId(request),
-  });
+  const sourceClientId = readDeckSyncClientId(request);
+  await processDeckSyncPayload(env, userResult.userId, deckData, sourceClientId);
 
   return new Response(JSON.stringify({ success: true }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -2244,8 +2229,9 @@ async function handleDeckLoad(request, env, corsHeaders) {
   const getReq = new Request('http://do/getDeckData', { method: 'GET' });
   const dataRes = await userAccount.fetch(getReq);
   const deckData = await dataRes.json();
+  const hydrated = await hydrateDeckDataForUser(env, userResult.userId, deckData);
 
-  return new Response(JSON.stringify(deckData), {
+  return new Response(JSON.stringify(hydrated), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
 }
