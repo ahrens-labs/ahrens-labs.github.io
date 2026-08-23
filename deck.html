@@ -4038,8 +4038,13 @@
         title.textContent = card.title || 'Untitled card';
         body.appendChild(title);
         const sectionsHost = document.createElement('div');
-        renderCardSectionsView(card, sectionsHost, 'This card has no notes yet.');
-        body.appendChild(sectionsHost);
+        const hasChecklistItems = ensureCardChecklist(card).some((it) => (it.text || '').trim());
+        renderCardSectionsView(
+          card,
+          sectionsHost,
+          hasChecklistItems ? null : 'This card has no notes yet.'
+        );
+        if (sectionsHost.childNodes.length) body.appendChild(sectionsHost);
         const checklistHost = document.createElement('div');
         if (renderChecklistView(card, checklistHost, renderReview)) {
           const box = document.createElement('div');
