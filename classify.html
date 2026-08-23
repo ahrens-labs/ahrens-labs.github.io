@@ -626,6 +626,14 @@
                 grid-template-columns: repeat(2, minmax(0, 1fr));
             }
         }
+        @media (min-width: 1280px) {
+            body.classify-app .cl-week-grid.cl-week-grid--weekdays {
+                grid-template-columns: repeat(5, minmax(0, 1fr));
+            }
+            body.classify-app .cl-week-grid.cl-week-grid--full-week {
+                grid-template-columns: repeat(7, minmax(0, 1fr));
+            }
+        }
         body.classify-app .cl-week-day {
             display: flex;
             flex-direction: column;
@@ -2664,6 +2672,10 @@
                     <span class="cl-settings-item-label"><i class="fa-solid fa-terminal text-violet-500"></i>Command line</span>
                     <span id="cl-settings-commandline-state" class="text-sm font-semibold text-slate-500 dark:text-slate-400">On</span>
                 </button>
+                <button type="button" class="cl-settings-item" onclick="toggleWeekCalendarWeekends();">
+                    <span class="cl-settings-item-label"><i class="fa-solid fa-calendar-week text-emerald-500"></i>Week view weekends</span>
+                    <span id="cl-settings-weekend-state" class="text-sm font-semibold text-slate-500 dark:text-slate-400">On</span>
+                </button>
                 <button type="button" class="cl-settings-item" onclick="resetClassifyHotspotsSeen();">
                     <span class="cl-settings-item-label"><i class="fa-solid fa-rotate-left text-slate-500"></i>Reset help tips</span>
                     <i class="fa-solid fa-chevron-right text-slate-400 text-sm"></i>
@@ -3572,6 +3584,7 @@
                     initClassifyUndoBaseline();
                     renderAll();
                     syncClassifyHotspotsSettingsState();
+                    syncWeekCalendarWeekendsSettingsState();
                     refreshClassifyHotspots();
                 }
                 await updateClassifySyncFingerprint();
@@ -3766,6 +3779,12 @@
             } else if(payload.commandLineEnabled === false || payload.commandLineEnabled === 'false') {
                 localStorage.setItem(plannerStorageKey('commandLineEnabled'), 'false');
             }
+
+            if(payload.weekCalendarIncludeWeekends === true || payload.weekCalendarIncludeWeekends === 'true') {
+                localStorage.setItem(plannerStorageKey('weekCalendarIncludeWeekends'), 'true');
+            } else if(payload.weekCalendarIncludeWeekends === false || payload.weekCalendarIncludeWeekends === 'false') {
+                localStorage.setItem(plannerStorageKey('weekCalendarIncludeWeekends'), 'false');
+            }
         }
 
         function buildClassifyCloudPayload() {
@@ -3783,7 +3802,8 @@
                     || plannerGet('orientationCompleted') === 'true',
                 hotspotsSeen: normalizeHotspotsSeen(safeJsonParse(plannerGet('hotspotsSeen'), [])),
                 hotspotsEnabled: plannerGet('hotspotsEnabled') !== 'false',
-                commandLineEnabled: plannerGet('commandLineEnabled') !== 'false'
+                commandLineEnabled: plannerGet('commandLineEnabled') !== 'false',
+                weekCalendarIncludeWeekends: plannerGet('weekCalendarIncludeWeekends') !== 'false'
             };
         }
 
@@ -3802,6 +3822,7 @@
                 plannerSet('darkMode', payload.darkMode);
             }
             applyClassifyCloudPreferences(payload);
+            syncWeekCalendarWeekendsSettingsState();
         }
 
         async function loadClassifyDataFromCloud() {
@@ -3994,6 +4015,7 @@
                 initClassifyHotspots();
             }
             initClassifyCommandLine();
+            syncWeekCalendarWeekendsSettingsState();
         });
 
         document.addEventListener('visibilitychange', () => {
@@ -4039,6 +4061,7 @@
             syncClassifySettingsDarkToggle();
             syncClassifyHotspotsSettingsState();
             syncClassifyCommandLineSettingsState();
+            syncWeekCalendarWeekendsSettingsState();
             const modal = document.getElementById('classifySettingsModal');
             const panel = document.getElementById('classifySettingsPanel');
             if (!modal || !panel) return;
@@ -6608,6 +6631,23 @@
             const month = String(date.getMonth() + 1).padStart(2, '0');
             const day = String(date.getDate()).padStart(2, '0');
             return `${year}-${month}-${day}`;
+        }
+
+        function getWeekCalendarDayCount() {
+            return areWeekCalendarWeekendsIncluded() ? 7 : 5;
+        }
+
+        function getWeekCalendarDisplayBounds(baseDate = new Date()) {
+            const { start } = getWeekBounds(baseDate);
+            const dayCount = getWeekCalendarDayCount();
+            const end = new Date(start);
+            end.setDate(start.getDate() + dayCount - 1);
+            return {
+                start,
+                end,
+                startStr: getDateStrLocal(start),
+                endStr: getDateStrLocal(end)
+            };
         }
 
         function getWeekBounds(baseDate = new Date()) {
@@ -12219,6 +12259,23 @@
             showNotification(`Command line ${next ? 'enabled' : 'disabled'}`, 'info');
         }
 
+        function areWeekCalendarWeekendsIncluded() {
+            return plannerGet('weekCalendarIncludeWeekends') !== 'false';
+        }
+
+        function syncWeekCalendarWeekendsSettingsState() {
+            const el = document.getElementById('cl-settings-weekend-state');
+            if(el) el.textContent = areWeekCalendarWeekendsIncluded() ? 'On' : 'Off';
+        }
+
+        function toggleWeekCalendarWeekends() {
+            const next = !areWeekCalendarWeekendsIncluded();
+            plannerSet('weekCalendarIncludeWeekends', next ? 'true' : 'false');
+            syncWeekCalendarWeekendsSettingsState();
+            if(calendarViewMode === 'week') renderCalendar();
+            showNotification(`Week view ${next ? 'includes' : 'excludes'} weekends`, 'info');
+        }
+
         function initClassifyCommandLine() {
             syncClassifyCommandLineVisibility();
             bindClassifyCommandLineShortcut();
@@ -14132,7 +14189,7 @@
 
         function getCalendarPeriodContext() {
             if(calendarViewMode === 'week') {
-                const { start, end, startStr, endStr } = getWeekBounds(currentCalendarDate);
+                const { start, end, startStr, endStr } = getWeekCalendarDisplayBounds(currentCalendarDate);
                 const startLabel = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                 const endLabel = end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
                 const periodTasks = tasks.filter(t => isActiveCalendarTaskInRange(t, startStr, endStr));
@@ -14140,11 +14197,13 @@
                 const unscheduled = countTasksNeedingTimeInRange(startStr, endStr);
                 return {
                     periodLabel: `${startLabel} – ${endLabel}`,
-                    viewLabel: 'Week schedule',
+                    viewLabel: areWeekCalendarWeekendsIncluded() ? 'Week schedule' : 'Weekday schedule',
                     taskCount: periodTasks.length,
                     minutes,
                     unscheduled,
-                    legend: 'Each day shows assignments in time order. Drag to move, tap to edit.'
+                    legend: areWeekCalendarWeekendsIncluded()
+                        ? 'Each day shows assignments in time order. Drag to move, tap to edit.'
+                        : 'Monday through Friday only. Drag to move, tap to edit.'
                 };
             }
             if(calendarViewMode === 'day') {
@@ -14237,9 +14296,14 @@
 
         function renderWeekCalendar() {
             const weekGrid = document.getElementById('weekCalendarGrid');
+            if(!weekGrid) return;
             weekGrid.innerHTML = '';
+            const includeWeekends = areWeekCalendarWeekendsIncluded();
+            weekGrid.classList.toggle('cl-week-grid--weekdays', !includeWeekends);
+            weekGrid.classList.toggle('cl-week-grid--full-week', includeWeekends);
             const { start } = getWeekBounds(currentCalendarDate);
-            for(let i = 0; i < 7; i++) {
+            const dayCount = getWeekCalendarDayCount();
+            for(let i = 0; i < dayCount; i++) {
                 const dayDate = new Date(start);
                 dayDate.setDate(start.getDate() + i);
                 const dateStr = getDateStrLocal(dayDate);
