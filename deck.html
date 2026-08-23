@@ -338,6 +338,17 @@
     .dk-group-heading:first-child { margin-top: 0; }
     .dk-reorder-list > [data-reorder-id].dk-reorder-enabled {
       cursor: grab;
+      touch-action: none;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+    .dk-reorder-enabled .dk-deck-open,
+    .dk-reorder-enabled .dk-stack-open,
+    .dk-reorder-enabled .dk-card-preview-open {
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
     }
     .dk-reorder-item.dk-dragging {
       opacity: 0.55;
@@ -1486,6 +1497,7 @@
       }
 
       const DK_HOLD_MS = 350;
+      const DK_HOLD_MOVE_PX = { pointer: 10, touch: 28 };
 
       function isReorderDragBlockedTarget(el) {
         if (!el) return true;
@@ -1567,6 +1579,26 @@
         }
       }
 
+      function reorderHitRow(container, dragRow, x, y) {
+        const hits = document.elementsFromPoint(x, y);
+        let row = hits
+          .map((el) => el.closest('[data-reorder-id]'))
+          .find((el) => el && container.contains(el) && el !== dragRow);
+        if (!row) {
+          const el = document.elementFromPoint(x, y);
+          row = el ? el.closest('[data-reorder-id]') : null;
+        }
+        if (row && container.contains(row) && row !== dragRow) return row;
+        return null;
+      }
+
+      function reorderTouchById(list, id) {
+        for (let i = 0; i < list.length; i++) {
+          if (list[i].identifier === id) return list[i];
+        }
+        return null;
+      }
+
       function attachReorderList(container, onStepReorder, onCommitOrder) {
         if (!container) return;
         container._dkReorderStep = onStepReorder;
@@ -1582,10 +1614,13 @@
             holdTimer: null,
             pendingRow: null,
             pointerId: null,
+            inputKind: null,
             captureRow: null,
             suppressClick: false,
             startX: 0,
             startY: 0,
+            pressRow: null,
+            pressAt: 0,
           };
 
           function cancelHold(drag) {
@@ -1620,28 +1655,77 @@
             document.removeEventListener('pointermove', onDocPointerMove);
             document.removeEventListener('pointerup', onDocPointerEnd);
             document.removeEventListener('pointercancel', onDocPointerEnd);
+            document.removeEventListener('touchmove', onDocTouchMove);
+            document.removeEventListener('touchend', onDocTouchEnd);
+            document.removeEventListener('touchcancel', onDocTouchEnd);
           }
 
-          function onDocPointerMove(ev) {
+          function holdMoveLimit(drag) {
+            return DK_HOLD_MOVE_PX[drag.inputKind] || DK_HOLD_MOVE_PX.pointer;
+          }
+
+          function shouldStartReorderPress(row) {
             const drag = container._dkDrag;
-            if (!drag || ev.pointerId !== drag.pointerId) return;
+            const now = Date.now();
+            if (drag.pressRow === row && now - drag.pressAt < 500) return false;
+            drag.pressRow = row;
+            drag.pressAt = now;
+            return true;
+          }
+
+          function activateDrag(drag, row) {
+            drag.holdTimer = null;
+            drag.row = row;
+            drag.pendingRow = null;
+            drag.startOrder = getReorderRowIds(container);
+            drag.committed = false;
+            drag.active = true;
+            row.classList.add('dk-dragging');
+            if (drag.inputKind === 'pointer') {
+              drag.captureRow = row;
+              try {
+                row.setPointerCapture(drag.pointerId);
+              } catch (_) { /* ignore */ }
+            }
+          }
+
+          function beginReorderPress(row, pointerId, x, y, inputKind) {
+            const drag = container._dkDrag;
+            if (drag.active) return;
+            cancelHold(drag);
+            releaseDragListeners();
+            drag.pendingRow = row;
+            drag.pointerId = pointerId;
+            drag.inputKind = inputKind;
+            drag.startX = x;
+            drag.startY = y;
+            drag.captureRow = null;
+            if (inputKind === 'pointer') {
+              document.addEventListener('pointermove', onDocPointerMove, { passive: false });
+              document.addEventListener('pointerup', onDocPointerEnd);
+              document.addEventListener('pointercancel', onDocPointerEnd);
+            } else {
+              document.addEventListener('touchmove', onDocTouchMove, { passive: false });
+              document.addEventListener('touchend', onDocTouchEnd);
+              document.addEventListener('touchcancel', onDocTouchEnd);
+            }
+            drag.holdTimer = setTimeout(() => activateDrag(drag, row), DK_HOLD_MS);
+          }
+
+          function handleDragMove(drag, x, y, ev) {
             if (drag.holdTimer && drag.pendingRow) {
-              const dx = ev.clientX - drag.startX;
-              const dy = ev.clientY - drag.startY;
-              if (Math.hypot(dx, dy) > 10) cancelHold(drag);
+              const dx = x - drag.startX;
+              const dy = y - drag.startY;
+              if (Math.hypot(dx, dy) > holdMoveLimit(drag)) cancelHold(drag);
               return;
             }
             if (!drag.active || !drag.row) return;
-            ev.preventDefault();
-            const hit = document.elementsFromPoint(ev.clientX, ev.clientY)
-              .map((el) => el.closest('[data-reorder-id]'))
-              .find((row) => row && container.contains(row) && row !== drag.row);
-            if (hit) previewReorderMove(container, drag.row, hit, ev.clientY);
+            if (ev && ev.cancelable) ev.preventDefault();
+            const hit = reorderHitRow(container, drag.row, x, y);
+            if (hit) previewReorderMove(container, drag.row, hit, y);
           }
 
-          function onDocPointerEnd(ev) {
-            const drag = container._dkDrag;
-            if (!drag || ev.pointerId !== drag.pointerId) return;
+          function handleDragEnd(drag) {
             if (drag.holdTimer) cancelHold(drag);
             if (drag.active) {
               drag.suppressClick = true;
@@ -1652,12 +1736,46 @@
             }
             if (drag.captureRow) {
               try {
-                drag.captureRow.releasePointerCapture(ev.pointerId);
+                drag.captureRow.releasePointerCapture(drag.pointerId);
               } catch (_) { /* ignore */ }
               drag.captureRow = null;
             }
             drag.pointerId = null;
+            drag.inputKind = null;
             releaseDragListeners();
+          }
+
+          function onDocPointerMove(ev) {
+            const drag = container._dkDrag;
+            if (!drag || drag.inputKind !== 'pointer' || ev.pointerId !== drag.pointerId) return;
+            handleDragMove(drag, ev.clientX, ev.clientY, ev);
+          }
+
+          function onDocPointerEnd(ev) {
+            const drag = container._dkDrag;
+            if (!drag || drag.inputKind !== 'pointer' || ev.pointerId !== drag.pointerId) return;
+            handleDragEnd(drag);
+          }
+
+          function onDocTouchMove(ev) {
+            const drag = container._dkDrag;
+            if (!drag || drag.inputKind !== 'touch') return;
+            const touch = reorderTouchById(ev.touches, drag.pointerId);
+            if (!touch) return;
+            handleDragMove(drag, touch.clientX, touch.clientY, ev);
+          }
+
+          function onDocTouchEnd(ev) {
+            const drag = container._dkDrag;
+            if (!drag || drag.inputKind !== 'touch') return;
+            const touch = reorderTouchById(ev.changedTouches, drag.pointerId);
+            if (!touch) return;
+            handleDragEnd(drag);
+          }
+
+          function tryStartReorderPress(row, pointerId, x, y, inputKind) {
+            if (!shouldStartReorderPress(row)) return;
+            beginReorderPress(row, pointerId, x, y, inputKind);
           }
 
           container.addEventListener('click', (ev) => {
@@ -1668,36 +1786,22 @@
             }
           }, true);
 
+          container.addEventListener('touchstart', (ev) => {
+            if (ev.touches.length !== 1) return;
+            if (isReorderDragBlockedTarget(ev.target)) return;
+            const row = ev.target.closest('[data-reorder-id]');
+            if (!row || !container.contains(row) || !row.classList.contains('dk-reorder-enabled')) return;
+            const touch = ev.touches[0];
+            tryStartReorderPress(row, touch.identifier, touch.clientX, touch.clientY, 'touch');
+          }, { passive: true });
+
           container.addEventListener('pointerdown', (ev) => {
             if (ev.button !== undefined && ev.button !== 0) return;
             if (isReorderDragBlockedTarget(ev.target)) return;
             const row = ev.target.closest('[data-reorder-id]');
             if (!row || !container.contains(row) || !row.classList.contains('dk-reorder-enabled')) return;
-            const drag = container._dkDrag;
-            if (drag.active) return;
-            cancelHold(drag);
-            releaseDragListeners();
-            drag.pendingRow = row;
-            drag.pointerId = ev.pointerId;
-            drag.startX = ev.clientX;
-            drag.startY = ev.clientY;
-            drag.captureRow = null;
-            document.addEventListener('pointermove', onDocPointerMove, { passive: false });
-            document.addEventListener('pointerup', onDocPointerEnd);
-            document.addEventListener('pointercancel', onDocPointerEnd);
-            drag.holdTimer = setTimeout(() => {
-              drag.holdTimer = null;
-              drag.row = row;
-              drag.pendingRow = null;
-              drag.startOrder = getReorderRowIds(container);
-              drag.committed = false;
-              drag.active = true;
-              row.classList.add('dk-dragging');
-              drag.captureRow = row;
-              try {
-                row.setPointerCapture(drag.pointerId);
-              } catch (_) { /* ignore */ }
-            }, DK_HOLD_MS);
+            if (ev.pointerType === 'touch') return;
+            tryStartReorderPress(row, ev.pointerId, ev.clientX, ev.clientY, 'pointer');
           });
         }
 
