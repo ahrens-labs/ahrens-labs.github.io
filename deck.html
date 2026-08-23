@@ -1137,7 +1137,10 @@
         <section id="view-card" class="hidden">
           <nav class="dk-context-bar" aria-label="Card actions">
             <button type="button" class="dk-btn dk-btn-back" id="btn-back-cards">← Back</button>
-            <button type="button" class="dk-btn dk-btn-ghost" id="btn-review-card">Review</button>
+            <div class="dk-context-actions">
+              <button type="button" class="dk-btn dk-btn-ghost" id="btn-review-card">Review</button>
+              <button type="button" class="dk-btn dk-btn-ghost dk-btn-small" id="btn-share-card">Share</button>
+            </div>
           </nav>
           <div class="dk-field dk-card-title-field">
             <label for="card-title">Card title</label>
@@ -1145,7 +1148,6 @@
           </div>
           <button type="button" id="card-view-deck" class="dk-meta dk-meta-link"></button>
           <div class="dk-secondary-actions">
-            <button type="button" class="dk-btn dk-btn-ghost dk-btn-small" id="btn-share-card">Share</button>
             <button type="button" class="dk-btn dk-btn-ghost dk-btn-small" id="btn-clone-card">Clone</button>
           </div>
           <p id="card-archived-banner" class="dk-card-archived-banner hidden">This card is archived. It stays hidden from deck lists until you unarchive it.</p>
