@@ -252,6 +252,7 @@ function extractSharePayload(deckEntry, type) {
 function preserveShareMeta(target, source) {
   if (!source) return target;
   if (!target.sharedId && source.sharedId) target.sharedId = source.sharedId;
+  if (source.sharedId || source.sharedOut) target.sharedOut = true;
   if (!target.sharedRef && source.sharedRef) {
     target.sharedRef = JSON.parse(JSON.stringify(source.sharedRef));
   }
@@ -593,14 +594,17 @@ function upsertShareMember(members, profile) {
 function assignSharedIdToOwnerSource(deck, type, stack, card, sharedId) {
   if (type === 'deck') {
     deck.sharedId = sharedId;
+    deck.sharedOut = true;
     return;
   }
   if (type === 'stack' && stack) {
     stack.sharedId = sharedId;
+    stack.sharedOut = true;
     return;
   }
   if (type === 'card' && card) {
     card.sharedId = sharedId;
+    card.sharedOut = true;
   }
 }
 

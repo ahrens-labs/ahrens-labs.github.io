@@ -173,6 +173,10 @@
       color: var(--dk-muted);
       font-weight: 500;
     }
+    .dk-stack-meta-share {
+      color: var(--dk-brand);
+      font-weight: 700;
+    }
     .dk-stack-meta-count {
       color: var(--dk-muted);
       font-weight: 500;
@@ -1353,6 +1357,7 @@
           sections: sections,
           checklist: checklist,
           sharedId: src.sharedId || null,
+          sharedOut: !!(src.sharedOut || src.sharedId),
         };
       }
 
@@ -1383,6 +1388,7 @@
           createdAt: s.createdAt || Date.now(),
           cards: (Array.isArray(s.cards) ? s.cards : []).map(cardFromLegacy),
           sharedId: s.sharedId || null,
+          sharedOut: !!(s.sharedOut || s.sharedId),
         }));
       }
 
@@ -1397,17 +1403,44 @@
         if (!deck) return;
         if (context.type === 'deck') {
           deck.sharedId = sharedId;
+          deck.sharedOut = true;
           return;
         }
         if (context.type === 'stack' && context.stackId) {
           const stack = stackById(deck, context.stackId);
-          if (stack) stack.sharedId = sharedId;
+          if (stack) {
+            stack.sharedId = sharedId;
+            stack.sharedOut = true;
+          }
           return;
         }
         if (context.type === 'card' && context.cardId) {
           const found = findCardInDeck(context.deckId, context.cardId);
-          if (found?.card) found.card.sharedId = sharedId;
+          if (found?.card) {
+            found.card.sharedId = sharedId;
+            found.card.sharedOut = true;
+          }
         }
+      }
+
+      function entityIsShared(entity) {
+        return !!(entity && (entity.sharedId || entity.sharedRef || entity.sharedFrom || entity.sharedOut));
+      }
+
+      function entityShareLabel(entity) {
+        if (!entityIsShared(entity)) return '';
+        if (entity.sharedRef && entity.sharedRef.ownerUsername) {
+          return 'Shared · ' + entity.sharedRef.ownerUsername;
+        }
+        if (entity.sharedFrom && entity.sharedFrom.ownerUsername) {
+          return 'Shared · ' + entity.sharedFrom.ownerUsername;
+        }
+        return 'Shared';
+      }
+
+      function appendShareMetaBits(bits, entity) {
+        const label = entityShareLabel(entity);
+        if (label) bits.push(label);
       }
 
       function parseDeckState(raw) {
@@ -1421,16 +1454,19 @@
           sharedId: d.sharedId || null,
           sharedRef: d.sharedRef || null,
           sharedFrom: d.sharedFrom || null,
+          sharedOut: !!(d.sharedOut || d.sharedId),
         }));
         return { decks };
       }
 
       function deckIsShared(deck) {
-        return !!(deck && (deck.sharedId || deck.sharedRef || deck.sharedFrom));
+        return entityIsShared(deck);
       }
 
       function deckHasSharedItems() {
-        return state.decks.some((deck) => deckIsShared(deck));
+        return state.decks.some((deck) => entityIsShared(deck) || (deck.stacks || []).some(entityIsShared) ||
+          (deck.cards || []).some(entityIsShared) ||
+          (deck.stacks || []).some((stack) => (stack.cards || []).some(entityIsShared)));
       }
 
       function deckShareOwnerLabel(deck) {
@@ -2599,6 +2635,7 @@
           if (data.sharedId) {
             applyShareMetaToContext(context, data.sharedId);
             persistDeckLocally();
+            renderCurrentView();
           }
           closeShareModal();
           await showAlert({
@@ -2862,10 +2899,7 @@
           open.innerHTML = '<h3></h3><p></p>';
           open.querySelector('h3').textContent = d.name || 'Untitled';
           const bits = [];
-          if (deckIsShared(d)) {
-            const owner = deckShareOwnerLabel(d);
-            bits.push(owner ? 'Shared · ' + owner : 'Shared');
-          }
+          appendShareMetaBits(bits, d);
           if (stats.stacks) bits.push(stats.stacks + (stats.stacks === 1 ? ' stack' : ' stacks'));
           if (stats.totalCards) bits.push(stats.totalCards + (stats.totalCards === 1 ? ' card' : ' cards'));
           open.querySelector('p').textContent = bits.length ? bits.join(' · ') : 'Empty deck';
@@ -3166,13 +3200,21 @@
         const label = document.createElement('span');
         label.className = 'dk-stack-badge';
         label.textContent = 'Stack';
+        row.appendChild(label);
+        if (entityIsShared(stack)) {
+          row.appendChild(stackMetaDot());
+          const share = document.createElement('span');
+          share.className = 'dk-stack-meta-share';
+          share.textContent = entityShareLabel(stack);
+          row.appendChild(share);
+        }
         const deckName = document.createElement('span');
         deckName.className = 'dk-stack-meta-deck';
         deckName.textContent = (deck && deck.name) ? deck.name : 'Untitled';
         const count = document.createElement('span');
         count.className = 'dk-stack-meta-count';
         count.textContent = stackCardCountLabel(stack);
-        row.append(label, stackMetaDot(), deckName, stackMetaDot(), count);
+        row.append(stackMetaDot(), deckName, stackMetaDot(), count);
         return row;
       }
 
@@ -3224,6 +3266,12 @@
         title.textContent = card.title || 'Untitled card';
         if (isCardArchived(card)) appendArchivedBadge(title);
         inner.appendChild(title);
+        if (entityIsShared(card)) {
+          const shareMeta = document.createElement('p');
+          shareMeta.className = 'dk-card-preview-meta';
+          shareMeta.textContent = entityShareLabel(card);
+          inner.appendChild(shareMeta);
+        }
         if (opts.showLocation) {
           const meta = document.createElement('p');
           meta.className = 'dk-card-preview-meta';
@@ -3346,9 +3394,14 @@
         } else {
           const sub = document.getElementById('cards-sub');
           sub.className = '';
-          sub.textContent = deckHasStructure(deck)
-            ? 'Tap a stack or card, or create something new.'
-            : 'Add a stack or card to get started.';
+          const subBits = [];
+          appendShareMetaBits(subBits, deck);
+          if (deckHasStructure(deck)) {
+            subBits.push('Tap a stack or card, or create something new.');
+          } else {
+            subBits.push('Add a stack or card to get started.');
+          }
+          sub.textContent = subBits.join(' · ');
         }
         const q = document.getElementById('card-search').value.trim().toLowerCase();
         const list = document.getElementById('card-list');
@@ -3589,10 +3642,13 @@
         const card = loc ? loc.card : null;
         if (!deck || !card) return openDeck(activeDeckId, { updateUrl: true });
         document.getElementById('card-title').value = card.title || '';
+        const whereBits = [];
+        appendShareMetaBits(whereBits, card);
         const where = loc.stack
           ? 'In ' + (loc.stack.name || 'Stack') + ' · ' + (deck.name || 'Untitled')
           : 'In ' + (deck.name || 'Untitled');
-        document.getElementById('card-view-deck').textContent = where;
+        if (whereBits.length) whereBits.push(where);
+        document.getElementById('card-view-deck').textContent = whereBits.length ? whereBits.join(' · ') : where;
         document.getElementById('card-view-deck').title = 'Change deck or stack';
         document.getElementById('btn-back-cards').textContent = loc.stack
           ? '← ' + (loc.stack.name || 'Stack')
