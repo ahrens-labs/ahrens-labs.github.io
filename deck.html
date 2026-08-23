@@ -1145,6 +1145,8 @@
               <button type="button" class="dk-btn dk-btn-back" id="btn-back-decks">← All decks</button>
               <div class="dk-context-actions">
                 <button type="button" class="dk-btn dk-btn-ghost dk-btn-small hidden" id="btn-browse-review">Review</button>
+                <button type="button" class="dk-btn dk-btn-primary dk-btn-small hidden" id="btn-new-stack">+ New stack</button>
+                <button type="button" class="dk-btn dk-btn-primary dk-btn-small hidden" id="btn-new-card">+ New card</button>
                 <button type="button" class="dk-btn dk-btn-primary dk-btn-small hidden" id="btn-new-card-stack-top">+ New card</button>
                 <button type="button" class="dk-btn dk-btn-ghost dk-btn-small hidden" id="btn-browse-share">Share</button>
               </div>
@@ -1165,11 +1167,6 @@
             <input class="dk-search" id="card-search" type="search" placeholder="Search by title, notes, or checklist…" autocomplete="off">
             <p class="dk-reorder-hint hidden" id="cards-reorder-hint">Use ↑ ↓ or drag the grip to change order.</p>
             <div id="card-list" class="dk-list"></div>
-            <div class="dk-list-actions" id="cards-list-actions-root">
-              <button type="button" class="dk-btn dk-btn-primary" id="btn-new-stack">+ New stack</button>
-              <button type="button" class="dk-btn dk-btn-primary" id="btn-new-card">+ New card</button>
-            </div>
-            <div class="dk-list-actions hidden" id="cards-list-actions-stack"></div>
           </div>
         </section>
 
@@ -3098,14 +3095,16 @@
         if (!deck) return showDecks({ updateUrl: true });
         const stack = activeStackId ? stackById(deck, activeStackId) : null;
         const inStack = !!stack;
-        document.getElementById('cards-list-actions-root').classList.toggle('hidden', inStack);
-        document.getElementById('cards-list-actions-stack').classList.add('hidden');
         const browseReview = document.getElementById('btn-browse-review');
+        const newStackTop = document.getElementById('btn-new-stack');
+        const newCardDeckTop = document.getElementById('btn-new-card');
         const newCardTop = document.getElementById('btn-new-card-stack-top');
         const browseShare = document.getElementById('btn-browse-share');
         const deckShare = document.getElementById('btn-deck-share');
         const deckStatsInfo = deckStats(deck);
         browseReview.classList.toggle('hidden', inStack ? !countActiveCards(stack.cards) : !deckStatsInfo.totalCards);
+        newStackTop.classList.toggle('hidden', inStack);
+        newCardDeckTop.classList.toggle('hidden', inStack);
         newCardTop.classList.toggle('hidden', !inStack);
         browseShare.classList.toggle('hidden', !inStack);
         deckShare.classList.toggle('hidden', inStack);
