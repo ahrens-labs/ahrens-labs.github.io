@@ -316,7 +316,7 @@
     .dk-list { display: grid; gap: 10px; }
     .dk-card-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(max(280px, calc((100% - 20px) / 3)), 1fr));
       gap: 10px;
       align-items: start;
     }
