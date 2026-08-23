@@ -1303,6 +1303,9 @@
       const deckSyncClientId = (window.crypto && crypto.randomUUID)
         ? crypto.randomUUID()
         : ('dk-' + Math.random().toString(36).slice(2) + Date.now().toString(36));
+      const DECK_SYNC_DEBOUNCE_MS = 250;
+      const DECK_SYNC_POLL_MS = 2500;
+      const DECK_LOCAL_EDIT_GRACE_MS = 1500;
 
       let cloudSyncEnabled = false;
       let suppressCloudSync = false;
@@ -1429,6 +1432,10 @@
 
       function deckIsShared(deck) {
         return !!(deck && (deck.sharedId || deck.sharedRef || deck.sharedFrom));
+      }
+
+      function deckHasSharedItems() {
+        return state.decks.some((deck) => deckIsShared(deck));
       }
 
       function deckShareOwnerLabel(deck) {
@@ -1812,8 +1819,6 @@
           });
           if (!response.ok) return false;
           const data = await response.json();
-          const cloudDecks = Array.isArray(data.decks) ? data.decks : [];
-          if (!cloudDecks.length) return false;
           applyDeckCloudPayload(data);
           return true;
         } catch (error) {
@@ -1829,7 +1834,7 @@
         if (cloudSyncTimer) clearTimeout(cloudSyncTimer);
         cloudSyncTimer = setTimeout(() => {
           syncDeckToCloud();
-        }, 700);
+        }, DECK_SYNC_DEBOUNCE_MS);
       }
 
       function flushDeckCloudSync() {
@@ -1888,15 +1893,16 @@
 
       function scheduleDeckSyncRefresh(evt) {
         clearTimeout(deckSyncRefreshTimer);
+        const sharedUpdate = !!(evt && (evt.sharedId || evt.shared));
+        const delay = sharedUpdate ? 0 : 60;
         deckSyncRefreshTimer = setTimeout(async () => {
           if (!evt || evt.sourceClientId === deckSyncClientId) return;
           await refreshDeckFromCloud();
-        }, 120);
+        }, delay);
       }
 
       async function pollDeckSyncVersion() {
         if (document.hidden || !cloudSyncEnabled || deckSyncRefreshing) return;
-        if (deckSyncSocket && deckSyncSocket.readyState === WebSocket.OPEN) return;
         const sessionId = localStorage.getItem('ahrenslabs_sessionId');
         if (!sessionId) return;
         try {
@@ -1911,8 +1917,8 @@
           const data = await response.json();
           const next = data.fingerprint || '';
           if (deckSyncFingerprint && next && next !== deckSyncFingerprint) {
-            const recentLocalEdit = (Date.now() - deckLastLocalMutationAt) < 120000;
-            if (recentLocalEdit) {
+            const recentLocalEdit = (Date.now() - deckLastLocalMutationAt) < DECK_LOCAL_EDIT_GRACE_MS;
+            if (recentLocalEdit && !deckHasSharedItems()) {
               deckSyncFingerprint = next;
               return;
             }
@@ -1927,8 +1933,9 @@
 
       function startDeckSyncPoll() {
         clearInterval(deckSyncPollTimer);
-        const intervalMs = document.hidden ? 60000 : 15000;
+        const intervalMs = document.hidden ? 30000 : DECK_SYNC_POLL_MS;
         deckSyncPollTimer = setInterval(pollDeckSyncVersion, intervalMs);
+        pollDeckSyncVersion();
       }
 
       function ensureDeckSyncConnected() {
@@ -1990,7 +1997,7 @@
           deckSyncSocket = null;
           clearInterval(deckSyncPingTimer);
           clearTimeout(deckSyncReconnectTimer);
-          deckSyncReconnectTimer = setTimeout(connectDeckSync, 3000);
+          deckSyncReconnectTimer = setTimeout(connectDeckSync, 1000);
         });
         deckSyncSocket.addEventListener('error', () => {
           try { deckSyncSocket.close(); } catch { /* ignore */ }
@@ -4138,7 +4145,10 @@
       window.addEventListener('beforeunload', () => { flushDeckCloudSync(); });
       document.addEventListener('visibilitychange', () => {
         if (!document.hidden) handleDeckResume();
-        else startDeckSyncPoll();
+        else {
+          flushDeckCloudSync();
+          startDeckSyncPoll();
+        }
       });
       window.addEventListener('focus', handleDeckResume);
       window.addEventListener('resize', () => {

@@ -191,6 +191,7 @@ async function publishDeckShareSync(env, record, sourceClientId, extraUserIds = 
   }
   const payload = {
     type: 'deck',
+    shared: true,
     sharedId: record?.id || null,
     updatedAt: record?.updatedAt || Date.now(),
     ts: Date.now(),
