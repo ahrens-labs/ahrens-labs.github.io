@@ -335,18 +335,33 @@
     }
     .dk-group-heading:first-child { margin-top: 0; }
     .dk-reorder-item { position: relative; }
-    .dk-reorder-item.dk-dragging { opacity: 0.55; z-index: 2; }
+    .dk-reorder-item.dk-dragging {
+      opacity: 0.55;
+      z-index: 2;
+      pointer-events: none;
+    }
     .dk-reorder-list > [data-reorder-id] {
       transition: box-shadow 0.12s ease, opacity 0.12s ease;
     }
     .dk-drag-zone {
       flex-shrink: 0;
-      height: 12px;
+      min-height: 18px;
+      padding: 6px 12px 4px;
+      box-sizing: border-box;
       border-radius: 12px 12px 0 0;
       background: transparent;
       cursor: grab;
       touch-action: none;
       user-select: none;
+      -webkit-user-select: none;
+    }
+    .dk-drag-zone::before {
+      content: '';
+      display: block;
+      width: 100%;
+      height: 3px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--dk-brand), var(--dk-brand-2));
     }
     .dk-drag-zone.hidden { display: none; }
     .dk-reorder-item.dk-dragging .dk-drag-zone { cursor: grabbing; }
@@ -467,7 +482,8 @@
       overflow: hidden;
     }
     .dk-card-preview-item.dk-reorder-item .dk-drag-zone {
-      height: 10px;
+      min-height: 16px;
+      padding: 5px 10px 3px;
       border-radius: 16px 16px 0 0;
     }
     .dk-card-preview-row {
@@ -1516,7 +1532,7 @@
         else if (currentView === 'review') renderReview();
       }
 
-      const DK_HOLD_MS = 450;
+      const DK_HOLD_MS = 350;
 
       function createDragZone(label) {
         const zone = document.createElement('div');
@@ -1646,6 +1662,7 @@
             holdTimer: null,
             pendingRow: null,
             pointerId: null,
+            captureZone: null,
             startX: 0,
             startY: 0,
           };
@@ -1678,6 +1695,44 @@
             drag.startOrder = null;
           }
 
+          function releaseDragListeners() {
+            document.removeEventListener('pointermove', onDocPointerMove);
+            document.removeEventListener('pointerup', onDocPointerEnd);
+            document.removeEventListener('pointercancel', onDocPointerEnd);
+          }
+
+          function onDocPointerMove(ev) {
+            const drag = container._dkDrag;
+            if (!drag || ev.pointerId !== drag.pointerId) return;
+            if (drag.holdTimer && drag.pendingRow) {
+              const dx = ev.clientX - drag.startX;
+              const dy = ev.clientY - drag.startY;
+              if (Math.hypot(dx, dy) > 10) cancelHold(drag);
+              return;
+            }
+            if (!drag.active || !drag.row) return;
+            ev.preventDefault();
+            const hit = document.elementsFromPoint(ev.clientX, ev.clientY)
+              .map((el) => el.closest('[data-reorder-id]'))
+              .find((row) => row && container.contains(row) && row !== drag.row);
+            if (hit) previewReorderMove(container, drag.row, hit, ev.clientY);
+          }
+
+          function onDocPointerEnd(ev) {
+            const drag = container._dkDrag;
+            if (!drag || ev.pointerId !== drag.pointerId) return;
+            if (drag.holdTimer) cancelHold(drag);
+            if (drag.active) finishDrag(drag);
+            if (drag.captureZone) {
+              try {
+                drag.captureZone.releasePointerCapture(ev.pointerId);
+              } catch (_) { /* ignore */ }
+              drag.captureZone = null;
+            }
+            drag.pointerId = null;
+            releaseDragListeners();
+          }
+
           container.addEventListener('pointerdown', (ev) => {
             if (ev.button !== undefined && ev.button !== 0) return;
             const zone = ev.target.closest('.dk-drag-zone');
@@ -1687,10 +1742,18 @@
             const drag = container._dkDrag;
             if (drag.active) return;
             cancelHold(drag);
+            releaseDragListeners();
             drag.pendingRow = row;
             drag.pointerId = ev.pointerId;
             drag.startX = ev.clientX;
             drag.startY = ev.clientY;
+            drag.captureZone = zone;
+            try {
+              zone.setPointerCapture(ev.pointerId);
+            } catch (_) { /* ignore */ }
+            document.addEventListener('pointermove', onDocPointerMove, { passive: false });
+            document.addEventListener('pointerup', onDocPointerEnd);
+            document.addEventListener('pointercancel', onDocPointerEnd);
             drag.holdTimer = setTimeout(() => {
               drag.holdTimer = null;
               drag.row = row;
@@ -1699,36 +1762,8 @@
               drag.committed = false;
               drag.active = true;
               row.classList.add('dk-dragging');
-              try {
-                zone.setPointerCapture(ev.pointerId);
-              } catch (_) { /* ignore */ }
             }, DK_HOLD_MS);
           });
-
-          container.addEventListener('pointermove', (ev) => {
-            const drag = container._dkDrag;
-            if (drag.holdTimer && drag.pendingRow) {
-              const dx = ev.clientX - drag.startX;
-              const dy = ev.clientY - drag.startY;
-              if (Math.hypot(dx, dy) > 10) cancelHold(drag);
-              return;
-            }
-            if (!drag.active || !drag.row || ev.pointerId !== drag.pointerId) return;
-            ev.preventDefault();
-            const target = document.elementFromPoint(ev.clientX, ev.clientY)?.closest('[data-reorder-id]');
-            if (target && container.contains(target)) {
-              previewReorderMove(container, drag.row, target, ev.clientY);
-            }
-          });
-
-          function onPointerEnd(ev) {
-            const drag = container._dkDrag;
-            if (drag.holdTimer) cancelHold(drag);
-            if (drag.active && ev.pointerId === drag.pointerId) {
-              finishDrag(drag);
-              drag.pointerId = null;
-            }
-          }
 
           container.addEventListener('click', (ev) => {
             const step = container._dkReorderStep;
@@ -1751,9 +1786,6 @@
               }
             }
           });
-
-          container.addEventListener('pointerup', onPointerEnd);
-          container.addEventListener('pointercancel', onPointerEnd);
         }
 
         syncReorderButtons(container);
