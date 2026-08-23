@@ -3004,13 +3004,15 @@
       }
 
       function showDeckTitleEditor() {
-        if (activeStackId || deckTitleEditing) return;
+        if (deckTitleEditing) return;
         const deck = ensureActiveDeck();
         if (!deck) return;
+        const stack = activeStackId ? stackById(deck, activeStackId) : null;
         const heading = document.getElementById('cards-heading');
         const headingWrap = heading.closest('.dk-deck-title-heading');
         const input = document.getElementById('deck-title-input');
-        input.value = deck.name || '';
+        input.value = stack ? (stack.name || '') : (deck.name || '');
+        input.setAttribute('aria-label', stack ? 'Stack name' : 'Deck name');
         headingWrap.classList.add('hidden');
         input.classList.remove('hidden');
         deckTitleEditing = true;
@@ -3024,11 +3026,16 @@
         const headingWrap = heading.closest('.dk-deck-title-heading');
         const input = document.getElementById('deck-title-input');
         if (!deck || !deckTitleEditing) return;
+        const stack = activeStackId ? stackById(deck, activeStackId) : null;
         if (saveChanges) {
-          deck.name = input.value.trim() || 'Untitled';
+          if (stack) {
+            stack.name = input.value.trim() || 'Untitled stack';
+          } else {
+            deck.name = input.value.trim() || 'Untitled';
+          }
           save();
         }
-        heading.textContent = deck.name || 'Untitled';
+        heading.textContent = stack ? (stack.name || 'Untitled stack') : (deck.name || 'Untitled');
         headingWrap.classList.remove('hidden');
         input.classList.add('hidden');
         deckTitleEditing = false;
@@ -3076,10 +3083,10 @@
         const input = document.getElementById('deck-title-input');
         const deleteBtn = document.getElementById('btn-delete-deck-top');
         if (inStack) {
-          finishDeckTitleEdit(true);
-          heading.textContent = stack.name || 'Stack';
+          if (deckTitleEditing) return;
+          heading.textContent = stack.name || 'Untitled stack';
           headingWrap.classList.remove('hidden');
-          heading.classList.remove('dk-deck-title-editable');
+          heading.classList.add('dk-deck-title-editable');
           input.classList.add('hidden');
           deleteBtn.classList.add('hidden');
           return;
@@ -3919,7 +3926,7 @@
       });
 
       document.getElementById('cards-heading').addEventListener('click', () => {
-        if (activeStackId || currentView !== 'deck-browse') return;
+        if (currentView !== 'deck-browse') return;
         showDeckTitleEditor();
       });
       document.getElementById('deck-title-input').addEventListener('blur', () => finishDeckTitleEdit(true));
