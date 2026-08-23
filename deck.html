@@ -1646,7 +1646,7 @@
               finishDrag(drag);
               setTimeout(() => {
                 drag.suppressClick = false;
-              }, 0);
+              }, 300);
             }
             if (drag.captureRow) {
               try {
@@ -1679,10 +1679,7 @@
             drag.pointerId = ev.pointerId;
             drag.startX = ev.clientX;
             drag.startY = ev.clientY;
-            drag.captureRow = row;
-            try {
-              row.setPointerCapture(ev.pointerId);
-            } catch (_) { /* ignore */ }
+            drag.captureRow = null;
             document.addEventListener('pointermove', onDocPointerMove, { passive: false });
             document.addEventListener('pointerup', onDocPointerEnd);
             document.addEventListener('pointercancel', onDocPointerEnd);
@@ -1694,6 +1691,10 @@
               drag.committed = false;
               drag.active = true;
               row.classList.add('dk-dragging');
+              drag.captureRow = row;
+              try {
+                row.setPointerCapture(drag.pointerId);
+              } catch (_) { /* ignore */ }
             }, DK_HOLD_MS);
           });
         }
