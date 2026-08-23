@@ -321,7 +321,9 @@
       align-items: start;
     }
     .dk-card-grid > .dk-empty { grid-column: 1 / -1; }
-    .dk-card-grid > .dk-card-preview-item { align-self: start; }
+    .dk-card-grid > .dk-card-preview-item,
+    .dk-card-grid > .dk-deck-item,
+    .dk-card-grid > .dk-stack-item { align-self: start; }
     @media (max-width: 640px) {
       .dk-card-grid { grid-template-columns: 1fr; }
     }
@@ -1075,7 +1077,7 @@
           <div class="dk-toolbar">
             <button type="button" class="dk-btn dk-btn-primary" id="btn-new-deck">New deck</button>
           </div>
-          <div id="deck-list" class="dk-list dk-reorder-list"></div>
+          <div id="deck-list" class="dk-list dk-card-grid dk-reorder-list"></div>
         </section>
 
         <section id="view-stacks" class="hidden">
@@ -2801,7 +2803,7 @@
           heading.textContent = deck.name || 'Untitled';
           list.appendChild(heading);
           const group = document.createElement('div');
-          group.className = 'dk-list dk-reorder-list';
+          group.className = 'dk-list dk-card-grid dk-reorder-list';
           stacks.forEach((stack) => {
             group.appendChild(renderStackItem(stack, deck.id, { reorder: true }));
           });
