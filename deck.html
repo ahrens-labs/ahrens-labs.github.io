@@ -173,9 +173,16 @@
       color: var(--dk-muted);
       font-weight: 500;
     }
-    .dk-stack-meta-share {
+    .dk-share-in,
+    .dk-stack-meta-share.dk-share-in {
       color: var(--dk-brand);
       font-weight: 700;
+    }
+    .dk-share-out,
+    .dk-stack-meta-share.dk-share-out,
+    .dk-deck-open p .dk-share-out {
+      color: var(--dk-muted);
+      font-weight: 500;
     }
     .dk-stack-meta-count {
       color: var(--dk-muted);
@@ -1441,6 +1448,32 @@
       function appendShareMetaBits(bits, entity) {
         const label = entityShareLabel(entity);
         if (label) bits.push(label);
+      }
+
+      function entityShareToneClass(entity) {
+        if (!entityIsShared(entity)) return '';
+        if (entity.sharedRef || entity.sharedFrom) return 'dk-share-in';
+        return 'dk-share-out';
+      }
+
+      function appendMetaLine(el, parts) {
+        el.textContent = '';
+        let first = true;
+        parts.forEach((part) => {
+          if (part == null || part === '') return;
+          if (!first) el.appendChild(document.createTextNode(' · '));
+          first = false;
+          if (typeof part === 'string') {
+            el.appendChild(document.createTextNode(part));
+            return;
+          }
+          if (part.share && entityIsShared(part.share)) {
+            const span = document.createElement('span');
+            span.className = entityShareToneClass(part.share);
+            span.textContent = entityShareLabel(part.share);
+            el.appendChild(span);
+          }
+        });
       }
 
       function parseDeckState(raw) {
@@ -2898,11 +2931,12 @@
           const stats = deckStats(d);
           open.innerHTML = '<h3></h3><p></p>';
           open.querySelector('h3').textContent = d.name || 'Untitled';
-          const bits = [];
-          appendShareMetaBits(bits, d);
-          if (stats.stacks) bits.push(stats.stacks + (stats.stacks === 1 ? ' stack' : ' stacks'));
-          if (stats.totalCards) bits.push(stats.totalCards + (stats.totalCards === 1 ? ' card' : ' cards'));
-          open.querySelector('p').textContent = bits.length ? bits.join(' · ') : 'Empty deck';
+          const metaParts = [];
+          if (entityIsShared(d)) metaParts.push({ share: d });
+          if (stats.stacks) metaParts.push(stats.stacks + (stats.stacks === 1 ? ' stack' : ' stacks'));
+          if (stats.totalCards) metaParts.push(stats.totalCards + (stats.totalCards === 1 ? ' card' : ' cards'));
+          if (!metaParts.length) metaParts.push('Empty deck');
+          appendMetaLine(open.querySelector('p'), metaParts);
           open.addEventListener('click', () => openDeck(d.id));
           const actions = document.createElement('div');
           actions.className = 'dk-deck-actions';
@@ -3204,7 +3238,7 @@
         if (entityIsShared(stack)) {
           row.appendChild(stackMetaDot());
           const share = document.createElement('span');
-          share.className = 'dk-stack-meta-share';
+          share.className = 'dk-stack-meta-share ' + entityShareToneClass(stack);
           share.textContent = entityShareLabel(stack);
           row.appendChild(share);
         }
@@ -3394,14 +3428,12 @@
         } else {
           const sub = document.getElementById('cards-sub');
           sub.className = '';
-          const subBits = [];
-          appendShareMetaBits(subBits, deck);
-          if (deckHasStructure(deck)) {
-            subBits.push('Tap a stack or card, or create something new.');
-          } else {
-            subBits.push('Add a stack or card to get started.');
-          }
-          sub.textContent = subBits.join(' · ');
+          const subParts = [];
+          if (entityIsShared(deck)) subParts.push({ share: deck });
+          subParts.push(deckHasStructure(deck)
+            ? 'Tap a stack or card, or create something new.'
+            : 'Add a stack or card to get started.');
+          appendMetaLine(sub, subParts);
         }
         const q = document.getElementById('card-search').value.trim().toLowerCase();
         const list = document.getElementById('card-list');
