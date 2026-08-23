@@ -219,6 +219,16 @@ function findCardInDeckTree(deck, cardId, stackId) {
   return card ? { stack: null, card } : null;
 }
 
+function stackToShareDeckEntry(stack) {
+  if (!stack) return null;
+  return {
+    name: stack.name || 'Untitled stack',
+    cards: Array.isArray(stack.cards) ? JSON.parse(JSON.stringify(stack.cards)) : [],
+    stacks: [],
+    createdAt: stack.createdAt || Date.now(),
+  };
+}
+
 function extractSharePayload(deckEntry, type) {
   if (type === 'deck') {
     return {
@@ -303,9 +313,9 @@ function applySharePayloadToDeckEntry(entry, record) {
   }
 
   if (type === 'stack' && payload) {
-    next.name = record.label || entry.name;
-    next.cards = [];
-    next.stacks = [payload];
+    next.name = payload.name || record.label || entry.name;
+    next.cards = Array.isArray(payload.cards) ? payload.cards : [];
+    next.stacks = [];
     return next;
   }
 
@@ -337,14 +347,24 @@ function collectSharedIdsFromDecks(decks) {
   return ids;
 }
 
+function mergeStackFromShareRecord(stack, record) {
+  const payload = record?.payload;
+  if (!payload || typeof payload !== 'object') return stack;
+  if (record.type === 'deck') {
+    return preserveShareMeta({
+      ...stack,
+      name: payload.name || stack.name,
+      cards: Array.isArray(payload.cards) ? payload.cards : (stack.cards || []),
+    }, stack);
+  }
+  return preserveShareMeta({ ...payload }, stack);
+}
+
 function applyNestedSharePayload(deck, shareCache) {
   let next = deck;
   const stacks = (deck.stacks || []).map((stack) => {
     if (stack.sharedId && shareCache.has(stack.sharedId)) {
-      const record = shareCache.get(stack.sharedId);
-      const payload = record?.payload;
-      const merged = payload && typeof payload === 'object' ? { ...payload } : { ...stack };
-      return preserveShareMeta(merged, stack);
+      return mergeStackFromShareRecord(stack, shareCache.get(stack.sharedId));
     }
     const cards = (stack.cards || []).map((card) => {
       if (card.sharedId && shareCache.has(card.sharedId)) {
@@ -433,12 +453,18 @@ async function pushShareUpdate(env, userId, shareId, deckEntry, updatedShareIds)
   if (!shareId || updatedShareIds.has(shareId)) return;
   const record = await fetchDeckShare(env, shareId);
   if (!record || !userCanEditShare(record, userId)) return;
-  const payload = extractSharePayload(deckEntry, record.type);
+  let shareType = record.type;
+  let payload = extractSharePayload(deckEntry, shareType);
+  if (!payload && shareType === 'stack') {
+    payload = extractSharePayload(deckEntry, 'deck');
+    if (payload) shareType = 'deck';
+  }
   if (!payload) return;
   const updated = {
     ...record,
+    type: shareType,
     payload,
-    label: record.type === 'deck' ? (deckEntry.name || record.label) : record.label,
+    label: shareType === 'deck' ? (deckEntry.name || record.label) : record.label,
     updatedAt: Date.now(),
   };
   await saveDeckShare(env, updated);
@@ -454,7 +480,7 @@ function collectSharePushTargets(decks) {
       if (stack.sharedId) {
         targets.push({
           shareId: stack.sharedId,
-          deckEntry: { name: stack.name, cards: [], stacks: [stack] },
+          deckEntry: stackToShareDeckEntry(stack),
         });
       }
       for (const card of stack.cards || []) {
@@ -512,14 +538,14 @@ export async function processDeckSyncPayload(env, userId, deckData, sourceClient
   });
 }
 
-function buildShareLabel(type, deck, stack, card) {
-  if (type === 'deck') return deck.name || 'Shared deck';
-  if (type === 'stack') return (stack.name || 'Stack') + ' · ' + (deck.name || 'Deck');
+function buildShareLabel(sourceType, deck, stack, card) {
+  if (sourceType === 'deck') return deck.name || 'Shared deck';
+  if (sourceType === 'stack') return stack.name || 'Untitled stack';
   return card.title || 'Shared card';
 }
 
-function buildInitialSharePayload(type, deck, stack, card) {
-  if (type === 'deck') {
+function buildInitialSharePayload(sourceType, deck, stack, card) {
+  if (sourceType === 'deck') {
     return {
       name: deck.name || 'Untitled',
       cards: Array.isArray(deck.cards) ? JSON.parse(JSON.stringify(deck.cards)) : [],
@@ -527,13 +553,17 @@ function buildInitialSharePayload(type, deck, stack, card) {
       createdAt: deck.createdAt || Date.now(),
     };
   }
-  if (type === 'stack' && stack) {
-    return JSON.parse(JSON.stringify(stack));
+  if (sourceType === 'stack' && stack) {
+    return stackToShareDeckEntry(stack);
   }
-  if (type === 'card' && card) {
+  if (sourceType === 'card' && card) {
     return JSON.parse(JSON.stringify(card));
   }
   return null;
+}
+
+function shareRecordType(sourceType) {
+  return sourceType === 'stack' ? 'deck' : sourceType;
 }
 
 function recipientAlreadyHasShare(decks, sharedId) {
@@ -628,20 +658,21 @@ export async function handleDeckShareRequest(request, env, corsHeaders) {
   const deck = findDeck(ownerDecks, deckId);
   if (!deck) return jsonResponse({ error: 'Deck not found' }, corsHeaders, 404);
 
-  let type = 'deck';
+  let sourceType = 'deck';
   let stack = null;
   let card = null;
   if (cardId) {
-    type = 'card';
+    sourceType = 'card';
     const found = findCardInDeckTree(deck, cardId, stackId || null);
     if (!found) return jsonResponse({ error: 'Card not found' }, corsHeaders, 404);
     stack = found.stack;
     card = found.card;
   } else if (stackId) {
-    type = 'stack';
+    sourceType = 'stack';
     stack = findStack(deck, stackId);
     if (!stack) return jsonResponse({ error: 'Stack not found' }, corsHeaders, 404);
   }
+  const shareType = shareRecordType(sourceType);
 
   const resolved = await resolveShareTarget(env, usernameOrEmail);
   if (resolved.error) return jsonResponse({ error: resolved.error }, corsHeaders, resolved.status);
@@ -650,7 +681,7 @@ export async function handleDeckShareRequest(request, env, corsHeaders) {
     return jsonResponse({ error: 'You cannot share with yourself' }, corsHeaders, 400);
   }
 
-  let sharedId = existingSharedIdForSource(deck, type, stack, card);
+  let sharedId = existingSharedIdForSource(deck, sourceType, stack, card);
   let shareRecord = sharedId ? await fetchDeckShare(env, sharedId) : null;
 
   if (shareRecord && !userCanEditShare(shareRecord, userId)) {
@@ -658,20 +689,20 @@ export async function handleDeckShareRequest(request, env, corsHeaders) {
   }
 
   const now = Date.now();
-  const label = buildShareLabel(type, deck, stack, card);
-  const payload = buildInitialSharePayload(type, deck, stack, card);
+  const label = buildShareLabel(sourceType, deck, stack, card);
+  const payload = buildInitialSharePayload(sourceType, deck, stack, card);
   if (!payload) return jsonResponse({ error: 'Unable to share this item' }, corsHeaders, 400);
 
   if (!shareRecord) {
     sharedId = newSharedId();
     shareRecord = {
       id: sharedId,
-      type,
+      type: shareType,
       ownerUserId: ownerProfile.userId,
       ownerUsername: ownerProfile.username || '',
       members: [],
       label,
-      contextDeckName: type !== 'deck' ? (deck.name || '') : null,
+      contextDeckName: sourceType === 'stack' ? (deck.name || '') : (shareType !== 'deck' ? (deck.name || '') : null),
       payload,
       updatedAt: now,
       createdAt: now,
@@ -679,16 +710,17 @@ export async function handleDeckShareRequest(request, env, corsHeaders) {
   } else {
     shareRecord = {
       ...shareRecord,
+      type: shareType,
       payload,
       label,
-      contextDeckName: type !== 'deck' ? (deck.name || shareRecord.contextDeckName) : null,
+      contextDeckName: sourceType === 'stack' ? (deck.name || shareRecord.contextDeckName) : (shareType !== 'deck' ? (deck.name || shareRecord.contextDeckName) : null),
       updatedAt: now,
     };
   }
 
   shareRecord.members = upsertShareMember(shareRecord.members, target);
   await saveDeckShare(env, shareRecord);
-  assignSharedIdToOwnerSource(deck, type, stack, card, sharedId);
+  assignSharedIdToOwnerSource(deck, sourceType, stack, card, sharedId);
 
   await saveDeckDataForUser(env, userId, {
     ...ownerData,
@@ -701,7 +733,7 @@ export async function handleDeckShareRequest(request, env, corsHeaders) {
   let recipientDeckId = null;
 
   if (!recipientAlreadyHasShare(recipientDecks, sharedId)) {
-    const refDeck = buildRecipientReferenceDeck({ sharedId, type, label, ownerProfile });
+    const refDeck = buildRecipientReferenceDeck({ sharedId, type: shareType, label, ownerProfile });
     recipientDeckId = refDeck.id;
     recipientDecks.unshift(refDeck);
     await saveDeckDataForUser(env, target.userId, {
@@ -720,7 +752,7 @@ export async function handleDeckShareRequest(request, env, corsHeaders) {
     success: true,
     live: true,
     sharedWith: target.username || target.email || target.userId,
-    sharedType: type,
+    sharedType: shareType,
     sharedName: label,
     sharedId,
     deckId: recipientDeckId,
