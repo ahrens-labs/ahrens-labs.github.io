@@ -339,51 +339,31 @@
     .dk-reorder-list > [data-reorder-id] {
       transition: box-shadow 0.12s ease, opacity 0.12s ease;
     }
-    .dk-reorder-controls {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 2px;
+    .dk-drag-zone {
       flex-shrink: 0;
-    }
-    .dk-reorder-btn {
-      appearance: none;
-      border: 1px solid var(--dk-line);
-      border-radius: 6px;
-      background: #fff;
-      color: var(--dk-muted);
-      width: 30px;
-      height: 26px;
-      padding: 0;
-      font-size: 0.9rem;
-      font-weight: 700;
-      line-height: 1;
-      cursor: pointer;
-    }
-    .dk-reorder-btn:hover:not(:disabled) {
-      border-color: #c7d2fe;
-      color: var(--dk-brand);
-      background: #eef2ff;
-    }
-    .dk-drag-handle {
-      flex-shrink: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 30px;
-      height: 30px;
-      border: 1px dashed #cbd5e1;
-      border-radius: 8px;
-      background: #f8fafc;
-      color: #94a3b8;
-      padding: 0;
+      height: 12px;
+      border-radius: 12px 12px 0 0;
+      background: linear-gradient(180deg, rgba(199, 210, 254, 0.45) 0%, rgba(199, 210, 254, 0.08) 100%);
       cursor: grab;
       touch-action: none;
       user-select: none;
-      -webkit-user-drag: element;
     }
-    .dk-drag-handle:active { cursor: grabbing; }
-    .dk-drag-handle svg { display: block; }
+    .dk-drag-zone.hidden { display: none; }
+    .dk-reorder-item.dk-dragging .dk-drag-zone { cursor: grabbing; }
+    .dk-deck-item.dk-reorder-item,
+    .dk-stack-item.dk-reorder-item {
+      flex-direction: column;
+      align-items: stretch;
+      padding: 0;
+      overflow: hidden;
+    }
+    .dk-deck-item-body,
+    .dk-stack-item-body {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+    }
     .dk-reorder-hint {
       margin: -6px 0 12px;
       font-size: 0.78rem;
@@ -431,6 +411,7 @@
     .dk-deck-actions {
       display: flex;
       flex-shrink: 0;
+      gap: 6px;
     }
     .dk-deck-actions .dk-btn {
       padding: 7px 12px;
@@ -450,30 +431,16 @@
     }
     .dk-card-preview-item.dk-reorder-item {
       display: flex;
-      align-items: flex-start;
-      gap: 4px;
-      padding: 6px;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0;
+      padding: 0;
       box-sizing: border-box;
+      overflow: hidden;
     }
-    .dk-card-preview-item.dk-reorder-item .dk-reorder-controls {
-      flex-shrink: 0;
-      margin-top: 2px;
-      gap: 1px;
-    }
-    .dk-card-preview-item.dk-reorder-item .dk-reorder-btn {
-      width: 24px;
-      height: 22px;
-      font-size: 0.78rem;
-      border-radius: 5px;
-    }
-    .dk-card-preview-item.dk-reorder-item .dk-drag-handle {
-      width: 24px;
-      height: 24px;
-      border-radius: 6px;
-    }
-    .dk-card-preview-item.dk-reorder-item .dk-drag-handle svg {
-      width: 14px;
-      height: 14px;
+    .dk-card-preview-item.dk-reorder-item .dk-drag-zone {
+      height: 10px;
+      border-radius: 16px 16px 0 0;
     }
     .dk-card-preview-main {
       flex: 1 1 auto;
@@ -482,14 +449,15 @@
       flex-direction: column;
     }
     .dk-card-preview-item.dk-reorder-item .dk-card-preview-inner {
-      padding: 10px 12px 10px 6px;
+      padding: 10px 12px;
     }
     .dk-card-preview-item.dk-reorder-item .dk-card-preview-checklist {
-      padding: 0 12px 8px 6px;
+      padding: 0 12px 8px;
     }
     .dk-card-preview-item.dk-reorder-item .dk-item-actions {
-      padding: 0 12px 10px 6px;
+      padding: 0 12px 10px;
     }
+    .dk-check-add-form { margin: 0; }
     .dk-stack-item {
       display: flex;
       align-items: center;
@@ -1137,7 +1105,7 @@
         <section id="view-decks">
           <div class="dk-hero">
             <h2>Decks</h2>
-            <p>Group cards and stacks into decks. Use ↑ ↓ or drag the grip to reorder decks.</p>
+            <p>Group cards and stacks into decks. Press and hold the top of a deck to reorder.</p>
           </div>
           <input class="dk-search" id="deck-search" type="search" placeholder="Search cards by title, notes, or checklist…" autocomplete="off">
           <div id="deck-search-results" class="dk-search-results hidden"></div>
@@ -1150,7 +1118,7 @@
         <section id="view-stacks" class="hidden">
           <div class="dk-hero">
             <h2>Stacks</h2>
-            <p>All stacks across your decks. Use ↑ ↓ or drag the grip to reorder within a deck.</p>
+            <p>All stacks across your decks. Press and hold the top of a stack to reorder within a deck.</p>
           </div>
           <input class="dk-search" id="stack-search" type="search" placeholder="Search stacks…" autocomplete="off">
           <div id="stack-list" class="dk-list"></div>
@@ -1180,6 +1148,7 @@
                 <button type="button" class="dk-btn dk-btn-primary dk-btn-small hidden" id="btn-new-card">+ New card</button>
                 <button type="button" class="dk-btn dk-btn-primary dk-btn-small hidden" id="btn-new-card-stack-top">+ New card</button>
                 <button type="button" class="dk-btn dk-btn-ghost dk-btn-small hidden" id="btn-browse-share">Share</button>
+                <button type="button" class="dk-btn dk-btn-ghost dk-btn-small hidden" id="btn-browse-clone">Clone</button>
               </div>
             </nav>
             <div class="dk-hero">
@@ -1190,13 +1159,14 @@
                 </div>
                 <div class="dk-deck-hero-actions">
                   <button type="button" class="dk-btn dk-btn-ghost dk-btn-small hidden" id="btn-deck-share">Share</button>
+                  <button type="button" class="dk-btn dk-btn-ghost dk-btn-small hidden" id="btn-deck-clone">Clone</button>
                   <button type="button" class="dk-btn dk-btn-danger dk-btn-small dk-deck-delete-btn hidden" id="btn-delete-deck-top" aria-label="Delete deck">Delete</button>
                 </div>
               </div>
               <p id="cards-sub">Tap a card to open and edit it.</p>
             </div>
             <input class="dk-search" id="card-search" type="search" placeholder="Search by title, notes, or checklist…" autocomplete="off">
-            <p class="dk-reorder-hint hidden" id="cards-reorder-hint">Use ↑ ↓ or drag the grip to change order.</p>
+            <p class="dk-reorder-hint hidden" id="cards-reorder-hint">Press and hold the top of an item to drag and reorder.</p>
             <div id="card-list" class="dk-list"></div>
           </div>
         </section>
@@ -1213,6 +1183,7 @@
           <button type="button" id="card-view-deck" class="dk-meta dk-meta-link"></button>
           <div class="dk-secondary-actions">
             <button type="button" class="dk-btn dk-btn-ghost dk-btn-small" id="btn-share-card">Share</button>
+            <button type="button" class="dk-btn dk-btn-ghost dk-btn-small" id="btn-clone-card">Clone</button>
           </div>
           <p id="card-archived-banner" class="dk-card-archived-banner hidden">This card is archived. It stays hidden from deck lists until you unarchive it.</p>
           <div id="section-list"></div>
@@ -1501,57 +1472,23 @@
         else if (currentView === 'review') renderReview();
       }
 
-      function createReorderControls(label) {
-        const wrap = document.createElement('div');
-        wrap.className = 'dk-reorder-controls';
+      const DK_HOLD_MS = 450;
 
-        const up = document.createElement('button');
-        up.type = 'button';
-        up.className = 'dk-reorder-btn dk-reorder-btn-up';
-        up.setAttribute('aria-label', 'Move up');
-        up.textContent = '↑';
-
-        const handle = document.createElement('span');
-        handle.className = 'dk-drag-handle';
-        handle.draggable = true;
-        handle.setAttribute('role', 'button');
-        handle.setAttribute('tabindex', '0');
-        handle.setAttribute('aria-label', label || 'Drag to reorder');
-        handle.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="9" cy="7" r="1.5" fill="currentColor"/><circle cx="15" cy="7" r="1.5" fill="currentColor"/><circle cx="9" cy="12" r="1.5" fill="currentColor"/><circle cx="15" cy="12" r="1.5" fill="currentColor"/><circle cx="9" cy="17" r="1.5" fill="currentColor"/><circle cx="15" cy="17" r="1.5" fill="currentColor"/></svg>';
-
-        const down = document.createElement('button');
-        down.type = 'button';
-        down.className = 'dk-reorder-btn dk-reorder-btn-down';
-        down.setAttribute('aria-label', 'Move down');
-        down.textContent = '↓';
-
-        wrap.append(up, handle, down);
-        return wrap;
+      function createDragZone(label) {
+        const zone = document.createElement('div');
+        zone.className = 'dk-drag-zone';
+        zone.setAttribute('role', 'button');
+        zone.setAttribute('tabindex', '0');
+        zone.setAttribute('aria-label', label || 'Hold to reorder');
+        return zone;
       }
 
       function syncReorderButtons(container) {
-        const rows = [...container.querySelectorAll('[data-reorder-id]')];
+        const rows = [...container.querySelectorAll(':scope > [data-reorder-id]')];
         const canReorder = rows.length > 1;
-        rows.forEach((row, idx) => {
-          const controls = row.querySelector('.dk-reorder-controls');
-          if (!controls) return;
-          controls.classList.toggle('hidden', !canReorder);
-          if (!canReorder) return;
-
-          const up = controls.querySelector('.dk-reorder-btn-up');
-          const down = controls.querySelector('.dk-reorder-btn-down');
-          const handle = controls.querySelector('.dk-drag-handle');
-          const showUp = idx > 0;
-          const showDown = idx < rows.length - 1;
-          if (up) {
-            up.disabled = false;
-            up.classList.toggle('hidden', !showUp);
-          }
-          if (down) {
-            down.disabled = false;
-            down.classList.toggle('hidden', !showDown);
-          }
-          if (handle) handle.classList.remove('hidden');
+        rows.forEach((row) => {
+          const zone = row.querySelector('.dk-drag-zone');
+          if (zone) zone.classList.toggle('hidden', !canReorder);
         });
       }
 
@@ -1629,52 +1566,37 @@
 
         if (!container._dkReorderReady) {
           container._dkReorderReady = true;
-          container._dkDrag = { row: null, startOrder: null, committed: false };
+          container._dkDrag = {
+            row: null,
+            startOrder: null,
+            committed: false,
+            active: false,
+            holdTimer: null,
+            pendingRow: null,
+            pointerId: null,
+            startX: 0,
+            startY: 0,
+          };
 
-          container.addEventListener('click', (ev) => {
-            const step = container._dkReorderStep;
-            if (!step) return;
-            const up = ev.target.closest('.dk-reorder-btn-up');
-            const down = ev.target.closest('.dk-reorder-btn-down');
-            if (!up && !down) return;
-            const row = (up || down).closest('[data-reorder-id]');
-            if (!row || !container.contains(row)) return;
-            ev.stopPropagation();
-            if (up) {
-              const prev = row.previousElementSibling;
-              if (prev && prev.dataset.reorderId) {
-                applyListReorder(container, row.dataset.reorderId, prev.dataset.reorderId, step);
-              }
-            } else {
-              const next = row.nextElementSibling;
-              if (next && next.dataset.reorderId) {
-                applyListReorder(container, row.dataset.reorderId, next.dataset.reorderId, step);
-              }
+          function cancelHold(drag) {
+            if (drag.holdTimer) {
+              clearTimeout(drag.holdTimer);
+              drag.holdTimer = null;
             }
-          });
+            drag.pendingRow = null;
+          }
 
-          container.addEventListener('dragover', (ev) => {
-            const drag = container._dkDrag;
-            if (!drag.row) return;
-            ev.preventDefault();
-            ev.dataTransfer.dropEffect = 'move';
-            const target = ev.target.closest('[data-reorder-id]');
-            if (!target || !container.contains(target)) return;
-            previewReorderMove(container, drag.row, target, ev.clientY);
-          });
-
-          container.addEventListener('drop', (ev) => {
-            const drag = container._dkDrag;
-            const commit = container._dkReorderCommit;
-            if (!drag.row || !commit) return;
-            ev.preventDefault();
+          function finishDrag(drag) {
+            if (!drag.active || !drag.row) return;
             drag.committed = true;
             const movingRow = drag.row;
             clearReorderDragState(container, movingRow);
+            const commit = container._dkReorderCommit;
             const newOrder = getReorderRowIds(container);
             drag.row = null;
+            drag.active = false;
             if (drag.startOrder && newOrder.join('|') !== drag.startOrder.join('|')) {
-              if (!commit(newOrder)) {
+              if (commit && !commit(newOrder)) {
                 restoreDomOrder(container, drag.startOrder);
               } else {
                 save();
@@ -1682,33 +1604,62 @@
             }
             syncReorderButtons(container);
             drag.startOrder = null;
-          });
+          }
 
-          container.addEventListener('dragstart', (ev) => {
-            const handle = ev.target.closest('.dk-drag-handle');
-            if (!handle || !container.contains(handle)) return;
-            const row = handle.closest('[data-reorder-id]');
+          container.addEventListener('pointerdown', (ev) => {
+            if (ev.button !== undefined && ev.button !== 0) return;
+            const zone = ev.target.closest('.dk-drag-zone');
+            if (!zone || !container.contains(zone)) return;
+            const row = zone.closest('[data-reorder-id]');
             if (!row) return;
             const drag = container._dkDrag;
-            drag.row = row;
-            drag.startOrder = getReorderRowIds(container);
-            drag.committed = false;
-            row.classList.add('dk-dragging');
-            ev.dataTransfer.effectAllowed = 'move';
-            ev.dataTransfer.setData('text/plain', row.dataset.reorderId || '');
-            ev.stopPropagation();
+            if (drag.active) return;
+            cancelHold(drag);
+            drag.pendingRow = row;
+            drag.pointerId = ev.pointerId;
+            drag.startX = ev.clientX;
+            drag.startY = ev.clientY;
+            drag.holdTimer = setTimeout(() => {
+              drag.holdTimer = null;
+              drag.row = row;
+              drag.pendingRow = null;
+              drag.startOrder = getReorderRowIds(container);
+              drag.committed = false;
+              drag.active = true;
+              row.classList.add('dk-dragging');
+              try {
+                zone.setPointerCapture(ev.pointerId);
+              } catch (_) { /* ignore */ }
+            }, DK_HOLD_MS);
           });
 
-          container.addEventListener('dragend', () => {
+          container.addEventListener('pointermove', (ev) => {
             const drag = container._dkDrag;
-            if (!drag.committed && drag.startOrder) {
-              restoreDomOrder(container, drag.startOrder);
-              syncReorderButtons(container);
+            if (drag.holdTimer && drag.pendingRow) {
+              const dx = ev.clientX - drag.startX;
+              const dy = ev.clientY - drag.startY;
+              if (Math.hypot(dx, dy) > 10) cancelHold(drag);
+              return;
             }
-            clearReorderDragState(container, drag.row);
-            drag.row = null;
-            drag.startOrder = null;
+            if (!drag.active || !drag.row || ev.pointerId !== drag.pointerId) return;
+            ev.preventDefault();
+            const target = document.elementFromPoint(ev.clientX, ev.clientY)?.closest('[data-reorder-id]');
+            if (target && container.contains(target)) {
+              previewReorderMove(container, drag.row, target, ev.clientY);
+            }
           });
+
+          function onPointerEnd(ev) {
+            const drag = container._dkDrag;
+            if (drag.holdTimer) cancelHold(drag);
+            if (drag.active && ev.pointerId === drag.pointerId) {
+              finishDrag(drag);
+              drag.pointerId = null;
+            }
+          }
+
+          container.addEventListener('pointerup', onPointerEnd);
+          container.addEventListener('pointercancel', onPointerEnd);
         }
 
         syncReorderButtons(container);
@@ -2751,7 +2702,9 @@
           const wrap = document.createElement('article');
           wrap.className = 'dk-deck-item dk-reorder-item';
           wrap.dataset.reorderId = d.id;
-          wrap.appendChild(createReorderControls('Reorder deck'));
+          wrap.appendChild(createDragZone('Hold to reorder deck'));
+          const body = document.createElement('div');
+          body.className = 'dk-deck-item-body';
           const open = document.createElement('button');
           open.type = 'button';
           open.className = 'dk-deck-open';
@@ -2765,6 +2718,14 @@
           open.addEventListener('click', () => openDeck(d.id));
           const actions = document.createElement('div');
           actions.className = 'dk-deck-actions';
+          const cloneBtn = document.createElement('button');
+          cloneBtn.type = 'button';
+          cloneBtn.className = 'dk-btn dk-btn-ghost';
+          cloneBtn.textContent = 'Clone';
+          cloneBtn.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            cloneDeckById(d.id);
+          });
           const reviewBtn = document.createElement('button');
           reviewBtn.type = 'button';
           reviewBtn.className = 'dk-btn dk-btn-primary';
@@ -2774,8 +2735,9 @@
             ev.stopPropagation();
             openReview(d.id, { scope: 'deck' });
           });
-          actions.appendChild(reviewBtn);
-          wrap.append(open, actions);
+          actions.append(cloneBtn, reviewBtn);
+          body.append(open, actions);
+          wrap.appendChild(body);
           list.appendChild(wrap);
         });
         attachReorderList(list, reorderDecks, reorderDecksByOrder);
@@ -2802,11 +2764,7 @@
           const group = document.createElement('div');
           group.className = 'dk-list dk-reorder-list';
           stacks.forEach((stack) => {
-            const row = renderStackItem(stack, deck.id);
-            row.classList.add('dk-reorder-item');
-            row.dataset.reorderId = stack.id;
-            row.insertBefore(createReorderControls('Reorder stack'), row.firstChild);
-            group.appendChild(row);
+            group.appendChild(renderStackItem(stack, deck.id, { reorder: true }));
           });
           attachReorderList(group, (fromId, toId) => reorderStacksInDeck(deck.id, fromId, toId), (ids) => reorderStacksInDeckByOrder(deck.id, ids));
           list.appendChild(group);
@@ -2924,6 +2882,86 @@
         } else {
           renderDecks();
         }
+      }
+
+      function cloneCopyName(name, fallback) {
+        const base = (name || fallback || 'Untitled').trim();
+        return base + ' (copy)';
+      }
+
+      function cloneCardData(source, rename) {
+        const copy = cardFromLegacy(JSON.parse(JSON.stringify(source)));
+        copy.id = uidId();
+        copy.createdAt = Date.now();
+        copy.updatedAt = Date.now();
+        copy.sections = (copy.sections || []).map((sec) => ({ ...sec, id: uidId() }));
+        copy.checklist = (copy.checklist || []).map((it) => ({
+          ...it,
+          id: uidId(),
+          done: !!it.done,
+          doneAt: it.doneAt || null,
+        }));
+        if (rename) copy.title = cloneCopyName(copy.title, 'Untitled card');
+        return copy;
+      }
+
+      function cloneStackData(source, rename) {
+        return {
+          id: uidId(),
+          name: rename ? cloneCopyName(source.name, 'Untitled stack') : (source.name || 'Untitled stack'),
+          createdAt: Date.now(),
+          cards: (Array.isArray(source.cards) ? source.cards : []).map((c) => cloneCardData(c, false)),
+        };
+      }
+
+      function cloneDeckData(source) {
+        return {
+          id: uidId(),
+          name: cloneCopyName(source.name, 'Untitled'),
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+          cards: (Array.isArray(source.cards) ? source.cards : []).map((c) => cloneCardData(c, false)),
+          stacks: (Array.isArray(source.stacks) ? source.stacks : []).map((s) => cloneStackData(s, false)),
+        };
+      }
+
+      function insertCloneAfter(list, sourceId, item) {
+        const idx = list.findIndex((entry) => entry.id === sourceId);
+        if (idx < 0) list.push(item);
+        else list.splice(idx + 1, 0, item);
+        return item;
+      }
+
+      function cloneDeckById(deckId) {
+        const deck = deckById(deckId);
+        if (!deck) return;
+        const clone = cloneDeckData(deck);
+        insertCloneAfter(state.decks, deckId, clone);
+        save();
+        openDeck(clone.id);
+      }
+
+      function cloneStackById(deckId, stackId) {
+        const deck = deckById(deckId);
+        const stack = deck ? stackById(deck, stackId) : null;
+        if (!deck || !stack) return;
+        const clone = cloneStackData(stack, true);
+        insertCloneAfter(deck.stacks, stackId, clone);
+        save();
+        openStack(clone.id);
+      }
+
+      function cloneCardById(deckId, stackId, cardId) {
+        const deck = deckById(deckId);
+        if (!deck) return;
+        const list = cardParentList(deck, stackId);
+        if (!list) return;
+        const source = list.find((c) => c.id === cardId);
+        if (!source) return;
+        const clone = cloneCardData(source, true);
+        insertCloneAfter(list, cardId, clone);
+        save();
+        openCard(clone.id, { stackId: stackId || null });
       }
 
       function showDeckTitleEditor() {
@@ -3071,7 +3109,7 @@
         main.appendChild(open);
         if (checklistPanel) main.appendChild(checklistBlock);
         if (opts.reorder) {
-          row.insertBefore(createReorderControls('Reorder card'), row.firstChild);
+          row.insertBefore(createDragZone('Hold to reorder card'), row.firstChild);
         }
         row.appendChild(main);
         return row;
@@ -3087,11 +3125,19 @@
         appendCardPreviewSections(card, host);
       }
 
-      function renderStackItem(stack, deckId) {
+      function renderStackItem(stack, deckId, opts) {
+        opts = opts || {};
         const row = document.createElement('article');
         row.className = 'dk-stack-item';
+        if (opts.reorder) {
+          row.classList.add('dk-reorder-item');
+          row.dataset.reorderId = stack.id;
+          row.appendChild(createDragZone('Hold to reorder stack'));
+        }
         const deck = deckById(deckId);
         const n = countActiveCards(stack.cards);
+        const body = document.createElement('div');
+        body.className = 'dk-stack-item-body';
         const open = document.createElement('button');
         open.type = 'button';
         open.className = 'dk-stack-open';
@@ -3102,22 +3148,30 @@
           activeDeckId = deckId;
           openStack(stack.id);
         });
-        const reviewBtn = document.createElement('button');
-        reviewBtn.type = 'button';
-        reviewBtn.className = 'dk-btn dk-btn-ghost';
-        reviewBtn.textContent = 'Review';
-        reviewBtn.addEventListener('click', (ev) => {
+        const actions = document.createElement('div');
+        actions.className = 'dk-item-actions';
+        const cloneBtn = document.createElement('button');
+        cloneBtn.type = 'button';
+        cloneBtn.className = 'dk-btn dk-btn-ghost';
+        cloneBtn.textContent = 'Clone';
+        cloneBtn.addEventListener('click', (ev) => {
           ev.stopPropagation();
-          openReview(deckId, { scope: 'stack', stackId: stack.id });
+          cloneStackById(deckId, stack.id);
         });
+        actions.appendChild(cloneBtn);
         if (n) {
-          const actions = document.createElement('div');
-          actions.className = 'dk-item-actions';
+          const reviewBtn = document.createElement('button');
+          reviewBtn.type = 'button';
+          reviewBtn.className = 'dk-btn dk-btn-ghost';
+          reviewBtn.textContent = 'Review';
+          reviewBtn.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            openReview(deckId, { scope: 'stack', stackId: stack.id });
+          });
           actions.appendChild(reviewBtn);
-          row.append(open, actions);
-        } else {
-          row.append(open);
         }
+        body.append(open, actions);
+        row.appendChild(body);
         return row;
       }
 
@@ -3131,14 +3185,18 @@
         const newCardDeckTop = document.getElementById('btn-new-card');
         const newCardTop = document.getElementById('btn-new-card-stack-top');
         const browseShare = document.getElementById('btn-browse-share');
+        const browseClone = document.getElementById('btn-browse-clone');
         const deckShare = document.getElementById('btn-deck-share');
+        const deckClone = document.getElementById('btn-deck-clone');
         const deckStatsInfo = deckStats(deck);
         browseReview.classList.toggle('hidden', inStack ? !countActiveCards(stack.cards) : !deckStatsInfo.totalCards);
         newStackTop.classList.toggle('hidden', inStack);
         newCardDeckTop.classList.toggle('hidden', inStack);
         newCardTop.classList.toggle('hidden', !inStack);
         browseShare.classList.toggle('hidden', !inStack);
+        browseClone.classList.toggle('hidden', !inStack);
         deckShare.classList.toggle('hidden', inStack);
+        deckClone.classList.toggle('hidden', inStack);
         browseReview.onclick = () => openReview(deck.id, inStack
           ? { scope: 'stack', stackId: stack.id }
           : { scope: 'deck' });
@@ -3200,11 +3258,7 @@
           const stackList = document.createElement('div');
           stackList.className = 'dk-list dk-reorder-list';
           stacks.forEach((s) => {
-            const row = renderStackItem(s, deck.id);
-            row.classList.add('dk-reorder-item');
-            row.dataset.reorderId = s.id;
-            row.insertBefore(createReorderControls('Reorder stack'), row.firstChild);
-            stackList.appendChild(row);
+            stackList.appendChild(renderStackItem(s, deck.id, { reorder: true }));
           });
           attachReorderList(stackList, (fromId, toId) => reorderStacksInDeck(deck.id, fromId, toId), (ids) => reorderStacksInDeckByOrder(deck.id, ids));
           list.appendChild(stackList);
@@ -3272,12 +3326,15 @@
         openList.className = 'dk-check-list';
         const rerender = () => renderCard();
         open.forEach((it) => openList.appendChild(checkRow(it, false, card, rerender)));
+        const addForm = document.createElement('form');
+        addForm.className = 'dk-check-add-form';
         const add = document.createElement('input');
         add.type = 'text';
         add.className = 'dk-check-add';
         add.placeholder = 'Add a task…';
-        add.addEventListener('keydown', (ev) => {
-          if (ev.key !== 'Enter') return;
+        add.setAttribute('enterkeyhint', 'done');
+        addForm.appendChild(add);
+        addForm.addEventListener('submit', (ev) => {
           ev.preventDefault();
           const value = add.value.trim();
           if (!value) return;
@@ -3287,7 +3344,7 @@
           renderChecklistEdit(card);
           host.querySelector('.dk-check-add')?.focus();
         });
-        wrap.append(openList, add);
+        wrap.append(openList, addForm);
         if (done.length) {
           const label = document.createElement('div');
           label.className = 'dk-completed-label';
@@ -3301,7 +3358,7 @@
       }
 
       function viewCheckRow(item, card, rerenderFn) {
-        const row = document.createElement('label');
+        const row = document.createElement('div');
         row.className = 'dk-view-check-row' + (item.done ? ' done' : '');
         const box = document.createElement('input');
         box.type = 'checkbox';
@@ -3709,6 +3766,7 @@
           box.append(label, checklistHost);
           body.appendChild(box);
         }
+        body.scrollTop = 0;
       }
 
       function cardParentList(deck, stackId) {
@@ -3755,7 +3813,7 @@
           sections: [],
           checklist: [],
         };
-        list.unshift(card);
+        list.push(card);
         save();
         openCard(card.id, { stackId: activeStackId });
       }
@@ -3869,9 +3927,17 @@
         if (!activeDeckId) return;
         openShareModal({ type: 'deck', deckId: activeDeckId });
       });
+      document.getElementById('btn-deck-clone').addEventListener('click', () => {
+        if (!activeDeckId) return;
+        cloneDeckById(activeDeckId);
+      });
       document.getElementById('btn-browse-share').addEventListener('click', () => {
         if (!activeDeckId || !activeStackId) return;
         openShareModal({ type: 'stack', deckId: activeDeckId, stackId: activeStackId });
+      });
+      document.getElementById('btn-browse-clone').addEventListener('click', () => {
+        if (!activeDeckId || !activeStackId) return;
+        cloneStackById(activeDeckId, activeStackId);
       });
       document.getElementById('btn-share-card').addEventListener('click', () => {
         const loc = activeCardLocation();
@@ -3882,6 +3948,11 @@
           stackId: loc.stack ? loc.stack.id : null,
           cardId: loc.card.id,
         });
+      });
+      document.getElementById('btn-clone-card').addEventListener('click', () => {
+        const loc = activeCardLocation();
+        if (!loc) return;
+        cloneCardById(loc.deck.id, loc.stack ? loc.stack.id : null, loc.card.id);
       });
       document.getElementById('dk-share-cancel').addEventListener('click', closeShareModal);
       document.getElementById('dk-share-ok').addEventListener('click', performShare);
