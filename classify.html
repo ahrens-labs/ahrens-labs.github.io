@@ -796,6 +796,23 @@
             overflow: hidden;
             text-overflow: ellipsis;
         }
+        body.classify-app a.cl-link {
+            color: #2563eb;
+            font-weight: 500;
+            text-decoration: none;
+            position: relative;
+            z-index: 20;
+        }
+        body.classify-app a.cl-link:hover {
+            color: #1d4ed8;
+            text-decoration: underline;
+        }
+        .dark body.classify-app a.cl-link {
+            color: #60a5fa;
+        }
+        .dark body.classify-app a.cl-link:hover {
+            color: #93c5fd;
+        }
         @media (max-width: 900px) {
             body.classify-app .cl-week-task__meta-row {
                 flex-wrap: wrap;
@@ -7720,7 +7737,7 @@
         function linkify(text) {
             if(!text) return '';
             const urlRegex = /(https?:\/\/[^\s]+)/g;
-            return text.replace(urlRegex, url => `<a href="${url}" target="_blank" class="text-brand-500 hover:underline z-20 relative font-medium">${url}</a>`);
+            return text.replace(urlRegex, url => `<a href="${url}" target="_blank" rel="noopener noreferrer" class="cl-link">${url}</a>`);
         }
 
         // --- Navigation / URL routing ---
