@@ -12980,7 +12980,16 @@
         }
 
         let pendingTimeTaskId = null;
+        let completionSaveInFlight = false;
+
+        function resetTimeModalSaveButton() {
+            const saveBtn = document.querySelector('#timeModal button[onclick="saveTimeAndComplete()"]');
+            setActionButtonBusy(saveBtn, false);
+        }
+
         function openTimeModal(taskId) {
+            completionSaveInFlight = false;
+            resetTimeModalSaveButton();
             pendingTimeTaskId = taskId;
             const task = tasks.find(t => t.id === taskId);
             document.getElementById('timeInput').value = (Number(task?.actualMinutes) >= 2) ? task.actualMinutes : '';
@@ -13002,6 +13011,8 @@
         function closeTimeModal() {
             closeClassifyModalImmediate('timeModal', 'timePanel', () => {
                 pendingTimeTaskId = null;
+                completionSaveInFlight = false;
+                resetTimeModalSaveButton();
                 document.getElementById('timeInput').value = '';
                 document.getElementById('completionPercent').value = '';
                 document.getElementById('completionRemaining').value = '';
@@ -13833,15 +13844,12 @@
         }
 
         function saveTimeAndComplete() {
-            const saveBtn = document.querySelector('#timeModal button[onclick="saveTimeAndComplete()"]');
-            setActionButtonBusy(saveBtn, true, 'Saving…');
+            if(completionSaveInFlight) return;
             if(!pendingTimeTaskId) {
-                setActionButtonBusy(saveBtn, false);
                 return closeTimeModal();
             }
             const task = tasks.find(t => t.id === pendingTimeTaskId);
             if(!task) {
-                setActionButtonBusy(saveBtn, false);
                 return closeTimeModal();
             }
 
@@ -13857,20 +13865,17 @@
                 const remainingProvided = remainingInput !== null && String(remainingInput).trim() !== '';
                 let remaining = Math.round(Number(remainingInput));
                 if(!Number.isFinite(percent) || percent <= 0 || percent >= 100) {
-                    setActionButtonBusy(saveBtn, false);
                     showNotification('Enter a percent between 1 and 99', 'error');
                     return;
                 }
                 if(!remainingProvided) {
                     const baseDuration = Math.round(Number(task.duration));
                     if(!Number.isFinite(baseDuration) || baseDuration <= 0) {
-                        setActionButtonBusy(saveBtn, false);
                         showNotification('Enter remaining minutes (no estimate to calculate from)', 'error');
                         return;
                     }
                     remaining = Math.max(1, Math.round(baseDuration * (100 - percent) / 100));
                 } else if(!Number.isFinite(remaining) || remaining <= 0) {
-                    setActionButtonBusy(saveBtn, false);
                     showNotification('Enter remaining minutes greater than 0', 'error');
                     return;
                 }
@@ -13886,6 +13891,7 @@
                 partialBaseTitle = baseTitle;
             }
 
+            completionSaveInFlight = true;
             recordClassifyUndoPoint({ force: true });
             let carryOver = null;
             let finishOnDifferentDay = false;
