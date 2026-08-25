@@ -9948,7 +9948,8 @@
         }
 
         function resolveTaskReference(query, excludeId = null, options = {}) {
-            const needle = String(query || '').trim().toLowerCase();
+            const normalizedQuery = normalizeTaskReferenceQuery(query);
+            const needle = normalizedQuery.toLowerCase();
             if(!needle) return { error: 'Missing assignment name.' };
             const candidates = (tasks || []).filter(t => t.id !== excludeId && !t.completed);
 
@@ -9987,7 +9988,7 @@
             };
 
             const exactTitle = candidates.filter(t => String(t.title || '').trim().toLowerCase() === needle);
-            const exactResolved = resolveCandidateList(exactTitle, query);
+            const exactResolved = resolveCandidateList(exactTitle, normalizedQuery);
             if(exactResolved) {
                 if(exactResolved.ambiguous || exactResolved.id) return exactResolved;
             }
@@ -9997,12 +9998,12 @@
             if(containsTitle.length > 1) {
                 const starts = containsTitle.filter(t => String(t.title || '').trim().toLowerCase().startsWith(needle));
                 const pool = starts.length > 0 ? starts : containsTitle;
-                const containsResolved = resolveCandidateList(pool, query);
+                const containsResolved = resolveCandidateList(pool, normalizedQuery);
                 if(containsResolved) return containsResolved;
             }
 
             const exactSubject = candidates.filter(t => String(t.subject || '').trim().toLowerCase() === needle);
-            const exactSubjectResolved = resolveCandidateList(exactSubject, query);
+            const exactSubjectResolved = resolveCandidateList(exactSubject, normalizedQuery);
             if(exactSubjectResolved) {
                 if(exactSubjectResolved.ambiguous || exactSubjectResolved.id) return exactSubjectResolved;
             }
@@ -10010,7 +10011,7 @@
             const containsSubject = candidates.filter(t => String(t.subject || '').trim().toLowerCase().includes(needle));
             if(containsSubject.length === 1) return { id: containsSubject[0].id, task: containsSubject[0] };
 
-            return { error: `No assignment found for "${String(query || '').trim()}".` };
+            return { error: `No assignment found for "${normalizedQuery}".` };
         }
 
         function formatCommandTaskOption(task, index) {
@@ -10070,6 +10071,24 @@
             const match = raw.match(/^["']([^"']*)["'](?:\s+(.*))?$/s);
             if(!match) return { quoted: null, rest: raw };
             return { quoted: match[1].trim(), rest: (match[2] || '').trim() };
+        }
+
+        function normalizeTaskReferenceQuery(query) {
+            const trimmed = String(query || '').trim();
+            const parsed = parseQuotedPrefix(trimmed);
+            return (parsed.quoted != null ? parsed.quoted : trimmed).trim();
+        }
+
+        function getQuickEntryDependencyStopLookahead() {
+            return String.raw`(?:\s+(?:due|by|on|for|before|after|different|\d+\s*(?:m|min|mins|minutes?|h|hr|hrs|hours?)\b)|$)`;
+        }
+
+        function getQuickEntryDependencyTargetPattern() {
+            return String.raw`(?:"[^"]+"|'[^']+'|.+?)`;
+        }
+
+        function parseDependencyTargetQuery(raw) {
+            return normalizeTaskReferenceQuery(String(raw || '').replace(/[.,;]+$/, '').trim());
         }
 
         function parseNotesArgument(text) {
@@ -12571,17 +12590,18 @@
                 return result;
             }
 
-            const dependencyStop = String.raw`\s+(?:due|by|on|for|before|after|different|\d+\s*(?:m|min|mins|minutes?|h|hr|hrs|hours?)\b|$)`;
+            const dependencyStop = getQuickEntryDependencyStopLookahead();
+            const dependencyTarget = getQuickEntryDependencyTargetPattern();
             const dependencyPatterns = [
-                { type: 'after', regex: new RegExp(`\\b(?:must\\s+be\\s+)?after\\s+(.+?)(?=${dependencyStop})`, 'gi') },
-                { type: 'before', regex: new RegExp(`\\b(?:must\\s+be\\s+)?before\\s+(.+?)(?=${dependencyStop})`, 'gi') },
-                { type: 'differentDay', regex: /\b(?:must\s+be\s+on\s+a\s+different\s+day\s+(?:than|from)|different\s+day\s+(?:than|from))\s+(.+?)(?=\s+(?:due|by|on|for|before|after|different|\d+\s*(?:m|min|mins|minutes?|h|hr|hrs|hours?)\b)|$)/gi }
+                { type: 'after', regex: new RegExp(`\\b(?:must\\s+be\\s+)?after\\s+(${dependencyTarget})(?=${dependencyStop})`, 'gi') },
+                { type: 'before', regex: new RegExp(`\\b(?:must\\s+be\\s+)?before\\s+(${dependencyTarget})(?=${dependencyStop})`, 'gi') },
+                { type: 'differentDay', regex: new RegExp(`\\b(?:must\\s+be\\s+on\\s+a\\s+different\\s+day\\s+(?:than|from)|different\\s+day\\s+(?:than|from))\\s+(${dependencyTarget})(?=${dependencyStop})`, 'gi') }
             ];
             dependencyPatterns.forEach(({ type, regex }) => {
                 regex.lastIndex = 0;
                 let match;
                 while((match = regex.exec(working)) !== null) {
-                    const query = match[1].replace(/[.,;]+$/, '').trim();
+                    const query = parseDependencyTargetQuery(match[1]);
                     const taskId = findTaskIdByTitleQuery(query, excludeTaskId);
                     if(taskId) {
                         const listKey = type === 'before' ? 'mustBeBefore' : (type === 'differentDay' ? 'mustBeDifferentDay' : 'mustBeAfter');
