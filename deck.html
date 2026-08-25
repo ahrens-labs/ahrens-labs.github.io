@@ -3538,7 +3538,7 @@
         list.innerHTML = '';
         if (stacks.length) {
           const stackList = document.createElement('div');
-          stackList.className = 'dk-list dk-reorder-list';
+          stackList.className = 'dk-list dk-card-grid dk-reorder-list';
           stacks.forEach((s) => {
             stackList.appendChild(renderStackItem(s, deck.id, { reorder: true }));
           });
