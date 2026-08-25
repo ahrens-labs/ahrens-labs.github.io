@@ -10120,7 +10120,7 @@
                 return;
             }
             if(prompt) {
-                prompt.textContent = pendingCommandDisambiguation.pickTarget === 'dependency'
+                prompt.textContent = isCommandDependencyPickTarget(pendingCommandDisambiguation.pickTarget)
                     ? 'Multiple dependency matches — type a number:'
                     : 'Multiple matches — type a number:';
             }
@@ -10175,6 +10175,41 @@
 
         function parseDependencyTargetQuery(raw) {
             return normalizeTaskReferenceQuery(String(raw || '').replace(/[.,;]+$/, '').trim());
+        }
+
+        function getDependencyListKey(type) {
+            if(type === 'before') return 'mustBeBefore';
+            if(type === 'differentDay') return 'mustBeDifferentDay';
+            return 'mustBeAfter';
+        }
+
+        function findResolvedDependencyTaskId(type, query, resolvedDependencies = []) {
+            const normalizedQuery = normalizeTaskReferenceQuery(query).toLowerCase();
+            if(!normalizedQuery) return null;
+            for(const entry of (resolvedDependencies || [])) {
+                if(entry.type !== type) continue;
+                if(normalizeTaskReferenceQuery(entry.query).toLowerCase() === normalizedQuery) {
+                    return entry.taskId || null;
+                }
+            }
+            return null;
+        }
+
+        function isCommandDependencyPickTarget(pickTarget) {
+            return pickTarget === 'dependency'
+                || pickTarget === 'createDependency'
+                || pickTarget === 'updateSettingsDependency';
+        }
+
+        function promptCommandDependencyDisambiguation(parsed, pendingDependency, pickTarget, resolvedDependencies = []) {
+            pendingCommandDisambiguation = {
+                parsed: { ...parsed, resolvedDependencies },
+                options: pendingDependency.options,
+                pickTarget,
+                pendingDependency
+            };
+            renderCommandDisambiguationPicker();
+            focusClassifyCommandLine();
         }
 
         function parseNotesArgument(text) {
@@ -11147,6 +11182,18 @@
                         depTaskId: option.id
                     };
                 }
+                if(pendingCommandDisambiguation.pickTarget === 'createDependency'
+                    || pendingCommandDisambiguation.pickTarget === 'updateSettingsDependency') {
+                    const pendingDep = pendingCommandDisambiguation.pendingDependency;
+                    const baseParsed = pendingCommandDisambiguation.parsed;
+                    return {
+                        ...baseParsed,
+                        resolvedDependencies: [
+                            ...(baseParsed.resolvedDependencies || []),
+                            { type: pendingDep.type, query: pendingDep.query, taskId: option.id }
+                        ]
+                    };
+                }
                 return {
                     ...pendingCommandDisambiguation.parsed,
                     taskId: option.id
@@ -11861,10 +11908,20 @@
 
             if(parsed.action === 'create') {
                 const detailsText = parsed.details || '';
-                const quickParsed = parseAssignmentQuickEntry(detailsText, { title: parsed.title });
+                const resolvedDependencies = parsed.resolvedDependencies || [];
+                const quickParsed = parseAssignmentQuickEntry(detailsText, { title: parsed.title, resolvedDependencies });
                 if(quickParsed.errors?.length) {
                     showNotification(quickParsed.errors[0], 'error');
                     return false;
+                }
+                if(quickParsed.pendingDependencies?.length) {
+                    promptCommandDependencyDisambiguation(
+                        parsed,
+                        quickParsed.pendingDependencies[0],
+                        'createDependency',
+                        resolvedDependencies
+                    );
+                    return true;
                 }
                 const subject = resolveCanonicalSubject(quickParsed.subject || 'General');
                 const repeatRule = normalizeRepeatRule(quickParsed.repeatRule || { type: 'none' });
@@ -11976,6 +12033,7 @@
                     showNotification(`Created "${normalizedTask.title}"`, 'success');
                 }
                 if(quickParsed.warnings?.length) showNotification(quickParsed.warnings.join(' '), 'info');
+                clearCommandDisambiguation();
                 return true;
             }
 
@@ -12119,12 +12177,31 @@
             }
 
             if(parsed.action === 'updateSettings') {
-                return applyAssignmentSettingsFromCommand(
+                const resolvedDependencies = parsed.resolvedDependencies || [];
+                const quickParsed = parseAssignmentQuickEntry(parsed.settingsBody, {
+                    title: parsed.taskQuery,
+                    forUpdate: true,
+                    excludeTaskId: taskId,
+                    resolvedDependencies
+                });
+                if(quickParsed.pendingDependencies?.length) {
+                    promptCommandDependencyDisambiguation(
+                        { ...parsed, taskId },
+                        quickParsed.pendingDependencies[0],
+                        'updateSettingsDependency',
+                        resolvedDependencies
+                    );
+                    return true;
+                }
+                if(quickParsed.warnings?.length) showNotification(quickParsed.warnings.join(' '), 'info');
+                const updated = applyAssignmentSettingsFromCommand(
                     taskId,
                     task,
-                    parsed.settings,
+                    quickParsed,
                     parsed.settingsBody
                 );
+                if(updated) clearCommandDisambiguation();
+                return updated;
             }
 
             if(parsed.action === 'subject') {
@@ -12643,7 +12720,7 @@
             return { title: titlePart, details };
         }
 
-        function parseAssignmentQuickEntry(text, { title = '', excludeTaskId = null, forUpdate = false } = {}) {
+        function parseAssignmentQuickEntry(text, { title = '', excludeTaskId = null, forUpdate = false, resolvedDependencies = [] } = {}) {
             let working = normalizeClassifyCommandText(text).trim();
             const touched = createQuickEntryTouchedFlags();
             const result = {
@@ -12666,6 +12743,7 @@
                 weekDueOnly: false,
                 warnings: [],
                 errors: [],
+                pendingDependencies: [],
                 touched
             };
 
@@ -12688,13 +12766,27 @@
                 let match;
                 while((match = regex.exec(working)) !== null) {
                     const query = parseDependencyTargetQuery(match[1]);
-                    const taskId = findTaskIdByTitleQuery(query, excludeTaskId);
-                    if(taskId) {
-                        const listKey = type === 'before' ? 'mustBeBefore' : (type === 'differentDay' ? 'mustBeDifferentDay' : 'mustBeAfter');
-                        if(!result[listKey].includes(taskId)) result[listKey].push(taskId);
+                    if(!query) {
+                        working = stripQuickEntryMatch(working, match);
+                        regex.lastIndex = 0;
+                        continue;
+                    }
+                    const listKey = getDependencyListKey(type);
+                    const preResolvedId = findResolvedDependencyTaskId(type, query, resolvedDependencies);
+                    if(preResolvedId) {
+                        if(!result[listKey].includes(preResolvedId)) result[listKey].push(preResolvedId);
                         touched.dependencies = true;
-                    } else if(query) {
-                        result.warnings.push(`Could not find assignment "${query}" for dependency.`);
+                    } else {
+                        const ref = resolveTaskReference(query, excludeTaskId);
+                        if(ref.id) {
+                            if(!result[listKey].includes(ref.id)) result[listKey].push(ref.id);
+                            touched.dependencies = true;
+                        } else if(ref.ambiguous) {
+                            result.pendingDependencies.push({ type, query, options: ref.options });
+                            touched.dependencies = true;
+                        } else {
+                            result.warnings.push(ref.error || `Could not find assignment "${query}" for dependency.`);
+                        }
                     }
                     working = stripQuickEntryMatch(working, match);
                     regex.lastIndex = 0;
