@@ -8689,6 +8689,80 @@
             });
         }
 
+        function resolveDependencyTargetIdForTask(task, depTask) {
+            if(!task || !depTask) return null;
+            if(!depTask.repeatGroupId) return depTask.id;
+            const weekKey = getRepeatGroupWeekKey(task);
+            if(!weekKey) return depTask.id;
+            const counterpart = matchRepeatGroupOccurrenceInWeek(
+                depTask,
+                getRepeatGroupTasksForWeek(depTask.repeatGroupId, weekKey)
+            );
+            return counterpart?.id || depTask.id;
+        }
+
+        function getRepeatSeriesTaskIds(taskId) {
+            const task = tasks.find(t => t.id === taskId);
+            if(!task?.repeatGroupId) return [taskId];
+            return tasks.filter(t => t.repeatGroupId === task.repeatGroupId).map(t => t.id);
+        }
+
+        function removeTaskDependencyLink(taskId, depType, depId) {
+            const task = tasks.find(t => t.id === taskId);
+            const depTask = tasks.find(t => t.id === depId);
+            if(!task || !depTask) return;
+            const taskIds = getRepeatSeriesTaskIds(taskId);
+
+            tasks = tasks.map(t => {
+                if(!taskIds.includes(t.id)) return t;
+                const targetDepId = resolveDependencyTargetIdForTask(t, depTask);
+                if(!targetDepId) return t;
+                const next = { ...t };
+                if(depType === 'after') {
+                    next.mustBeAfter = (next.mustBeAfter || []).filter(id => id !== targetDepId);
+                } else if(depType === 'before') {
+                    next.mustBeBefore = (next.mustBeBefore || []).filter(id => id !== targetDepId);
+                } else if(depType === 'differentDay') {
+                    next.mustBeDifferentDay = (next.mustBeDifferentDay || []).filter(id => id !== targetDepId);
+                }
+                return next;
+            });
+
+            taskIds.forEach(id => applyReciprocalDependenciesForTask(id));
+            syncAllTaskDependencies();
+        }
+
+        function removeRepeatFromTask(taskId) {
+            const task = tasks.find(t => t.id === taskId);
+            if(!task) return false;
+            const groupId = task.repeatGroupId;
+            if(groupId) {
+                const removedIds = tasks.filter(t => t.repeatGroupId === groupId && t.id !== taskId).map(t => t.id);
+                tasks = tasks.filter(t => t.repeatGroupId !== groupId || t.id === taskId);
+                tasks = tasks.map(t => t.id === taskId
+                    ? normalizeTask({
+                        ...t,
+                        repeatGroupId: null,
+                        repeatWeekKey: null,
+                        repeatRule: normalizeRepeatRule({ type: 'none' }),
+                        weekDueOnly: false
+                    })
+                    : t);
+                if(removedIds.length) removeDependencyReferences(removedIds);
+            } else {
+                tasks = tasks.map(t => t.id === taskId
+                    ? normalizeTask({
+                        ...t,
+                        repeatRule: normalizeRepeatRule({ type: 'none' }),
+                        weekDueOnly: false
+                    })
+                    : t);
+            }
+            applyReciprocalDependenciesForTask(taskId);
+            syncAllTaskDependencies();
+            return true;
+        }
+
         function clearCompleted(confirmed = false) {
             if(confirmed) {
                 recordClassifyUndoPoint({ force: true });
@@ -10514,7 +10588,7 @@
         const CLASSIFY_COMMAND_HELP_HTML = `
             <div class="text-left text-sm space-y-3 max-h-[60vh] overflow-y-auto">
                 <div><strong>Create &amp; edit</strong><br>
-                new · add Homework · add "Timeline Essay" due friday 30m · add Essay subject Science before "Draft 1" · Test every wednesday · "Lab" due friday high priority · rename X to Y · delete X · undo</div>
+                new · add Homework · add "Timeline Essay" due friday 30m · "Essay" not before Quiz · "Test" remove weekly · rename X to Y · delete X · undo</div>
                 <div><strong>Schedule</strong><br>
                 due friday 5pm · on/to friday 3pm · target week · exact date · flexible / no date · move to friday 3pm · clear time · auto plan</div>
                 <div><strong>Subjects</strong><br>
@@ -10837,7 +10911,10 @@
                 new RegExp(String.raw`${lead}(?:at\s+)?${timePat}\b`, 'i'),
                 new RegExp(`${lead}target\\s+week\\b`, 'i'),
                 new RegExp(`${lead}exact(?:\\s+date)?\\b`, 'i'),
-                new RegExp(`${lead}(?:no\\s+date|flexible|unscheduled)\\b`, 'i')
+                new RegExp(`${lead}(?:no\\s+date|flexible|unscheduled)\\b`, 'i'),
+                new RegExp(`${lead}not\\s+(?:must\\s+be\\s+)?(?:after|before)\\s+`, 'i'),
+                new RegExp(`${lead}not\\s+(?:different\\s+day|on\\s+a\\s+different\\s+day)\\s+`, 'i'),
+                new RegExp(`${lead}(?:remove|delete|clear|unset)\\s+(?:weekly|daily|repeat|repeating|repeats?|after|before|duration|priority|difficulty|due|time|notes)\\b`, 'i')
             ];
         }
 
@@ -10845,6 +10922,74 @@
             const text = String(body || '').trim();
             if(!text) return false;
             return getAssignmentSettingsDetailPatterns().some(re => re.test(text));
+        }
+
+        function looksLikeAssignmentSettingsRemovalBody(body) {
+            const text = String(body || '').trim();
+            if(!text) return false;
+            return /\bnot\s+(?:must\s+be\s+)?(?:after|before)\s+/i.test(text)
+                || /\bnot\s+(?:different\s+day|on\s+a\s+different\s+day)\s+/i.test(text)
+                || /\b(?:remove|delete|clear|unset)\s+(?:weekly|daily|repeat|repeating|repeats?|after|before|duration|priority|difficulty|due|time|notes|different\s+day)\b/i.test(text)
+                || /^no\s+(?:longer\s+)?(?:repeat(?:ing)?|repeats?)\b/i.test(text);
+        }
+
+        function parseAssignmentRemovalCommand(body, taskQuery) {
+            if(!taskQuery || !body) return null;
+            const text = String(body || '').trim();
+            if(!text || !looksLikeAssignmentSettingsRemovalBody(text)) return null;
+
+            let match = text.match(/^not\s+(after|before)\s+(.+)$/i);
+            if(match) {
+                return {
+                    action: 'removeDependency',
+                    taskQuery,
+                    depType: match[1].toLowerCase(),
+                    depQuery: match[2].trim()
+                };
+            }
+
+            match = text.match(/^not\s+(?:must\s+be\s+on\s+a\s+different\s+day\s+(?:than|from)|different\s+day\s+(?:than|from))\s+(.+)$/i);
+            if(match) {
+                return {
+                    action: 'removeDependency',
+                    taskQuery,
+                    depType: 'differentDay',
+                    depQuery: match[1].trim()
+                };
+            }
+
+            match = text.match(/^(?:remove|delete|clear|unset)\s+(after|before)\s+(.+)$/i);
+            if(match) {
+                return {
+                    action: 'removeDependency',
+                    taskQuery,
+                    depType: match[1].toLowerCase(),
+                    depQuery: match[2].trim()
+                };
+            }
+
+            match = text.match(/^(?:remove|delete|clear|unset)\s+(?:must\s+be\s+on\s+a\s+different\s+day\s+(?:than|from)|different\s+day\s+(?:than|from))\s+(.+)$/i);
+            if(match) {
+                return {
+                    action: 'removeDependency',
+                    taskQuery,
+                    depType: 'differentDay',
+                    depQuery: match[1].trim()
+                };
+            }
+
+            if(/^(?:remove|delete|clear|unset)\s+(?:(?:the\s+)?(?:repeat(?:ing)?(?:\s+(?:schedule|rule))?|repeats?)|(?:daily|weekly)(?:\s+repeat(?:ing)?)?)$/i.test(text)
+                || /^not\s+(?:repeat(?:ing)?|repeats?|daily|weekly)\b/i.test(text)
+                || /^no\s+(?:longer\s+)?(?:repeat(?:ing)?|repeats?)\b/i.test(text)) {
+                return { action: 'removeRepeat', taskQuery };
+            }
+
+            match = text.match(/^(?:remove|delete|clear|unset)\s+(duration|priority|difficulty|notes|due(?:\s+time)?|fixed\s+time|time)$/i);
+            if(match) {
+                return { action: 'removeSetting', taskQuery, setting: match[1].toLowerCase().replace(/\s+/g, '') };
+            }
+
+            return null;
         }
 
         function startsWithKnownCommandVerb(text) {
@@ -10867,7 +11012,7 @@
             let details = text.slice(idx).trim();
             ({ title: titlePart, details } = rejoinDanglingEveryInTitle(titlePart, details));
 
-            if(!titlePart || !details || !looksLikeAssignmentSettingsBody(details)) {
+            if(!titlePart || !details || (!looksLikeAssignmentSettingsBody(details) && !looksLikeAssignmentSettingsRemovalBody(details))) {
                 return { body: text, taskQuery: null };
             }
 
@@ -11148,6 +11293,8 @@
 
         function parsePresetTaskCommand(body, taskQuery) {
             if(!taskQuery || !body) return null;
+            const removalParsed = parseAssignmentRemovalCommand(body, taskQuery);
+            if(removalParsed) return removalParsed;
             let match = body.match(/^due(?:\s+to)?\s+(.+)$/i);
             if(match) return { action: 'due', taskQuery, destination: match[1].trim() };
             match = body.match(/^move\s+to\s+(.+)$/i)
@@ -11514,6 +11661,31 @@
             if(match) return { action: 'find', query: match[1].trim() };
 
             if(/^undo$/i.test(commandText)) return { action: 'undo' };
+
+            match = commandText.match(/^(.+?)\s+not\s+(after|before)\s+(.+)$/i);
+            if(match) {
+                return applyPresetTaskQuery({
+                    action: 'removeDependency',
+                    taskQuery: match[1].trim(),
+                    depType: match[2].toLowerCase(),
+                    depQuery: match[3].trim()
+                }, presetTaskQuery);
+            }
+
+            match = commandText.match(/^(.+?)\s+not\s+(?:must\s+be\s+on\s+a\s+different\s+day\s+(?:than|from)|different\s+day\s+(?:than|from))\s+(.+)$/i);
+            if(match) {
+                return applyPresetTaskQuery({
+                    action: 'removeDependency',
+                    taskQuery: match[1].trim(),
+                    depType: 'differentDay',
+                    depQuery: match[2].trim()
+                }, presetTaskQuery);
+            }
+
+            match = commandText.match(/^(.+?)\s+(?:remove|delete|clear|unset)\s+(?:weekly|daily|repeat|repeating|repeats?)$/i);
+            if(match) {
+                return applyPresetTaskQuery({ action: 'removeRepeat', taskQuery: match[1].trim() }, presetTaskQuery);
+            }
 
             match = commandText.match(/^(?:remove|clear)\s+(.+?)\s+(after|before)\s+(.+)$/i);
             if(match) {
@@ -12496,20 +12668,47 @@
                     depTask = depRef.task;
                 }
                 mutateClassifyData(() => {
-                    tasks = tasks.map(t => {
-                        if(t.id !== taskId) return t;
-                        const next = { ...t };
-                        if(parsed.depType === 'after') {
-                            next.mustBeAfter = (next.mustBeAfter || []).filter(id => id !== depId);
-                        } else {
-                            next.mustBeBefore = (next.mustBeBefore || []).filter(id => id !== depId);
-                        }
-                        return next;
-                    });
-                    applyReciprocalDependenciesForTask(taskId);
-                    syncAllTaskDependencies();
+                    removeTaskDependencyLink(taskId, parsed.depType, depId);
                 }, getCommandLineScheduleRefreshOptions(task, depTask));
-                showNotification(`Removed "${task.title}" ${parsed.depType} "${depTask?.title || parsed.depQuery}"`, 'success');
+                const relation = parsed.depType === 'before'
+                    ? 'before'
+                    : (parsed.depType === 'differentDay' ? 'on a different day than' : 'after');
+                showNotification(`Removed "${task.title}" ${relation} "${depTask?.title || parsed.depQuery}"`, 'success');
+                return true;
+            }
+
+            if(parsed.action === 'removeRepeat') {
+                mutateClassifyData(() => {
+                    removeRepeatFromTask(taskId);
+                }, getCommandLineScheduleRefreshOptions(task));
+                showNotification(`"${task.title}" no longer repeats`, 'success');
+                return true;
+            }
+
+            if(parsed.action === 'removeSetting') {
+                const seriesIds = getRepeatSeriesTaskIds(taskId);
+                const setting = String(parsed.setting || '').toLowerCase();
+                mutateClassifyData(() => {
+                    tasks = tasks.map(t => {
+                        if(!seriesIds.includes(t.id)) return t;
+                        const next = { ...t };
+                        if(setting === 'duration') next.duration = null;
+                        else if(setting === 'priority') next.priority = 'Medium';
+                        else if(setting === 'difficulty') next.difficulty = 'Medium';
+                        else if(setting === 'notes') next.notes = '';
+                        else if(setting === 'duetime') next.dueTime = null;
+                        else if(setting === 'time' || setting === 'fixedtime') {
+                            next.time = null;
+                            next.timeSource = null;
+                            next.assignmentMode = 'ADJUSTABLE';
+                            next.startedAt = null;
+                        }
+                        return normalizeTask(next);
+                    });
+                    if(task.repeatGroupId) enforceRepeatGroupFixedTimes(task.repeatGroupId);
+                }, getCommandLineScheduleRefreshOptions(task));
+                const label = setting === 'duetime' ? 'due time' : (setting === 'fixedtime' ? 'fixed time' : setting);
+                showNotification(`Removed ${label} from "${task.title}"`, 'success');
                 return true;
             }
 
