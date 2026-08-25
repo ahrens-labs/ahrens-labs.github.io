@@ -10326,9 +10326,9 @@
         const CLASSIFY_COMMAND_HELP_HTML = `
             <div class="text-left text-sm space-y-3 max-h-[60vh] overflow-y-auto">
                 <div><strong>Create &amp; edit</strong><br>
-                new · add Homework due friday · "Quiz 30m" · Test every wednesday · "Lab" due friday · rename X to Y · delete X · undo</div>
+                new · add Homework · add "Timeline Essay" due friday 30m · add Essay subject Science before "Draft 1" · Test every wednesday · "Lab" due friday high priority · rename X to Y · delete X · undo</div>
                 <div><strong>Schedule</strong><br>
-                move to friday 3pm · target week · exact date · flexible / no date · clear time · auto plan</div>
+                due friday 5pm · on/to friday 3pm · target week · exact date · flexible / no date · move to friday 3pm · clear time · auto plan</div>
                 <div><strong>Subjects</strong><br>
                 Science color purple · Science color #2563eb · Writing color (32, 145, 87) · rename Science to Physics · delete Spanish · list subjects · assignments in Science</div>
                 <div><strong>Navigate</strong><br>
@@ -10625,33 +10625,38 @@
 
         const COMMAND_LINE_LEADING_VERBS = /^(?:help|\?|commands|stats|summary|status|new|add|create|move|schedule|reschedule|complete|done|finish|mark|delete|remove|rename|start|undo|open|switch|go|list|block|vacation|plan|auto|weekly|clear|set|find|tasks|assignments|show|today|next|previous|prev|\d+$)/i;
 
+        function getAssignmentSettingsDetailPatterns({ leadingSpace = false } = {}) {
+            const weekday = QUICK_ENTRY_DATE_WORDS;
+            const timePat = String.raw`\d{1,2}(?::\d{2})?\s*(?:am|pm)`;
+            const lead = leadingSpace ? '\\s+' : '\\b';
+            return [
+                new RegExp(`${lead}(?:due|by)\\b`, 'i'),
+                new RegExp(`${lead}(?:repeat\\s+)?every\\b`, 'i'),
+                new RegExp(`${lead}(?:repeats?\\s+)?(?:daily|weekly)\\b`, 'i'),
+                new RegExp(`${lead}(?:must\\s+be\\s+)?(?:after|before)\\s+`, 'i'),
+                new RegExp(`${lead}(?:must\\s+be\\s+on\\s+a\\s+different\\s+day|different\\s+day\\s+(?:than|from))\\s+`, 'i'),
+                new RegExp(`${lead}\\d+\\s*(?:m|min|mins|minutes?)\\b`, 'i'),
+                new RegExp(`${lead}\\d+m\\b`, 'i'),
+                new RegExp(`${lead}\\d+\\s*(?:h|hr|hrs|hours?)\\b`, 'i'),
+                new RegExp(`${lead}(?:high|medium|low|urgent)\\s+priority\\b`, 'i'),
+                new RegExp(`${lead}priority\\s+(?:high|medium|low|urgent)\\b`, 'i'),
+                new RegExp(`${lead}subject\\b`, 'i'),
+                new RegExp(`${lead}notes\\b`, 'i'),
+                new RegExp(`${lead}(?:easy|hard|medium)\\s+difficulty\\b`, 'i'),
+                new RegExp(`${lead}difficulty\\b`, 'i'),
+                new RegExp(String.raw`${lead}(?:on|for|to)\s+(?:${weekday})\b`, 'i'),
+                new RegExp(String.raw`${lead}(?:today|tomorrow|${weekday})\b`, 'i'),
+                new RegExp(String.raw`${lead}(?:at\s+)?${timePat}\b`, 'i'),
+                new RegExp(`${lead}target\\s+week\\b`, 'i'),
+                new RegExp(`${lead}exact(?:\\s+date)?\\b`, 'i'),
+                new RegExp(`${lead}(?:no\\s+date|flexible|unscheduled)\\b`, 'i')
+            ];
+        }
+
         function looksLikeAssignmentSettingsBody(body) {
             const text = String(body || '').trim();
             if(!text) return false;
-            const weekday = QUICK_ENTRY_DATE_WORDS;
-            const patterns = [
-                /\b(?:due|by)\b/i,
-                /\b(?:repeat\s+)?every\b/i,
-                /\b(?:repeats?\s+)?(?:daily|weekly)\b/i,
-                /\b(?:after|before|different)\b/i,
-                /\b\d+\s*(?:m|min|mins|minutes?)\b/i,
-                /\b\d+m\b/i,
-                /\b\d+\s*(?:h|hr|hrs|hours?)\b/i,
-                /\b(?:high|low|urgent)\b/i,
-                /\bsubject\b/i,
-                /\bnotes\b/i,
-                /\b(?:easy|hard|medium)\s+difficulty\b/i,
-                /\bdifficulty\b/i,
-                new RegExp(String.raw`\b(?:on|for|to)\s+(?:${weekday})\b`, 'i'),
-                new RegExp(String.raw`\b(?:today|tomorrow|${weekday})\b`, 'i'),
-                /\b(?:at\s+)?\d{1,2}(?::\d{2})?\s*(?:am|pm)?\b/i,
-                /\btarget\s+week\b/i,
-                /\bexact(?:\s+date)?\b/i,
-                /\bno\s+date\b/i,
-                /\bflexible\b/i,
-                /\bunscheduled\b/i
-            ];
-            return patterns.some(re => re.test(text));
+            return getAssignmentSettingsDetailPatterns().some(re => re.test(text));
         }
 
         function startsWithKnownCommandVerb(text) {
@@ -10695,7 +10700,7 @@
             if(!text) return false;
             const weekday = QUICK_ENTRY_DATE_WORDS;
             return /\b(?:due|by)\b/i.test(text)
-                || /\b(?:on|for)\s+/i.test(text)
+                || /\b(?:on|for|to)\s+/i.test(text)
                 || new RegExp(String.raw`\b(?:today|tomorrow|${weekday})\b`, 'i').test(text)
                 || /\b(?:at\s+)?\d{1,2}:\d{2}\s*(?:am|pm)?\b/i.test(text)
                 || /\b(?:at\s+)?\d{1,2}\s*(?:am|pm)\b/i.test(text)
@@ -11909,7 +11914,11 @@
             if(parsed.action === 'create') {
                 const detailsText = parsed.details || '';
                 const resolvedDependencies = parsed.resolvedDependencies || [];
-                const quickParsed = parseAssignmentQuickEntry(detailsText, { title: parsed.title, resolvedDependencies });
+                const quickParsed = parseAssignmentQuickEntry(detailsText, {
+                    title: parsed.title,
+                    resolvedDependencies,
+                    allowEmpty: !detailsText.trim()
+                });
                 if(quickParsed.errors?.length) {
                     showNotification(quickParsed.errors[0], 'error');
                     return false;
@@ -12551,23 +12560,8 @@
         function findCreateAssignmentDetailsStart(rest) {
             const text = String(rest || '').trim();
             if(!text) return -1;
-            const weekday = QUICK_ENTRY_DATE_WORDS;
-            const timePat = String.raw`\d{1,2}(?::\d{2})?\s*(?:am|pm)`;
-            const patterns = [
-                /\s+(?:due|by)\b/i,
-                /\s+(?:repeat\s+)?every\b/i,
-                /\s+(?:repeats?\s+)?(?:daily|weekly)\b/i,
-                /\s+(?:after|before|different)\b/i,
-                /\s+\d+\s*(?:m|min|mins|minutes?)\b/i,
-                /\s+\d+m\b/i,
-                /\s+(?:high|low|urgent)\b/i,
-                /\s+subject\b/i,
-                new RegExp(String.raw`\s+(?:on|for)\s+(?:${weekday})\b`, 'i'),
-                new RegExp(String.raw`\s+(?:today|tomorrow|${weekday})\b`, 'i'),
-                new RegExp(String.raw`\s+(?:at\s+)?${timePat}\b`, 'i')
-            ];
             let earliest = text.length;
-            patterns.forEach(re => {
+            getAssignmentSettingsDetailPatterns({ leadingSpace: true }).forEach(re => {
                 const match = text.match(re);
                 if(match && match.index != null && match.index < earliest) {
                     earliest = match.index;
@@ -12576,18 +12570,43 @@
             return earliest < text.length ? earliest : -1;
         }
 
+        function findKnownSubjectInTitleWords(titleWords) {
+            if(!titleWords?.length) return null;
+            const subjects = getAllSubjectNames().sort((a, b) => b.length - a.length);
+            const joined = titleWords.join(' ');
+            for(const subject of subjects) {
+                if(joined.toLowerCase() === subject.toLowerCase()) return subject;
+            }
+            if(titleWords.length === 2) {
+                return subjects.find(subject => subject.toLowerCase() === titleWords[1].toLowerCase()) || null;
+            }
+            return null;
+        }
+
         function peelCreateAssignmentSubjectFromTitle(titlePart, details) {
             const titleWords = String(titlePart || '').trim().split(/\s+/).filter(Boolean);
             if(titleWords.length <= 1) {
                 return { title: titlePart, details };
             }
-            if(!details) {
-                return { title: titleWords[0], details: titleWords.slice(1).join(' ') };
+            if(details) {
+                return { title: titlePart, details };
             }
-            return {
-                title: titleWords[0],
-                details: `${titleWords.slice(1).join(' ')} ${details}`.trim()
-            };
+            const knownSubject = findKnownSubjectInTitleWords(titleWords);
+            if(!knownSubject) {
+                return { title: titlePart, details };
+            }
+            if(titleWords.length === 2) {
+                return { title: titleWords[0], details: `subject ${knownSubject}` };
+            }
+            const subjectWordCount = knownSubject.split(/\s+/).length;
+            const titlePartCount = titleWords.length - subjectWordCount;
+            if(titlePartCount >= 1) {
+                return {
+                    title: titleWords.slice(0, titlePartCount).join(' '),
+                    details: `subject ${knownSubject}`
+                };
+            }
+            return { title: titlePart, details };
         }
 
         function rejoinDanglingEveryInTitle(titlePart, details) {
@@ -12720,8 +12739,9 @@
             return { title: titlePart, details };
         }
 
-        function parseAssignmentQuickEntry(text, { title = '', excludeTaskId = null, forUpdate = false, resolvedDependencies = [] } = {}) {
-            let working = normalizeClassifyCommandText(text).trim();
+        function parseAssignmentQuickEntry(text, { title = '', excludeTaskId = null, forUpdate = false, resolvedDependencies = [], allowEmpty = false } = {}) {
+            const sourceText = normalizeClassifyCommandText(text).trim();
+            let working = sourceText;
             const touched = createQuickEntryTouchedFlags();
             const result = {
                 subject: null,
@@ -12748,12 +12768,15 @@
             };
 
             if(!working) {
-                if(!forUpdate) {
+                if(forUpdate || allowEmpty) {
+                    // fall through to defaults at end
+                } else {
                     result.errors.push('Please enter assignment details in the quick entry box.');
+                    return result;
                 }
-                return result;
             }
 
+            if(working) {
             const dependencyStop = getQuickEntryDependencyStopLookahead();
             const dependencyTarget = getQuickEntryDependencyTargetPattern();
             const dependencyPatterns = [
@@ -12818,8 +12841,7 @@
             const optionalTime = `(?:\\s+(?:at\\s+)?${timeCapture})?`;
 
             const priorityMatch = working.match(/\b(high|medium|low|urgent)\s+priority\b/i)
-                || working.match(/\bpriority\s+(high|medium|low|urgent)\b/i)
-                || working.match(/\b(high|low|urgent)\b/i);
+                || working.match(/\bpriority\s+(high|medium|low|urgent)\b/i);
             if(priorityMatch) {
                 const level = priorityMatch[1].toLowerCase();
                 result.priority = level === 'urgent' ? 'High' : (level.charAt(0).toUpperCase() + level.slice(1));
@@ -12834,6 +12856,27 @@
                 result.difficulty = level.charAt(0).toUpperCase() + level.slice(1);
                 touched.difficulty = true;
                 working = stripQuickEntryMatch(working, difficultyMatch);
+            }
+
+            const targetWeekMatch = working.match(/\btarget\s+week\b/i);
+            if(targetWeekMatch) {
+                result.scheduleType = 'week';
+                touched.schedule = true;
+                working = stripQuickEntryMatch(working, targetWeekMatch);
+            }
+
+            const exactDateModeMatch = working.match(/\bexact(?:\s+date)?\b/i);
+            if(exactDateModeMatch && !result.scheduleType) {
+                result.scheduleType = 'date';
+                touched.schedule = true;
+                working = stripQuickEntryMatch(working, exactDateModeMatch);
+            }
+
+            const flexibleMatch = working.match(/\b(?:no\s+date|flexible|unscheduled)\b/i);
+            if(flexibleMatch && !result.scheduleType) {
+                result.scheduleType = 'flexible';
+                touched.schedule = true;
+                working = stripQuickEntryMatch(working, flexibleMatch);
             }
 
             const dueTimeOnlyMatch = working.match(new RegExp(`\\b(?:due|by)\\s+(?:at\\s+)?${timeCapture}\\b`, 'i'));
@@ -12863,7 +12906,7 @@
                 working = stripQuickEntryMatch(working, dueMatch);
             }
 
-            const eventPattern = new RegExp(`\\b(?:on|for)\\s+(${weekdayPattern})${optionalTime}`, 'i');
+            const eventPattern = new RegExp(`\\b(?:on|for|to)\\s+(${weekdayPattern})${optionalTime}`, 'i');
             const eventMatch = !dueMatch ? working.match(eventPattern) : null;
             if(eventMatch) {
                 result.scheduleType = 'date';
@@ -12906,6 +12949,22 @@
                 working = stripQuickEntryMatch(working, notesMatch);
             }
 
+            const subjectCmdMatch = working.match(/\bsubject\s+(.+)/i);
+            if(subjectCmdMatch) {
+                const subjectBody = subjectCmdMatch[1].trim();
+                const quotedSubject = parseQuotedPrefix(subjectBody);
+                let subjectName = quotedSubject.quoted != null ? quotedSubject.quoted : subjectBody;
+                if(quotedSubject.quoted == null) {
+                    const trimmed = subjectName.match(/^(.+?)(?=\s+(?:due|by|every|after|before|notes|\d+\s*(?:m|min|h|hr)|(?:high|medium|low|urgent)\s+priority|priority|difficulty|target|exact|flexible|unscheduled|$))/i);
+                    if(trimmed) subjectName = trimmed[1].trim();
+                }
+                if(subjectName) {
+                    result.subject = subjectName;
+                    touched.subject = true;
+                    working = stripQuickEntryMatch(working, subjectCmdMatch);
+                }
+            }
+
             const subjects = getAllSubjectNames().sort((a, b) => b.length - a.length);
             for(const subject of subjects) {
                 const pattern = new RegExp(`\\b${subject.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
@@ -12925,7 +12984,7 @@
                     const clean = word.replace(/[.,;:!?]+$/, '');
                     if(!/^[A-Za-z][A-Za-z0-9&'-]*$/.test(clean)) return false;
                     const lower = clean.toLowerCase();
-                    if(['due', 'on', 'at', 'by', 'for', 'must', 'be', 'after', 'before', 'minutes', 'minute', 'mins', 'min', 'high', 'low', 'urgent', 'easy', 'hard', 'every', 'repeat', 'repeats', 'daily', 'weekly', 'weekday', 'weekdays'].includes(lower)) return false;
+                    if(['due', 'on', 'at', 'by', 'for', 'to', 'must', 'be', 'after', 'before', 'notes', 'subject', 'priority', 'difficulty', 'minutes', 'minute', 'mins', 'min', 'medium', 'high', 'low', 'urgent', 'easy', 'hard', 'every', 'repeat', 'repeats', 'daily', 'weekly', 'weekday', 'weekdays', 'target', 'exact', 'flexible', 'unscheduled'].includes(lower)) return false;
                     if(titleLower.includes(lower)) return false;
                     return true;
                 });
@@ -12936,8 +12995,9 @@
             }
 
             if(!forUpdate) {
-                working = working.replace(/\b(at|on|by|due|for|after|before|notes)\b/gi, ' ').replace(/\s{2,}/g, ' ').trim();
+                working = working.replace(/\b(at|on|by|due|for|to|after|before|notes|subject|priority|difficulty|target|exact|flexible|unscheduled|every|repeat|daily|weekly)\b/gi, ' ').replace(/\s{2,}/g, ' ').trim();
                 if(working && !result.notes) result.notes = working.substring(0, 500);
+            }
             }
 
             if(!forUpdate) {
@@ -12948,10 +13008,14 @@
                     result.week = getCurrentWeekKey();
                 }
                 const hasRepeat = result.repeatRule && result.repeatRule.type !== 'none';
-                if(result.scheduleType === 'week' && !result.dueDate && !hasRepeat) {
+                const weekdayPattern = QUICK_ENTRY_DATE_WORDS;
+                const dueDayAttempt = new RegExp(`\\b(?:due|by)\\s+(?:to\\s+)?(?:on\\s+)?(${weekdayPattern})\\b`, 'i').test(sourceText);
+                if(result.scheduleType === 'week' && !result.dueDate && !hasRepeat && dueDayAttempt) {
                     result.errors.push('Could not parse a due date. Try "due friday" or "friday 5pm".');
                 }
-                if(result.scheduleType === 'date' && !result.date) {
+                const eventDayAttempt = new RegExp(`\\b(?:on|for|to)\\s+(${weekdayPattern})\\b`, 'i').test(sourceText)
+                    || new RegExp(`\\b(?:today|tomorrow|${weekdayPattern})\\b`, 'i').test(sourceText);
+                if(result.scheduleType === 'date' && !result.date && eventDayAttempt) {
                     result.errors.push('Could not parse an event date. Try "friday", "tomorrow", or "today 5pm".');
                 }
                 if(!result.subject) {
