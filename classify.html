@@ -3591,6 +3591,7 @@
                         persistClassifyUndoStack();
                     }
                     initClassifyUndoBaseline();
+                    maintainClassifyScheduleIfNeeded({ persist: true });
                     renderAll();
                     syncClassifyHotspotsSettingsState();
                     syncWeekCalendarWeekendsSettingsState();
@@ -3676,17 +3677,14 @@
                 if (!classifyBootComplete) return;
                 startClassifySyncPoll();
                 ensureClassifySyncConnected();
-                const sessionId = localStorage.getItem('ahrenslabs_sessionId');
-                if (sessionId && cloudSyncEnabled) {
-                    if (cloudSyncTimer) {
-                        clearTimeout(cloudSyncTimer);
-                        cloudSyncTimer = null;
-                    }
-                    await refreshClassifyFromCloud();
-                } else {
-                    await pollClassifySyncVersion();
+                if (cloudSyncTimer) {
+                    clearTimeout(cloudSyncTimer);
+                    cloudSyncTimer = null;
                 }
-                refreshAssignmentTimesDisplay();
+                await pollClassifySyncVersion();
+                const changed = maintainClassifyScheduleIfNeeded({ persist: true });
+                updateDateDisplay();
+                if(changed > 0) renderAll();
             }, 50);
         }
 
@@ -3726,23 +3724,82 @@
             });
         }
 
+        function maintainClassifyScheduleIfNeeded(options = {}) {
+            const { persist = false, weeksAhead = 12 } = options || {};
+            if(classifyUndoApplying) return 0;
+
+            let changed = 0;
+            const pastCleared = enforceNoPastUnstartedTimes();
+            if(pastCleared > 0) changed += pastCleared;
+
+            const repeatCreated = ensureActiveRepeatWeekOccurrences();
+            if(repeatCreated > 0) changed += repeatCreated;
+
+            if(classifyScheduleHasDependencyViolations()) {
+                changed += reconcileBeforeAfterSchedule(getAllBeforeAfterLinkedTaskIds());
+            }
+
+            const weekKeys = getUpcomingWeekKeys(weeksAhead);
+            const weeksNeedingWork = new Set();
+            if(pastCleared > 0) weeksNeedingWork.add(getCurrentWeekKey());
+
+            weekKeys.forEach(weekKey => {
+                if(getWeekTasksMissingSchedule(weekKey).length > 0) {
+                    weeksNeedingWork.add(weekKey);
+                }
+            });
+
+            (tasks || []).forEach(task => {
+                if(!taskNeedsCalendarScheduling(task)) return;
+                const weekKey = getTaskTargetWeekKey(task)
+                    || (task.date ? getWeekKeyFromDateStr(task.date) : null)
+                    || (getTaskDueDate(task) ? getWeekKeyFromDateStr(getTaskDueDate(task)) : null);
+                if(weekKey) weeksNeedingWork.add(weekKey);
+            });
+
+            if(weeksNeedingWork.size === 0 && changed === 0) return 0;
+
+            weeksNeedingWork.forEach(weekKey => {
+                changed += assignWeekTaskDates(weekKey, true) || 0;
+                changed += autoBlockWeekTimes(false, weekKey, true, false, true) || 0;
+            });
+
+            const missingIds = (tasks || [])
+                .filter(taskNeedsCalendarScheduling)
+                .map(t => t.id);
+            if(missingIds.length > 0) {
+                changed += scheduleTargetWeekTasksImmediately(missingIds) || 0;
+            }
+
+            weeksNeedingWork.forEach(weekKey => {
+                if(getWeekTasksMissingSchedule(weekKey).length === 0) return;
+                const result = replanWeekFromScratch(weekKey, true);
+                if(result?.complete) {
+                    changed += (result.rebuilt || 0) + (result.assigned || 0);
+                }
+            });
+
+            if(changed > 0 && persist) {
+                plannerSet('plannerTasksV2', JSON.stringify(tasks));
+            }
+
+            return changed;
+        }
+
         function refreshAssignmentTimesDisplay() {
             if (document.hidden) return;
             let changed = 0;
             try {
-                changed = refreshAdjustableScheduling() || 0;
+                changed = maintainClassifyScheduleIfNeeded({ persist: true }) || 0;
             } catch (error) {
                 console.warn('Assignment time refresh failed:', error);
             }
-            renderAll();
-            if (changed > 0) {
-                plannerSet('plannerTasksV2', JSON.stringify(tasks));
-            }
+            updateDateDisplay();
+            if(changed > 0) renderAll();
         }
 
         function startAssignmentTimeRefresh() {
             clearInterval(assignmentTimeRefreshTimer);
-            refreshAssignmentTimesDisplay();
             assignmentTimeRefreshTimer = setInterval(refreshAssignmentTimesDisplay, 60000);
         }
 
@@ -4009,6 +4066,7 @@
 
             // Enable cloud syncing after initial load/migrations
             cloudSyncEnabled = true;
+            maintainClassifyScheduleIfNeeded({ persist: true });
             loadClassifyUndoStack();
             initClassifyUndoBaseline();
             document.getElementById('btn-classify-undo')?.addEventListener('click', undoClassifyLastAction);
@@ -6393,6 +6451,17 @@
                 if(task.date > refDate) return true;
             }
 
+            return false;
+        }
+
+        function classifyScheduleHasDependencyViolations() {
+            const dateById = new Map((tasks || []).filter(t => t?.id && t.date).map(t => [t.id, t.date]));
+            const byId = new Map((tasks || []).filter(t => t?.id && !t.completed).map(t => [t.id, t]));
+            for(const task of (tasks || [])) {
+                if(!task?.id || task.completed) continue;
+                if(taskViolatesDependencySchedule(task, byId)) return true;
+                if(taskViolatesBeforeAfterDates(task, dateById)) return true;
+            }
             return false;
         }
 
@@ -16471,25 +16540,10 @@
         }
 
         function ensureAllEventsScheduled(weeksAhead = 12, persist = false, options = {}) {
-            const { forceReplan = false } = options || {};
-            if(!forceReplan && !tasks.some(taskNeedsCalendarScheduling)) return;
-            const weekKeys = new Set(getUpcomingWeekKeys(weeksAhead));
-            weekKeys.forEach(weekKey => {
-                if(!weekKey) return;
-                replanWeekFromScratch(weekKey, true);
-            });
-            if(!forceReplan) {
-                const dateWeeks = new Set(
-                    tasks
-                        .filter(t => taskNeedsCalendarScheduling(t) && t.date)
-                        .map(t => getWeekKeyFromDateStr(t.date))
-                );
-                dateWeeks.forEach(weekKey => {
-                    if(!weekKey) return;
-                    replanWeekFromScratch(weekKey, true);
-                });
+            if(!tasks.some(taskNeedsCalendarScheduling) && !classifyScheduleHasDependencyViolations()) {
+                return 0;
             }
-            if(persist) saveData({ skipAutoSchedule: true, skipUndoRecord: true });
+            return maintainClassifyScheduleIfNeeded({ persist, weeksAhead, ...options });
         }
 
         function autoBlockWeekTimes(showToast = true, weekKey = getCurrentWeekKey(), allowDateShift = true, forceRebuildAutoSlots = false, strictPriority = true) {
