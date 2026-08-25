@@ -4060,7 +4060,24 @@
 
             const trimmed = pruneRepeatFutureWeeks();
             const spawned = advanceRepeatSeriesIfReady();
-            if(trimmed > 0 || spawned > 0) {
+            const repeatDepsBefore = JSON.stringify(
+                tasks.filter(t => t.repeatGroupId).map(t => ({
+                    id: t.id,
+                    before: t.mustBeBefore || [],
+                    after: t.mustBeAfter || [],
+                    diff: t.mustBeDifferentDay || []
+                }))
+            );
+            syncAllTaskDependencies();
+            const repeatDepsChanged = repeatDepsBefore !== JSON.stringify(
+                tasks.filter(t => t.repeatGroupId).map(t => ({
+                    id: t.id,
+                    before: t.mustBeBefore || [],
+                    after: t.mustBeAfter || [],
+                    diff: t.mustBeDifferentDay || []
+                }))
+            );
+            if(trimmed > 0 || spawned > 0 || repeatDepsChanged) {
                 saveData({ skipUndoRecord: true, skipAutoSchedule: true });
             }
 
@@ -8385,7 +8402,178 @@
             return getSubjectColorValue(t.subject) || t.color || '#dc2626';
         }
 
+        function getRepeatGroupWeekKey(task) {
+            return getTaskTargetWeekKey(task);
+        }
+
+        function getTaskScheduleWeekday(task) {
+            const dateStr = task?.date || task?.dueDate || getTaskDueDate(task);
+            if(!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return null;
+            return new Date(`${dateStr}T12:00:00`).getDay();
+        }
+
+        function sortRepeatGroupTasksForWeek(groupTasks) {
+            return [...groupTasks].sort((a, b) => {
+                const aDate = a.date || a.dueDate || getTaskDueDate(a) || '';
+                const bDate = b.date || b.dueDate || getTaskDueDate(b) || '';
+                if(aDate !== bDate) return aDate.localeCompare(bDate);
+                return (a.title || '').localeCompare(b.title || '');
+            });
+        }
+
+        function matchRepeatGroupOccurrenceInWeek(anchorTask, weekTasks) {
+            const pool = sortRepeatGroupTasksForWeek(weekTasks);
+            if(pool.length === 0) return null;
+            if(pool.length === 1) return pool[0];
+            const anchorDow = getTaskScheduleWeekday(anchorTask);
+            if(anchorDow != null) {
+                const dowMatch = pool.find(t => getTaskScheduleWeekday(t) === anchorDow);
+                if(dowMatch) return dowMatch;
+            }
+            const anchorWeek = getRepeatGroupWeekKey(anchorTask);
+            if(anchorWeek && anchorTask?.repeatGroupId) {
+                const anchorWeekTasks = sortRepeatGroupTasksForWeek(
+                    getRepeatGroupTasksForWeek(anchorTask.repeatGroupId, anchorWeek)
+                );
+                const anchorIndex = anchorWeekTasks.findIndex(t => t.id === anchorTask.id);
+                if(anchorIndex >= 0 && anchorIndex < pool.length) return pool[anchorIndex];
+            }
+            return pool[0];
+        }
+
+        function collectCrossRepeatGroupDependencyRules() {
+            const rules = new Map();
+            (tasks || []).forEach(task => {
+                if(!task?.repeatGroupId) return;
+                const addRule = (depId, relation) => {
+                    const dep = tasks.find(t => t.id === depId);
+                    if(!dep?.repeatGroupId || dep.repeatGroupId === task.repeatGroupId) return;
+                    let earlierGroupId;
+                    let laterGroupId;
+                    let earlierAnchor;
+                    let laterAnchor;
+                    if(relation === 'before') {
+                        earlierGroupId = task.repeatGroupId;
+                        laterGroupId = dep.repeatGroupId;
+                        earlierAnchor = task;
+                        laterAnchor = dep;
+                    } else if(relation === 'after') {
+                        earlierGroupId = dep.repeatGroupId;
+                        laterGroupId = task.repeatGroupId;
+                        earlierAnchor = dep;
+                        laterAnchor = task;
+                    } else if(relation === 'differentDay') {
+                        earlierGroupId = task.repeatGroupId;
+                        laterGroupId = dep.repeatGroupId;
+                        earlierAnchor = task;
+                        laterAnchor = dep;
+                    } else {
+                        return;
+                    }
+                    const key = relation === 'differentDay'
+                        ? `diff|${earlierGroupId}|${laterGroupId}|${getTaskScheduleWeekday(earlierAnchor)}|${getTaskScheduleWeekday(laterAnchor)}`
+                        : `seq|${earlierGroupId}|${laterGroupId}|${getTaskScheduleWeekday(earlierAnchor)}|${getTaskScheduleWeekday(laterAnchor)}`;
+                    if(!rules.has(key)) {
+                        rules.set(key, { relation, earlierGroupId, laterGroupId, earlierAnchor, laterAnchor });
+                    }
+                };
+                (task.mustBeBefore || []).forEach(id => addRule(id, 'before'));
+                (task.mustBeAfter || []).forEach(id => addRule(id, 'after'));
+                (task.mustBeDifferentDay || []).forEach(id => addRule(id, 'differentDay'));
+            });
+            return Array.from(rules.values());
+        }
+
+        function getWeekKeysForRepeatGroup(groupId) {
+            const weekKeys = new Set();
+            tasks.filter(t => t.repeatGroupId === groupId).forEach(t => {
+                const weekKey = getRepeatGroupWeekKey(t);
+                if(weekKey) weekKeys.add(weekKey);
+            });
+            return Array.from(weekKeys).sort();
+        }
+
+        function isCrossRepeatGroupDependency(task, dep) {
+            return Boolean(
+                task?.repeatGroupId
+                && dep?.repeatGroupId
+                && task.repeatGroupId !== dep.repeatGroupId
+            );
+        }
+
+        function syncRepeatGroupDependencies() {
+            const rules = collectCrossRepeatGroupDependencyRules();
+            if(rules.length === 0) return;
+
+            const taskById = new Map((tasks || []).map(t => [t.id, t]));
+            const involvedGroupIds = new Set(
+                rules.flatMap(rule => [rule.earlierGroupId, rule.laterGroupId])
+            );
+            const preservedBefore = new Map();
+            const preservedAfter = new Map();
+            const preservedDifferentDay = new Map();
+
+            (tasks || []).forEach(t => {
+                preservedBefore.set(t.id, new Set());
+                preservedAfter.set(t.id, new Set());
+                preservedDifferentDay.set(t.id, new Set());
+
+                (t.mustBeBefore || []).forEach(depId => {
+                    const dep = taskById.get(depId);
+                    if(!dep) return;
+                    if(!isCrossRepeatGroupDependency(t, dep) || !involvedGroupIds.has(t.repeatGroupId)) {
+                        preservedBefore.get(t.id).add(depId);
+                    }
+                });
+                (t.mustBeAfter || []).forEach(depId => {
+                    const dep = taskById.get(depId);
+                    if(!dep) return;
+                    if(!isCrossRepeatGroupDependency(t, dep) || !involvedGroupIds.has(t.repeatGroupId)) {
+                        preservedAfter.get(t.id).add(depId);
+                    }
+                });
+                (t.mustBeDifferentDay || []).forEach(depId => {
+                    const dep = taskById.get(depId);
+                    if(!dep) return;
+                    if(!isCrossRepeatGroupDependency(t, dep)) {
+                        preservedDifferentDay.get(t.id).add(depId);
+                    }
+                });
+            });
+
+            rules.forEach(rule => {
+                const earlierWeeks = getWeekKeysForRepeatGroup(rule.earlierGroupId);
+                const laterWeeks = new Set(getWeekKeysForRepeatGroup(rule.laterGroupId));
+                earlierWeeks.filter(weekKey => laterWeeks.has(weekKey)).forEach(weekKey => {
+                    const earlierTask = matchRepeatGroupOccurrenceInWeek(
+                        rule.earlierAnchor,
+                        getRepeatGroupTasksForWeek(rule.earlierGroupId, weekKey)
+                    );
+                    const laterTask = matchRepeatGroupOccurrenceInWeek(
+                        rule.laterAnchor,
+                        getRepeatGroupTasksForWeek(rule.laterGroupId, weekKey)
+                    );
+                    if(!earlierTask || !laterTask || earlierTask.id === laterTask.id) return;
+                    if(rule.relation === 'differentDay') {
+                        preservedDifferentDay.get(earlierTask.id)?.add(laterTask.id);
+                        preservedDifferentDay.get(laterTask.id)?.add(earlierTask.id);
+                        return;
+                    }
+                    preservedBefore.get(earlierTask.id)?.add(laterTask.id);
+                    preservedAfter.get(laterTask.id)?.add(earlierTask.id);
+                });
+            });
+
+            tasks = (tasks || []).map(t => ({
+                ...t,
+                mustBeBefore: Array.from(preservedBefore.get(t.id) || []),
+                mustBeAfter: Array.from(preservedAfter.get(t.id) || []),
+                mustBeDifferentDay: Array.from(preservedDifferentDay.get(t.id) || [])
+            }));
+        }
+
         function syncAllTaskDependencies() {
+            syncRepeatGroupDependencies();
             const taskIds = new Set((tasks || []).map(t => t?.id).filter(Boolean));
             const outgoing = new Map();
             const incoming = new Map();
@@ -14237,6 +14425,7 @@
                 try {
                     spawned = advanceRepeatSeriesIfReady();
                     pruneRepeatFutureWeeks();
+                    if(spawned > 0) syncAllTaskDependencies();
                     if(mode === 'partial') {
                         enforceDifferentDayAfterCompletion(task);
                         reconcileBeforeAfterSchedule([task.id, carryOver?.id].filter(Boolean));
@@ -15404,6 +15593,7 @@
                 created += addRepeatWeekOccurrences(groupId, nextWeekKey, template.repeatRule, template);
                 enforceRepeatGroupFixedTimes(groupId);
             });
+            if(created > 0) syncAllTaskDependencies();
             return created;
         }
 
@@ -16472,6 +16662,7 @@
                     ensureTargetWeekScheduleType(task);
                 });
             });
+            if(created > 0) syncAllTaskDependencies();
             return created;
         }
 
