@@ -626,14 +626,6 @@
                 grid-template-columns: repeat(2, minmax(0, 1fr));
             }
         }
-        @media (min-width: 1280px) {
-            body.classify-app .cl-week-grid.cl-week-grid--weekdays {
-                grid-template-columns: repeat(5, minmax(0, 1fr));
-            }
-            body.classify-app .cl-week-grid.cl-week-grid--full-week {
-                grid-template-columns: repeat(7, minmax(0, 1fr));
-            }
-        }
         body.classify-app .cl-week-day {
             display: flex;
             flex-direction: column;
@@ -14309,9 +14301,6 @@
             const weekGrid = document.getElementById('weekCalendarGrid');
             if(!weekGrid) return;
             weekGrid.innerHTML = '';
-            const includeWeekends = areWeekCalendarWeekendsIncluded();
-            weekGrid.classList.toggle('cl-week-grid--weekdays', !includeWeekends);
-            weekGrid.classList.toggle('cl-week-grid--full-week', includeWeekends);
             const { start } = getWeekCalendarDisplayBounds(currentCalendarDate);
             const dayCount = getWeekCalendarDayCount();
             for(let i = 0; i < dayCount; i++) {
