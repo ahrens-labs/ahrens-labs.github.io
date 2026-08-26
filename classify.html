@@ -2825,7 +2825,7 @@
                     <span class="cl-settings-item-label"><i class="fa-solid fa-wand-magic-sparkles text-emerald-500"></i>Auto-maintain schedule</span>
                     <span id="cl-pref-auto-maintain-state" class="text-sm font-semibold text-slate-500 dark:text-slate-400">On</span>
                 </button>
-                <p class="cl-pref-note">While Classify is open, refreshes the schedule one minute after each 5-minute mark (9:51, 9:56, 1:36, etc.) and syncs changes in the background.</p>
+                <p class="cl-pref-note">Edits reschedule immediately. While idle, background refresh runs one minute after each 5-minute mark (9:51, 9:56, etc.).</p>
             </div>
 
             <div class="mt-4 flex justify-end">
@@ -3927,6 +3927,17 @@
             }
 
             return changed;
+        }
+
+        /** User edits and saves — never gated by the periodic 5-minute tick. */
+        function runImmediateScheduleMaintain(options = {}) {
+            const { syncCloud = false, persist = true } = options || {};
+            try {
+                return maintainClassifyScheduleIfNeeded({ persist, syncCloud }) || 0;
+            } catch (error) {
+                console.warn('Immediate schedule maintain failed:', error);
+                return 0;
+            }
         }
 
         function getScheduleMaintainOffsetMs() {
@@ -6979,7 +6990,16 @@
             keys.forEach(weekKey => {
                 try {
                     const result = replanWeekFromScratch(weekKey, includeFlexible);
-                    if(result?.complete) rebuilt += result.rebuilt || 0;
+                    if(result?.complete) {
+                        rebuilt += result.rebuilt || 0;
+                    } else {
+                        assignWeekTaskDates(weekKey, includeFlexible);
+                        autoBlockWeekTimes(false, weekKey, true, true, false);
+                        const missing = getWeekTasksMissingSchedule(weekKey);
+                        if(missing.length > 0) {
+                            scheduleTargetWeekTasksImmediately(missing.map(t => t.id));
+                        }
+                    }
                 } catch (error) {
                     console.error(`Week reoptimize failed for ${weekKey}:`, error);
                 }
@@ -8632,6 +8652,7 @@
             deferClassifyScheduleWork(() => {
                 reAutoScheduleWeeks(weekKeys, forceRebuildAutoSlots, false);
                 ensureAllEventsScheduled(weeksAhead, false, { forceReplan });
+                runImmediateScheduleMaintain({ persist: false, syncCloud: false });
             }, { skipUndoRecord: true });
         }
 
@@ -8702,6 +8723,7 @@
             if(immediateIds.size > 0) {
                 scheduleTargetWeekTasksImmediately(Array.from(immediateIds));
             }
+            runImmediateScheduleMaintain({ persist: false, syncCloud: false });
         }
 
         function refreshClassifyLikeReload(options = {}) {
@@ -8843,6 +8865,7 @@
                 try {
                     reconcileBeforeAfterSchedule(getAllBeforeAfterLinkedTaskIds());
                     reoptimizeAffectedWeeks();
+                    runImmediateScheduleMaintain({ persist: false, syncCloud: false });
                 } catch (error) {
                     console.error('Adjustable auto-schedule failed:', error);
                 } finally {
@@ -15092,6 +15115,7 @@
                         reconcileBeforeAfterSchedule([completedTaskRef.id]);
                     }
                     reAutoScheduleAfterCompletion(completedTaskRef, spawned > 0);
+                    runImmediateScheduleMaintain({ persist: false, syncCloud: false });
                 } catch (error) {
                     console.error('Completion schedule refresh failed:', error);
                 }
