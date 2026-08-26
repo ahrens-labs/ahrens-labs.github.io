@@ -3735,7 +3735,8 @@
             const repeatCreated = ensureActiveRepeatWeekOccurrences();
             if(repeatCreated > 0) changed += repeatCreated;
 
-            if(classifyScheduleHasDependencyViolations()) {
+            const hadViolations = classifyScheduleHasDependencyViolations();
+            if(hadViolations) {
                 changed += reconcileBeforeAfterSchedule(getAllBeforeAfterLinkedTaskIds());
             }
 
@@ -3761,7 +3762,7 @@
 
             weeksNeedingWork.forEach(weekKey => {
                 changed += assignWeekTaskDates(weekKey, true) || 0;
-                changed += autoBlockWeekTimes(false, weekKey, true, false, true) || 0;
+                changed += autoBlockWeekTimes(false, weekKey, true, hadViolations || pastCleared > 0, true) || 0;
             });
 
             const missingIds = (tasks || [])
@@ -3769,6 +3770,11 @@
                 .map(t => t.id);
             if(missingIds.length > 0) {
                 changed += scheduleTargetWeekTasksImmediately(missingIds) || 0;
+                weeksNeedingWork.forEach(weekKey => {
+                    const { startStr, endStr } = getWeekBoundsFromWeekKey(weekKey);
+                    changed += enforceNoOverlappingTimes(startStr, endStr) || 0;
+                    changed += enforceDependencyOrder(startStr, endStr) || 0;
+                });
             }
 
             weeksNeedingWork.forEach(weekKey => {
@@ -6419,10 +6425,13 @@
                 if(task) {
                     (task.mustBeAfter || []).forEach(refId => neighborIds.add(refId));
                     (task.mustBeBefore || []).forEach(refId => neighborIds.add(refId));
+                    (task.mustBeDifferentDay || []).forEach(refId => neighborIds.add(refId));
                 }
                 tasks.forEach(t => {
                     if(!t?.id) return;
-                    if((t.mustBeAfter || []).includes(id) || (t.mustBeBefore || []).includes(id)) {
+                    if((t.mustBeAfter || []).includes(id)
+                        || (t.mustBeBefore || []).includes(id)
+                        || (t.mustBeDifferentDay || []).includes(id)) {
                         neighborIds.add(t.id);
                     }
                 });
@@ -6439,14 +6448,30 @@
             const ids = new Set();
             (tasks || []).forEach(t => {
                 if(!t?.id || t.completed) return;
-                const hasOutgoing = (t.mustBeAfter?.length || 0) > 0 || (t.mustBeBefore?.length || 0) > 0;
+                const hasOutgoing = (t.mustBeAfter?.length || 0) > 0
+                    || (t.mustBeBefore?.length || 0) > 0
+                    || (t.mustBeDifferentDay?.length || 0) > 0;
                 const hasIncoming = (tasks || []).some(other =>
                     !other.completed &&
-                    ((other.mustBeAfter || []).includes(t.id) || (other.mustBeBefore || []).includes(t.id))
+                    ((other.mustBeAfter || []).includes(t.id)
+                        || (other.mustBeBefore || []).includes(t.id)
+                        || (other.mustBeDifferentDay || []).includes(t.id))
                 );
                 if(hasOutgoing || hasIncoming) ids.add(t.id);
             });
             return Array.from(ids);
+        }
+
+        function taskViolatesDifferentDaySchedule(task, byId = null) {
+            if(!task || task.completed || !task.date) return false;
+            const lookup = byId || new Map((tasks || []).filter(t => t?.id && !t.completed).map(t => [t.id, t]));
+            for(const refId of (task.mustBeDifferentDay || [])) {
+                const ref = lookup.get(refId);
+                if(!ref) continue;
+                const refDate = getTaskDifferentDayConstraintDate(ref);
+                if(refDate && refDate === task.date) return true;
+            }
+            return false;
         }
 
         function taskViolatesBeforeAfterDates(task, dateById = new Map()) {
@@ -6478,6 +6503,7 @@
                 if(!task?.id || task.completed) continue;
                 if(taskViolatesDependencySchedule(task, byId)) return true;
                 if(taskViolatesBeforeAfterDates(task, dateById)) return true;
+                if(taskViolatesDifferentDaySchedule(task, byId)) return true;
             }
             return false;
         }
@@ -6600,7 +6626,8 @@
 
                     const violatesTime = task.time && taskViolatesDependencySchedule(task, byId);
                     const violatesDate = taskViolatesBeforeAfterDates(task, dateById);
-                    if(!violatesTime && !violatesDate) continue;
+                    const violatesDifferentDay = taskViolatesDifferentDaySchedule(task, byId);
+                    if(!violatesTime && !violatesDate && !violatesDifferentDay) continue;
 
                     if(violatesTime && clearDependencyViolationForTask(task, byId)) {
                         adjusted++;
@@ -6608,7 +6635,7 @@
                         continue;
                     }
 
-                    if(violatesDate) {
+                    if(violatesDate || violatesDifferentDay) {
                         task.date = null;
                         if(task.dateSource !== 'user') task.dateSource = null;
                         task.time = null;
@@ -7626,6 +7653,76 @@
             const breakMinutes = Number.isFinite(cfg.minutes) ? cfg.minutes : 0;
             return { start, end: end + breakMinutes };
         }
+
+        function getTaskOccupiedEnd(task, dateStr) {
+            if(!task?.time || task.date !== dateStr) return null;
+            const start = timeToMin(task.time);
+            const end = start + (parseInt(task.duration, 10) || 30);
+            return buildBusySlotForTask(task, start, end, dateStr).end;
+        }
+
+        function taskOccupiedRangesOverlap(taskA, taskB, dateStr) {
+            if(!taskA?.time || !taskB?.time || taskA.date !== dateStr || taskB.date !== dateStr) return false;
+            const startA = timeToMin(taskA.time);
+            const endA = getTaskOccupiedEnd(taskA, dateStr);
+            const startB = timeToMin(taskB.time);
+            const endB = getTaskOccupiedEnd(taskB, dateStr);
+            if(endA == null || endB == null) return false;
+            return isTimeRangeOverlapping(startA, endA, startB, endB);
+        }
+
+        function getSchedulingConstraintsForTaskOnDate(task, targetDate, startMin) {
+            if(!task || !targetDate) return null;
+            const duration = parseInt(task.duration, 10) || 30;
+            if(isDateBlockedForTask(task, targetDate)) return null;
+            const targetSchedule = getScheduleForDate(targetDate);
+            const targetDayEnd = timeToMin(targetSchedule.end);
+            const dueDate = getTaskDueDate(task);
+            if(dueDate && targetDate > dueDate) return null;
+            const targetDueLimit = (task.dueTime && dueDate === targetDate) ? timeToMin(task.dueTime) : targetDayEnd;
+            let constrainedStart = startMin;
+            let constrainedMaxEnd = Math.min(targetDayEnd, targetDueLimit);
+            const afterRefs = Array.isArray(task.mustBeAfter) ? task.mustBeAfter : [];
+            const beforeRefs = Array.isArray(task.mustBeBefore) ? task.mustBeBefore : [];
+            const differentDayRefs = Array.isArray(task.mustBeDifferentDay) ? task.mustBeDifferentDay : [];
+
+            for(const refId of afterRefs) {
+                const refTask = tasks.find(t => t.id === refId);
+                if(!refTask || refTask.completed) continue;
+                if(!refTask.date) return null;
+                if(targetDate < refTask.date) return null;
+                if(targetDate === refTask.date) {
+                    if(!refTask.time) return null;
+                    const refStart = timeToMin(refTask.time);
+                    const refEnd = refStart + (parseInt(refTask.duration, 10) || 30);
+                    constrainedStart = Math.max(constrainedStart, refEnd + 5);
+                }
+            }
+            for(const refId of beforeRefs) {
+                const refTask = tasks.find(t => t.id === refId);
+                if(!refTask || refTask.completed) continue;
+                if(refTask.date) {
+                    if(targetDate > refTask.date) return null;
+                    if(targetDate === refTask.date && refTask.time) {
+                        const refStart = timeToMin(refTask.time);
+                        constrainedMaxEnd = Math.min(constrainedMaxEnd, refStart - 5);
+                    }
+                }
+            }
+            for(const refId of differentDayRefs) {
+                const refTask = tasks.find(t => t.id === refId);
+                if(!refTask) continue;
+                const refConstraintDate = getTaskDifferentDayConstraintDate(refTask);
+                if(refConstraintDate === targetDate) return null;
+            }
+
+            const todayStr = getDateStrLocal();
+            if(targetDate === todayStr) {
+                constrainedStart = Math.max(constrainedStart, getNowMinRoundedTo5());
+            }
+            if(constrainedStart + duration > constrainedMaxEnd) return null;
+            return { constrainedStart, constrainedMaxEnd, duration };
+        }
         function isBlockedTimeActiveOnDate(block, dateStr) {
             if(!block || !dateStr) return false;
             const rule = normalizeRepeatRule(block.repeatRule || {});
@@ -7723,17 +7820,20 @@
         function isTimeRangeOverlapping(startA, endA, startB, endB) {
             return startA < endB && endA > startB;
         }
-        function findSchedulingConflict(dateStr, startTime, durationMin, ignoreTaskId = null) {
+        function findSchedulingConflict(dateStr, startTime, durationMin, ignoreTaskId = null, taskForBreak = null) {
             if(!dateStr || !startTime) return null;
             const start = timeToMin(startTime);
             const end = start + (parseInt(durationMin, 10) || 30);
+            const occupiedEnd = taskForBreak
+                ? buildBusySlotForTask(taskForBreak, start, end, dateStr).end
+                : end;
             return tasks.find(t => {
                 if(!t || t.completed) return false;
                 if(ignoreTaskId && t.id === ignoreTaskId) return false;
                 if(t.date !== dateStr || !t.time) return false;
                 const tStart = timeToMin(t.time);
-                const tEnd = tStart + (parseInt(t.duration, 10) || 30);
-                return isTimeRangeOverlapping(start, end, tStart, tEnd);
+                const tEnd = getTaskOccupiedEnd(t, dateStr) ?? (tStart + (parseInt(t.duration, 10) || 30));
+                return isTimeRangeOverlapping(start, occupiedEnd, tStart, tEnd);
             }) || null;
         }
 
@@ -7793,13 +7893,9 @@
 
                     for(let i = 0; i < dayTasks.length; i++) {
                         const first = dayTasks[i];
-                        const firstStart = timeToMin(first.time);
-                        const firstEnd = firstStart + (parseInt(first.duration, 10) || 30);
                         for(let j = i + 1; j < dayTasks.length; j++) {
                             const second = dayTasks[j];
-                            const secondStart = timeToMin(second.time);
-                            const secondEnd = secondStart + (parseInt(second.duration, 10) || 30);
-                            if(!isTimeRangeOverlapping(firstStart, firstEnd, secondStart, secondEnd)) {
+                            if(!taskOccupiedRangesOverlap(first, second, dateStr)) {
                                 continue;
                             }
                             const loser = pickOverlapLoser(first, second);
@@ -9023,26 +9119,34 @@
         function getSmartSchedule(dateStr) {
             if(isDateInVacation(dateStr)) return [];
             let dayTasks = tasks.filter(t => !t.completed && isTaskVisibleInClassify(t) && t.date === dateStr);
-            let fixed = dayTasks
+            const fixedCandidates = dayTasks
                 .filter(t => t.time && !isPastUnstartedAutoSlotToday(t, dateStr))
                 .sort((a,b) => a.time.localeCompare(b.time));
+            let schedule = [];
+            const busySlots = [...getBlockedSlotsForDate(dateStr)];
+            const fixedIds = new Set();
+
+            fixedCandidates.forEach(t => {
+                const start = timeToMin(t.time);
+                const duration = getTaskDurationMinutes(t, 30);
+                const end = start + duration;
+                const occupied = buildBusySlotForTask(t, start, end, dateStr);
+                const hasOverlap = busySlots.some(b => isTimeRangeOverlapping(start, occupied.end, b.start, b.end));
+                if(hasOverlap && !isUserScheduleLocked(t)) {
+                    return;
+                }
+                fixedIds.add(t.id);
+                schedule.push({ start, end, task: t, type: isFixedTask(t) ? 'fixed' : 'auto' });
+                busySlots.push(occupied);
+                busySlots.sort((a, b) => a.start - b.start);
+            });
+
             const depOrderedFloating = orderTasksByDependencies(
-                dayTasks.filter(t => !t.time || isPastUnstartedAutoSlotToday(t, dateStr))
+                dayTasks.filter(t => !fixedIds.has(t.id) && (!t.time || isPastUnstartedAutoSlotToday(t, dateStr)))
             );
             let floating = [...depOrderedFloating.ordered].sort(compareTasksForScheduling);
-            let schedule = [];
-            
-            const fixedScheduleSlots = fixed.map(t => {
-                let start = timeToMin(t.time);
-                let duration = getTaskDurationMinutes(t, 30);
-                return { start, end: start + duration, task: t, type: isFixedTask(t) ? 'fixed' : 'auto' };
-            });
-            const busySlots = fixedScheduleSlots.map(slot => buildBusySlotForTask(slot.task, slot.start, slot.end, dateStr));
-            busySlots.push(...getBlockedSlotsForDate(dateStr));
-            schedule.push(...fixedScheduleSlots);
             
             const daySchedule = getScheduleForDate(dateStr);
-            const dayStart = timeToMin(daySchedule.start);
             const dayEnd = timeToMin(daySchedule.end);
             const autoStart = getEarliestSchedulableStartMin(dateStr);
             const preferredAutoEnd = dayEnd;
@@ -9050,68 +9154,11 @@
             floating.forEach(t => {
                 if(isDateBlockedForTask(t, dateStr)) return;
                 let duration = getTaskDurationMinutes(t, 30);
-                const taskDueDate = getTaskDueDate(t);
-                const dueLimit = (t.dueTime && taskDueDate === dateStr) ? timeToMin(t.dueTime) : hardAutoEnd;
-                let autoStartForTask = autoStart;
-                let maxEnd = Math.min(hardAutoEnd, dueLimit);
+                const constraints = getSchedulingConstraintsForTaskOnDate(t, dateStr, autoStart);
+                if(!constraints) return;
+                let autoStartForTask = constraints.constrainedStart;
+                let maxEnd = constraints.constrainedMaxEnd;
                 const breakMin = 0;
-                if(getPriorityRank(t?.priority) >= 2) {
-                    const latestNonLowEnd = schedule.reduce((max, item) => {
-                        if(!item?.task || getPriorityRank(item.task.priority) >= 2) return max;
-                        const breakCfg = getBreakConfigAfterTask(item.task, dateStr);
-                        const endWithBreak = item.end + (Number.isFinite(breakCfg.minutes) ? breakCfg.minutes : 0);
-                        return Math.max(max, endWithBreak);
-                    }, -1);
-                    if(latestNonLowEnd >= 0) {
-                        autoStartForTask = Math.max(autoStartForTask, latestNonLowEnd);
-                    }
-                }
-                const afterRefs = Array.isArray(t.mustBeAfter) ? t.mustBeAfter : [];
-                const beforeRefs = Array.isArray(t.mustBeBefore) ? t.mustBeBefore : [];
-                const differentDayRefs = Array.isArray(t.mustBeDifferentDay) ? t.mustBeDifferentDay : [];
-
-                for(const refId of afterRefs) {
-                    const refTask = tasks.find(x => x.id === refId);
-                    if(!refTask || refTask.completed) continue;
-                    if(!refTask.date) {
-                        maxEnd = -1;
-                        break;
-                    }
-                    if(refTask.date > dateStr) {
-                        maxEnd = -1;
-                        break;
-                    }
-                    if(refTask.date === dateStr) {
-                        if(!refTask.time) {
-                            maxEnd = -1;
-                            break;
-                        }
-                        const refEnd = timeToMin(refTask.time) + (parseInt(refTask.duration, 10) || 30);
-                        autoStartForTask = Math.max(autoStartForTask, refEnd + 5);
-                    }
-                }
-                for(const refId of beforeRefs) {
-                    const refTask = tasks.find(x => x.id === refId);
-                    if(!refTask || refTask.completed) continue;
-                    if(refTask.date) {
-                        if(refTask.date < dateStr) {
-                            maxEnd = -1;
-                            break;
-                        }
-                        if(refTask.date === dateStr && refTask.time) {
-                            maxEnd = Math.min(maxEnd, timeToMin(refTask.time) - 5);
-                        }
-                    }
-                }
-                for(const refId of differentDayRefs) {
-                    const refTask = tasks.find(x => x.id === refId);
-                    if(!refTask) continue;
-                    const refConstraintDate = getTaskDifferentDayConstraintDate(refTask);
-                    if(refConstraintDate === dateStr) {
-                        maxEnd = -1;
-                        break;
-                    }
-                }
                 if(autoStartForTask + duration > maxEnd) {
                     return;
                 }
@@ -16931,17 +16978,14 @@
 
         function tryPlaceTaskTimeOnDate(task, dateStr) {
             if(!task || !dateStr) return false;
-            const todayStr = getDateStrLocal();
-            const duration = parseInt(task.duration, 10) || 30;
+            if(isDateBlockedForTask(task, dateStr)) return false;
             const daySchedule = getScheduleForDate(dateStr);
+            const todayStr = getDateStrLocal();
             let dayStart = dateStr === todayStr
                 ? Math.max(timeToMin(daySchedule.start), getNowMinRoundedTo5())
                 : timeToMin(daySchedule.start);
-            const dayEnd = timeToMin(daySchedule.end);
-            const taskDue = getTaskDueDate(task);
-            const dueLimit = (task.dueTime && taskDue === dateStr) ? timeToMin(task.dueTime) : dayEnd;
-            const maxEnd = Math.min(dayEnd, dueLimit);
-            if(dayStart + duration > maxEnd) return false;
+            const constraints = getSchedulingConstraintsForTaskOnDate(task, dateStr, dayStart);
+            if(!constraints) return false;
 
             const busy = [
                 ...tasks.filter(t => t.id !== task.id && !t.completed && t.date === dateStr && t.time)
@@ -16951,7 +16995,15 @@
                     }),
                 ...getBlockedSlotsForDate(dateStr)
             ].sort((a, b) => a.start - b.start);
-            const options = getSlotOptionsForPriority(busy, dayStart, maxEnd, duration, 0, task.priority, task);
+            const options = getSlotOptionsForPriority(
+                busy,
+                constraints.constrainedStart,
+                constraints.constrainedMaxEnd,
+                constraints.duration,
+                0,
+                task.priority,
+                task
+            );
             if(options.length === 0) return false;
             const slot = options[Math.max(0, selectSlotIndexForPriority(options, task))];
             task.time = minToInputTime(slot.start);
@@ -17232,60 +17284,14 @@
                 let passChanges = 0;
 
             const tryPlaceTaskOnDate = (task, targetDate, targetBusy, startMin) => {
-                const duration = parseInt(task.duration, 10) || 30;
-                if(isDateBlockedForTask(task, targetDate)) return null;
-                const targetSchedule = getScheduleForDate(targetDate);
-                const targetDayEnd = timeToMin(targetSchedule.end);
-                const dueDate = getTaskDueDate(task);
-                if(dueDate && targetDate > dueDate) return null;
-                const targetDueLimit = (task.dueTime && dueDate === targetDate) ? timeToMin(task.dueTime) : targetDayEnd;
-                let constrainedStart = startMin;
-                let constrainedMaxEnd = Math.min(targetDayEnd, targetDueLimit);
+                const constraints = getSchedulingConstraintsForTaskOnDate(task, targetDate, startMin);
+                if(!constraints) return null;
                 const breakMin = 0;
-                const afterRefs = Array.isArray(task.mustBeAfter) ? task.mustBeAfter : [];
-                const beforeRefs = Array.isArray(task.mustBeBefore) ? task.mustBeBefore : [];
-                const differentDayRefs = Array.isArray(task.mustBeDifferentDay) ? task.mustBeDifferentDay : [];
-
-                for(const refId of afterRefs) {
-                    const refTask = tasks.find(t => t.id === refId);
-                    if(!refTask || refTask.completed) continue;
-                    if(!refTask.date) return null;
-                    if(targetDate < refTask.date) return null;
-                    if(targetDate === refTask.date) {
-                        if(!refTask.time) return null;
-                        const refStart = timeToMin(refTask.time);
-                        const refEnd = refStart + (parseInt(refTask.duration, 10) || 30);
-                        constrainedStart = Math.max(constrainedStart, refEnd + 5);
-                    }
-                }
-                for(const refId of beforeRefs) {
-                    const refTask = tasks.find(t => t.id === refId);
-                    if(!refTask || refTask.completed) continue;
-                    if(refTask.date) {
-                        if(targetDate > refTask.date) return null;
-                        if(targetDate === refTask.date && refTask.time) {
-                            const refStart = timeToMin(refTask.time);
-                            constrainedMaxEnd = Math.min(constrainedMaxEnd, refStart - 5);
-                        }
-                    }
-                }
-                for(const refId of differentDayRefs) {
-                    const refTask = tasks.find(t => t.id === refId);
-                    if(!refTask) continue;
-                    const refConstraintDate = getTaskDifferentDayConstraintDate(refTask);
-                    if(refConstraintDate === targetDate) return null;
-                }
-                if(constrainedStart + duration > constrainedMaxEnd) return null;
-                if(targetDate === todayStr) {
-                    constrainedStart = Math.max(constrainedStart, getNowMinRoundedTo5());
-                    if(constrainedStart + duration > constrainedMaxEnd) return null;
-                }
-
                 const options = getSlotOptionsForPriority(
                     targetBusy,
-                    constrainedStart,
-                    constrainedMaxEnd,
-                    duration,
+                    constraints.constrainedStart,
+                    constraints.constrainedMaxEnd,
+                    constraints.duration,
                     breakMin,
                     task?.priority,
                     task
@@ -17293,7 +17299,7 @@
                 if(options.length > 0) {
                     const slotIndex = selectSlotIndexForPriority(options, task);
                     const picked = options[Math.max(0, slotIndex)];
-                    return { start: picked.start, end: picked.start + duration };
+                    return { start: picked.start, end: picked.start + constraints.duration };
                 }
                 return null;
             };
