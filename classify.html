@@ -1264,6 +1264,68 @@
             border-color: #475569;
             background: #1e293b;
         }
+        .cl-pref-section {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 18px;
+        }
+        .cl-pref-section:last-child {
+            margin-bottom: 0;
+        }
+        .cl-pref-section__title {
+            margin: 0 0 4px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: #64748b;
+        }
+        .dark .cl-pref-section__title { color: #94a3b8; }
+        .cl-pref-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 12px 14px;
+            border: 1px solid rgba(226, 232, 240, 0.9);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.9);
+        }
+        .dark .cl-pref-row {
+            background: rgba(30, 41, 59, 0.7);
+            border-color: rgba(51, 65, 85, 0.9);
+        }
+        .cl-pref-row label {
+            font-size: 0.92rem;
+            font-weight: 600;
+            color: #0f172a;
+        }
+        .dark .cl-pref-row label { color: #f1f5f9; }
+        .cl-pref-row select {
+            min-width: 9.5rem;
+            height: 2.25rem;
+            padding: 0 0.65rem;
+            border-radius: 10px;
+            border: 1px solid #cbd5e1;
+            background: #fff;
+            color: #0f172a;
+            font: inherit;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        .dark .cl-pref-row select {
+            background: #0f172a;
+            border-color: #475569;
+            color: #f8fafc;
+        }
+        .cl-pref-note {
+            margin: -4px 2px 0;
+            font-size: 0.78rem;
+            line-height: 1.35;
+            color: #64748b;
+        }
+        .dark .cl-pref-note { color: #94a3b8; }
         .cl-modal-header {
             display: grid;
             grid-template-columns: auto 1fr auto;
@@ -2669,21 +2731,9 @@
                     <span class="cl-settings-item-label"><i class="fa-solid fa-upload text-red-500"></i>Import assignments</span>
                     <i class="fa-solid fa-chevron-right text-slate-400 text-sm"></i>
                 </button>
-                <button type="button" class="cl-settings-item" onclick="toggleDarkMode(); syncClassifySettingsDarkToggle();">
-                    <span class="cl-settings-item-label"><i class="fa-solid fa-moon text-red-500"></i>Dark mode</span>
-                    <span id="cl-settings-dark-state" class="text-sm font-semibold text-slate-500 dark:text-slate-400">Off</span>
-                </button>
-                <button type="button" class="cl-settings-item" onclick="toggleClassifyHotspots();">
-                    <span class="cl-settings-item-label"><i class="fa-solid fa-lightbulb text-sky-500"></i>Help hotspots</span>
-                    <span id="cl-settings-hotspots-state" class="text-sm font-semibold text-slate-500 dark:text-slate-400">On</span>
-                </button>
-                <button type="button" class="cl-settings-item" onclick="toggleClassifyCommandLine();">
-                    <span class="cl-settings-item-label"><i class="fa-solid fa-terminal text-violet-500"></i>Command line</span>
-                    <span id="cl-settings-commandline-state" class="text-sm font-semibold text-slate-500 dark:text-slate-400">On</span>
-                </button>
-                <button type="button" class="cl-settings-item" onclick="toggleWeekCalendarWeekends();">
-                    <span class="cl-settings-item-label"><i class="fa-solid fa-calendar-week text-emerald-500"></i>Week view weekends</span>
-                    <span id="cl-settings-weekend-state" class="text-sm font-semibold text-slate-500 dark:text-slate-400">On</span>
+                <button type="button" class="cl-settings-item" onclick="closeClassifySettings(); openClassifyPreferences();">
+                    <span class="cl-settings-item-label"><i class="fa-solid fa-sliders text-violet-500"></i>Preferences</span>
+                    <i class="fa-solid fa-chevron-right text-slate-400 text-sm"></i>
                 </button>
                 <button type="button" class="cl-settings-item" onclick="resetClassifyHotspotsSeen();">
                     <span class="cl-settings-item-label"><i class="fa-solid fa-rotate-left text-slate-500"></i>Reset help tips</span>
@@ -2697,6 +2747,89 @@
             <p class="cl-settings-kbd-hint">Press <kbd>Q</kbd> for a new assignment. <kbd>/</kbd> focuses the command line for edits like move, due, start, or delete.</p>
             <div class="mt-4 flex justify-end">
                 <button onclick="closeClassifySettings()" class="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-semibold transition-colors" type="button">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Classify Preferences -->
+    <div id="classifyPreferencesModal" class="cl-modal-root hidden">
+        <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"></div>
+        <div class="relative modal-panel rounded-2xl p-6 max-w-md w-[94%] max-h-full overflow-y-auto scale-95 opacity-0 transition-all" id="classifyPreferencesPanel">
+            <div class="flex items-center justify-between gap-3 mb-4">
+                <div class="flex items-center gap-2 min-w-0">
+                    <button type="button" class="cl-settings-back-btn" onclick="returnToClassifySettings(closeClassifyPreferences)" aria-label="Back to Classify settings" title="Back to settings"><i class="fa-solid fa-arrow-left"></i></button>
+                    <h3 class="text-xl font-display font-bold text-slate-900 dark:text-white truncate">Preferences</h3>
+                </div>
+                <button onclick="closeClassifyPreferences()" class="text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 text-lg transition-colors" type="button"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <div class="cl-pref-section">
+                <h4 class="cl-pref-section__title">Completion</h4>
+                <button type="button" class="cl-settings-item" onclick="toggleCompletionPromptPreference()">
+                    <span class="cl-settings-item-label"><i class="fa-solid fa-circle-check text-emerald-500"></i>Ask before completing</span>
+                    <span id="cl-pref-completion-prompt-state" class="text-sm font-semibold text-slate-500 dark:text-slate-400">On</span>
+                </button>
+                <p class="cl-pref-note">When off, marking complete skips the popup and uses the estimated duration as actual time when available.</p>
+                <button type="button" class="cl-settings-item" onclick="toggleCompletionConfettiPreference()">
+                    <span class="cl-settings-item-label"><i class="fa-solid fa-wand-magic-sparkles text-amber-500"></i>Confetti on complete</span>
+                    <span id="cl-pref-completion-confetti-state" class="text-sm font-semibold text-slate-500 dark:text-slate-400">On</span>
+                </button>
+                <button type="button" class="cl-settings-item" onclick="toggleBreakReminderPreference()">
+                    <span class="cl-settings-item-label"><i class="fa-solid fa-mug-hot text-orange-500"></i>Break reminder after complete</span>
+                    <span id="cl-pref-break-reminder-state" class="text-sm font-semibold text-slate-500 dark:text-slate-400">On</span>
+                </button>
+            </div>
+
+            <div class="cl-pref-section">
+                <h4 class="cl-pref-section__title">Week calendar</h4>
+                <div class="cl-pref-row">
+                    <label for="cl-pref-week-start">Week starts on</label>
+                    <select id="cl-pref-week-start" onchange="setWeekCalendarStartDayPreference(this.value)">
+                        <option value="monday">Monday</option>
+                        <option value="sunday">Sunday</option>
+                    </select>
+                </div>
+                <div class="cl-pref-row">
+                    <label for="cl-pref-week-days">Days shown</label>
+                    <select id="cl-pref-week-days" onchange="setWeekCalendarDayCountPreference(this.value)">
+                        <option value="5">5 (Mon–Fri)</option>
+                        <option value="7">7 (full week)</option>
+                    </select>
+                </div>
+                <p class="cl-pref-note">Five-day view always shows weekdays. Seven-day view follows your chosen start day.</p>
+                <button type="button" class="cl-settings-item" onclick="toggleWeekViewNotesPreference()">
+                    <span class="cl-settings-item-label"><i class="fa-solid fa-note-sticky text-sky-500"></i>Show notes in week view</span>
+                    <span id="cl-pref-week-notes-state" class="text-sm font-semibold text-slate-500 dark:text-slate-400">On</span>
+                </button>
+            </div>
+
+            <div class="cl-pref-section">
+                <h4 class="cl-pref-section__title">Interface</h4>
+                <button type="button" class="cl-settings-item" onclick="toggleDarkMode(); syncClassifyPreferencesPanel();">
+                    <span class="cl-settings-item-label"><i class="fa-solid fa-moon text-red-500"></i>Dark mode</span>
+                    <span id="cl-pref-dark-state" class="text-sm font-semibold text-slate-500 dark:text-slate-400">Off</span>
+                </button>
+                <button type="button" class="cl-settings-item" onclick="toggleClassifyCommandLine(); syncClassifyPreferencesPanel();">
+                    <span class="cl-settings-item-label"><i class="fa-solid fa-terminal text-violet-500"></i>Command line</span>
+                    <span id="cl-pref-commandline-state" class="text-sm font-semibold text-slate-500 dark:text-slate-400">On</span>
+                </button>
+                <button type="button" class="cl-settings-item" onclick="toggleClassifyHotspots(); syncClassifyPreferencesPanel();">
+                    <span class="cl-settings-item-label"><i class="fa-solid fa-lightbulb text-sky-500"></i>Help hotspots</span>
+                    <span id="cl-pref-hotspots-state" class="text-sm font-semibold text-slate-500 dark:text-slate-400">On</span>
+                </button>
+            </div>
+
+            <div class="cl-pref-section">
+                <h4 class="cl-pref-section__title">Scheduling</h4>
+                <button type="button" class="cl-settings-item" onclick="toggleAutoMaintainSchedulePreference()">
+                    <span class="cl-settings-item-label"><i class="fa-solid fa-wand-magic-sparkles text-emerald-500"></i>Auto-maintain schedule</span>
+                    <span id="cl-pref-auto-maintain-state" class="text-sm font-semibold text-slate-500 dark:text-slate-400">On</span>
+                </button>
+                <p class="cl-pref-note">Keeps times and dependencies up to date while Classify is open.</p>
+            </div>
+
+            <div class="mt-4 flex justify-end">
+                <button onclick="closeClassifyPreferences()" class="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-semibold transition-colors" type="button">Done</button>
             </div>
         </div>
     </div>
@@ -3682,9 +3815,11 @@
                     cloudSyncTimer = null;
                 }
                 await pollClassifySyncVersion();
-                const changed = maintainClassifyScheduleIfNeeded({ persist: true });
+                if(isAutoMaintainScheduleEnabled()) {
+                    const changed = maintainClassifyScheduleIfNeeded({ persist: true });
+                    if(changed > 0) renderAll();
+                }
                 updateDateDisplay();
-                if(changed > 0) renderAll();
             }, 50);
         }
 
@@ -3794,6 +3929,7 @@
 
         function refreshAssignmentTimesDisplay() {
             if (document.hidden) return;
+            if(!isAutoMaintainScheduleEnabled()) return;
             let changed = 0;
             try {
                 changed = maintainClassifyScheduleIfNeeded({ persist: true }) || 0;
@@ -3854,8 +3990,40 @@
 
             if(payload.weekCalendarIncludeWeekends === true || payload.weekCalendarIncludeWeekends === 'true') {
                 localStorage.setItem(plannerStorageKey('weekCalendarIncludeWeekends'), 'true');
+                if(!plannerGet('weekCalendarDayCount')) {
+                    localStorage.setItem(plannerStorageKey('weekCalendarDayCount'), '7');
+                }
             } else if(payload.weekCalendarIncludeWeekends === false || payload.weekCalendarIncludeWeekends === 'false') {
                 localStorage.setItem(plannerStorageKey('weekCalendarIncludeWeekends'), 'false');
+                if(!plannerGet('weekCalendarDayCount')) {
+                    localStorage.setItem(plannerStorageKey('weekCalendarDayCount'), '5');
+                }
+            }
+
+            const booleanPrefKeys = [
+                'completionPromptEnabled',
+                'completionConfettiEnabled',
+                'breakReminderEnabled',
+                'weekViewShowNotes',
+                'autoMaintainScheduleEnabled'
+            ];
+            booleanPrefKeys.forEach((key) => {
+                const val = payload[key];
+                if(val === true || val === 'true') {
+                    localStorage.setItem(plannerStorageKey(key), 'true');
+                } else if(val === false || val === 'false') {
+                    localStorage.setItem(plannerStorageKey(key), 'false');
+                }
+            });
+            if(payload.weekCalendarDayCount === '5' || payload.weekCalendarDayCount === 5) {
+                localStorage.setItem(plannerStorageKey('weekCalendarDayCount'), '5');
+                localStorage.setItem(plannerStorageKey('weekCalendarIncludeWeekends'), 'false');
+            } else if(payload.weekCalendarDayCount === '7' || payload.weekCalendarDayCount === 7) {
+                localStorage.setItem(plannerStorageKey('weekCalendarDayCount'), '7');
+                localStorage.setItem(plannerStorageKey('weekCalendarIncludeWeekends'), 'true');
+            }
+            if(payload.weekCalendarStartDay === 'sunday' || payload.weekCalendarStartDay === 'monday') {
+                localStorage.setItem(plannerStorageKey('weekCalendarStartDay'), payload.weekCalendarStartDay);
             }
         }
 
@@ -3875,7 +4043,14 @@
                 hotspotsSeen: normalizeHotspotsSeen(safeJsonParse(plannerGet('hotspotsSeen'), [])),
                 hotspotsEnabled: plannerGet('hotspotsEnabled') !== 'false',
                 commandLineEnabled: plannerGet('commandLineEnabled') !== 'false',
-                weekCalendarIncludeWeekends: plannerGet('weekCalendarIncludeWeekends') !== 'false'
+                weekCalendarIncludeWeekends: getWeekCalendarDayCount() === 7,
+                weekCalendarDayCount: String(getWeekCalendarDayCount()),
+                weekCalendarStartDay: getWeekCalendarStartDay(),
+                completionPromptEnabled: isCompletionPromptEnabled(),
+                completionConfettiEnabled: isCompletionConfettiEnabled(),
+                breakReminderEnabled: isBreakReminderEnabled(),
+                weekViewShowNotes: areWeekViewNotesShown(),
+                autoMaintainScheduleEnabled: isAutoMaintainScheduleEnabled()
             };
         }
 
@@ -4040,6 +4215,7 @@
 
             migrateVacationBlocks();
             pruneExpiredScheduleItems();
+            migrateClassifyPreferences();
             
             // Migrate old data if exists
             const oldTasks = safeJsonParse(plannerGet('plannerTasks'), null);
@@ -4142,16 +4318,26 @@
         }
 
         function syncClassifySettingsDarkToggle() {
+            const isDark = document.documentElement.classList.contains('dark');
             const el = document.getElementById('cl-settings-dark-state');
-            if (!el) return;
-            el.textContent = document.documentElement.classList.contains('dark') ? 'On' : 'Off';
+            if (el) el.textContent = isDark ? 'On' : 'Off';
+            const pref = document.getElementById('cl-pref-dark-state');
+            if (pref) pref.textContent = isDark ? 'On' : 'Off';
+        }
+
+        function migrateClassifyPreferences() {
+            if(!plannerGet('weekCalendarDayCount')) {
+                localStorage.setItem(
+                    plannerStorageKey('weekCalendarDayCount'),
+                    plannerGet('weekCalendarIncludeWeekends') !== 'false' ? '7' : '5'
+                );
+            }
+            if(!plannerGet('weekCalendarStartDay')) {
+                localStorage.setItem(plannerStorageKey('weekCalendarStartDay'), 'monday');
+            }
         }
 
         function openClassifySettings() {
-            syncClassifySettingsDarkToggle();
-            syncClassifyHotspotsSettingsState();
-            syncClassifyCommandLineSettingsState();
-            syncWeekCalendarWeekendsSettingsState();
             const modal = document.getElementById('classifySettingsModal');
             const panel = document.getElementById('classifySettingsPanel');
             if (!modal || !panel) return;
@@ -4171,6 +4357,137 @@
             setTimeout(() => {
                 modal.classList.add('hidden');
             }, 200);
+        }
+
+        function openClassifyPreferences() {
+            syncClassifyPreferencesPanel();
+            const modal = document.getElementById('classifyPreferencesModal');
+            const panel = document.getElementById('classifyPreferencesPanel');
+            if(!modal || !panel) return;
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                panel.classList.remove('scale-95', 'opacity-0');
+                panel.classList.add('scale-100', 'opacity-100');
+            }, 10);
+        }
+
+        function closeClassifyPreferences() {
+            const modal = document.getElementById('classifyPreferencesModal');
+            const panel = document.getElementById('classifyPreferencesPanel');
+            if(!modal || !panel) return;
+            panel.classList.add('scale-95', 'opacity-0');
+            panel.classList.remove('scale-100', 'opacity-100');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 200);
+        }
+
+        function syncClassifyPreferencesPanel() {
+            const onOff = (enabled) => enabled ? 'On' : 'Off';
+            const setState = (id, enabled) => {
+                const el = document.getElementById(id);
+                if(el) el.textContent = onOff(enabled);
+            };
+            setState('cl-pref-completion-prompt-state', isCompletionPromptEnabled());
+            setState('cl-pref-completion-confetti-state', isCompletionConfettiEnabled());
+            setState('cl-pref-break-reminder-state', isBreakReminderEnabled());
+            setState('cl-pref-week-notes-state', areWeekViewNotesShown());
+            setState('cl-pref-dark-state', document.documentElement.classList.contains('dark'));
+            setState('cl-pref-commandline-state', areClassifyCommandLineEnabled());
+            setState('cl-pref-hotspots-state', areClassifyHotspotsEnabled());
+            setState('cl-pref-auto-maintain-state', isAutoMaintainScheduleEnabled());
+            const weekStart = document.getElementById('cl-pref-week-start');
+            if(weekStart) weekStart.value = getWeekCalendarStartDay();
+            const weekDays = document.getElementById('cl-pref-week-days');
+            if(weekDays) weekDays.value = String(getWeekCalendarDayCount());
+            syncClassifySettingsDarkToggle();
+            syncClassifyHotspotsSettingsState();
+            syncClassifyCommandLineSettingsState();
+            syncWeekCalendarWeekendsSettingsState();
+        }
+
+        function isCompletionPromptEnabled() {
+            return plannerGet('completionPromptEnabled') !== 'false';
+        }
+
+        function isCompletionConfettiEnabled() {
+            return plannerGet('completionConfettiEnabled') !== 'false';
+        }
+
+        function isBreakReminderEnabled() {
+            return plannerGet('breakReminderEnabled') !== 'false';
+        }
+
+        function areWeekViewNotesShown() {
+            return plannerGet('weekViewShowNotes') !== 'false';
+        }
+
+        function isAutoMaintainScheduleEnabled() {
+            return plannerGet('autoMaintainScheduleEnabled') !== 'false';
+        }
+
+        function getWeekCalendarStartDay() {
+            return plannerGet('weekCalendarStartDay') === 'sunday' ? 'sunday' : 'monday';
+        }
+
+        function toggleCompletionPromptPreference() {
+            const next = !isCompletionPromptEnabled();
+            plannerSet('completionPromptEnabled', next ? 'true' : 'false');
+            syncClassifyPreferencesPanel();
+            showNotification(`Completion prompt ${next ? 'enabled' : 'disabled'}`, 'info');
+            queueClassifyCloudSync();
+        }
+
+        function toggleCompletionConfettiPreference() {
+            const next = !isCompletionConfettiEnabled();
+            plannerSet('completionConfettiEnabled', next ? 'true' : 'false');
+            syncClassifyPreferencesPanel();
+            showNotification(`Completion confetti ${next ? 'enabled' : 'disabled'}`, 'info');
+            queueClassifyCloudSync();
+        }
+
+        function toggleBreakReminderPreference() {
+            const next = !isBreakReminderEnabled();
+            plannerSet('breakReminderEnabled', next ? 'true' : 'false');
+            syncClassifyPreferencesPanel();
+            showNotification(`Break reminders ${next ? 'enabled' : 'disabled'}`, 'info');
+            queueClassifyCloudSync();
+        }
+
+        function toggleWeekViewNotesPreference() {
+            const next = !areWeekViewNotesShown();
+            plannerSet('weekViewShowNotes', next ? 'true' : 'false');
+            syncClassifyPreferencesPanel();
+            if(calendarViewMode === 'week') renderCalendar();
+            showNotification(`Week view notes ${next ? 'shown' : 'hidden'}`, 'info');
+            queueClassifyCloudSync();
+        }
+
+        function toggleAutoMaintainSchedulePreference() {
+            const next = !isAutoMaintainScheduleEnabled();
+            plannerSet('autoMaintainScheduleEnabled', next ? 'true' : 'false');
+            syncClassifyPreferencesPanel();
+            showNotification(`Auto-maintain schedule ${next ? 'enabled' : 'disabled'}`, 'info');
+            queueClassifyCloudSync();
+        }
+
+        function setWeekCalendarStartDayPreference(value) {
+            const day = value === 'sunday' ? 'sunday' : 'monday';
+            plannerSet('weekCalendarStartDay', day);
+            syncClassifyPreferencesPanel();
+            if(calendarViewMode === 'week') renderCalendar();
+            showNotification(`Week view starts on ${day === 'sunday' ? 'Sunday' : 'Monday'}`, 'info');
+            queueClassifyCloudSync();
+        }
+
+        function setWeekCalendarDayCountPreference(value) {
+            const count = value === '5' ? '5' : '7';
+            plannerSet('weekCalendarDayCount', count);
+            plannerSet('weekCalendarIncludeWeekends', count === '7' ? 'true' : 'false');
+            syncClassifyPreferencesPanel();
+            if(calendarViewMode === 'week') renderCalendar();
+            showNotification(`Week view shows ${count === '7' ? '7 days' : 'weekdays only'}`, 'info');
+            queueClassifyCloudSync();
         }
 
         function returnToClassifySettings(closeSubModalFn) {
@@ -5162,9 +5479,11 @@
         }
 
         function syncClassifyHotspotsSettingsState() {
+            const enabled = areClassifyHotspotsEnabled();
             const el = document.getElementById('cl-settings-hotspots-state');
-            if(!el) return;
-            el.textContent = areClassifyHotspotsEnabled() ? 'On' : 'Off';
+            if(el) el.textContent = enabled ? 'On' : 'Off';
+            const pref = document.getElementById('cl-pref-hotspots-state');
+            if(pref) pref.textContent = enabled ? 'On' : 'Off';
         }
 
         function getActiveClassifyTabId() {
@@ -6756,13 +7075,34 @@
         }
 
         function getWeekCalendarDayCount() {
-            return areWeekCalendarWeekendsIncluded() ? 7 : 5;
+            const stored = plannerGet('weekCalendarDayCount');
+            if(stored === '5') return 5;
+            if(stored === '7') return 7;
+            return plannerGet('weekCalendarIncludeWeekends') !== 'false' ? 7 : 5;
+        }
+
+        function getWeekViewStartOfWeek(baseDate = new Date()) {
+            const start = new Date(baseDate);
+            start.setHours(0, 0, 0, 0);
+            const dayCount = getWeekCalendarDayCount();
+            if(dayCount === 5) {
+                const dayIndex = (start.getDay() + 6) % 7;
+                start.setDate(start.getDate() - dayIndex);
+                return start;
+            }
+            if(getWeekCalendarStartDay() === 'sunday') {
+                start.setDate(start.getDate() - start.getDay());
+            } else {
+                const dayIndex = (start.getDay() + 6) % 7;
+                start.setDate(start.getDate() - dayIndex);
+            }
+            return start;
         }
 
         function getWeekCalendarAnchorDate(baseDate = new Date()) {
             const anchor = new Date(baseDate);
             anchor.setHours(0, 0, 0, 0);
-            if(!areWeekCalendarWeekendsIncluded()) {
+            if(getWeekCalendarDayCount() === 5) {
                 const day = anchor.getDay();
                 if(day === 0) anchor.setDate(anchor.getDate() + 1);
                 else if(day === 6) anchor.setDate(anchor.getDate() + 2);
@@ -6771,7 +7111,7 @@
         }
 
         function getWeekCalendarDisplayBounds(baseDate = new Date()) {
-            const { start } = getWeekBounds(getWeekCalendarAnchorDate(baseDate));
+            const start = getWeekViewStartOfWeek(getWeekCalendarAnchorDate(baseDate));
             const dayCount = getWeekCalendarDayCount();
             const end = new Date(start);
             end.setDate(start.getDate() + dayCount - 1);
@@ -12474,7 +12814,11 @@
                     showNotification(`"${task.title}" is already complete.`, 'info');
                     return false;
                 }
-                openTimeModal(taskId);
+                if(isCompletionPromptEnabled()) {
+                    openTimeModal(taskId);
+                } else {
+                    completeTaskDirectly(taskId);
+                }
                 return true;
             }
 
@@ -12875,8 +13219,11 @@
         }
 
         function syncClassifyCommandLineSettingsState() {
+            const enabled = areClassifyCommandLineEnabled();
             const el = document.getElementById('cl-settings-commandline-state');
-            if(el) el.textContent = areClassifyCommandLineEnabled() ? 'On' : 'Off';
+            if(el) el.textContent = enabled ? 'On' : 'Off';
+            const pref = document.getElementById('cl-pref-commandline-state');
+            if(pref) pref.textContent = enabled ? 'On' : 'Off';
             syncClassifyCommandLineVisibility();
         }
 
@@ -12888,12 +13235,12 @@
         }
 
         function areWeekCalendarWeekendsIncluded() {
-            return plannerGet('weekCalendarIncludeWeekends') !== 'false';
+            return getWeekCalendarDayCount() === 7;
         }
 
         function syncWeekCalendarWeekendsSettingsState() {
-            const el = document.getElementById('cl-settings-weekend-state');
-            if(el) el.textContent = areWeekCalendarWeekendsIncluded() ? 'On' : 'Off';
+            const pref = document.getElementById('cl-pref-week-days');
+            if(pref) pref.value = String(getWeekCalendarDayCount());
         }
 
         function toggleWeekCalendarWeekends() {
@@ -14640,6 +14987,33 @@
             flushClassifyUiImmediate({ skipUndoRecord: true });
             flushClassifyCloudSync().catch(() => {});
 
+            runTaskCompletionFollowUp(completedTaskRef, {
+                mode,
+                carryOver,
+                finishOnDifferentDay
+            });
+        }
+
+        function completeTaskDirectly(taskId) {
+            const task = tasks.find(t => t.id === taskId);
+            if(!task || task.completed) return;
+
+            recordClassifyUndoPoint({ force: true });
+            const baseDuration = Math.round(Number(task.duration));
+            task.actualMinutes = Number.isFinite(baseDuration) && baseDuration > 0 ? baseDuration : null;
+            task.completed = true;
+            task.completedDate = getDateStrLocal();
+            clearCompletedTaskStartedState(task);
+            if(task.repeatGroupId) recordRepeatOccurrenceException(task.repeatGroupId, task);
+
+            flushClassifyUiImmediate({ skipUndoRecord: true });
+            flushClassifyCloudSync().catch(() => {});
+            runTaskCompletionFollowUp(task, { mode: 'full' });
+        }
+
+        function runTaskCompletionFollowUp(completedTaskRef, options = {}) {
+            const { mode = 'full', carryOver = null, finishOnDifferentDay = false } = options || {};
+
             if(mode === 'partial') {
                 showNotification(
                     finishOnDifferentDay
@@ -14649,7 +15023,7 @@
                 );
             }
 
-            if(mode !== 'partial') {
+            if(mode !== 'partial' && isCompletionConfettiEnabled()) {
                 try {
                     triggerConfetti();
                 } catch (error) {
@@ -14659,9 +15033,11 @@
 
             try {
                 enforceBreakAfterCompletion(completedTaskRef);
-                setTimeout(() => {
-                    showBreakReminder(completedTaskRef);
-                }, 200);
+                if(isBreakReminderEnabled()) {
+                    setTimeout(() => {
+                        showBreakReminder(completedTaskRef);
+                    }, 200);
+                }
             } catch (error) {
                 console.error('Break reminder failed:', error);
             }
@@ -14673,11 +15049,11 @@
                     pruneRepeatFutureWeeks();
                     if(spawned > 0) syncAllTaskDependencies();
                     if(mode === 'partial') {
-                        enforceDifferentDayAfterCompletion(task);
-                        reconcileBeforeAfterSchedule([task.id, carryOver?.id].filter(Boolean));
+                        enforceDifferentDayAfterCompletion(completedTaskRef);
+                        reconcileBeforeAfterSchedule([completedTaskRef.id, carryOver?.id].filter(Boolean));
                     } else {
-                        enforceDifferentDayAfterCompletion(task);
-                        reconcileBeforeAfterSchedule([task.id]);
+                        enforceDifferentDayAfterCompletion(completedTaskRef);
+                        reconcileBeforeAfterSchedule([completedTaskRef.id]);
                     }
                     reAutoScheduleAfterCompletion(completedTaskRef, spawned > 0);
                 } catch (error) {
@@ -14903,12 +15279,14 @@
                 const unscheduled = countTasksNeedingTimeInRange(startStr, endStr);
                 return {
                     periodLabel: `${startLabel} – ${endLabel}`,
-                    viewLabel: areWeekCalendarWeekendsIncluded() ? 'Week schedule' : 'Weekday schedule',
+                    viewLabel: getWeekCalendarDayCount() === 7 ? 'Week schedule' : 'Weekday schedule',
                     taskCount: periodTasks.length,
                     minutes,
                     unscheduled,
-                    legend: areWeekCalendarWeekendsIncluded()
-                        ? 'Each day shows assignments in time order. Drag to move, tap to edit.'
+                    legend: getWeekCalendarDayCount() === 7
+                        ? (getWeekCalendarStartDay() === 'sunday'
+                            ? 'Sunday through Saturday. Drag to move, tap to edit.'
+                            : 'Each day shows assignments in time order. Drag to move, tap to edit.')
                         : 'Monday through Friday only. Drag to move, tap to edit.'
                 };
             }
@@ -15029,7 +15407,7 @@
                     const timeLabel = item.type === 'overflow' ? 'Needs slot' : minToTime(item.start);
                     const duration = parseInt(t.duration, 10) || 30;
                     const timeValue = item.type === 'overflow' ? '' : minToInputTime(item.start);
-                    const notesHtml = t.notes
+                    const notesHtml = areWeekViewNotesShown() && t.notes
                         ? `<div class="cl-week-task__notes" title="${escapeHtml(t.notes)}">${linkify(escapeHtml(t.notes))}</div>`
                         : '';
                     return `
@@ -16284,7 +16662,11 @@
                     });
                     return;
                 }
-                openTimeModal(id);
+                if(isCompletionPromptEnabled()) {
+                    openTimeModal(id);
+                } else {
+                    completeTaskDirectly(id);
+                }
             }
         }
 
