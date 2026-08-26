@@ -2825,7 +2825,7 @@
                     <span class="cl-settings-item-label"><i class="fa-solid fa-wand-magic-sparkles text-emerald-500"></i>Auto-maintain schedule</span>
                     <span id="cl-pref-auto-maintain-state" class="text-sm font-semibold text-slate-500 dark:text-slate-400">On</span>
                 </button>
-                <p class="cl-pref-note">Keeps times and dependencies up to date while Classify is open.</p>
+                <p class="cl-pref-note">While Classify is open, refreshes the schedule at each 5-minute mark (9:50, 9:55, etc.) and syncs changes in the background.</p>
             </div>
 
             <div class="mt-4 flex justify-end">
@@ -3671,6 +3671,9 @@
         let classifyBootComplete = false;
         let classifyResumeTimer = null;
         let assignmentTimeRefreshTimer = null;
+        let lastPeriodicScheduleMaintainPeriod = null;
+        let periodicScheduleCloudSyncTimer = null;
+        let pendingPeriodicScheduleCloudSync = false;
         function persistClassifyLocally() {
             suppressCloudSync = true;
             localStorage.setItem(plannerStorageKey('plannerTasksV2'), JSON.stringify(tasks));
@@ -3724,7 +3727,7 @@
                         persistClassifyUndoStack();
                     }
                     initClassifyUndoBaseline();
-                    maintainClassifyScheduleIfNeeded({ persist: true });
+                    maintainClassifyScheduleIfNeeded({ persist: true, syncCloud: true });
                     renderAll();
                     syncClassifyHotspotsSettingsState();
                     syncWeekCalendarWeekendsSettingsState();
@@ -3789,7 +3792,7 @@
 
         function startClassifySyncPoll() {
             clearInterval(classifySyncPollTimer);
-            const intervalMs = document.hidden ? 60000 : 15000;
+            const intervalMs = document.hidden ? 90000 : 45000;
             classifySyncPollTimer = setInterval(pollClassifySyncVersion, intervalMs);
         }
 
@@ -3816,8 +3819,7 @@
                 }
                 await pollClassifySyncVersion();
                 if(isAutoMaintainScheduleEnabled()) {
-                    const changed = maintainClassifyScheduleIfNeeded({ persist: true });
-                    if(changed > 0) renderAll();
+                    runPeriodicScheduleMaintain();
                 }
                 updateDateDisplay();
             }, 50);
@@ -3860,7 +3862,7 @@
         }
 
         function maintainClassifyScheduleIfNeeded(options = {}) {
-            const { persist = false, weeksAhead = 12 } = options || {};
+            const { persist = false, weeksAhead = 12, syncCloud = false } = options || {};
             if(classifyUndoApplying) return 0;
 
             let changed = 0;
@@ -3920,28 +3922,73 @@
             });
 
             if(changed > 0 && persist) {
-                plannerSet('plannerTasksV2', JSON.stringify(tasks));
+                localStorage.setItem(plannerStorageKey('plannerTasksV2'), JSON.stringify(tasks));
+                if(syncCloud) queueClassifyCloudSync();
             }
 
             return changed;
         }
 
-        function refreshAssignmentTimesDisplay() {
-            if (document.hidden) return;
-            if(!isAutoMaintainScheduleEnabled()) return;
+        function getCurrentSchedulePeriodKey(date = new Date()) {
+            const periodMs = 5 * 60 * 1000;
+            return Math.floor(date.getTime() / periodMs);
+        }
+
+        function msUntilNextSchedulePeriod(date = new Date()) {
+            const periodMs = 5 * 60 * 1000;
+            const nextBoundary = (Math.floor(date.getTime() / periodMs) + 1) * periodMs;
+            return Math.max(250, nextBoundary - date.getTime());
+        }
+
+        function queuePeriodicScheduleCloudSync() {
+            if(periodicScheduleCloudSyncTimer) clearTimeout(periodicScheduleCloudSyncTimer);
+            periodicScheduleCloudSyncTimer = setTimeout(() => {
+                periodicScheduleCloudSyncTimer = null;
+                if(!pendingPeriodicScheduleCloudSync) return;
+                pendingPeriodicScheduleCloudSync = false;
+                queueClassifyCloudSync();
+            }, 4000);
+        }
+
+        function runPeriodicScheduleMaintain() {
+            if(!isAutoMaintainScheduleEnabled()) return 0;
+            const periodKey = getCurrentSchedulePeriodKey();
+            if(periodKey === lastPeriodicScheduleMaintainPeriod) return 0;
+            lastPeriodicScheduleMaintainPeriod = periodKey;
+
             let changed = 0;
             try {
-                changed = maintainClassifyScheduleIfNeeded({ persist: true }) || 0;
+                changed = maintainClassifyScheduleIfNeeded({ persist: true, syncCloud: false }) || 0;
             } catch (error) {
-                console.warn('Assignment time refresh failed:', error);
+                console.warn('Periodic schedule maintain failed:', error);
+            }
+            if(changed > 0) {
+                pendingPeriodicScheduleCloudSync = true;
+                queuePeriodicScheduleCloudSync();
+                renderAll();
             }
             updateDateDisplay();
-            if(changed > 0) renderAll();
+            return changed;
+        }
+
+        function refreshAssignmentTimesDisplay() {
+            if(document.hidden) return;
+            runPeriodicScheduleMaintain();
         }
 
         function startAssignmentTimeRefresh() {
-            clearInterval(assignmentTimeRefreshTimer);
-            assignmentTimeRefreshTimer = setInterval(refreshAssignmentTimesDisplay, 60000);
+            if(assignmentTimeRefreshTimer) {
+                clearTimeout(assignmentTimeRefreshTimer);
+                assignmentTimeRefreshTimer = null;
+            }
+            const scheduleNext = () => {
+                assignmentTimeRefreshTimer = setTimeout(() => {
+                    assignmentTimeRefreshTimer = null;
+                    if(!document.hidden) refreshAssignmentTimesDisplay();
+                    scheduleNext();
+                }, msUntilNextSchedulePeriod());
+            };
+            scheduleNext();
         }
 
         const plannerSet = (key, value) => {
@@ -4264,7 +4311,8 @@
 
             // Enable cloud syncing after initial load/migrations
             cloudSyncEnabled = true;
-            maintainClassifyScheduleIfNeeded({ persist: true });
+            maintainClassifyScheduleIfNeeded({ persist: true, syncCloud: true });
+            lastPeriodicScheduleMaintainPeriod = getCurrentSchedulePeriodKey();
             loadClassifyUndoStack();
             initClassifyUndoBaseline();
             document.getElementById('btn-classify-undo')?.addEventListener('click', undoClassifyLastAction);
