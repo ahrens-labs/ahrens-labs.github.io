@@ -6538,24 +6538,31 @@
         function applyExactDateCalendarMove(task, dateStr, timeStr = null) {
             if(!task || !dateStr) return task;
             const started = isAssignmentStarted(task);
+            const isExactDate = task.scheduleType === 'date' && !task.weekDueOnly;
+            const sameDay = task.date === dateStr;
+            const crossDayOrModeChange = !sameDay || !isExactDate || isTargetWeekAssignment(task);
+
             const updates = {
                 scheduleType: 'date',
                 date: dateStr,
                 dateSource: 'user',
                 dueDate: null,
+                dueTime: null,
                 week: null,
                 weekDueOnly: false
             };
-            if(timeStr) {
+
+            if(!crossDayOrModeChange && timeStr) {
                 updates.time = timeStr;
                 updates.timeSource = 'user';
                 updates.assignmentMode = 'FIXED';
-            } else if(!started) {
+            } else {
+                updates.assignmentMode = 'ADJUSTABLE';
                 updates.time = null;
                 updates.timeSource = null;
-                updates.assignmentMode = 'ADJUSTABLE';
-                updates.startedAt = null;
+                if(!started) updates.startedAt = null;
             }
+
             return enforceScheduleTypeFieldSeparation(normalizeTask({ ...task, ...updates }));
         }
 
