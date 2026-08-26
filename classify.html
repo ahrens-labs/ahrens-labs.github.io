@@ -2825,7 +2825,7 @@
                     <span class="cl-settings-item-label"><i class="fa-solid fa-wand-magic-sparkles text-emerald-500"></i>Auto-maintain schedule</span>
                     <span id="cl-pref-auto-maintain-state" class="text-sm font-semibold text-slate-500 dark:text-slate-400">On</span>
                 </button>
-                <p class="cl-pref-note">While Classify is open, refreshes the schedule at each 5-minute mark (9:50, 9:55, etc.) and syncs changes in the background.</p>
+                <p class="cl-pref-note">While Classify is open, refreshes the schedule one minute after each 5-minute mark (9:51, 9:56, 1:36, etc.) and syncs changes in the background.</p>
             </div>
 
             <div class="mt-4 flex justify-end">
@@ -3929,15 +3929,28 @@
             return changed;
         }
 
+        function getScheduleMaintainOffsetMs() {
+            return 60 * 1000;
+        }
+
         function getCurrentSchedulePeriodKey(date = new Date()) {
             const periodMs = 5 * 60 * 1000;
-            return Math.floor(date.getTime() / periodMs);
+            const shifted = date.getTime() - getScheduleMaintainOffsetMs();
+            if(shifted < 0) return -1;
+            return Math.floor(shifted / periodMs);
+        }
+
+        function isPastScheduleMaintainTick(date = new Date()) {
+            return (date.getHours() * 60 + date.getMinutes()) % 5 === 1;
         }
 
         function msUntilNextSchedulePeriod(date = new Date()) {
             const periodMs = 5 * 60 * 1000;
-            const nextBoundary = (Math.floor(date.getTime() / periodMs) + 1) * periodMs;
-            return Math.max(250, nextBoundary - date.getTime());
+            const offsetMs = getScheduleMaintainOffsetMs();
+            const shifted = date.getTime() - offsetMs;
+            const currentPeriod = shifted < 0 ? -1 : Math.floor(shifted / periodMs);
+            const nextMaintainAt = (currentPeriod + 1) * periodMs + offsetMs;
+            return Math.max(250, nextMaintainAt - date.getTime());
         }
 
         function queuePeriodicScheduleCloudSync() {
@@ -3952,6 +3965,7 @@
 
         function runPeriodicScheduleMaintain() {
             if(!isAutoMaintainScheduleEnabled()) return 0;
+            if(!isPastScheduleMaintainTick()) return 0;
             const periodKey = getCurrentSchedulePeriodKey();
             if(periodKey === lastPeriodicScheduleMaintainPeriod) return 0;
             lastPeriodicScheduleMaintainPeriod = periodKey;
