@@ -3913,11 +3913,10 @@
             }
 
             weeksNeedingWork.forEach(weekKey => {
-                if(getWeekTasksMissingSchedule(weekKey).length === 0) return;
-                const result = replanWeekFromScratch(weekKey, true);
-                if(result?.complete) {
-                    changed += (result.rebuilt || 0) + (result.assigned || 0);
-                }
+                const missing = getWeekTasksMissingSchedule(weekKey);
+                if(missing.length === 0) return;
+                changed += scheduleTargetWeekTasksImmediately(missing.map(t => t.id)) || 0;
+                changed += autoBlockWeekTimes(false, weekKey, true, false, false) || 0;
             });
 
             if(changed > 0 && persist) {
@@ -6262,8 +6261,10 @@
         }
 
         // Scheduling priority:
+        // Scheduling priority:
         // 1) User-set rules (dependencies, block times, due dates, locked dates/times, avoid dates)
-        // 2) As early as possible in the target week (earliest day, then earliest time)
+        // 2) Fit every assignment somewhere valid
+        // 3) Earliest open slot on a 5-minute grid (not tight packing or reshuffling for optimization)
         function sortScheduleDatesByPreference(dates, weekKey = null) {
             const unique = Array.from(new Set((dates || []).filter(Boolean)));
             unique.sort((a, b) => a.localeCompare(b));
@@ -6970,7 +6971,12 @@
             seeds.forEach(id => collectWeekKeysForTasks([id]).forEach(wk => weekKeys.add(wk)));
 
             weekKeys.forEach(weekKey => {
-                replanWeekFromScratch(weekKey, true);
+                assignWeekTaskDates(weekKey, true);
+                autoBlockWeekTimes(false, weekKey, true, true, false);
+                const missing = getWeekTasksMissingSchedule(weekKey);
+                if(missing.length > 0) {
+                    scheduleTargetWeekTasksImmediately(missing.map(t => t.id));
+                }
             });
 
             return adjusted;
@@ -7377,13 +7383,10 @@
             return priorityMap[priority] ?? 3;
         }
         function getSlotOptionsForPriority(busySlots, startMin, endMin, duration, breakMin, priority, task = null) {
-            const rank = getPriorityRank(priority);
-            const candidateLimit = rank >= 2 ? ((busySlots?.length || 0) + 2) * 2 : 8;
-            let options = findCandidateOpenSlots(busySlots, startMin, endMin, duration, breakMin, candidateLimit);
-            if(isPlannerEventTask(task) && !isFixedTask(task) && !isUserTimeLockedTask(task) && options.length > 1) {
-                options = [options[0]];
-            }
-            return options;
+            const alignedStart = roundUpToScheduleGrid(startMin);
+            const slot = findEarliestOpenSlot(busySlots, alignedStart, endMin, duration, breakMin);
+            if(!slot) return [];
+            return [{ start: slot.start, slack: Math.max(0, endMin - slot.end) }];
         }
         function selectSlotIndexForPriority(options, task) {
             if(!options || options.length === 0) return -1;
@@ -7530,13 +7533,22 @@
         }
         function getNowMinRoundedTo5() {
             const now = new Date();
-            const raw = now.getHours() * 60 + now.getMinutes();
-            return Math.ceil(raw / 5) * 5;
+            let raw = now.getHours() * 60 + now.getMinutes();
+            if(now.getSeconds() > 0 || now.getMilliseconds() > 0) raw += 1;
+            return roundUpToScheduleGrid(raw);
         }
+
+        function roundUpToScheduleGrid(minutes) {
+            return Math.ceil(minutes / 5) * 5;
+        }
+
         function getEarliestSchedulableStartMin(dateStr) {
             const schedule = getScheduleForDate(dateStr);
-            const dayStart = timeToMin(schedule.start);
-            return dateStr === getDateStrLocal() ? Math.max(dayStart, getNowMinRoundedTo5()) : dayStart;
+            let dayStart = roundUpToScheduleGrid(timeToMin(schedule.start));
+            if(dateStr === getDateStrLocal()) {
+                dayStart = Math.max(dayStart, getNowMinRoundedTo5());
+            }
+            return dayStart;
         }
 
         function getOpenGapMinutesForDate(dateStr, extraBusySlots = []) {
@@ -8035,7 +8047,7 @@
                     if(!refTask.time) return null;
                     const refStart = timeToMin(refTask.time);
                     const refEnd = refStart + (parseInt(refTask.duration, 10) || 30);
-                    constrainedStart = Math.max(constrainedStart, refEnd + 5);
+                    constrainedStart = Math.max(constrainedStart, roundUpToScheduleGrid(refEnd + 5));
                 }
             }
             for(const refId of beforeRefs) {
@@ -8060,6 +8072,7 @@
             if(targetDate === todayStr) {
                 constrainedStart = Math.max(constrainedStart, getNowMinRoundedTo5());
             }
+            constrainedStart = roundUpToScheduleGrid(constrainedStart);
             if(constrainedStart + duration > constrainedMaxEnd) return null;
             return { constrainedStart, constrainedMaxEnd, duration };
         }
@@ -8099,7 +8112,7 @@
             return slots.sort((a, b) => a.start - b.start);
         }
         function findEarliestOpenSlot(busySlots, startMin, endMin, duration, breakMin = 5) {
-            let cursor = Math.ceil(startMin / 5) * 5;
+            let cursor = roundUpToScheduleGrid(startMin);
             while(cursor + duration <= endMin) {
                 const potentialStart = cursor;
                 const potentialEnd = cursor + duration;
@@ -8110,52 +8123,13 @@
                 );
 
                 if(!collision) return { start: potentialStart, end: potentialEnd };
-                cursor = Math.ceil((collision.end + breakMin) / 5) * 5;
+                cursor = roundUpToScheduleGrid(collision.end + breakMin);
             }
             return null;
         }
         function findCandidateOpenSlots(busySlots, startMin, endMin, duration, breakMin = 5, maxCandidates = 12) {
-            const sorted = [...(busySlots || [])].sort((a, b) => a.start - b.start);
-            const candidates = [];
-            let cursor = Math.ceil(startMin / 5) * 5;
-            const addCandidate = (start, gapStart, gapEnd) => {
-                if(start < gapStart || start + duration > gapEnd) return;
-                candidates.push({
-                    start,
-                    slack: (gapEnd - gapStart) - duration
-                });
-            };
-            const addAlignedCandidate = (start, gapStart, gapEnd) => {
-                if(start < gapStart || start + duration > gapEnd) return;
-                addCandidate(start, gapStart, gapEnd);
-            };
-
-            for(const slot of sorted) {
-                const gapStart = cursor;
-                const gapEnd = Math.min(slot.start, endMin);
-                if(gapEnd - gapStart >= duration) {
-                    // try both edges of each gap: earliest and tight-fit near the right edge
-                    addAlignedCandidate(Math.ceil(gapStart / 5) * 5, gapStart, gapEnd);
-                    const tight = Math.floor((gapEnd - duration) / 5) * 5;
-                    addAlignedCandidate(tight, gapStart, gapEnd);
-                }
-                if(slot.end + breakMin > cursor) cursor = Math.ceil((slot.end + breakMin) / 5) * 5;
-                if(cursor > endMin) break;
-            }
-
-            if(endMin - cursor >= duration) {
-                addAlignedCandidate(Math.ceil(cursor / 5) * 5, cursor, endMin);
-                const tight = Math.floor((endMin - duration) / 5) * 5;
-                addAlignedCandidate(tight, cursor, endMin);
-            }
-
-            const dedup = Array.from(new Map(candidates.map(c => [c.start, c])).values());
-            dedup.sort((a, b) => {
-                // Fill earlier gaps first; only then prefer tighter fit.
-                if(a.start !== b.start) return a.start - b.start;
-                return a.slack - b.slack;
-            });
-            return dedup.slice(0, maxCandidates);
+            const slot = findEarliestOpenSlot(busySlots, roundUpToScheduleGrid(startMin), endMin, duration, breakMin);
+            return slot ? [{ start: slot.start, slack: Math.max(0, endMin - slot.end) }] : [];
         }
         function isTimeRangeOverlapping(startA, endA, startB, endB) {
             return startA < endB && endA > startB;
@@ -17361,11 +17335,7 @@
         function tryPlaceTaskTimeOnDate(task, dateStr) {
             if(!task || !dateStr) return false;
             if(isDateBlockedForTask(task, dateStr)) return false;
-            const daySchedule = getScheduleForDate(dateStr);
-            const todayStr = getDateStrLocal();
-            let dayStart = dateStr === todayStr
-                ? Math.max(timeToMin(daySchedule.start), getNowMinRoundedTo5())
-                : timeToMin(daySchedule.start);
+            const dayStart = getEarliestSchedulableStartMin(dateStr);
             const constraints = getSchedulingConstraintsForTaskOnDate(task, dateStr, dayStart);
             if(!constraints) return false;
 
@@ -17599,12 +17569,7 @@
                 if(aDate > bDate) return false;
                 return (aStart + aDuration + breakMin) <= bStart;
             };
-            const getDateStartMin = (d) => {
-                const schedule = getScheduleForDate(d);
-                return d === todayStr
-                    ? Math.max(timeToMin(schedule.start), getNowMinRoundedTo5())
-                    : timeToMin(schedule.start);
-            };
+            const getDateStartMin = (d) => getEarliestSchedulableStartMin(d);
             const getOpenGaps = (busySlots, startMin, endMin, breakMin = 0) => {
                 const sorted = (busySlots || []).slice().sort((a, b) => a.start - b.start);
                 const gaps = [];
@@ -17700,10 +17665,7 @@
                             busyByDate[candidateDate] = getBlockedSlotsForDate(candidateDate);
                         }
                         const candidateBusy = busyByDate[candidateDate];
-                        const candidateSchedule = getScheduleForDate(candidateDate);
-                        const candidateDayStart = candidateDate === todayStr
-                            ? Math.max(timeToMin(candidateSchedule.start), getNowMinRoundedTo5())
-                            : timeToMin(candidateSchedule.start);
+                        const candidateDayStart = getEarliestSchedulableStartMin(candidateDate);
                         const slot = tryPlaceTaskOnDate(task, candidateDate, candidateBusy, candidateDayStart);
                         if(slot) {
                             placed = { slot, date: candidateDate, busy: candidateBusy };
@@ -17712,6 +17674,7 @@
                         if(!placed && isSplittableAutoTask(task, 45)) {
                             const duration = parseInt(task.duration, 10) || 30;
                             const dueDate = getTaskDueDate(task);
+                            const candidateSchedule = getScheduleForDate(candidateDate);
                             const targetDayEnd = timeToMin(candidateSchedule.end);
                             const targetDueLimit = (task.dueTime && dueDate === candidateDate) ? timeToMin(task.dueTime) : targetDayEnd;
                             const maxEnd = Math.min(targetDayEnd, targetDueLimit);
@@ -17752,7 +17715,8 @@
                                         repeatRule: normalizeRepeatRule({ type: 'none' })
                                     });
 
-                                    const slotForPart = { start: bestGap.start, end: bestGap.start + firstDuration };
+                                    const alignedGapStart = roundUpToScheduleGrid(bestGap.start);
+                                    const slotForPart = { start: alignedGapStart, end: alignedGapStart + firstDuration };
                                     placed = { slot: slotForPart, date: candidateDate, busy: candidateBusy };
 
                                     if(context) {
