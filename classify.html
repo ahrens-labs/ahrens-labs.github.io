@@ -6708,6 +6708,64 @@
             });
         }
 
+        function isWeekScheduleSatisfied(weekKey, { includeFlexible = true } = {}) {
+            const { startStr, endStr } = getWeekBoundsFromWeekKey(weekKey);
+            const scheduleCache = new Map();
+            const inScope = (t) => {
+                if(t.completed) return false;
+                if(isTaskTargetedForWeek(t, weekKey, includeFlexible)) return true;
+                return Boolean(t.date && t.date >= startStr && t.date <= endStr);
+            };
+
+            for(const task of tasks) {
+                if(!inScope(task) || task.repeatNoAutoTime) continue;
+                if(task.date && task.time && !isPastUnstartedAutoSlotToday(task, task.date)) continue;
+                if(!task.date) return false;
+                if(task.date < startStr || task.date > endStr) return false;
+                if(!taskHasEffectiveScheduleOnDate(task, task.date, scheduleCache)) return false;
+            }
+            return true;
+        }
+
+        function persistSmartScheduleTimesForWeek(weekKey, { includeFlexible = true } = {}) {
+            const { startStr, endStr } = getWeekBoundsFromWeekKey(weekKey);
+            const scheduleCache = new Map();
+            let persisted = 0;
+            tasks.forEach(task => {
+                if(task.completed || task.repeatNoAutoTime) return;
+                const inScope = isTaskTargetedForWeek(task, weekKey, includeFlexible)
+                    || Boolean(task.date && task.date >= startStr && task.date <= endStr);
+                if(!inScope) return;
+                if(task.time && task.date && !isPastUnstartedAutoSlotToday(task, task.date)) return;
+                if(isUserScheduleLocked(task) && task.time) return;
+                const dateStr = task.date;
+                if(!dateStr || dateStr < startStr || dateStr > endStr) return;
+                if(!taskHasEffectiveScheduleOnDate(task, dateStr, scheduleCache)) return;
+                const schedule = scheduleCache.get(dateStr) || getSmartSchedule(dateStr);
+                scheduleCache.set(dateStr, schedule);
+                const entry = schedule.find(item => item.task?.id === task.id && item.type !== 'break');
+                if(!entry) return;
+                task.time = minToInputTime(entry.start);
+                task.timeSource = 'auto';
+                if(!isAssignmentStarted(task)) task.assignmentMode = 'ADJUSTABLE';
+                persisted++;
+            });
+            return persisted;
+        }
+
+        function finalizeWeekSchedulePlacement(weekKey, { includeFlexible = true } = {}) {
+            let changed = 0;
+            const missing = getWeekTasksMissingSchedule(weekKey, { includeFlexible });
+            if(missing.length > 0) {
+                changed += scheduleTargetWeekTasksImmediately(missing.map(t => t.id)) || 0;
+            }
+            changed += runImmediateScheduleMaintain({ persist: false, syncCloud: false }) || 0;
+            if(getWeekTasksMissingSchedule(weekKey, { includeFlexible }).length > 0) {
+                changed += persistSmartScheduleTimesForWeek(weekKey, { includeFlexible });
+            }
+            return changed;
+        }
+
         function isWeekScheduleComplete(weekKey, { unresolvedViolations = 0, hasCycle = false, backtrackSolved = true } = {}) {
             if(hasCycle || unresolvedViolations > 0 || !backtrackSolved) return false;
             return getWeekTasksMissingSchedule(weekKey).length === 0;
@@ -17198,11 +17256,20 @@
 
         function replanWeekFromScratch(weekKey, includeFlexible = true) {
             const scheduleSnapshot = captureWeekScheduleSnapshot(weekKey);
+            const wasSatisfied = isWeekScheduleSatisfied(weekKey, { includeFlexible });
             const { startStr, endStr } = getWeekBoundsFromWeekKey(weekKey);
             const weekDates = getWeekdayDateStringsFromWeekKey(weekKey);
             const todayStr = getDateStrLocal();
             const eligibleDates = weekDates.filter(d => d >= todayStr && !isDateInVacation(d));
-            if(eligibleDates.length === 0) return { assigned: 0, preserved: 0, rebuilt: 0 };
+            if(eligibleDates.length === 0) {
+                return {
+                    assigned: 0,
+                    preserved: 0,
+                    rebuilt: 0,
+                    complete: wasSatisfied,
+                    keptExisting: wasSatisfied
+                };
+            }
 
             const inWeekRange = (dateStr) => Boolean(dateStr && dateStr >= startStr && dateStr <= endStr);
             const isTargetedForWeek = (task) => {
@@ -17257,9 +17324,19 @@
 
             assignWeekTaskDates(weekKey, includeFlexible);
             const rebuilt = autoBlockWeekTimes(false, weekKey, true, true) || 0;
-            const complete = getWeekTasksMissingSchedule(weekKey).length === 0;
+            finalizeWeekSchedulePlacement(weekKey, { includeFlexible });
+
+            let complete = getWeekTasksMissingSchedule(weekKey, { includeFlexible }).length === 0;
+            if(!complete && isWeekScheduleSatisfied(weekKey, { includeFlexible })) {
+                persistSmartScheduleTimesForWeek(weekKey, { includeFlexible });
+                complete = getWeekTasksMissingSchedule(weekKey, { includeFlexible }).length === 0;
+            }
+
             if(!complete) {
                 restoreWeekScheduleSnapshot(scheduleSnapshot);
+                if(wasSatisfied) {
+                    return { assigned: 0, preserved, rebuilt: 0, complete: true, keptExisting: true };
+                }
                 return { assigned: 0, preserved: 0, rebuilt: 0, complete: false };
             }
             return { assigned, preserved, rebuilt, complete: true };
@@ -17274,7 +17351,7 @@
             const targetWeekKey = weekKey || getCurrentWeekKey();
             if(persist && !classifyUndoApplying) recordClassifyUndoPoint({ force: true });
             ensureActiveRepeatWeekOccurrences();
-            const { assigned, preserved, rebuilt, complete } = replanWeekFromScratch(targetWeekKey, true);
+            const { assigned, preserved, rebuilt, complete, keptExisting } = replanWeekFromScratch(targetWeekKey, true);
             if(!complete) {
                 if(persist) {
                     discardLastClassifyUndoPoint();
@@ -17294,10 +17371,14 @@
                 setCalendarViewMode('week');
                 switchTab('calendar');
             }
-            const assignmentsLabel = assigned === 1 ? 'assignment' : 'assignments';
-            const lockedLabel = preserved === 1 ? 'user-locked placement' : 'user-locked placements';
             if(showToast) {
-                showNotification(`Replanned ${targetWeekKey}: reset ${assigned} ${assignmentsLabel}, kept ${preserved} ${lockedLabel}, rebuilt ${rebuilt} auto slot${rebuilt === 1 ? '' : 's'}`, 'success');
+                if(keptExisting && assigned === 0 && rebuilt === 0) {
+                    showNotification(`${targetWeekKey} is already fully scheduled.`, 'success');
+                } else {
+                    const assignmentsLabel = assigned === 1 ? 'assignment' : 'assignments';
+                    const lockedLabel = preserved === 1 ? 'user-locked placement' : 'user-locked placements';
+                    showNotification(`Replanned ${targetWeekKey}: reset ${assigned} ${assignmentsLabel}, kept ${preserved} ${lockedLabel}, rebuilt ${rebuilt} auto slot${rebuilt === 1 ? '' : 's'}`, 'success');
+                }
             }
             return { assigned, preserved, rebuilt, weekKey: targetWeekKey, complete: true };
         }
