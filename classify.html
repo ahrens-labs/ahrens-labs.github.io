@@ -596,6 +596,45 @@
         .dark body.classify-app .cl-calendar-stat--accent {
             color: #fca5a5;
         }
+        body.classify-app .cl-calendar-stat--clickable {
+            cursor: pointer;
+            transition: background 0.15s, border-color 0.15s, transform 0.15s;
+        }
+        body.classify-app .cl-calendar-stat--clickable:hover {
+            background: rgba(254, 226, 226, 0.95);
+            border-color: rgba(248, 113, 113, 0.55);
+        }
+        .dark body.classify-app .cl-calendar-stat--clickable:hover {
+            background: rgba(127, 29, 29, 0.35);
+            border-color: rgba(248, 113, 113, 0.45);
+        }
+        body.classify-app .cl-calendar-stat--clickable:focus-visible {
+            outline: 2px solid #ef4444;
+            outline-offset: 2px;
+        }
+        .cl-need-time-row {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            width: 100%;
+            padding: 0.75rem 0.875rem;
+            border: 1px solid rgba(226, 232, 240, 0.9);
+            border-radius: 0.75rem;
+            background: rgba(255, 255, 255, 0.95);
+            transition: background 0.15s, border-color 0.15s;
+        }
+        .dark .cl-need-time-row {
+            background: rgba(30, 41, 59, 0.72);
+            border-color: rgba(51, 65, 85, 0.85);
+        }
+        .cl-need-time-row:hover {
+            background: rgba(248, 250, 252, 0.98);
+            border-color: rgba(203, 213, 225, 0.95);
+        }
+        .dark .cl-need-time-row:hover {
+            background: rgba(51, 65, 85, 0.55);
+            border-color: rgba(71, 85, 105, 0.95);
+        }
         body.classify-app .cl-calendar-legend {
             margin: 0;
             font-size: 0.6875rem;
@@ -2706,6 +2745,22 @@
         </div>
     </div>
 
+    <!-- Modal: Assignments Need Time -->
+    <div id="needTimeModal" class="cl-modal-root hidden">
+        <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onclick="closeNeedTimeModal()"></div>
+        <div class="relative modal-panel rounded-2xl p-6 max-w-md w-[94%] max-h-full overflow-y-auto scale-95 opacity-0 transition-all" id="needTimePanel">
+            <div class="flex items-center justify-between gap-3 mb-1">
+                <h3 class="text-xl font-display font-bold text-slate-900 dark:text-white">Need time</h3>
+                <button onclick="closeNeedTimeModal()" class="text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 text-lg transition-colors" type="button"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <p id="needTimeModalSubtitle" class="text-sm text-slate-500 dark:text-slate-400 mb-4"></p>
+            <div id="needTimeList" class="space-y-2"></div>
+            <div class="mt-4 flex justify-end">
+                <button onclick="closeNeedTimeModal()" class="px-4 py-2 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 font-medium transition-colors" type="button">Done</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal: Classify Settings -->
     <div id="classifySettingsModal" class="cl-modal-root hidden">
         <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"></div>
@@ -3579,13 +3634,31 @@
         }
 
         function countTasksNeedingTimeInRange(startStr, endStr) {
+            return getTasksNeedingTimeInRange(startStr, endStr).length;
+        }
+
+        function getTasksNeedingTimeInRange(startStr, endStr) {
             const scheduleCache = new Map();
             return tasks.filter(t => {
                 if(!isActiveCalendarTaskInRange(t, startStr, endStr)) return false;
                 const focusDate = (t.date && t.date >= startStr && t.date <= endStr) ? t.date : null;
                 return taskCountsAsNeedingTime(t, { scheduleCache, focusDate });
-            }).length;
+            }).sort(compareTasksForScheduling);
         }
+
+        function describeTaskNeedTimeReason(task) {
+            if(!task) return '';
+            if(!task.date) {
+                if(task.week) return `Target week ${task.week}`;
+                const due = getTaskDueDate(task);
+                if(due) return `Due ${formatDateLabel(due)}`;
+                return 'No date assigned';
+            }
+            if(!task.time) return `${formatDateLabel(task.date)} · no time`;
+            return `${formatDateLabel(task.date)} · needs a slot`;
+        }
+
+        let needTimeModalRange = { startStr: null, endStr: null };
 
         function syncRepeatExceptionsForWeek(groupId, weekKey) {
             if(!groupId || !weekKey) return;
@@ -15408,6 +15481,8 @@
                     taskCount: periodTasks.length,
                     minutes,
                     unscheduled,
+                    rangeStart: startStr,
+                    rangeEnd: endStr,
                     legend: getWeekCalendarDayCount() === 7
                         ? (getWeekCalendarStartDay() === 'sunday'
                             ? 'Sunday through Saturday. Drag to move, tap to edit.'
@@ -15425,6 +15500,8 @@
                     taskCount: dayTasks.length,
                     minutes,
                     unscheduled: countTasksNeedingTimeInRange(dateStr, dateStr),
+                    rangeStart: dateStr,
+                    rangeEnd: dateStr,
                     legend: 'Timeline shows your school-day window. Red line marks the current time.'
                 };
             }
@@ -15440,8 +15517,57 @@
                 taskCount: periodTasks.length,
                 minutes,
                 unscheduled: countTasksNeedingTimeInRange(monthStart, monthEnd),
+                rangeStart: monthStart,
+                rangeEnd: monthEnd,
                 legend: 'Colored blocks are scheduled assignments. Tap a day to add work.'
             };
+        }
+
+        function openNeedTimeModal() {
+            const { startStr, endStr } = needTimeModalRange || {};
+            if(!startStr || !endStr) return;
+
+            const list = getTasksNeedingTimeInRange(startStr, endStr);
+            const subtitle = document.getElementById('needTimeModalSubtitle');
+            const listEl = document.getElementById('needTimeList');
+            const ctx = getCalendarPeriodContext();
+            if(subtitle) subtitle.textContent = ctx.periodLabel;
+            if(listEl) {
+                listEl.innerHTML = list.length === 0
+                    ? '<p class="text-sm text-slate-500 dark:text-slate-400">No assignments need time in this view.</p>'
+                    : list.map(task => {
+                        const color = getTaskColor(task);
+                        const reason = describeTaskNeedTimeReason(task);
+                        return `<button type="button" class="cl-need-time-row" onclick="closeNeedTimeModal(); editTask('${task.id}')">
+                            <span class="cl-need-time-row__dot shrink-0 w-2.5 h-2.5 rounded-full" style="background:${color}"></span>
+                            <span class="min-w-0 flex-1 text-left">
+                                <span class="block text-sm font-semibold text-slate-900 dark:text-white truncate">${escapeHtml(task.title || 'Untitled')}</span>
+                                <span class="block text-xs text-slate-500 dark:text-slate-400 truncate">${escapeHtml(task.subject || 'General')} · ${escapeHtml(reason)}</span>
+                            </span>
+                            <i class="fa-solid fa-chevron-right text-xs text-slate-400 shrink-0"></i>
+                        </button>`;
+                    }).join('');
+            }
+
+            const modal = document.getElementById('needTimeModal');
+            const panel = document.getElementById('needTimePanel');
+            if(!modal || !panel) return;
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                panel.classList.remove('scale-95', 'opacity-0');
+                panel.classList.add('scale-100', 'opacity-100');
+            }, 10);
+        }
+
+        function closeNeedTimeModal() {
+            const modal = document.getElementById('needTimeModal');
+            const panel = document.getElementById('needTimePanel');
+            if(!modal || !panel) return;
+            panel.classList.add('scale-95', 'opacity-0');
+            panel.classList.remove('scale-100', 'opacity-100');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 200);
         }
 
         function updateCalendarSummary() {
@@ -15449,11 +15575,12 @@
             const navLabel = document.getElementById('calendarNavLabel');
             const srLabel = document.getElementById('calendarMonthYear');
             const ctx = getCalendarPeriodContext();
+            needTimeModalRange = { startStr: ctx.rangeStart, endStr: ctx.rangeEnd };
             if(navLabel) navLabel.textContent = ctx.periodLabel;
             if(srLabel) srLabel.textContent = ctx.periodLabel;
             if(!summaryEl) return;
             summaryEl.innerHTML = ctx.unscheduled > 0
-                ? `<span class="cl-calendar-stat cl-calendar-stat--accent"><i class="fa-solid fa-circle-exclamation"></i> ${ctx.unscheduled} need time</span>`
+                ? `<button type="button" class="cl-calendar-stat cl-calendar-stat--accent cl-calendar-stat--clickable" onclick="openNeedTimeModal()" aria-label="Show assignments that need time"><i class="fa-solid fa-circle-exclamation"></i> ${ctx.unscheduled} need time</button>`
                 : '';
         }
 
