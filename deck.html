@@ -391,6 +391,11 @@
       padding: 10px 12px;
       box-shadow: 0 4px 14px rgba(49, 46, 129, 0.05);
     }
+    .dk-deck-item.is-archived,
+    .dk-stack-item.is-archived {
+      border-style: dashed;
+      background: #fafafa;
+    }
     .dk-deck-open {
       flex: 1 1 auto;
       min-width: 0;
@@ -1117,7 +1122,7 @@
             <h2>Decks</h2>
             <p>Group cards and stacks into decks. Press and hold an item to reorder decks.</p>
           </div>
-          <input class="dk-search" id="deck-search" type="search" placeholder="Search cards by title, notes, or checklist…" autocomplete="off">
+          <input class="dk-search" id="deck-search" type="search" placeholder="Search decks, stacks, and cards…" autocomplete="off">
           <div id="deck-search-results" class="dk-search-results hidden"></div>
           <div class="dk-toolbar">
             <button type="button" class="dk-btn dk-btn-primary" id="btn-new-deck">New deck</button>
@@ -1130,7 +1135,7 @@
             <h2>Stacks</h2>
             <p>All stacks across your decks. Press and hold an item to reorder within a deck.</p>
           </div>
-          <input class="dk-search" id="stack-search" type="search" placeholder="Search stacks…" autocomplete="off">
+          <input class="dk-search" id="stack-search" type="search" placeholder="Search stacks (including archived)…" autocomplete="off">
           <div id="stack-list" class="dk-list"></div>
         </section>
 
@@ -1170,9 +1175,11 @@
                   <button type="button" class="dk-btn dk-btn-ghost dk-btn-small hidden" id="btn-deck-clone">Clone</button>
                   <button type="button" class="dk-btn dk-btn-ghost dk-btn-small hidden" id="btn-browse-share">Share</button>
                   <button type="button" class="dk-btn dk-btn-ghost dk-btn-small hidden" id="btn-browse-clone">Clone</button>
+                  <button type="button" class="dk-btn dk-btn-ghost dk-btn-small hidden" id="btn-archive-browse-top">Archive</button>
                   <button type="button" class="dk-btn dk-btn-danger dk-btn-small dk-deck-delete-btn hidden" id="btn-delete-deck-top" aria-label="Delete deck">Delete</button>
                 </div>
               </div>
+              <p id="browse-archived-banner" class="dk-card-archived-banner hidden"></p>
               <p id="cards-sub">Tap a card to open and edit it.</p>
             </div>
             <input class="dk-search" id="card-search" type="search" placeholder="Search by title, notes, or checklist…" autocomplete="off">
@@ -1417,6 +1424,8 @@
           name: s.name || 'Untitled stack',
           createdAt: s.createdAt || Date.now(),
           cards: (Array.isArray(s.cards) ? s.cards : []).map(cardFromLegacy),
+          archived: !!s.archived,
+          archivedAt: s.archivedAt || null,
           sharedId: s.sharedId || null,
           sharedOut: !!(s.sharedOut || s.sharedId),
         }));
@@ -1507,6 +1516,8 @@
           updatedAt: d.updatedAt || null,
           cards: cardsFromDeck(d),
           stacks: stacksFromDeck(d),
+          archived: !!d.archived,
+          archivedAt: d.archivedAt || null,
           sharedId: d.sharedId || null,
           sharedRef: d.sharedRef || null,
           sharedFrom: d.sharedFrom || null,
@@ -2324,8 +2335,9 @@
 
       function deckStats(deck) {
         const rootCards = countActiveCards(deck.cards);
-        const stacks = (deck.stacks || []).length;
-        const stackCards = (deck.stacks || []).reduce((n, s) => n + countActiveCards(s.cards), 0);
+        const activeStacks = (deck.stacks || []).filter((s) => !isStackArchived(s));
+        const stacks = activeStacks.length;
+        const stackCards = activeStacks.reduce((n, s) => n + countActiveCards(s.cards), 0);
         return {
           rootCards,
           stacks,
@@ -2337,13 +2349,61 @@
         return !!(card && card.archived);
       }
 
+      function isDeckArchived(deck) {
+        return !!(deck && deck.archived);
+      }
+
+      function isStackArchived(stack) {
+        return !!(stack && stack.archived);
+      }
+
+      function entryIsInArchivedContainer(entry) {
+        if (!entry) return false;
+        if (isDeckArchived(entry.deck)) return true;
+        if (entry.stack && isStackArchived(entry.stack)) return true;
+        return false;
+      }
+
+      function stackMatchesSearch(stack, query) {
+        const q = (query || '').trim().toLowerCase();
+        if (!q) return true;
+        if ((stack.name || '').toLowerCase().includes(q)) return true;
+        return (stack.cards || []).some((c) => cardMatchesSearch(c, q));
+      }
+
+      function deckMatchesSearch(deck, query) {
+        const q = (query || '').trim().toLowerCase();
+        if (!q) return true;
+        if ((deck.name || '').toLowerCase().includes(q)) return true;
+        if ((deck.stacks || []).some((s) => stackMatchesSearch(s, q))) return true;
+        return (deck.cards || []).some((c) => cardMatchesSearch(c, q));
+      }
+
+      function filterDecksForDisplay(decks, query) {
+        const q = (query || '').trim().toLowerCase();
+        return (decks || []).filter((deck) => {
+          if (!isDeckArchived(deck)) return !q || deckMatchesSearch(deck, q);
+          return q && deckMatchesSearch(deck, q);
+        });
+      }
+
+      function filterStacksForDisplay(stacks, query) {
+        const q = (query || '').trim().toLowerCase();
+        return (stacks || []).filter((stack) => {
+          if (!isStackArchived(stack)) return !q || stackMatchesSearch(stack, q);
+          return q && stackMatchesSearch(stack, q);
+        });
+      }
+
       function countActiveCards(cards) {
         return (cards || []).filter((c) => !isCardArchived(c)).length;
       }
 
       function deckHasStructure(deck) {
         if (!deck) return false;
-        return (deck.stacks || []).length > 0 || (deck.cards || []).length > 0;
+        const hasStacks = (deck.stacks || []).some((s) => !isStackArchived(s));
+        const hasCards = filterCardsForDisplay(deck.cards || [], '').length > 0;
+        return hasStacks || hasCards;
       }
 
       function cardMatchesSearch(card, query) {
@@ -2368,10 +2428,13 @@
         }
         if (scope === 'stack' && stackId) {
           const stack = stackById(deck, stackId);
-          return stack ? filterCardsForDisplay(stack.cards || [], '') : [];
+          if (!stack || isStackArchived(stack)) return [];
+          return filterCardsForDisplay(stack.cards || [], '');
         }
+        if (isDeckArchived(deck)) return [];
         const list = filterCardsForDisplay(deck.cards || [], '').slice();
         (deck.stacks || []).forEach((stack) => {
+          if (isStackArchived(stack)) return;
           list.push.apply(list, filterCardsForDisplay(stack.cards || [], ''));
         });
         return list;
@@ -2771,6 +2834,7 @@
         moveStackSelect.appendChild(root);
         const deck = deckById(deckId);
         (deck && deck.stacks ? deck.stacks : []).forEach((stack) => {
+          if (isStackArchived(stack)) return;
           const opt = document.createElement('option');
           opt.value = stack.id;
           opt.textContent = stack.name || 'Untitled stack';
@@ -2781,6 +2845,7 @@
       function populateMoveDeckSelect(currentDeckId, currentStackId) {
         moveDeckSelect.innerHTML = '';
         state.decks.forEach((deck) => {
+          if (isDeckArchived(deck) && deck.id !== currentDeckId) return;
           const opt = document.createElement('option');
           opt.value = deck.id;
           opt.textContent = deck.name || 'Untitled';
@@ -2994,21 +3059,32 @@
       function renderDecks() {
         renderDeckSearchResults();
         const list = document.getElementById('deck-list');
-        if (!state.decks.length) {
-          list.innerHTML = '<div class="dk-empty"><strong>No decks yet.</strong><br>Create a deck, then add cards into it.</div>';
+        const q = document.getElementById('deck-search').value.trim();
+        const decks = filterDecksForDisplay(state.decks, q);
+        if (!decks.length) {
+          if (!state.decks.length) {
+            list.innerHTML = '<div class="dk-empty"><strong>No decks yet.</strong><br>Create a deck, then add cards into it.</div>';
+          } else if (q) {
+            list.innerHTML = '<div class="dk-empty">No decks match that search.</div>';
+          } else {
+            list.innerHTML = '<div class="dk-empty">All decks are archived. Search to find and unarchive them.</div>';
+          }
           return;
         }
         list.innerHTML = '';
-        state.decks.forEach((d) => {
+        decks.forEach((d) => {
           const wrap = document.createElement('article');
           wrap.className = 'dk-deck-item dk-reorder-item';
+          if (isDeckArchived(d)) wrap.classList.add('is-archived');
           wrap.dataset.reorderId = d.id;
           const open = document.createElement('button');
           open.type = 'button';
           open.className = 'dk-deck-open';
           const stats = deckStats(d);
           open.innerHTML = '<h3></h3><p></p>';
-          open.querySelector('h3').textContent = d.name || 'Untitled';
+          const titleEl = open.querySelector('h3');
+          titleEl.textContent = d.name || 'Untitled';
+          if (isDeckArchived(d)) appendArchivedBadge(titleEl);
           const metaParts = [];
           if (entityIsShared(d)) metaParts.push({ share: d });
           if (stats.stacks) metaParts.push(stats.stacks + (stats.stacks === 1 ? ' stack' : ' stacks'));
@@ -3040,7 +3116,8 @@
         list.innerHTML = '';
         let any = false;
         state.decks.forEach((deck) => {
-          const stacks = (deck.stacks || []).filter((stack) => {
+          if (isDeckArchived(deck) && !deckMatchesSearch(deck, q)) return;
+          const stacks = filterStacksForDisplay(deck.stacks || [], q).filter((stack) => {
             if (!q) return true;
             const hay = (deck.name || '') + ' ' + (stack.name || '') + ' ' +
               (stack.cards || []).map((c) => cardSearchHaystack(c)).join(' ');
@@ -3061,9 +3138,12 @@
           list.appendChild(group);
         });
         if (!any) {
+          const hasStacks = state.decks.some((deck) => (deck.stacks || []).length);
           list.innerHTML = q
             ? '<div class="dk-empty">No stacks match that search.</div>'
-            : '<div class="dk-empty"><strong>No stacks yet.</strong><br>Create a stack inside a deck to organize cards.</div>';
+            : hasStacks
+              ? '<div class="dk-empty">All stacks are archived. Search to find and unarchive them.</div>'
+              : '<div class="dk-empty"><strong>No stacks yet.</strong><br>Create a stack inside a deck to organize cards.</div>';
         }
       }
 
@@ -3073,7 +3153,13 @@
 
       function allCardsEntriesFiltered() {
         const q = document.getElementById('all-cards-search').value.trim().toLowerCase();
-        return allCardsAcrossDecks().filter(({ card }) => {
+        return allCardsAcrossDecks().filter(({ deck, stack, card }) => {
+          const inArchivedContainer = entryIsInArchivedContainer({ deck, stack });
+          if (inArchivedContainer && !q) return false;
+          if (inArchivedContainer && q && !cardMatchesSearch(card, q) &&
+              !deckMatchesSearch(deck, q) && !(stack && stackMatchesSearch(stack, q))) {
+            return false;
+          }
           if (q && !cardMatchesSearch(card, q)) return false;
           if (allCardsFilter === 'archived') return isCardArchived(card);
           if (allCardsFilter === 'all') return true;
@@ -3201,6 +3287,8 @@
           id: uidId(),
           name: rename ? cloneCopyName(source.name, 'Untitled stack') : (source.name || 'Untitled stack'),
           createdAt: Date.now(),
+          archived: false,
+          archivedAt: null,
           cards: (Array.isArray(source.cards) ? source.cards : []).map((c) => cloneCardData(c, false)),
         };
       }
@@ -3211,6 +3299,8 @@
           name: cloneCopyName(source.name, 'Untitled'),
           createdAt: Date.now(),
           updatedAt: Date.now(),
+          archived: false,
+          archivedAt: null,
           cards: (Array.isArray(source.cards) ? source.cards : []).map((c) => cloneCardData(c, false)),
           stacks: (Array.isArray(source.stacks) ? source.stacks : []).map((s) => cloneStackData(s, false)),
         };
@@ -3342,6 +3432,8 @@
         const headingWrap = heading.closest('.dk-deck-title-heading');
         const input = document.getElementById('deck-title-input');
         const deleteBtn = document.getElementById('btn-delete-deck-top');
+        const archiveBtn = document.getElementById('btn-archive-browse-top');
+        const archivedBanner = document.getElementById('browse-archived-banner');
         if (inStack) {
           if (deckTitleEditing) return;
           heading.textContent = stack.name || 'Untitled stack';
@@ -3349,9 +3441,29 @@
           heading.classList.add('dk-deck-title-editable');
           input.classList.add('hidden');
           deleteBtn.classList.add('hidden');
+          archiveBtn.classList.remove('hidden');
+          const archived = isStackArchived(stack);
+          archiveBtn.textContent = archived ? 'Unarchive' : 'Archive';
+          archiveBtn.className = archived
+            ? 'dk-btn dk-btn-primary dk-btn-small'
+            : 'dk-btn dk-btn-ghost dk-btn-small';
+          archivedBanner.classList.toggle('hidden', !archived);
+          archivedBanner.textContent = archived
+            ? 'This stack is archived. It stays hidden from stack lists until you unarchive it.'
+            : '';
           return;
         }
         deleteBtn.classList.remove('hidden');
+        archiveBtn.classList.remove('hidden');
+        const archived = isDeckArchived(deck);
+        archiveBtn.textContent = archived ? 'Unarchive' : 'Archive';
+        archiveBtn.className = archived
+          ? 'dk-btn dk-btn-primary dk-btn-small'
+          : 'dk-btn dk-btn-ghost dk-btn-small';
+        archivedBanner.classList.toggle('hidden', !archived);
+        archivedBanner.textContent = archived
+          ? 'This deck is archived. It stays hidden from deck lists until you unarchive it.'
+          : '';
         if (deckTitleEditing) return;
         heading.textContent = deck.name || 'Untitled';
         headingWrap.classList.remove('hidden');
@@ -3438,6 +3550,7 @@
         opts = opts || {};
         const row = document.createElement('article');
         row.className = 'dk-stack-item';
+        if (isStackArchived(stack)) row.classList.add('is-archived');
         if (opts.reorder) {
           row.classList.add('dk-reorder-item');
           row.dataset.reorderId = stack.id;
@@ -3449,6 +3562,7 @@
         open.className = 'dk-stack-open';
         const title = document.createElement('h3');
         title.textContent = stack.name || 'Untitled stack';
+        if (isStackArchived(stack)) appendArchivedBadge(title);
         open.append(title, buildStackMetaRow(deck, stack));
         open.addEventListener('click', () => {
           activeDeckId = deckId;
@@ -3486,10 +3600,11 @@
         const deckShare = document.getElementById('btn-deck-share');
         const deckClone = document.getElementById('btn-deck-clone');
         const deckStatsInfo = deckStats(deck);
+        const isArchivedContext = inStack ? isStackArchived(stack) : isDeckArchived(deck);
         browseReview.classList.toggle('hidden', inStack ? !countActiveCards(stack.cards) : !deckStatsInfo.totalCards);
-        newStackTop.classList.toggle('hidden', inStack);
-        newCardDeckTop.classList.toggle('hidden', inStack);
-        newCardTop.classList.toggle('hidden', !inStack);
+        newStackTop.classList.toggle('hidden', inStack || isArchivedContext);
+        newCardDeckTop.classList.toggle('hidden', inStack || isArchivedContext);
+        newCardTop.classList.toggle('hidden', !inStack || isArchivedContext);
         browseShare.classList.toggle('hidden', !inStack);
         browseClone.classList.toggle('hidden', !inStack);
         deckShare.classList.toggle('hidden', inStack);
@@ -3538,7 +3653,7 @@
           return;
         }
 
-        const stacks = (deck.stacks || []).filter((s) => {
+        const stacks = filterStacksForDisplay(deck.stacks || [], q).filter((s) => {
           if (!q) return true;
           if ((s.name || '').toLowerCase().includes(q)) return true;
           return (s.cards || []).some((c) => cardMatchesSearch(c, q));
@@ -3842,6 +3957,77 @@
         if (!target) return;
         target.updatedAt = Date.now();
         save();
+      }
+
+      function touchDeck(deck) {
+        if (!deck) return;
+        deck.updatedAt = Date.now();
+        save();
+      }
+
+      async function toggleArchiveDeck(deckId) {
+        const deck = deckById(deckId);
+        if (!deck) return;
+        const label = deck.name ? '“' + deck.name + '”' : 'this deck';
+        if (isDeckArchived(deck)) {
+          const ok = await showConfirm({
+            title: 'Unarchive deck?',
+            message: 'Restore ' + label + ' to your deck lists?',
+            okLabel: 'Unarchive',
+          });
+          if (!ok) return;
+          deck.archived = false;
+          deck.archivedAt = null;
+          touchDeck(deck);
+          renderCards();
+          renderDecks();
+          return;
+        }
+        const stats = deckStats(deck);
+        const extra = stats.totalCards || stats.stacks ? ' and everything in it' : '';
+        const ok = await showConfirm({
+          title: 'Archive deck?',
+          message: 'Archive ' + label + extra + '? You can find it again with search and unarchive it later.',
+          okLabel: 'Archive',
+        });
+        if (!ok) return;
+        deck.archived = true;
+        deck.archivedAt = Date.now();
+        touchDeck(deck);
+        showDecks({ replaceUrl: false });
+      }
+
+      async function toggleArchiveStack(deckId, stackId) {
+        const deck = deckById(deckId);
+        const stack = deck ? stackById(deck, stackId) : null;
+        if (!deck || !stack) return;
+        const label = stack.name ? '“' + stack.name + '”' : 'this stack';
+        if (isStackArchived(stack)) {
+          const ok = await showConfirm({
+            title: 'Unarchive stack?',
+            message: 'Restore ' + label + ' to your stack lists?',
+            okLabel: 'Unarchive',
+          });
+          if (!ok) return;
+          stack.archived = false;
+          stack.archivedAt = null;
+          touchDeck(deck);
+          renderCards();
+          renderStacksGlobal();
+          return;
+        }
+        const n = countActiveCards(stack.cards);
+        const extra = n ? ' and its ' + n + (n === 1 ? ' card' : ' cards') : '';
+        const ok = await showConfirm({
+          title: 'Archive stack?',
+          message: 'Archive ' + label + extra + '? You can find it again with search and unarchive it later.',
+          okLabel: 'Archive',
+        });
+        if (!ok) return;
+        stack.archived = true;
+        stack.archivedAt = Date.now();
+        touchDeck(deck);
+        openDeck(deckId, { replaceUrl: false });
       }
 
       function cardTitleInputValue() {
@@ -4217,6 +4403,15 @@
         }
       });
       document.getElementById('btn-delete-deck-top').addEventListener('click', () => deleteDeckById(activeDeckId));
+      document.getElementById('btn-archive-browse-top').addEventListener('click', () => {
+        const deck = ensureActiveDeck();
+        if (!deck) return;
+        if (activeStackId) {
+          toggleArchiveStack(deck.id, activeStackId);
+          return;
+        }
+        toggleArchiveDeck(deck.id);
+      });
 
       document.getElementById('card-search').addEventListener('input', renderCards);
       document.getElementById('stack-search').addEventListener('input', renderStacksGlobal);
