@@ -336,7 +336,7 @@
     .dk-card-grid > .dk-empty { grid-column: 1 / -1; }
     .dk-card-grid > .dk-card-preview-item,
     .dk-card-grid > .dk-deck-item,
-    .dk-card-grid > .dk-stack-item { align-self: start; }
+    .dk-card-grid > .dk-stack-item { align-self: start; min-width: 0; }
     @media (max-width: 640px) {
       .dk-card-grid { grid-template-columns: 1fr; }
     }
@@ -665,17 +665,24 @@
       text-transform: uppercase;
       color: var(--dk-muted);
     }
-    .dk-check-list { display: grid; gap: 6px; }
+    .dk-check-list { display: grid; gap: 6px; min-width: 0; }
     .dk-check-row {
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       gap: 8px;
+      min-width: 0;
     }
     .dk-check-row input[type="checkbox"] {
       width: 20px;
       height: 20px;
       accent-color: var(--dk-brand);
       flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .dk-check-row .dk-check-text {
+      flex: 1 1 auto;
+      min-width: 0;
+      width: auto;
     }
     .dk-check-row.done .dk-check-text {
       text-decoration: line-through;
@@ -868,6 +875,7 @@
       border-radius: 16px;
       overflow: hidden;
       box-shadow: 0 8px 24px rgba(49, 46, 129, 0.06);
+      min-width: 0;
     }
     .dk-card-preview-item:hover { border-color: #c7d2fe; }
     .dk-card-preview-open {
@@ -913,6 +921,11 @@
     }
     .dk-card-preview-checklist {
       padding: 0 16px 8px;
+      min-width: 0;
+    }
+    .dk-card-preview-checklist .dk-card-checklist,
+    .dk-card-preview-checklist .dk-check-list {
+      min-width: 0;
     }
     .dk-card-preview-item:not(.dk-reorder-item) .dk-item-actions {
       padding: 0 16px 12px;
@@ -970,6 +983,7 @@
       align-items: flex-start;
       gap: 10px;
       padding: 4px 0;
+      min-width: 0;
     }
     .dk-view-check-row input[type="checkbox"] {
       width: 20px;
@@ -979,9 +993,13 @@
       flex-shrink: 0;
     }
     .dk-view-check-row span {
-      flex: 1;
+      flex: 1 1 auto;
+      min-width: 0;
       line-height: 1.45;
       color: var(--dk-ink);
+      overflow-wrap: anywhere;
+      word-break: break-word;
+      white-space: pre-wrap;
     }
     .dk-view-check-row.done span {
       text-decoration: line-through;
