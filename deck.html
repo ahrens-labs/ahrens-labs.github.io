@@ -3185,6 +3185,9 @@
               i += md[0].length;
               continue;
             }
+            tokens.push({ type: 'text', text: '[' });
+            i += 1;
+            continue;
           }
           let next = s.indexOf('[', i);
           if (next === -1) next = s.length;
