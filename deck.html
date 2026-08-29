@@ -977,6 +977,20 @@
       white-space: pre-wrap;
       overflow-wrap: anywhere;
     }
+    .dk-note-text a,
+    .dk-text-link {
+      color: var(--dk-brand);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      word-break: break-word;
+    }
+    .dk-note-text a:hover,
+    .dk-text-link:hover {
+      color: #4338ca;
+    }
+    .dk-link-modal .dk-field:last-of-type {
+      margin-bottom: 0;
+    }
     .dk-section-view-empty {
       margin: 0;
       color: var(--dk-muted);
@@ -1282,6 +1296,25 @@
       <div class="dk-modal-actions">
         <button type="button" class="dk-btn dk-btn-ghost" id="dk-move-cancel">Cancel</button>
         <button type="button" class="dk-btn dk-btn-primary" id="dk-move-ok">Move</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="dk-modal-backdrop" id="dk-link-modal" role="presentation">
+    <div class="dk-modal dk-link-modal" role="dialog" aria-modal="true" aria-labelledby="dk-link-title">
+      <h3 id="dk-link-title">Insert link</h3>
+      <p id="dk-link-message">Add display text and a URL. Bare URLs in notes also become clickable links.</p>
+      <div class="dk-field">
+        <label for="dk-link-text">Text</label>
+        <input id="dk-link-text" type="text" maxlength="200" autocomplete="off" placeholder="Link label">
+      </div>
+      <div class="dk-field">
+        <label for="dk-link-url">URL</label>
+        <input id="dk-link-url" type="text" maxlength="2000" autocomplete="off" placeholder="https://…">
+      </div>
+      <div class="dk-modal-actions">
+        <button type="button" class="dk-btn dk-btn-ghost" id="dk-link-cancel">Cancel</button>
+        <button type="button" class="dk-btn dk-btn-primary" id="dk-link-ok">Insert</button>
       </div>
     </div>
   </div>
@@ -2750,6 +2783,48 @@
         });
       }
 
+      const linkModalEl = document.getElementById('dk-link-modal');
+      const linkTextInput = document.getElementById('dk-link-text');
+      const linkUrlInput = document.getElementById('dk-link-url');
+      let linkModalResolve = null;
+
+      function closeLinkModal(result) {
+        linkModalEl.classList.remove('open');
+        const resolve = linkModalResolve;
+        linkModalResolve = null;
+        if (resolve) resolve(result);
+      }
+
+      function showLinkPrompt(opts) {
+        return new Promise((resolve) => {
+          if (linkModalResolve) linkModalResolve(null);
+          linkModalResolve = resolve;
+          document.getElementById('dk-link-title').textContent = opts.editing ? 'Edit link' : 'Insert link';
+          document.getElementById('dk-link-ok').textContent = opts.editing ? 'Save' : 'Insert';
+          linkTextInput.value = opts.defaultText || '';
+          linkUrlInput.value = opts.defaultUrl || '';
+          linkModalEl.classList.add('open');
+          setTimeout(() => {
+            if ((opts.defaultText || '').trim()) {
+              linkUrlInput.focus();
+              linkUrlInput.select();
+            } else {
+              linkTextInput.focus();
+              if (opts.defaultText) linkTextInput.select();
+            }
+          }, 0);
+        });
+      }
+
+      function submitLinkModal() {
+        const url = linkUrlInput.value.trim();
+        if (!url) return;
+        closeLinkModal({
+          text: linkTextInput.value,
+          url,
+        });
+      }
+
       const shareModalEl = document.getElementById('dk-share-modal');
       const shareModalTitle = document.getElementById('dk-share-title');
       const shareModalMessage = document.getElementById('dk-share-message');
@@ -2925,6 +3000,17 @@
 
       modalCancel.addEventListener('click', () => closeModal(false));
       modalOk.addEventListener('click', () => closeModal(true));
+      document.getElementById('dk-link-cancel').addEventListener('click', () => closeLinkModal(null));
+      document.getElementById('dk-link-ok').addEventListener('click', submitLinkModal);
+      linkUrlInput.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Enter') {
+          ev.preventDefault();
+          submitLinkModal();
+        }
+      });
+      linkModalEl.addEventListener('click', (ev) => {
+        if (ev.target === linkModalEl) closeLinkModal(null);
+      });
       modalFieldInput.addEventListener('keydown', (ev) => {
         if (ev.key === 'Enter' && modalMode === 'prompt') {
           ev.preventDefault();
@@ -2935,6 +3021,11 @@
         if (ev.target === modalEl) closeModal(false);
       });
       document.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Escape' && linkModalEl.classList.contains('open')) {
+          ev.preventDefault();
+          closeLinkModal(null);
+          return;
+        }
         if (ev.key === 'Escape' && modalEl.classList.contains('open')) {
           ev.preventDefault();
           closeModal(false);
@@ -3019,6 +3110,168 @@
           .concat((card.sections || []).map((s) => (s.title || '') + ' ' + (s.body || '')))
           .concat(checklist.map((it) => it.text))
           .join(' ');
+      }
+
+      const AUTO_URL_RE = /(?:https?:\/\/[^\s<]+[^\s<.,;:!?'")\]}])|(?:www\.[^\s<]+[^\s<.,;:!?'")\]}])/gi;
+      const MARKDOWN_LINK_RE = /^\[([^\]]*)\]\(([^)\s]+)\)/;
+
+      function normalizeLinkUrl(url) {
+        const u = (url || '').trim();
+        if (!u) return '';
+        if (/^(https?:\/\/|mailto:)/i.test(u)) return u;
+        if (/^www\./i.test(u)) return 'https://' + u;
+        return 'https://' + u;
+      }
+
+      function isSafeLinkUrl(href) {
+        try {
+          const u = new URL(href);
+          return u.protocol === 'http:' || u.protocol === 'https:' || u.protocol === 'mailto:';
+        } catch {
+          return false;
+        }
+      }
+
+      function looksLikeUrl(text) {
+        const t = (text || '').trim();
+        return /^https?:\/\//i.test(t) || /^www\./i.test(t) || /^mailto:/i.test(t);
+      }
+
+      function tokenizeAutoUrls(chunk, tokens) {
+        if (!chunk) return;
+        AUTO_URL_RE.lastIndex = 0;
+        let last = 0;
+        let match;
+        while ((match = AUTO_URL_RE.exec(chunk)) !== null) {
+          if (match.index > last) {
+            tokens.push({ type: 'text', text: chunk.slice(last, match.index) });
+          }
+          tokens.push({ type: 'link', text: match[0], url: match[0] });
+          last = match.index + match[0].length;
+        }
+        if (last < chunk.length) {
+          tokens.push({ type: 'text', text: chunk.slice(last) });
+        }
+      }
+
+      function tokenizeLinkedText(text) {
+        const tokens = [];
+        const s = text || '';
+        let i = 0;
+        while (i < s.length) {
+          if (s[i] === '[') {
+            const md = MARKDOWN_LINK_RE.exec(s.slice(i));
+            if (md) {
+              tokens.push({ type: 'link', text: md[1], url: md[2] });
+              i += md[0].length;
+              continue;
+            }
+          }
+          let next = s.indexOf('[', i);
+          if (next === -1) next = s.length;
+          tokenizeAutoUrls(s.slice(i, next), tokens);
+          i = next;
+        }
+        return tokens;
+      }
+
+      function createLinkElement(text, url) {
+        const a = document.createElement('a');
+        const href = normalizeLinkUrl(url);
+        a.href = href;
+        a.textContent = text || url;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        a.className = 'dk-text-link';
+        a.addEventListener('click', (ev) => ev.stopPropagation());
+        return a;
+      }
+
+      function appendLinkedText(container, text) {
+        container.textContent = '';
+        tokenizeLinkedText(text).forEach((tok) => {
+          if (tok.type === 'text') {
+            if (tok.text) container.appendChild(document.createTextNode(tok.text));
+            return;
+          }
+          const href = normalizeLinkUrl(tok.url);
+          if (!isSafeLinkUrl(href)) {
+            container.appendChild(document.createTextNode('[' + tok.text + '](' + tok.url + ')'));
+            return;
+          }
+          container.appendChild(createLinkElement(tok.text || tok.url, href));
+        });
+      }
+
+      function findMarkdownLinkRange(text, start, end) {
+        const re = /\[([^\]]*)\]\(([^)\s]+)\)/g;
+        let match;
+        while ((match = re.exec(text)) !== null) {
+          const linkStart = match.index;
+          const linkEnd = match.index + match[0].length;
+          if (start >= linkStart && end <= linkEnd) {
+            return { start: linkStart, end: linkEnd, text: match[1], url: match[2] };
+          }
+        }
+        return null;
+      }
+
+      function setFieldValue(field, value, selStart, selEnd) {
+        field.value = value;
+        if (typeof selStart === 'number' && typeof selEnd === 'number') {
+          field.setSelectionRange(selStart, selEnd);
+        }
+        field.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+
+      function attachLinkFieldKeydown(field) {
+        field.classList.add('dk-link-field');
+        field.addEventListener('keydown', (ev) => {
+          if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 'k') {
+            ev.preventDefault();
+            handleLinkShortcut(field);
+          }
+        });
+      }
+
+      async function handleLinkShortcut(field) {
+        if (!field) return;
+        const value = field.value || '';
+        const start = field.selectionStart ?? value.length;
+        const end = field.selectionEnd ?? value.length;
+        const selected = value.slice(start, end);
+        let defaultText = selected;
+        let defaultUrl = '';
+        let replaceStart = start;
+        let replaceEnd = end;
+
+        const existing = findMarkdownLinkRange(value, start, end);
+        if (existing) {
+          defaultText = existing.text;
+          defaultUrl = existing.url;
+          replaceStart = existing.start;
+          replaceEnd = existing.end;
+        } else if (looksLikeUrl(selected)) {
+          defaultUrl = selected.trim();
+          defaultText = '';
+        }
+
+        const result = await showLinkPrompt({ defaultText, defaultUrl });
+        if (!result) return;
+        const url = normalizeLinkUrl(result.url);
+        if (!url || !isSafeLinkUrl(url)) {
+          await showAlert({
+            title: 'Invalid link',
+            message: 'Enter a valid http, https, or mailto URL.',
+          });
+          return;
+        }
+        const label = (result.text || '').trim() || url;
+        const markdown = '[' + label + '](' + url + ')';
+        const newValue = value.slice(0, replaceStart) + markdown + value.slice(replaceEnd);
+        const cursor = replaceStart + markdown.length;
+        setFieldValue(field, newValue, cursor, cursor);
+        field.focus();
       }
 
       function appendArchivedBadge(titleEl) {
@@ -3703,9 +3956,10 @@
         box.setAttribute('aria-label', 'Mark complete');
         const text = document.createElement('input');
         text.type = 'text';
-        text.className = 'dk-check-text';
+        text.className = 'dk-check-text dk-link-field';
         text.value = item.text || '';
         text.placeholder = 'Checklist item';
+        attachLinkFieldKeydown(text);
         const remove = document.createElement('button');
         remove.type = 'button';
         remove.className = 'dk-check-remove';
@@ -3745,9 +3999,10 @@
         addForm.className = 'dk-check-add-form';
         const add = document.createElement('input');
         add.type = 'text';
-        add.className = 'dk-check-add';
+        add.className = 'dk-check-add dk-link-field';
         add.placeholder = 'Add a task…';
         add.setAttribute('enterkeyhint', 'done');
+        attachLinkFieldKeydown(add);
         addForm.appendChild(add);
         addForm.addEventListener('submit', (ev) => {
           ev.preventDefault();
@@ -3779,7 +4034,7 @@
         box.type = 'checkbox';
         box.checked = !!item.done;
         const text = document.createElement('span');
-        text.textContent = item.text || 'Untitled item';
+        appendLinkedText(text, item.text || 'Untitled item');
         row.append(box, text);
         row.addEventListener('click', (ev) => ev.stopPropagation());
         row.addEventListener('mousedown', (ev) => ev.stopPropagation());
@@ -3844,7 +4099,7 @@
           if ((sec.body || '').trim()) {
             const body = document.createElement('p');
             body.className = 'dk-section-view-body dk-note-text';
-            body.textContent = sec.body;
+            appendLinkedText(body, sec.body);
             box.appendChild(body);
           }
           host.appendChild(box);
@@ -3930,9 +4185,10 @@
           top.appendChild(del);
           head.append(title);
           const body = document.createElement('textarea');
-          body.className = 'dk-section-body dk-note-text';
+          body.className = 'dk-section-body dk-note-text dk-link-field';
           body.placeholder = 'Write notes for this section…';
           body.value = sec.body || '';
+          attachLinkFieldKeydown(body);
           body.addEventListener('input', () => {
             sec.body = body.value;
             fitSectionBodyHeight(body);
