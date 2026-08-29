@@ -610,6 +610,25 @@
       border-color: #c7d2fe;
       box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
     }
+    .dk-linked-edit {
+      outline: none;
+      cursor: text;
+    }
+    .dk-linked-edit:empty::before {
+      content: attr(data-placeholder);
+      color: #94a3b8;
+      pointer-events: none;
+    }
+    .dk-linked-edit-single {
+      white-space: nowrap;
+      overflow-x: auto;
+      overflow-y: hidden;
+    }
+    .dk-inline-link {
+      cursor: text;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
     .dk-search { margin: 0 0 14px; border-radius: 12px; }
     .dk-filter-bar {
       display: flex;
@@ -3098,7 +3117,7 @@
         if (openTasks) parts.push(openTasks + (openTasks === 1 ? ' open task' : ' open tasks'));
         const text = sections.find((s) => (s.body || '').trim());
         if (text) {
-          const snip = text.body.replace(/\s+/g, ' ').trim();
+          const snip = linkedTextDisplayPlain(text.body).replace(/\s+/g, ' ').trim();
           return parts.join(' · ') + (snip ? ' · ' + snip.slice(0, 80) : '');
         }
         return parts.join(' · ') || 'Empty card';
@@ -3187,6 +3206,136 @@
         return a;
       }
 
+      function createInlineLinkElement(label, url) {
+        const href = normalizeLinkUrl(url);
+        const a = document.createElement('a');
+        a.className = 'dk-text-link dk-inline-link';
+        a.contentEditable = 'false';
+        a.dataset.linkUrl = href;
+        a.href = href;
+        a.textContent = label || url;
+        a.addEventListener('click', (ev) => ev.preventDefault());
+        return a;
+      }
+
+      function appendTextWithBreaks(container, text) {
+        const parts = (text || '').split('\n');
+        parts.forEach((part, index) => {
+          if (part) container.appendChild(document.createTextNode(part));
+          if (index < parts.length - 1) container.appendChild(document.createElement('br'));
+        });
+      }
+
+      function populateLinkedEditField(el, text) {
+        el.textContent = '';
+        tokenizeLinkedText(text).forEach((tok) => {
+          if (tok.type === 'text') {
+            appendTextWithBreaks(el, tok.text);
+            return;
+          }
+          const href = normalizeLinkUrl(tok.url);
+          if (!isSafeLinkUrl(href)) {
+            appendTextWithBreaks(el, '[' + tok.text + '](' + tok.url + ')');
+            return;
+          }
+          el.appendChild(createInlineLinkElement(tok.text || tok.url, href));
+        });
+      }
+
+      function serializeLinkedEditField(el) {
+        let out = '';
+        function walk(node) {
+          if (node.nodeType === Node.TEXT_NODE) {
+            out += node.textContent;
+            return;
+          }
+          if (node.nodeType !== Node.ELEMENT_NODE) return;
+          const tag = node.tagName;
+          if (tag === 'BR') {
+            out += '\n';
+            return;
+          }
+          if (node.classList && node.classList.contains('dk-inline-link')) {
+            const url = node.dataset.linkUrl || node.getAttribute('href') || '';
+            const label = node.textContent || '';
+            if (!url) return;
+            if (!label || label === url) out += url;
+            else out += '[' + label + '](' + url + ')';
+            return;
+          }
+          if ((tag === 'DIV' || tag === 'P') && out.length && !out.endsWith('\n')) {
+            out += '\n';
+          }
+          node.childNodes.forEach(walk);
+        }
+        el.childNodes.forEach(walk);
+        return out;
+      }
+
+      function linkedTextDisplayPlain(text) {
+        return tokenizeLinkedText(text).map((tok) => {
+          if (tok.type === 'link') return tok.text || tok.url;
+          return tok.text;
+        }).join('');
+      }
+
+      function attachLinkedEditField(el, opts) {
+        opts = opts || {};
+        el.classList.add('dk-linked-edit', 'dk-link-field');
+        if (opts.singleLine) el.classList.add('dk-linked-edit-single');
+        el.contentEditable = 'true';
+        el.setAttribute('role', 'textbox');
+        el.setAttribute('aria-multiline', opts.singleLine ? 'false' : 'true');
+        if (opts.placeholder) el.dataset.placeholder = opts.placeholder;
+
+        const sync = () => {
+          const value = serializeLinkedEditField(el);
+          if (opts.onChange) opts.onChange(value);
+        };
+
+        el.addEventListener('input', sync);
+        el.addEventListener('blur', () => {
+          sync();
+          populateLinkedEditField(el, serializeLinkedEditField(el));
+        });
+        el.addEventListener('paste', (ev) => {
+          ev.preventDefault();
+          const text = ev.clipboardData.getData('text/plain');
+          if (document.queryCommandSupported('insertText')) {
+            document.execCommand('insertText', false, text);
+          } else {
+            const sel = window.getSelection();
+            if (!sel.rangeCount) return;
+            const range = sel.getRangeAt(0);
+            range.deleteContents();
+            range.insertNode(document.createTextNode(text));
+          }
+        });
+        el.addEventListener('keydown', (ev) => {
+          if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 'k') {
+            ev.preventDefault();
+            handleLinkShortcut(el);
+            return;
+          }
+          if (opts.singleLine && ev.key === 'Enter') {
+            ev.preventDefault();
+            if (opts.submitOnEnter) {
+              const form = el.closest('form');
+              if (form) form.requestSubmit();
+            }
+            return;
+          }
+          if (!opts.singleLine && ev.key === 'Enter') {
+            ev.preventDefault();
+            if (document.queryCommandSupported('insertLineBreak')) {
+              document.execCommand('insertLineBreak');
+            } else {
+              document.execCommand('insertHTML', false, '<br>');
+            }
+          }
+        });
+      }
+
       function appendLinkedText(container, text) {
         container.textContent = '';
         tokenizeLinkedText(text).forEach((tok) => {
@@ -3203,60 +3352,36 @@
         });
       }
 
-      function findMarkdownLinkRange(text, start, end) {
-        const re = /\[([^\]]*)\]\(([^)\s]+)\)/g;
-        let match;
-        while ((match = re.exec(text)) !== null) {
-          const linkStart = match.index;
-          const linkEnd = match.index + match[0].length;
-          if (start >= linkStart && end <= linkEnd) {
-            return { start: linkStart, end: linkEnd, text: match[1], url: match[2] };
-          }
-        }
-        return null;
-      }
-
-      function setFieldValue(field, value, selStart, selEnd) {
-        field.value = value;
-        if (typeof selStart === 'number' && typeof selEnd === 'number') {
-          field.setSelectionRange(selStart, selEnd);
-        }
-        field.dispatchEvent(new Event('input', { bubbles: true }));
-      }
-
-      function attachLinkFieldKeydown(field) {
-        field.classList.add('dk-link-field');
-        field.addEventListener('keydown', (ev) => {
-          if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 'k') {
-            ev.preventDefault();
-            handleLinkShortcut(field);
-          }
-        });
-      }
-
       async function handleLinkShortcut(field) {
-        if (!field) return;
-        const value = field.value || '';
-        const start = field.selectionStart ?? value.length;
-        const end = field.selectionEnd ?? value.length;
-        const selected = value.slice(start, end);
-        let defaultText = selected;
-        let defaultUrl = '';
-        let replaceStart = start;
-        let replaceEnd = end;
+        if (!field || !field.classList.contains('dk-linked-edit')) return;
+        const sel = window.getSelection();
+        if (!sel.rangeCount) return;
+        const range = sel.getRangeAt(0);
+        if (!field.contains(range.commonAncestorContainer)) return;
 
-        const existing = findMarkdownLinkRange(value, start, end);
-        if (existing) {
-          defaultText = existing.text;
-          defaultUrl = existing.url;
-          replaceStart = existing.start;
-          replaceEnd = existing.end;
-        } else if (looksLikeUrl(selected)) {
-          defaultUrl = selected.trim();
+        let linkEl = null;
+        let anchor = range.commonAncestorContainer;
+        if (anchor.nodeType === Node.TEXT_NODE) anchor = anchor.parentElement;
+        if (anchor && anchor.closest) linkEl = anchor.closest('.dk-inline-link');
+
+        let defaultText = range.toString();
+        let defaultUrl = '';
+        let editing = false;
+
+        if (linkEl && field.contains(linkEl)) {
+          defaultText = linkEl.textContent || '';
+          defaultUrl = linkEl.dataset.linkUrl || linkEl.getAttribute('href') || '';
+          editing = true;
+        } else if (looksLikeUrl(defaultText)) {
+          defaultUrl = defaultText.trim();
           defaultText = '';
         }
 
-        const result = await showLinkPrompt({ defaultText, defaultUrl });
+        const result = await showLinkPrompt({
+          defaultText,
+          defaultUrl,
+          editing,
+        });
         if (!result) return;
         const url = normalizeLinkUrl(result.url);
         if (!url || !isSafeLinkUrl(url)) {
@@ -3267,10 +3392,22 @@
           return;
         }
         const label = (result.text || '').trim() || url;
-        const markdown = '[' + label + '](' + url + ')';
-        const newValue = value.slice(0, replaceStart) + markdown + value.slice(replaceEnd);
-        const cursor = replaceStart + markdown.length;
-        setFieldValue(field, newValue, cursor, cursor);
+
+        if (editing && linkEl) {
+          linkEl.textContent = label;
+          linkEl.dataset.linkUrl = url;
+          linkEl.href = url;
+        } else {
+          range.deleteContents();
+          const inlineLink = createInlineLinkElement(label, url);
+          range.insertNode(inlineLink);
+          range.setStartAfter(inlineLink);
+          range.collapse(true);
+          sel.removeAllRanges();
+          sel.addRange(range);
+        }
+
+        field.dispatchEvent(new Event('input', { bubbles: true }));
         field.focus();
       }
 
@@ -3954,12 +4091,17 @@
         box.type = 'checkbox';
         box.checked = done;
         box.setAttribute('aria-label', 'Mark complete');
-        const text = document.createElement('input');
-        text.type = 'text';
-        text.className = 'dk-check-text dk-link-field';
-        text.value = item.text || '';
-        text.placeholder = 'Checklist item';
-        attachLinkFieldKeydown(text);
+        const text = document.createElement('div');
+        text.className = 'dk-check-text';
+        populateLinkedEditField(text, item.text || '');
+        attachLinkedEditField(text, {
+          singleLine: true,
+          placeholder: 'Checklist item',
+          onChange: (value) => {
+            item.text = value;
+            touchCard(card);
+          },
+        });
         const remove = document.createElement('button');
         remove.type = 'button';
         remove.className = 'dk-check-remove';
@@ -3971,10 +4113,6 @@
           item.doneAt = box.checked ? Date.now() : null;
           touchCard(card);
           rerender();
-        });
-        text.addEventListener('input', () => {
-          item.text = text.value;
-          touchCard(card);
         });
         remove.addEventListener('click', () => {
           card.checklist = checklist.filter((it) => it.id !== item.id);
@@ -3997,19 +4135,21 @@
         open.forEach((it) => openList.appendChild(checkRow(it, false, card, rerender)));
         const addForm = document.createElement('form');
         addForm.className = 'dk-check-add-form';
-        const add = document.createElement('input');
-        add.type = 'text';
-        add.className = 'dk-check-add dk-link-field';
-        add.placeholder = 'Add a task…';
+        const add = document.createElement('div');
+        add.className = 'dk-check-add';
         add.setAttribute('enterkeyhint', 'done');
-        attachLinkFieldKeydown(add);
+        attachLinkedEditField(add, {
+          singleLine: true,
+          placeholder: 'Add a task…',
+          submitOnEnter: true,
+        });
         addForm.appendChild(add);
         addForm.addEventListener('submit', (ev) => {
           ev.preventDefault();
-          const value = add.value.trim();
+          const value = serializeLinkedEditField(add).trim();
           if (!value) return;
           checklist.push({ id: uidId(), text: value, done: false, doneAt: null });
-          add.value = '';
+          add.textContent = '';
           touchCard(card);
           renderChecklistEdit(card);
           host.querySelector('.dk-check-add')?.focus();
@@ -4184,15 +4324,16 @@
           top.className = 'dk-section-top';
           top.appendChild(del);
           head.append(title);
-          const body = document.createElement('textarea');
-          body.className = 'dk-section-body dk-note-text dk-link-field';
-          body.placeholder = 'Write notes for this section…';
-          body.value = sec.body || '';
-          attachLinkFieldKeydown(body);
-          body.addEventListener('input', () => {
-            sec.body = body.value;
-            fitSectionBodyHeight(body);
-            touchCard(card);
+          const body = document.createElement('div');
+          body.className = 'dk-section-body dk-note-text';
+          populateLinkedEditField(body, sec.body || '');
+          attachLinkedEditField(body, {
+            placeholder: 'Write notes for this section…',
+            onChange: (value) => {
+              sec.body = value;
+              fitSectionBodyHeight(body);
+              touchCard(card);
+            },
           });
           box.append(top, head, body);
           list.appendChild(box);
