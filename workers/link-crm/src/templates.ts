@@ -419,11 +419,22 @@ export function layout(title: string, content: string): string {
     .footer-links span {
       margin: 0 0.5rem;
     }
+    .home-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.75rem;
+      margin: 1rem 0 0;
+    }
+    .home-top h2 {
+      margin: 0;
+    }
     .home-actions {
       display: flex;
       flex-wrap: wrap;
       gap: 0.5rem;
-      margin: 1rem 0 1.5rem;
+      margin: 0.75rem 0 1.5rem;
+      justify-content: flex-start;
     }
     .home-section {
       margin-bottom: 1.5rem;
@@ -2154,10 +2165,12 @@ export function dashboardPage(user: any, hasGoogleAccount: boolean = false, rece
       ${linkAppHeader(linkHeaderUsername(user))}
       
       <div class="container">
-        <h2 style="margin: 1rem 0 0;">Home</h2>
+        <div class="home-top">
+          <h2>Home</h2>
+          <button type="button" class="btn btn-secondary" onclick="toggleVoiceAssistant()">🎙️ Voice</button>
+        </div>
 
         <div class="home-actions">
-          <button type="button" class="btn btn-secondary" onclick="toggleVoiceAssistant()">🎙️ Voice</button>
           <button type="button" class="btn btn-secondary" onclick="showQuickAddForm()">✍️ + Interaction</button>
           <a href="/contacts/new" class="btn btn-secondary">👥 + Person</a>
           <a href="/reminders/new" class="btn btn-secondary">⏰ + Reminder</a>
