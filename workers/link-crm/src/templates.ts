@@ -126,7 +126,7 @@ export function layout(title: string, content: string): string {
       font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
       letter-spacing: -0.015em;
     }
-    .container { max-width: 1200px; margin: 0 auto; padding: 1rem; padding-bottom: 20px; }
+    .container { max-width: 1200px; width: 100%; margin: 0 auto; padding: 1rem; padding-bottom: 20px; min-width: 0; }
     .nav { background: white; border-bottom: 1px solid #e5e7eb; padding: 1rem; }
     .nav-content { max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; }
     .nav-leading { display: flex; align-items: center; gap: 10px; min-width: 0; }
@@ -399,6 +399,8 @@ export function layout(title: string, content: string): string {
     .content-wrapper {
       min-height: 100vh;
       padding-bottom: 100px; /* Space for bottom nav */
+      width: 100%;
+      min-width: 0;
     }
     .footer-links {
       text-align: center;
@@ -429,6 +431,16 @@ export function layout(title: string, content: string): string {
       width: 100%;
       max-width: 100%;
       box-sizing: border-box;
+      grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+    }
+    .calendar-cell {
+      min-width: 0;
+    }
+    /* Interactions calendar: avoid square cells forcing horizontal overflow on desktop */
+    .interactions-calendar .calendar-cell {
+      aspect-ratio: auto !important;
+      min-height: 80px;
+      overflow: hidden;
     }
     @media (max-width: 768px) {
       body {
@@ -3365,7 +3377,7 @@ function getCalendarHtml(year: number, month: number, interactionsByDate: Map<st
   
   // Add empty cells for days before the first day of month
   for (let i = 0; i < firstDay; i++) {
-    calendarHtml += `<div class="calendar-cell" style="aspect-ratio: 1; min-height: 60px;"></div>`;
+    calendarHtml += `<div class="calendar-cell"></div>`;
   }
   
   // Add cells for each day of the month
@@ -3374,12 +3386,12 @@ function getCalendarHtml(year: number, month: number, interactionsByDate: Map<st
     const interactions = interactionsByDate.get(dateStr) || [];
     
     calendarHtml += `
-      <div class="calendar-cell" data-date="${dateStr}" style="aspect-ratio: 1; min-height: 60px; border: 1px solid #e5e7eb; border-radius: 0.375rem; padding: 0.25rem; background: white; display: flex; flex-direction: column; position: relative;" ondragover="event.preventDefault()" ondrop="onCalendarCellDrop(event, '${dateStr}')">
-        <div class="calendar-day-number" style="font-size: 0.875rem; font-weight: 500; color: #111827; margin-bottom: 0.25rem;">
+      <div class="calendar-cell" data-date="${dateStr}" style="border: 1px solid #e5e7eb; border-radius: 0.375rem; padding: 0.25rem; background: white; display: flex; flex-direction: column; position: relative; overflow: hidden;" ondragover="event.preventDefault()" ondrop="onCalendarCellDrop(event, '${dateStr}')">
+        <div class="calendar-day-number" style="font-size: 0.875rem; font-weight: 500; color: #111827; margin-bottom: 0.25rem; flex-shrink: 0;">
           ${day}
         </div>
         ${interactions.length > 0 ? `
-          <div style="flex: 1; display: flex; flex-direction: column; gap: 2px; overflow: hidden;">
+          <div style="flex: 1; display: flex; flex-direction: column; gap: 2px; overflow: hidden; min-height: 0;">
             ${interactions.slice(0, 3).map(i => {
               const escapedNotes = (i.notes || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n').replace(/\r/g, '');
               const escapedLocation = (i.location || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n').replace(/\r/g, '');
