@@ -2158,9 +2158,9 @@ export function dashboardPage(user: any, hasGoogleAccount: boolean = false, rece
 
         <div class="home-actions">
           <button type="button" class="btn btn-secondary" onclick="toggleVoiceAssistant()">🎙️ Voice</button>
-          <button type="button" class="btn btn-secondary" onclick="showQuickAddForm()">✍️ Interaction</button>
-          <a href="/contacts/new" class="btn btn-secondary">👥 Person</a>
-          <a href="/reminders/new" class="btn btn-secondary">⏰ Reminder</a>
+          <button type="button" class="btn btn-secondary" onclick="showQuickAddForm()">✍️ + Interaction</button>
+          <a href="/contacts/new" class="btn btn-secondary">👥 + Person</a>
+          <a href="/reminders/new" class="btn btn-secondary">⏰ + Reminder</a>
         </div>
 
         <div class="home-section">
