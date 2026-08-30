@@ -533,6 +533,11 @@ export function layout(title: string, content: string): string {
         margin: 0 !important;
         max-width: 100% !important;
       }
+      .container.home-container {
+        padding-left: max(1rem, env(safe-area-inset-left, 0px)) !important;
+        padding-right: max(1rem, env(safe-area-inset-right, 0px)) !important;
+        padding-bottom: 20px !important;
+      }
       .calendar-container {
         padding: 0.125rem !important;
         margin: 0 !important;
@@ -2164,7 +2169,7 @@ export function dashboardPage(user: any, hasGoogleAccount: boolean = false, rece
     <div class="content-wrapper">
       ${linkAppHeader(linkHeaderUsername(user))}
       
-      <div class="container">
+      <div class="container home-container">
         <div class="home-top">
           <h2>Home</h2>
           <button type="button" class="btn btn-secondary" onclick="toggleVoiceAssistant()">🎙️ Voice</button>
