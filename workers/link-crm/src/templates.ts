@@ -533,7 +533,7 @@ export function layout(title: string, content: string): string {
         margin: 0 !important;
         max-width: 100% !important;
       }
-      .container.home-container {
+      .container.page-container {
         padding-left: max(1rem, env(safe-area-inset-left, 0px)) !important;
         padding-right: max(1rem, env(safe-area-inset-right, 0px)) !important;
         padding-bottom: 20px !important;
@@ -1621,7 +1621,7 @@ export function remindersPage(user: any, reminders: any[], view: string = 'calen
     <div class="content-wrapper">
       ${linkAppHeader(linkHeaderUsername(user))}
       
-      <div class="container">
+      <div class="container page-container">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; margin-top: 1rem;">
           <h2 style="margin: 0;">Reminders</h2>
           <div style="display: flex; gap: 0.5rem;">
@@ -2169,7 +2169,7 @@ export function dashboardPage(user: any, hasGoogleAccount: boolean = false, rece
     <div class="content-wrapper">
       ${linkAppHeader(linkHeaderUsername(user))}
       
-      <div class="container home-container">
+      <div class="container page-container">
         <div class="home-top">
           <h2>Home</h2>
           <button type="button" class="btn btn-secondary" onclick="toggleVoiceAssistant()">🎙️ Voice</button>
@@ -2238,7 +2238,7 @@ export function peoplePage(user: any, contacts: any[], allTags: string[], search
     <div class="content-wrapper">
       ${linkAppHeader(linkHeaderUsername(user))}
       
-      <div class="container">
+      <div class="container page-container">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; margin-top: 1rem; flex-wrap: wrap; gap: 0.75rem;">
           <h2 style="margin: 0;">People</h2>
           <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
@@ -3665,7 +3665,7 @@ export function interactionsPage(user: any, recentInteractions: any[], searchQue
     <div class="content-wrapper">
       ${linkAppHeader(linkHeaderUsername(user))}
       
-      <div class="container">
+      <div class="container page-container">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; margin-top: 1rem;">
           <h2 style="margin: 0;">Interactions</h2>
           <div style="display: flex; gap: 0.5rem;">
