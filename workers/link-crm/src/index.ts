@@ -499,7 +499,56 @@ app.get('/dashboard', requireAuth, async (c) => {
     const googleAccount = await c.env.DB.prepare(
       'SELECT id FROM accounts WHERE user_id = ? AND provider = ?'
     ).bind(user.id, 'google').first()
-    return serveLinkHtml(c, dashboardPage(user, !!googleAccount))
+
+    let recentInteractions: any[] = []
+    let recentContacts: any[] = []
+
+    try {
+      const interactionsResult = await c.env.DB.prepare(
+        `SELECT i.*, c.id as contact_id
+         FROM interactions i
+         INNER JOIN contacts c ON i.contact_id = c.id
+         WHERE c.user_id = ?
+         ORDER BY i.date DESC
+         LIMIT 10`
+      ).bind(user.id).all()
+
+      for (const interaction of (interactionsResult.results || [])) {
+        const contactResult = await c.env.DB.prepare(
+          'SELECT * FROM contacts WHERE id = ?'
+        ).bind(interaction.contact_id).first()
+
+        if (contactResult) {
+          const decryptedContact = await decryptContact(contactResult, c.env.ENCRYPTION_KEY)
+          recentInteractions.push({
+            ...interaction,
+            contact_name: decryptedContact.name
+          })
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching dashboard interactions:', error)
+    }
+
+    try {
+      const contactsResult = await c.env.DB.prepare(
+        'SELECT * FROM contacts WHERE user_id = ? ORDER BY created_at DESC LIMIT 10'
+      ).bind(user.id).all()
+
+      for (const contact of (contactsResult.results || [])) {
+        const decrypted = await decryptContact(contact, c.env.ENCRYPTION_KEY)
+        recentContacts.push({
+          ...contact,
+          name: decrypted.name,
+          email: decrypted.email,
+          company: decrypted.company
+        })
+      }
+    } catch (error) {
+      console.error('Error fetching dashboard contacts:', error)
+    }
+
+    return serveLinkHtml(c, dashboardPage(user, !!googleAccount, recentInteractions, recentContacts))
   })
 })
 

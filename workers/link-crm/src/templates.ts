@@ -419,6 +419,77 @@ export function layout(title: string, content: string): string {
     .footer-links span {
       margin: 0 0.5rem;
     }
+    .home-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin: 1rem 0 1.5rem;
+    }
+    .home-section {
+      margin-bottom: 1.5rem;
+    }
+    .home-section-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.75rem;
+      gap: 0.5rem;
+    }
+    .home-section-head h3 {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #374151;
+      margin: 0;
+    }
+    .home-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .home-list-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 0.75rem;
+      padding: 0.75rem 1rem;
+      background: white;
+      border-radius: 0.5rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      text-decoration: none;
+      color: inherit;
+      transition: background 0.15s;
+    }
+    a.home-list-item:hover {
+      background: #f9fafb;
+    }
+    .home-list-main {
+      min-width: 0;
+      flex: 1;
+    }
+    .home-list-title {
+      font-weight: 500;
+      font-size: 0.875rem;
+      color: #111827;
+    }
+    .home-list-meta {
+      font-size: 0.75rem;
+      color: #6b7280;
+      margin-top: 0.125rem;
+    }
+    .home-list-preview {
+      font-size: 0.8125rem;
+      color: #6b7280;
+      margin-top: 0.25rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .home-list-date {
+      font-size: 0.75rem;
+      color: #9ca3af;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
     
     /* Calendar responsive styles */
     .calendar-container {
@@ -2045,36 +2116,79 @@ function getFooterLinks(): string {
   `
 }
 
-export function dashboardPage(user: any, hasGoogleAccount: boolean = false): string {
+export function dashboardPage(user: any, hasGoogleAccount: boolean = false, recentInteractions: any[] = [], recentContacts: any[] = []): string {
+  const recentInteractionsList = recentInteractions.map(i => {
+    const date = new Date(i.date)
+    const notesPreview = (i.notes || '').replace(/\s+/g, ' ').trim()
+    return `
+      <a href="/interactions/${i.id}/edit" class="home-list-item">
+        <div class="home-list-main">
+          <div class="home-list-title">
+            <span style="text-transform: capitalize;">${escapeHtml(i.type)}</span>
+            <span style="color: #6b7280;"> · </span>
+            ${escapeHtml(i.contact_name || 'Unknown')}
+          </div>
+          ${notesPreview ? `<div class="home-list-preview">${escapeHtml(notesPreview)}</div>` : ''}
+        </div>
+        <span class="home-list-date">${date.toLocaleDateString()}</span>
+      </a>
+    `
+  }).join('')
+
+  const recentContactsList = recentContacts.map(c => {
+    const added = c.created_at ? new Date(c.created_at) : null
+    const meta = [c.company, c.email].filter(Boolean).join(' · ')
+    return `
+      <a href="/contacts/${c.id}" class="home-list-item">
+        <div class="home-list-main">
+          <div class="home-list-title">${escapeHtml(c.name || 'Unknown')}</div>
+          ${meta ? `<div class="home-list-meta">${escapeHtml(meta)}</div>` : ''}
+        </div>
+        ${added ? `<span class="home-list-date">${added.toLocaleDateString()}</span>` : ''}
+      </a>
+    `
+  }).join('')
+
   return layout('Home', `
     <div class="content-wrapper">
       ${linkAppHeader(linkHeaderUsername(user))}
       
       <div class="container">
-        <div class="grid grid-2" style="gap: 1rem; max-width: 800px; margin: 0 auto; margin-top: 2rem;">
-          <div class="card" style="text-align: center; padding: 1.5rem; border-radius: 1rem; transition: all 0.2s ease; cursor: pointer;" onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 12px 24px rgba(0,0,0,0.12)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 1px 3px rgba(0,0,0,0.12)'" onclick="toggleVoiceAssistant()">
-            <div style="font-size: 3rem; margin-bottom: 0.75rem;">🎙️</div>
-            <h3 style="font-size: 1.125rem; font-weight: 600; color: #111827; margin-bottom: 0.25rem;">Voice Assistant</h3>
-            <p class="text-sm" style="color: #6b7280;">Use voice commands to manage contacts</p>
+        <h2 style="margin: 1rem 0 0;">Home</h2>
+
+        <div class="home-actions">
+          <button type="button" class="btn btn-secondary" onclick="toggleVoiceAssistant()">🎙️ Voice</button>
+          <button type="button" class="btn btn-secondary" onclick="showQuickAddForm()">✍️ Interaction</button>
+          <a href="/contacts/new" class="btn btn-secondary">👥 Person</a>
+          <a href="/reminders/new" class="btn btn-secondary">⏰ Reminder</a>
+        </div>
+
+        <div class="home-section">
+          <div class="home-section-head">
+            <h3>Recent Interactions</h3>
+            <a href="/interactions?view=list" class="text-sm">View all</a>
           </div>
-          
-          <a href="/interactions/new" class="card" style="text-align: center; padding: 1.5rem; border-radius: 1rem; transition: all 0.2s ease; cursor: pointer; text-decoration: none; display: block;" onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 12px 24px rgba(0,0,0,0.12)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 1px 3px rgba(0,0,0,0.12)'">
-            <div style="font-size: 3rem; margin-bottom: 0.75rem;">✍️</div>
-            <h3 style="font-size: 1.125rem; font-weight: 600; color: #111827; margin-bottom: 0.25rem;">Add Interaction</h3>
-            <p class="text-sm" style="color: #6b7280;">Log a new interaction with someone</p>
-          </a>
-          
-          <a href="/contacts/new" class="card" style="text-align: center; padding: 1.5rem; border-radius: 1rem; transition: all 0.2s ease; cursor: pointer; text-decoration: none; display: block;" onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 12px 24px rgba(0,0,0,0.12)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 1px 3px rgba(0,0,0,0.12)'">
-            <div style="font-size: 3rem; margin-bottom: 0.75rem;">👥</div>
-            <h3 style="font-size: 1.125rem; font-weight: 600; color: #111827; margin-bottom: 0.25rem;">Add Person</h3>
-            <p class="text-sm" style="color: #6b7280;">Add a new contact to your network</p>
-          </a>
-          
-          <a href="/reminders/new" class="card" style="text-align: center; padding: 1.5rem; border-radius: 1rem; transition: all 0.2s ease; cursor: pointer; text-decoration: none; display: block;" onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 12px 24px rgba(0,0,0,0.12)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 1px 3px rgba(0,0,0,0.12)'">
-            <div style="font-size: 3rem; margin-bottom: 0.75rem;">⏰</div>
-            <h3 style="font-size: 1.125rem; font-weight: 600; color: #111827; margin-bottom: 0.25rem;">Add Reminder</h3>
-            <p class="text-sm" style="color: #6b7280;">Set a reminder for a contact</p>
-          </a>
+          ${recentInteractions.length === 0 ? `
+            <div class="card text-center" style="padding: 1rem;">
+              <p class="text-gray text-sm">No interactions yet.</p>
+            </div>
+          ` : `
+            <div class="home-list">${recentInteractionsList}</div>
+          `}
+        </div>
+
+        <div class="home-section">
+          <div class="home-section-head">
+            <h3>New Contacts</h3>
+            <a href="/people" class="text-sm">View all</a>
+          </div>
+          ${recentContacts.length === 0 ? `
+            <div class="card text-center" style="padding: 1rem;">
+              <p class="text-gray text-sm">No contacts yet.</p>
+            </div>
+          ` : `
+            <div class="home-list">${recentContactsList}</div>
+          `}
         </div>
       </div>
       
