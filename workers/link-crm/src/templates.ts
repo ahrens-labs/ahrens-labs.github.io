@@ -2140,8 +2140,6 @@ export function dashboardPage(user: any, hasGoogleAccount: boolean = false, rece
       <a href="/interactions/${i.id}/edit" class="home-list-item">
         <div class="home-list-main">
           <div class="home-list-title">
-            <span style="text-transform: capitalize;">${escapeHtml(i.type)}</span>
-            <span style="color: #6b7280;"> · </span>
             ${escapeHtml(i.contact_name || 'Unknown')}
           </div>
           ${notesPreview ? `<div class="home-list-preview">${escapeHtml(notesPreview)}</div>` : ''}
@@ -2588,16 +2586,7 @@ export function contactDetailPage(contact: any, interactions: any[], dates: any[
         <div id="addInteractionForm" style="display: none; margin-bottom: 1.5rem; padding: 1rem; background: #f9fafb; border-radius: 0.5rem;">
           <h3 style="margin-bottom: 1rem;">New Interaction</h3>
           <form id="interactionForm">
-            <div class="form-group">
-              <label class="form-label">Type</label>
-              <select name="type" class="form-select" required>
-                <option value="call">Call</option>
-                <option value="email">Email</option>
-                <option value="meeting">Meeting</option>
-                <option value="message">Message</option>
-                <option value="other">Other</option>
-              </select>
-            </div>
+            <input type="hidden" name="type" value="meeting">
             
             <div class="form-group">
               <label class="form-label">Date</label>
@@ -2624,7 +2613,6 @@ export function contactDetailPage(contact: any, interactions: any[], dates: any[
                 <div style="padding: 1rem; background: #f9fafb; border-radius: 0.5rem;">
                   <div class="flex-between" style="margin-bottom: 0.5rem;">
                     <div style="display: flex; gap: 1rem; align-items: center;">
-                      <span style="font-weight: 500; text-transform: capitalize;">${i.type}</span>
                       <a href="/interactions/${i.id}/edit" style="font-size: 0.875rem;">Edit</a>
                     </div>
                     <span class="text-sm text-gray">${date.toLocaleDateString()}</span>
@@ -2994,16 +2982,7 @@ export function newInteractionPage(allContacts: any[], preselectedContactId?: st
             <button type="button" onclick="createNewContact()" class="btn btn-primary" id="createContactBtn" style="font-size: 0.875rem;">Create Contact</button>
           </div>
           
-          <div class="form-group">
-            <label class="form-label">Type *</label>
-            <select name="type" class="form-select" required>
-              <option value="meeting" selected>Meeting</option>
-              <option value="call">Call</option>
-              <option value="email">Email</option>
-              <option value="message">Message</option>
-              <option value="other">Other</option>
-            </select>
-          </div>
+          <input type="hidden" name="type" value="meeting">
           
           <div class="form-group">
             <label class="form-label">Date *</label>
@@ -3629,7 +3608,6 @@ export function interactionsPage(user: any, recentInteractions: any[], searchQue
       <div class="card" onclick="openInteractionModal('${i.id}', '${i.contact_id}', '${escapedName}', '${i.type}', ${i.date}, '${escapedNotes}', '${escapedLocation}')" style="padding: 0.75rem; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">
         <div class="flex-between" style="margin-bottom: 0.25rem;">
           <div style="display: flex; gap: 0.75rem; align-items: center;">
-            <span style="font-weight: 500; text-transform: capitalize; font-size: 0.875rem;">${i.type}</span>
             <a href="/contacts/${i.contact_id}" onclick="event.stopPropagation()" style="font-size: 0.875rem;">${i.contact_name}</a>
           </div>
           <span class="text-sm text-gray">${date.toLocaleDateString()}</span>
