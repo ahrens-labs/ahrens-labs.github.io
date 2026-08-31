@@ -2135,16 +2135,14 @@ function getFooterLinks(): string {
 export function dashboardPage(user: any, hasGoogleAccount: boolean = false, recentInteractions: any[] = [], recentContacts: any[] = []): string {
   const recentInteractionsList = recentInteractions.map(i => {
     const date = new Date(i.date)
-    const notesPreview = (i.notes || '').replace(/\s+/g, ' ').trim()
     return `
-      <a href="/interactions/${i.id}/edit" class="home-list-item">
-        <div class="home-list-main">
-          <div class="home-list-title">
-            ${escapeHtml(i.contact_name || 'Unknown')}
-          </div>
-          ${notesPreview ? `<div class="home-list-preview">${escapeHtml(notesPreview)}</div>` : ''}
+      <a href="/interactions/${i.id}/edit" class="card" style="display: block; padding: 0.75rem; color: inherit; text-decoration: none; transition: background 0.2s;" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">
+        <div class="flex-between" style="margin-bottom: 0.25rem;">
+          <span style="font-size: 0.875rem; color: #16a34a;">${escapeHtml(i.contact_name || 'Unknown')}</span>
+          <span class="text-sm text-gray">${date.toLocaleDateString()}</span>
         </div>
-        <span class="home-list-date">${date.toLocaleDateString()}</span>
+        <div style="font-size: 0.875rem; color: #6b7280; white-space: pre-wrap;">${escapeHtml(i.notes || '')}</div>
+        ${i.location ? `<div style="font-size: 0.75rem; color: #9ca3af; margin-top: 0.25rem;">📍 ${escapeHtml(i.location)}</div>` : ''}
       </a>
     `
   }).join('')
@@ -2189,7 +2187,7 @@ export function dashboardPage(user: any, hasGoogleAccount: boolean = false, rece
               <p class="text-gray text-sm">No interactions yet.</p>
             </div>
           ` : `
-            <div class="home-list">${recentInteractionsList}</div>
+            <div style="display: flex; flex-direction: column; gap: 0.5rem;">${recentInteractionsList}</div>
           `}
         </div>
 
