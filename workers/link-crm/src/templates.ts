@@ -2837,16 +2837,7 @@ export function editInteractionPage(contact: any, interaction: any, allContacts:
             <p class="text-sm text-gray" style="margin-top: 0.25rem;">Change this if the interaction was added to the wrong contact</p>
           </div>
           
-          <div class="form-group">
-            <label class="form-label">Type</label>
-            <select name="type" class="form-select" required>
-              <option value="call" ${interaction.type === 'call' ? 'selected' : ''}>Call</option>
-              <option value="email" ${interaction.type === 'email' ? 'selected' : ''}>Email</option>
-              <option value="meeting" ${interaction.type === 'meeting' ? 'selected' : ''}>Meeting</option>
-              <option value="message" ${interaction.type === 'message' ? 'selected' : ''}>Message</option>
-              <option value="other" ${interaction.type === 'other' ? 'selected' : ''}>Other</option>
-            </select>
-          </div>
+          <input type="hidden" name="type" value="${interaction.type || 'meeting'}">
           
           <div class="form-group">
             <label class="form-label">Date</label>
@@ -3662,17 +3653,6 @@ export function interactionsPage(user: any, recentInteractions: any[], searchQue
               <input type="text" name="search" class="form-input" placeholder="Search interactions by contact name or notes..." value="${searchQuery}">
             </div>
             
-            <div class="form-group" style="min-width: 200px; margin-bottom: 0;">
-              <label class="form-label">Filter by Type</label>
-              <select name="type" class="form-select">
-                <option value="">All Types</option>
-                <option value="meeting" ${typeFilter === 'meeting' ? 'selected' : ''}>Meeting</option>
-                <option value="call" ${typeFilter === 'call' ? 'selected' : ''}>Call</option>
-                <option value="email" ${typeFilter === 'email' ? 'selected' : ''}>Email</option>
-                <option value="note" ${typeFilter === 'note' ? 'selected' : ''}>Note</option>
-              </select>
-            </div>
-            
             <div style="display: flex; gap: 0.5rem;">
               <button type="submit" class="btn btn-primary">Apply</button>
               ${searchQuery || typeFilter ? `<a href="/interactions?view=list" class="btn btn-secondary">Clear</a>` : ''}
@@ -3715,16 +3695,7 @@ export function interactionsPage(user: any, recentInteractions: any[], searchQue
             <div id="modalContactName" style="padding: 0.5rem; background: #f9fafb; border-radius: 0.375rem; font-weight: 500;"></div>
           </div>
           
-          <div class="form-group">
-            <label class="form-label">Type</label>
-            <select name="type" id="modalType" class="form-select" required>
-              <option value="call">Call</option>
-              <option value="email">Email</option>
-              <option value="meeting">Meeting</option>
-              <option value="message">Message</option>
-              <option value="other">Other</option>
-            </select>
-          </div>
+          <input type="hidden" name="type" id="modalType" value="meeting">
           
           <div class="form-group">
             <label class="form-label">Date</label>
@@ -3755,7 +3726,7 @@ export function interactionsPage(user: any, recentInteractions: any[], searchQue
         document.getElementById('modalInteractionId').value = id;
         document.getElementById('modalContactId').value = contactId;
         document.getElementById('modalContactName').textContent = contactName;
-        document.getElementById('modalType').value = type.toLowerCase();
+        document.getElementById('modalType').value = (type || 'meeting').toLowerCase();
         
         // Convert timestamp to date string (UTC to avoid timezone issues)
         const dateObj = new Date(date);
