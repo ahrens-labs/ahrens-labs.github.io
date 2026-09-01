@@ -4543,7 +4543,20 @@
                 if(weekKey) weeksNeedingWork.add(weekKey);
             });
 
-            if(weeksNeedingWork.size === 0 && changed === 0) return 0;
+            if(weeksNeedingWork.size === 0 && changed === 0) {
+                const leadOnly = ensureLeadAssignmentAtNowForDate(getDateStrLocal());
+                if(leadOnly > 0) {
+                    changed += leadOnly;
+                    const todayStr = getDateStrLocal();
+                    changed += enforceNoOverlappingTimes(todayStr, todayStr) || 0;
+                    changed += enforceDependencyOrder(todayStr, todayStr) || 0;
+                    if(persist) {
+                        localStorage.setItem(plannerStorageKey('plannerTasksV2'), JSON.stringify(tasks));
+                        if(syncCloud) queueClassifyCloudSync();
+                    }
+                }
+                return changed;
+            }
 
             weeksNeedingWork.forEach(weekKey => {
                 changed += assignWeekTaskDates(weekKey, true) || 0;
@@ -4572,6 +4585,18 @@
             if(changed > 0 && persist) {
                 localStorage.setItem(plannerStorageKey('plannerTasksV2'), JSON.stringify(tasks));
                 if(syncCloud) queueClassifyCloudSync();
+            }
+
+            const todayStr = getDateStrLocal();
+            const leadAdjusted = ensureLeadAssignmentAtNowForDate(todayStr);
+            if(leadAdjusted > 0) {
+                changed += leadAdjusted;
+                changed += enforceNoOverlappingTimes(todayStr, todayStr) || 0;
+                changed += enforceDependencyOrder(todayStr, todayStr) || 0;
+                if(persist) {
+                    localStorage.setItem(plannerStorageKey('plannerTasksV2'), JSON.stringify(tasks));
+                    if(syncCloud) queueClassifyCloudSync();
+                }
             }
 
             return changed;
@@ -8794,7 +8819,7 @@
             const dueB = getTaskDueDate(b) || '9999-12-31';
             if(dueA !== dueB) return dueA.localeCompare(dueB);
 
-            const durationDiff = (parseInt(b.duration, 10) || 30) - (parseInt(a.duration, 10) || 30);
+            const durationDiff = (parseInt(a.duration, 10) || 30) - (parseInt(b.duration, 10) || 30);
             if(durationDiff !== 0) return durationDiff;
 
             const assignedDateA = a.date || '9999-12-31';
@@ -8823,7 +8848,7 @@
             const dueA = getTaskDueDate(a) || '9999-12-31';
             const dueB = getTaskDueDate(b) || '9999-12-31';
             if(dueA !== dueB) return dueA.localeCompare(dueB);
-            const durationDiff = (parseInt(b.duration, 10) || 30) - (parseInt(a.duration, 10) || 30);
+            const durationDiff = (parseInt(a.duration, 10) || 30) - (parseInt(b.duration, 10) || 30);
             if(durationDiff !== 0) return durationDiff;
             const assignedDateA = a.date || '9999-12-31';
             const assignedDateB = b.date || '9999-12-31';
@@ -8902,9 +8927,14 @@
         }
         function getNowMinRoundedTo5() {
             const now = new Date();
-            let raw = now.getHours() * 60 + now.getMinutes();
-            if(now.getSeconds() > 0 || now.getMilliseconds() > 0) raw += 1;
-            return roundUpToScheduleGrid(raw);
+            const raw = now.getHours() * 60 + now.getMinutes();
+            if(raw % 5 === 0 && now.getSeconds() === 0 && now.getMilliseconds() === 0) {
+                return raw;
+            }
+            let next = raw;
+            if(now.getSeconds() > 0 || now.getMilliseconds() > 0) next += 1;
+            if(next % 5 === 0) return next;
+            return roundUpToScheduleGrid(next);
         }
 
         function roundUpToScheduleGrid(minutes) {
@@ -9055,6 +9085,133 @@
             });
             return cleared;
         }
+
+        function findLeadAssignmentTaskForDate(dateStr, anchor) {
+            const pool = (tasks || []).filter(t => {
+                if(!t || t.completed || !isTaskVisibleInClassify(t)) return false;
+                if(t.repeatNoAutoTime || isRepeatFixedTimeTask(t)) return false;
+                if(isAssignmentStarted(t) || isFixedTask(t) || isUserScheduleLocked(t)) return false;
+                if(isDateBlockedForTask(t, dateStr)) return false;
+                if(t.date && t.date !== dateStr) {
+                    return getImmediateScheduleDatesForTask(t).includes(dateStr);
+                }
+                return !t.date || t.date === dateStr;
+            });
+            const ordered = orderTasksByDependencies(pool).ordered.sort(compareTasksForScheduling);
+            for(const task of ordered) {
+                const constraints = getSchedulingConstraintsForTaskOnDate(task, dateStr, anchor);
+                if(!constraints) continue;
+                if(constraints.constrainedStart > anchor) continue;
+                if(anchor + constraints.duration > constraints.constrainedMaxEnd) continue;
+                return task;
+            }
+            return null;
+        }
+
+        function repackMovableAutoTasksOnDateEarliest(dateStr) {
+            if(!dateStr || isDateInVacation(dateStr)) return 0;
+            const dayStart = getEarliestSchedulableStartMin(dateStr);
+            const movable = (tasks || []).filter(t =>
+                t &&
+                !t.completed &&
+                t.date === dateStr &&
+                t.time &&
+                !isUserScheduleLocked(t) &&
+                !isFixedTask(t) &&
+                !isAssignmentStarted(t) &&
+                t.timeSource === 'auto'
+            );
+            if(movable.length === 0) return 0;
+
+            movable.forEach(task => {
+                task.time = null;
+                task.timeSource = null;
+                task.assignmentMode = 'ADJUSTABLE';
+            });
+
+            const fixedBusy = (tasks || [])
+                .filter(t => t && !t.completed && t.date === dateStr && t.time && !movable.some(m => m.id === t.id))
+                .map(t => {
+                    const start = timeToMin(t.time);
+                    const duration = parseInt(t.duration, 10) || 30;
+                    return buildBusySlotForTask(t, start, start + duration, dateStr);
+                });
+            let busy = [...fixedBusy, ...getBlockedSlotsForDate(dateStr)]
+                .sort((a, b) => a.start - b.start);
+
+            const ordered = orderTasksByDependencies(movable).ordered.sort(compareTasksForPacking);
+            let placed = 0;
+            ordered.forEach(task => {
+                const constraints = getSchedulingConstraintsForTaskOnDate(task, dateStr, dayStart);
+                if(!constraints) return;
+                const options = getScheduleSlotOptions(
+                    busy,
+                    constraints.constrainedStart,
+                    constraints.constrainedMaxEnd,
+                    constraints.duration,
+                    0,
+                    task
+                );
+                if(options.length === 0) return;
+                const slot = options[Math.max(0, selectScheduleSlotIndex(options, task))];
+                task.time = minToInputTime(slot.start);
+                task.timeSource = 'auto';
+                task.assignmentMode = 'ADJUSTABLE';
+                busy.push(buildBusySlotForTask(task, slot.start, slot.start + constraints.duration, dateStr));
+                busy.sort((a, b) => a.start - b.start);
+                placed++;
+            });
+            return placed;
+        }
+
+        function ensureLeadAssignmentAtNowForDate(dateStr) {
+            const todayStr = getDateStrLocal();
+            if(dateStr !== todayStr || isDateInVacation(dateStr)) return 0;
+            const anchor = getEarliestSchedulableStartMin(dateStr);
+            const dayEnd = timeToMin(getScheduleForDate(dateStr).end);
+            if(anchor >= dayEnd) return 0;
+
+            const startsAtAnchor = (tasks || []).some(t =>
+                !t.completed &&
+                t.date === dateStr &&
+                t.time &&
+                timeToMin(t.time) === anchor
+            );
+            if(startsAtAnchor) return 0;
+
+            const coversAnchor = (tasks || []).some(t => {
+                if(!t || t.completed || t.date !== dateStr || !t.time) return false;
+                if(!isAssignmentStarted(t) && !isUserScheduleLocked(t) && !isFixedTask(t)) return false;
+                const start = timeToMin(t.time);
+                const end = start + (parseInt(t.duration, 10) || 30);
+                return start <= anchor && end > anchor;
+            });
+            if(coversAnchor) return 0;
+
+            if(getBlockedSlotsForDate(dateStr).some(slot => anchor >= slot.start && anchor < slot.end)) {
+                return 0;
+            }
+
+            const lead = findLeadAssignmentTaskForDate(dateStr, anchor);
+            if(!lead) return 0;
+
+            if(lead.date && lead.date !== dateStr) {
+                if(hasUserLockedCalendarDate(lead)) return 0;
+                lead.date = dateStr;
+                if(lead.dateSource !== 'user') lead.dateSource = 'auto';
+            } else if(!lead.date) {
+                lead.date = dateStr;
+                lead.dateSource = 'auto';
+            }
+
+            lead.time = minToInputTime(anchor);
+            lead.timeSource = 'auto';
+            lead.assignmentMode = 'ADJUSTABLE';
+            makeRoomForStartedAssignment(lead, dateStr, anchor);
+            repackMovableAutoTasksOnDateEarliest(dateStr);
+            return 1;
+        }
+
         function getStartedAssignmentsOnDate(dateStr, excludeId = null) {
             return (tasks || [])
                 .filter(t =>
@@ -10972,7 +11129,7 @@
             const depOrderedFloating = orderTasksByDependencies(
                 dayTasks.filter(t => !fixedIds.has(t.id) && (!t.time || isPastUnstartedAutoSlotToday(t, dateStr)))
             );
-            let floating = [...depOrderedFloating.ordered].sort(compareTasksForScheduling);
+            let floating = [...depOrderedFloating.ordered].sort(compareTasksForPacking);
             
             const daySchedule = getScheduleForDate(dateStr);
             const dayEnd = timeToMin(daySchedule.end);
@@ -20134,7 +20291,8 @@
                             const targetDayEnd = timeToMin(candidateSchedule.end);
                             const targetDueLimit = (task.dueTime && dueDate === candidateDate) ? timeToMin(task.dueTime) : targetDayEnd;
                             const maxEnd = Math.min(targetDayEnd, targetDueLimit);
-                            const bestGap = findLargestOpenSlot(candidateBusy, candidateDayStart, maxEnd, 0);
+                            const bestGap = getOpenGaps(candidateBusy, candidateDayStart, maxEnd, 0)
+                                .find(gap => gap.length >= 15) || null;
                             if(bestGap && bestGap.length >= 15 && bestGap.length < duration) {
                                 const roundedGap = Math.floor(bestGap.length / 5) * 5;
                                 if(roundedGap >= 5) {
@@ -20637,6 +20795,12 @@
                 showNotification('No weekly assignments need time-blocking', 'info');
             }
             enforceAllRepeatGroupFixedTimes();
+            const leadAdjusted = ensureLeadAssignmentAtNowForDate(todayStr);
+            if(leadAdjusted > 0) {
+                updated += leadAdjusted;
+                enforceNoOverlappingTimes(startStr, endStr);
+                enforceDependencyOrder(startStr, endStr);
+            }
             return updated;
         }
 
