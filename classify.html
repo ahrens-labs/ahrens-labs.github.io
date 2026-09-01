@@ -5209,7 +5209,7 @@
 
         function ensureOrientationSampleAssignment() {
             if(plannerGet('orientationSampleAdded') === 'true') return false;
-            const dueDate = getDefaultSimpleDueDateStr();
+            const dueDate = getDateStrLocal();
             const sample = normalizeTask({
                 id: generateId(),
                 title: 'Sample Reading',
