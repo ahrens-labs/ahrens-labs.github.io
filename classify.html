@@ -2107,6 +2107,124 @@
             box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.55);
             border-radius: 12px;
         }
+        .cl-editor-mode-toggle {
+            display: inline-flex;
+            padding: 3px;
+            border-radius: 10px;
+            background: rgba(226, 232, 240, 0.9);
+            border: 1px solid rgba(203, 213, 225, 0.9);
+        }
+        .dark .cl-editor-mode-toggle {
+            background: rgba(30, 41, 59, 0.9);
+            border-color: rgba(51, 65, 85, 0.9);
+        }
+        .cl-editor-mode-toggle__btn {
+            border: none;
+            background: transparent;
+            color: #64748b;
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 6px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.15s, color 0.15s;
+        }
+        .dark .cl-editor-mode-toggle__btn { color: #94a3b8; }
+        .cl-editor-mode-toggle__btn.active {
+            background: #fff;
+            color: #b91c1c;
+            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+        }
+        .dark .cl-editor-mode-toggle__btn.active {
+            background: #0f172a;
+            color: #f87171;
+        }
+        .cl-editor-mode-toggle__btn:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+        }
+        .cl-entry-choice-recommended {
+            border-color: rgba(220, 38, 38, 0.35) !important;
+            background: rgba(254, 242, 242, 0.55) !important;
+        }
+        .dark .cl-entry-choice-recommended {
+            border-color: rgba(248, 113, 113, 0.35) !important;
+            background: rgba(69, 10, 10, 0.25) !important;
+        }
+        .cl-entry-choice-badge {
+            display: inline-flex;
+            align-items: center;
+            font-size: 0.65rem;
+            font-weight: 800;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: #b91c1c;
+            background: rgba(254, 226, 226, 0.95);
+            border: 1px solid rgba(252, 165, 165, 0.8);
+            border-radius: 999px;
+            padding: 2px 8px;
+            margin-left: 8px;
+        }
+        .dark .cl-entry-choice-badge {
+            color: #fecaca;
+            background: rgba(127, 29, 29, 0.45);
+            border-color: rgba(248, 113, 113, 0.35);
+        }
+        .cl-form-optional-details {
+            border-radius: 0.75rem;
+            border: 1px solid rgba(226, 232, 240, 0.7);
+            background: rgba(248, 250, 252, 0.7);
+            overflow: hidden;
+        }
+        .dark .cl-form-optional-details {
+            border-color: rgba(51, 65, 85, 0.7);
+            background: rgba(30, 41, 59, 0.4);
+        }
+        .cl-form-optional-details > summary {
+            cursor: pointer;
+            list-style: none;
+            padding: 0.85rem 1rem;
+            font-size: 0.75rem;
+            font-weight: 800;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            color: #64748b;
+        }
+        .dark .cl-form-optional-details > summary { color: #94a3b8; }
+        .cl-form-optional-details > summary::-webkit-details-marker { display: none; }
+        .cl-form-optional-details > summary::after {
+            content: 'Optional';
+            float: right;
+            font-size: 0.65rem;
+            font-weight: 700;
+            color: #94a3b8;
+        }
+        .cl-form-optional-details[open] > summary::after { content: 'Hide'; }
+        .cl-form-optional-details__body { padding: 0 1rem 1rem; }
+        .cl-mini-tip-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 460;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+            background: rgba(15, 23, 42, 0.45);
+            backdrop-filter: blur(2px);
+        }
+        .cl-mini-tip-overlay.hidden { display: none; }
+        .cl-mini-tip-card {
+            width: min(24rem, 100%);
+            border-radius: 1rem;
+            background: #fff;
+            border: 1px solid rgba(226, 232, 240, 0.9);
+            box-shadow: 0 20px 45px rgba(15, 23, 42, 0.18);
+            padding: 1.25rem;
+        }
+        .dark .cl-mini-tip-card {
+            background: #0f172a;
+            border-color: rgba(51, 65, 85, 0.9);
+        }
     </style>
 </head>
 <body class="classify-app bg-slate-50 dark:bg-gradient-to-br dark:from-slate-950 dark:via-slate-900 dark:to-slate-900 text-slate-800 dark:text-slate-100 font-sans transition-colors duration-200 flex flex-col min-h-dvh">
@@ -2794,8 +2912,8 @@
                     <span class="cl-settings-item-label"><i class="fa-solid fa-rotate-left text-slate-500"></i>Reset help tips</span>
                     <i class="fa-solid fa-chevron-right text-slate-400 text-sm"></i>
                 </button>
-                <button type="button" class="cl-settings-item" onclick="closeClassifySettings(); openClassifyOrientation({ replay: true });">
-                    <span class="cl-settings-item-label"><i class="fa-solid fa-circle-play text-sky-500"></i>Play walkthrough</span>
+                <button type="button" class="cl-settings-item" onclick="closeClassifySettings(); openClassifyOrientation({ replay: true, full: true });">
+                    <span class="cl-settings-item-label"><i class="fa-solid fa-circle-play text-sky-500"></i>Play full walkthrough</span>
                     <i class="fa-solid fa-chevron-right text-slate-400 text-sm"></i>
                 </button>
             </div>
@@ -2906,6 +3024,18 @@
         <div class="cl-hotspot-popover__footer">
             <button type="button" class="cl-hotspot-popover__walkthrough hidden" id="classifyHotspotWalkthroughBtn" onclick="openWalkthroughFromHotspot()">Open full walkthrough</button>
             <button type="button" onclick="closeClassifyHotspotPopover()" class="px-4 py-2 rounded-lg text-sm font-semibold bg-sky-600 hover:bg-sky-700 text-white transition-colors">Got it</button>
+        </div>
+    </div>
+
+    <!-- First-use mini-tip -->
+    <div id="classifyMiniTipOverlay" class="cl-mini-tip-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="classifyMiniTipTitle">
+        <div class="cl-mini-tip-card">
+            <h3 id="classifyMiniTipTitle" class="text-lg font-display font-bold text-slate-900 dark:text-white mb-2">Tip</h3>
+            <p id="classifyMiniTipLead" class="text-sm text-slate-600 dark:text-slate-300 mb-3"></p>
+            <ul id="classifyMiniTipList" class="cl-hotspot-popover__list mb-4"></ul>
+            <div class="flex justify-end">
+                <button type="button" onclick="closeClassifyMiniTip()" class="px-4 py-2 rounded-lg text-sm font-semibold bg-sky-600 hover:bg-sky-700 text-white transition-colors">Got it</button>
+            </div>
         </div>
     </div>
 
@@ -3122,13 +3252,22 @@
                 <p class="text-sm text-slate-600 dark:text-slate-300 mt-2">How would you like to add it?</p>
             </div>
             <div class="p-6 space-y-3">
+                <button type="button" onclick="chooseAssignmentEntryMode('quick')" class="cl-entry-choice-recommended w-full flex items-start gap-4 rounded-xl border border-slate-200/70 dark:border-slate-700/70 p-4 text-left hover:border-red-300 dark:hover:border-red-700 hover:bg-red-50/50 dark:hover:bg-red-950/20 transition-all">
+                    <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white dark:bg-slate-900 border border-red-200 dark:border-red-800 text-red-600">
+                        <i class="fa-solid fa-bolt"></i>
+                    </span>
+                    <span>
+                        <span class="block text-base font-semibold text-slate-900 dark:text-white">Quick add<span class="cl-entry-choice-badge">Recommended</span></span>
+                        <span class="block text-sm text-slate-600 dark:text-slate-300 mt-1">Name, subject, due date, and duration — Classify handles the rest.</span>
+                    </span>
+                </button>
                 <button type="button" onclick="chooseAssignmentEntryMode('manual')" class="w-full flex items-start gap-4 rounded-xl border border-slate-200/70 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-800/40 p-4 text-left hover:border-red-300 dark:hover:border-red-700 hover:bg-red-50/50 dark:hover:bg-red-950/20 transition-all">
                     <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-red-600">
                         <i class="fa-solid fa-list-check"></i>
                     </span>
                     <span>
                         <span class="block text-base font-semibold text-slate-900 dark:text-white">Manual</span>
-                        <span class="block text-sm text-slate-600 dark:text-slate-300 mt-1">Fill out the full form with schedule, priority, repeats, and dependencies.</span>
+                        <span class="block text-sm text-slate-600 dark:text-slate-300 mt-1">Simple or advanced form with schedule modes, repeats, and dependencies.</span>
                     </span>
                 </button>
                 <button type="button" onclick="chooseAssignmentEntryMode('automatic')" class="w-full flex items-start gap-4 rounded-xl border border-slate-200/70 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-800/40 p-4 text-left hover:border-red-300 dark:hover:border-red-700 hover:bg-red-50/50 dark:hover:bg-red-950/20 transition-all">
@@ -3156,11 +3295,20 @@
         <div class="relative w-full max-w-2xl lg:max-w-4xl max-h-full modal-panel rounded-2xl scale-95 opacity-0 transition-all duration-300 flex flex-col pointer-events-auto" id="modalPanel">
             <!-- Header (Fixed) -->
             <div class="flex-shrink-0 border-b border-slate-200 dark:border-slate-700 px-6 md:px-8 py-5 modal-header">
-                <div class="flex justify-between items-center">
-                    <h3 class="text-2xl font-display font-bold text-slate-900 dark:text-white">
-                        <span id="modalHeading">New Assignment</span>
-                    </h3>
-                    <button onclick="closeModal()" class="text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 text-lg transition-colors" type="button"><i class="fa-solid fa-xmark"></i></button>
+                <div class="flex justify-between items-start gap-4">
+                    <div class="min-w-0">
+                        <h3 class="text-2xl font-display font-bold text-slate-900 dark:text-white">
+                            <span id="modalHeading">New Assignment</span>
+                        </h3>
+                        <p id="assignmentEditorModeHint" class="text-xs text-slate-500 dark:text-slate-400 mt-1 hidden">Simple mode — Classify picks your work time automatically.</p>
+                    </div>
+                    <div class="flex items-center gap-3 shrink-0">
+                        <div id="assignmentEditorModeToggle" class="cl-editor-mode-toggle hidden" role="group" aria-label="Editor complexity">
+                            <button type="button" class="cl-editor-mode-toggle__btn active" data-editor-mode="simple" onclick="setAssignmentEditorComplexity('simple')">Simple</button>
+                            <button type="button" class="cl-editor-mode-toggle__btn" data-editor-mode="advanced" onclick="setAssignmentEditorComplexity('advanced')">Advanced</button>
+                        </div>
+                        <button onclick="closeModal()" class="text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 text-lg transition-colors" type="button"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
                 </div>
             </div>
 
@@ -3168,10 +3316,40 @@
             <form id="taskForm" class="flex-1 overflow-y-auto" autocomplete="off" onsubmit="event.preventDefault(); saveTask();">
             <div class="p-6 md:p-8 space-y-5">
                 <input type="hidden" id="inputEntryMode" value="manual">
+                <input type="hidden" id="inputEditorComplexity" value="simple">
 
                 <div class="rounded-xl border border-slate-200/70 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-800/40 p-4 space-y-2">
                     <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Assignment Name <span class="text-rose-500">*</span></label>
-                    <input id="inputTitle" type="text" autocomplete="off" maxlength="100" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all" placeholder="e.g. History Essay" required>
+                    <input id="inputTitle" type="text" autocomplete="off" maxlength="100" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all" placeholder="e.g. Chapter 5 problem set" required>
+                </div>
+
+                <div id="simpleEntryPanel" class="rounded-xl border border-slate-200/70 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-800/40 p-4 space-y-4">
+                    <div>
+                        <div class="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Quick details</div>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Tell Classify what it is and when it’s due — it will schedule a work time for you.</p>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Subject</label>
+                            <div class="relative">
+                                <i class="fa-solid fa-book absolute left-3 top-1/2 -translate-y-1/2 text-red-400/60 text-sm"></i>
+                                <input id="inputSimpleSubject" type="text" autocomplete="off" oninput="handleSimpleSubjectInput(this.value)" onfocus="handleSubjectInputFocus()" onblur="handleSubjectInputBlur()" class="w-full h-11 pl-9 pr-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all" placeholder="Math">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Due Date</label>
+                            <input id="inputSimpleDueDate" type="date" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Duration (min)</label>
+                            <input id="inputSimpleDuration" type="number" min="1" step="1" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all" placeholder="30" value="30">
+                            <div class="flex gap-1 mt-2">
+                                <button type="button" onclick="setSimpleDuration(15)" class="text-xs bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 px-2 py-1.5 rounded text-slate-700 dark:text-slate-200 transition-colors">15m</button>
+                                <button type="button" onclick="setSimpleDuration(30)" class="text-xs bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 px-2 py-1.5 rounded text-slate-700 dark:text-slate-200 transition-colors">30m</button>
+                                <button type="button" onclick="setSimpleDuration(60)" class="text-xs bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 px-2 py-1.5 rounded text-slate-700 dark:text-slate-200 transition-colors">1h</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <div id="automaticEntryPanel" class="hidden rounded-xl border border-slate-200/70 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-800/40 p-4 space-y-3">
@@ -3205,13 +3383,14 @@
 
                     <div id="cl-wt-schedule-panel" class="rounded-xl border border-slate-200/70 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-800/40 p-4 space-y-4">
                         <div class="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Schedule</div>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 -mt-2">Most homework: <strong>Exact Date</strong> and <strong>Adjustable</strong> — Classify picks the work time.</p>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Schedule By</label>
                                 <select id="inputScheduleType" onchange="updateScheduleInputs()" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
-                                    <option value="date" selected>Exact Date</option>
-                                    <option value="week">Target Week</option>
-                                    <option value="flexible">No Date Yet</option>
+                                    <option value="date" selected>Due on a specific day</option>
+                                    <option value="week">Due sometime this week</option>
+                                    <option value="flexible">No date yet</option>
                                 </select>
                             </div>
                             <div id="eventDateWrapper">
@@ -3221,8 +3400,8 @@
                             <div id="exactDateTimingWrapper" class="hidden md:col-span-2">
                                 <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Event Timing</label>
                                 <select id="inputExactDateTiming" onchange="updateScheduleInputs()" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
-                                    <option value="adjustable" selected>Adjustable — auto-schedule start time</option>
-                                    <option value="fixed">Fixed — set a specific start time</option>
+                                    <option value="adjustable" selected>Adjustable — pick my work time</option>
+                                    <option value="fixed">Fixed — I’ll work at a set time</option>
                                 </select>
                             </div>
                         </div>
@@ -3279,8 +3458,10 @@
                         </div>
                     </div>
 
+                    <details class="cl-form-optional-details" id="clOptionalRepeatPanel">
+                        <summary>Repeat</summary>
+                        <div class="cl-form-optional-details__body">
                     <div id="cl-wt-repeat-panel" class="rounded-xl border border-slate-200/70 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-800/40 p-4 space-y-4">
-                        <div class="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Repeat</div>
                         <div>
                             <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Repeat</label>
                             <select id="inputRepeatType" onchange="updateRepeatInputs()" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
@@ -3341,10 +3522,14 @@
                             </div>
                         </div>
                     </div>
+                        </div>
+                    </details>
                 </div>
 
+                <details class="cl-form-optional-details" id="clOptionalDepsPanel">
+                    <summary>Dependencies</summary>
+                    <div class="cl-form-optional-details__body">
                 <div id="cl-wt-deps-panel" class="rounded-xl border border-slate-200/70 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-800/40 p-4 space-y-4">
-                    <div class="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Dependencies</div>
                     <div class="space-y-4">
                         <div>
                             <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Must Be After</label>
@@ -3375,13 +3560,19 @@
                         </div>
                     </div>
                 </div>
+                    </div>
+                </details>
 
+                <details class="cl-form-optional-details" id="clOptionalNotesPanel">
+                    <summary>Notes</summary>
+                    <div class="cl-form-optional-details__body">
                 <div class="rounded-xl border border-slate-200/70 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-800/40 p-4 space-y-2">
-                    <div class="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Notes</div>
                     <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Notes & Links</label>
                     <textarea id="inputNotes" rows="3" maxlength="500" class="w-full px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none resize-none transition-all" placeholder="Chapter 4, pages 10-15..."></textarea>
                     <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">URLs clickable | Max 500 chars</p>
                 </div>
+                    </div>
+                </details>
                 </div>
             </div>
             </form>
@@ -4644,7 +4835,48 @@
             setTimeout(openClassifySettings, 210);
         }
 
-        const CLASSIFY_ORIENTATION_STEPS = [
+        const CLASSIFY_ORIENTATION_FIRST_STEPS = [
+            {
+                icon: 'fa-graduation-cap',
+                title: 'Welcome to Classify',
+                lead: 'Classify keeps your schoolwork organized and builds a schedule for when to do each assignment.',
+                bullets: [
+                    'Add what’s due — Classify picks realistic work times around your school day',
+                    'Next we’ll add a sample assignment and show it on today’s plan'
+                ],
+                center: true,
+                tab: 'dashboard'
+            },
+            {
+                icon: 'fa-plus',
+                title: 'Add your first assignment',
+                lead: 'We’ll add a sample reading assignment so you can see how scheduling works.',
+                bullets: [
+                    'Most homework only needs a <strong>name</strong>, <strong>subject</strong>, <strong>due date</strong>, and <strong>duration</strong>',
+                    'Press <strong>Next</strong> to add the sample — you can edit or delete it anytime',
+                    'Use <strong>Quick add</strong> (recommended) whenever you press <kbd>Q</kbd>'
+                ],
+                center: true,
+                tab: 'dashboard',
+                createSampleAssignment: true
+            },
+            {
+                icon: 'fa-clock',
+                title: 'Today\'s Schedule',
+                lead: 'Your assignments show up here with suggested work times for today.',
+                bullets: [
+                    'Press <strong>Start</strong> when you begin — only that day locks in place',
+                    'Blinking <strong>?</strong> tips explain each area; Settings has the full walkthrough',
+                    'Press <strong>Get started</strong> to begin adding your real assignments'
+                ],
+                target: '#cl-orient-today-schedule',
+                tab: 'dashboard',
+                placement: 'top',
+                padding: 8
+            }
+        ];
+
+        const CLASSIFY_ORIENTATION_FULL_STEPS = [
             {
                 icon: 'fa-graduation-cap',
                 title: 'Welcome to Classify',
@@ -4782,6 +5014,7 @@
 
         let classifyOrientationStep = 0;
         let classifyOrientationReplay = false;
+        let classifyOrientationUseFull = false;
         let classifyOrientationTargetEl = null;
         let classifyOrientationLayoutHandler = null;
         let classifyWalkthroughOpenedModal = false;
@@ -4793,6 +5026,209 @@
             const demoDate = new Date(start);
             demoDate.setDate(start.getDate() + 3);
             return getDateStrLocal(demoDate);
+        }
+
+        function getActiveOrientationSteps() {
+            return classifyOrientationUseFull ? CLASSIFY_ORIENTATION_FULL_STEPS : CLASSIFY_ORIENTATION_FIRST_STEPS;
+        }
+
+        function getTomorrowDateStr() {
+            const d = new Date();
+            d.setDate(d.getDate() + 1);
+            return getDateStrLocal(d);
+        }
+
+        function getDefaultSimpleDueDateStr() {
+            return getTomorrowDateStr();
+        }
+
+        function getStoredAssignmentEditorComplexity() {
+            const stored = plannerGet('assignmentEditorComplexity');
+            return stored === 'advanced' ? 'advanced' : 'simple';
+        }
+
+        function isAssignmentEditorSimple() {
+            return (document.getElementById('inputEditorComplexity')?.value || getStoredAssignmentEditorComplexity()) === 'simple';
+        }
+
+        function taskNeedsAdvancedEditor(task) {
+            if(!task) return false;
+            const repeatType = normalizeRepeatRule(task.repeatRule || {}).type;
+            if(repeatType && repeatType !== 'none') return true;
+            if((task.mustBeAfter || []).length || (task.mustBeBefore || []).length || (task.mustBeDifferentDay || []).length) return true;
+            if(getTaskScheduleMode(task) !== 'date') return true;
+            if(task.dueTime) return true;
+            if(getTaskAssignmentMode(task) === 'FIXED' && task.time) return true;
+            if(task.notes && String(task.notes).trim()) return true;
+            return false;
+        }
+
+        function syncSimpleFieldsToAdvancedForm() {
+            const subject = document.getElementById('inputSimpleSubject')?.value || '';
+            const dueDate = document.getElementById('inputSimpleDueDate')?.value || '';
+            const duration = document.getElementById('inputSimpleDuration')?.value || '';
+            if(document.getElementById('inputSubject')) document.getElementById('inputSubject').value = subject;
+            if(document.getElementById('inputDate')) document.getElementById('inputDate').value = dueDate;
+            if(document.getElementById('inputDuration')) document.getElementById('inputDuration').value = duration;
+            if(document.getElementById('inputScheduleType')) document.getElementById('inputScheduleType').value = 'date';
+            if(document.getElementById('inputExactDateTiming')) document.getElementById('inputExactDateTiming').value = 'adjustable';
+            syncSubjectColor(subject);
+            const color = getSubjectColorValue(subject) || document.getElementById('inputColor')?.value || '#b91c1c';
+            if(document.getElementById('inputColor')) document.getElementById('inputColor').value = color;
+            updateScheduleInputs();
+        }
+
+        function syncAdvancedFieldsToSimpleForm() {
+            const subject = document.getElementById('inputSubject')?.value || '';
+            const dueDate = document.getElementById('inputDate')?.value
+                || document.getElementById('inputDueDate')?.value
+                || getDefaultSimpleDueDateStr();
+            const duration = document.getElementById('inputDuration')?.value || '30';
+            if(document.getElementById('inputSimpleSubject')) document.getElementById('inputSimpleSubject').value = subject;
+            if(document.getElementById('inputSimpleDueDate')) document.getElementById('inputSimpleDueDate').value = dueDate;
+            if(document.getElementById('inputSimpleDuration')) document.getElementById('inputSimpleDuration').value = duration;
+        }
+
+        function setSimpleDuration(minutes) {
+            const input = document.getElementById('inputSimpleDuration');
+            if(input) input.value = String(minutes);
+        }
+
+        function handleSimpleSubjectInput(value) {
+            if(document.getElementById('inputSubject')) document.getElementById('inputSubject').value = value;
+            handleSubjectInput(value);
+        }
+
+        function setAssignmentEditorComplexity(mode, options = {}) {
+            const { persist = true, force = false } = options || {};
+            const nextMode = mode === 'advanced' ? 'advanced' : 'simple';
+            if(!force && editingId) {
+                const task = tasks.find(t => t.id === editingId);
+                if(task && taskNeedsAdvancedEditor(task) && nextMode === 'simple') {
+                    showNotification('This assignment uses advanced options — switch is disabled while editing.', 'info');
+                    return;
+                }
+            }
+            if(isAssignmentEditorSimple() && nextMode === 'advanced') {
+                syncSimpleFieldsToAdvancedForm();
+            } else if(!isAssignmentEditorSimple() && nextMode === 'simple') {
+                syncAdvancedFieldsToSimpleForm();
+            }
+            const hidden = document.getElementById('inputEditorComplexity');
+            if(hidden) hidden.value = nextMode;
+            if(persist) plannerSet('assignmentEditorComplexity', nextMode);
+            updateAssignmentEditorComplexityUI();
+        }
+
+        function updateAssignmentEditorComplexityUI() {
+            const entryMode = document.getElementById('inputEntryMode')?.value || 'manual';
+            const isManual = entryMode === 'manual';
+            const isSimple = isAssignmentEditorSimple();
+            const toggle = document.getElementById('assignmentEditorModeToggle');
+            const hint = document.getElementById('assignmentEditorModeHint');
+            const simplePanel = document.getElementById('simpleEntryPanel');
+            const manualPanels = document.getElementById('manualEntryPanels');
+            const optionalPanels = ['clOptionalRepeatPanel', 'clOptionalDepsPanel', 'clOptionalNotesPanel']
+                .map(id => document.getElementById(id))
+                .filter(Boolean);
+
+            if(toggle) {
+                toggle.classList.toggle('hidden', !isManual);
+                toggle.querySelectorAll('[data-editor-mode]').forEach(btn => {
+                    const active = btn.dataset.editorMode === (isSimple ? 'simple' : 'advanced');
+                    btn.classList.toggle('active', active);
+                    if(editingId) {
+                        const task = tasks.find(t => t.id === editingId);
+                        btn.disabled = Boolean(task && taskNeedsAdvancedEditor(task) && btn.dataset.editorMode === 'simple');
+                    } else {
+                        btn.disabled = false;
+                    }
+                });
+            }
+            if(hint) hint.classList.toggle('hidden', !isManual || !isSimple);
+            if(simplePanel) simplePanel.classList.toggle('hidden', !isManual || !isSimple);
+            if(manualPanels) manualPanels.classList.toggle('hidden', !isManual || isSimple);
+            optionalPanels.forEach(panel => {
+                if(!isManual || isSimple) panel.open = false;
+            });
+        }
+
+        function applySimpleEditorValuesBeforeSave() {
+            if(!isAssignmentEditorSimple()) return;
+            const entryMode = document.getElementById('inputEntryMode')?.value || 'manual';
+            if(entryMode !== 'manual') return;
+            syncSimpleFieldsToAdvancedForm();
+            if(!document.getElementById('inputDuration')?.value) {
+                document.getElementById('inputDuration').value = document.getElementById('inputSimpleDuration')?.value || '30';
+            }
+            if(document.getElementById('inputRepeatType')) document.getElementById('inputRepeatType').value = 'none';
+            setCheckedDays('.repeat-day', []);
+        }
+
+        function getClassifyTipsSeen() {
+            return safeJsonParse(plannerGet('classifyTipsSeen'), []);
+        }
+
+        function hasSeenClassifyTip(id) {
+            return getClassifyTipsSeen().includes(id);
+        }
+
+        function markClassifyTipSeen(id) {
+            if(!id || hasSeenClassifyTip(id)) return;
+            const next = [...getClassifyTipsSeen(), id];
+            plannerSet('classifyTipsSeen', JSON.stringify(next));
+        }
+
+        function showClassifyMiniTip({ id, title, lead, bullets = [] }) {
+            if(!id || hasSeenClassifyTip(id)) return;
+            const overlay = document.getElementById('classifyMiniTipOverlay');
+            const titleEl = document.getElementById('classifyMiniTipTitle');
+            const leadEl = document.getElementById('classifyMiniTipLead');
+            const listEl = document.getElementById('classifyMiniTipList');
+            if(!overlay || !titleEl || !leadEl || !listEl) return;
+            titleEl.textContent = title || 'Tip';
+            leadEl.textContent = lead || '';
+            listEl.innerHTML = bullets.map(item => `<li><i class="fa-solid fa-check" aria-hidden="true"></i><span>${item}</span></li>`).join('');
+            overlay.dataset.tipId = id;
+            overlay.classList.remove('hidden');
+        }
+
+        function closeClassifyMiniTip() {
+            const overlay = document.getElementById('classifyMiniTipOverlay');
+            if(!overlay) return;
+            const id = overlay.dataset.tipId;
+            if(id) markClassifyTipSeen(id);
+            overlay.classList.add('hidden');
+            overlay.dataset.tipId = '';
+        }
+
+        function maybeShowClassifyFirstUseTip(id, payload) {
+            if(hasSeenClassifyTip(id)) return;
+            setTimeout(() => showClassifyMiniTip({ id, ...payload }), 350);
+        }
+
+        function ensureOrientationSampleAssignment() {
+            if(plannerGet('orientationSampleAdded') === 'true') return false;
+            const dueDate = getDefaultSimpleDueDateStr();
+            const sample = normalizeTask({
+                id: generateId(),
+                title: 'Sample Reading',
+                subject: 'English',
+                scheduleType: 'date',
+                assignmentMode: 'ADJUSTABLE',
+                date: dueDate,
+                dateSource: 'user',
+                duration: 30,
+                priority: 'Medium',
+                difficulty: 'Medium',
+                color: getSubjectColorValue('English'),
+                repeatRule: normalizeRepeatRule({ type: 'none' })
+            });
+            tasks.push(sample);
+            plannerSet('orientationSampleAdded', 'true');
+            saveData({ skipAutoSchedule: false, skipUndoRecord: true });
+            renderAll();
+            return true;
         }
 
         function buildWalkthroughStartDemoHtml() {
@@ -4944,6 +5380,10 @@
 
             if(step.tab) switchTab(step.tab, { updateUrl: false });
             if(step.calendarMode) setCalendarViewMode(step.calendarMode);
+
+            if(step.createSampleAssignment) {
+                ensureOrientationSampleAssignment();
+            }
 
             if(step.openAssignmentModal) {
                 openWalkthroughAssignmentModal(step.assignmentDemo || 'date');
@@ -5159,8 +5599,9 @@
         }
 
         function renderClassifyOrientationStepContent() {
-            const step = CLASSIFY_ORIENTATION_STEPS[classifyOrientationStep];
-            const total = CLASSIFY_ORIENTATION_STEPS.length;
+            const steps = getActiveOrientationSteps();
+            const step = steps[classifyOrientationStep];
+            const total = steps.length;
             if(!step) return;
 
             const iconWrap = document.getElementById('classifyOrientationIcon');
@@ -5181,7 +5622,7 @@
                 listEl.innerHTML = (step.bullets || []).map(item => `<li><i class="fa-solid fa-check" aria-hidden="true"></i><span>${item}</span></li>`).join('');
             }
             if(dotsEl) {
-                dotsEl.innerHTML = CLASSIFY_ORIENTATION_STEPS.map((_, index) => {
+                dotsEl.innerHTML = getActiveOrientationSteps().map((_, index) => {
                     const classes = ['cl-orientation-dot'];
                     if(index === classifyOrientationStep) classes.push('active');
                     else if(index < classifyOrientationStep) classes.push('done');
@@ -5199,7 +5640,8 @@
         }
 
         async function renderClassifyOrientationStep() {
-            const step = CLASSIFY_ORIENTATION_STEPS[classifyOrientationStep];
+            const steps = getActiveOrientationSteps();
+            const step = steps[classifyOrientationStep];
             if(!step) return;
             renderClassifyOrientationStepContent();
             await prepareClassifyOrientationStep(step);
@@ -5207,7 +5649,7 @@
             const targetEl = step.center ? null : getClassifyOrientationTarget(step);
             positionClassifyOrientationUi(step, targetEl);
             requestAnimationFrame(() => {
-                const latestStep = CLASSIFY_ORIENTATION_STEPS[classifyOrientationStep];
+                const latestStep = getActiveOrientationSteps()[classifyOrientationStep];
                 const latestTarget = latestStep?.center ? null : getClassifyOrientationTarget(latestStep);
                 positionClassifyOrientationUi(latestStep, latestTarget);
             });
@@ -5217,7 +5659,7 @@
             if(classifyOrientationLayoutHandler) return;
             classifyOrientationLayoutHandler = () => {
                 if(!isClassifyOrientationOpen()) return;
-                const step = CLASSIFY_ORIENTATION_STEPS[classifyOrientationStep];
+                const step = getActiveOrientationSteps()[classifyOrientationStep];
                 if(!step) return;
                 const targetEl = step.center ? null : getClassifyOrientationTarget(step);
                 positionClassifyOrientationUi(step, targetEl);
@@ -5235,6 +5677,7 @@
 
         function openClassifyOrientation(options = {}) {
             classifyOrientationReplay = Boolean(options.replay);
+            classifyOrientationUseFull = Boolean(options.full);
             classifyOrientationStep = 0;
             const overlay = document.getElementById('classifyOrientationOverlay');
             if(!overlay) return;
@@ -5280,7 +5723,7 @@
         }
 
         function nextClassifyOrientationStep() {
-            if(classifyOrientationStep >= CLASSIFY_ORIENTATION_STEPS.length - 1) {
+            if(classifyOrientationStep >= getActiveOrientationSteps().length - 1) {
                 finishClassifyOrientation();
                 return;
             }
@@ -5691,7 +6134,7 @@
         function openWalkthroughFromHotspot() {
             closeClassifyHotspotPopover();
             closeClassifySettings();
-            openClassifyOrientation({ replay: true });
+            openClassifyOrientation({ replay: true, full: true });
         }
 
         function openClassifyHotspot(id) {
@@ -6194,6 +6637,14 @@
             saveData({ skipAutoSchedule: true, skipUndoRecord: true });
             setStartButtonBusy(id, false);
             showNotification(`Started "${task.title}" — time won't auto-move`, 'success');
+            maybeShowClassifyFirstUseTip('start', {
+                title: 'Starting locks today only',
+                lead: 'Press Start when you begin working — only today\'s time is locked in place.',
+                bullets: [
+                    'Other days in a repeating series stay adjustable',
+                    'Use <strong>Unstart</strong> to unlock today\'s time without changing dates'
+                ]
+            });
 
             setTimeout(() => {
                 try {
@@ -10401,7 +10852,9 @@
             const mode = document.getElementById('inputEntryMode')?.value || 'manual';
             const isAutomatic = mode === 'automatic';
             document.getElementById('automaticEntryPanel')?.classList.toggle('hidden', !isAutomatic);
-            document.getElementById('manualEntryPanels')?.classList.toggle('hidden', isAutomatic);
+            document.getElementById('manualEntryPanels')?.classList.toggle('hidden', isAutomatic || isAssignmentEditorSimple());
+            document.getElementById('simpleEntryPanel')?.classList.toggle('hidden', isAutomatic || !isAssignmentEditorSimple());
+            updateAssignmentEditorComplexityUI();
         }
 
         function parseQuickEntryTime(text) {
@@ -15342,6 +15795,12 @@
 
         // Keyboard Shortcuts
         document.addEventListener('keydown', (e) => {
+            const miniTip = document.getElementById('classifyMiniTipOverlay');
+            if(e.key === 'Escape' && miniTip && !miniTip.classList.contains('hidden')) {
+                e.preventDefault();
+                closeClassifyMiniTip();
+                return;
+            }
             if(e.key === 'Escape' && isClassifyOrientationOpen()) {
                 e.preventDefault();
                 if(classifyOrientationReplay) skipClassifyOrientation();
@@ -15436,6 +15895,7 @@
             }
 
             const previousSnapshot = captureTaskScheduleSnapshot(task);
+            const crossDayMove = Boolean(task.date && dateStr && task.date !== dateStr);
 
             mutateClassifyData(() => {
                 const currentTask = tasks.find(t => t.id === taskId);
@@ -15477,6 +15937,17 @@
                     enforceRepeatGroupFixedTimes(movedTask.repeatGroupId);
                 }
             }, getCommandLineScheduleRefreshOptions(previousSnapshot, { date: dateStr, id: taskId }));
+
+            if(crossDayMove) {
+                maybeShowClassifyFirstUseTip('calendarDrag', {
+                    title: 'Moved to another day',
+                    lead: 'Dragging to a different day makes the assignment exact-date and adjustable.',
+                    bullets: [
+                        'Classify will pick a new work time on that day',
+                        'Drop on a timed row on the same day to keep or set a fixed time'
+                    ]
+                });
+            }
 
             renderCalendar();
         }
@@ -16171,6 +16642,18 @@
             }
             updateWeekDueOnlyFieldVisibility();
             updateScheduleInputs();
+            if(type !== 'none') {
+                const repeatPanel = document.getElementById('clOptionalRepeatPanel');
+                if(repeatPanel) repeatPanel.open = true;
+                maybeShowClassifyFirstUseTip('repeat', {
+                    title: 'Repeating assignments',
+                    lead: 'Finishing one copy creates the next occurrence with the same settings.',
+                    bullets: [
+                        'Daily and weekly patterns spawn new copies when you complete the current one',
+                        'Only intentionally fixed repeat times apply to every week — starting one day does not lock the rest'
+                    ]
+                });
+            }
         }
 
         function updateBlockedRepeatInputs() {
@@ -16228,9 +16711,20 @@
             editingId = null;
             document.getElementById('modalHeading').innerText = 'New Assignment';
             clearForm();
-            document.getElementById('inputEntryMode').value = mode === 'automatic' ? 'automatic' : 'manual';
+            if(mode === 'automatic') {
+                document.getElementById('inputEntryMode').value = 'automatic';
+            } else {
+                document.getElementById('inputEntryMode').value = 'manual';
+                setAssignmentEditorComplexity(mode === 'quick' ? 'simple' : getStoredAssignmentEditorComplexity(), { persist: mode !== 'quick', force: true });
+            }
+            if(dateStr) {
+                document.getElementById('inputSimpleDueDate').value = dateStr;
+                document.getElementById('inputDate').value = dateStr;
+            }
             updateAssignmentEntryMode();
-            if(dateStr && mode === 'manual') {
+            if(isAssignmentEditorSimple() && mode !== 'automatic') {
+                syncAdvancedFieldsToSimpleForm();
+            } else if(dateStr && mode === 'manual') {
                 document.getElementById('inputDate').value = dateStr;
                 updateScheduleInputs();
             }
@@ -16289,11 +16783,15 @@
             hideSubjectSuggestionMenu();
             document.getElementById('inputEntryMode').value = 'manual';
             document.getElementById('inputQuickDetails').value = '';
-            updateAssignmentEntryMode();
+            setAssignmentEditorComplexity('simple', { persist: false, force: true });
             document.getElementById('inputTitle').value = '';
             document.getElementById('inputSubject').value = '';
+            document.getElementById('inputSimpleSubject').value = '';
             document.getElementById('inputScheduleType').value = 'date';
             document.getElementById('inputExactDateTiming').value = 'adjustable';
+            const defaultDue = getDefaultSimpleDueDateStr();
+            document.getElementById('inputSimpleDueDate').value = defaultDue;
+            document.getElementById('inputSimpleDuration').value = '30';
             document.getElementById('inputDate').value = '';
             document.getElementById('inputDueDate').value = '';
             document.getElementById('inputWeek').value = getCurrentWeekKey();
@@ -16313,9 +16811,14 @@
             setCheckedDays('.repeat-day', []);
             document.getElementById('colorSyncLabel').innerText = 'Subject color';
             document.getElementById('modalHeading').innerText = 'New Assignment';
+            ['clOptionalRepeatPanel', 'clOptionalDepsPanel', 'clOptionalNotesPanel'].forEach(id => {
+                const panel = document.getElementById(id);
+                if(panel) panel.open = false;
+            });
             updateScheduleInputs();
             updateRepeatInputs();
             populateDependencySelects([], [], []);
+            updateAssignmentEntryMode();
         }
 
         function buildRepeatRuleFromForm() {
@@ -16513,6 +17016,17 @@
 
         function saveTask() {
             const entryMode = document.getElementById('inputEntryMode')?.value || 'manual';
+            if(entryMode === 'manual') {
+                applySimpleEditorValuesBeforeSave();
+                if(isAssignmentEditorSimple()) {
+                    const simpleDue = document.getElementById('inputSimpleDueDate')?.value;
+                    if(!simpleDue) {
+                        showNotification('Please choose a due date', 'error');
+                        document.getElementById('inputSimpleDueDate')?.focus();
+                        return;
+                    }
+                }
+            }
             if(entryMode === 'automatic' && !editingId) {
                 const quickText = document.getElementById('inputQuickDetails')?.value?.trim() || '';
                 const quickTitle = document.getElementById('inputTitle').value.trim();
@@ -16929,6 +17443,9 @@
             syncSubjectColor(t.subject);
             lastScheduleTypeInput = document.getElementById('inputScheduleType').value;
             updateScheduleInputs();
+            setAssignmentEditorComplexity(taskNeedsAdvancedEditor(t) ? 'advanced' : getStoredAssignmentEditorComplexity(), { persist: false, force: true });
+            syncAdvancedFieldsToSimpleForm();
+            updateAssignmentEntryMode();
 
             modal.classList.remove('hidden', 'pointer-events-none');
             setTimeout(() => {
