@@ -14189,7 +14189,7 @@
                     id: generateId(),
                     title: parsed.title,
                     subject,
-                    scheduleType: quickParsed.scheduleType || 'flexible',
+                    scheduleType: quickParsed.scheduleType || 'week',
                     duration: quickParsed.duration || null,
                     color: getSubjectColorValue(subject) || '#b91c1c',
                     mustBeBefore: quickParsed.mustBeBefore || [],
@@ -14231,13 +14231,18 @@
                         assignmentMode: 'ADJUSTABLE'
                     };
                 } else {
+                    const targetWeek = quickParsed.week || getCurrentWeekKey();
+                    const dueDate = quickParsed.dueDate
+                        || resolveQuickEntryDateToken('friday')
+                        || getWeekDueDateForRepeat(targetWeek, { dueDate: null });
                     baseTask = {
                         ...sharedFields,
+                        scheduleType: 'week',
                         date: null,
                         dateSource: null,
-                        dueDate: null,
-                        dueTime: null,
-                        week: null,
+                        dueDate,
+                        dueTime: quickParsed.dueTime || null,
+                        week: dueDate ? getWeekKeyFromDateStr(dueDate) : targetWeek,
                         time: null,
                         timeSource: null,
                         assignmentMode: 'ADJUSTABLE'
@@ -15097,14 +15102,17 @@
             if(!forUpdate && !result.subject) {
                 const titleLower = String(title || '').trim().toLowerCase();
                 const leftoverWords = text.split(/\s+/).filter(Boolean);
-                const candidate = leftoverWords.find(word => {
+                const isSubjectCandidateWord = (word) => {
                     const clean = word.replace(/[.,;:!?]+$/, '');
                     if(!/^[A-Za-z][A-Za-z0-9&'-]*$/.test(clean)) return false;
                     const lower = clean.toLowerCase();
                     if(['due', 'on', 'at', 'by', 'for', 'to', 'must', 'be', 'after', 'before', 'notes', 'subject', 'minutes', 'minute', 'mins', 'min', 'every', 'repeat', 'repeats', 'daily', 'weekly', 'weekday', 'weekdays', 'target', 'exact', 'flexible', 'unscheduled'].includes(lower)) return false;
                     if(titleLower.includes(lower)) return false;
                     return true;
-                });
+                };
+                const candidate = leftoverWords.length > 1
+                    ? [...leftoverWords].reverse().find(isSubjectCandidateWord)
+                    : null;
                 if(candidate) {
                     result.subject = candidate.replace(/[.,;:!?]+$/, '');
                     touched.subject = true;
