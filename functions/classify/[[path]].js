@@ -8,7 +8,7 @@ export async function onRequest(context) {
   if (!env.ASSETS) {
     return next();
   }
-  const assetUrl = new URL('/classify.html', request.url);
+  const assetUrl = new URL('/classify', request.url);
   const assetRequest = new Request(assetUrl, {
     method: request.method,
     headers: request.headers,
