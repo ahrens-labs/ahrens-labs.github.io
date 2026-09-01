@@ -4932,12 +4932,13 @@
                     '<strong>Unstart</strong> unlocks only the time — your dates stay the same',
                     'Not the same as <strong>Start Time</strong> in the editor (that\'s for planning ahead)'
                 ],
-                target: '#cl-wt-start-demo',
+                target: '#cl-wt-start-demo-btn',
+                fallbackTarget: '#cl-wt-start-demo',
                 tab: 'calendar',
                 calendarMode: 'week',
                 showStartDemo: true,
-                placement: 'right',
-                padding: 8
+                placement: 'left',
+                padding: 6
             },
             {
                 icon: 'fa-ban',
@@ -4997,10 +4998,17 @@
         let classifyWalkthroughStartDemoActive = false;
 
         function getWalkthroughStartDemoDateStr() {
-            const { start } = getWeekCalendarDisplayBounds(currentCalendarDate);
-            const demoDate = new Date(start);
-            demoDate.setDate(start.getDate() + 3);
-            return getDateStrLocal(demoDate);
+            const today = getDateStrLocal();
+            const { start, end } = getWeekCalendarDisplayBounds(currentCalendarDate);
+            const visibleDates = [];
+            const cursor = new Date(start);
+            while(cursor <= end) {
+                const dateStr = getDateStrLocal(cursor);
+                if(!isDateInVacation(dateStr)) visibleDates.push(dateStr);
+                cursor.setDate(cursor.getDate() + 1);
+            }
+            if(visibleDates.includes(today)) return today;
+            return visibleDates[0] || today;
         }
 
         function getActiveOrientationSteps() {
@@ -5235,7 +5243,7 @@
                     <div class="cl-week-task__row">
                         <button type="button" class="cl-week-task__title truncate" tabindex="-1" aria-hidden="true">Chapter 5 Problem Set</button>
                         <div class="cl-week-task__actions">
-                            <button type="button" class="cl-start-btn cl-start-btn--compact" tabindex="-1" aria-hidden="true">Start</button>
+                            <button type="button" id="cl-wt-start-demo-btn" class="cl-start-btn cl-start-btn--compact" tabindex="-1" aria-hidden="true">Start</button>
                             <button type="button" tabindex="-1" aria-hidden="true" title="Mark complete"><i class="fa-regular fa-circle text-xs"></i></button>
                             <button type="button" tabindex="-1" aria-hidden="true" title="Edit"><i class="fa-solid fa-pen text-[10px]"></i></button>
                             <button type="button" tabindex="-1" aria-hidden="true" title="Delete"><i class="fa-solid fa-trash text-[10px]"></i></button>
@@ -5426,13 +5434,15 @@
 
         function scrollOrientationTargetIntoView(target) {
             if(!target) return;
-            const scrollRoot = findOrientationScrollContainer(target)
-                || target.closest('#mainContainer');
-            if(scrollRoot && scrollRoot !== document.body) {
+            const scrollRoot = findOrientationScrollContainer(target);
+            if(scrollRoot) {
                 scrollElementInOrientationContainer(scrollRoot, target);
                 return;
             }
-            target.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'smooth' });
+            const rect = target.getBoundingClientRect();
+            const absoluteTop = window.scrollY + rect.top;
+            const scrollTop = absoluteTop - (window.innerHeight / 2) + (rect.height / 2);
+            window.scrollTo({ top: Math.max(0, scrollTop), behavior: 'smooth' });
         }
 
         async function prepareClassifyOrientationStep(step) {
@@ -5443,8 +5453,12 @@
 
             if(!needsAssignmentModal) closeWalkthroughAssignmentModal();
             if(!needsBlockTimesModal) closeWalkthroughBlockedTimesModal();
-            if(step.showStartDemo) showWalkthroughStartDemo();
-            else hideWalkthroughStartDemo();
+            if(step.showStartDemo) {
+                currentCalendarDate = new Date();
+                showWalkthroughStartDemo();
+            } else {
+                hideWalkthroughStartDemo();
+            }
 
             if(step.tab) switchTab(step.tab, { updateUrl: false });
             if(step.calendarMode) setCalendarViewMode(step.calendarMode);
