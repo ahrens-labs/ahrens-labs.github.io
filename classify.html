@@ -1271,6 +1271,86 @@
             background: rgba(51, 65, 85, 0.55);
             border-color: #64748b;
         }
+        .cl-settings-item--danger {
+            border-color: rgba(244, 63, 94, 0.35);
+            background: rgba(255, 241, 242, 0.72);
+        }
+        .cl-settings-item--danger:hover {
+            background: rgba(255, 228, 230, 0.95);
+            border-color: rgba(244, 63, 94, 0.55);
+        }
+        .dark .cl-settings-item--danger {
+            border-color: rgba(244, 63, 94, 0.35);
+            background: rgba(76, 5, 25, 0.28);
+        }
+        .dark .cl-settings-item--danger:hover {
+            background: rgba(127, 29, 29, 0.35);
+        }
+        .cl-reset-step-list {
+            margin: 0 0 1rem;
+            padding-left: 1.1rem;
+            color: #475569;
+            font-size: 0.875rem;
+            line-height: 1.5;
+        }
+        .dark .cl-reset-step-list { color: #cbd5e1; }
+        .cl-reset-step-list li + li { margin-top: 0.35rem; }
+        .cl-reset-phrase-input {
+            width: 100%;
+            margin-top: 0.5rem;
+            padding: 0.65rem 0.75rem;
+            border-radius: 0.75rem;
+            border: 1px solid #e2e8f0;
+            background: #fff;
+            color: #0f172a;
+            font-size: 0.9375rem;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+        .dark .cl-reset-phrase-input {
+            border-color: #475569;
+            background: #0f172a;
+            color: #f8fafc;
+        }
+        .cl-reset-check {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.65rem;
+            padding: 0.65rem 0.75rem;
+            border-radius: 0.75rem;
+            border: 1px solid #e2e8f0;
+            background: rgba(248, 250, 252, 0.9);
+            font-size: 0.8125rem;
+            line-height: 1.4;
+            color: #334155;
+        }
+        .dark .cl-reset-check {
+            border-color: #475569;
+            background: rgba(15, 23, 42, 0.75);
+            color: #e2e8f0;
+        }
+        .cl-reset-check + .cl-reset-check { margin-top: 0.5rem; }
+        .cl-reset-check input {
+            margin-top: 0.15rem;
+            flex-shrink: 0;
+        }
+        .cl-reset-step-indicator {
+            display: flex;
+            gap: 0.4rem;
+            margin-bottom: 1rem;
+        }
+        .cl-reset-step-indicator span {
+            flex: 1;
+            height: 0.25rem;
+            border-radius: 999px;
+            background: #e2e8f0;
+        }
+        .dark .cl-reset-step-indicator span { background: #334155; }
+        .cl-reset-step-indicator span.is-active,
+        .cl-reset-step-indicator span.is-done {
+            background: #ef4444;
+        }
         .cl-settings-item-label {
             display: flex;
             align-items: center;
@@ -2938,6 +3018,62 @@
         </div>
     </div>
 
+    <!-- Modal: Reset Classify Data -->
+    <div id="classifyResetDataModal" class="cl-modal-root cl-modal-root--confirm hidden">
+        <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onclick="closeClassifyResetDataModal()"></div>
+        <div class="relative modal-panel rounded-2xl p-6 max-w-md w-[94%] max-h-full overflow-y-auto scale-95 opacity-0 transition-all" id="classifyResetDataPanel">
+            <div class="cl-reset-step-indicator" aria-hidden="true">
+                <span id="classifyResetStepDot1"></span>
+                <span id="classifyResetStepDot2"></span>
+                <span id="classifyResetStepDot3"></span>
+            </div>
+
+            <div id="classifyResetDataStep1">
+                <h3 class="text-xl font-display font-bold text-slate-900 dark:text-white mb-2">Reset all Classify data?</h3>
+                <p class="text-sm text-slate-600 dark:text-slate-300 mb-3">This permanently removes planner data from this device and your synced account.</p>
+                <ul class="cl-reset-step-list" id="classifyResetDataSummaryList"></ul>
+                <p class="text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20 border border-amber-200/80 dark:border-amber-700/50 rounded-lg px-3 py-2 mb-4">
+                    <i class="fa-solid fa-download mr-1"></i> Export assignments first if you might need a backup.
+                </p>
+                <div class="flex justify-end gap-3">
+                    <button type="button" onclick="closeClassifyResetDataModal()" class="px-4 py-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 font-medium transition-colors">Cancel</button>
+                    <button type="button" onclick="advanceClassifyResetDataStep(2)" class="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-semibold transition-colors">Continue</button>
+                </div>
+            </div>
+
+            <div id="classifyResetDataStep2" class="hidden">
+                <h3 class="text-xl font-display font-bold text-slate-900 dark:text-white mb-2">Type to confirm</h3>
+                <p class="text-sm text-slate-600 dark:text-slate-300 mb-3">Type <strong>RESET</strong> below to prove you mean it.</p>
+                <input id="classifyResetPhraseInput" type="text" class="cl-reset-phrase-input" autocomplete="off" spellcheck="false" placeholder="RESET" aria-label="Type RESET to continue" oninput="syncClassifyResetPhraseButton()">
+                <div class="flex justify-between gap-3 mt-5">
+                    <button type="button" onclick="advanceClassifyResetDataStep(1)" class="px-4 py-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 font-medium transition-colors">Back</button>
+                    <button type="button" id="classifyResetPhraseContinueBtn" onclick="advanceClassifyResetDataStep(3)" disabled class="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold transition-colors">Continue</button>
+                </div>
+            </div>
+
+            <div id="classifyResetDataStep3" class="hidden">
+                <h3 class="text-xl font-display font-bold text-slate-900 dark:text-white mb-2">Final confirmation</h3>
+                <p class="text-sm text-slate-600 dark:text-slate-300 mb-3">Check every box below, then erase everything.</p>
+                <label class="cl-reset-check">
+                    <input type="checkbox" id="classifyResetCheckData" onchange="syncClassifyResetFinalButton()">
+                    <span>I understand this deletes all assignments, completion history, subjects, block times, vacations, and schedule rules.</span>
+                </label>
+                <label class="cl-reset-check">
+                    <input type="checkbox" id="classifyResetCheckBackup" onchange="syncClassifyResetFinalButton()">
+                    <span>I have exported a backup or do not need one.</span>
+                </label>
+                <label class="cl-reset-check">
+                    <input type="checkbox" id="classifyResetCheckUndo" onchange="syncClassifyResetFinalButton()">
+                    <span id="classifyResetCheckUndoLabel">I understand this cannot be undone and will sync to my account.</span>
+                </label>
+                <div class="flex justify-between gap-3 mt-5">
+                    <button type="button" onclick="advanceClassifyResetDataStep(2)" class="px-4 py-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 font-medium transition-colors">Back</button>
+                    <button type="button" id="classifyResetFinalBtn" onclick="executeClassifyDataReset()" disabled class="px-4 py-2 rounded-lg bg-gradient-to-r from-rose-700 to-red-700 hover:from-rose-800 hover:to-red-800 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold transition-colors">Erase everything</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal: Classify Settings -->
     <div id="classifySettingsModal" class="cl-modal-root hidden">
         <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"></div>
@@ -2964,7 +3100,7 @@
             </div>
             <div class="cl-settings-section">
                 <h4 class="cl-settings-section__title">Data</h4>
-                <p class="cl-settings-section__lead">Back up or move assignments between devices.</p>
+                <p class="cl-settings-section__lead">Back up, import, or permanently erase Classify data.</p>
                 <button type="button" class="cl-settings-item" onclick="closeClassifySettings(); exportTasks();">
                     <span class="cl-settings-item-label"><i class="fa-solid fa-download text-emerald-500"></i>Export assignments</span>
                     <i class="fa-solid fa-chevron-right text-slate-400 text-sm"></i>
@@ -2972,6 +3108,10 @@
                 <button type="button" class="cl-settings-item" onclick="closeClassifySettings(); importTasks();">
                     <span class="cl-settings-item-label"><i class="fa-solid fa-upload text-red-500"></i>Import assignments</span>
                     <i class="fa-solid fa-chevron-right text-slate-400 text-sm"></i>
+                </button>
+                <button type="button" class="cl-settings-item cl-settings-item--danger" onclick="closeClassifySettings(); openClassifyResetDataModal();">
+                    <span class="cl-settings-item-label"><i class="fa-solid fa-triangle-exclamation text-rose-600"></i>Reset all data</span>
+                    <i class="fa-solid fa-chevron-right text-rose-400 text-sm"></i>
                 </button>
             </div>
             <div class="cl-settings-section">
@@ -4764,6 +4904,188 @@
             setTimeout(() => {
                 modal.classList.add('hidden');
             }, 200);
+        }
+
+        const CLASSIFY_RESET_CONFIRM_PHRASE = 'RESET';
+        let classifyResetDataStep = 1;
+
+        function getClassifyResetDataSummary() {
+            const visible = tasks.filter(isTaskVisibleInClassify);
+            const active = visible.filter(task => !task.completed);
+            const completed = visible.filter(task => task.completed);
+            const subjectNames = new Set();
+            visible.forEach(task => subjectNames.add(task.subject || 'General'));
+            Object.keys(subjectColors || {}).forEach(subject => subjectNames.add(subject));
+            return {
+                assignments: visible.length,
+                active: active.length,
+                completed: completed.length,
+                subjects: subjectNames.size,
+                blockedTimes: normalizeBlockedTimes(blockedTimes).length,
+                vacations: normalizeVacationRanges(vacationRanges).length,
+                history: (completionHistory || []).length,
+                hasData: visible.length > 0
+                    || (completionHistory || []).length > 0
+                    || normalizeBlockedTimes(blockedTimes).length > 0
+                    || normalizeVacationRanges(vacationRanges).length > 0
+                    || Object.keys(subjectColors || {}).length > 0
+            };
+        }
+
+        function renderClassifyResetDataSummary() {
+            const listEl = document.getElementById('classifyResetDataSummaryList');
+            if(!listEl) return;
+            const summary = getClassifyResetDataSummary();
+            const lines = [
+                `<li><strong>${summary.assignments}</strong> assignment${summary.assignments === 1 ? '' : 's'} (${summary.active} active, ${summary.completed} completed)</li>`,
+                `<li><strong>${summary.history}</strong> archived completion record${summary.history === 1 ? '' : 's'}</li>`,
+                `<li><strong>${summary.subjects}</strong> subject${summary.subjects === 1 ? '' : 's'} with custom colors</li>`,
+                `<li><strong>${summary.blockedTimes}</strong> blocked time rule${summary.blockedTimes === 1 ? '' : 's'}</li>`,
+                `<li><strong>${summary.vacations}</strong> vacation range${summary.vacations === 1 ? '' : 's'}</li>`,
+                '<li>Default school-day schedule rules will be restored</li>',
+                '<li>Undo history will be cleared</li>'
+            ];
+            listEl.innerHTML = lines.join('');
+        }
+
+        function syncClassifyResetStepIndicator(step = classifyResetDataStep) {
+            [1, 2, 3].forEach(index => {
+                const dot = document.getElementById(`classifyResetStepDot${index}`);
+                if(!dot) return;
+                dot.classList.toggle('is-active', index === step);
+                dot.classList.toggle('is-done', index < step);
+            });
+        }
+
+        function resetClassifyResetDataForm() {
+            classifyResetDataStep = 1;
+            const phraseInput = document.getElementById('classifyResetPhraseInput');
+            if(phraseInput) phraseInput.value = '';
+            ['classifyResetCheckData', 'classifyResetCheckBackup', 'classifyResetCheckUndo'].forEach(id => {
+                const el = document.getElementById(id);
+                if(el) el.checked = false;
+            });
+            syncClassifyResetPhraseButton();
+            syncClassifyResetFinalButton();
+            ['classifyResetDataStep1', 'classifyResetDataStep2', 'classifyResetDataStep3'].forEach((id, index) => {
+                const el = document.getElementById(id);
+                if(el) el.classList.toggle('hidden', index !== 0);
+            });
+            syncClassifyResetStepIndicator(1);
+        }
+
+        function advanceClassifyResetDataStep(step) {
+            if(step === 2 && classifyResetDataStep === 1) {
+                classifyResetDataStep = 2;
+            } else if(step === 3 && classifyResetDataStep === 2) {
+                const phraseInput = document.getElementById('classifyResetPhraseInput');
+                if((phraseInput?.value || '').trim().toUpperCase() !== CLASSIFY_RESET_CONFIRM_PHRASE) {
+                    showNotification(`Type ${CLASSIFY_RESET_CONFIRM_PHRASE} to continue`, 'error');
+                    return;
+                }
+                classifyResetDataStep = 3;
+            } else if(step === 1) {
+                classifyResetDataStep = 1;
+            } else if(step === 2 && classifyResetDataStep === 3) {
+                classifyResetDataStep = 2;
+            } else {
+                return;
+            }
+
+            document.getElementById('classifyResetDataStep1')?.classList.toggle('hidden', classifyResetDataStep !== 1);
+            document.getElementById('classifyResetDataStep2')?.classList.toggle('hidden', classifyResetDataStep !== 2);
+            document.getElementById('classifyResetDataStep3')?.classList.toggle('hidden', classifyResetDataStep !== 3);
+            syncClassifyResetStepIndicator(classifyResetDataStep);
+
+            if(classifyResetDataStep === 2) {
+                const phraseInput = document.getElementById('classifyResetPhraseInput');
+                phraseInput?.focus();
+            }
+        }
+
+        function syncClassifyResetPhraseButton() {
+            const phraseInput = document.getElementById('classifyResetPhraseInput');
+            const continueBtn = document.getElementById('classifyResetPhraseContinueBtn');
+            if(!continueBtn) return;
+            const matches = (phraseInput?.value || '').trim().toUpperCase() === CLASSIFY_RESET_CONFIRM_PHRASE;
+            continueBtn.disabled = !matches;
+        }
+
+        function syncClassifyResetFinalButton() {
+            const finalBtn = document.getElementById('classifyResetFinalBtn');
+            if(!finalBtn) return;
+            const allChecked = ['classifyResetCheckData', 'classifyResetCheckBackup', 'classifyResetCheckUndo']
+                .every(id => document.getElementById(id)?.checked);
+            finalBtn.disabled = !allChecked;
+        }
+
+        function openClassifyResetDataModal() {
+            const summary = getClassifyResetDataSummary();
+            if(!summary.hasData) {
+                showNotification('There is no Classify data to reset', 'info');
+                return;
+            }
+
+            resetClassifyResetDataForm();
+            renderClassifyResetDataSummary();
+            const undoLabel = document.getElementById('classifyResetCheckUndoLabel');
+            if(undoLabel) {
+                undoLabel.textContent = localStorage.getItem('ahrenslabs_sessionId')
+                    ? 'I understand this cannot be undone and will sync to my account.'
+                    : 'I understand this cannot be undone on this device.';
+            }
+
+            const modal = document.getElementById('classifyResetDataModal');
+            const panel = document.getElementById('classifyResetDataPanel');
+            if(!modal || !panel) return;
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                panel.classList.remove('scale-95', 'opacity-0');
+                panel.classList.add('scale-100', 'opacity-100');
+            }, 10);
+        }
+
+        function closeClassifyResetDataModal() {
+            const modal = document.getElementById('classifyResetDataModal');
+            const panel = document.getElementById('classifyResetDataPanel');
+            if(!modal || !panel) return;
+            panel.classList.add('scale-95', 'opacity-0');
+            panel.classList.remove('scale-100', 'opacity-100');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                resetClassifyResetDataForm();
+            }, 200);
+        }
+
+        function executeClassifyDataReset() {
+            const phraseInput = document.getElementById('classifyResetPhraseInput');
+            const phraseMatches = (phraseInput?.value || '').trim().toUpperCase() === CLASSIFY_RESET_CONFIRM_PHRASE;
+            const allChecked = ['classifyResetCheckData', 'classifyResetCheckBackup', 'classifyResetCheckUndo']
+                .every(id => document.getElementById(id)?.checked);
+            if(!phraseMatches || !allChecked) {
+                showNotification('Complete every confirmation step first', 'error');
+                return;
+            }
+
+            suppressCloudSync = true;
+            tasks = [];
+            completionHistory = [];
+            subjectColors = {};
+            blockedTimes = [];
+            scheduleRules = normalizeScheduleRules({});
+            vacationRanges = [];
+            repeatSkips = {};
+            editingId = null;
+            classifyUndoStack = [];
+            persistClassifyUndoStack();
+            suppressCloudSync = false;
+
+            saveData({ skipUndoRecord: true, skipAutoSchedule: true });
+            initClassifyUndoBaseline();
+            flushClassifyCloudSync();
+            closeClassifyResetDataModal();
+            switchTab('dashboard');
+            showNotification('All Classify data has been reset', 'success');
         }
 
         function openClassifyPreferences() {
