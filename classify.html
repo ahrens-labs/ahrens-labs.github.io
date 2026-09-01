@@ -15292,12 +15292,12 @@
                 const color = stats[subject].color || '#dc2626';
                 const locked = subject === 'General';
                 return `
-                    <div data-subject-row class="rounded-xl border border-slate-200 dark:border-slate-700 p-3 bg-slate-50/70 dark:bg-slate-800/40">
+                    <div data-subject-row data-subject-original="${encodeURIComponent(subject)}" class="rounded-xl border border-slate-200 dark:border-slate-700 p-3 bg-slate-50/70 dark:bg-slate-800/40">
                         <div class="flex items-start justify-between gap-3">
                             <div class="min-w-0 flex items-start gap-3 flex-1">
                                 <span class="w-4 h-10 rounded-md shrink-0 border border-slate-200 dark:border-slate-600" style="background:${color}"></span>
                                 <div class="min-w-0 flex-1">
-                                    <input data-subject-name type="text" value="${subject.replace(/"/g, '&quot;')}" ${locked ? 'disabled' : ''} class="w-full h-9 px-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-sm font-semibold disabled:opacity-60 disabled:cursor-not-allowed">
+                                    <input data-subject-name type="text" value="${subject.replace(/"/g, '&quot;')}" ${locked ? 'disabled' : ''} onkeydown="handleSubjectNameSaveKeydown(event, this)" class="w-full h-9 px-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-sm font-semibold disabled:opacity-60 disabled:cursor-not-allowed">
                                     <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">${count} assignment${count === 1 ? '' : 's'}</p>
                                 </div>
                             </div>
@@ -15305,7 +15305,7 @@
                         </div>
                         <div class="mt-3 flex items-center justify-end gap-2">
                             ${locked ? '<span class="mr-auto text-xs text-slate-400 dark:text-slate-500 font-medium">Default subject (name locked)</span>' : ''}
-                            <button onclick="saveSubjectRow(decodeURIComponent('${encodeURIComponent(subject)}'), this)" class="px-3 py-1.5 rounded-lg text-sm bg-red-600 text-white hover:bg-red-700 transition-colors">Save</button>
+                            <button type="button" onclick="saveSubjectRowFromElement(this)" class="px-3 py-1.5 rounded-lg text-sm bg-red-600 text-white hover:bg-red-700 transition-colors">Save</button>
                             ${locked
                                 ? ''
                                 : `<button onclick="removeSubject(decodeURIComponent('${encodeURIComponent(subject)}'))" class="px-3 py-1.5 rounded-lg text-sm bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/40 transition-colors">Remove</button>`
@@ -15313,6 +15313,24 @@
                         </div>
                     </div>`;
             }).join('');
+        }
+
+        function saveSubjectRowFromElement(triggerEl) {
+            const row = triggerEl?.closest?.('[data-subject-row]');
+            if(!row) return;
+            let original = '';
+            try {
+                original = decodeURIComponent(row.dataset.subjectOriginal || '');
+            } catch (error) {
+                original = '';
+            }
+            saveSubjectRow(original, triggerEl);
+        }
+
+        function handleSubjectNameSaveKeydown(event, input) {
+            if(event.key !== 'Enter') return;
+            event.preventDefault();
+            saveSubjectRowFromElement(input);
         }
 
         function saveSubjectRow(subjectName, btn) {
@@ -15384,9 +15402,15 @@
 
             showNotification(`Saved subject "${targetSubject}"`, 'success');
             finalizeClassifyModalSave({
-                onClose: closeSubjectManagerImmediate,
                 skipScheduleRefresh: true
             });
+            renderSubjectManager();
+            const nextInput = Array.from(document.querySelectorAll('#subjectsList [data-subject-name]'))
+                .find(input => input.value.trim() === targetSubject);
+            if(nextInput) {
+                nextInput.focus();
+                if(typeof nextInput.select === 'function') nextInput.select();
+            }
         }
 
         function closeSubjectManagerImmediate() {
