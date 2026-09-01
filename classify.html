@@ -3677,7 +3677,7 @@
                 <div id="simpleEntryPanel" class="rounded-xl border border-slate-200/70 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-800/40 p-4 space-y-4">
                     <div class="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Details</div>
                     <div class="space-y-4">
-                        <div class="grid grid-cols-[minmax(0,1fr)_auto] gap-4 items-end">
+                        <div class="grid grid-cols-[minmax(0,10rem)_minmax(12rem,1fr)] gap-4 items-end">
                             <div class="min-w-0">
                                 <label class="cl-simple-field-label">Subject</label>
                                 <div class="relative">
@@ -3685,11 +3685,11 @@
                                     <input id="inputSimpleSubject" type="text" autocomplete="off" oninput="handleSimpleSubjectInput(this.value)" onfocus="handleSubjectInputFocus()" onblur="handleSubjectInputBlur()" class="cl-simple-input cl-simple-input-subject" placeholder="Math">
                                 </div>
                             </div>
-                            <div class="w-[8.5rem] shrink-0">
+                            <div class="min-w-0">
                                 <label class="cl-simple-field-label">Color</label>
                                 <div class="flex items-center gap-2 h-[2.75rem]">
                                     <input id="inputSimpleColor" type="color" oninput="handleSimpleColorInput()" class="h-11 w-11 shrink-0 rounded-xl cursor-pointer border-2 border-slate-300 dark:border-slate-600 p-1 bg-white dark:bg-slate-900" value="#b91c1c">
-                                    <span class="text-xs text-slate-600 dark:text-slate-300 truncate min-w-0" id="simpleColorSyncLabel">Subject color</span>
+                                    <span class="text-xs text-slate-600 dark:text-slate-300 whitespace-nowrap" id="simpleColorSyncLabel">Subject color</span>
                                 </div>
                             </div>
                         </div>
