@@ -6297,17 +6297,23 @@
             return false;
         }
 
+        function isIntentionalRepeatFixedTimeSource(task) {
+            return Boolean(
+                task &&
+                !task.weekDueOnly &&
+                task.scheduleType === 'date' &&
+                task.time &&
+                !isAssignmentStarted(task) &&
+                isFixedTask(task) &&
+                task.timeSource === 'user'
+            );
+        }
+
         function getRepeatGroupFixedTimeProfile(groupTasks = [], fallbackTask = null) {
             const candidates = [...(groupTasks || [])];
             if(fallbackTask) candidates.push(fallbackTask);
             const best = candidates
-                .filter(t =>
-                    t &&
-                    !t.weekDueOnly &&
-                    t.scheduleType === 'date' &&
-                    t.time &&
-                    (isFixedTask(t) || t.timeSource === 'user')
-                )
+                .filter(isIntentionalRepeatFixedTimeSource)
                 .sort((a, b) => {
                     const aActive = a.completed ? 1 : 0;
                     const bActive = b.completed ? 1 : 0;
@@ -6345,13 +6351,14 @@
             if(!profile) return;
             groupTasks.forEach(task => {
                 if(task.completed || task.weekDueOnly || task.scheduleType !== 'date') return;
+                if(isAssignmentStarted(task)) return;
                 applyRepeatFixedTimeProfile(task, profile);
             });
         }
 
         function isRepeatFixedTimeTask(task) {
             if(!task?.repeatGroupId || task.weekDueOnly || task.scheduleType !== 'date') return false;
-            if(isFixedTask(task) && task.time) return true;
+            if(isAssignmentStarted(task)) return false;
             const profile = getRepeatGroupFixedTimeProfile(
                 tasks.filter(t => t.repeatGroupId === task.repeatGroupId)
             );
@@ -6362,6 +6369,7 @@
             if(!task?.repeatGroupId || task.completed || task.weekDueOnly || task.scheduleType !== 'date') {
                 return false;
             }
+            if(isAssignmentStarted(task)) return false;
             if(task.time && (isFixedTask(task) || task.timeSource === 'user')) return false;
             const profile = getRepeatGroupFixedTimeProfile(
                 tasks.filter(t => t.repeatGroupId === task.repeatGroupId)
@@ -16382,9 +16390,7 @@
         }
 
         function pickRepeatTemplate(groupTasks = []) {
-            const fixedCandidates = groupTasks.filter(t =>
-                !t.weekDueOnly && t.scheduleType === 'date' && t.time && (isFixedTask(t) || t.timeSource === 'user')
-            );
+            const fixedCandidates = groupTasks.filter(isIntentionalRepeatFixedTimeSource);
             const pool = fixedCandidates.length ? fixedCandidates : groupTasks;
             const sorted = [...pool].sort((a, b) => {
                 const aKey = a.repeatWeekKey || '';
