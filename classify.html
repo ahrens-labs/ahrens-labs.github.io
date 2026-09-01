@@ -3337,6 +3337,13 @@
                             </div>
                         </div>
                         <div>
+                            <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Color</label>
+                            <div class="flex items-center gap-3 h-11">
+                                <input id="inputSimpleColor" type="color" oninput="handleSimpleColorInput()" class="h-11 w-12 rounded-xl cursor-pointer border-2 border-slate-300 dark:border-slate-600 p-1 bg-white dark:bg-slate-900" value="#b91c1c">
+                                <span class="text-xs text-slate-600 dark:text-slate-300 flex-1" id="simpleColorSyncLabel">Subject color</span>
+                            </div>
+                        </div>
+                        <div>
                             <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Due Date</label>
                             <input id="inputSimpleDueDate" type="date" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
                         </div>
@@ -5073,8 +5080,12 @@
             if(document.getElementById('inputScheduleType')) document.getElementById('inputScheduleType').value = 'date';
             if(document.getElementById('inputExactDateTiming')) document.getElementById('inputExactDateTiming').value = 'adjustable';
             syncSubjectColor(subject);
-            const color = getSubjectColorValue(subject) || document.getElementById('inputColor')?.value || '#b91c1c';
+            const color = document.getElementById('inputSimpleColor')?.value
+                || getSubjectColorValue(subject)
+                || document.getElementById('inputColor')?.value
+                || '#b91c1c';
             if(document.getElementById('inputColor')) document.getElementById('inputColor').value = color;
+            if(document.getElementById('inputSimpleColor')) document.getElementById('inputSimpleColor').value = color;
             updateScheduleInputs();
         }
 
@@ -5084,9 +5095,12 @@
                 || document.getElementById('inputDueDate')?.value
                 || getDefaultSimpleDueDateStr();
             const duration = document.getElementById('inputDuration')?.value || '30';
+            const color = document.getElementById('inputColor')?.value || getSubjectColorValue(subject) || '#b91c1c';
             if(document.getElementById('inputSimpleSubject')) document.getElementById('inputSimpleSubject').value = subject;
             if(document.getElementById('inputSimpleDueDate')) document.getElementById('inputSimpleDueDate').value = dueDate;
             if(document.getElementById('inputSimpleDuration')) document.getElementById('inputSimpleDuration').value = duration;
+            if(document.getElementById('inputSimpleColor')) document.getElementById('inputSimpleColor').value = color;
+            syncSubjectColor(subject);
         }
 
         function setSimpleDuration(minutes) {
@@ -5097,6 +5111,25 @@
         function handleSimpleSubjectInput(value) {
             if(document.getElementById('inputSubject')) document.getElementById('inputSubject').value = value;
             handleSubjectInput(value);
+        }
+
+        function handleSimpleColorInput() {
+            const color = document.getElementById('inputSimpleColor')?.value;
+            if(color && document.getElementById('inputColor')) {
+                document.getElementById('inputColor').value = color;
+            }
+            const label = document.getElementById('simpleColorSyncLabel');
+            const mainLabel = document.getElementById('colorSyncLabel');
+            if(label) {
+                label.innerText = 'Custom color';
+                label.classList.remove('text-emerald-500', 'dark:text-emerald-400', 'font-bold');
+                label.classList.add('text-slate-600', 'dark:text-slate-300');
+            }
+            if(mainLabel) {
+                mainLabel.innerText = 'Custom color';
+                mainLabel.classList.remove('text-emerald-500', 'dark:text-emerald-400', 'font-bold');
+                mainLabel.classList.add('text-slate-600', 'dark:text-slate-300');
+            }
         }
 
         function setAssignmentEditorComplexity(mode, options = {}) {
@@ -16553,18 +16586,35 @@
         // Feature: Sync subject color as user types
         function syncSubjectColor(subjectName) {
             const colorInput = document.getElementById('inputColor');
+            const simpleColorInput = document.getElementById('inputSimpleColor');
             const label = document.getElementById('colorSyncLabel');
+            const simpleLabel = document.getElementById('simpleColorSyncLabel');
             const savedColor = getSubjectColorValue(subjectName);
             
             if (savedColor) {
-                colorInput.value = savedColor;
-                label.innerText = "✓ Color synced";
-                label.classList.add('text-emerald-500', 'dark:text-emerald-400', 'font-bold');
-                label.classList.remove('text-slate-600', 'dark:text-slate-300');
+                if(colorInput) colorInput.value = savedColor;
+                if(simpleColorInput) simpleColorInput.value = savedColor;
+                if(label) {
+                    label.innerText = "✓ Color synced";
+                    label.classList.add('text-emerald-500', 'dark:text-emerald-400', 'font-bold');
+                    label.classList.remove('text-slate-600', 'dark:text-slate-300');
+                }
+                if(simpleLabel) {
+                    simpleLabel.innerText = "✓ Color synced";
+                    simpleLabel.classList.add('text-emerald-500', 'dark:text-emerald-400', 'font-bold');
+                    simpleLabel.classList.remove('text-slate-600', 'dark:text-slate-300');
+                }
             } else {
-                label.innerText = "Will set subject color";
-                label.classList.remove('text-emerald-500', 'dark:text-emerald-400', 'font-bold');
-                label.classList.add('text-slate-600', 'dark:text-slate-300');
+                if(label) {
+                    label.innerText = "Will set subject color";
+                    label.classList.remove('text-emerald-500', 'dark:text-emerald-400', 'font-bold');
+                    label.classList.add('text-slate-600', 'dark:text-slate-300');
+                }
+                if(simpleLabel) {
+                    simpleLabel.innerText = "Will set subject color";
+                    simpleLabel.classList.remove('text-emerald-500', 'dark:text-emerald-400', 'font-bold');
+                    simpleLabel.classList.add('text-slate-600', 'dark:text-slate-300');
+                }
             }
         }
 
@@ -16928,6 +16978,8 @@
             document.getElementById('inputTitle').value = '';
             document.getElementById('inputSubject').value = '';
             document.getElementById('inputSimpleSubject').value = '';
+            document.getElementById('inputSimpleColor').value = '#b91c1c';
+            document.getElementById('simpleColorSyncLabel').innerText = 'Subject color';
             document.getElementById('inputScheduleType').value = 'date';
             document.getElementById('inputExactDateTiming').value = 'adjustable';
             const defaultDue = getDefaultSimpleDueDateStr();
