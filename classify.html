@@ -2450,6 +2450,10 @@
         }
         .cl-form-optional-details[open] > summary::after { content: 'Hide'; }
         .cl-form-optional-details__body { padding: 0 1rem 1rem; }
+        .cl-dep-picker-trigger:focus-visible {
+            outline: 2px solid #ef4444;
+            outline-offset: 2px;
+        }
         .cl-mini-tip-overlay {
             position: fixed;
             inset: 0;
@@ -3740,7 +3744,15 @@
                         <div>
                             <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Must Be After</label>
                             <div class="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2">
-                                <select id="inputMustAfterSelect" class="w-full h-11 px-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all"></select>
+                                <div class="relative cl-dep-picker" data-dep-type="after">
+                                    <button type="button" class="cl-dep-picker-trigger w-full h-11 px-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all flex items-center gap-2.5">
+                                        <span class="cl-dep-picker-dot hidden w-2.5 h-2.5 rounded-full shrink-0 border border-black/10 dark:border-white/15"></span>
+                                        <span class="cl-dep-picker-label truncate flex-1 text-left text-slate-500 dark:text-slate-400">Select assignment...</span>
+                                        <i class="fa-solid fa-chevron-down text-[10px] text-slate-400 shrink-0"></i>
+                                    </button>
+                                    <div class="cl-dep-picker-menu hidden absolute z-50 left-0 right-0 top-full mt-1 max-h-48 overflow-y-auto rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 shadow-lg py-1"></div>
+                                    <input type="hidden" id="inputMustAfterSelect" value="">
+                                </div>
                                 <button type="button" onclick="addDependency('after')" class="h-11 px-4 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-semibold transition-colors">Add</button>
                             </div>
                             <div id="inputMustAfterList" class="mt-2 space-y-1.5"></div>
@@ -3749,7 +3761,15 @@
                         <div>
                             <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Must Be Before</label>
                             <div class="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2">
-                                <select id="inputMustBeforeSelect" class="w-full h-11 px-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all"></select>
+                                <div class="relative cl-dep-picker" data-dep-type="before">
+                                    <button type="button" class="cl-dep-picker-trigger w-full h-11 px-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all flex items-center gap-2.5">
+                                        <span class="cl-dep-picker-dot hidden w-2.5 h-2.5 rounded-full shrink-0 border border-black/10 dark:border-white/15"></span>
+                                        <span class="cl-dep-picker-label truncate flex-1 text-left text-slate-500 dark:text-slate-400">Select assignment...</span>
+                                        <i class="fa-solid fa-chevron-down text-[10px] text-slate-400 shrink-0"></i>
+                                    </button>
+                                    <div class="cl-dep-picker-menu hidden absolute z-50 left-0 right-0 top-full mt-1 max-h-48 overflow-y-auto rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 shadow-lg py-1"></div>
+                                    <input type="hidden" id="inputMustBeforeSelect" value="">
+                                </div>
                                 <button type="button" onclick="addDependency('before')" class="h-11 px-4 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-semibold transition-colors">Add</button>
                             </div>
                             <div id="inputMustBeforeList" class="mt-2 space-y-1.5"></div>
@@ -3758,7 +3778,15 @@
                         <div>
                             <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Different Day Than</label>
                             <div class="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2">
-                                <select id="inputDifferentDaySelect" class="w-full h-11 px-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all"></select>
+                                <div class="relative cl-dep-picker" data-dep-type="differentDay">
+                                    <button type="button" class="cl-dep-picker-trigger w-full h-11 px-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all flex items-center gap-2.5">
+                                        <span class="cl-dep-picker-dot hidden w-2.5 h-2.5 rounded-full shrink-0 border border-black/10 dark:border-white/15"></span>
+                                        <span class="cl-dep-picker-label truncate flex-1 text-left text-slate-500 dark:text-slate-400">Select assignment...</span>
+                                        <i class="fa-solid fa-chevron-down text-[10px] text-slate-400 shrink-0"></i>
+                                    </button>
+                                    <div class="cl-dep-picker-menu hidden absolute z-50 left-0 right-0 top-full mt-1 max-h-48 overflow-y-auto rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 shadow-lg py-1"></div>
+                                    <input type="hidden" id="inputDifferentDaySelect" value="">
+                                </div>
                                 <button type="button" onclick="addDependency('differentDay')" class="h-11 px-4 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-semibold transition-colors">Add</button>
                             </div>
                             <div id="inputDifferentDayList" class="mt-2 space-y-1.5"></div>
@@ -4743,6 +4771,7 @@
 
             renderAll();
             setupSearchListener();
+            setupDependencyPickers();
             updateDateDisplay();
             updateSubjectSuggestions();
             const weekInput = document.getElementById('inputWeek');
@@ -11144,6 +11173,111 @@
             return `${prefix} - ${task.title} (${dueLabel})`;
         }
 
+        function sanitizeCssColor(color) {
+            const value = String(color || '').trim();
+            if(/^#[0-9a-fA-F]{3,8}$/.test(value)) return value;
+            return '#dc2626';
+        }
+
+        function dependencyColorDotHtml(color) {
+            const safeColor = sanitizeCssColor(color);
+            return `<span class="inline-block w-2.5 h-2.5 rounded-full shrink-0 border border-black/10 dark:border-white/15" style="background-color:${safeColor}"></span>`;
+        }
+
+        function getDependencyPickerEls(type) {
+            const inputId = type === 'before'
+                ? 'inputMustBeforeSelect'
+                : type === 'differentDay'
+                    ? 'inputDifferentDaySelect'
+                    : 'inputMustAfterSelect';
+            const input = document.getElementById(inputId);
+            const picker = input?.closest('.cl-dep-picker');
+            return {
+                input,
+                picker,
+                trigger: picker?.querySelector('.cl-dep-picker-trigger'),
+                label: picker?.querySelector('.cl-dep-picker-label'),
+                dot: picker?.querySelector('.cl-dep-picker-dot'),
+                menu: picker?.querySelector('.cl-dep-picker-menu')
+            };
+        }
+
+        function setDependencyPickerValue(type, taskId) {
+            const { input, label, dot } = getDependencyPickerEls(type);
+            if(!input) return;
+            input.value = taskId || '';
+            if(!taskId) {
+                if(label) {
+                    label.textContent = 'Select assignment...';
+                    label.classList.add('text-slate-500', 'dark:text-slate-400');
+                    label.classList.remove('text-slate-900', 'dark:text-white');
+                }
+                if(dot) {
+                    dot.classList.add('hidden');
+                    dot.style.backgroundColor = '';
+                }
+                return;
+            }
+            const task = tasks.find(t => t.id === taskId);
+            if(!task) return;
+            const subject = document.getElementById('inputSubject')?.value || '';
+            const isSame = subject && String(task.subject || '').trim().toLowerCase() === String(subject).trim().toLowerCase();
+            if(label) {
+                label.textContent = dependencyOptionLabel(task, isSame);
+                label.classList.remove('text-slate-500', 'dark:text-slate-400');
+                label.classList.add('text-slate-900', 'dark:text-white');
+            }
+            if(dot) {
+                dot.classList.remove('hidden');
+                dot.style.backgroundColor = sanitizeCssColor(getTaskColor(task));
+            }
+        }
+
+        function closeDependencyPickers(exceptType = null) {
+            document.querySelectorAll('.cl-dep-picker-menu').forEach(menu => {
+                const picker = menu.closest('.cl-dep-picker');
+                const type = picker?.dataset.depType;
+                if(exceptType && type === exceptType) return;
+                menu.classList.add('hidden');
+            });
+        }
+
+        function setupDependencyPickers() {
+            if(setupDependencyPickers.initialized) return;
+            setupDependencyPickers.initialized = true;
+
+            document.addEventListener('click', (event) => {
+                const trigger = event.target.closest('.cl-dep-picker-trigger');
+                if(trigger) {
+                    event.preventDefault();
+                    const picker = trigger.closest('.cl-dep-picker');
+                    const menu = picker?.querySelector('.cl-dep-picker-menu');
+                    if(!menu) return;
+                    const willOpen = menu.classList.contains('hidden');
+                    closeDependencyPickers();
+                    if(willOpen) menu.classList.remove('hidden');
+                    return;
+                }
+
+                const option = event.target.closest('.cl-dep-picker-option');
+                if(option) {
+                    event.preventDefault();
+                    const picker = option.closest('.cl-dep-picker');
+                    const type = picker?.dataset.depType;
+                    const taskId = option.dataset.value;
+                    if(type && taskId) {
+                        setDependencyPickerValue(type, taskId);
+                        closeDependencyPickers();
+                    }
+                    return;
+                }
+
+                if(!event.target.closest('.cl-dep-picker')) {
+                    closeDependencyPickers();
+                }
+            });
+        }
+
         function getDependencyList(type) {
             if(type === 'before') return dependencyDraft.before;
             if(type === 'differentDay') return dependencyDraft.differentDay;
@@ -11174,10 +11308,14 @@
                 const task = tasks.find(t => t.id === id);
                 if(!task) return '';
                 const label = escapeHtml(dependencyOptionLabel(task, false));
+                const colorDot = dependencyColorDotHtml(getTaskColor(task));
                 return `
                     <div class="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60">
-                        <span class="text-xs text-slate-700 dark:text-slate-200 truncate">${label}</span>
-                        <button type="button" onclick="removeDependency('${type}', '${escapeHtml(id)}')" class="text-[11px] font-semibold text-rose-600 hover:text-rose-700 dark:text-rose-300 dark:hover:text-rose-200">Remove</button>
+                        <span class="flex items-center gap-2 min-w-0">
+                            ${colorDot}
+                            <span class="text-xs text-slate-700 dark:text-slate-200 truncate">${label}</span>
+                        </span>
+                        <button type="button" onclick="removeDependency('${type}', '${escapeHtml(id)}')" class="text-[11px] font-semibold text-rose-600 hover:text-rose-700 dark:text-rose-300 dark:hover:text-rose-200 shrink-0">Remove</button>
                     </div>
                 `;
             }).join('');
@@ -11187,42 +11325,51 @@
             const subject = document.getElementById('inputSubject')?.value || '';
             const currentId = editingId;
             const choices = buildDependencyChoices(subject, currentId);
-            const toOptions = (type) => {
+            const renderMenu = (type) => {
                 const ids = new Set(getDependencyList(type));
                 const blocked = type === 'differentDay'
                     ? new Set()
                     : new Set(type === 'before' ? getDependencyList('after') : getDependencyList('before'));
-                const options = [`<option value="">Select assignment...</option>`];
-                choices.forEach(t => {
-                    if(ids.has(t.id)) return;
-                    if(blocked.has(t.id) && !ids.has(t.id)) return;
-                    const isSame = subject && String(t.subject || '').trim().toLowerCase() === String(subject).trim().toLowerCase();
-                    options.push(`<option value="${escapeHtml(t.id)}">${escapeHtml(dependencyOptionLabel(t, isSame))}</option>`);
+                const available = choices.filter(t => {
+                    if(ids.has(t.id)) return false;
+                    if(blocked.has(t.id)) return false;
+                    return true;
                 });
-                return options.join('');
+                const { input, menu } = getDependencyPickerEls(type);
+                if(!menu) return;
+
+                if(available.length === 0) {
+                    menu.innerHTML = '<div class="px-3 py-2 text-xs text-slate-500 dark:text-slate-400 italic">No assignments available</div>';
+                } else {
+                    menu.innerHTML = available.map(t => {
+                        const isSame = subject && String(t.subject || '').trim().toLowerCase() === String(subject).trim().toLowerCase();
+                        const labelText = escapeHtml(dependencyOptionLabel(t, isSame));
+                        return `
+                            <button type="button" class="cl-dep-picker-option w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" data-value="${escapeHtml(t.id)}">
+                                ${dependencyColorDotHtml(getTaskColor(t))}
+                                <span class="truncate">${labelText}</span>
+                            </button>
+                        `;
+                    }).join('');
+                }
+
+                const currentValue = input?.value || '';
+                if(currentValue && !available.some(t => t.id === currentValue)) {
+                    setDependencyPickerValue(type, '');
+                }
             };
 
-            const afterSelect = document.getElementById('inputMustAfterSelect');
-            const beforeSelect = document.getElementById('inputMustBeforeSelect');
-            const differentDaySelect = document.getElementById('inputDifferentDaySelect');
-            if(afterSelect) afterSelect.innerHTML = toOptions('after');
-            if(beforeSelect) beforeSelect.innerHTML = toOptions('before');
-            if(differentDaySelect) differentDaySelect.innerHTML = toOptions('differentDay');
+            ['after', 'before', 'differentDay'].forEach(renderMenu);
         }
 
         function addDependency(type) {
-            const selectMap = {
-                before: 'inputMustBeforeSelect',
-                after: 'inputMustAfterSelect',
-                differentDay: 'inputDifferentDaySelect'
-            };
-            const selectId = selectMap[type] || 'inputMustAfterSelect';
-            const select = document.getElementById(selectId);
-            if(!select) return;
-            const id = select.value;
+            const { input } = getDependencyPickerEls(type);
+            const id = input?.value;
             if(!id) return;
             const current = getDependencyList(type);
             if(!current.includes(id)) setDependencyList(type, [...current, id]);
+            setDependencyPickerValue(type, '');
+            closeDependencyPickers();
             syncDependencyDropdownOptions();
             renderDependencyList(type);
         }
@@ -11238,6 +11385,10 @@
             setDependencyList('after', selectedAfter);
             setDependencyList('before', selectedBefore);
             setDependencyList('differentDay', selectedDifferentDay);
+            setDependencyPickerValue('after', '');
+            setDependencyPickerValue('before', '');
+            setDependencyPickerValue('differentDay', '');
+            closeDependencyPickers();
             syncDependencyDropdownOptions();
             renderDependencyList('after');
             renderDependencyList('before');
