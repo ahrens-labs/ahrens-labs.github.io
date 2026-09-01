@@ -3594,8 +3594,9 @@
                 </div>
 
                 <div id="manualEntryPanels" class="space-y-5">
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                    <div class="rounded-xl border border-slate-200/70 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-800/40 p-4 space-y-4">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:items-stretch">
+                    <div class="flex flex-col gap-4 h-full">
+                    <div class="rounded-xl border border-slate-200/70 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-800/40 p-4 space-y-4 flex-1">
                         <div class="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Basics</div>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
@@ -3614,57 +3615,6 @@
                                 </div>
                             </div>
                         </div>
-                    </div>
-
-                    <div id="cl-wt-schedule-panel" class="rounded-xl border border-slate-200/70 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-800/40 p-4 space-y-4">
-                        <div class="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Schedule</div>
-                        <p class="text-xs text-slate-500 dark:text-slate-400 -mt-2">Most homework: <strong>Exact Date</strong> and <strong>Adjustable</strong> — Classify picks the work time.</p>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Schedule By</label>
-                                <select id="inputScheduleType" onchange="updateScheduleInputs()" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
-                                    <option value="date" selected>Exact Date</option>
-                                    <option value="week">Target Week</option>
-                                    <option value="flexible">No date yet</option>
-                                </select>
-                            </div>
-                            <div id="eventDateWrapper">
-                                <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Date (Event)</label>
-                                <input id="inputDate" type="date" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
-                            </div>
-                            <div id="exactDateTimingWrapper" class="hidden md:col-span-2">
-                                <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Event Timing</label>
-                                <select id="inputExactDateTiming" onchange="updateScheduleInputs()" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
-                                    <option value="adjustable" selected>Adjustable — pick my work time</option>
-                                    <option value="fixed">Fixed — I’ll work at a set time</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div id="cl-wt-week-fields" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div id="weekInputWrapper" class="hidden">
-                                <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Target Week</label>
-                                <input id="inputWeek" type="week" onchange="updateScheduleInputs()" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
-                            </div>
-                            <div id="dueDateWrapper">
-                                <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Due Date</label>
-                                <input id="inputDueDate" type="date" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
-                            </div>
-                        </div>
-                        <div id="cl-wt-exact-date-fields" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div id="startTimeWrapper">
-                                <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Start Time</label>
-                                <input id="inputTime" type="time" step="300" oninput="handleExactDateStartTimeInput()" onchange="handleExactDateStartTimeInput()" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
-                                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Fixed start times use 5-minute steps (e.g. 3:00, 3:05).</p>
-                            </div>
-                            <div id="dueTimeWrapper">
-                                <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Due Time</label>
-                                <input id="inputDueTime" type="time" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="rounded-xl border border-slate-200/70 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-800/40 p-4 space-y-4">
-                        <div class="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Time</div>
                         <div>
                             <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Duration (min)</label>
                             <input id="inputDuration" type="number" min="1" step="1" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all" placeholder="30">
@@ -3676,7 +3626,7 @@
                         </div>
                     </div>
 
-                    <div id="clOptionalRepeatPanel" class="rounded-xl border border-slate-200/70 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-800/40 p-4 space-y-4">
+                    <div id="clOptionalRepeatPanel" class="rounded-xl border border-slate-200/70 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-800/40 p-4 space-y-4 flex-1">
                         <div class="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Repeat</div>
                         <div id="cl-wt-repeat-panel" class="space-y-4">
                             <div>
@@ -3736,6 +3686,54 @@
                                         </label>
                                     </div>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+                    </div>
+
+                    <div id="cl-wt-schedule-panel" class="rounded-xl border border-slate-200/70 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-800/40 p-4 space-y-4 h-full">
+                        <div class="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Schedule</div>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 -mt-2">Most homework: <strong>Exact Date</strong> and <strong>Adjustable</strong> — Classify picks the work time.</p>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Schedule By</label>
+                                <select id="inputScheduleType" onchange="updateScheduleInputs()" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
+                                    <option value="date" selected>Exact Date</option>
+                                    <option value="week">Target Week</option>
+                                    <option value="flexible">No date yet</option>
+                                </select>
+                            </div>
+                            <div id="eventDateWrapper">
+                                <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Date (Event)</label>
+                                <input id="inputDate" type="date" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
+                            </div>
+                            <div id="exactDateTimingWrapper" class="hidden md:col-span-2">
+                                <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Event Timing</label>
+                                <select id="inputExactDateTiming" onchange="updateScheduleInputs()" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
+                                    <option value="adjustable" selected>Adjustable — pick my work time</option>
+                                    <option value="fixed">Fixed — I’ll work at a set time</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div id="cl-wt-week-fields" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div id="weekInputWrapper" class="hidden">
+                                <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Target Week</label>
+                                <input id="inputWeek" type="week" onchange="updateScheduleInputs()" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
+                            </div>
+                            <div id="dueDateWrapper">
+                                <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Due Date</label>
+                                <input id="inputDueDate" type="date" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
+                            </div>
+                        </div>
+                        <div id="cl-wt-exact-date-fields" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div id="startTimeWrapper">
+                                <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Start Time</label>
+                                <input id="inputTime" type="time" step="300" oninput="handleExactDateStartTimeInput()" onchange="handleExactDateStartTimeInput()" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
+                                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Fixed start times use 5-minute steps (e.g. 3:00, 3:05).</p>
+                            </div>
+                            <div id="dueTimeWrapper">
+                                <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Due Time</label>
+                                <input id="inputDueTime" type="time" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
                             </div>
                         </div>
                     </div>
