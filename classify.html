@@ -3677,18 +3677,20 @@
                 <div id="simpleEntryPanel" class="rounded-xl border border-slate-200/70 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-800/40 p-4 space-y-4">
                     <div class="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Details</div>
                     <div class="space-y-4">
-                        <div>
-                            <label class="cl-simple-field-label">Subject</label>
-                            <div class="relative">
-                                <i class="fa-solid fa-book absolute left-3 top-1/2 -translate-y-1/2 text-red-400/60 text-sm"></i>
-                                <input id="inputSimpleSubject" type="text" autocomplete="off" oninput="handleSimpleSubjectInput(this.value)" onfocus="handleSubjectInputFocus()" onblur="handleSubjectInputBlur()" class="cl-simple-input cl-simple-input-subject" placeholder="Math">
+                        <div class="grid grid-cols-[minmax(0,1fr)_auto] gap-4 items-end">
+                            <div class="min-w-0">
+                                <label class="cl-simple-field-label">Subject</label>
+                                <div class="relative">
+                                    <i class="fa-solid fa-book absolute left-3 top-1/2 -translate-y-1/2 text-red-400/60 text-sm"></i>
+                                    <input id="inputSimpleSubject" type="text" autocomplete="off" oninput="handleSimpleSubjectInput(this.value)" onfocus="handleSubjectInputFocus()" onblur="handleSubjectInputBlur()" class="cl-simple-input cl-simple-input-subject" placeholder="Math">
+                                </div>
                             </div>
-                        </div>
-                        <div>
-                            <label class="cl-simple-field-label">Color</label>
-                            <div class="flex items-center gap-3 h-11">
-                                <input id="inputSimpleColor" type="color" oninput="handleSimpleColorInput()" class="h-11 w-12 rounded-xl cursor-pointer border-2 border-slate-300 dark:border-slate-600 p-1 bg-white dark:bg-slate-900" value="#b91c1c">
-                                <span class="text-sm text-slate-600 dark:text-slate-300 flex-1" id="simpleColorSyncLabel">Subject color</span>
+                            <div class="w-[8.5rem] shrink-0">
+                                <label class="cl-simple-field-label">Color</label>
+                                <div class="flex items-center gap-2 h-[2.75rem]">
+                                    <input id="inputSimpleColor" type="color" oninput="handleSimpleColorInput()" class="h-11 w-11 shrink-0 rounded-xl cursor-pointer border-2 border-slate-300 dark:border-slate-600 p-1 bg-white dark:bg-slate-900" value="#b91c1c">
+                                    <span class="text-xs text-slate-600 dark:text-slate-300 truncate min-w-0" id="simpleColorSyncLabel">Subject color</span>
+                                </div>
                             </div>
                         </div>
                         <div>
@@ -7309,11 +7311,12 @@
             setStartButtonBusy(id, false);
             showNotification(`Started "${task.title}" — time won't auto-move`, 'success');
             maybeShowClassifyFirstUseTip('start', {
-                title: 'Starting locks today only',
-                lead: 'Press Start when you begin working — only today\'s time is locked in place.',
+                title: 'Why Start?',
+                lead: 'Start is for when you\'re actually beginning an assignment — it marks this as your real work time, not just a suggestion on your schedule.',
                 bullets: [
-                    'Other days in a repeating series stay adjustable',
-                    'Use <strong>Unstart</strong> to unlock today\'s time without changing dates'
+                    'Helps you commit to what you planned to do right now',
+                    'Keeps your day aligned with what you\'re truly working on',
+                    'Builds a clearer picture of progress as you move through your list'
                 ]
             });
 
