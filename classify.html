@@ -1521,6 +1521,12 @@
         .cl-analytics-fun-card--accent-violet { border-left: 4px solid #8b5cf6; }
         .cl-analytics-fun-card--accent-sky { border-left: 4px solid #0ea5e9; }
         .cl-analytics-fun-card--accent-rose { border-left: 4px solid #f43f5e; }
+        .cl-analytics-fun-grid--modal {
+            max-height: min(62vh, 34rem);
+            overflow-y: auto;
+            margin-bottom: 0;
+            padding-right: 0.15rem;
+        }
         .cl-modal-header {
             display: grid;
             grid-template-columns: auto 1fr auto;
@@ -2676,7 +2682,12 @@
                     </div>
                 </div>
 
-                <h3 class="cl-section-title uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 text-sm mb-3">Interesting finds</h3>
+                <div class="flex items-center justify-between gap-3 mb-3">
+                    <h3 class="cl-section-title uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 text-sm mb-0">Interesting finds</h3>
+                    <button type="button" onclick="openAnalyticsInsightsModal()" class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs font-semibold transition-colors">
+                        View all 15
+                    </button>
+                </div>
                 <div class="cl-analytics-fun-grid" id="analyticsFunFacts"></div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -2907,6 +2918,22 @@
             <div id="needTimeList" class="space-y-2"></div>
             <div class="mt-4 flex justify-end">
                 <button onclick="closeNeedTimeModal()" class="px-4 py-2 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 font-medium transition-colors" type="button">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Analytics Insights -->
+    <div id="analyticsInsightsModal" class="cl-modal-root hidden">
+        <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onclick="closeAnalyticsInsightsModal()"></div>
+        <div class="relative modal-panel rounded-2xl p-6 max-w-3xl w-[94%] max-h-full overflow-y-auto scale-95 opacity-0 transition-all" id="analyticsInsightsPanel">
+            <div class="flex items-center justify-between gap-3 mb-1">
+                <h3 class="text-xl font-display font-bold text-slate-900 dark:text-white">All interesting finds</h3>
+                <button onclick="closeAnalyticsInsightsModal()" class="text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 text-lg transition-colors" type="button"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mb-4">Fifteen stats from your assignment data. The page shows 6 at random each visit.</p>
+            <div class="cl-analytics-fun-grid cl-analytics-fun-grid--modal" id="analyticsInsightsModalGrid"></div>
+            <div class="mt-4 flex justify-end">
+                <button onclick="closeAnalyticsInsightsModal()" class="px-4 py-2 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 font-medium transition-colors" type="button">Done</button>
             </div>
         </div>
     </div>
@@ -6025,9 +6052,8 @@
                 lead: 'See highlights and patterns pulled from your real assignment data.',
                 bullets: [
                     'Spotlight cards summarize due today, this week, and on-time rate',
-                    'Interesting finds rotate fun stats like busiest subject and longest title',
-                    'Use upcoming deadlines and time accuracy to plan the week',
-                    'Open Assignments from here when you want to act on a stat'
+                    'Interesting finds pick 6 highlights from a pool of 15 stats',
+                    'Tap <strong>View all 15</strong> to browse every stat in a pop-up',
                 ]
             }
         ];
@@ -17767,6 +17793,21 @@
             return list;
         }
 
+        const ANALYTICS_INSIGHT_POOL_SIZE = 15;
+        const ANALYTICS_INSIGHT_DISPLAY_COUNT = 6;
+        let analyticsInsightSnapshot = { pool: [], shown: [] };
+
+        function renderAnalyticsInsightCardHtml(item) {
+            return `
+                <article class="cl-analytics-fun-card cl-analytics-fun-card--${item.accent}">
+                    <div class="cl-analytics-fun-card__emoji" aria-hidden="true">${item.emoji}</div>
+                    <h4 class="cl-analytics-fun-card__title">${escapeHtml(item.title)}</h4>
+                    <p class="cl-analytics-fun-card__value">${escapeHtml(String(item.value))}</p>
+                    <p class="cl-analytics-fun-card__detail">${escapeHtml(item.detail)}</p>
+                </article>
+            `;
+        }
+
         function buildAnalyticsInsightPool() {
             const today = getDateStrLocal();
             const { startStr: weekStart, endStr: weekEnd } = getWeekBounds();
@@ -17787,45 +17828,65 @@
                 });
             };
 
-            if(active.length === 0 && completed.length === 0) {
-                addInsight('🌱', 'Fresh start', 'No data yet', 'Add assignments and come back for fun stats.');
-                return insights;
-            }
-
             const subjectCounts = {};
             visible.forEach(t => {
                 const subject = t.subject || 'General';
                 subjectCounts[subject] = (subjectCounts[subject] || 0) + 1;
             });
             const topSubject = Object.entries(subjectCounts).sort((a, b) => b[1] - a[1])[0];
-            if(topSubject) {
-                addInsight('📚', 'Top subject', topSubject[0], `${topSubject[1]} assignment${topSubject[1] === 1 ? '' : 's'} in your list`);
-            }
+            addInsight(
+                '📚',
+                'Top subject',
+                topSubject ? topSubject[0] : '—',
+                topSubject
+                    ? `${topSubject[1]} assignment${topSubject[1] === 1 ? '' : 's'} in your list`
+                    : 'No assignments yet'
+            );
 
             const longestTitle = visible.reduce((best, t) => {
                 const len = (t.title || '').length;
                 return len > (best?.len || 0) ? { title: t.title, len } : best;
             }, null);
-            if(longestTitle?.title) {
-                addInsight('📏', 'Longest title', `${longestTitle.len} chars`, longestTitle.title);
-            }
+            addInsight(
+                '📏',
+                'Longest title',
+                longestTitle?.title ? `${longestTitle.len} chars` : '—',
+                longestTitle?.title || 'No titles yet'
+            );
 
             const totalMinutes = active.reduce((sum, t) => sum + (parseInt(t.duration, 10) || 30), 0);
-            if(totalMinutes > 0) {
-                const hours = Math.round((totalMinutes / 60) * 10) / 10;
-                addInsight('⏳', 'Work still queued', `${hours} hr`, `${active.length} active assignment${active.length === 1 ? '' : 's'} on the board`);
-            }
+            const hours = totalMinutes > 0 ? Math.round((totalMinutes / 60) * 10) / 10 : 0;
+            addInsight(
+                '⏳',
+                'Work still queued',
+                `${hours} hr`,
+                active.length > 0
+                    ? `${active.length} active assignment${active.length === 1 ? '' : 's'} on the board`
+                    : 'Nothing active right now'
+            );
 
             const withNotes = visible.filter(t => t.notes && String(t.notes).trim());
-            if(withNotes.length > 0) {
-                const avgNoteLen = Math.round(withNotes.reduce((sum, t) => sum + String(t.notes).trim().length, 0) / withNotes.length);
-                addInsight('📝', 'Note taker', `${withNotes.length} noted`, `Average note length: ${avgNoteLen} characters`);
-            }
+            const avgNoteLen = withNotes.length > 0
+                ? Math.round(withNotes.reduce((sum, t) => sum + String(t.notes).trim().length, 0) / withNotes.length)
+                : 0;
+            addInsight(
+                '📝',
+                'Note taker',
+                `${withNotes.length} noted`,
+                withNotes.length > 0
+                    ? `Average note length: ${avgNoteLen} characters`
+                    : 'No assignment notes yet'
+            );
 
             const startedCount = active.filter(isAssignmentStarted).length;
-            if(startedCount > 0) {
-                addInsight('▶️', 'In progress', `${startedCount} started`, 'Assignments with a locked start time today');
-            }
+            addInsight(
+                '▶️',
+                'In progress',
+                `${startedCount} started`,
+                startedCount > 0
+                    ? 'Assignments with a locked start time today'
+                    : 'Nothing started today'
+            );
 
             const weekendDue = active.filter(t => {
                 const due = getTaskDueDate(t);
@@ -17833,14 +17894,24 @@
                 const day = new Date(`${due}T12:00:00`).getDay();
                 return day === 0 || day === 6;
             }).length;
-            if(weekendDue > 0) {
-                addInsight('🏖️', 'Weekend deadlines', `${weekendDue}`, 'Active assignments due Saturday or Sunday');
-            }
+            addInsight(
+                '🏖️',
+                'Weekend deadlines',
+                `${weekendDue}`,
+                weekendDue > 0
+                    ? 'Active assignments due Saturday or Sunday'
+                    : 'No weekend due dates on active work'
+            );
 
             const repeatCount = visible.filter(t => t.repeatRule && t.repeatRule.type && t.repeatRule.type !== 'none').length;
-            if(repeatCount > 0) {
-                addInsight('🔁', 'Repeat crew', `${repeatCount}`, 'Assignments with a repeat pattern');
-            }
+            addInsight(
+                '🔁',
+                'Repeat crew',
+                `${repeatCount}`,
+                repeatCount > 0
+                    ? 'Assignments with a repeat pattern'
+                    : 'No repeating assignments yet'
+            );
 
             const dayNameCounts = [0, 0, 0, 0, 0, 0, 0];
             const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -17850,59 +17921,132 @@
                 dayNameCounts[new Date(`${due}T12:00:00`).getDay()]++;
             });
             const busiestDueDay = dayNameCounts.indexOf(Math.max(...dayNameCounts));
-            if(dayNameCounts[busiestDueDay] > 0) {
-                addInsight('📅', 'Busiest due day', dayNames[busiestDueDay], `${dayNameCounts[busiestDueDay]} active due dates land here`);
-            }
+            addInsight(
+                '📅',
+                'Busiest due day',
+                dayNameCounts[busiestDueDay] > 0 ? dayNames[busiestDueDay] : '—',
+                dayNameCounts[busiestDueDay] > 0
+                    ? `${dayNameCounts[busiestDueDay]} active due dates land here`
+                    : 'No active due dates yet'
+            );
 
             const dueThisWeek = active.filter(t => {
                 const due = getTaskDueDate(t);
                 return (due && due >= weekStart && due <= weekEnd) || (!due && t.week === currentWeekKey);
             }).length;
-            if(dueThisWeek > 0) {
-                addInsight('🎯', 'This week\'s pile', `${dueThisWeek}`, 'Still on the hook before the week ends');
-            }
+            addInsight(
+                '🎯',
+                'This week\'s pile',
+                `${dueThisWeek}`,
+                dueThisWeek > 0
+                    ? 'Still on the hook before the week ends'
+                    : 'Nothing due this week'
+            );
 
             const overdue = active.filter(t => {
                 const due = getTaskDueDate(t);
                 return due && due < today;
             }).length;
-            if(overdue > 0) {
-                addInsight('🚨', 'Overdue stack', `${overdue}`, 'Past-due assignments waiting for attention');
-            }
+            addInsight(
+                '🚨',
+                'Overdue stack',
+                `${overdue}`,
+                overdue > 0
+                    ? 'Past-due assignments waiting for attention'
+                    : 'You are caught up on due dates'
+            );
 
             const completedWithActual = getActualTimeAnalyticsRows();
-            if(completedWithActual.length > 0) {
-                const beatEstimate = completedWithActual.filter(t => Number(t.actualMinutes) < Number(t.duration)).length;
-                const rate = Math.round((beatEstimate / completedWithActual.length) * 100);
-                addInsight('⚡', 'Speed runs', `${rate}%`, 'Completed assignments finished under the estimate');
-            }
+            const beatEstimate = completedWithActual.filter(t => Number(t.actualMinutes) < Number(t.duration)).length;
+            const rate = completedWithActual.length > 0
+                ? Math.round((beatEstimate / completedWithActual.length) * 100)
+                : null;
+            addInsight(
+                '⚡',
+                'Speed runs',
+                rate === null ? '—' : `${rate}%`,
+                completedWithActual.length > 0
+                    ? 'Completed assignments finished under the estimate'
+                    : 'Finish assignments with logged time'
+            );
 
             const unscheduled = active.filter(t => !t.date).length;
-            if(unscheduled > 0) {
-                addInsight('🧩', 'Needs a slot', `${unscheduled}`, 'Active assignments without a scheduled work day');
-            }
+            addInsight(
+                '🧩',
+                'Needs a slot',
+                `${unscheduled}`,
+                unscheduled > 0
+                    ? 'Active assignments without a scheduled work day'
+                    : 'Every active assignment has a work day'
+            );
 
             const exactDateCount = active.filter(t => getTaskScheduleMode(t) === 'date').length;
-            if(exactDateCount > 0) {
-                addInsight('📌', 'Exact-date mode', `${exactDateCount}`, 'Pinned to a specific calendar day');
-            }
+            addInsight(
+                '📌',
+                'Exact-date mode',
+                `${exactDateCount}`,
+                exactDateCount > 0
+                    ? 'Pinned to a specific calendar day'
+                    : 'No exact-date assignments active'
+            );
 
-            return insights;
+            const dueToday = active.filter(t => getTaskDueDate(t) === today).length;
+            addInsight(
+                '☀️',
+                'Due today',
+                `${dueToday}`,
+                dueToday > 0
+                    ? 'Active assignments with a due date of today'
+                    : 'Nothing due today'
+            );
+
+            addInsight(
+                '🏆',
+                'Victory lap',
+                `${completed.length}`,
+                completed.length > 0
+                    ? `Completed assignment${completed.length === 1 ? '' : 's'} in your history`
+                    : 'Finish one to start the tally'
+            );
+
+            return insights.slice(0, ANALYTICS_INSIGHT_POOL_SIZE);
         }
 
         function renderAnalyticsFunFacts() {
             const container = document.getElementById('analyticsFunFacts');
             if(!container) return;
             const pool = buildAnalyticsInsightPool();
-            const picked = shuffleAnalyticsInsights(pool).slice(0, 6);
-            container.innerHTML = picked.map(item => `
-                <article class="cl-analytics-fun-card cl-analytics-fun-card--${item.accent}">
-                    <div class="cl-analytics-fun-card__emoji" aria-hidden="true">${item.emoji}</div>
-                    <h4 class="cl-analytics-fun-card__title">${escapeHtml(item.title)}</h4>
-                    <p class="cl-analytics-fun-card__value">${escapeHtml(String(item.value))}</p>
-                    <p class="cl-analytics-fun-card__detail">${escapeHtml(item.detail)}</p>
-                </article>
-            `).join('');
+            const shown = shuffleAnalyticsInsights(pool).slice(0, ANALYTICS_INSIGHT_DISPLAY_COUNT);
+            analyticsInsightSnapshot = { pool, shown };
+            container.innerHTML = shown.map(item => renderAnalyticsInsightCardHtml(item)).join('');
+        }
+
+        function openAnalyticsInsightsModal() {
+            const pool = analyticsInsightSnapshot.pool.length
+                ? analyticsInsightSnapshot.pool
+                : buildAnalyticsInsightPool();
+            const grid = document.getElementById('analyticsInsightsModalGrid');
+            if(grid) {
+                grid.innerHTML = pool.map(item => renderAnalyticsInsightCardHtml(item)).join('');
+            }
+
+            const modal = document.getElementById('analyticsInsightsModal');
+            const panel = document.getElementById('analyticsInsightsPanel');
+            if(!modal || !panel) return;
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                panel.classList.remove('scale-95', 'opacity-0');
+                panel.classList.add('scale-100', 'opacity-100');
+            }, 10);
+        }
+
+        function closeAnalyticsInsightsModal() {
+            const modal = document.getElementById('analyticsInsightsModal');
+            const panel = document.getElementById('analyticsInsightsPanel');
+            if(!modal || !panel) return;
+            panel.classList.add('scale-95', 'opacity-0');
+            panel.classList.remove('scale-100', 'opacity-100');
+            setTimeout(() => modal.classList.add('hidden'), 200);
         }
 
         function renderAnalytics() {
