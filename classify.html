@@ -2774,8 +2774,8 @@
                 <div class="cl-calendar-view overflow-hidden">
                     <div class="cl-calendar-view-head" id="cl-orient-calendar-controls">
                         <div class="cl-calendar-view-switch" role="tablist" aria-label="Calendar view">
-                            <button id="monthViewBtn" onclick="setCalendarViewMode('month')" class="bg-red-600 text-white">Month</button>
-                            <button id="weekViewBtn" onclick="setCalendarViewMode('week')" class="text-slate-700 dark:text-slate-300">Week</button>
+                            <button id="monthViewBtn" onclick="setCalendarViewMode('month')" class="text-slate-700 dark:text-slate-300">Month</button>
+                            <button id="weekViewBtn" onclick="setCalendarViewMode('week')" class="bg-red-600 text-white">Week</button>
                             <button id="dayViewBtn" onclick="setCalendarViewMode('day')" class="text-slate-700 dark:text-slate-300">Day</button>
                         </div>
                         <div class="cl-calendar-toolbar-actions">
@@ -2797,7 +2797,7 @@
                         <div class="cl-calendar-summary" id="calendarSummary" aria-live="polite"></div>
                     </div>
 
-                    <div id="monthCalendarView">
+                    <div id="monthCalendarView" class="hidden">
                         <div class="grid grid-cols-7 border-b border-slate-200 dark:border-dark-border bg-slate-100/60 dark:bg-slate-800">
                             <div class="py-2.5 text-center text-[0.6875rem] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide">Sun</div>
                             <div class="py-2.5 text-center text-[0.6875rem] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide">Mon</div>
@@ -2810,7 +2810,7 @@
                         <div id="calendarGrid" class="grid grid-cols-7 bg-slate-100/80 dark:bg-slate-700 gap-px"></div>
                     </div>
 
-                    <div id="weekCalendarView" class="hidden cl-calendar-view-panel cl-orient-week-calendar">
+                    <div id="weekCalendarView" class="cl-calendar-view-panel cl-orient-week-calendar">
                         <div id="weekCalendarGrid" class="cl-week-grid"></div>
                     </div>
 
@@ -4689,7 +4689,7 @@
                 vacations: Array.isArray(vacationRanges) ? vacationRanges : [],
                 repeatSkips: normalizeRepeatSkips(repeatSkips),
                 subjectColors: subjectColors || {},
-                calendarViewMode: calendarViewMode || 'month',
+                calendarViewMode: calendarViewMode || 'week',
                 darkMode: plannerGet('darkMode'),
                 walkthroughCompleted: plannerGet('walkthroughCompleted') === 'true'
                     || plannerGet('orientationCompleted') === 'true',
@@ -4717,7 +4717,7 @@
             vacationRanges = normalizeVacationRanges(payload.vacations);
             repeatSkips = mergeRepeatSkips(repeatSkips, normalizeRepeatSkips(payload.repeatSkips));
             subjectColors = payload.subjectColors || {};
-            calendarViewMode = payload.calendarViewMode || 'month';
+            calendarViewMode = payload.calendarViewMode || 'week';
             if (payload.darkMode === 'true' || payload.darkMode === 'false') {
                 plannerSet('darkMode', payload.darkMode);
             }
@@ -4806,7 +4806,7 @@
         let repeatSkips = normalizeRepeatSkips(storedRepeatSkips);
         let editingId = null;
         let currentCalendarDate = new Date();
-        let calendarViewMode = plannerGet('calendarViewMode') || 'month';
+        let calendarViewMode = plannerGet('calendarViewMode') || 'week';
         let confettiCtx;
         let dayNowLineTimer = null;
 
@@ -5770,9 +5770,9 @@
                         <button type="button" class="cl-week-task__title truncate" tabindex="-1" aria-hidden="true">Chapter 5 Problem Set</button>
                         <div class="cl-week-task__actions">
                             <button type="button" id="cl-wt-start-demo-btn" class="cl-start-btn cl-start-btn--compact" tabindex="-1" aria-hidden="true">Start</button>
-                            <button type="button" tabindex="-1" aria-hidden="true" title="Mark complete"><i class="fa-regular fa-circle text-xs"></i></button>
                             <button type="button" tabindex="-1" aria-hidden="true" title="Edit"><i class="fa-solid fa-pen text-[10px]"></i></button>
                             <button type="button" tabindex="-1" aria-hidden="true" title="Delete"><i class="fa-solid fa-trash text-[10px]"></i></button>
+                            <button type="button" tabindex="-1" aria-hidden="true" title="Mark complete"><i class="fa-regular fa-circle text-xs"></i></button>
                         </div>
                     </div>
                     <div class="cl-week-task__meta">2:30 PM · Math · 45m</div>
@@ -9559,7 +9559,11 @@
         }
 
         function normalizeClassifyCalendarMode(mode) {
-            return CLASSIFY_CALENDAR_MODES.includes(mode) ? mode : 'month';
+            return CLASSIFY_CALENDAR_MODES.includes(mode) ? mode : 'week';
+        }
+
+        function getDefaultClassifyCalendarMode() {
+            return 'week';
         }
 
         function getStoredClassifyRoute() {
@@ -9570,16 +9574,18 @@
             if(!CLASSIFY_TABS.includes(tab)) return null;
             return {
                 tab,
-                calendarMode: tab === 'calendar' && modePart
-                    ? normalizeClassifyCalendarMode(modePart)
-                    : 'month'
+                calendarMode: tab === 'calendar'
+                    ? (modePart ? normalizeClassifyCalendarMode(modePart) : getDefaultClassifyCalendarMode())
+                    : getDefaultClassifyCalendarMode()
             };
         }
 
-        function persistClassifyRoute(tabId, calendarMode = 'month') {
+        function persistClassifyRoute(tabId, calendarMode = getDefaultClassifyCalendarMode()) {
             const tab = normalizeClassifyTab(tabId);
             const routeKey = tab === 'calendar'
-                ? `calendar/${normalizeClassifyCalendarMode(calendarMode)}`
+                ? (normalizeClassifyCalendarMode(calendarMode) === getDefaultClassifyCalendarMode()
+                    ? 'calendar'
+                    : `calendar/${normalizeClassifyCalendarMode(calendarMode)}`)
                 : tab;
             plannerSet('classifyLastTab', routeKey);
         }
@@ -9614,9 +9620,11 @@
             if(hashRaw) {
                 const [tabPart, modePart] = hashRaw.split('/').filter(Boolean);
                 const tab = normalizeClassifyTab(tabPart);
-                let calendarMode = 'month';
+                let calendarMode = getDefaultClassifyCalendarMode();
                 if(tab === 'calendar' && modePart) {
                     calendarMode = normalizeClassifyCalendarMode(modePart);
+                } else if(tab !== 'calendar') {
+                    calendarMode = getDefaultClassifyCalendarMode();
                 }
                 return { tab, calendarMode, fromLegacyHash: true };
             }
@@ -9625,35 +9633,37 @@
             if(segments === null) {
                 const stored = getStoredClassifyRoute();
                 if(stored) return stored;
-                return { tab: 'dashboard', calendarMode: 'month' };
+                return { tab: 'dashboard', calendarMode: getDefaultClassifyCalendarMode() };
             }
 
             if(segments.length === 0) {
                 const stored = getStoredClassifyRoute();
                 if(stored) return stored;
-                return { tab: 'dashboard', calendarMode: 'month' };
+                return { tab: 'dashboard', calendarMode: getDefaultClassifyCalendarMode() };
             }
 
             const tab = normalizeClassifyTab(segments[0]);
-            let calendarMode = 'month';
+            let calendarMode = getDefaultClassifyCalendarMode();
             if(tab === 'calendar' && segments[1]) {
                 calendarMode = normalizeClassifyCalendarMode(segments[1]);
             }
             return { tab, calendarMode };
         }
 
-        function buildClassifyPath(tabId, calendarMode = 'month') {
+        function buildClassifyPath(tabId, calendarMode = getDefaultClassifyCalendarMode()) {
             const tab = normalizeClassifyTab(tabId);
             const prefix = getClassifyPathPrefix();
             if(tab === 'dashboard') return prefix;
             if(tab === 'calendar') {
                 const mode = normalizeClassifyCalendarMode(calendarMode);
-                return mode === 'month' ? `${prefix}/calendar` : `${prefix}/calendar/${mode}`;
+                return mode === getDefaultClassifyCalendarMode()
+                    ? `${prefix}/calendar`
+                    : `${prefix}/calendar/${mode}`;
             }
             return `${prefix}/${tab}`;
         }
 
-        function getClassifyUrl(tabId, calendarMode = 'month') {
+        function getClassifyUrl(tabId, calendarMode = getDefaultClassifyCalendarMode()) {
             return buildClassifyPath(tabId, calendarMode) + (location.search || '');
         }
 
@@ -9806,7 +9816,7 @@
                 scheduleRules: JSON.parse(JSON.stringify(normalizeScheduleRules(scheduleRules))),
                 vacationRanges: JSON.parse(JSON.stringify(vacationRanges || [])),
                 repeatSkips: JSON.parse(JSON.stringify(normalizeRepeatSkips(repeatSkips))),
-                calendarViewMode: calendarViewMode || 'month'
+                calendarViewMode: calendarViewMode || 'week'
             };
         }
 
@@ -9855,7 +9865,7 @@
             scheduleRules = normalizeScheduleRules(snapshot.scheduleRules);
             vacationRanges = normalizeVacationRanges(snapshot.vacationRanges);
             repeatSkips = normalizeRepeatSkips(snapshot.repeatSkips);
-            calendarViewMode = snapshot.calendarViewMode || 'month';
+            calendarViewMode = snapshot.calendarViewMode || 'week';
         }
 
         function initClassifyUndoBaseline() {
@@ -16557,7 +16567,7 @@
         // --- Calendar Logic ---
         function setCalendarViewMode(mode) {
             const validModes = new Set(['month', 'week', 'day']);
-            calendarViewMode = validModes.has(mode) ? mode : 'month';
+            calendarViewMode = validModes.has(mode) ? mode : 'week';
             plannerSet('calendarViewMode', calendarViewMode);
             renderCalendar();
             if(isClassifyTabActive('calendar')) {
@@ -16898,9 +16908,9 @@
                                 <button onclick="editTask('${t.id}')" class="cl-week-task__title truncate">${t.title}</button>
                                 <div class="cl-week-task__actions">
                                     ${startAssignmentButtonHtml(t, { compact: true })}
-                                    <button onclick="event.stopPropagation(); toggleComplete('${t.id}')" title="Mark complete"><i class="fa-regular fa-circle text-xs"></i></button>
                                     <button onclick="event.stopPropagation(); editTask('${t.id}')" title="Edit"><i class="fa-solid fa-pen text-[10px]"></i></button>
                                     <button onclick="event.stopPropagation(); deleteTask('${t.id}')" title="Delete"><i class="fa-solid fa-trash text-[10px]"></i></button>
+                                    <button onclick="event.stopPropagation(); toggleComplete('${t.id}')" title="Mark complete"><i class="fa-regular fa-circle text-xs"></i></button>
                                 </div>
                             </div>
                             <div class="cl-week-task__meta-row">
