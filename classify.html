@@ -2460,6 +2460,79 @@
         .cl-dep-list {
             max-height: min(40vh, 18rem);
         }
+        #taskForm.cl-editor-simple-active .task-form-body {
+            padding: 1rem 1.25rem;
+        }
+        #taskForm.cl-editor-simple-active .task-form-body > * + * {
+            margin-top: 0.75rem;
+        }
+        #taskForm.cl-editor-simple-active #assignmentTitlePanel {
+            padding: 0.75rem;
+        }
+        #taskForm.cl-editor-simple-active #assignmentTitlePanel label {
+            margin-bottom: 0.25rem;
+            font-size: 0.75rem;
+        }
+        #taskForm.cl-editor-simple-active #inputTitle {
+            height: 2.25rem;
+            padding-left: 0.75rem;
+            padding-right: 0.75rem;
+            font-size: 0.875rem;
+        }
+        #simpleEntryPanel .cl-simple-field-label {
+            display: block;
+            margin-bottom: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #334155;
+        }
+        .dark #simpleEntryPanel .cl-simple-field-label {
+            color: #f1f5f9;
+        }
+        #simpleEntryPanel .cl-simple-input {
+            height: 2.25rem;
+            width: 100%;
+            padding-left: 0.75rem;
+            padding-right: 0.75rem;
+            border-radius: 0.5rem;
+            border: 1px solid #cbd5e1;
+            background: #fff;
+            color: #0f172a;
+            font-size: 0.875rem;
+            outline: none;
+            transition: all 0.15s ease;
+        }
+        .dark #simpleEntryPanel .cl-simple-input {
+            border-color: #475569;
+            background: #0f172a;
+            color: #fff;
+        }
+        #simpleEntryPanel .cl-simple-input:focus {
+            border-color: #ef4444;
+            box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.35);
+        }
+        #simpleEntryPanel .cl-simple-input-subject {
+            padding-left: 2rem;
+        }
+        #simpleEntryPanel .cl-simple-duration-btn {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.6875rem;
+            line-height: 1rem;
+            border-radius: 0.375rem;
+            background: #e2e8f0;
+            color: #334155;
+            transition: background-color 0.15s ease;
+        }
+        .dark #simpleEntryPanel .cl-simple-duration-btn {
+            background: #334155;
+            color: #e2e8f0;
+        }
+        #simpleEntryPanel .cl-simple-duration-btn:hover {
+            background: #cbd5e1;
+        }
+        .dark #simpleEntryPanel .cl-simple-duration-btn:hover {
+            background: #475569;
+        }
         .cl-mini-tip-overlay {
             position: fixed;
             inset: 0;
@@ -3542,46 +3615,45 @@
 
             <!-- Scrollable Content Area -->
             <form id="taskForm" class="flex-1 overflow-y-auto" autocomplete="off" onsubmit="event.preventDefault(); saveTask();">
-            <div class="p-6 md:p-8 space-y-5">
+            <div class="task-form-body p-6 md:p-8 space-y-5">
                 <input type="hidden" id="inputEntryMode" value="manual">
                 <input type="hidden" id="inputEditorComplexity" value="simple">
 
-                <div class="rounded-xl border border-slate-200/70 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-800/40 p-4 space-y-2">
+                <div id="assignmentTitlePanel" class="rounded-xl border border-slate-200/70 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-800/40 p-4 space-y-2">
                     <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Assignment Name <span class="text-rose-500">*</span></label>
                     <input id="inputTitle" type="text" autocomplete="off" maxlength="100" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all" placeholder="e.g. Chapter 5 problem set" required>
                 </div>
 
-                <div id="simpleEntryPanel" class="rounded-xl border border-slate-200/70 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-800/40 p-4 space-y-4">
-                    <div>
-                        <div class="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Quick details</div>
-                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Tell Classify what it is and when it’s due — it will schedule a work time for you.</p>
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Subject</label>
+                <div id="simpleEntryPanel" class="rounded-xl border border-slate-200/70 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-800/40 p-3 space-y-3">
+                    <div class="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Quick details</div>
+                    <div class="grid grid-cols-2 md:grid-cols-12 gap-3">
+                        <div class="col-span-2 md:col-span-4">
+                            <label class="cl-simple-field-label">Subject</label>
                             <div class="relative">
-                                <i class="fa-solid fa-book absolute left-3 top-1/2 -translate-y-1/2 text-red-400/60 text-sm"></i>
-                                <input id="inputSimpleSubject" type="text" autocomplete="off" oninput="handleSimpleSubjectInput(this.value)" onfocus="handleSubjectInputFocus()" onblur="handleSubjectInputBlur()" class="w-full h-11 pl-9 pr-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all" placeholder="Math">
+                                <i class="fa-solid fa-book absolute left-2.5 top-1/2 -translate-y-1/2 text-red-400/60 text-xs"></i>
+                                <input id="inputSimpleSubject" type="text" autocomplete="off" oninput="handleSimpleSubjectInput(this.value)" onfocus="handleSubjectInputFocus()" onblur="handleSubjectInputBlur()" class="cl-simple-input cl-simple-input-subject" placeholder="Math">
                             </div>
                         </div>
-                        <div>
-                            <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Color</label>
-                            <div class="flex items-center gap-3 h-11">
-                                <input id="inputSimpleColor" type="color" oninput="handleSimpleColorInput()" class="h-11 w-12 rounded-xl cursor-pointer border-2 border-slate-300 dark:border-slate-600 p-1 bg-white dark:bg-slate-900" value="#b91c1c">
-                                <span class="text-xs text-slate-600 dark:text-slate-300 flex-1" id="simpleColorSyncLabel">Subject color</span>
+                        <div class="col-span-1 md:col-span-2">
+                            <label class="cl-simple-field-label">Color</label>
+                            <div class="flex items-center gap-1.5 h-9">
+                                <input id="inputSimpleColor" type="color" oninput="handleSimpleColorInput()" class="h-9 w-9 shrink-0 rounded-lg cursor-pointer border border-slate-300 dark:border-slate-600 p-0.5 bg-white dark:bg-slate-900" value="#b91c1c">
+                                <span class="text-[10px] leading-tight text-slate-600 dark:text-slate-300 truncate" id="simpleColorSyncLabel">Subject color</span>
                             </div>
                         </div>
-                        <div>
-                            <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Due Date</label>
-                            <input id="inputSimpleDueDate" type="date" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
+                        <div class="col-span-1 md:col-span-3">
+                            <label class="cl-simple-field-label">Due Date</label>
+                            <input id="inputSimpleDueDate" type="date" class="cl-simple-input [color-scheme:light] dark:[color-scheme:dark]">
                         </div>
-                        <div class="md:col-span-2">
-                            <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Duration (min)</label>
-                            <input id="inputSimpleDuration" type="number" min="1" step="1" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all" placeholder="30" value="30">
-                            <div class="flex gap-1 mt-2">
-                                <button type="button" onclick="setSimpleDuration(15)" class="text-xs bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 px-2 py-1.5 rounded text-slate-700 dark:text-slate-200 transition-colors">15m</button>
-                                <button type="button" onclick="setSimpleDuration(30)" class="text-xs bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 px-2 py-1.5 rounded text-slate-700 dark:text-slate-200 transition-colors">30m</button>
-                                <button type="button" onclick="setSimpleDuration(60)" class="text-xs bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 px-2 py-1.5 rounded text-slate-700 dark:text-slate-200 transition-colors">1h</button>
+                        <div class="col-span-2 md:col-span-3">
+                            <label class="cl-simple-field-label">Duration (min)</label>
+                            <div class="flex items-center gap-1.5">
+                                <input id="inputSimpleDuration" type="number" min="1" step="1" class="cl-simple-input w-16 shrink-0 px-2 text-center" placeholder="30" value="30">
+                                <div class="flex gap-1 min-w-0 flex-1">
+                                    <button type="button" onclick="setSimpleDuration(15)" class="cl-simple-duration-btn">15m</button>
+                                    <button type="button" onclick="setSimpleDuration(30)" class="cl-simple-duration-btn">30m</button>
+                                    <button type="button" onclick="setSimpleDuration(60)" class="cl-simple-duration-btn">1h</button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -5613,6 +5685,7 @@
             if(hint) hint.classList.toggle('hidden', !isManual || !isSimple);
             if(simplePanel) simplePanel.classList.toggle('hidden', !isManual || !isSimple);
             if(manualPanels) manualPanels.classList.toggle('hidden', !isManual || isSimple);
+            document.getElementById('taskForm')?.classList.toggle('cl-editor-simple-active', isManual && isSimple);
         }
 
         function applySimpleEditorValuesBeforeSave() {
