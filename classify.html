@@ -2738,7 +2738,7 @@
             </div>
 
             <!-- VIEW: ASSIGNMENTS -->
-            <div id="tasksTab" class="cl-tab hidden fade-in">
+            <div id="assignmentsTab" class="cl-tab hidden fade-in">
                 <section class="cl-panel cl-panel--flush">
                     <div class="cl-toolbar p-4 md:p-5 border-b border-slate-200 dark:border-dark-border" id="cl-orient-task-toolbar">
                         <div class="relative flex-1 min-w-[200px] sm:max-w-xs">
@@ -2908,7 +2908,7 @@
             <i class="fa-solid fa-chart-pie" aria-hidden="true"></i>
             <span>Dashboard</span>
         </button>
-        <button type="button" class="cl-bottom-nav-item" data-tab="tasks" onclick="switchTab('tasks')">
+        <button type="button" class="cl-bottom-nav-item" data-tab="assignments" onclick="switchTab('assignments')">
             <i class="fa-solid fa-list-check" aria-hidden="true"></i>
             <span>Assignments</span>
         </button>
@@ -6438,7 +6438,7 @@
             {
                 id: 'task-filters',
                 target: '#cl-orient-task-toolbar',
-                tab: 'tasks',
+                tab: 'assignments',
                 position: 'top-right',
                 icon: 'fa-filter',
                 title: 'Find assignments fast',
@@ -6668,7 +6668,7 @@
         }
 
         function getActiveClassifyTabId() {
-            return ['dashboard', 'tasks', 'calendar', 'analytics'].find(id => {
+            return ['dashboard', 'assignments', 'calendar', 'analytics'].find(id => {
                 const tab = document.getElementById(id + 'Tab');
                 return tab && !tab.classList.contains('hidden');
             }) || 'dashboard';
@@ -9543,21 +9543,54 @@
         }
 
         // --- Navigation / URL routing ---
-        const CLASSIFY_TABS = ['dashboard', 'tasks', 'calendar', 'analytics'];
+        const CLASSIFY_TABS = ['dashboard', 'assignments', 'calendar', 'analytics'];
         const CLASSIFY_CALENDAR_MODES = ['month', 'week', 'day'];
         let suppressClassifyRouteSync = false;
 
+        function mapClassifyTabAlias(tabId) {
+            const normalized = String(tabId || '').trim().toLowerCase();
+            if(normalized === 'tasks' || normalized === 'task') return 'assignments';
+            return normalized;
+        }
+
         function normalizeClassifyTab(tabId) {
-            return CLASSIFY_TABS.includes(tabId) ? tabId : 'dashboard';
+            const mapped = mapClassifyTabAlias(tabId);
+            return CLASSIFY_TABS.includes(mapped) ? mapped : 'dashboard';
         }
 
         function normalizeClassifyCalendarMode(mode) {
             return CLASSIFY_CALENDAR_MODES.includes(mode) ? mode : 'month';
         }
 
+        function getStoredClassifyRoute() {
+            const stored = plannerGet('classifyLastTab') || '';
+            if(!stored) return null;
+            const [tabPart, modePart] = stored.split('/').filter(Boolean);
+            const tab = normalizeClassifyTab(tabPart);
+            if(!CLASSIFY_TABS.includes(tab)) return null;
+            return {
+                tab,
+                calendarMode: tab === 'calendar' && modePart
+                    ? normalizeClassifyCalendarMode(modePart)
+                    : 'month'
+            };
+        }
+
+        function persistClassifyRoute(tabId, calendarMode = 'month') {
+            const tab = normalizeClassifyTab(tabId);
+            const routeKey = tab === 'calendar'
+                ? `calendar/${normalizeClassifyCalendarMode(calendarMode)}`
+                : tab;
+            plannerSet('classifyLastTab', routeKey);
+        }
+
         function parseClassifyRoute() {
             const raw = (location.hash || '').replace(/^#/, '').trim().toLowerCase();
-            if(!raw) return { tab: 'dashboard', calendarMode: 'month' };
+            if(!raw) {
+                const stored = getStoredClassifyRoute();
+                if(stored) return stored;
+                return { tab: 'dashboard', calendarMode: 'month' };
+            }
             const [tabPart, modePart] = raw.split('/').filter(Boolean);
             const tab = normalizeClassifyTab(tabPart);
             let calendarMode = 'month';
@@ -9577,36 +9610,43 @@
         }
 
         function isClassifyTabActive(tabId) {
-            const el = document.getElementById(`${tabId}Tab`);
+            const el = document.getElementById(`${normalizeClassifyTab(tabId)}Tab`);
             return Boolean(el && !el.classList.contains('hidden'));
         }
 
         function syncClassifyUrl(tabId, calendarMode = calendarViewMode, replace = false) {
             if(suppressClassifyRouteSync) return;
-            const nextHash = buildClassifyHash(tabId, calendarMode);
+            const tab = normalizeClassifyTab(tabId);
+            const mode = tab === 'calendar' ? normalizeClassifyCalendarMode(calendarMode) : 'month';
+            persistClassifyRoute(tab, mode);
+            const nextHash = buildClassifyHash(tab, mode);
             if((location.hash || '') === nextHash) return;
             suppressClassifyRouteSync = true;
             if(replace) {
-                history.replaceState({ classifyTab: tabId, calendarMode }, '', nextHash);
+                history.replaceState({ classifyTab: tab, calendarMode: mode }, '', nextHash);
             } else {
-                history.pushState({ classifyTab: tabId, calendarMode }, '', nextHash);
+                history.pushState({ classifyTab: tab, calendarMode: mode }, '', nextHash);
             }
             suppressClassifyRouteSync = false;
         }
 
         function applyClassifyRouteFromUrl() {
+            const hadHash = Boolean((location.hash || '').replace(/^#/, '').trim());
             const route = parseClassifyRoute();
             if(route.tab === 'calendar') {
                 calendarViewMode = route.calendarMode;
             }
             switchTab(route.tab, { updateUrl: false });
+            if(!hadHash) {
+                syncClassifyUrl(route.tab, route.calendarMode, true);
+            }
         }
 
         function switchTab(tabId, options = {}) {
             const { updateUrl = true, replaceUrl = false } = options || {};
             tabId = normalizeClassifyTab(tabId);
 
-            ['dashboard', 'tasks', 'calendar', 'analytics'].forEach(id => {
+            CLASSIFY_TABS.forEach(id => {
                 const el = document.getElementById(id + 'Tab');
                 if(el) el.classList.add('hidden');
             });
@@ -9627,11 +9667,13 @@
 
             if(tabId === 'calendar') renderCalendar();
             if(tabId === 'dashboard') renderDashboard();
-            if(tabId === 'tasks') renderTaskList();
+            if(tabId === 'assignments') renderTaskList();
             if(tabId === 'analytics') renderAnalytics();
 
             if(updateUrl) {
                 syncClassifyUrl(tabId, tabId === 'calendar' ? calendarViewMode : 'month', replaceUrl);
+            } else {
+                persistClassifyRoute(tabId, tabId === 'calendar' ? calendarViewMode : 'month');
             }
             scheduleClassifyHotspotRefresh();
         }
@@ -11807,7 +11849,7 @@
 
         const CLASSIFY_TAB_ALIASES = {
             dashboard: ['dashboard', 'home', 'main'],
-            tasks: ['tasks', 'task', 'assignments', 'assignment', 'list', 'todo', 'todos'],
+            assignments: ['assignments', 'assignment', 'tasks', 'task', 'list', 'todo', 'todos'],
             calendar: ['calendar', 'cal', 'schedule'],
             analytics: ['analytics', 'stats', 'statistics', 'insights']
         };
@@ -11890,7 +11932,7 @@
             const tasksFilterMatch = targetText.match(/^(?:tasks|assignments|list)\s+(.+)$/i);
             if(tasksFilterMatch) {
                 const filter = normalizeNavigationTaskFilter(tasksFilterMatch[1]);
-                if(filter) return { action: 'navigate', tab: 'tasks', taskFilter: filter };
+                if(filter) return { action: 'navigate', tab: 'assignments', taskFilter: filter };
             }
 
             const parts = targetText.split(/\s+/).filter(Boolean);
@@ -11942,7 +11984,7 @@
 
             const tabLabels = {
                 dashboard: 'Dashboard',
-                tasks: 'Tasks',
+                assignments: 'Assignments',
                 calendar: 'Calendar',
                 analytics: 'Analytics'
             };
@@ -12427,7 +12469,7 @@
                 showNotification(`No subject found for "${String(subjectQuery || '').trim()}".`, 'error');
                 return false;
             }
-            switchTab('tasks');
+            switchTab('assignments');
             const taskFilter = document.getElementById('taskFilter');
             const taskSearch = document.getElementById('taskSearch');
             if(taskFilter) taskFilter.value = 'all';
@@ -13863,7 +13905,7 @@
             }
 
             if(parsed.action === 'find') {
-                switchTab('tasks');
+                switchTab('assignments');
                 const searchInput = document.getElementById('taskSearch');
                 if(searchInput) {
                     searchInput.value = parsed.query || '';
@@ -19157,7 +19199,7 @@
         }
 
         function startWeeklyPlanning() {
-            switchTab('tasks');
+            switchTab('assignments');
             const taskFilter = document.getElementById('taskFilter');
             const taskSort = document.getElementById('taskSort');
             const taskSearch = document.getElementById('taskSearch');
