@@ -3829,7 +3829,7 @@
                             </div>
                             <div id="exactDateTimingWrapper" class="hidden md:col-span-2">
                                 <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Event Timing</label>
-                                <select id="inputExactDateTiming" onchange="updateScheduleInputs()" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
+                                <select id="inputExactDateTiming" onchange="handleExactDateTimingChange()" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
                                     <option value="adjustable" selected>Adjustable — pick my work time</option>
                                     <option value="fixed">Fixed — I’ll work at a set time</option>
                                 </select>
@@ -3961,6 +3961,17 @@
             return `<strong class="font-semibold text-slate-900 dark:text-white">${escapeHtml(name)}</strong>`;
         }
 
+        function getDailyRepeatDays() {
+            return getWeekCalendarDayCount() === 5 ? [1, 2, 3, 4, 5] : [0, 1, 2, 3, 4, 5, 6];
+        }
+
+        function repeatDaySetsEqual(a, b) {
+            const left = Array.from(new Set((a || []).map(d => parseInt(d, 10)))).sort((x, y) => x - y);
+            const right = Array.from(new Set((b || []).map(d => parseInt(d, 10)))).sort((x, y) => x - y);
+            if(left.length !== right.length) return false;
+            return left.every((value, index) => value === right[index]);
+        }
+
         function normalizeRepeatRule(input = {}) {
             const type = ['none', 'daily', 'weekly', 'custom'].includes(input?.type) ? input.type : 'none';
             const rawDays = Array.isArray(input?.days) ? input.days : [];
@@ -3968,7 +3979,10 @@
                 rawDays.map(d => parseInt(d, 10)).filter(d => Number.isInteger(d) && d >= 0 && d <= 6)
             )).sort((a, b) => a - b);
             if(type === 'daily') {
-                return { type, days: [0, 1, 2, 3, 4, 5, 6] };
+                return { type, days: getDailyRepeatDays() };
+            }
+            if(type === 'custom' && repeatDaySetsEqual(days, getDailyRepeatDays())) {
+                return { type: 'daily', days: getDailyRepeatDays() };
             }
             return { type, days };
         }
@@ -4285,6 +4299,8 @@
         let cloudSyncEnabled = false;
         let suppressCloudSync = false;
         let cloudSyncTimer = null;
+        let cloudSyncInFlight = false;
+        let cloudSyncPending = false;
         const classifySyncClientId = crypto.randomUUID();
         let classifySyncSocket = null;
         let classifySyncRefreshTimer = null;
@@ -4798,10 +4814,22 @@
             if (!cloudSyncEnabled || suppressCloudSync) return;
             const sessionId = localStorage.getItem('ahrenslabs_sessionId');
             if (!sessionId) return;
-            if (cloudSyncTimer) clearTimeout(cloudSyncTimer);
-            cloudSyncTimer = setTimeout(() => {
-                syncClassifyDataToCloud();
-            }, 700);
+            if (cloudSyncTimer) {
+                clearTimeout(cloudSyncTimer);
+                cloudSyncTimer = null;
+            }
+            if (cloudSyncInFlight) {
+                cloudSyncPending = true;
+                return;
+            }
+            cloudSyncInFlight = true;
+            syncClassifyDataToCloud().finally(() => {
+                cloudSyncInFlight = false;
+                if (cloudSyncPending) {
+                    cloudSyncPending = false;
+                    queueClassifyCloudSync();
+                }
+            });
         }
 
         function flushClassifyCloudSync() {
@@ -8715,7 +8743,10 @@
         function formatRepeatLabel(rule) {
             const normalized = normalizeRepeatRule(rule || {});
             if(normalized.type === 'none') return '';
-            if(normalized.type === 'daily') return 'Repeats daily';
+            if(normalized.type === 'daily') {
+                if(repeatDaySetsEqual(normalized.days, [1, 2, 3, 4, 5])) return 'Repeats every weekday';
+                return 'Repeats daily';
+            }
             const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
             const labels = (normalized.days || []).map(d => dayNames[d]).join(', ');
             if(normalized.type === 'weekly') return `Repeats weekly (${labels || 'no days'})`;
@@ -11925,7 +11956,7 @@
             }
             const weekdays = extractQuickEntryWeekdays(raw);
             if(weekdays.length === 0) return normalizeRepeatRule({ type: 'none' });
-            if(weekdays.length === 7) return normalizeRepeatRule({ type: 'daily' });
+            if(repeatDaySetsEqual(weekdays, getDailyRepeatDays())) return normalizeRepeatRule({ type: 'daily' });
             if(weekdays.length === 1) return normalizeRepeatRule({ type: 'weekly', days: weekdays });
             return normalizeRepeatRule({ type: 'custom', days: weekdays });
         }
@@ -14888,7 +14919,11 @@
             if(match) {
                 return {
                     match,
-                    repeatRule: normalizeRepeatRule({ type: 'custom', days: [1, 2, 3, 4, 5] }),
+                    repeatRule: normalizeRepeatRule(
+                        getWeekCalendarDayCount() === 5
+                            ? { type: 'daily' }
+                            : { type: 'custom', days: [1, 2, 3, 4, 5] }
+                    ),
                     scheduleMode: 'exact-date',
                     weekDueOnly: false,
                     eventTime: null,
@@ -17356,10 +17391,7 @@
             const repeatType = document.getElementById('inputRepeatType')?.value || 'none';
             const weekDueOnly = Boolean(document.getElementById('inputWeekDueOnly')?.checked) && repeatType === 'weekly';
             if(scheduleType !== 'date' || weekDueOnly) return false;
-            const timing = document.getElementById('inputExactDateTiming')?.value || 'adjustable';
-            if(timing === 'fixed') return true;
-            const timeValue = document.getElementById('inputTime')?.value || '';
-            return isExactDateFixedTimeValue(timeValue);
+            return (document.getElementById('inputExactDateTiming')?.value || 'adjustable') === 'fixed';
         }
 
         function handleExactDateStartTimeInput() {
@@ -17372,6 +17404,15 @@
                 timingInput.value = 'fixed';
                 updateScheduleInputs();
             }
+        }
+
+        function handleExactDateTimingChange() {
+            const timingInput = document.getElementById('inputExactDateTiming');
+            const timeInput = document.getElementById('inputTime');
+            if(timingInput?.value !== 'fixed' && timeInput) {
+                timeInput.value = '';
+            }
+            updateScheduleInputs();
         }
 
         let lastScheduleTypeInput = null;
@@ -17731,7 +17772,7 @@
             const weekDueOnly = Boolean(document.getElementById('inputWeekDueOnly')?.checked) && type === 'weekly';
             let days = getCheckedDays('.repeat-day');
             if(type === 'daily') {
-                days = [0, 1, 2, 3, 4, 5, 6];
+                days = getDailyRepeatDays();
             }
             if(weekDueOnly) {
                 const dueDate = document.getElementById('inputDueDate')?.value || '';
