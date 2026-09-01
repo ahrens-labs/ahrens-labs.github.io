@@ -2561,20 +2561,6 @@
 
             <!-- VIEW: ASSIGNMENTS -->
             <div id="tasksTab" class="cl-tab hidden fade-in">
-                <header class="cl-page-header">
-                    <div class="cl-page-header__inner w-full">
-                        <div>
-                            <h2 class="cl-page-title">Assignments</h2>
-                            <p class="cl-page-subtitle">Search, filter, and manage all assignments.</p>
-                        </div>
-                        <div class="cl-page-actions">
-                            <button type="button" onclick="openModal()" class="cl-new-assignment-btn">
-                                <i class="fa-solid fa-plus"></i> New Assignment
-                            </button>
-                        </div>
-                    </div>
-                </header>
-
                 <section class="cl-panel cl-panel--flush">
                     <div class="cl-toolbar p-4 md:p-5 border-b border-slate-200 dark:border-dark-border" id="cl-orient-task-toolbar">
                         <div class="relative flex-1 min-w-[200px] sm:max-w-xs">
@@ -2594,6 +2580,9 @@
                         </select>
                         <button onclick="openClearCompletedModal()" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-dark-border bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-sm font-medium transition-colors" title="Clear Completed">
                             <i class="fa-solid fa-trash-can mr-1"></i> Clear Done
+                        </button>
+                        <button type="button" onclick="openModal()" class="cl-new-assignment-btn cl-new-assignment-btn--sm ml-auto">
+                            <i class="fa-solid fa-plus"></i> New
                         </button>
                     </div>
                     <div class="p-2" id="fullTaskList">
