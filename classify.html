@@ -5728,7 +5728,7 @@
                     return;
                 }
             }
-            if(isAssignmentEditorSimple() && nextMode === 'advanced') {
+            if(isAssignmentEditorSimple() && nextMode === 'advanced' && !force) {
                 syncSimpleFieldsToAdvancedForm();
             } else if(!isAssignmentEditorSimple() && nextMode === 'simple') {
                 syncAdvancedFieldsToSimpleForm();
@@ -18401,6 +18401,7 @@
             updateScheduleInputs();
             setAssignmentEditorComplexity(taskNeedsAdvancedEditor(t) ? 'advanced' : getStoredAssignmentEditorComplexity(), { persist: false, force: true });
             syncAdvancedFieldsToSimpleForm();
+            updateScheduleInputs();
             updateAssignmentEntryMode();
 
             modal.classList.remove('hidden', 'pointer-events-none');
