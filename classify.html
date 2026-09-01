@@ -5339,6 +5339,7 @@
             if(heading) heading.textContent = 'New Assignment';
             if(typeof clearForm === 'function') clearForm();
             document.getElementById('inputEntryMode').value = 'manual';
+            setAssignmentEditorComplexity('advanced', { persist: false, force: true });
             updateAssignmentEntryMode();
             configureWalkthroughAssignmentDemo(demo);
 
@@ -5398,21 +5399,21 @@
             }
         }
 
-        function getOrientationViewportInsets() {
-            syncClassifyChromeOffsets();
-            const bodyStyle = window.getComputedStyle(document.body);
-            const headerOffset = parseFloat(bodyStyle.getPropertyValue('--cl-header-offset')) || 68;
-            const footerOffset = parseFloat(bodyStyle.getPropertyValue('--cl-footer-offset')) || 56;
-            const commandBar = document.getElementById('classifyCommandBar');
-            const commandBarHeight = (commandBar && !commandBar.classList.contains('hidden'))
-                ? commandBar.getBoundingClientRect().height
-                : 0;
-            return {
-                top: headerOffset + commandBarHeight + 16,
-                bottom: footerOffset + 16,
-                left: 16,
-                right: 16
-            };
+        function prepareWalkthroughEditorPanels(step) {
+            if(!step || !classifyWalkthroughOpenedModal) return;
+
+            setAssignmentEditorComplexity('advanced', { persist: false, force: true });
+
+            const target = step.target || '';
+            const repeatPanel = document.getElementById('clOptionalRepeatPanel');
+            const depsPanel = document.getElementById('clOptionalDepsPanel');
+            const notesPanel = document.getElementById('clOptionalNotesPanel');
+            const highlightRepeat = target === '#cl-wt-repeat-panel' || step.assignmentDemo === 'repeat';
+            const highlightDeps = target === '#cl-wt-deps-panel';
+
+            if(repeatPanel) repeatPanel.open = highlightRepeat;
+            if(depsPanel) depsPanel.open = highlightDeps;
+            if(notesPanel) notesPanel.open = false;
         }
 
         function isOrientationScrollContainer(element) {
@@ -5438,19 +5439,8 @@
             return null;
         }
 
-        function isRectVisibleInOrientationViewport(rect, insets = getOrientationViewportInsets()) {
-            const viewportH = window.innerHeight;
-            const viewportW = window.innerWidth;
-            return rect.top >= insets.top
-                && rect.bottom <= viewportH - insets.bottom
-                && rect.width > 0
-                && rect.height > 0
-                && rect.left < viewportW - insets.right
-                && rect.right > insets.left;
-        }
-
         function scrollElementInOrientationContainer(container, target, margin = 24) {
-            if(!container || !target) return false;
+            if(!container || !target) return;
             const containerRect = container.getBoundingClientRect();
             const targetRect = target.getBoundingClientRect();
             const relativeTop = targetRect.top - containerRect.top + container.scrollTop;
@@ -5463,80 +5453,20 @@
             } else if(relativeBottom > viewBottom) {
                 nextScrollTop = relativeBottom - container.clientHeight + margin;
             } else {
-                return false;
+                return;
             }
             container.scrollTo({ top: Math.max(0, nextScrollTop), behavior: 'smooth' });
-            return true;
         }
 
-        function scrollWindowToOrientationTarget(target, insets = getOrientationViewportInsets()) {
-            if(!target) return false;
-            const rect = target.getBoundingClientRect();
-            const viewportH = window.innerHeight;
-            let deltaY = 0;
-            if(rect.top < insets.top) {
-                deltaY = rect.top - insets.top;
-            } else if(rect.bottom > viewportH - insets.bottom) {
-                deltaY = rect.bottom - (viewportH - insets.bottom);
-            }
-            if(Math.abs(deltaY) < 2) return false;
-            window.scrollBy({ top: deltaY, behavior: 'smooth' });
-            return true;
-        }
-
-        function waitForOrientationScrollSettle(maxMs = 750) {
-            return new Promise(resolve => {
-                let lastWindowY = window.scrollY;
-                let stableFrames = 0;
-                const startedAt = Date.now();
-                const tick = () => {
-                    const currentY = window.scrollY;
-                    if(currentY === lastWindowY) stableFrames += 1;
-                    else stableFrames = 0;
-                    lastWindowY = currentY;
-                    if(stableFrames >= 2 || Date.now() - startedAt >= maxMs) {
-                        setTimeout(resolve, 60);
-                        return;
-                    }
-                    requestAnimationFrame(tick);
-                };
-                requestAnimationFrame(tick);
-            });
-        }
-
-        async function scrollClassifyOrientationTargetIntoView(target, step = {}) {
+        function scrollOrientationTargetIntoView(target) {
             if(!target) return;
-            const insets = getOrientationViewportInsets();
-            const container = findOrientationScrollContainer(target);
-            let scrolled = false;
-
-            if(container) {
-                scrolled = scrollElementInOrientationContainer(container, target) || scrolled;
+            const scrollRoot = findOrientationScrollContainer(target)
+                || target.closest('#mainContainer');
+            if(scrollRoot && scrollRoot !== document.body) {
+                scrollElementInOrientationContainer(scrollRoot, target);
+                return;
             }
-
-            let rect = target.getBoundingClientRect();
-            if(!isRectVisibleInOrientationViewport(rect, insets)) {
-                scrolled = scrollWindowToOrientationTarget(target, insets) || scrolled;
-            }
-
-            if(scrolled) {
-                await waitForOrientationScrollSettle();
-            }
-
-            rect = target.getBoundingClientRect();
-            if(!isRectVisibleInOrientationViewport(rect, insets)) {
-                if(container) scrollElementInOrientationContainer(container, target);
-                scrollWindowToOrientationTarget(target, insets);
-                target.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'auto' });
-                await waitForOrientationScrollSettle(300);
-            }
-        }
-
-        async function ensureClassifyOrientationTargetVisible(step) {
-            if(!step || step.center) return;
-            const target = getClassifyOrientationTarget(step);
-            if(!target) return;
-            await scrollClassifyOrientationTargetIntoView(target, step);
+            target.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'smooth' });
         }
 
         async function prepareClassifyOrientationStep(step) {
@@ -5581,8 +5511,17 @@
                 renderCalendar();
             }
 
+            if(step.openAssignmentModal || step.assignmentDemo) {
+                prepareWalkthroughEditorPanels(step);
+            }
+
             await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-            await ensureClassifyOrientationTargetVisible(step);
+
+            const target = getClassifyOrientationTarget(step);
+            if(target) {
+                scrollOrientationTargetIntoView(target);
+                await new Promise(resolve => setTimeout(resolve, 320));
+            }
         }
 
         function orientationRectFromBounds(top, left, width, height) {
@@ -5803,28 +5742,13 @@
             renderClassifyOrientationStepContent();
             await prepareClassifyOrientationStep(step);
             renderClassifyOrientationStepContent();
-            let targetEl = step.center ? null : getClassifyOrientationTarget(step);
-            if(targetEl) await scrollClassifyOrientationTargetIntoView(targetEl, step);
+            const targetEl = step.center ? null : getClassifyOrientationTarget(step);
             positionClassifyOrientationUi(step, targetEl);
-            requestAnimationFrame(async () => {
+            requestAnimationFrame(() => {
                 const latestStep = getActiveOrientationSteps()[classifyOrientationStep];
-                if(!latestStep || latestStep.center) {
-                    positionClassifyOrientationUi(latestStep, null);
-                    return;
-                }
-                const latestTarget = getClassifyOrientationTarget(latestStep);
-                if(latestTarget) await scrollClassifyOrientationTargetIntoView(latestTarget, latestStep);
+                const latestTarget = latestStep?.center ? null : getClassifyOrientationTarget(latestStep);
                 positionClassifyOrientationUi(latestStep, latestTarget);
             });
-            setTimeout(async () => {
-                if(!isClassifyOrientationOpen()) return;
-                const latestStep = getActiveOrientationSteps()[classifyOrientationStep];
-                if(!latestStep || latestStep.center) return;
-                const latestTarget = getClassifyOrientationTarget(latestStep);
-                if(!latestTarget) return;
-                await scrollClassifyOrientationTargetIntoView(latestTarget, latestStep);
-                positionClassifyOrientationUi(latestStep, latestTarget);
-            }, 520);
         }
 
         function bindClassifyOrientationLayoutHandler() {
