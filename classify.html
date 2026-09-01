@@ -5543,7 +5543,7 @@
                 lead: 'Type quick commands at the top instead of opening the editor for everyday changes.',
                 bullets: [
                     'Press <kbd>/</kbd> anywhere in Classify to focus the command line',
-                    '<strong>add</strong> Homework due friday 3pm math — create with schedule details in one line',
+                    '<strong>add</strong> Essay due friday 30m subject Math — details can appear anywhere on the line; defaults to target week due Friday',
                     '<strong>"timeline"</strong> due tomorrow at 5pm — quote a name to target an existing assignment',
                     '<strong>move</strong>, <strong>start</strong>, <strong>complete</strong>, <strong>delete</strong>, and <strong>undo</strong> work too',
                     '<strong>help</strong> lists subjects, planning, vacations, and more',
@@ -6452,7 +6452,7 @@
                 lead: 'Fast text commands for create, move, due, start, and delete.',
                 bullets: [
                     'Press <kbd>/</kbd> to focus the bar from anywhere',
-                    'Example: <strong>add</strong> Reading due thursday 30m english',
+                    'Example: <strong>add</strong> Reading 30m english due thursday',
                     'Example: <strong>"essay"</strong> move to friday 2pm',
                     'Turn the bar off in Settings → Command line if you prefer the editor'
                 ],
@@ -12486,7 +12486,7 @@
         const CLASSIFY_COMMAND_HELP_HTML = `
             <div class="text-left text-sm space-y-3 max-h-[60vh] overflow-y-auto">
                 <div><strong>Create &amp; edit</strong><br>
-                new · add Homework · add "Timeline Essay" due friday 30m · "Essay" not before Quiz · "Test" remove weekly · rename X to Y · delete X · undo</div>
+                new · add Homework · add "Timeline Essay" due friday 30m · add Essay subject Math · add due friday Essay 30m (defaults: target week, due Friday) · "Essay" not before Quiz · "Test" remove weekly · rename X to Y · delete X · undo</div>
                 <div><strong>Schedule</strong><br>
                 due friday 5pm · on/to friday 3pm · target week · exact date · flexible / no date · move to friday 3pm · clear time · auto plan</div>
                 <div><strong>Subjects</strong><br>
@@ -12785,10 +12785,10 @@
 
         const COMMAND_LINE_LEADING_VERBS = /^(?:help|\?|commands|stats|summary|status|new|add|create|move|schedule|reschedule|complete|done|finish|mark|delete|remove|rename|start|undo|open|switch|go|list|block|vacation|plan|auto|weekly|clear|set|find|tasks|assignments|show|today|next|previous|prev|\d+$)/i;
 
-        function getAssignmentSettingsDetailPatterns({ leadingSpace = false } = {}) {
+        function getAssignmentSettingsDetailPatterns({ leadingSpace = false, allowStart = false } = {}) {
             const weekday = QUICK_ENTRY_DATE_WORDS;
             const timePat = String.raw`\d{1,2}(?::\d{2})?\s*(?:am|pm)`;
-            const lead = leadingSpace ? '\\s+' : '\\b';
+            const lead = allowStart ? '(?:^|\\s+)' : (leadingSpace ? '\\s+' : '\\b');
             return [
                 new RegExp(`${lead}(?:due|by)\\b`, 'i'),
                 new RegExp(`${lead}(?:repeat\\s+)?every\\b`, 'i'),
@@ -12899,7 +12899,7 @@
                 return { body: text, taskQuery: null };
             }
 
-            const idx = findCreateAssignmentDetailsStart(text);
+            const idx = findCreateAssignmentDetailsStart(text, { allowStart: true });
             if(idx <= 0) return { body: text, taskQuery: null };
 
             let titlePart = text.slice(0, idx).trim();
@@ -13492,14 +13492,9 @@
             const addMatch = commandText.match(/^(?:add|create)\s+(?:assignment\s+)?(.+)$/i);
             if(addMatch) {
                 const rest = addMatch[1].trim();
-                const quotedTitle = parseQuotedPrefix(rest);
-                if(quotedTitle.quoted != null) {
-                    if(!quotedTitle.quoted) return { error: 'Add a title, e.g. add "Speech Writing" due friday.' };
-                    return { action: 'create', title: quotedTitle.quoted, details: quotedTitle.rest };
-                }
-                const { title, details } = splitCreateAssignmentTitleAndDetails(rest);
+                const { title, parseSource } = parseCreateAssignmentRest(rest);
                 if(!title) return { error: 'Add a title, e.g. add Speech due friday.' };
-                return { action: 'create', title, details };
+                return { action: 'create', title, parseSource };
             }
 
             const moveMatch = parseCommandMoveMatch(commandText);
@@ -14134,12 +14129,13 @@
             }
 
             if(parsed.action === 'create') {
-                const detailsText = parsed.details || '';
+                const parseSource = parsed.parseSource || '';
                 const resolvedDependencies = parsed.resolvedDependencies || [];
-                const quickParsed = parseAssignmentQuickEntry(detailsText, {
+                const quickParsed = parseAssignmentQuickEntry(parseSource, {
                     title: parsed.title,
                     resolvedDependencies,
-                    allowEmpty: !detailsText.trim()
+                    allowEmpty: !parseSource.trim(),
+                    isCreateCommand: true
                 });
                 if(quickParsed.errors?.length) {
                     showNotification(quickParsed.errors[0], 'error');
@@ -14795,11 +14791,11 @@
             return names[weekday] || 'friday';
         }
 
-        function findCreateAssignmentDetailsStart(rest) {
+        function findCreateAssignmentDetailsStart(rest, { allowStart = false } = {}) {
             const text = String(rest || '').trim();
             if(!text) return -1;
             let earliest = text.length;
-            getAssignmentSettingsDetailPatterns({ leadingSpace: true }).forEach(re => {
+            getAssignmentSettingsDetailPatterns({ leadingSpace: true, allowStart }).forEach(re => {
                 const match = text.match(re);
                 if(match && match.index != null && match.index < earliest) {
                     earliest = match.index;
@@ -14967,9 +14963,133 @@
             }
         }
 
+        function parseCreateAssignmentRest(rest) {
+            const text = normalizeClassifyCommandText(String(rest || '')).trim();
+            if(!text) return { title: '', parseSource: '' };
+
+            const quoted = parseQuotedPrefix(text);
+            if(quoted.quoted != null) {
+                return {
+                    title: String(quoted.quoted || '').trim(),
+                    parseSource: String(quoted.rest || '').trim()
+                };
+            }
+
+            const probe = parseAssignmentQuickEntry(text, { allowEmpty: true, isCreateCommand: true });
+            let title = String(probe.titleRemainder || '').trim();
+            if(!title) {
+                const idx = findCreateAssignmentDetailsStart(text, { allowStart: true });
+                let titlePart = idx >= 0 ? text.slice(0, idx).trim() : text;
+                let details = idx >= 0 ? text.slice(idx).trim() : '';
+                ({ title: titlePart } = rejoinDanglingEveryInTitle(titlePart, details));
+                ({ title: titlePart } = peelCreateAssignmentSubjectFromTitle(titlePart, details));
+                title = String(titlePart || '').trim();
+            }
+            return { title, parseSource: text };
+        }
+
+        function applyQuickEntryDefaultCreateSchedule(result, touched) {
+            result.scheduleType = 'week';
+            result.week = getCurrentWeekKey();
+            result.dueDate = resolveQuickEntryDateToken('friday');
+            if(result.dueDate) result.week = getWeekKeyFromDateStr(result.dueDate);
+            touched.schedule = true;
+        }
+
+        function parseQuickEntrySubjectFragment(working, result, touched, { title = '', forUpdate = false } = {}) {
+            let text = String(working || '').trim();
+            if(!text) return text;
+
+            const subjectStop = '(?=\\s+(?:due|by|on|for|to|every|after|before|notes|\\d+\\s*(?:m|min|mins|minutes|h|hr|hrs|hours)|\\d+m\\b|target|exact|flexible|unscheduled|repeat|daily|weekly)\\b|$)';
+            const subjectCmdMatch = text.match(new RegExp(`\\bsubject\\s+(.+?)${subjectStop}`, 'i'))
+                || text.match(/\bsubject\s+(.+)$/i);
+            if(subjectCmdMatch) {
+                let subjectBody = subjectCmdMatch[1].trim();
+                const quotedSubject = parseQuotedPrefix(subjectBody);
+                let subjectName = quotedSubject.quoted != null ? quotedSubject.quoted : subjectBody;
+                let subjectExtra = '';
+                if(quotedSubject.quoted == null) {
+                    const subjects = getAllSubjectNames().sort((a, b) => b.length - a.length);
+                    const knownPrefix = subjects.find(subject => {
+                        const lowerBody = subjectBody.toLowerCase();
+                        const lowerSubject = subject.toLowerCase();
+                        return lowerBody === lowerSubject || lowerBody.startsWith(`${lowerSubject} `);
+                    });
+                    if(knownPrefix) {
+                        subjectName = knownPrefix;
+                        subjectExtra = subjectBody.slice(knownPrefix.length).trim();
+                    } else {
+                        const knownFromBody = findKnownSubjectInTitleWords(subjectBody.split(/\s+/));
+                        if(knownFromBody) {
+                            subjectName = knownFromBody;
+                            subjectExtra = subjectBody.slice(knownFromBody.length).trim();
+                        } else {
+                            const trimmed = subjectBody.match(/^(.+?)(?=\s+(?:due|by|on|for|to|every|after|before|notes|\d+\s*(?:m|min|h|hr)|target|exact|flexible|unscheduled|$))/i);
+                            if(trimmed) subjectName = trimmed[1].trim();
+                            else if(!/\s/.test(subjectBody)) subjectName = subjectBody;
+                            else {
+                                subjectName = subjectBody.split(/\s+/)[0];
+                                subjectExtra = subjectBody.split(/\s+/).slice(1).join(' ').trim();
+                            }
+                        }
+                    }
+                }
+                if(subjectName) {
+                    result.subject = subjectName;
+                    touched.subject = true;
+                    if(subjectExtra) {
+                        text = `${text.slice(0, subjectCmdMatch.index)} ${subjectExtra} ${text.slice(subjectCmdMatch.index + subjectCmdMatch[0].length)}`.replace(/\s{2,}/g, ' ').trim();
+                    } else {
+                        text = stripQuickEntryMatch(text, subjectCmdMatch);
+                    }
+                }
+            }
+
+            if(!result.subject) {
+                const subjects = getAllSubjectNames().sort((a, b) => b.length - a.length);
+                for(const subject of subjects) {
+                    const pattern = new RegExp(`\\b${subject.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+                    const subjectMatch = text.match(pattern);
+                    if(subjectMatch) {
+                        result.subject = subject;
+                        touched.subject = true;
+                        text = stripQuickEntryMatch(text, subjectMatch);
+                        break;
+                    }
+                }
+            }
+
+            if(!forUpdate && !result.subject) {
+                const titleLower = String(title || '').trim().toLowerCase();
+                const leftoverWords = text.split(/\s+/).filter(Boolean);
+                const candidate = leftoverWords.find(word => {
+                    const clean = word.replace(/[.,;:!?]+$/, '');
+                    if(!/^[A-Za-z][A-Za-z0-9&'-]*$/.test(clean)) return false;
+                    const lower = clean.toLowerCase();
+                    if(['due', 'on', 'at', 'by', 'for', 'to', 'must', 'be', 'after', 'before', 'notes', 'subject', 'minutes', 'minute', 'mins', 'min', 'every', 'repeat', 'repeats', 'daily', 'weekly', 'weekday', 'weekdays', 'target', 'exact', 'flexible', 'unscheduled'].includes(lower)) return false;
+                    if(titleLower.includes(lower)) return false;
+                    return true;
+                });
+                if(candidate) {
+                    result.subject = candidate.replace(/[.,;:!?]+$/, '');
+                    touched.subject = true;
+                    text = text.replace(new RegExp(`\\b${candidate.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`), ' ').replace(/\s{2,}/g, ' ').trim();
+                }
+            }
+
+            return text;
+        }
+
+        function extractQuickEntryTitleRemainder(working) {
+            return String(working || '')
+                .replace(/\b(at|on|by|due|for|to|after|before|notes|subject|target|exact|flexible|unscheduled|every|repeat|daily|weekly)\b/gi, ' ')
+                .replace(/\s{2,}/g, ' ')
+                .trim();
+        }
+
         function splitCreateAssignmentTitleAndDetails(rest) {
             const text = String(rest || '').trim();
-            const idx = findCreateAssignmentDetailsStart(text);
+            const idx = findCreateAssignmentDetailsStart(text, { allowStart: true });
             let titlePart = idx >= 0 ? text.slice(0, idx).trim() : text;
             let details = idx >= 0 ? text.slice(idx).trim() : '';
             ({ title: titlePart, details } = rejoinDanglingEveryInTitle(titlePart, details));
@@ -14977,7 +15097,7 @@
             return { title: titlePart, details };
         }
 
-        function parseAssignmentQuickEntry(text, { title = '', excludeTaskId = null, forUpdate = false, resolvedDependencies = [], allowEmpty = false } = {}) {
+        function parseAssignmentQuickEntry(text, { title = '', excludeTaskId = null, forUpdate = false, resolvedDependencies = [], allowEmpty = false, isCreateCommand = false } = {}) {
             const sourceText = normalizeClassifyCommandText(text).trim();
             let working = sourceText;
             const touched = createQuickEntryTouchedFlags();
@@ -15000,6 +15120,7 @@
                 warnings: [],
                 errors: [],
                 pendingDependencies: [],
+                titleRemainder: '',
                 touched
             };
 
@@ -15142,7 +15263,14 @@
                 const bareDayMatch = working.match(new RegExp(`\\b(${weekdayPattern})${optionalTime}`, 'i'));
                 if(bareDayMatch) {
                     const parsedBareTime = parseQuickEntryTime(String(bareDayMatch[2] || '').trim());
-                    applyQuickEntryBareDaySchedule(result, bareDayMatch[1], parsedBareTime || null);
+                    if(isCreateCommand) {
+                        result.scheduleType = 'week';
+                        result.dueDate = resolveQuickEntryDateToken(bareDayMatch[1]);
+                        if(parsedBareTime) result.dueTime = parsedBareTime;
+                        if(result.dueDate) result.week = getWeekKeyFromDateStr(result.dueDate);
+                    } else {
+                        applyQuickEntryBareDaySchedule(result, bareDayMatch[1], parsedBareTime || null);
+                    }
                     touched.schedule = true;
                     working = stripQuickEntryMatch(working, bareDayMatch);
                 }
@@ -15167,65 +15295,33 @@
                 working = stripQuickEntryMatch(working, notesMatch);
             }
 
-            const subjectCmdMatch = working.match(/\bsubject\s+(.+)/i);
-            if(subjectCmdMatch) {
-                const subjectBody = subjectCmdMatch[1].trim();
-                const quotedSubject = parseQuotedPrefix(subjectBody);
-                let subjectName = quotedSubject.quoted != null ? quotedSubject.quoted : subjectBody;
-                if(quotedSubject.quoted == null) {
-                    const trimmed = subjectName.match(/^(.+?)(?=\s+(?:due|by|every|after|before|notes|\d+\s*(?:m|min|h|hr)|target|exact|flexible|unscheduled|$))/i);
-                    if(trimmed) subjectName = trimmed[1].trim();
-                }
-                if(subjectName) {
-                    result.subject = subjectName;
-                    touched.subject = true;
-                    working = stripQuickEntryMatch(working, subjectCmdMatch);
-                }
-            }
+            working = parseQuickEntrySubjectFragment(working, result, touched, { title, forUpdate });
 
-            const subjects = getAllSubjectNames().sort((a, b) => b.length - a.length);
-            for(const subject of subjects) {
-                const pattern = new RegExp(`\\b${subject.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
-                const subjectMatch = working.match(pattern);
-                if(subjectMatch) {
-                    result.subject = subject;
-                    touched.subject = true;
-                    working = stripQuickEntryMatch(working, subjectMatch);
-                    break;
-                }
-            }
-
-            if(!forUpdate && !result.subject) {
-                const titleLower = String(title || '').trim().toLowerCase();
-                const leftoverWords = working.split(/\s+/).filter(Boolean);
-                const candidate = leftoverWords.find(word => {
-                    const clean = word.replace(/[.,;:!?]+$/, '');
-                    if(!/^[A-Za-z][A-Za-z0-9&'-]*$/.test(clean)) return false;
-                    const lower = clean.toLowerCase();
-                    if(['due', 'on', 'at', 'by', 'for', 'to', 'must', 'be', 'after', 'before', 'notes', 'subject', 'minutes', 'minute', 'mins', 'min', 'every', 'repeat', 'repeats', 'daily', 'weekly', 'weekday', 'weekdays', 'target', 'exact', 'flexible', 'unscheduled'].includes(lower)) return false;
-                    if(titleLower.includes(lower)) return false;
-                    return true;
-                });
-                if(candidate) {
-                    result.subject = candidate.replace(/[.,;:!?]+$/, '');
-                    working = working.replace(new RegExp(`\\b${candidate.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`), ' ').replace(/\s{2,}/g, ' ').trim();
-                }
-            }
-
-            if(!forUpdate) {
+            if(isCreateCommand) {
+                const titleRemainder = extractQuickEntryTitleRemainder(working);
+                if(titleRemainder) result.titleRemainder = titleRemainder;
+            } else if(!forUpdate) {
                 working = working.replace(/\b(at|on|by|due|for|to|after|before|notes|subject|target|exact|flexible|unscheduled|every|repeat|daily|weekly)\b/gi, ' ').replace(/\s{2,}/g, ' ').trim();
                 if(working && !result.notes) result.notes = working.substring(0, 500);
             }
             }
 
             if(!forUpdate) {
-                if(!result.scheduleType) {
-                    result.scheduleType = 'flexible';
+                const hasRepeat = result.repeatRule && result.repeatRule.type !== 'none';
+                if(!touched.schedule && !result.scheduleType) {
+                    if(isCreateCommand) {
+                        applyQuickEntryDefaultCreateSchedule(result, touched);
+                    } else {
+                        result.scheduleType = 'flexible';
+                    }
                 }
                 if(result.scheduleType === 'week' && !result.week) {
                     result.week = getCurrentWeekKey();
                 }
-                const hasRepeat = result.repeatRule && result.repeatRule.type !== 'none';
+                if(isCreateCommand && result.scheduleType === 'week' && !result.dueDate && !hasRepeat) {
+                    result.dueDate = resolveQuickEntryDateToken('friday');
+                    if(result.dueDate) result.week = getWeekKeyFromDateStr(result.dueDate);
+                }
                 const weekdayPattern = QUICK_ENTRY_DATE_WORDS;
                 const dueDayAttempt = new RegExp(`\\b(?:due|by)\\s+(?:to\\s+)?(?:on\\s+)?(${weekdayPattern})\\b`, 'i').test(sourceText);
                 if(result.scheduleType === 'week' && !result.dueDate && !hasRepeat && dueDayAttempt) {
