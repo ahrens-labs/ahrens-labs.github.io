@@ -3419,7 +3419,6 @@
                         <option value="none" selected>Does not repeat</option>
                         <option value="daily">Daily</option>
                         <option value="weekly">Weekly</option>
-                        <option value="custom">Custom weekdays</option>
                     </select>
                     <div id="blockRepeatDaysWrapper" class="mt-2 hidden">
                         <div class="text-[11px] text-slate-500 dark:text-slate-400 mb-2">Repeat on</div>
@@ -3680,7 +3679,6 @@
                                     <option value="none" selected>Does not repeat</option>
                                     <option value="daily">Daily</option>
                                     <option value="weekly">Weekly</option>
-                                    <option value="custom">Custom weekdays</option>
                                 </select>
                                 <div id="weekDueOnlyWrapper" class="mt-3 hidden">
                                     <label class="inline-flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
@@ -3849,6 +3847,17 @@
                 return { type, days: [0, 1, 2, 3, 4, 5, 6] };
             }
             return { type, days };
+        }
+
+        function getRepeatTypeForFormInput(repeatRule) {
+            const rule = normalizeRepeatRule(repeatRule || { type: 'none' });
+            if(rule.type === 'custom') return 'weekly';
+            return rule.type;
+        }
+
+        function resolveRepeatRuleTypeFromForm(formType, days, { weekDueOnly = false } = {}) {
+            if(formType === 'weekly' && !weekDueOnly && days.length > 1) return 'custom';
+            return formType;
         }
 
         function normalizeRepeatSkips(input = {}) {
@@ -5347,7 +5356,7 @@
                 title: 'Repeating assignments',
                 lead: 'Repeat spawns the next copy automatically when you complete one.',
                 bullets: [
-                    'Choose <strong>Daily</strong>, <strong>Weekly</strong>, or <strong>Custom weekdays</strong> for the pattern',
+                    'Choose <strong>Daily</strong> or <strong>Weekly</strong> for the pattern',
                     '<strong>One assignment due per week</strong> on weekly repeat = one copy each week; pick any due day and time',
                     'Finishing today\'s copy creates the next occurrence with the same settings'
                 ],
@@ -14997,7 +15006,7 @@
             document.getElementById('inputSubject').value = parsed.subject || 'General';
             document.getElementById('inputDuration').value = parsed.duration || '';            document.getElementById('inputNotes').value = parsed.notes || '';
             const repeatRule = normalizeRepeatRule(parsed.repeatRule || { type: 'none' });
-            document.getElementById('inputRepeatType').value = repeatRule.type === 'none' ? 'none' : repeatRule.type;
+            document.getElementById('inputRepeatType').value = getRepeatTypeForFormInput(repeatRule);
             document.getElementById('inputWeekDueOnly').checked = Boolean(parsed.weekDueOnly);
             setCheckedDays('.repeat-day', repeatRule.days || []);
             updateRepeatInputs();
@@ -15755,7 +15764,10 @@
                 repeatDays = [new Date(`${date}T00:00:00`).getDay()];
                 setCheckedDays('.blocked-repeat-day', repeatDays);
             }
-            const repeatRule = normalizeRepeatRule({ type: repeatType, days: repeatDays });
+            const repeatRule = normalizeRepeatRule({
+                type: resolveRepeatRuleTypeFromForm(repeatType, repeatDays),
+                days: repeatDays
+            });
             if((repeatRule.type === 'custom' || repeatRule.type === 'weekly') && repeatRule.days.length === 0) {
                 showNotification('Choose at least one weekday for repeats', 'error');
                 return;
@@ -17167,7 +17179,7 @@
                     weekDueOnlyWrapper.classList.add('hidden');
                 }
             }
-            if(type === 'custom' || (type === 'weekly' && !weekDueOnly)) {
+            if(type === 'weekly' && !weekDueOnly) {
                 wrapper.classList.remove('hidden');
             } else {
                 wrapper.classList.add('hidden');
@@ -17190,7 +17202,7 @@
             const type = document.getElementById('blockRepeatType')?.value || 'none';
             const wrapper = document.getElementById('blockRepeatDaysWrapper');
             if(!wrapper) return;
-            if(type === 'custom' || type === 'weekly') {
+            if(type === 'weekly') {
                 wrapper.classList.remove('hidden');
             } else {
                 wrapper.classList.add('hidden');
@@ -17368,7 +17380,10 @@
                     setCheckedDays('.repeat-day', days);
                 }
             }
-            const rule = normalizeRepeatRule({ type, days });
+            const rule = normalizeRepeatRule({
+                type: resolveRepeatRuleTypeFromForm(type, days, { weekDueOnly }),
+                days
+            });
             if((rule.type === 'custom' || rule.type === 'weekly') && rule.days.length === 0) {
                 return { error: 'Select at least one weekday for repeats.' };
             }
@@ -17963,7 +17978,7 @@
             document.getElementById('inputDuration').value = t.duration || '';            document.getElementById('inputColor').value = getTaskColor(t);
             document.getElementById('inputNotes').value = t.notes || '';
             const repeatRule = normalizeRepeatRule(t.repeatRule || {});
-            document.getElementById('inputRepeatType').value = repeatRule.type || 'none';
+            document.getElementById('inputRepeatType').value = getRepeatTypeForFormInput(repeatRule);
             document.getElementById('inputWeekDueOnly').checked = Boolean(t.weekDueOnly) && repeatRule.type === 'weekly';
             setCheckedDays('.repeat-day', repeatRule.days || []);
             updateRepeatInputs();
