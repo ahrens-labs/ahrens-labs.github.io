@@ -1365,6 +1365,160 @@
             color: #64748b;
         }
         .dark .cl-pref-note { color: #94a3b8; }
+        .cl-settings-section {
+            margin-bottom: 20px;
+        }
+        .cl-settings-section:last-child {
+            margin-bottom: 0;
+        }
+        .cl-settings-section__title {
+            margin: 0 0 2px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: #64748b;
+        }
+        .dark .cl-settings-section__title { color: #94a3b8; }
+        .cl-settings-section__lead {
+            margin: 0 0 10px;
+            font-size: 0.8rem;
+            line-height: 1.35;
+            color: #64748b;
+        }
+        .dark .cl-settings-section__lead { color: #94a3b8; }
+        .cl-analytics-hero {
+            position: relative;
+            overflow: hidden;
+            border-radius: 1.25rem;
+            padding: 1.5rem 1.25rem;
+            margin-bottom: 1.5rem;
+            background: linear-gradient(135deg, #dc2626 0%, #f97316 45%, #fbbf24 100%);
+            color: #fff;
+            box-shadow: 0 12px 40px rgba(220, 38, 38, 0.22);
+        }
+        .cl-analytics-hero::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at 85% 15%, rgba(255,255,255,0.22), transparent 42%);
+            pointer-events: none;
+        }
+        .cl-analytics-hero__title {
+            position: relative;
+            margin: 0 0 0.35rem;
+            font-size: 1.65rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+        }
+        .cl-analytics-hero__subtitle {
+            position: relative;
+            margin: 0;
+            font-size: 0.92rem;
+            opacity: 0.92;
+            max-width: 36rem;
+        }
+        .cl-analytics-spotlight {
+            display: grid;
+            gap: 1rem;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            margin-bottom: 1.5rem;
+        }
+        @media (min-width: 768px) {
+            .cl-analytics-spotlight {
+                grid-template-columns: repeat(4, minmax(0, 1fr));
+            }
+        }
+        .cl-analytics-spotlight-card {
+            border-radius: 1rem;
+            padding: 1rem;
+            border: 1px solid rgba(226, 232, 240, 0.9);
+            background: rgba(255, 255, 255, 0.95);
+            box-shadow: 0 4px 18px rgba(15, 23, 42, 0.05);
+        }
+        .dark .cl-analytics-spotlight-card {
+            background: rgba(15, 23, 42, 0.88);
+            border-color: rgba(51, 65, 85, 0.85);
+        }
+        .cl-analytics-spotlight-card__value {
+            font-size: 1.65rem;
+            font-weight: 800;
+            line-height: 1.1;
+            color: #0f172a;
+        }
+        .dark .cl-analytics-spotlight-card__value { color: #f8fafc; }
+        .cl-analytics-spotlight-card__label {
+            margin-top: 0.25rem;
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #64748b;
+        }
+        .dark .cl-analytics-spotlight-card__label { color: #94a3b8; }
+        .cl-analytics-fun-grid {
+            display: grid;
+            gap: 1rem;
+            grid-template-columns: minmax(0, 1fr);
+            margin-bottom: 1.5rem;
+        }
+        @media (min-width: 640px) {
+            .cl-analytics-fun-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+        @media (min-width: 1024px) {
+            .cl-analytics-fun-grid {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
+        }
+        .cl-analytics-fun-card {
+            position: relative;
+            overflow: hidden;
+            border-radius: 1rem;
+            padding: 1.1rem 1rem 1rem;
+            border: 1px solid rgba(226, 232, 240, 0.9);
+            background: linear-gradient(160deg, rgba(255,255,255,0.98), rgba(248,250,252,0.92));
+        }
+        .dark .cl-analytics-fun-card {
+            border-color: rgba(51, 65, 85, 0.85);
+            background: linear-gradient(160deg, rgba(30,41,59,0.95), rgba(15,23,42,0.92));
+        }
+        .cl-analytics-fun-card__emoji {
+            font-size: 1.5rem;
+            line-height: 1;
+            margin-bottom: 0.55rem;
+        }
+        .cl-analytics-fun-card__title {
+            margin: 0 0 0.35rem;
+            font-size: 0.78rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #64748b;
+        }
+        .dark .cl-analytics-fun-card__title { color: #94a3b8; }
+        .cl-analytics-fun-card__value {
+            margin: 0;
+            font-size: 1.35rem;
+            font-weight: 800;
+            line-height: 1.2;
+            color: #0f172a;
+        }
+        .dark .cl-analytics-fun-card__value { color: #f8fafc; }
+        .cl-analytics-fun-card__detail {
+            margin: 0.35rem 0 0;
+            font-size: 0.8rem;
+            line-height: 1.35;
+            color: #64748b;
+        }
+        .dark .cl-analytics-fun-card__detail { color: #94a3b8; }
+        .cl-analytics-fun-card--accent-red { border-left: 4px solid #ef4444; }
+        .cl-analytics-fun-card--accent-amber { border-left: 4px solid #f59e0b; }
+        .cl-analytics-fun-card--accent-emerald { border-left: 4px solid #10b981; }
+        .cl-analytics-fun-card--accent-violet { border-left: 4px solid #8b5cf6; }
+        .cl-analytics-fun-card--accent-sky { border-left: 4px solid #0ea5e9; }
+        .cl-analytics-fun-card--accent-rose { border-left: 4px solid #f43f5e; }
         .cl-modal-header {
             display: grid;
             grid-template-columns: auto 1fr auto;
@@ -2348,24 +2502,12 @@
                         </div>
                     </div>
                     <div class="flex flex-wrap gap-2 mt-4">
-                        <button onclick="startWeeklyPlanning()" class="px-3 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-medium transition-colors">
-                            <i class="fa-solid fa-list-check mr-1"></i> Open Weekly Queue
-                        </button>
                         <button onclick="runAutoPlanWeek()" class="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium transition-colors">
                             <i class="fa-solid fa-wand-magic-sparkles mr-1"></i> Auto-Plan Unscheduled
-                        </button>
-                        <button onclick="runAutoBlockWeekTimes()" class="px-3 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-medium transition-colors">
-                            <i class="fa-regular fa-clock mr-1"></i> Auto Time-Block
                         </button>
                         <button onclick="switchTab('calendar')" class="px-3 py-2 rounded-lg bg-white/80 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 text-sm font-medium hover:bg-white">
                             <i class="fa-regular fa-calendar mr-1"></i> Review Week Grid
                         </button>
-                    </div>
-                    <div class="mt-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/40 p-4">
-                        <div class="text-xs font-bold text-red-700 dark:text-red-300 uppercase tracking-wide mb-2">Suggested Weekly Focus Blocks</div>
-                        <div id="weekActionList" class="space-y-2 text-sm text-slate-700 dark:text-slate-300">
-                            <div class="text-slate-400 dark:text-slate-500 italic">No plan generated yet.</div>
-                        </div>
                     </div>
                 </section>
 
@@ -2442,15 +2584,8 @@
                         <select id="taskFilter" class="pl-3 pr-8 py-2 border border-slate-200 dark:border-dark-border dark:bg-slate-800 dark:text-white rounded-lg text-sm bg-white focus:outline-none focus:border-brand-500">
                             <option value="all">All Assignments</option>
                             <option value="active">Active</option>
-                            <option value="weekplan">Weekly Planning Queue</option>
-                            <option value="thisweek">Due This Week</option>
                             <option value="completed">Completed</option>
-                            <option value="overdue">Overdue</option>
-                        </select>
-                        <select id="taskSort" class="pl-3 pr-8 py-2 border border-slate-200 dark:border-dark-border dark:bg-slate-800 dark:text-white rounded-lg text-sm bg-white focus:outline-none focus:border-brand-500">
-                            <option value="date">Sort by Date</option>
-                            <option value="autoschedule">Sort by Auto-Schedule</option>
-                            <option value="subject">Sort by Subject</option>
+                            <option value="thisweek">Due This Week</option>
                         </select>
                         <button onclick="openClearCompletedModal()" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-dark-border bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-sm font-medium transition-colors" title="Clear Completed">
                             <i class="fa-solid fa-trash-can mr-1"></i> Clear Done
@@ -2515,164 +2650,77 @@
 
             <!-- VIEW: ANALYTICS -->
             <div id="analyticsTab" class="cl-tab hidden fade-in">
-                <header class="cl-page-header">
-                    <div class="cl-page-header__inner w-full">
-                        <div>
-                            <h2 class="cl-page-title">Assignment Analytics</h2>
-                            <p class="cl-page-subtitle">Scan workload patterns, then jump straight into filtered assignment lists.</p>
-                        </div>
-                        <div class="cl-page-actions">
-                            <button onclick="switchTab('tasks')" class="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-semibold transition-colors">
-                                View All Assignments
-                            </button>
-                        </div>
-                    </div>
-                </header>
-
-                <section class="cl-panel" id="cl-orient-analytics-quick">
-                    <div class="flex items-center justify-between mb-4">
-                        <h3 class="cl-section-title uppercase tracking-[0.3em] text-slate-400 dark:text-slate-500 text-sm mb-0">Quick Filters</h3>
-                        <span class="text-xs text-slate-500 dark:text-slate-400">Tap a card to filter</span>
-                    </div>
-                    <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
-                        <button onclick="switchTab('tasks'); filterTasksBy('today')" class="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/60 p-4 text-left hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors">
-                            <div class="text-2xl font-bold text-red-600 dark:text-red-400" id="filterDueToday">0</div>
-                            <div class="text-xs text-slate-600 dark:text-slate-400 font-medium">Due Today</div>
-                        </button>
-                        <button onclick="switchTab('tasks'); filterTasksBy('week')" class="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50/80 dark:bg-amber-900/20 p-4 text-left hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors">
-                            <div class="text-2xl font-bold text-amber-600 dark:text-amber-400" id="filterDueWeek">0</div>
-                            <div class="text-xs text-slate-600 dark:text-slate-400 font-medium">This Week</div>
-                        </button>
-                        <button onclick="switchTab('tasks'); filterTasksBy('overdue')" class="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/60 p-4 text-left hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors">
-                            <div class="text-2xl font-bold text-red-600 dark:text-red-400" id="filterOverdue">0</div>
-                            <div class="text-xs text-slate-600 dark:text-slate-400 font-medium">Overdue</div>
-                        </button>
-                    </div>
+                <section class="cl-analytics-hero">
+                    <h2 class="cl-analytics-hero__title">Your assignment story</h2>
+                    <p class="cl-analytics-hero__subtitle" id="analyticsHeroSubtitle">Fun patterns pulled from your Classify data — refresh the page for a new mix of trivia.</p>
                 </section>
 
-                <!-- Analytics Grid -->
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    <!-- Avg Completion Time -->
+                <div class="cl-analytics-spotlight" id="analyticsSpotlight">
+                    <div class="cl-analytics-spotlight-card">
+                        <div class="cl-analytics-spotlight-card__value text-red-600 dark:text-red-400" id="filterDueToday">0</div>
+                        <div class="cl-analytics-spotlight-card__label">Due Today</div>
+                    </div>
+                    <div class="cl-analytics-spotlight-card">
+                        <div class="cl-analytics-spotlight-card__value text-amber-600 dark:text-amber-400" id="filterDueWeek">0</div>
+                        <div class="cl-analytics-spotlight-card__label">Due This Week</div>
+                    </div>
+                    <div class="cl-analytics-spotlight-card">
+                        <div class="cl-analytics-spotlight-card__value text-emerald-600 dark:text-emerald-400" id="onTimeRate">--</div>
+                        <div class="cl-analytics-spotlight-card__label">On-Time Rate</div>
+                    </div>
+                    <div class="cl-analytics-spotlight-card">
+                        <div class="cl-analytics-spotlight-card__value text-violet-600 dark:text-violet-400" id="weekProgress">0%</div>
+                        <div class="cl-analytics-spotlight-card__label">Week Done</div>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between gap-3 mb-3">
+                    <h3 class="cl-section-title uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 text-sm mb-0">Interesting finds</h3>
+                    <button type="button" onclick="switchTab('tasks')" class="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-semibold transition-colors">
+                        View assignments
+                    </button>
+                </div>
+                <div class="cl-analytics-fun-grid" id="analyticsFunFacts"></div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div class="cl-panel">
                         <h3 class="cl-section-title flex items-center gap-2">
-                            <i class="fa-solid fa-hourglass-end text-slate-400"></i> Avg Actual Time
-                        </h3>
-                        <div class="text-3xl font-bold text-brand-600 mb-1" id="avgCompletionTime">--</div>
-                        <p class="text-xs text-slate-500 dark:text-slate-400">Based on completed assignments</p>
-                    </div>
-
-                    <!-- Remaining Today -->
-                    <div class="cl-panel">
-                        <h3 class="cl-section-title flex items-center gap-2">
-                            <i class="fa-solid fa-sun text-amber-400"></i> Remaining Today
-                        </h3>
-                        <div class="text-3xl font-bold text-slate-800 dark:text-white mb-1" id="remainingTodayMinutes">--</div>
-                        <p class="text-xs text-slate-500 dark:text-slate-400" id="remainingTodayLabel">Scheduled minutes left</p>
-                    </div>
-
-                    <!-- Remaining This Week -->
-                    <div class="cl-panel">
-                        <h3 class="cl-section-title flex items-center gap-2">
-                            <i class="fa-solid fa-calendar-week text-red-500"></i> Remaining This Week
-                        </h3>
-                        <div class="text-3xl font-bold text-slate-800 dark:text-white mb-1" id="remainingWeekMinutes">--</div>
-                        <p class="text-xs text-slate-500 dark:text-slate-400" id="remainingWeekLabel">Scheduled minutes left</p>
-                    </div>
-
-                    <!-- On-time Rate -->
-                    <div class="cl-panel">
-                        <h3 class="cl-section-title flex items-center gap-2">
-                            <i class="fa-solid fa-check-circle text-emerald-500"></i> On-time Rate
-                        </h3>
-                        <div class="text-3xl font-bold text-emerald-600 mb-1" id="onTimeRate">--</div>
-                        <p class="text-xs text-slate-500 dark:text-slate-400" id="onTimeRateLabel">Completed before due date</p>
-                    </div>
-
-                    <!-- Upcoming Deadlines -->
-                    <div class="cl-panel md:col-span-2">
-                        <h3 class="cl-section-title flex items-center gap-2">
-                            <i class="fa-solid fa-bell text-rose-500"></i> Upcoming Deadlines (7 days)
+                            <i class="fa-solid fa-bell text-rose-500"></i> Upcoming (7 days)
                         </h3>
                         <div id="upcomingDeadlinesList" class="space-y-2 text-sm text-slate-600 dark:text-slate-300"></div>
                     </div>
-
-                    <!-- Unscheduled Soon -->
                     <div class="cl-panel">
                         <h3 class="cl-section-title flex items-center gap-2">
-                            <i class="fa-solid fa-triangle-exclamation text-amber-500"></i> Unscheduled Soon
+                            <i class="fa-solid fa-hourglass-end text-slate-400"></i> Time accuracy
                         </h3>
-                        <div class="text-3xl font-bold text-amber-600 mb-1" id="unscheduledSoonCount">0</div>
-                        <p class="text-xs text-slate-500 dark:text-slate-400" id="unscheduledSoonLabel">Due within 7 days</p>
-                    </div>
-
-                    <!-- Actual vs Estimated -->
-                    <div class="cl-panel">
-                        <h3 class="cl-section-title flex items-center gap-2">
-                            <i class="fa-solid fa-stopwatch text-slate-400"></i> Avg Over/Under
-                        </h3>
-                        <div class="text-3xl font-bold text-emerald-600 mb-1" id="avgOverUnder">--</div>
-                        <p class="text-xs text-slate-500 dark:text-slate-400" id="avgOverUnderLabel">Compared to estimated duration</p>
-                    </div>
-
-                    <!-- Under Expected Rate -->
-                    <div class="cl-panel">
-                        <h3 class="cl-section-title flex items-center gap-2">
-                            <i class="fa-solid fa-gauge-simple-low" id="underExpectedIcon"></i> Under Expected
-                        </h3>
-                        <div class="text-3xl font-bold mb-1" id="underExpectedRate">--</div>
-                        <p class="text-xs text-slate-500 dark:text-slate-400" id="underExpectedLabel">Completed under estimate</p>
-                    </div>
-
-                    <!-- Over Expected Rate -->
-                    <div class="cl-panel">
-                        <h3 class="cl-section-title flex items-center gap-2">
-                            <i class="fa-solid fa-gauge-simple-high" id="overExpectedIcon"></i> Over Expected
-                        </h3>
-                        <div class="text-3xl font-bold mb-1" id="overExpectedRate">--</div>
-                        <p class="text-xs text-slate-500 dark:text-slate-400" id="overExpectedLabel">Completed over estimate</p>
-                    </div>
-
-                    <!-- Exactly Expected Rate -->
-                    <div class="cl-panel">
-                        <h3 class="cl-section-title flex items-center gap-2">
-                            <i class="fa-solid fa-equals" id="exactlyExpectedIcon"></i> Exactly Expected
-                        </h3>
-                        <div class="text-3xl font-bold mb-1" id="exactlyExpectedRate">--</div>
-                        <p class="text-xs text-slate-500 dark:text-slate-400" id="exactlyExpectedLabel">Matched estimate exactly</p>
-                    </div>
-
-                    <!-- On-Target Rate -->
-                    <div class="cl-panel">
-                        <h3 class="cl-section-title flex items-center gap-2">
-                            <i class="fa-solid fa-bullseye" id="onTargetIcon"></i> On-Target
-                        </h3>
-                        <div class="text-3xl font-bold mb-1" id="onTargetRate">--</div>
-                        <p class="text-xs text-slate-500 dark:text-slate-400" id="onTargetLabel">Within 10% of estimate</p>
-                    </div>
-                    
-                    <div class="cl-panel">
-                        <h3 class="cl-section-title flex items-center gap-2">
-                            <i class="fa-solid fa-rotate-left text-slate-400"></i> Time Tracking
-                        </h3>
-                        <p class="text-xs text-slate-500 dark:text-slate-400 mb-3">Clear actual time entries to reset over/under analytics.</p>
-                        <div class="space-y-2">
-                            <button onclick="openActualTimesModal()" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white/90 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 text-sm font-semibold transition-colors">
-                                Review Actual Entries
-                            </button>
-                            <button onclick="resetActualTimeData()" class="w-full px-3 py-2 rounded-lg border border-rose-200/70 dark:border-rose-700/60 bg-rose-50/70 dark:bg-rose-900/20 text-rose-600 dark:text-rose-300 hover:bg-rose-100/70 dark:hover:bg-rose-900/40 text-sm font-semibold transition-colors">
-                            Reset Actual Times
-                            </button>
+                        <div class="grid grid-cols-2 gap-3 text-sm">
+                            <div class="rounded-xl border border-slate-200 dark:border-slate-700 p-3 bg-slate-50/80 dark:bg-slate-800/50">
+                                <div class="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">Avg actual</div>
+                                <div class="text-2xl font-bold text-brand-600" id="avgCompletionTime">--</div>
+                            </div>
+                            <div class="rounded-xl border border-slate-200 dark:border-slate-700 p-3 bg-slate-50/80 dark:bg-slate-800/50">
+                                <div class="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">Avg over/under</div>
+                                <div class="text-2xl font-bold text-emerald-600" id="avgOverUnder">--</div>
+                            </div>
                         </div>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-3" id="avgOverUnderLabel">Compared to estimated duration</p>
+                        <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2 mt-4">
+                            <div class="h-2 rounded-full bg-amber-500 transition-all" id="weekProgressBar" style="width: 0%"></div>
+                        </div>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-2" id="remainingWeekLabel">Scheduled minutes left this week</p>
                     </div>
-
-                    <!-- Completion Streak -->
-                    <div class="cl-panel">
+                    <div class="cl-panel md:col-span-2">
                         <h3 class="cl-section-title flex items-center gap-2">
-                            <i class="fa-solid fa-fire text-orange-400"></i> This Week Progress
+                            <i class="fa-solid fa-rotate-left text-slate-400"></i> Time tracking tools
                         </h3>
-                        <div class="text-3xl font-bold text-amber-600 mb-1" id="weekProgress">0%</div>
-                        <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2 mt-3">
-                            <div class="h-2 rounded-full bg-amber-500" id="weekProgressBar" style="width: 0%"></div>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mb-3">Clear actual time entries to reset over/under stats.</p>
+                        <div class="flex flex-wrap gap-2">
+                            <button onclick="openActualTimesModal()" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white/90 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 text-sm font-semibold transition-colors">
+                                Review actual entries
+                            </button>
+                            <button onclick="resetActualTimeData()" class="px-3 py-2 rounded-lg border border-rose-200/70 dark:border-rose-700/60 bg-rose-50/70 dark:bg-rose-900/20 text-rose-600 dark:text-rose-300 hover:bg-rose-100/70 dark:hover:bg-rose-900/40 text-sm font-semibold transition-colors">
+                                Reset actual times
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -2869,20 +2917,30 @@
     <!-- Modal: Classify Settings -->
     <div id="classifySettingsModal" class="cl-modal-root hidden">
         <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"></div>
-        <div class="relative modal-panel rounded-2xl p-6 max-w-md w-[94%] max-h-full overflow-y-auto scale-95 opacity-0 transition-all" id="classifySettingsPanel">
+        <div class="relative modal-panel rounded-2xl p-6 max-w-lg w-[94%] max-h-full overflow-y-auto scale-95 opacity-0 transition-all" id="classifySettingsPanel">
             <div class="flex items-center justify-between gap-3 mb-4">
                 <h3 class="text-xl font-display font-bold text-slate-900 dark:text-white">Classify settings</h3>
                 <button onclick="closeClassifySettings()" class="text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 text-lg transition-colors" type="button"><i class="fa-solid fa-xmark"></i></button>
             </div>
-            <div class="cl-settings-list">
+            <div class="cl-settings-section">
+                <h4 class="cl-settings-section__title">Schedule</h4>
+                <p class="cl-settings-section__lead">School hours, lunch, and times Classify should avoid.</p>
                 <button type="button" class="cl-settings-item" onclick="closeClassifySettings(); openBlockedTimesModal();">
                     <span class="cl-settings-item-label"><i class="fa-solid fa-ban text-slate-600 dark:text-slate-300"></i>Block times</span>
                     <i class="fa-solid fa-chevron-right text-slate-400 text-sm"></i>
                 </button>
+            </div>
+            <div class="cl-settings-section">
+                <h4 class="cl-settings-section__title">Organize</h4>
+                <p class="cl-settings-section__lead">Subjects, colors, and how assignments are grouped.</p>
                 <button type="button" class="cl-settings-item" onclick="closeClassifySettings(); openSubjectManager();">
                     <span class="cl-settings-item-label"><i class="fa-solid fa-book-open text-red-500"></i>Manage subjects</span>
                     <i class="fa-solid fa-chevron-right text-slate-400 text-sm"></i>
                 </button>
+            </div>
+            <div class="cl-settings-section">
+                <h4 class="cl-settings-section__title">Data</h4>
+                <p class="cl-settings-section__lead">Back up or move assignments between devices.</p>
                 <button type="button" class="cl-settings-item" onclick="closeClassifySettings(); exportTasks();">
                     <span class="cl-settings-item-label"><i class="fa-solid fa-download text-emerald-500"></i>Export assignments</span>
                     <i class="fa-solid fa-chevron-right text-slate-400 text-sm"></i>
@@ -2891,6 +2949,10 @@
                     <span class="cl-settings-item-label"><i class="fa-solid fa-upload text-red-500"></i>Import assignments</span>
                     <i class="fa-solid fa-chevron-right text-slate-400 text-sm"></i>
                 </button>
+            </div>
+            <div class="cl-settings-section">
+                <h4 class="cl-settings-section__title">App</h4>
+                <p class="cl-settings-section__lead">Display, shortcuts, and guided help.</p>
                 <button type="button" class="cl-settings-item" onclick="closeClassifySettings(); openClassifyPreferences();">
                     <span class="cl-settings-item-label"><i class="fa-solid fa-sliders text-violet-500"></i>Preferences</span>
                     <i class="fa-solid fa-chevron-right text-slate-400 text-sm"></i>
@@ -2924,7 +2986,8 @@
             </div>
 
             <div class="cl-pref-section">
-                <h4 class="cl-pref-section__title">Completion</h4>
+                <h4 class="cl-pref-section__title">When you finish work</h4>
+                <p class="cl-pref-note" style="margin-top:0">Choose what happens after you mark an assignment complete.</p>
                 <button type="button" class="cl-settings-item" onclick="toggleCompletionPromptPreference()">
                     <span class="cl-settings-item-label"><i class="fa-solid fa-circle-check text-emerald-500"></i>Ask before completing</span>
                     <span id="cl-pref-completion-prompt-state" class="text-sm font-semibold text-slate-500 dark:text-slate-400">On</span>
@@ -2941,7 +3004,8 @@
             </div>
 
             <div class="cl-pref-section">
-                <h4 class="cl-pref-section__title">Week calendar</h4>
+                <h4 class="cl-pref-section__title">Calendar layout</h4>
+                <p class="cl-pref-note" style="margin-top:0">How the week view looks on the Calendar tab.</p>
                 <div class="cl-pref-row">
                     <label for="cl-pref-week-start">Week starts on</label>
                     <select id="cl-pref-week-start" onchange="setWeekCalendarStartDayPreference(this.value)">
@@ -2964,7 +3028,8 @@
             </div>
 
             <div class="cl-pref-section">
-                <h4 class="cl-pref-section__title">Interface</h4>
+                <h4 class="cl-pref-section__title">Look &amp; feel</h4>
+                <p class="cl-pref-note" style="margin-top:0">Theme, command line, and in-app tips.</p>
                 <button type="button" class="cl-settings-item" onclick="toggleDarkMode(); syncClassifyPreferencesPanel();">
                     <span class="cl-settings-item-label"><i class="fa-solid fa-moon text-red-500"></i>Dark mode</span>
                     <span id="cl-pref-dark-state" class="text-sm font-semibold text-slate-500 dark:text-slate-400">Off</span>
@@ -2980,7 +3045,8 @@
             </div>
 
             <div class="cl-pref-section">
-                <h4 class="cl-pref-section__title">Scheduling</h4>
+                <h4 class="cl-pref-section__title">Auto-scheduling</h4>
+                <p class="cl-pref-note" style="margin-top:0">Background refresh keeps times realistic while you are idle.</p>
                 <button type="button" class="cl-settings-item" onclick="toggleAutoMaintainSchedulePreference()">
                     <span class="cl-settings-item-label"><i class="fa-solid fa-wand-magic-sparkles text-emerald-500"></i>Auto-maintain schedule</span>
                     <span id="cl-pref-auto-maintain-state" class="text-sm font-semibold text-slate-500 dark:text-slate-400">On</span>
@@ -3084,10 +3150,10 @@
                 <h3 class="cl-modal-header-title font-display">Blocked Times</h3>
                 <button type="button" class="cl-modal-header-close" onclick="closeBlockedTimesModal()" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
             </div>
-            <p class="text-sm text-slate-600 dark:text-slate-300 mb-4">Set daily schedule defaults, date overrides, and blocked times.</p>
+            <p class="text-sm text-slate-600 dark:text-slate-300 mb-5">Tell Classify when school runs, when you are busy, and when days are off. Changes apply to auto-scheduling immediately.</p>
                 <div id="cl-wt-block-times-defaults" class="rounded-xl border border-slate-200/70 dark:border-slate-700/70 p-4 mb-4 bg-slate-50/80 dark:bg-slate-800/40">
-                    <div class="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-2">Default Schedule</div>
-                    <p class="text-xs text-slate-500 dark:text-slate-400 mb-3">Set your typical day range and lunch break.</p>
+                    <div class="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-1">1. Default school day</div>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mb-3">Used every weekday unless a date override or vacation applies.</p>
                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     <div>
                         <label class="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">Start</label>
@@ -3119,8 +3185,8 @@
                 </div>
                 </div>
             <div class="rounded-xl border border-slate-200/70 dark:border-slate-700/70 p-4 mb-4 bg-slate-50/80 dark:bg-slate-800/40">
-                <div class="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-2">Date Override</div>
-                <p class="text-xs text-slate-500 dark:text-slate-400 mb-3">Override a single date’s schedule.</p>
+                <div class="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-1">2. One-day schedule changes</div>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mb-3">Early dismissal, late start, or a different lunch on a specific date.</p>
                 <div class="grid grid-cols-1 sm:grid-cols-5 gap-3">
                     <div>
                         <label class="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">Date</label>
@@ -3152,8 +3218,8 @@
                 <div id="scheduleOverridesList" class="space-y-2 mt-3"></div>
             </div>
             <div class="rounded-xl border border-slate-200/70 dark:border-slate-700/70 p-4 mb-4 bg-slate-50/80 dark:bg-slate-800/40">
-                <div class="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-2">Schedule Vacation / Break</div>
-                <p class="text-xs text-slate-500 dark:text-slate-400 mb-3">Blocks off full days using your default schedule range.</p>
+                <div class="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-1">3. Vacation &amp; days off</div>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mb-3">Block full days when school is out — no assignments can be scheduled.</p>
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
                     <div>
                         <label class="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">Start Date</label>
@@ -3170,7 +3236,8 @@
                 <div id="vacationList" class="space-y-2 mt-3"></div>
             </div>
             <div class="rounded-xl border border-slate-200/70 dark:border-slate-700/70 p-4 bg-slate-50/80 dark:bg-slate-800/40">
-                <div class="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-2">Blocked Time</div>
+                <div class="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-1">4. Busy times</div>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mb-3">Practices, appointments, or recurring conflicts during the day.</p>
                 <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
                     <input id="blockDateInput" type="date" class="h-10 px-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white [color-scheme:light] dark:[color-scheme:dark]">
                     <input id="blockStartInput" type="time" class="h-10 px-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white [color-scheme:light] dark:[color-scheme:dark]">
@@ -5843,10 +5910,9 @@
                 title: 'Weekly Planning Sprint',
                 lead: 'Plan the whole week once instead of reacting day by day.',
                 bullets: [
-                    '<strong>Open Weekly Queue</strong> lists unscheduled work for the week',
                     '<strong>Auto-Plan Unscheduled</strong> drops assignments into open slots',
-                    '<strong>Auto Time-Block</strong> fills realistic work windows',
-                    'Use <strong>Review Week Grid</strong> to sanity-check the calendar'
+                    'Use <strong>Review Week Grid</strong> to sanity-check the calendar',
+                    'Stats above show due count, unscheduled work, and busiest day'
                 ]
             },
             {
@@ -5932,8 +5998,7 @@
                 lead: 'Search and slice the full assignment list without opening the calendar.',
                 bullets: [
                     '<strong>Search</strong> matches titles and subjects (<kbd>Ctrl+K</kbd> focuses the box)',
-                    'Filter presets include active, this week, overdue, and weekly queue',
-                    'Sort by date, auto-schedule order, or subject',
+                    'Filter by all, active, completed, or due this week',
                     '<strong>Clear Done</strong> archives completed work in bulk'
                 ]
             },
@@ -5954,17 +6019,17 @@
             },
             {
                 id: 'analytics-filters',
-                target: '#cl-orient-analytics-quick',
+                target: '#analyticsFunFacts',
                 tab: 'analytics',
                 position: 'top-right',
                 icon: 'fa-chart-line',
-                title: 'Analytics quick filters',
-                lead: 'Spot workload patterns, then jump straight into a filtered assignment list.',
+                title: 'Assignment analytics',
+                lead: 'See highlights and patterns pulled from your real assignment data.',
                 bullets: [
-                    'Cards summarize due today, this week, and overdue',
-                    'Tap a card to open Assignments with that filter already applied',
-                    'Use this when planning — not just when something is overdue',
-                    'Pair with Calendar week view to see where time actually goes'
+                    'Spotlight cards summarize due today, this week, and on-time rate',
+                    'Interesting finds rotate fun stats like busiest subject and longest title',
+                    'Use upcoming deadlines and time accuracy to plan the week',
+                    'Open Assignments from here when you want to act on a stat'
                 ]
             }
         ];
@@ -10492,7 +10557,6 @@
             const weekUnscheduledCount = document.getElementById('weekUnscheduledCount');
             const weekPlannedMinutes = document.getElementById('weekPlannedMinutes');
             const weekBusiestDay = document.getElementById('weekBusiestDay');
-            const weekActionList = document.getElementById('weekActionList');
             const currentWeekKey = getCurrentWeekKey();
             const { startStr, endStr } = getWeekBoundsFromWeekKey(currentWeekKey);
 
@@ -10523,34 +10587,12 @@
             weekUnscheduledCount.textContent = unscheduled.length;
             weekPlannedMinutes.textContent = plannedMinutes;
             weekBusiestDay.textContent = busiestLabel;
-
-            const weekDates = getWeekdayDateStrings();
-            const actionItems = weekDates.map(dateStr => {
-                const schedule = getSmartSchedule(dateStr).slice(0, 2);
-                if(schedule.length === 0) return '';
-                const dayLabel = new Date(`${dateStr}T00:00:00`).toLocaleDateString('en-US', { weekday: 'short' });
-                const items = schedule.map(item => {
-                    const timeLabel = item.type === 'overflow' ? 'Late' : minToTime(item.start);
-                    const autoBadge = item.type === 'auto' ? ' <span class="text-[10px] text-red-600 dark:text-red-400">(Auto)</span>' : '';
-                    return `<div class="text-xs text-slate-600 dark:text-slate-300">${timeLabel} - ${item.task.title}${autoBadge}</div>`;
-                }).join('');
-                return `<div class="rounded-lg border border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-800/60 px-3 py-2"><div class="font-semibold text-slate-800 dark:text-slate-100 text-xs mb-1">${dayLabel}</div>${items}</div>`;
-            }).filter(Boolean);
-
-            if(weekActionList) {
-                if(actionItems.length === 0) {
-                    weekActionList.innerHTML = '<div class="text-slate-400 dark:text-slate-500 italic">No scheduled assignments this week yet. Use Auto-Plan or add due dates.</div>';
-                } else {
-                    weekActionList.innerHTML = actionItems.join('');
-                }
-            }
         }
 
         // --- Task List Logic ---
         function renderTaskList() {
             const filter = document.getElementById('taskFilter').value;
             const search = document.getElementById('taskSearch').value.toLowerCase();
-            const sort = document.getElementById('taskSort')?.value || 'date';
             const listEl = document.getElementById('fullTaskList');
             const today = getDateStrLocal();
             const currentWeekKey = getCurrentWeekKey();
@@ -10561,52 +10603,21 @@
                 if(filter === 'active' && t.completed) return false;
                 if(filter === 'completed' && !t.completed) return false;
                 const dueDate = getTaskDueDate(t);
-                if(filter === 'overdue' && (t.completed || !dueDate || dueDate >= today)) return false;
                 if(filter === 'thisweek' && (t.completed || ((!(dueDate && dueDate >= weekStart && dueDate <= weekEnd)) && t.week !== currentWeekKey))) return false;
-                if(filter === 'weekplan' && (t.completed || ((dueDate && dueDate > weekEnd) || (t.week && t.week !== currentWeekKey && !dueDate)))) return false;
                 const taskTitle = (t.title || '').toLowerCase();
                 const taskSubject = (t.subject || '').toLowerCase();
                 if(search && !taskTitle.includes(search) && !taskSubject.includes(search)) return false;
                 return true;
             });
 
-            // Overdue filter always ranks most→least overdue, ignoring the Sort dropdown.
-            if(filter === 'overdue') {
-                filtered.sort(compareTasksMostOverdueFirst);
-            } else {
-                filtered.sort((a, b) => {
-                    if(a.completed !== b.completed) return a.completed ? 1 : -1;
-                    if(filter === 'weekplan') {
-                        if(!a.date && b.date) return -1;
-                        if(a.date && !b.date) return 1;
-                    }
-                    if(sort === 'autoschedule') {
-                        const aDate = a.date || '';
-                        const bDate = b.date || '';
-                        if(aDate && bDate) {
-                            if(aDate !== bDate) return aDate.localeCompare(bDate);
-                            const aTime = a.time || '23:59';
-                            const bTime = b.time || '23:59';
-                            if(aTime !== bTime) return aTime.localeCompare(bTime);
-                            return (a.title || '').localeCompare(b.title || '');
-                        }
-                        if(aDate) return -1;
-                        if(bDate) return 1;
-                        const aDue = getTaskDueDate(a) || '9999-12-31';
-                        const bDue = getTaskDueDate(b) || '9999-12-31';
-                        if(aDue !== bDue) return aDue.localeCompare(bDue);
-                        return (a.title || '').localeCompare(b.title || '');
-                    } else if(sort === 'subject') {
-                        return (a.subject || '').localeCompare(b.subject || '');
-                    } else {
-                        const aDue = getTaskDueDate(a);
-                        const bDue = getTaskDueDate(b);
-                        if(!aDue) return 1;
-                        if(!bDue) return -1;
-                        return aDue.localeCompare(bDue);
-                    }
-                });
-            }
+            filtered.sort((a, b) => {
+                if(a.completed !== b.completed) return a.completed ? 1 : -1;
+                const aDue = getTaskDueDate(a);
+                const bDue = getTaskDueDate(b);
+                if(!aDue) return 1;
+                if(!bDue) return -1;
+                return aDue.localeCompare(bDue);
+            });
 
             if(filtered.length === 0) {
                 listEl.innerHTML = `
@@ -10712,7 +10723,7 @@
                 { key: 'completed', title: 'Completed', emptyClass: 'opacity-90' }
             ];
 
-            const shouldShowAllSections = (filter === 'all' || filter === 'active' || filter === 'weekplan' || filter === 'thisweek');
+            const shouldShowAllSections = (filter === 'all' || filter === 'active' || filter === 'thisweek');
             const sections = shouldShowAllSections
                 ? sectionOrder.filter(sec => grouped[sec.key].length > 0)
                 : [{ key: 'results', title: 'Assignments', tasks: filtered, emptyClass: '' }];
@@ -10747,7 +10758,6 @@
         function setupSearchListener() {
             document.getElementById('taskSearch').addEventListener('input', renderTaskList);
             document.getElementById('taskFilter').addEventListener('change', renderTaskList);
-            document.getElementById('taskSort')?.addEventListener('change', renderTaskList);
         }
 
         let dependencyDraft = { after: [], before: [], differentDay: [] };
@@ -11263,12 +11273,12 @@
                 week: 'thisweek',
                 thisweek: 'thisweek',
                 'this week': 'thisweek',
-                overdue: 'overdue',
+                overdue: 'all',
                 completed: 'completed',
                 done: 'completed',
-                weekplan: 'weekplan',
-                planning: 'weekplan',
-                plan: 'weekplan',
+                weekplan: 'thisweek',
+                planning: 'thisweek',
+                plan: 'thisweek',
                 all: 'all'
             };
             return map[needle] || null;
@@ -17722,6 +17732,158 @@
             }
         }
 
+        function shuffleAnalyticsInsights(items, seed = Date.now()) {
+            const list = items.slice();
+            let state = seed >>> 0;
+            const rand = () => {
+                state = (state * 1664525 + 1013904223) >>> 0;
+                return state / 4294967296;
+            };
+            for(let i = list.length - 1; i > 0; i--) {
+                const j = Math.floor(rand() * (i + 1));
+                [list[i], list[j]] = [list[j], list[i]];
+            }
+            return list;
+        }
+
+        function buildAnalyticsInsightPool() {
+            const today = getDateStrLocal();
+            const { startStr: weekStart, endStr: weekEnd } = getWeekBounds();
+            const currentWeekKey = getCurrentWeekKey();
+            const visible = tasks.filter(isTaskVisibleInClassify);
+            const active = visible.filter(t => !t.completed);
+            const completed = visible.filter(t => t.completed);
+            const insights = [];
+            const accents = ['accent-red', 'accent-amber', 'accent-emerald', 'accent-violet', 'accent-sky', 'accent-rose'];
+            let accentIndex = 0;
+            const addInsight = (emoji, title, value, detail) => {
+                insights.push({
+                    emoji,
+                    title,
+                    value,
+                    detail,
+                    accent: accents[accentIndex++ % accents.length]
+                });
+            };
+
+            if(active.length === 0 && completed.length === 0) {
+                addInsight('🌱', 'Fresh start', 'No data yet', 'Add assignments and come back for fun stats.');
+                return insights;
+            }
+
+            const subjectCounts = {};
+            visible.forEach(t => {
+                const subject = t.subject || 'General';
+                subjectCounts[subject] = (subjectCounts[subject] || 0) + 1;
+            });
+            const topSubject = Object.entries(subjectCounts).sort((a, b) => b[1] - a[1])[0];
+            if(topSubject) {
+                addInsight('📚', 'Top subject', topSubject[0], `${topSubject[1]} assignment${topSubject[1] === 1 ? '' : 's'} in your list`);
+            }
+
+            const longestTitle = visible.reduce((best, t) => {
+                const len = (t.title || '').length;
+                return len > (best?.len || 0) ? { title: t.title, len } : best;
+            }, null);
+            if(longestTitle?.title) {
+                addInsight('📏', 'Longest title', `${longestTitle.len} chars`, longestTitle.title);
+            }
+
+            const totalMinutes = active.reduce((sum, t) => sum + (parseInt(t.duration, 10) || 30), 0);
+            if(totalMinutes > 0) {
+                const hours = Math.round((totalMinutes / 60) * 10) / 10;
+                addInsight('⏳', 'Work still queued', `${hours} hr`, `${active.length} active assignment${active.length === 1 ? '' : 's'} on the board`);
+            }
+
+            const withNotes = visible.filter(t => t.notes && String(t.notes).trim());
+            if(withNotes.length > 0) {
+                const avgNoteLen = Math.round(withNotes.reduce((sum, t) => sum + String(t.notes).trim().length, 0) / withNotes.length);
+                addInsight('📝', 'Note taker', `${withNotes.length} noted`, `Average note length: ${avgNoteLen} characters`);
+            }
+
+            const startedCount = active.filter(isAssignmentStarted).length;
+            if(startedCount > 0) {
+                addInsight('▶️', 'In progress', `${startedCount} started`, 'Assignments with a locked start time today');
+            }
+
+            const weekendDue = active.filter(t => {
+                const due = getTaskDueDate(t);
+                if(!due) return false;
+                const day = new Date(`${due}T12:00:00`).getDay();
+                return day === 0 || day === 6;
+            }).length;
+            if(weekendDue > 0) {
+                addInsight('🏖️', 'Weekend deadlines', `${weekendDue}`, 'Active assignments due Saturday or Sunday');
+            }
+
+            const repeatCount = visible.filter(t => t.repeatRule && t.repeatRule.type && t.repeatRule.type !== 'none').length;
+            if(repeatCount > 0) {
+                addInsight('🔁', 'Repeat crew', `${repeatCount}`, 'Assignments with a repeat pattern');
+            }
+
+            const dayNameCounts = [0, 0, 0, 0, 0, 0, 0];
+            const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+            active.forEach(t => {
+                const due = getTaskDueDate(t);
+                if(!due) return;
+                dayNameCounts[new Date(`${due}T12:00:00`).getDay()]++;
+            });
+            const busiestDueDay = dayNameCounts.indexOf(Math.max(...dayNameCounts));
+            if(dayNameCounts[busiestDueDay] > 0) {
+                addInsight('📅', 'Busiest due day', dayNames[busiestDueDay], `${dayNameCounts[busiestDueDay]} active due dates land here`);
+            }
+
+            const dueThisWeek = active.filter(t => {
+                const due = getTaskDueDate(t);
+                return (due && due >= weekStart && due <= weekEnd) || (!due && t.week === currentWeekKey);
+            }).length;
+            if(dueThisWeek > 0) {
+                addInsight('🎯', 'This week\'s pile', `${dueThisWeek}`, 'Still on the hook before the week ends');
+            }
+
+            const overdue = active.filter(t => {
+                const due = getTaskDueDate(t);
+                return due && due < today;
+            }).length;
+            if(overdue > 0) {
+                addInsight('🚨', 'Overdue stack', `${overdue}`, 'Past-due assignments waiting for attention');
+            }
+
+            const completedWithActual = getActualTimeAnalyticsRows();
+            if(completedWithActual.length > 0) {
+                const beatEstimate = completedWithActual.filter(t => Number(t.actualMinutes) < Number(t.duration)).length;
+                const rate = Math.round((beatEstimate / completedWithActual.length) * 100);
+                addInsight('⚡', 'Speed runs', `${rate}%`, 'Completed assignments finished under the estimate');
+            }
+
+            const unscheduled = active.filter(t => !t.date).length;
+            if(unscheduled > 0) {
+                addInsight('🧩', 'Needs a slot', `${unscheduled}`, 'Active assignments without a scheduled work day');
+            }
+
+            const exactDateCount = active.filter(t => getTaskScheduleMode(t) === 'date').length;
+            if(exactDateCount > 0) {
+                addInsight('📌', 'Exact-date mode', `${exactDateCount}`, 'Pinned to a specific calendar day');
+            }
+
+            return insights;
+        }
+
+        function renderAnalyticsFunFacts() {
+            const container = document.getElementById('analyticsFunFacts');
+            if(!container) return;
+            const pool = buildAnalyticsInsightPool();
+            const picked = shuffleAnalyticsInsights(pool).slice(0, 6);
+            container.innerHTML = picked.map(item => `
+                <article class="cl-analytics-fun-card cl-analytics-fun-card--${item.accent}">
+                    <div class="cl-analytics-fun-card__emoji" aria-hidden="true">${item.emoji}</div>
+                    <h4 class="cl-analytics-fun-card__title">${escapeHtml(item.title)}</h4>
+                    <p class="cl-analytics-fun-card__value">${escapeHtml(String(item.value))}</p>
+                    <p class="cl-analytics-fun-card__detail">${escapeHtml(item.detail)}</p>
+                </article>
+            `).join('');
+        }
+
         function renderAnalytics() {
             const today = getDateStrLocal();
             const { startStr: weekStart, endStr: weekEnd } = getWeekBounds();
@@ -17734,49 +17896,36 @@
                 return dayDiff >= 0 && dayDiff <= 6;
             };
 
-            // Quick Filters
             const dueToday = tasks.filter(t => !t.completed && getTaskDueDate(t) === today).length;
             const dueWeek = tasks.filter(t => !t.completed && ((getTaskDueDate(t) && getTaskDueDate(t) >= today && getTaskDueDate(t) <= weekEnd) || (!getTaskDueDate(t) && t.week === currentWeekKey))).length;
-            const overdue = tasks.filter(t => !t.completed && getTaskDueDate(t) && getTaskDueDate(t) < today).length;
-            document.getElementById('filterDueToday').innerText = dueToday;
-            document.getElementById('filterDueWeek').innerText = dueWeek;
-            document.getElementById('filterOverdue').innerText = overdue;
-            // Avg Actual Time
+            const dueTodayEl = document.getElementById('filterDueToday');
+            const dueWeekEl = document.getElementById('filterDueWeek');
+            if(dueTodayEl) dueTodayEl.innerText = dueToday;
+            if(dueWeekEl) dueWeekEl.innerText = dueWeek;
+
             const completedWithActual = getActualTimeAnalyticsRows();
             const avgActual = completedWithActual.length > 0
                 ? Math.round(completedWithActual.reduce((sum, t) => sum + Number(t.actualMinutes), 0) / completedWithActual.length)
                 : 0;
-            document.getElementById('avgCompletionTime').innerText = avgActual > 0 ? avgActual + ' min' : '--';
+            const avgCompletionEl = document.getElementById('avgCompletionTime');
+            if(avgCompletionEl) avgCompletionEl.innerText = avgActual > 0 ? `${avgActual} min` : '--';
 
-            // Remaining Today / Week
-            const remainingToday = tasks
-                .filter(t => !t.completed && t.date === today)
-                .reduce((sum, t) => sum + (parseInt(t.duration, 10) || 30), 0);
             const remainingWeek = tasks
                 .filter(t => !t.completed && t.date && t.date >= weekStart && t.date <= weekEnd)
                 .reduce((sum, t) => sum + (parseInt(t.duration, 10) || 30), 0);
-            const remainingTodayEl = document.getElementById('remainingTodayMinutes');
-            const remainingWeekEl = document.getElementById('remainingWeekMinutes');
-            if(remainingTodayEl) remainingTodayEl.innerText = remainingToday > 0 ? `${Math.round(remainingToday / 60 * 10) / 10} hr` : '0 hr';
-            if(remainingWeekEl) remainingWeekEl.innerText = remainingWeek > 0 ? `${Math.round(remainingWeek / 60 * 10) / 10} hr` : '0 hr';
+            const remainingWeekLabelEl = document.getElementById('remainingWeekLabel');
+            if(remainingWeekLabelEl) {
+                remainingWeekLabelEl.innerText = remainingWeek > 0
+                    ? `${Math.round(remainingWeek / 60 * 10) / 10} hours still scheduled this week`
+                    : 'No scheduled minutes left this week';
+            }
 
-            // On-time Rate
             const completedWithDue = tasks.filter(t => t.completed && getTaskDueDate(t) && t.completedDate);
             const onTimeCount = completedWithDue.filter(t => t.completedDate <= getTaskDueDate(t)).length;
             const onTimeRate = completedWithDue.length > 0 ? Math.round((onTimeCount / completedWithDue.length) * 100) : null;
             const onTimeEl = document.getElementById('onTimeRate');
-            const onTimeLabelEl = document.getElementById('onTimeRateLabel');
-            if(onTimeEl && onTimeLabelEl) {
-                if(onTimeRate === null) {
-                    onTimeEl.innerText = '--';
-                    onTimeLabelEl.innerText = 'No completed assignments with due dates yet';
-                } else {
-                    onTimeEl.innerText = `${onTimeRate}%`;
-                    onTimeLabelEl.innerText = `${onTimeCount} of ${completedWithDue.length} completed on time`;
-                }
-            }
+            if(onTimeEl) onTimeEl.innerText = onTimeRate === null ? '--' : `${onTimeRate}%`;
 
-            // Upcoming Deadlines (7 days)
             const upcomingListEl = document.getElementById('upcomingDeadlinesList');
             const upcoming = tasks
                 .filter(t => !t.completed && getTaskDueDate(t) && inNext7Days(getTaskDueDate(t)))
@@ -17788,23 +17937,13 @@
                 } else {
                     upcomingListEl.innerHTML = upcoming.map(t => `
                         <div class="rounded-lg border border-slate-100 dark:border-slate-700 px-3 py-2">
-                            <div class="font-medium text-slate-800 dark:text-slate-100">${t.title}</div>
-                            <div class="text-xs text-slate-500 dark:text-slate-400">${getTaskDueDate(t)}${t.dueTime ? ` • ${minToTime(timeToMin(t.dueTime))}` : ''} • ${t.subject}</div>
+                            <div class="font-medium text-slate-800 dark:text-slate-100">${escapeHtml(t.title)}</div>
+                            <div class="text-xs text-slate-500 dark:text-slate-400">${getTaskDueDate(t)}${t.dueTime ? ` • ${minToTime(timeToMin(t.dueTime))}` : ''} • ${escapeHtml(t.subject || '')}</div>
                         </div>
                     `).join('');
                 }
             }
 
-            // Unscheduled Soon
-            const unscheduledSoon = tasks.filter(t => !t.completed && !t.date && getTaskDueDate(t) && inNext7Days(getTaskDueDate(t))).length;
-            const unscheduledSoonEl = document.getElementById('unscheduledSoonCount');
-            const unscheduledSoonLabelEl = document.getElementById('unscheduledSoonLabel');
-            if(unscheduledSoonEl && unscheduledSoonLabelEl) {
-                unscheduledSoonEl.innerText = unscheduledSoon;
-                unscheduledSoonLabelEl.innerText = `Due within 7 days`;
-            }
-
-            // Avg Over/Under
             const completedWithEstimate = completedWithActual.filter(t => Number(t.duration) > 0);
             let avgOverUnder = null;
             if(completedWithEstimate.length > 0) {
@@ -17820,87 +17959,30 @@
                 } else {
                     const sign = avgOverUnder > 0 ? '+' : '';
                     overUnderEl.innerText = `${sign}${avgOverUnder} min`;
-                    overUnderLabelEl.innerText = `${completedWithEstimate.length} assignment${completedWithEstimate.length !== 1 ? 's' : ''} with actual time`;
+                    overUnderLabelEl.innerText = `${completedWithEstimate.length} completed assignment${completedWithEstimate.length !== 1 ? 's' : ''} with actual time logged`;
                 }
             }
 
-            // Under Expected Rate
-            const underExpectedEl = document.getElementById('underExpectedRate');
-            const underExpectedLabelEl = document.getElementById('underExpectedLabel');
-            const underExpectedIconEl = document.getElementById('underExpectedIcon');
-            const overExpectedEl = document.getElementById('overExpectedRate');
-            const overExpectedLabelEl = document.getElementById('overExpectedLabel');
-            const overExpectedIconEl = document.getElementById('overExpectedIcon');
-            const exactlyExpectedEl = document.getElementById('exactlyExpectedRate');
-            const exactlyExpectedLabelEl = document.getElementById('exactlyExpectedLabel');
-            const exactlyExpectedIconEl = document.getElementById('exactlyExpectedIcon');
-            const onTargetEl = document.getElementById('onTargetRate');
-            const onTargetLabelEl = document.getElementById('onTargetLabel');
-            const onTargetIconEl = document.getElementById('onTargetIcon');
-            if(underExpectedEl && underExpectedLabelEl) {
-                if(completedWithEstimate.length === 0) {
-                    underExpectedEl.innerText = '--';
-                    underExpectedLabelEl.innerText = 'No completed assignments with estimates yet';
-                    applyAnalyticsRateColor(underExpectedEl, null, 'higher-better', underExpectedIconEl);
-                    if(overExpectedEl && overExpectedLabelEl) {
-                        overExpectedEl.innerText = '--';
-                        overExpectedLabelEl.innerText = 'No completed assignments with estimates yet';
-                        applyAnalyticsRateColor(overExpectedEl, null, 'lower-better', overExpectedIconEl);
-                    }
-                    if(exactlyExpectedEl && exactlyExpectedLabelEl) {
-                        exactlyExpectedEl.innerText = '--';
-                        exactlyExpectedLabelEl.innerText = 'No completed assignments with estimates yet';
-                        applyAnalyticsRateColor(exactlyExpectedEl, null, 'higher-better', exactlyExpectedIconEl);
-                    }
-                    if(onTargetEl && onTargetLabelEl) {
-                        onTargetEl.innerText = '--';
-                        onTargetLabelEl.innerText = 'No completed assignments with estimates yet';
-                        applyAnalyticsRateColor(onTargetEl, null, 'higher-better-strict', onTargetIconEl);
-                    }
-                } else {
-                    const underCount = completedWithEstimate.filter(t => Number(t.actualMinutes) < Number(t.duration)).length;
-                    const exactlyCount = completedWithEstimate.filter(t => Number(t.actualMinutes) === Number(t.duration)).length;
-                    const overCount = completedWithEstimate.filter(t => Number(t.actualMinutes) > Number(t.duration)).length;
-                    const onTargetCount = completedWithEstimate.filter(t => {
-                        const est = Number(t.duration);
-                        const actual = Number(t.actualMinutes);
-                        if(!Number.isFinite(est) || est <= 0 || !Number.isFinite(actual)) return false;
-                        return Math.abs(actual - est) <= (est * 0.10);
-                    }).length;
-                    const underRate = Math.round((underCount / completedWithEstimate.length) * 100);
-                    underExpectedEl.innerText = `${underRate}%`;
-                    underExpectedLabelEl.innerText = `${underCount} of ${completedWithEstimate.length} under estimate`;
-                    applyAnalyticsRateColor(underExpectedEl, underRate, 'higher-better', underExpectedIconEl);
-                    if(overExpectedEl && overExpectedLabelEl) {
-                        const overRate = Math.round((overCount / completedWithEstimate.length) * 100);
-                        overExpectedEl.innerText = `${overRate}%`;
-                        overExpectedLabelEl.innerText = `${overCount} of ${completedWithEstimate.length} over estimate`;
-                        applyAnalyticsRateColor(overExpectedEl, overRate, 'lower-better', overExpectedIconEl);
-                    }
-                    if(exactlyExpectedEl && exactlyExpectedLabelEl) {
-                        const exactlyRate = Math.round((exactlyCount / completedWithEstimate.length) * 100);
-                        exactlyExpectedEl.innerText = `${exactlyRate}%`;
-                        exactlyExpectedLabelEl.innerText = `${exactlyCount} of ${completedWithEstimate.length} matched exactly`;
-                        applyAnalyticsRateColor(exactlyExpectedEl, exactlyRate, 'higher-better', exactlyExpectedIconEl);
-                    }
-                    if(onTargetEl && onTargetLabelEl) {
-                        const onTargetRate = Math.round((onTargetCount / completedWithEstimate.length) * 100);
-                        onTargetEl.innerText = `${onTargetRate}%`;
-                        onTargetLabelEl.innerText = `${onTargetCount} of ${completedWithEstimate.length} within 10%`;
-                        applyAnalyticsRateColor(onTargetEl, onTargetRate, 'higher-better-strict', onTargetIconEl);
-                    }
-                }
-            }
-
-            // This Week Progress
             const weekTasks = tasks.filter(t => {
                 const dueDate = getTaskDueDate(t);
                 return (dueDate && dueDate >= weekStart && dueDate <= weekEnd) || (!dueDate && t.week === currentWeekKey);
             });
             const weekCompleted = weekTasks.filter(t => t.completed).length;
             const weekPercent = weekTasks.length > 0 ? Math.round((weekCompleted / weekTasks.length) * 100) : 0;
-            document.getElementById('weekProgress').innerText = weekPercent + '%';
-            document.getElementById('weekProgressBar').style.width = weekPercent + '%';
+            const weekProgressEl = document.getElementById('weekProgress');
+            const weekProgressBarEl = document.getElementById('weekProgressBar');
+            if(weekProgressEl) weekProgressEl.innerText = `${weekPercent}%`;
+            if(weekProgressBarEl) weekProgressBarEl.style.width = `${weekPercent}%`;
+
+            const heroSubtitle = document.getElementById('analyticsHeroSubtitle');
+            if(heroSubtitle) {
+                const activeCount = tasks.filter(t => !t.completed && isTaskVisibleInClassify(t)).length;
+                heroSubtitle.textContent = activeCount > 0
+                    ? `${activeCount} active assignment${activeCount === 1 ? '' : 's'} in the mix — here are some highlights from your data.`
+                    : 'Add assignments and come back for personalized stats and trivia.';
+            }
+
+            renderAnalyticsFunFacts();
         }
 
 
@@ -17908,20 +17990,18 @@
             const taskFilter = document.getElementById('taskFilter');
             if(filter === 'today') taskFilter.value = 'active';
             else if(filter === 'week') taskFilter.value = 'thisweek';
-            else if(filter === 'overdue') taskFilter.value = 'overdue';
-                        renderTaskList();
+            else if(filter === 'overdue') taskFilter.value = 'all';
+            renderTaskList();
         }
 
         function startWeeklyPlanning() {
             switchTab('tasks');
             const taskFilter = document.getElementById('taskFilter');
-            const taskSort = document.getElementById('taskSort');
             const taskSearch = document.getElementById('taskSearch');
-            if(taskFilter) taskFilter.value = 'weekplan';
-            if(taskSort) taskSort.value = 'autoschedule';
+            if(taskFilter) taskFilter.value = 'thisweek';
             if(taskSearch) taskSearch.value = '';
             renderTaskList();
-            showNotification('Weekly planning queue ready', 'info');
+            showNotification('Showing assignments due this week', 'info');
         }
 
         function isSplittableAutoTask(task, minMinutes = 45) {
