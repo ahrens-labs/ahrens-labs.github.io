@@ -5367,6 +5367,147 @@
             }
         }
 
+        function getOrientationViewportInsets() {
+            syncClassifyChromeOffsets();
+            const bodyStyle = window.getComputedStyle(document.body);
+            const headerOffset = parseFloat(bodyStyle.getPropertyValue('--cl-header-offset')) || 68;
+            const footerOffset = parseFloat(bodyStyle.getPropertyValue('--cl-footer-offset')) || 56;
+            const commandBar = document.getElementById('classifyCommandBar');
+            const commandBarHeight = (commandBar && !commandBar.classList.contains('hidden'))
+                ? commandBar.getBoundingClientRect().height
+                : 0;
+            return {
+                top: headerOffset + commandBarHeight + 16,
+                bottom: footerOffset + 16,
+                left: 16,
+                right: 16
+            };
+        }
+
+        function isOrientationScrollContainer(element) {
+            if(!element || element === document.body || element === document.documentElement) return false;
+            const style = window.getComputedStyle(element);
+            const overflowY = style.overflowY;
+            if(overflowY !== 'auto' && overflowY !== 'scroll' && overflowY !== 'overlay') return false;
+            return element.scrollHeight > element.clientHeight + 2;
+        }
+
+        function findOrientationScrollContainer(element) {
+            if(!element) return null;
+            const preferredSelectors = ['#taskForm', '#blockedTimesPanel', '#modalPanel', '.cl-calendar-view'];
+            for(const selector of preferredSelectors) {
+                const root = element.closest(selector);
+                if(root && isOrientationScrollContainer(root)) return root;
+            }
+            let node = element.parentElement;
+            while(node && node !== document.body) {
+                if(isOrientationScrollContainer(node)) return node;
+                node = node.parentElement;
+            }
+            return null;
+        }
+
+        function isRectVisibleInOrientationViewport(rect, insets = getOrientationViewportInsets()) {
+            const viewportH = window.innerHeight;
+            const viewportW = window.innerWidth;
+            return rect.top >= insets.top
+                && rect.bottom <= viewportH - insets.bottom
+                && rect.width > 0
+                && rect.height > 0
+                && rect.left < viewportW - insets.right
+                && rect.right > insets.left;
+        }
+
+        function scrollElementInOrientationContainer(container, target, margin = 24) {
+            if(!container || !target) return false;
+            const containerRect = container.getBoundingClientRect();
+            const targetRect = target.getBoundingClientRect();
+            const relativeTop = targetRect.top - containerRect.top + container.scrollTop;
+            const relativeBottom = relativeTop + targetRect.height;
+            const viewTop = container.scrollTop + margin;
+            const viewBottom = container.scrollTop + container.clientHeight - margin;
+            let nextScrollTop = container.scrollTop;
+            if(relativeTop < viewTop) {
+                nextScrollTop = relativeTop - margin;
+            } else if(relativeBottom > viewBottom) {
+                nextScrollTop = relativeBottom - container.clientHeight + margin;
+            } else {
+                return false;
+            }
+            container.scrollTo({ top: Math.max(0, nextScrollTop), behavior: 'smooth' });
+            return true;
+        }
+
+        function scrollWindowToOrientationTarget(target, insets = getOrientationViewportInsets()) {
+            if(!target) return false;
+            const rect = target.getBoundingClientRect();
+            const viewportH = window.innerHeight;
+            let deltaY = 0;
+            if(rect.top < insets.top) {
+                deltaY = rect.top - insets.top;
+            } else if(rect.bottom > viewportH - insets.bottom) {
+                deltaY = rect.bottom - (viewportH - insets.bottom);
+            }
+            if(Math.abs(deltaY) < 2) return false;
+            window.scrollBy({ top: deltaY, behavior: 'smooth' });
+            return true;
+        }
+
+        function waitForOrientationScrollSettle(maxMs = 750) {
+            return new Promise(resolve => {
+                let lastWindowY = window.scrollY;
+                let stableFrames = 0;
+                const startedAt = Date.now();
+                const tick = () => {
+                    const currentY = window.scrollY;
+                    if(currentY === lastWindowY) stableFrames += 1;
+                    else stableFrames = 0;
+                    lastWindowY = currentY;
+                    if(stableFrames >= 2 || Date.now() - startedAt >= maxMs) {
+                        setTimeout(resolve, 60);
+                        return;
+                    }
+                    requestAnimationFrame(tick);
+                };
+                requestAnimationFrame(tick);
+            });
+        }
+
+        async function scrollClassifyOrientationTargetIntoView(target, step = {}) {
+            if(!target) return;
+            const insets = getOrientationViewportInsets();
+            const container = findOrientationScrollContainer(target);
+            let scrolled = false;
+
+            if(container) {
+                scrolled = scrollElementInOrientationContainer(container, target) || scrolled;
+            }
+
+            let rect = target.getBoundingClientRect();
+            if(!isRectVisibleInOrientationViewport(rect, insets)) {
+                scrolled = scrollWindowToOrientationTarget(target, insets) || scrolled;
+            }
+
+            if(scrolled) {
+                await waitForOrientationScrollSettle();
+            }
+
+            rect = target.getBoundingClientRect();
+            if(!isRectVisibleInOrientationViewport(rect, insets)) {
+                if(container) scrollElementInOrientationContainer(container, target);
+                scrollWindowToOrientationTarget(target, insets);
+                target.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'auto' });
+                await waitForOrientationScrollSettle(300);
+            }
+        }
+
+        async function ensureClassifyOrientationTargetVisible(step) {
+            if(!step || step.center) return;
+            const target = getClassifyOrientationTarget(step);
+            if(!target) return;
+            await scrollClassifyOrientationTargetIntoView(target, step);
+        }
+
         async function prepareClassifyOrientationStep(step) {
             if(!step) return;
 
@@ -5410,22 +5551,7 @@
             }
 
             await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-
-            const target = getClassifyOrientationTarget(step);
-            if(target) {
-                const scrollRoot = target.closest('#taskForm')
-                    || target.closest('#blockedTimesPanel')
-                    || target.closest('#mainContainer');
-                if(scrollRoot && scrollRoot !== document.body) {
-                    const rootRect = scrollRoot.getBoundingClientRect();
-                    const targetRect = target.getBoundingClientRect();
-                    const offset = (targetRect.top - rootRect.top) + scrollRoot.scrollTop - 24;
-                    scrollRoot.scrollTo({ top: Math.max(0, offset), behavior: 'smooth' });
-                } else {
-                    target.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'smooth' });
-                }
-                await new Promise(resolve => setTimeout(resolve, 320));
-            }
+            await ensureClassifyOrientationTargetVisible(step);
         }
 
         function orientationRectFromBounds(top, left, width, height) {
@@ -5646,13 +5772,28 @@
             renderClassifyOrientationStepContent();
             await prepareClassifyOrientationStep(step);
             renderClassifyOrientationStepContent();
-            const targetEl = step.center ? null : getClassifyOrientationTarget(step);
+            let targetEl = step.center ? null : getClassifyOrientationTarget(step);
+            if(targetEl) await scrollClassifyOrientationTargetIntoView(targetEl, step);
             positionClassifyOrientationUi(step, targetEl);
-            requestAnimationFrame(() => {
+            requestAnimationFrame(async () => {
                 const latestStep = getActiveOrientationSteps()[classifyOrientationStep];
-                const latestTarget = latestStep?.center ? null : getClassifyOrientationTarget(latestStep);
+                if(!latestStep || latestStep.center) {
+                    positionClassifyOrientationUi(latestStep, null);
+                    return;
+                }
+                const latestTarget = getClassifyOrientationTarget(latestStep);
+                if(latestTarget) await scrollClassifyOrientationTargetIntoView(latestTarget, latestStep);
                 positionClassifyOrientationUi(latestStep, latestTarget);
             });
+            setTimeout(async () => {
+                if(!isClassifyOrientationOpen()) return;
+                const latestStep = getActiveOrientationSteps()[classifyOrientationStep];
+                if(!latestStep || latestStep.center) return;
+                const latestTarget = getClassifyOrientationTarget(latestStep);
+                if(!latestTarget) return;
+                await scrollClassifyOrientationTargetIntoView(latestTarget, latestStep);
+                positionClassifyOrientationUi(latestStep, latestTarget);
+            }, 520);
         }
 
         function bindClassifyOrientationLayoutHandler() {
