@@ -4,6 +4,66 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <base href="/">
+    <style id="classify-route-boot">
+        html[data-classify-boot-tab]:not([data-classify-boot-tab="dashboard"]) #dashboardTab { display: none !important; }
+        html[data-classify-boot-tab="assignments"] #assignmentsTab { display: block !important; }
+        html[data-classify-boot-tab="calendar"] #calendarTab { display: block !important; }
+        html[data-classify-boot-tab="analytics"] #analyticsTab { display: block !important; }
+        html[data-classify-boot-tab]:not([data-classify-boot-tab="dashboard"]) .cl-bottom-nav-item[data-tab="dashboard"].active {
+            color: #64748b;
+            background: transparent;
+        }
+        .dark html[data-classify-boot-tab]:not([data-classify-boot-tab="dashboard"]) .cl-bottom-nav-item[data-tab="dashboard"].active {
+            color: #94a3b8;
+        }
+        html[data-classify-boot-tab="assignments"] .cl-bottom-nav-item[data-tab="assignments"],
+        html[data-classify-boot-tab="calendar"] .cl-bottom-nav-item[data-tab="calendar"],
+        html[data-classify-boot-tab="analytics"] .cl-bottom-nav-item[data-tab="analytics"] {
+            color: #dc2626;
+            background: rgba(241, 245, 249, 0.95);
+        }
+        .dark html[data-classify-boot-tab="assignments"] .cl-bottom-nav-item[data-tab="assignments"],
+        .dark html[data-classify-boot-tab="calendar"] .cl-bottom-nav-item[data-tab="calendar"],
+        .dark html[data-classify-boot-tab="analytics"] .cl-bottom-nav-item[data-tab="analytics"] {
+            color: #fca5a5;
+            background: rgba(51, 65, 85, 0.55);
+        }
+    </style>
+    <script>
+        (function () {
+            var tabs = ['dashboard', 'assignments', 'calendar', 'analytics'];
+            function normalizeBootTab(value) {
+                var tab = String(value || '').trim().toLowerCase();
+                if (tab === 'tasks' || tab === 'task') tab = 'assignments';
+                return tabs.indexOf(tab) >= 0 ? tab : 'dashboard';
+            }
+            function readStoredBootTab() {
+                try {
+                    var userId = localStorage.getItem('ahrenslabs_userId') || 'guest';
+                    var stored = localStorage.getItem('classify_' + userId + '_classifyLastTab') || '';
+                    if (!stored) return 'dashboard';
+                    return normalizeBootTab(stored.split('/').filter(Boolean)[0]);
+                } catch (error) {
+                    return 'dashboard';
+                }
+            }
+            function resolveBootTab() {
+                var hash = (location.hash || '').replace(/^#/, '').trim().toLowerCase();
+                if (hash) {
+                    return normalizeBootTab(hash.split('/').filter(Boolean)[0]);
+                }
+                var match = (location.pathname || '').replace(/\/+$/, '').match(/\/classify(?:\.html)?(?:\/(.*))?$/i);
+                if (!match) return null;
+                var segments = (match[1] || '').trim().toLowerCase().split('/').filter(Boolean);
+                if (segments.length) return normalizeBootTab(segments[0]);
+                return readStoredBootTab();
+            }
+            var bootTab = resolveBootTab();
+            if (bootTab && bootTab !== 'dashboard') {
+                document.documentElement.setAttribute('data-classify-boot-tab', bootTab);
+            }
+        })();
+    </script>
     <title>Classify | Advanced Planner</title>
     <meta name="theme-color" content="#dc2626">
   <link rel="icon" type="image/png" sizes="512x512" href="/classify-favicon-512.png?v=16">
@@ -4830,6 +4890,7 @@
         }
 
         document.addEventListener('DOMContentLoaded', async () => {
+            applyClassifyRouteFromUrl();
             syncClassifyChromeOffsets();
             observeClassifyChrome();
             window.addEventListener('resize', syncClassifyChromeOffsets);
@@ -9705,6 +9766,10 @@
             suppressClassifyRouteSync = false;
         }
 
+        function clearClassifyBootTab() {
+            document.documentElement.removeAttribute('data-classify-boot-tab');
+        }
+
         function applyClassifyRouteFromUrl() {
             consumeClassifyRouteRedirect();
             const route = parseClassifyRoute();
@@ -9719,6 +9784,7 @@
 
         function switchTab(tabId, options = {}) {
             const { updateUrl = true, replaceUrl = false } = options || {};
+            clearClassifyBootTab();
             tabId = normalizeClassifyTab(tabId);
 
             CLASSIFY_TABS.forEach(id => {
