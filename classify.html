@@ -5058,6 +5058,14 @@
             }, 200);
         }
 
+        function resetClassifyOnboardingState() {
+            plannerRemove('walkthroughCompleted');
+            plannerRemove('orientationCompleted');
+            plannerRemove('orientationSampleAdded');
+            plannerSet('hotspotsSeen', JSON.stringify([]));
+            plannerRemove('assignmentEditorComplexity');
+        }
+
         function executeClassifyDataReset() {
             const phraseInput = document.getElementById('classifyResetPhraseInput');
             const phraseMatches = (phraseInput?.value || '').trim().toUpperCase() === CLASSIFY_RESET_CONFIRM_PHRASE;
@@ -5067,6 +5075,9 @@
                 showNotification('Complete every confirmation step first', 'error');
                 return;
             }
+
+            closeClassifyOrientation();
+            closeClassifyHotspotPopover();
 
             suppressCloudSync = true;
             tasks = [];
@@ -5079,6 +5090,7 @@
             editingId = null;
             classifyUndoStack = [];
             persistClassifyUndoStack();
+            resetClassifyOnboardingState();
             suppressCloudSync = false;
 
             saveData({ skipUndoRecord: true, skipAutoSchedule: true });
@@ -5086,7 +5098,7 @@
             flushClassifyCloudSync();
             closeClassifyResetDataModal();
             switchTab('dashboard');
-            showNotification('All Classify data has been reset', 'success');
+            setTimeout(() => openClassifyOrientation({ replay: false }), 450);
         }
 
         function openClassifyPreferences() {
@@ -6204,6 +6216,7 @@
         function finishClassifyOrientation() {
             if(!classifyOrientationReplay) {
                 markClassifyOrientationCompleted();
+                initClassifyHotspots();
             }
             closeClassifyOrientation();
         }
