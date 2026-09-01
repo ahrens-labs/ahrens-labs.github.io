@@ -2930,7 +2930,7 @@
                 <h3 class="text-xl font-display font-bold text-slate-900 dark:text-white">All interesting finds</h3>
                 <button onclick="closeAnalyticsInsightsModal()" class="text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 text-lg transition-colors" type="button"><i class="fa-solid fa-xmark"></i></button>
             </div>
-            <p class="text-sm text-slate-500 dark:text-slate-400 mb-4">Fifteen stats from your assignment data. The page shows 6 at random each visit.</p>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mb-4">All 15 stats from this visit. The page spotlights 6 random highlights with real data.</p>
             <div class="cl-analytics-fun-grid cl-analytics-fun-grid--modal" id="analyticsInsightsModalGrid"></div>
             <div class="mt-4 flex justify-end">
                 <button onclick="closeAnalyticsInsightsModal()" class="px-4 py-2 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 font-medium transition-colors" type="button">Done</button>
@@ -6052,8 +6052,8 @@
                 lead: 'See highlights and patterns pulled from your real assignment data.',
                 bullets: [
                     'Spotlight cards summarize due today, this week, and on-time rate',
-                    'Interesting finds pick 6 highlights from a pool of 15 stats',
-                    'Tap <strong>View all 15</strong> to browse every stat in a pop-up',
+                    'Interesting finds pick 6 random highlights from 15 data-backed stats',
+                    'Tap <strong>View all 15</strong> to browse every stat from this visit',
                 ]
             }
         ];
@@ -17779,7 +17779,7 @@
             }
         }
 
-        function shuffleAnalyticsInsights(items, seed = Date.now()) {
+        function shuffleAnalyticsInsights(items, seed = Math.floor(Math.random() * 4294967296)) {
             const list = items.slice();
             let state = seed >>> 0;
             const rand = () => {
@@ -17797,6 +17797,638 @@
         const ANALYTICS_INSIGHT_DISPLAY_COUNT = 6;
         let analyticsInsightSnapshot = { pool: [], shown: [] };
 
+        function truncateAnalyticsText(text, max = 38) {
+            const value = String(text || '').trim();
+            if(!value) return '';
+            return value.length > max ? `${value.slice(0, max - 1)}…` : value;
+        }
+
+        function buildAnalyticsContext() {
+            const today = getDateStrLocal();
+            const tomorrowDate = new Date();
+            tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+            const tomorrow = getDateStrLocal(tomorrowDate);
+            const { startStr: weekStart, endStr: weekEnd } = getWeekBounds();
+            const currentWeekKey = getCurrentWeekKey();
+            const visible = tasks.filter(isTaskVisibleInClassify);
+            const active = visible.filter(t => !t.completed);
+            const completed = visible.filter(t => t.completed);
+            const completedWithActual = getActualTimeAnalyticsRows();
+            const durationOf = (task) => Math.max(1, parseInt(task?.duration, 10) || 30);
+            const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+            const subjectCounts = {};
+            visible.forEach(task => {
+                const subject = task.subject || 'General';
+                subjectCounts[subject] = (subjectCounts[subject] || 0) + 1;
+            });
+            const topSubject = Object.entries(subjectCounts).sort((a, b) => b[1] - a[1])[0] || null;
+            const uniqueSubjects = Object.keys(subjectCounts).length;
+
+            const longestTitle = visible.reduce((best, task) => {
+                const len = (task.title || '').length;
+                return len > (best?.len || 0) ? { title: task.title, len } : best;
+            }, null);
+            const shortestTitle = visible.reduce((best, task) => {
+                const len = (task.title || '').trim().length;
+                if(len === 0) return best;
+                if(!best || len < best.len) return { title: task.title, len };
+                return best;
+            }, null);
+
+            const activeDurations = active.map(durationOf);
+            const longestActive = active.reduce((best, task) => {
+                const minutes = durationOf(task);
+                return !best || minutes > best.minutes ? { task, minutes } : best;
+            }, null);
+            const shortestActive = active.reduce((best, task) => {
+                const minutes = durationOf(task);
+                return !best || minutes < best.minutes ? { task, minutes } : best;
+            }, null);
+
+            const totalActiveMinutes = activeDurations.reduce((sum, minutes) => sum + minutes, 0);
+            const totalVisibleMinutes = visible.reduce((sum, task) => sum + durationOf(task), 0);
+            const avgVisibleMinutes = visible.length > 0 ? Math.round(totalVisibleMinutes / visible.length) : 0;
+
+            const withNotes = visible.filter(task => task.notes && String(task.notes).trim());
+            const startedCount = active.filter(isAssignmentStarted).length;
+            const repeatCount = visible.filter(task => task.repeatRule?.type && task.repeatRule.type !== 'none').length;
+            const exactDateCount = active.filter(task => getTaskScheduleMode(task) === 'date').length;
+            const fixedCount = visible.filter(task => task.assignmentMode === 'FIXED').length;
+            const dependencyCount = visible.filter(task =>
+                (task.mustBeAfter || []).length
+                || (task.mustBeBefore || []).length
+                || (task.mustBeDifferentDay || []).length
+            ).length;
+
+            const dueToday = active.filter(task => getTaskDueDate(task) === today).length;
+            const dueTomorrow = active.filter(task => getTaskDueDate(task) === tomorrow).length;
+            const dueThisWeek = active.filter(task => {
+                const due = getTaskDueDate(task);
+                return (due && due >= weekStart && due <= weekEnd) || (!due && task.week === currentWeekKey);
+            }).length;
+            const overdue = active.filter(task => {
+                const due = getTaskDueDate(task);
+                return due && due < today;
+            }).length;
+            const weekendDue = active.filter(task => {
+                const due = getTaskDueDate(task);
+                if(!due) return false;
+                const day = new Date(`${due}T12:00:00`).getDay();
+                return day === 0 || day === 6;
+            }).length;
+
+            const dayNameCounts = [0, 0, 0, 0, 0, 0, 0];
+            active.forEach(task => {
+                const due = getTaskDueDate(task);
+                if(!due) return;
+                dayNameCounts[new Date(`${due}T12:00:00`).getDay()]++;
+            });
+            const busiestDueDay = dayNameCounts.indexOf(Math.max(...dayNameCounts));
+
+            const scheduledToday = active.filter(task => task.date === today).length;
+            const scheduledTodayMinutes = active
+                .filter(task => task.date === today)
+                .reduce((sum, task) => sum + durationOf(task), 0);
+            const weekScheduledMinutes = active
+                .filter(task => task.date && task.date >= weekStart && task.date <= weekEnd)
+                .reduce((sum, task) => sum + durationOf(task), 0);
+            const unscheduled = active.filter(task => !task.date).length;
+
+            const nightOwlDue = active.filter(task => {
+                if(!task.dueTime) return false;
+                return timeToMin(task.dueTime) >= 18 * 60;
+            }).length;
+            const earlyStart = active.filter(task => {
+                const start = task.time || task.dueTime;
+                if(!start) return false;
+                return timeToMin(start) < 9 * 60;
+            }).length;
+
+            const farthestDue = active
+                .map(task => getTaskDueDate(task))
+                .filter(Boolean)
+                .sort()
+                .pop() || null;
+
+            const beatEstimate = completedWithActual.filter(row => Number(row.actualMinutes) < Number(row.duration)).length;
+            const speedRate = completedWithActual.length > 0
+                ? Math.round((beatEstimate / completedWithActual.length) * 100)
+                : null;
+            const avgActual = completedWithActual.length > 0
+                ? Math.round(completedWithActual.reduce((sum, row) => sum + Number(row.actualMinutes), 0) / completedWithActual.length)
+                : null;
+            const avgEstimateCompleted = completedWithActual.length > 0
+                ? Math.round(completedWithActual.reduce((sum, row) => sum + Number(row.duration), 0) / completedWithActual.length)
+                : null;
+            const timeDrift = (avgActual !== null && avgEstimateCompleted !== null) ? avgActual - avgEstimateCompleted : null;
+            const marathonLog = completedWithActual.reduce((best, row) => {
+                const minutes = Number(row.actualMinutes);
+                return !best || minutes > best.minutes ? { title: row.title, minutes } : best;
+            }, null);
+            const sprintLog = completedWithActual.reduce((best, row) => {
+                const minutes = Number(row.actualMinutes);
+                return !best || minutes < best.minutes ? { title: row.title, minutes } : best;
+            }, null);
+
+            const completedWithDue = completed.filter(task => getTaskDueDate(task) && task.completedDate);
+            const onTimeCount = completedWithDue.filter(task => task.completedDate <= getTaskDueDate(task)).length;
+            const onTimeRate = completedWithDue.length > 0
+                ? Math.round((onTimeCount / completedWithDue.length) * 100)
+                : null;
+
+            const completedThisWeek = completed.filter(task => task.completedDate && task.completedDate >= weekStart && task.completedDate <= weekEnd).length;
+            const archivedWins = (completionHistory || []).length;
+            const lifetimeActualMinutes = completedWithActual.reduce((sum, row) => sum + Number(row.actualMinutes), 0);
+
+            const subjectWorkload = Object.entries(subjectCounts).map(([subject, count]) => {
+                const minutes = active
+                    .filter(task => (task.subject || 'General') === subject)
+                    .reduce((sum, task) => sum + durationOf(task), 0);
+                return { subject, count, minutes };
+            }).sort((a, b) => b.minutes - a.minutes);
+            const heaviestSubject = subjectWorkload[0] || null;
+
+            return {
+                today,
+                tomorrow,
+                weekStart,
+                weekEnd,
+                currentWeekKey,
+                visible,
+                active,
+                completed,
+                completedWithActual,
+                durationOf,
+                dayNames,
+                topSubject,
+                uniqueSubjects,
+                longestTitle,
+                shortestTitle,
+                longestActive,
+                shortestActive,
+                totalActiveMinutes,
+                totalVisibleMinutes,
+                avgVisibleMinutes,
+                withNotes,
+                startedCount,
+                repeatCount,
+                exactDateCount,
+                fixedCount,
+                dependencyCount,
+                dueToday,
+                dueTomorrow,
+                dueThisWeek,
+                overdue,
+                weekendDue,
+                dayNameCounts,
+                busiestDueDay,
+                scheduledToday,
+                scheduledTodayMinutes,
+                weekScheduledMinutes,
+                unscheduled,
+                nightOwlDue,
+                earlyStart,
+                farthestDue,
+                speedRate,
+                timeDrift,
+                marathonLog,
+                sprintLog,
+                onTimeRate,
+                completedThisWeek,
+                archivedWins,
+                lifetimeActualMinutes,
+                heaviestSubject
+            };
+        }
+
+        function buildAnalyticsInsightCandidates(ctx) {
+            const insights = [];
+            const push = (id, emoji, title, value, detail, hasData = true) => {
+                insights.push({ id, emoji, title, value, detail, hasData });
+            };
+
+            if(ctx.visible.length === 0) {
+                push('fresh-start', '🌱', 'Fresh start', 'No data yet', 'Add assignments and Classify will spin up personalized trivia.', true);
+                return insights;
+            }
+
+            push(
+                'subject-boss',
+                '👑',
+                'Subject boss',
+                ctx.topSubject ? ctx.topSubject[0] : 'General',
+                ctx.topSubject
+                    ? `${ctx.topSubject[1]} assignment${ctx.topSubject[1] === 1 ? '' : 's'} — your current heavyweight`
+                    : 'Your busiest subject lane',
+                Boolean(ctx.topSubject)
+            );
+
+            push(
+                'subject-rainbow',
+                '🌈',
+                'Subject rainbow',
+                `${ctx.uniqueSubjects}`,
+                ctx.uniqueSubjects === 1
+                    ? 'One subject in rotation so far'
+                    : `${ctx.uniqueSubjects} different subjects on your board`,
+                ctx.uniqueSubjects > 0
+            );
+
+            push(
+                'title-marathon',
+                '📏',
+                'Title marathon',
+                ctx.longestTitle ? `${ctx.longestTitle.len} chars` : '—',
+                ctx.longestTitle ? `"${truncateAnalyticsText(ctx.longestTitle.title)}"` : 'No titles yet',
+                Boolean(ctx.longestTitle?.title)
+            );
+
+            if(ctx.shortestTitle?.title && ctx.shortestTitle.len < (ctx.longestTitle?.len || 999)) {
+                push(
+                    'haiku-homework',
+                    '✏️',
+                    'Haiku homework',
+                    `${ctx.shortestTitle.len} chars`,
+                    `"${truncateAnalyticsText(ctx.shortestTitle.title)}"`,
+                    true
+                );
+            }
+
+            push(
+                'queue-monster',
+                '🧱',
+                'Queue monster',
+                `${Math.round((ctx.totalActiveMinutes / 60) * 10) / 10} hr`,
+                `${ctx.active.length} active assignment${ctx.active.length === 1 ? '' : 's'} still in play`,
+                ctx.totalActiveMinutes > 0
+            );
+
+            if(ctx.longestActive) {
+                push(
+                    'heavyweight',
+                    '🏋️',
+                    'Heavyweight',
+                    `${ctx.longestActive.minutes} min`,
+                    `"${truncateAnalyticsText(ctx.longestActive.task.title)}" is your biggest active block`,
+                    true
+                );
+            }
+
+            if(ctx.shortestActive && ctx.active.length > 1) {
+                push(
+                    'quick-bite',
+                    '🍪',
+                    'Quick bite',
+                    `${ctx.shortestActive.minutes} min`,
+                    `"${truncateAnalyticsText(ctx.shortestActive.task.title)}" is the shortest active job`,
+                    true
+                );
+            }
+
+            push(
+                'victory-vault',
+                '🏆',
+                'Victory vault',
+                `${ctx.completed.length}`,
+                ctx.completed.length > 0
+                    ? `${ctx.completedThisWeek} finished this week`
+                    : 'Your first win will land here',
+                ctx.completed.length > 0
+            );
+
+            push(
+                'week-heat',
+                '🔥',
+                'Week heat',
+                `${ctx.dueThisWeek}`,
+                ctx.dueThisWeek > 0
+                    ? 'Active assignments tied to this week'
+                    : 'Nothing flagged for this week',
+                ctx.dueThisWeek > 0
+            );
+
+            push(
+                'drama-stack',
+                '🚨',
+                'Drama stack',
+                `${ctx.overdue}`,
+                ctx.overdue > 0
+                    ? 'Past-due assignments still open'
+                    : 'You are caught up on due dates',
+                ctx.overdue > 0
+            );
+
+            push(
+                'weekend-gamble',
+                '🎲',
+                'Weekend gamble',
+                `${ctx.weekendDue}`,
+                ctx.weekendDue > 0
+                    ? 'Active work due Saturday or Sunday'
+                    : 'No weekend due dates right now',
+                ctx.weekendDue > 0
+            );
+
+            push(
+                'today-grill',
+                '☀️',
+                'Today grill',
+                `${ctx.dueToday}`,
+                ctx.dueToday > 0
+                    ? 'Assignments with a due date of today'
+                    : 'Nothing officially due today',
+                ctx.dueToday > 0
+            );
+
+            push(
+                'tomorrow-panic',
+                '😬',
+                'Tomorrow panic',
+                `${ctx.dueTomorrow}`,
+                ctx.dueTomorrow > 0
+                    ? 'Assignments due tomorrow'
+                    : 'Tomorrow looks calm',
+                ctx.dueTomorrow > 0
+            );
+
+            push(
+                'repeat-machine',
+                '🔁',
+                'Repeat machine',
+                `${ctx.repeatCount}`,
+                ctx.repeatCount > 0
+                    ? 'Assignments with a repeat pattern'
+                    : 'No repeats yet',
+                ctx.repeatCount > 0
+            );
+
+            push(
+                'linked-up',
+                '🕸️',
+                'Linked up',
+                `${ctx.dependencyCount}`,
+                ctx.dependencyCount > 0
+                    ? 'Assignments chained with dependencies'
+                    : 'No dependency chains yet',
+                ctx.dependencyCount > 0
+            );
+
+            if(ctx.speedRate !== null) {
+                push(
+                    'speed-demon',
+                    '⚡',
+                    'Speed demon',
+                    `${ctx.speedRate}%`,
+                    'Finished under your own estimate',
+                    true
+                );
+            }
+
+            if(ctx.timeDrift !== null) {
+                const sign = ctx.timeDrift > 0 ? '+' : '';
+                push(
+                    'time-drift',
+                    '🎯',
+                    'Time drift',
+                    `${sign}${ctx.timeDrift} min`,
+                    'Average actual vs estimated on finished work',
+                    Math.abs(ctx.timeDrift) > 0
+                );
+            }
+
+            if(ctx.onTimeRate !== null) {
+                push(
+                    'deadline-ninja',
+                    '🥷',
+                    'Deadline ninja',
+                    `${ctx.onTimeRate}%`,
+                    'Completed on or before the due date',
+                    true
+                );
+            }
+
+            if(ctx.marathonLog) {
+                push(
+                    'marathon-mode',
+                    '🏃',
+                    'Marathon mode',
+                    `${ctx.marathonLog.minutes} min`,
+                    `Longest logged session: "${truncateAnalyticsText(ctx.marathonLog.title)}"`,
+                    true
+                );
+            }
+
+            if(ctx.sprintLog && ctx.completedWithActual.length > 1) {
+                push(
+                    'sprint-finish',
+                    '💨',
+                    'Sprint finish',
+                    `${ctx.sprintLog.minutes} min`,
+                    `Fastest logged win: "${truncateAnalyticsText(ctx.sprintLog.title)}"`,
+                    true
+                );
+            }
+
+            push(
+                'busiest-due-day',
+                '📅',
+                'Busiest due day',
+                ctx.dayNameCounts[ctx.busiestDueDay] > 0 ? ctx.dayNames[ctx.busiestDueDay] : '—',
+                ctx.dayNameCounts[ctx.busiestDueDay] > 0
+                    ? `${ctx.dayNameCounts[ctx.busiestDueDay]} active due dates land here`
+                    : 'No active due dates yet',
+                ctx.dayNameCounts[ctx.busiestDueDay] > 0
+            );
+
+            push(
+                'calendar-packed',
+                '🗓️',
+                'Calendar packed',
+                `${Math.round((ctx.weekScheduledMinutes / 60) * 10) / 10} hr`,
+                'Active minutes already placed on this week\'s calendar',
+                ctx.weekScheduledMinutes > 0
+            );
+
+            push(
+                'today-on-deck',
+                '🎬',
+                'On deck today',
+                `${ctx.scheduledToday}`,
+                ctx.scheduledTodayMinutes > 0
+                    ? `${ctx.scheduledTodayMinutes} minutes scheduled for today`
+                    : 'Nothing scheduled for today yet',
+                ctx.scheduledToday > 0
+            );
+
+            push(
+                'slot-hunter',
+                '🧩',
+                'Slot hunter',
+                `${ctx.unscheduled}`,
+                ctx.unscheduled > 0
+                    ? 'Active assignments still waiting for a work day'
+                    : 'Every active assignment has a calendar slot',
+                ctx.unscheduled > 0
+            );
+
+            push(
+                'night-owl',
+                '🦉',
+                'Night owl',
+                `${ctx.nightOwlDue}`,
+                ctx.nightOwlDue > 0
+                    ? 'Due times at 6 PM or later'
+                    : 'No late-evening due times',
+                ctx.nightOwlDue > 0
+            );
+
+            push(
+                'early-bird',
+                '🐦',
+                'Early bird',
+                `${ctx.earlyStart}`,
+                ctx.earlyStart > 0
+                    ? 'Starts before 9 AM on the calendar'
+                    : 'No early-morning blocks scheduled',
+                ctx.earlyStart > 0
+            );
+
+            if(ctx.farthestDue) {
+                push(
+                    'far-horizon',
+                    '🔭',
+                    'Far horizon',
+                    ctx.farthestDue,
+                    'Your latest active due date on the books',
+                    true
+                );
+            }
+
+            if(ctx.heaviestSubject && ctx.heaviestSubject.minutes > 0) {
+                push(
+                    'workload-king',
+                    '👊',
+                    'Workload king',
+                    ctx.heaviestSubject.subject,
+                    `${Math.round((ctx.heaviestSubject.minutes / 60) * 10) / 10} hr still queued in this subject`,
+                    true
+                );
+            }
+
+            push(
+                'note-hoarder',
+                '📝',
+                'Note hoarder',
+                `${ctx.withNotes.length}`,
+                ctx.withNotes.length > 0
+                    ? 'Assignments carrying extra notes'
+                    : 'No notes attached yet',
+                ctx.withNotes.length > 0
+            );
+
+            push(
+                'locked-in',
+                '📌',
+                'Locked in',
+                `${ctx.exactDateCount + ctx.fixedCount}`,
+                `${ctx.exactDateCount} exact-date · ${ctx.fixedCount} fixed-mode`,
+                (ctx.exactDateCount + ctx.fixedCount) > 0
+            );
+
+            push(
+                'in-motion',
+                '▶️',
+                'In motion',
+                `${ctx.startedCount}`,
+                ctx.startedCount > 0
+                    ? 'Assignments already started today'
+                    : 'Nothing in motion right now',
+                ctx.startedCount > 0
+            );
+
+            if(ctx.lifetimeActualMinutes > 0) {
+                push(
+                    'time-bank',
+                    '⏱️',
+                    'Time bank',
+                    `${Math.round((ctx.lifetimeActualMinutes / 60) * 10) / 10} hr`,
+                    'Total minutes logged on finished work',
+                    true
+                );
+            }
+
+            if(ctx.archivedWins > 0) {
+                push(
+                    'archive-flex',
+                    '🗃️',
+                    'Archive flex',
+                    `${ctx.archivedWins}`,
+                    'Completed assignments stored in history',
+                    true
+                );
+            }
+
+            push(
+                'board-size',
+                '📋',
+                'Board size',
+                `${ctx.visible.length}`,
+                `${ctx.active.length} active · ${ctx.completed.length} done`,
+                true
+            );
+
+            push(
+                'avg-estimate',
+                '📊',
+                'Avg estimate',
+                `${ctx.avgVisibleMinutes} min`,
+                'Typical block size across your assignments',
+                ctx.visible.length > 0
+            );
+
+            return insights;
+        }
+
+        function buildAnalyticsInsightPool() {
+            const accents = ['accent-red', 'accent-amber', 'accent-emerald', 'accent-violet', 'accent-sky', 'accent-rose'];
+            const ctx = buildAnalyticsContext();
+            const candidates = buildAnalyticsInsightCandidates(ctx);
+            const withData = candidates.filter(item => item.hasData);
+            const withoutData = candidates.filter(item => !item.hasData);
+
+            let pool = shuffleAnalyticsInsights(withData);
+            if(pool.length < ANALYTICS_INSIGHT_POOL_SIZE) {
+                pool = pool.concat(shuffleAnalyticsInsights(withoutData));
+            }
+
+            const seen = new Set();
+            pool = pool.filter(item => {
+                if(seen.has(item.id)) return false;
+                seen.add(item.id);
+                return true;
+            });
+
+            pool = shuffleAnalyticsInsights(pool).slice(0, ANALYTICS_INSIGHT_POOL_SIZE);
+
+            return pool.map((item, index) => ({
+                emoji: item.emoji,
+                title: item.title,
+                value: item.value,
+                detail: item.detail,
+                hasData: item.hasData,
+                accent: accents[index % accents.length]
+            }));
+        }
+
+        function pickAnalyticsInsightsToShow(pool, count = ANALYTICS_INSIGHT_DISPLAY_COUNT) {
+            const dataRich = shuffleAnalyticsInsights(pool.filter(item => item.hasData !== false));
+            if(dataRich.length >= count) {
+                return dataRich.slice(0, count);
+            }
+            return shuffleAnalyticsInsights(pool).slice(0, count);
+        }
+
         function renderAnalyticsInsightCardHtml(item) {
             return `
                 <article class="cl-analytics-fun-card cl-analytics-fun-card--${item.accent}">
@@ -17808,215 +18440,11 @@
             `;
         }
 
-        function buildAnalyticsInsightPool() {
-            const today = getDateStrLocal();
-            const { startStr: weekStart, endStr: weekEnd } = getWeekBounds();
-            const currentWeekKey = getCurrentWeekKey();
-            const visible = tasks.filter(isTaskVisibleInClassify);
-            const active = visible.filter(t => !t.completed);
-            const completed = visible.filter(t => t.completed);
-            const insights = [];
-            const accents = ['accent-red', 'accent-amber', 'accent-emerald', 'accent-violet', 'accent-sky', 'accent-rose'];
-            let accentIndex = 0;
-            const addInsight = (emoji, title, value, detail) => {
-                insights.push({
-                    emoji,
-                    title,
-                    value,
-                    detail,
-                    accent: accents[accentIndex++ % accents.length]
-                });
-            };
-
-            const subjectCounts = {};
-            visible.forEach(t => {
-                const subject = t.subject || 'General';
-                subjectCounts[subject] = (subjectCounts[subject] || 0) + 1;
-            });
-            const topSubject = Object.entries(subjectCounts).sort((a, b) => b[1] - a[1])[0];
-            addInsight(
-                '📚',
-                'Top subject',
-                topSubject ? topSubject[0] : '—',
-                topSubject
-                    ? `${topSubject[1]} assignment${topSubject[1] === 1 ? '' : 's'} in your list`
-                    : 'No assignments yet'
-            );
-
-            const longestTitle = visible.reduce((best, t) => {
-                const len = (t.title || '').length;
-                return len > (best?.len || 0) ? { title: t.title, len } : best;
-            }, null);
-            addInsight(
-                '📏',
-                'Longest title',
-                longestTitle?.title ? `${longestTitle.len} chars` : '—',
-                longestTitle?.title || 'No titles yet'
-            );
-
-            const totalMinutes = active.reduce((sum, t) => sum + (parseInt(t.duration, 10) || 30), 0);
-            const hours = totalMinutes > 0 ? Math.round((totalMinutes / 60) * 10) / 10 : 0;
-            addInsight(
-                '⏳',
-                'Work still queued',
-                `${hours} hr`,
-                active.length > 0
-                    ? `${active.length} active assignment${active.length === 1 ? '' : 's'} on the board`
-                    : 'Nothing active right now'
-            );
-
-            const withNotes = visible.filter(t => t.notes && String(t.notes).trim());
-            const avgNoteLen = withNotes.length > 0
-                ? Math.round(withNotes.reduce((sum, t) => sum + String(t.notes).trim().length, 0) / withNotes.length)
-                : 0;
-            addInsight(
-                '📝',
-                'Note taker',
-                `${withNotes.length} noted`,
-                withNotes.length > 0
-                    ? `Average note length: ${avgNoteLen} characters`
-                    : 'No assignment notes yet'
-            );
-
-            const startedCount = active.filter(isAssignmentStarted).length;
-            addInsight(
-                '▶️',
-                'In progress',
-                `${startedCount} started`,
-                startedCount > 0
-                    ? 'Assignments with a locked start time today'
-                    : 'Nothing started today'
-            );
-
-            const weekendDue = active.filter(t => {
-                const due = getTaskDueDate(t);
-                if(!due) return false;
-                const day = new Date(`${due}T12:00:00`).getDay();
-                return day === 0 || day === 6;
-            }).length;
-            addInsight(
-                '🏖️',
-                'Weekend deadlines',
-                `${weekendDue}`,
-                weekendDue > 0
-                    ? 'Active assignments due Saturday or Sunday'
-                    : 'No weekend due dates on active work'
-            );
-
-            const repeatCount = visible.filter(t => t.repeatRule && t.repeatRule.type && t.repeatRule.type !== 'none').length;
-            addInsight(
-                '🔁',
-                'Repeat crew',
-                `${repeatCount}`,
-                repeatCount > 0
-                    ? 'Assignments with a repeat pattern'
-                    : 'No repeating assignments yet'
-            );
-
-            const dayNameCounts = [0, 0, 0, 0, 0, 0, 0];
-            const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-            active.forEach(t => {
-                const due = getTaskDueDate(t);
-                if(!due) return;
-                dayNameCounts[new Date(`${due}T12:00:00`).getDay()]++;
-            });
-            const busiestDueDay = dayNameCounts.indexOf(Math.max(...dayNameCounts));
-            addInsight(
-                '📅',
-                'Busiest due day',
-                dayNameCounts[busiestDueDay] > 0 ? dayNames[busiestDueDay] : '—',
-                dayNameCounts[busiestDueDay] > 0
-                    ? `${dayNameCounts[busiestDueDay]} active due dates land here`
-                    : 'No active due dates yet'
-            );
-
-            const dueThisWeek = active.filter(t => {
-                const due = getTaskDueDate(t);
-                return (due && due >= weekStart && due <= weekEnd) || (!due && t.week === currentWeekKey);
-            }).length;
-            addInsight(
-                '🎯',
-                'This week\'s pile',
-                `${dueThisWeek}`,
-                dueThisWeek > 0
-                    ? 'Still on the hook before the week ends'
-                    : 'Nothing due this week'
-            );
-
-            const overdue = active.filter(t => {
-                const due = getTaskDueDate(t);
-                return due && due < today;
-            }).length;
-            addInsight(
-                '🚨',
-                'Overdue stack',
-                `${overdue}`,
-                overdue > 0
-                    ? 'Past-due assignments waiting for attention'
-                    : 'You are caught up on due dates'
-            );
-
-            const completedWithActual = getActualTimeAnalyticsRows();
-            const beatEstimate = completedWithActual.filter(t => Number(t.actualMinutes) < Number(t.duration)).length;
-            const rate = completedWithActual.length > 0
-                ? Math.round((beatEstimate / completedWithActual.length) * 100)
-                : null;
-            addInsight(
-                '⚡',
-                'Speed runs',
-                rate === null ? '—' : `${rate}%`,
-                completedWithActual.length > 0
-                    ? 'Completed assignments finished under the estimate'
-                    : 'Finish assignments with logged time'
-            );
-
-            const unscheduled = active.filter(t => !t.date).length;
-            addInsight(
-                '🧩',
-                'Needs a slot',
-                `${unscheduled}`,
-                unscheduled > 0
-                    ? 'Active assignments without a scheduled work day'
-                    : 'Every active assignment has a work day'
-            );
-
-            const exactDateCount = active.filter(t => getTaskScheduleMode(t) === 'date').length;
-            addInsight(
-                '📌',
-                'Exact-date mode',
-                `${exactDateCount}`,
-                exactDateCount > 0
-                    ? 'Pinned to a specific calendar day'
-                    : 'No exact-date assignments active'
-            );
-
-            const dueToday = active.filter(t => getTaskDueDate(t) === today).length;
-            addInsight(
-                '☀️',
-                'Due today',
-                `${dueToday}`,
-                dueToday > 0
-                    ? 'Active assignments with a due date of today'
-                    : 'Nothing due today'
-            );
-
-            addInsight(
-                '🏆',
-                'Victory lap',
-                `${completed.length}`,
-                completed.length > 0
-                    ? `Completed assignment${completed.length === 1 ? '' : 's'} in your history`
-                    : 'Finish one to start the tally'
-            );
-
-            return insights.slice(0, ANALYTICS_INSIGHT_POOL_SIZE);
-        }
-
         function renderAnalyticsFunFacts() {
             const container = document.getElementById('analyticsFunFacts');
             if(!container) return;
             const pool = buildAnalyticsInsightPool();
-            const shown = shuffleAnalyticsInsights(pool).slice(0, ANALYTICS_INSIGHT_DISPLAY_COUNT);
+            const shown = pickAnalyticsInsightsToShow(pool);
             analyticsInsightSnapshot = { pool, shown };
             container.innerHTML = shown.map(item => renderAnalyticsInsightCardHtml(item)).join('');
         }
