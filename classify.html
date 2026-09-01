@@ -1217,7 +1217,7 @@
         }
         @media (min-width: 768px) {
             body.classify-app .cl-grid-stats {
-                grid-template-columns: repeat(4, minmax(0, 1fr));
+                grid-template-columns: repeat(3, minmax(0, 1fr));
             }
         }
         body.classify-app .cl-grid-cards {
@@ -2319,10 +2319,6 @@
                         <div class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Pending</div>
                         <div class="text-3xl font-bold text-transparent bg-gradient-to-r from-amber-500 to-orange-500 bg-clip-text" id="statPending">0</div>
                     </div>
-                    <div class="card-gradient rounded-2xl p-5 card-hover group">
-                        <div class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">High Priority</div>
-                        <div class="text-3xl font-bold text-transparent bg-gradient-to-r from-rose-500 to-red-600 bg-clip-text" id="statHigh">0</div>
-                    </div>
                 </div>
 
                 <section class="cl-panel cl-panel--accent" id="cl-orient-weekly-planning">
@@ -2411,10 +2407,10 @@
                         <!-- Upcoming / Overdue -->
                         <section class="cl-panel cl-panel--flush overflow-hidden h-fit">
                             <div class="cl-panel__header mb-0 px-5 pt-5 bg-rose-50/30 dark:bg-rose-900/10">
-                                <h2 class="cl-panel__title text-rose-700 dark:text-rose-400"><i class="fa-solid fa-triangle-exclamation mr-2"></i>Priority & Overdue</h2>
+                                <h2 class="cl-panel__title text-rose-700 dark:text-rose-400"><i class="fa-solid fa-triangle-exclamation mr-2"></i>Overdue</h2>
                             </div>
-                            <div id="priorityList" class="px-5 pb-5 space-y-3">
-                                <!-- Priority Items Injected Here -->
+                            <div id="overdueList" class="px-5 pb-5 space-y-3">
+                                <!-- Overdue items injected here -->
                             </div>
                         </section>
                     </div>
@@ -2454,7 +2450,6 @@
                         <select id="taskSort" class="pl-3 pr-8 py-2 border border-slate-200 dark:border-dark-border dark:bg-slate-800 dark:text-white rounded-lg text-sm bg-white focus:outline-none focus:border-brand-500">
                             <option value="date">Sort by Date</option>
                             <option value="autoschedule">Sort by Auto-Schedule</option>
-                            <option value="priority">Sort by Priority</option>
                             <option value="subject">Sort by Subject</option>
                         </select>
                         <button onclick="openClearCompletedModal()" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-dark-border bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-sm font-medium transition-colors" title="Clear Completed">
@@ -2539,7 +2534,7 @@
                         <h3 class="cl-section-title uppercase tracking-[0.3em] text-slate-400 dark:text-slate-500 text-sm mb-0">Quick Filters</h3>
                         <span class="text-xs text-slate-500 dark:text-slate-400">Tap a card to filter</span>
                     </div>
-                    <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+                    <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
                         <button onclick="switchTab('tasks'); filterTasksBy('today')" class="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/60 p-4 text-left hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors">
                             <div class="text-2xl font-bold text-red-600 dark:text-red-400" id="filterDueToday">0</div>
                             <div class="text-xs text-slate-600 dark:text-slate-400 font-medium">Due Today</div>
@@ -2551,14 +2546,6 @@
                         <button onclick="switchTab('tasks'); filterTasksBy('overdue')" class="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/60 p-4 text-left hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors">
                             <div class="text-2xl font-bold text-red-600 dark:text-red-400" id="filterOverdue">0</div>
                             <div class="text-xs text-slate-600 dark:text-slate-400 font-medium">Overdue</div>
-                        </button>
-                        <button onclick="switchTab('tasks'); filterTasksBy('high')" class="rounded-xl border border-rose-200 dark:border-rose-800 bg-rose-50/80 dark:bg-rose-900/20 p-4 text-left hover:bg-rose-100 dark:hover:bg-rose-900/30 transition-colors">
-                            <div class="text-2xl font-bold text-rose-600 dark:text-rose-400" id="filterHigh">0</div>
-                            <div class="text-xs text-slate-600 dark:text-slate-400 font-medium">High Priority</div>
-                        </button>
-                        <button onclick="switchTab('tasks'); filterTasksBy('hard')" class="rounded-xl border border-purple-200 dark:border-purple-800 bg-purple-50/80 dark:bg-purple-900/20 p-4 text-left hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-colors">
-                            <div class="text-2xl font-bold text-purple-600 dark:text-purple-400" id="filterHard">0</div>
-                            <div class="text-xs text-slate-600 dark:text-slate-400 font-medium">Hard Assignments</div>
                         </button>
                     </div>
                 </section>
@@ -3429,7 +3416,7 @@
                 <div id="automaticEntryPanel" class="hidden rounded-xl border border-slate-200/70 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-800/40 p-4 space-y-3">
                     <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Details</label>
                     <textarea id="inputQuickDetails" rows="4" autocomplete="off" class="w-full px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none resize-y transition-all" placeholder="due friday 5pm 30m Writing after History Essay"></textarea>
-                    <p class="text-xs text-slate-500 dark:text-slate-400">Shorthand works: <span class="font-medium">due friday</span>, <span class="font-medium">tomorrow 3pm</span>, <span class="font-medium">30m</span>, <span class="font-medium">after Essay 1</span>, <span class="font-medium">high priority</span>, subject names.</p>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Shorthand works: <span class="font-medium">due friday</span>, <span class="font-medium">tomorrow 3pm</span>, <span class="font-medium">30m</span>, <span class="font-medium">after Essay 1</span>, subject names.</p>
                 </div>
 
                 <div id="manualEntryPanels" class="space-y-5">
@@ -3502,25 +3489,7 @@
                     </div>
 
                     <div class="rounded-xl border border-slate-200/70 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-800/40 p-4 space-y-4">
-                        <div class="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Priority & Time</div>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Priority</label>
-                                <select id="inputPriority" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
-                                    <option value="Low">Low</option>
-                                    <option value="Medium" selected>Medium</option>
-                                    <option value="High">High</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Difficulty</label>
-                                <select id="inputDifficulty" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
-                                    <option value="Easy">Easy</option>
-                                    <option value="Medium" selected>Medium</option>
-                                    <option value="Hard">Hard</option>
-                                </select>
-                            </div>
-                        </div>
+                        <div class="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Time</div>
                         <div>
                             <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Duration (min)</label>
                             <input id="inputDuration" type="number" min="1" step="1" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all" placeholder="30">
@@ -4573,7 +4542,6 @@
                     date: t.due,
                     time: t.time,
                     duration: t.duration,
-                    priority: t.priority,
                     notes: t.notes,
                     color: t.color, 
                     completed: t.completed || false
@@ -5250,8 +5218,6 @@
                 date: dueDate,
                 dateSource: 'user',
                 duration: 30,
-                priority: 'Medium',
-                difficulty: 'Medium',
                 color: getSubjectColorValue('English'),
                 repeatRule: normalizeRepeatRule({ type: 'none' })
             });
@@ -5877,7 +5843,7 @@
                 title: 'Today\'s Schedule',
                 lead: 'Classify builds a focused timeline for what to work on right now.',
                 bullets: [
-                    'Order reflects priority, due dates, and your block-time rules',
+                    'Order reflects due dates and your block-time rules',
                     'Press <strong>Start</strong> on an assignment when you begin (locks that slot)',
                     'Drag items to reorder when you want manual control',
                     'Completed work drops off automatically'
@@ -5952,7 +5918,7 @@
                 bullets: [
                     '<strong>Search</strong> matches titles and subjects (<kbd>Ctrl+K</kbd> focuses the box)',
                     'Filter presets include active, this week, overdue, and weekly queue',
-                    'Sort by date, auto-schedule order, priority, or subject',
+                    'Sort by date, auto-schedule order, or subject',
                     '<strong>Clear Done</strong> archives completed work in bulk'
                 ]
             },
@@ -5980,7 +5946,7 @@
                 title: 'Analytics quick filters',
                 lead: 'Spot workload patterns, then jump straight into a filtered assignment list.',
                 bullets: [
-                    'Cards summarize due today, this week, overdue, and high priority',
+                    'Cards summarize due today, this week, and overdue',
                     'Tap a card to open Assignments with that filter already applied',
                     'Use this when planning — not just when something is overdue',
                     'Pair with Calendar week view to see where time actually goes'
@@ -6454,8 +6420,6 @@
         }
 
         function normalizeTask(task = {}) {
-            const normalizedPriority = ['Low', 'Medium', 'High'].includes(task.priority) ? task.priority : 'Medium';
-            const normalizedDifficulty = ['Easy', 'Medium', 'Hard'].includes(task.difficulty) ? task.difficulty : 'Medium';
             const normalizedEventDate = task.eventDate || task.date || null;
             const weekDueOnly = Boolean(task.weekDueOnly);
             let inferredScheduleType = task.scheduleType || (task.week ? 'week' : (normalizedEventDate ? 'date' : 'flexible'));
@@ -6577,8 +6541,6 @@
                 startedAt: normalizedStartedAt,
                 dueTime: task.dueTime || null,
                 duration: normalizedDuration,
-                priority: normalizedPriority,
-                difficulty: normalizedDifficulty,
                 actualMinutes,
                 color: task.color || null,
                 mustBeBefore,
@@ -6980,8 +6942,6 @@
             return true;
         }
 
-        // Scheduling priority:
-        // Scheduling priority:
         // 1) User-set rules (dependencies, block times, due dates, locked dates/times, avoid dates)
         // 2) Fit every assignment somewhere valid
         // 3) Earliest open slot on a 5-minute grid (not tight packing or reshuffling for optimization)
@@ -8172,19 +8132,15 @@
             if(normalized.type === 'weekly') return `Repeats weekly (${labels || 'no days'})`;
             return `Repeats on ${labels || 'no days'}`;
         }
-        function getPriorityRank(priority) {
-            const priorityMap = { High: 0, Medium: 1, Low: 2 };
-            return priorityMap[priority] ?? 3;
-        }
-        function getSlotOptionsForPriority(busySlots, startMin, endMin, duration, breakMin, priority, task = null) {
+        function getScheduleSlotOptions(busySlots, startMin, endMin, duration, breakMin, task = null) {
             const alignedStart = roundUpToScheduleGrid(startMin);
             const slot = findEarliestOpenSlot(busySlots, alignedStart, endMin, duration, breakMin);
             if(!slot) return [];
             return [{ start: slot.start, slack: Math.max(0, endMin - slot.end) }];
         }
-        function selectSlotIndexForPriority(options, task) {
+        function selectScheduleSlotIndex(options, task) {
             if(!options || options.length === 0) return -1;
-            // Priority #2 after user rules: earliest open slot in the day.
+            // After user rules: earliest open slot in the day.
             return 0;
         }
         function shouldDeferToLaterDay(task, day, candidates) {
@@ -8210,8 +8166,6 @@
             const bEvent = isPlannerEventTask(b);
             if(aEvent !== bEvent) return aEvent ? -1 : 1;
 
-            const priorityDiff = getPriorityRank(a.priority) - getPriorityRank(b.priority);
-            if(priorityDiff !== 0) return priorityDiff;
 
             const dueA = getTaskDueDate(a) || '9999-12-31';
             const dueB = getTaskDueDate(b) || '9999-12-31';
@@ -8243,8 +8197,6 @@
             const aEvent = isPlannerEventTask(a);
             const bEvent = isPlannerEventTask(b);
             if(aEvent !== bEvent) return aEvent ? -1 : 1;
-            const priorityDiff = getPriorityRank(a.priority) - getPriorityRank(b.priority);
-            if(priorityDiff !== 0) return priorityDiff;
             const dueA = getTaskDueDate(a) || '9999-12-31';
             const dueB = getTaskDueDate(b) || '9999-12-31';
             if(dueA !== dueB) return dueA.localeCompare(dueB);
@@ -8951,10 +8903,6 @@
             if(aUserLocked && !bUserLocked) return taskB;
             if(bUserLocked && !aUserLocked) return taskA;
 
-            const priorityDiff = getPriorityRank(taskA?.priority) - getPriorityRank(taskB?.priority);
-            if(priorityDiff < 0) return taskB;
-            if(priorityDiff > 0) return taskA;
-
             const aStart = timeToMin(taskA?.time || '00:00');
             const bStart = timeToMin(taskB?.time || '00:00');
             if(aStart < bStart) return taskB;
@@ -9195,7 +9143,7 @@
         const EXACT_TASK_SNAPSHOT_KEYS = [
             'title', 'subject', 'date', 'eventDate', 'dateSource', 'dueDate', 'due', 'week',
             'scheduleType', 'weekDueOnly', 'assignmentMode', 'time', 'timeSource', 'startedAt',
-            'dueTime', 'duration', 'priority', 'difficulty', 'actualMinutes', 'color',
+            'dueTime', 'duration', 'actualMinutes', 'color',
             'mustBeBefore', 'mustBeAfter', 'mustBeDifferentDay', 'mustBeBeforeIds', 'mustBeAfterIds',
             'avoidScheduleDates', 'notes', 'completed', 'completedDate', 'splitGroupId', 'splitPercent',
             'repeatGroupId', 'repeatWeekKey', 'repeatRule', 'repeatNoAutoTime', 'repeatType', 'repeatDays'
@@ -10275,35 +10223,31 @@
                 }
                 let placed = false;
 
-                const preferredOptions = getSlotOptionsForPriority(
+                const preferredOptions = getScheduleSlotOptions(
                     busySlots,
                     autoStartForTask,
                     Math.min(preferredAutoEnd, maxEnd),
                     duration,
                     breakMin,
-                    t?.priority,
-                    t
-                );
+                    t);
 
                 if(preferredOptions.length > 0) {
-                    const slotIndex = selectSlotIndexForPriority(preferredOptions, t);
+                    const slotIndex = selectScheduleSlotIndex(preferredOptions, t);
                     const preferredSlot = preferredOptions[Math.max(0, slotIndex)];
                     schedule.push({ start: preferredSlot.start, end: preferredSlot.start + duration, task: t, type: 'auto' });
                     busySlots.push(buildBusySlotForTask(t, preferredSlot.start, preferredSlot.start + duration, dateStr));
                     busySlots.sort((a,b) => a.start - b.start);
                     placed = true;
                 } else {
-                    const fallbackOptions = getSlotOptionsForPriority(
+                    const fallbackOptions = getScheduleSlotOptions(
                         busySlots,
                         autoStartForTask,
                         maxEnd,
                         duration,
                         breakMin,
-                        t?.priority,
-                        t
-                    );
+                    t);
                     if(fallbackOptions.length > 0) {
-                        const slotIndex = selectSlotIndexForPriority(fallbackOptions, t);
+                        const slotIndex = selectScheduleSlotIndex(fallbackOptions, t);
                         const fallbackSlot = fallbackOptions[Math.max(0, slotIndex)];
                         schedule.push({ start: fallbackSlot.start, end: fallbackSlot.start + duration, task: t, type: 'auto' });
                         busySlots.push(buildBusySlotForTask(t, fallbackSlot.start, fallbackSlot.start + duration, dateStr));
@@ -10351,15 +10295,13 @@
             const statCompletedEl = document.getElementById('statCompleted');
             const statCompletionRateEl = document.getElementById('statCompletionRate');
             const statPendingEl = document.getElementById('statPending');
-            const statHighEl = document.getElementById('statHigh');
             const dashDueCountEl = document.getElementById('dashDueCount');
-            if(!statTotalEl || !statCompletedEl || !statCompletionRateEl || !statPendingEl || !statHighEl || !dashDueCountEl) return;
+            if(!statTotalEl || !statCompletedEl || !statCompletionRateEl || !statPendingEl || !dashDueCountEl) return;
 
             const total = tasks.length;
             const completed = tasks.filter(t => t.completed).length;
             const pending = total - completed;
             const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
-            const high = tasks.filter(t => !t.completed && isTaskVisibleInClassify(t) && t.priority === 'High').length;
             const todayStr = getDateStrLocal();
             const dueToday = tasks.filter(t => !t.completed && isTaskVisibleInClassify(t) && getTaskDueDate(t) === todayStr).length;
 
@@ -10367,16 +10309,15 @@
             animateValue('statCompleted', parseInt(statCompletedEl.innerText, 10) || 0, completed, 500);
             statCompletionRateEl.innerText = completionRate;
             animateValue('statPending', parseInt(statPendingEl.innerText, 10) || 0, pending, 500);
-            animateValue('statHigh', parseInt(statHighEl.innerText, 10) || 0, high, 500);
             dashDueCountEl.innerText = dueToday;
         }
 
         function renderDashboard() {
             const todayStr = getDateStrLocal();
             const todayListEl = document.getElementById('todayList');
-            const priorityListEl = document.getElementById('priorityList');
+            const overdueListEl = document.getElementById('overdueList');
             const subjectProgressEl = document.getElementById('subjectProgressList');
-            if(!todayListEl || !priorityListEl || !subjectProgressEl) return;
+            if(!todayListEl || !overdueListEl || !subjectProgressEl) return;
 
             const schedule = getSmartSchedule(todayStr);
             if(schedule.length === 0) {
@@ -10436,15 +10377,11 @@
                 const dueDate = getTaskDueDate(t);
                 return !t.completed && dueDate && dueDate < todayStr;
             }).sort(compareTasksMostOverdueFirst);
-            const highPriorityTasks = tasks.filter(t => {
-                const dueDate = getTaskDueDate(t);
-                return !t.completed && t.priority === 'High' && (!dueDate || dueDate >= todayStr);
-            }).slice(0, 3);
-            let priorityHTML = '';
+            let overdueHTML = '';
             
             if(overdueTasks.length > 0) {
-                priorityHTML += `<div class="mb-2 text-xs font-bold text-rose-600 dark:text-rose-400 uppercase tracking-wide">Overdue</div>`;
-                priorityHTML += overdueTasks.map(t => `
+                overdueHTML += `<div class="mb-2 text-xs font-bold text-rose-600 dark:text-rose-400 uppercase tracking-wide">Overdue</div>`;
+                overdueHTML += overdueTasks.map(t => `
                     <div class="bg-rose-50 dark:bg-rose-900/20 border border-rose-100 dark:border-rose-900/30 p-3 rounded-lg flex justify-between items-center mb-2">
                         <div>
                             <div class="font-semibold text-rose-800 dark:text-rose-200 text-sm">${t.title}</div>
@@ -10455,25 +10392,8 @@
                 `).join('');
             }
 
-            if(highPriorityTasks.length > 0) {
-                priorityHTML += `<div class="mt-4 mb-2 text-xs font-bold text-amber-600 dark:text-amber-500 uppercase tracking-wide">High Priority Upcoming</div>`;
-                priorityHTML += highPriorityTasks.map(t => {
-                    const color = getTaskColor(t);
-                    return `
-                    <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-900/30 p-3 rounded-lg flex justify-between items-center mb-2">
-                        <div>
-                            <div class="font-semibold text-slate-800 dark:text-slate-200 text-sm">${t.title}</div>
-                            <div class="text-xs text-slate-500 dark:text-slate-400 flex gap-2">
-                                <span>${getTaskDueDate(t) || 'No Due Date'}</span>
-                                <span class="font-medium" style="color:${color}">${t.subject}</span>
-                            </div>
-                        </div>
-                        <i class="fa-solid fa-flag text-amber-500 text-xs"></i>
-                    </div>
-                `}).join('');
-            }
-            if(!priorityHTML) priorityHTML = `<div class="text-center py-6 text-slate-400 dark:text-slate-600 text-sm">No urgent alerts. Great job!</div>`;
-            priorityListEl.innerHTML = priorityHTML;
+            if(!overdueHTML) overdueHTML = `<div class="text-center py-6 text-slate-400 dark:text-slate-600 text-sm">Nothing overdue. Great job!</div>`;
+            overdueListEl.innerHTML = overdueHTML;
 
             const subjectCounts = {};
             const subjectColorsMap = {};
@@ -10607,14 +10527,8 @@
                     if(filter === 'weekplan') {
                         if(!a.date && b.date) return -1;
                         if(a.date && !b.date) return 1;
-                        const priorityMap = {'High': 0, 'Medium': 1, 'Low': 2};
-                        const priorityDiff = (priorityMap[a.priority] || 3) - (priorityMap[b.priority] || 3);
-                        if(priorityDiff !== 0) return priorityDiff;
                     }
-                    if(sort === 'priority') {
-                        const priorityMap = {'High': 0, 'Medium': 1, 'Low': 2};
-                        return (priorityMap[a.priority] || 3) - (priorityMap[b.priority] || 3);
-                    } else if(sort === 'autoschedule') {
+                    if(sort === 'autoschedule') {
                         const aDate = a.date || '';
                         const bDate = b.date || '';
                         if(aDate && bDate) {
@@ -10678,7 +10592,6 @@
                     <div class="flex-1">
                         <div class="flex items-center gap-2 mb-1 flex-wrap">
                             <span class="text-sm font-bold ${t.completed ? 'line-through text-slate-500' : 'text-slate-800 dark:text-white'}">${t.title}</span>
-                            ${t.priority === 'High' ? '<span class="text-[10px] font-bold bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400 px-1.5 py-0.5 rounded">HIGH</span>' : ''}
                             ${isLate ? '<span class="text-[10px] font-bold bg-slate-100 text-red-600 dark:bg-slate-800/60 dark:text-red-400 px-1.5 py-0.5 rounded">LATE</span>' : ''}
                             ${!isAssignmentStarted(t) ? `<span class="text-[10px] font-bold px-1.5 py-0.5 rounded ${modeBadgeClass}">${modeLabel}</span>` : ''}
                             ${startAssignmentButtonHtml(t)}
@@ -12060,12 +11973,8 @@
                 new RegExp(`${lead}\\d+\\s*(?:m|min|mins|minutes?)\\b`, 'i'),
                 new RegExp(`${lead}\\d+m\\b`, 'i'),
                 new RegExp(`${lead}\\d+\\s*(?:h|hr|hrs|hours?)\\b`, 'i'),
-                new RegExp(`${lead}(?:high|medium|low|urgent)\\s+priority\\b`, 'i'),
-                new RegExp(`${lead}priority\\s+(?:high|medium|low|urgent)\\b`, 'i'),
                 new RegExp(`${lead}subject\\b`, 'i'),
                 new RegExp(`${lead}notes\\b`, 'i'),
-                new RegExp(`${lead}(?:easy|hard|medium)\\s+difficulty\\b`, 'i'),
-                new RegExp(`${lead}difficulty\\b`, 'i'),
                 new RegExp(String.raw`${lead}(?:on|for|to)\s+(?:${weekday})\b`, 'i'),
                 new RegExp(String.raw`${lead}(?:today|tomorrow|${weekday})\b`, 'i'),
                 new RegExp(String.raw`${lead}(?:at\s+)?${timePat}\b`, 'i'),
@@ -12074,7 +11983,7 @@
                 new RegExp(`${lead}(?:no\\s+date|flexible|unscheduled)\\b`, 'i'),
                 new RegExp(`${lead}not\\s+(?:must\\s+be\\s+)?(?:after|before)\\s+`, 'i'),
                 new RegExp(`${lead}not\\s+(?:different\\s+day|on\\s+a\\s+different\\s+day)\\s+`, 'i'),
-                new RegExp(`${lead}(?:remove|delete|clear|unset)\\s+(?:weekly|daily|repeat|repeating|repeats?|after|before|duration|priority|difficulty|due|time|notes)\\b`, 'i')
+                new RegExp(`${lead}(?:remove|delete|clear|unset)\\s+(?:weekly|daily|repeat|repeating|repeats?|after|before|duration|due|time|notes)\\b`, 'i')
             ];
         }
 
@@ -12089,7 +11998,7 @@
             if(!text) return false;
             return /\bnot\s+(?:must\s+be\s+)?(?:after|before)\s+/i.test(text)
                 || /\bnot\s+(?:different\s+day|on\s+a\s+different\s+day)\s+/i.test(text)
-                || /\b(?:remove|delete|clear|unset)\s+(?:weekly|daily|repeat|repeating|repeats?|after|before|duration|priority|difficulty|due|time|notes|different\s+day)\b/i.test(text)
+                || /\b(?:remove|delete|clear|unset)\s+(?:weekly|daily|repeat|repeating|repeats?|after|before|duration|due|time|notes|different\s+day)\b/i.test(text)
                 || /^no\s+(?:longer\s+)?(?:repeat(?:ing)?|repeats?)\b/i.test(text);
         }
 
@@ -12144,7 +12053,7 @@
                 return { action: 'removeRepeat', taskQuery };
             }
 
-            match = text.match(/^(?:remove|delete|clear|unset)\s+(duration|priority|difficulty|notes|due(?:\s+time)?|fixed\s+time|time)$/i);
+            match = text.match(/^(?:remove|delete|clear|unset)\s+(duration|notes|due(?:\s+time)?|fixed\s+time|time)$/i);
             if(match) {
                 return { action: 'removeSetting', taskQuery, setting: match[1].toLowerCase().replace(/\s+/g, '') };
             }
@@ -12225,8 +12134,6 @@
         function createQuickEntryTouchedFlags() {
             return {
                 duration: false,
-                priority: false,
-                difficulty: false,
                 notes: false,
                 subject: false,
                 schedule: false,
@@ -12253,8 +12160,6 @@
             const touched = quickParsed.touched || {};
             const parts = [];
             if(touched.duration && quickParsed.duration) parts.push(`duration ${quickParsed.duration}m`);
-            if(touched.priority && quickParsed.priority) parts.push(`${quickParsed.priority.toLowerCase()} priority`);
-            if(touched.difficulty && quickParsed.difficulty) parts.push(`${quickParsed.difficulty.toLowerCase()} difficulty`);
             if(touched.subject && quickParsed.subject) parts.push(`subject ${quickParsed.subject}`);
             if(touched.notes && quickParsed.notes) parts.push('notes');
             if(touched.repeat && quickParsedHasRepeatUpdate(settingsBody)) {
@@ -12316,8 +12221,6 @@
 
                 const patch = {};
                 if(touched.duration && quickParsed.duration) patch.duration = quickParsed.duration;
-                if(touched.priority && quickParsed.priority) patch.priority = quickParsed.priority;
-                if(touched.difficulty && quickParsed.difficulty) patch.difficulty = quickParsed.difficulty;
                 if(touched.notes && quickParsed.notes != null && quickParsed.notes !== '') patch.notes = quickParsed.notes;
                 if(touched.subject && quickParsed.subject) {
                     const subject = resolveCanonicalSubject(quickParsed.subject);
@@ -12385,8 +12288,6 @@
                                 subject: current.subject,
                                 color: current.color,
                                 duration: current.duration,
-                                priority: current.priority,
-                                difficulty: current.difficulty,
                                 notes: current.notes,
                                 repeatRule,
                                 weekDueOnly,
@@ -12947,18 +12848,6 @@
                 }, presetTaskQuery);
             }
 
-            match = commandText.match(/^(?:set\s+)?(.+?)\s+(?:difficulty\s+)?(easy|medium|hard)$/i)
-                || commandText.match(/^(easy|medium|hard)\s+(.+)$/i);
-            if(match) {
-                const inverted = /^(easy|medium|hard)\s+/i.test(commandText);
-                const level = (inverted ? match[1] : match[2]).toLowerCase();
-                return applyPresetTaskQuery({
-                    action: 'difficulty',
-                    taskQuery: (inverted ? match[2] : match[1]).trim(),
-                    difficulty: level.charAt(0).toUpperCase() + level.slice(1)
-                }, presetTaskQuery);
-            }
-
             match = commandText.match(new RegExp(`^(.+?)\\s+(${QUICK_ENTRY_DATE_WORDS})(?:\\s+(?:at\\s+)?(\\d{1,2}(?::\\d{2})?\\s*(?:am|pm)?))?$`, 'i'));
             if(match && !/\s(due|by)$/i.test(match[1].trim())) {
                 const destination = match[2] + (match[3] ? ` at ${match[3]}` : '');
@@ -12997,18 +12886,6 @@
 
             match = commandText.match(/^rename\s+(.+?)\s+to\s+(.+)$/i);
             if(match) return parseRenameTargetCommand(match[1].trim(), match[2], presetTaskQuery);
-
-            match = commandText.match(/^(?:set\s+)?(.+?)\s+priority\s+(high|medium|low|urgent)$/i)
-                || commandText.match(/^(?:set\s+)?(.+?)\s+(high|medium|low|urgent)\s+priority$/i)
-                || commandText.match(/^(?:set\s+)?(.+?)\s+(high|low|urgent)$/i);
-            if(match) {
-                const level = match[2].toLowerCase();
-                return applyPresetTaskQuery({
-                    action: 'priority',
-                    taskQuery: match[1].trim(),
-                    priority: level === 'urgent' ? 'High' : (level.charAt(0).toUpperCase() + level.slice(1))
-                }, presetTaskQuery);
-            }
 
             match = commandText.match(/^(?:set\s+)?(.+?)\s+(?:duration\s+)?(\d+(?:\.\d+)?(?:\s*(?:m|min|mins|minutes?|h|hr|hrs|hours?)|m))$/i);
             if(match) {
@@ -13462,8 +13339,6 @@
                     subject,
                     scheduleType: quickParsed.scheduleType || 'flexible',
                     duration: quickParsed.duration || null,
-                    priority: quickParsed.priority || 'Medium',
-                    difficulty: quickParsed.difficulty || 'Medium',
                     color: getSubjectColorValue(subject) || '#b91c1c',
                     mustBeBefore: quickParsed.mustBeBefore || [],
                     mustBeAfter: quickParsed.mustBeAfter || [],
@@ -13693,13 +13568,6 @@
                 return true;
             }
 
-            if(parsed.action === 'priority') {
-                mutateClassifyData(() => {
-                    tasks = tasks.map(t => t.id === taskId ? { ...t, priority: parsed.priority } : t);
-                }, getCommandLineScheduleRefreshOptions(task));
-                showNotification(`Set "${task.title}" to ${parsed.priority} priority`, 'success');
-                return true;
-            }
 
             if(parsed.action === 'duration') {
                 mutateClassifyData(() => {
@@ -13784,13 +13652,6 @@
                 return true;
             }
 
-            if(parsed.action === 'difficulty') {
-                mutateClassifyData(() => {
-                    tasks = tasks.map(t => t.id === taskId ? { ...t, difficulty: parsed.difficulty } : t);
-                }, getCommandLineScheduleRefreshOptions(task));
-                showNotification(`Set "${task.title}" difficulty to ${parsed.difficulty}`, 'success');
-                return true;
-            }
 
             if(parsed.action === 'clearTime') {
                 mutateClassifyData(() => {
@@ -13857,8 +13718,6 @@
                         if(!seriesIds.includes(t.id)) return t;
                         const next = { ...t };
                         if(setting === 'duration') next.duration = null;
-                        else if(setting === 'priority') next.priority = 'Medium';
-                        else if(setting === 'difficulty') next.difficulty = 'Medium';
                         else if(setting === 'notes') next.notes = '';
                         else if(setting === 'duetime') next.dueTime = null;
                         else if(setting === 'time' || setting === 'fixedtime') {
@@ -14307,8 +14166,6 @@
                 time: null,
                 exactDateTiming: 'adjustable',
                 week: null,
-                priority: null,
-                difficulty: null,
                 mustBeAfter: [],
                 mustBeBefore: [],
                 mustBeDifferentDay: [],
@@ -14393,24 +14250,6 @@
             const weekdayPattern = QUICK_ENTRY_DATE_WORDS;
             const timeCapture = '(\\d{1,2}(?::\\d{2})?\\s*(?:am|pm)?)';
             const optionalTime = `(?:\\s+(?:at\\s+)?${timeCapture})?`;
-
-            const priorityMatch = working.match(/\b(high|medium|low|urgent)\s+priority\b/i)
-                || working.match(/\bpriority\s+(high|medium|low|urgent)\b/i);
-            if(priorityMatch) {
-                const level = priorityMatch[1].toLowerCase();
-                result.priority = level === 'urgent' ? 'High' : (level.charAt(0).toUpperCase() + level.slice(1));
-                touched.priority = true;
-                working = stripQuickEntryMatch(working, priorityMatch);
-            }
-
-            const difficultyMatch = working.match(/\b(easy|medium|hard)\s+difficulty\b/i)
-                || working.match(/\bdifficulty\s+(easy|medium|hard)\b/i);
-            if(difficultyMatch) {
-                const level = difficultyMatch[1].toLowerCase();
-                result.difficulty = level.charAt(0).toUpperCase() + level.slice(1);
-                touched.difficulty = true;
-                working = stripQuickEntryMatch(working, difficultyMatch);
-            }
 
             const targetWeekMatch = working.match(/\btarget\s+week\b/i);
             if(targetWeekMatch) {
@@ -14509,7 +14348,7 @@
                 const quotedSubject = parseQuotedPrefix(subjectBody);
                 let subjectName = quotedSubject.quoted != null ? quotedSubject.quoted : subjectBody;
                 if(quotedSubject.quoted == null) {
-                    const trimmed = subjectName.match(/^(.+?)(?=\s+(?:due|by|every|after|before|notes|\d+\s*(?:m|min|h|hr)|(?:high|medium|low|urgent)\s+priority|priority|difficulty|target|exact|flexible|unscheduled|$))/i);
+                    const trimmed = subjectName.match(/^(.+?)(?=\s+(?:due|by|every|after|before|notes|\d+\s*(?:m|min|h|hr)|target|exact|flexible|unscheduled|$))/i);
                     if(trimmed) subjectName = trimmed[1].trim();
                 }
                 if(subjectName) {
@@ -14538,7 +14377,7 @@
                     const clean = word.replace(/[.,;:!?]+$/, '');
                     if(!/^[A-Za-z][A-Za-z0-9&'-]*$/.test(clean)) return false;
                     const lower = clean.toLowerCase();
-                    if(['due', 'on', 'at', 'by', 'for', 'to', 'must', 'be', 'after', 'before', 'notes', 'subject', 'priority', 'difficulty', 'minutes', 'minute', 'mins', 'min', 'medium', 'high', 'low', 'urgent', 'easy', 'hard', 'every', 'repeat', 'repeats', 'daily', 'weekly', 'weekday', 'weekdays', 'target', 'exact', 'flexible', 'unscheduled'].includes(lower)) return false;
+                    if(['due', 'on', 'at', 'by', 'for', 'to', 'must', 'be', 'after', 'before', 'notes', 'subject', 'minutes', 'minute', 'mins', 'min', 'every', 'repeat', 'repeats', 'daily', 'weekly', 'weekday', 'weekdays', 'target', 'exact', 'flexible', 'unscheduled'].includes(lower)) return false;
                     if(titleLower.includes(lower)) return false;
                     return true;
                 });
@@ -14549,7 +14388,7 @@
             }
 
             if(!forUpdate) {
-                working = working.replace(/\b(at|on|by|due|for|to|after|before|notes|subject|priority|difficulty|target|exact|flexible|unscheduled|every|repeat|daily|weekly)\b/gi, ' ').replace(/\s{2,}/g, ' ').trim();
+                working = working.replace(/\b(at|on|by|due|for|to|after|before|notes|subject|target|exact|flexible|unscheduled|every|repeat|daily|weekly)\b/gi, ' ').replace(/\s{2,}/g, ' ').trim();
                 if(working && !result.notes) result.notes = working.substring(0, 500);
             }
             }
@@ -14588,10 +14427,7 @@
         function applyQuickEntryToForm(parsed) {
             if(!parsed) return;
             document.getElementById('inputSubject').value = parsed.subject || 'General';
-            document.getElementById('inputDuration').value = parsed.duration || '';
-            document.getElementById('inputPriority').value = parsed.priority || 'Medium';
-            document.getElementById('inputDifficulty').value = parsed.difficulty || 'Medium';
-            document.getElementById('inputNotes').value = parsed.notes || '';
+            document.getElementById('inputDuration').value = parsed.duration || '';            document.getElementById('inputNotes').value = parsed.notes || '';
             const repeatRule = normalizeRepeatRule(parsed.repeatRule || { type: 'none' });
             document.getElementById('inputRepeatType').value = repeatRule.type === 'none' ? 'none' : repeatRule.type;
             document.getElementById('inputWeekDueOnly').checked = Boolean(parsed.weekDueOnly);
@@ -16912,10 +16748,7 @@
             document.getElementById('inputWeek').value = getCurrentWeekKey();
             document.getElementById('inputTime').value = '';
             document.getElementById('inputDueTime').value = '';
-            document.getElementById('inputDuration').value = '';
-            document.getElementById('inputPriority').value = 'Medium';
-            document.getElementById('inputDifficulty').value = 'Medium';
-            document.getElementById('inputColor').value = '#b91c1c';
+            document.getElementById('inputDuration').value = '';            document.getElementById('inputColor').value = '#b91c1c';
             document.getElementById('inputNotes').value = '';
             document.getElementById('inputRepeatType').value = 'none';
             document.getElementById('inputWeekDueOnly').checked = false;
@@ -17241,8 +17074,6 @@
                 subject: subject,
                 scheduleType: scheduleType,
                 duration: document.getElementById('inputDuration').value || null,
-                priority: document.getElementById('inputPriority').value,
-                difficulty: document.getElementById('inputDifficulty').value || 'Medium',
                 color: color,
                 mustBeBefore,
                 mustBeAfter,
@@ -17427,8 +17258,6 @@
                             week: instanceWeekKey,
                             time: instanceTime,
                             timeSource: instanceTimeSource,
-                            priority: normalizedTaskData.priority,
-                            difficulty: normalizedTaskData.difficulty,
                             duration: normalizedTaskData.duration,
                             notes: normalizedTaskData.notes,
                             color: normalizedTaskData.color,
@@ -17544,10 +17373,7 @@
                 document.getElementById('inputDueTime').value = t.dueTime || '';
                 document.getElementById('inputWeek').value = getCurrentWeekKey();
             }
-            document.getElementById('inputDuration').value = t.duration || '';
-            document.getElementById('inputPriority').value = t.priority;
-            document.getElementById('inputDifficulty').value = t.difficulty || 'Medium';
-            document.getElementById('inputColor').value = getTaskColor(t);
+            document.getElementById('inputDuration').value = t.duration || '';            document.getElementById('inputColor').value = getTaskColor(t);
             document.getElementById('inputNotes').value = t.notes || '';
             const repeatRule = normalizeRepeatRule(t.repeatRule || {});
             document.getElementById('inputRepeatType').value = repeatRule.type || 'none';
@@ -17835,15 +17661,9 @@
             const dueToday = tasks.filter(t => !t.completed && getTaskDueDate(t) === today).length;
             const dueWeek = tasks.filter(t => !t.completed && ((getTaskDueDate(t) && getTaskDueDate(t) >= today && getTaskDueDate(t) <= weekEnd) || (!getTaskDueDate(t) && t.week === currentWeekKey))).length;
             const overdue = tasks.filter(t => !t.completed && getTaskDueDate(t) && getTaskDueDate(t) < today).length;
-            const highPri = tasks.filter(t => !t.completed && t.priority === 'High').length;
-            const hardTasks = tasks.filter(t => !t.completed && t.difficulty === 'Hard').length;
-
             document.getElementById('filterDueToday').innerText = dueToday;
             document.getElementById('filterDueWeek').innerText = dueWeek;
             document.getElementById('filterOverdue').innerText = overdue;
-            document.getElementById('filterHigh').innerText = highPri;
-            document.getElementById('filterHard').innerText = hardTasks;
-
             // Avg Actual Time
             const completedWithActual = getActualTimeAnalyticsRows();
             const avgActual = completedWithActual.length > 0
@@ -18012,10 +17832,7 @@
             if(filter === 'today') taskFilter.value = 'active';
             else if(filter === 'week') taskFilter.value = 'thisweek';
             else if(filter === 'overdue') taskFilter.value = 'overdue';
-            else if(filter === 'high') taskFilter.value = 'weekplan';
-            else if(filter === 'hard') taskFilter.value = 'weekplan';
-
-            renderTaskList();
+                        renderTaskList();
         }
 
         function startWeeklyPlanning() {
@@ -18024,7 +17841,7 @@
             const taskSort = document.getElementById('taskSort');
             const taskSearch = document.getElementById('taskSearch');
             if(taskFilter) taskFilter.value = 'weekplan';
-            if(taskSort) taskSort.value = 'priority';
+            if(taskSort) taskSort.value = 'autoschedule';
             if(taskSearch) taskSearch.value = '';
             renderTaskList();
             showNotification('Weekly planning queue ready', 'info');
@@ -18315,8 +18132,6 @@
                 !isUserScheduleLocked(t) &&
                 !isFixedTask(t)
             ).sort((a, b) => {
-                const priorityDiff = getPriorityRank(b.priority) - getPriorityRank(a.priority);
-                if(priorityDiff !== 0) return priorityDiff;
                 return timeToMin(b.time) - timeToMin(a.time);
             });
         }
@@ -18354,17 +18169,16 @@
                     }),
                 ...getBlockedSlotsForDate(dateStr)
             ].sort((a, b) => a.start - b.start);
-            const options = getSlotOptionsForPriority(
+            const options = getScheduleSlotOptions(
                 busy,
                 constraints.constrainedStart,
                 constraints.constrainedMaxEnd,
                 constraints.duration,
                 0,
-                task.priority,
                 task
             );
             if(options.length === 0) return false;
-            const slot = options[Math.max(0, selectSlotIndexForPriority(options, task))];
+            const slot = options[Math.max(0, selectScheduleSlotIndex(options, task))];
             task.time = minToInputTime(slot.start);
             task.timeSource = 'auto';
             task.assignmentMode = 'ADJUSTABLE';
@@ -18505,7 +18319,7 @@
             return maintainClassifyScheduleIfNeeded({ persist, weeksAhead, ...options });
         }
 
-        function autoBlockWeekTimes(showToast = true, weekKey = getCurrentWeekKey(), allowDateShift = true, forceRebuildAutoSlots = false, strictPriority = true) {
+        function autoBlockWeekTimes(showToast = true, weekKey = getCurrentWeekKey(), allowDateShift = true, forceRebuildAutoSlots = false) {
             if(showToast && !classifyUndoApplying) recordClassifyUndoPoint({ force: true });
             const scheduleSnapshot = captureWeekScheduleSnapshot(weekKey);
             assignWeekTaskDates(weekKey, true);
@@ -18644,17 +18458,15 @@
                 const constraints = getSchedulingConstraintsForTaskOnDate(task, targetDate, startMin);
                 if(!constraints) return null;
                 const breakMin = 0;
-                const options = getSlotOptionsForPriority(
+                const options = getScheduleSlotOptions(
                     targetBusy,
                     constraints.constrainedStart,
                     constraints.constrainedMaxEnd,
                     constraints.duration,
                     breakMin,
-                    task?.priority,
-                    task
-                );
+                    task);
                 if(options.length > 0) {
-                    const slotIndex = selectSlotIndexForPriority(options, task);
+                    const slotIndex = selectScheduleSlotIndex(options, task);
                     const picked = options[Math.max(0, slotIndex)];
                     return { start: picked.start, end: picked.start + constraints.duration };
                 }
@@ -18896,15 +18708,13 @@
                                     return buildBusySlotForTask(refTask, x.start, x.start + x.duration, date);
                                 })
                         ).sort((a, b) => a.start - b.start);
-                        const starts = getSlotOptionsForPriority(
+                        const starts = getScheduleSlotOptions(
                             busy,
                             getDateStartMin(date),
                             maxEnd,
                             duration,
                             breakMin,
-                            task?.priority,
-                            task
-                        );
+                    task);
                         starts.forEach(candidate => {
                             const start = candidate.start;
                             let valid = true;
@@ -19064,7 +18874,7 @@
                                     t.timeSource === 'auto' &&
                                     !isUserScheduleLocked(t)
                                 )
-                                .sort((a, b) => getPriorityRank(b.priority) - getPriorityRank(a.priority));
+                                .sort((a, b) => timeToMin(b.time) - timeToMin(a.time));
                             for(const other of blockers) {
                                 const eligible = getScheduleEligibleDates(other, weekKey, allowDateShift);
                                 if(spillAutoTaskToNextValidDate(other, eligible, dateById)) {
@@ -19275,7 +19085,7 @@
         }
 
         function exportCSV() {
-            let csv = 'Title,Subject,Event Date,Due Date,Start Time,Due Time,Duration (min),Actual (min),Priority,Difficulty,Status,Notes\n';
+            let csv = 'Title,Subject,Event Date,Due Date,Start Time,Due Time,Duration (min),Actual (min),Status,Notes\n';
             tasks.forEach(t => {
                 const status = t.completed ? 'Completed' : 'Pending';
                 const row = [
@@ -19287,8 +19097,6 @@
                     t.dueTime || '',
                     t.duration || '',
                     t.actualMinutes || '',
-                    t.priority || '',
-                    t.difficulty || '',
                     status,
                     `"${(t.notes || '').replace(/"/g, '""')}"`
                 ];
