@@ -1,5 +1,5 @@
 /open-link.html /link/dashboard 302
 /open-link /link/dashboard 302
 /deck.html /deck 301
-/classify /classify.html 200
+/classify.html /classify 301
 /classify/* /classify.html 200

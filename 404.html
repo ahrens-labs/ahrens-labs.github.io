@@ -17,7 +17,7 @@
         try {
           sessionStorage.setItem('classifyRouteRedirect', (classifyMatch[1] || '').replace(/\/+$/, ''));
         } catch (e) {}
-        window.location.replace('/classify.html' + window.location.search + window.location.hash);
+        window.location.replace('/classify' + window.location.search + window.location.hash);
         return;
       }
     })();
