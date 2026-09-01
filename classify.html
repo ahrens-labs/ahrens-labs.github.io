@@ -2525,13 +2525,18 @@
             padding: 1.5rem 2rem;
         }
         #taskForm.cl-editor-simple-active {
-            overflow-y: visible;
+            flex: 0 0 auto;
+            overflow: visible;
+            min-height: auto;
         }
-        #modalPanel.cl-editor-simple-mode {
-            max-width: 32rem;
+        body.classify-app .cl-modal-root .modal-panel.flex.flex-col.cl-editor-simple-mode {
+            overflow-x: hidden;
+            overflow-y: auto;
+            max-height: 100%;
+            height: auto;
         }
         #modalPanel.cl-editor-simple-mode #taskForm {
-            overflow-y: visible;
+            overflow: visible;
         }
         #simpleEntryPanel .cl-simple-field-label {
             display: block;
