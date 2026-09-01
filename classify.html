@@ -1393,16 +1393,15 @@
             border-radius: 1.25rem;
             padding: 1.5rem 1.25rem;
             margin-bottom: 1.5rem;
-            background: #dc2626;
-            color: #fff;
-            box-shadow: 0 12px 40px rgba(220, 38, 38, 0.22);
+            background: #fff;
+            color: #0f172a;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
         }
-        .cl-analytics-hero::after {
-            content: '';
-            position: absolute;
-            inset: 0;
-            background: radial-gradient(circle at 85% 15%, rgba(255,255,255,0.22), transparent 42%);
-            pointer-events: none;
+        .dark .cl-analytics-hero {
+            background: rgba(15, 23, 42, 0.92);
+            border-color: rgba(51, 65, 85, 0.8);
+            color: #f8fafc;
         }
         .cl-analytics-hero__title {
             position: relative;
@@ -1415,8 +1414,11 @@
             position: relative;
             margin: 0;
             font-size: 0.92rem;
-            opacity: 0.92;
+            color: #64748b;
             max-width: 36rem;
+        }
+        .dark .cl-analytics-hero__subtitle {
+            color: #94a3b8;
         }
         .cl-analytics-spotlight {
             display: grid;
