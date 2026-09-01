@@ -3479,7 +3479,8 @@
                         <div id="cl-wt-exact-date-fields" class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div id="startTimeWrapper">
                                 <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Start Time</label>
-                                <input id="inputTime" type="time" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
+                                <input id="inputTime" type="time" step="300" oninput="handleExactDateStartTimeInput()" onchange="handleExactDateStartTimeInput()" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
+                                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Fixed start times use 5-minute steps (e.g. 3:00, 3:05).</p>
                             </div>
                             <div id="dueTimeWrapper">
                                 <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Due Time</label>
@@ -4871,7 +4872,7 @@
                     'Set <strong>Schedule By</strong> to <strong>Exact Date</strong>',
                     '<strong>Date (Event)</strong> is the day you work on it and the deadline — there is no separate due date',
                     '<strong>Due Time</strong> is the deadline clock time on that day',
-                    '<strong>Start Time</strong> is optional; leave it blank and Classify auto-picks a time, or set it to lock a slot'
+                    '<strong>Start Time</strong> is optional; leave it blank and Classify auto-picks a time, or set a <strong>5-minute</strong> time (3:00, 3:05, …) to lock the slot'
                 ],
                 target: '#cl-wt-schedule-panel',
                 openAssignmentModal: true,
@@ -6479,11 +6480,19 @@
                 ? task.assignmentMode
                 : null;
             if(!normalizedAssignmentMode) {
-                normalizedAssignmentMode = (normalizedTimeSource === 'user' && normalizedEventDate && normalizedTime)
+                normalizedAssignmentMode = (
+                    normalizedTimeSource === 'user' &&
+                    normalizedEventDate &&
+                    normalizedTime &&
+                    isTimeOnScheduleGrid(normalizedTime)
+                )
                     ? 'FIXED'
                     : 'ADJUSTABLE';
             }
             if(normalizedAssignmentMode === 'FIXED' && !(normalizedEventDate && normalizedTime)) {
+                normalizedAssignmentMode = 'ADJUSTABLE';
+            }
+            if(normalizedAssignmentMode === 'FIXED' && normalizedTime && !isTimeOnScheduleGrid(normalizedTime)) {
                 normalizedAssignmentMode = 'ADJUSTABLE';
             }
             if(normalizedAssignmentMode !== 'FIXED') {
@@ -6794,7 +6803,8 @@
                 task &&
                 task.time &&
                 task.timeSource === 'user' &&
-                isPlannerEventTask(task)
+                isPlannerEventTask(task) &&
+                isTimeOnScheduleGrid(task.time)
             );
         }
 
@@ -6921,7 +6931,10 @@
             if(isUserTimeLockedTask(task)) return true;
             if(isFixedTask(task) && task.time) return true;
             if(isRepeatFixedTimeTask(task)) return true;
-            if(task.time && task.timeSource === 'user') return true;
+            if(task.time && task.timeSource === 'user') {
+                if(isPlannerEventTask(task)) return isTimeOnScheduleGrid(task.time);
+                return true;
+            }
             if(task.dateSource === 'user' && task.date && !task.time) return true;
             return false;
         }
@@ -7173,7 +7186,7 @@
                 weekDueOnly: false
             };
 
-            if(!crossDayOrModeChange && timeStr) {
+            if(!crossDayOrModeChange && timeStr && isExactDateFixedTimeValue(timeStr)) {
                 updates.time = timeStr;
                 updates.timeSource = 'user';
                 updates.assignmentMode = 'FIXED';
@@ -8300,6 +8313,31 @@
 
         function roundUpToScheduleGrid(minutes) {
             return Math.ceil(minutes / 5) * 5;
+        }
+
+        function isTimeOnScheduleGrid(timeStr) {
+            if(!timeStr || !String(timeStr).includes(':')) return false;
+            const minutes = timeToMin(timeStr);
+            return minutes >= 0 && minutes < (24 * 60) && minutes % 5 === 0;
+        }
+
+        function snapTimeToNearestScheduleGrid(timeStr) {
+            if(!timeStr || !String(timeStr).includes(':')) return null;
+            const minutes = timeToMin(timeStr);
+            const snapped = Math.round(minutes / 5) * 5;
+            const clamped = Math.max(0, Math.min(snapped, (24 * 60) - 1));
+            return minToInputTime(clamped);
+        }
+
+        function isExactDateFixedTimeValue(timeStr) {
+            return Boolean(timeStr && isTimeOnScheduleGrid(timeStr));
+        }
+
+        function taskHasExactDateFixedTime(task) {
+            if(!task || !isPlannerEventTask(task)) return false;
+            if(!task.date || !task.time) return false;
+            if(getTaskAssignmentMode(task) === 'FIXED') return isTimeOnScheduleGrid(task.time);
+            return task.timeSource === 'user' && isTimeOnScheduleGrid(task.time);
         }
 
         function getEarliestSchedulableStartMin(dateStr) {
@@ -12458,7 +12496,7 @@
             result.week = getWeekKeyFromDateStr(dateStr);
             if(parsedTime) {
                 result.time = parsedTime;
-                result.exactDateTiming = 'fixed';
+                result.exactDateTiming = isExactDateFixedTimeValue(parsedTime) ? 'fixed' : 'adjustable';
                 result.dueTime = null;
             }
             return true;
@@ -12468,7 +12506,7 @@
             if(!parsedTime) return;
             if(result.scheduleType === 'date' && result.date) {
                 result.time = parsedTime;
-                result.exactDateTiming = 'fixed';
+                result.exactDateTiming = isExactDateFixedTimeValue(parsedTime) ? 'fixed' : 'adjustable';
                 result.dueTime = null;
                 return;
             }
@@ -12480,7 +12518,7 @@
             result.date = getDateStrLocal();
             result.week = getWeekKeyFromDateStr(result.date);
             result.time = parsedTime;
-            result.exactDateTiming = 'fixed';
+            result.exactDateTiming = isExactDateFixedTimeValue(parsedTime) ? 'fixed' : 'adjustable';
             result.dueTime = null;
         }
 
@@ -12556,7 +12594,7 @@
                 const parsedEventTime = parseQuickEntryTime(String(eventMatch[2] || '').trim());
                 if(parsedEventTime) {
                     result.time = parsedEventTime;
-                    result.exactDateTiming = 'fixed';
+                    result.exactDateTiming = isExactDateFixedTimeValue(parsedEventTime) ? 'fixed' : 'adjustable';
                 }
                 working = stripQuickEntryMatch(working, eventMatch);
             }
@@ -13144,7 +13182,7 @@
                     dueTime: null,
                     time: moveTime,
                     week: null,
-                    exactDateTiming: moveTime ? 'fixed' : 'adjustable'
+                    exactDateTiming: isExactDateFixedTimeValue(moveTime) ? 'fixed' : 'adjustable'
                 };
             }
             if(fragment.scheduleType === 'date' && fragment.date) {
@@ -13155,7 +13193,7 @@
                     dueDate: null,
                     dueTime: null,
                     week: null,
-                    exactDateTiming: resolvedTime ? 'fixed' : 'adjustable'
+                    exactDateTiming: isExactDateFixedTimeValue(resolvedTime) ? 'fixed' : 'adjustable'
                 };
             }
             return fragment;
@@ -13165,7 +13203,7 @@
             if(!fragment?.scheduleType) return null;
             if(fragment.scheduleType === 'date' && fragment.date) {
                 const timeVal = fragment.time || fragment.dueTime || null;
-                const hasFixedTime = Boolean(timeVal);
+                const hasFixedTime = isExactDateFixedTimeValue(timeVal);
                 return {
                     scheduleType: 'date',
                     date: fragment.date,
@@ -13367,7 +13405,7 @@
                 setSubjectColorValue(subject, sharedFields.color);
                 let baseTask;
                 if(quickParsed.scheduleType === 'date' && quickParsed.date) {
-                    const fixed = quickParsed.exactDateTiming === 'fixed' && quickParsed.time;
+                    const fixed = quickParsed.exactDateTiming === 'fixed' && isExactDateFixedTimeValue(quickParsed.time);
                     baseTask = {
                         ...sharedFields,
                         date: quickParsed.date,
@@ -14151,7 +14189,7 @@
                 }
                 if(repeatParsed.eventTime) {
                     result.time = repeatParsed.eventTime;
-                    result.exactDateTiming = 'fixed';
+                    result.exactDateTiming = isExactDateFixedTimeValue(repeatParsed.eventTime) ? 'fixed' : 'adjustable';
                 }
             }
         }
@@ -14321,7 +14359,7 @@
                 const parsedEventTime = parseQuickEntryTime(String(eventMatch[2] || '').trim());
                 if(parsedEventTime) {
                     result.time = parsedEventTime;
-                    result.exactDateTiming = 'fixed';
+                    result.exactDateTiming = isExactDateFixedTimeValue(parsedEventTime) ? 'fixed' : 'adjustable';
                 }
                 touched.schedule = true;
                 working = stripQuickEntryMatch(working, eventMatch);
@@ -16422,7 +16460,22 @@
             const repeatType = document.getElementById('inputRepeatType')?.value || 'none';
             const weekDueOnly = Boolean(document.getElementById('inputWeekDueOnly')?.checked) && repeatType === 'weekly';
             if(scheduleType !== 'date' || weekDueOnly) return false;
-            return (document.getElementById('inputExactDateTiming')?.value || 'adjustable') === 'fixed';
+            const timing = document.getElementById('inputExactDateTiming')?.value || 'adjustable';
+            if(timing === 'fixed') return true;
+            const timeValue = document.getElementById('inputTime')?.value || '';
+            return isExactDateFixedTimeValue(timeValue);
+        }
+
+        function handleExactDateStartTimeInput() {
+            const scheduleType = document.getElementById('inputScheduleType')?.value || 'date';
+            if(scheduleType !== 'date') return;
+            const timeValue = document.getElementById('inputTime')?.value || '';
+            const timingInput = document.getElementById('inputExactDateTiming');
+            if(!timingInput || !timeValue) return;
+            if(isTimeOnScheduleGrid(timeValue) && timingInput.value !== 'fixed') {
+                timingInput.value = 'fixed';
+                updateScheduleInputs();
+            }
         }
 
         let lastScheduleTypeInput = null;
@@ -17074,10 +17127,20 @@
             // Update Global Subject Color Map
             setSubjectColorValue(subject, color);
 
-            const inputTimeValue = isExactDateFixed ? (document.getElementById('inputTime').value || null) : null;
+            let inputTimeValue = isExactDateFixed ? (document.getElementById('inputTime').value || null) : null;
+            if(isExactDateFixed && inputTimeValue && !isTimeOnScheduleGrid(inputTimeValue)) {
+                const snapped = snapTimeToNearestScheduleGrid(inputTimeValue);
+                if(snapped) {
+                    if(snapped !== inputTimeValue) {
+                        showNotification(`Start time adjusted to ${minToTime(timeToMin(snapped))} (fixed times use 5-minute steps).`, 'info');
+                    }
+                    inputTimeValue = snapped;
+                    document.getElementById('inputTime').value = snapped;
+                }
+            }
+            const assignmentMode = (isExactDateFixed && isExactDateFixedTimeValue(inputTimeValue)) ? 'FIXED' : 'ADJUSTABLE';
             const repeatNoAutoTime = !weekDueOnly && repeatRule.type === 'daily' && !inputTimeValue;
             const existingTask = editingId ? tasks.find(t => t.id === editingId) : null;
-            const assignmentMode = isExactDateFixed ? 'FIXED' : 'ADJUSTABLE';
             const preserveStartedTargetWeekSlot = scheduleType === 'week'
                 && Boolean(existingTask)
                 && isAssignmentStarted(existingTask);
@@ -17367,7 +17430,7 @@
                 ? 'week'
                 : (scheduleMode === 'date' ? 'date' : 'flexible');
             if(scheduleMode === 'date') {
-                const isFixedExact = getTaskAssignmentMode(t) === 'FIXED';
+                const isFixedExact = taskHasExactDateFixedTime(t);
                 document.getElementById('inputExactDateTiming').value = isFixedExact ? 'fixed' : 'adjustable';
                 document.getElementById('inputDate').value = t.date || '';
                 document.getElementById('inputTime').value = isFixedExact ? (t.time || '') : '';
