@@ -8928,12 +8928,9 @@
         function getNowMinRoundedTo5() {
             const now = new Date();
             const raw = now.getHours() * 60 + now.getMinutes();
-            if(raw % 5 === 0 && now.getSeconds() === 0 && now.getMilliseconds() === 0) {
-                return raw;
-            }
+            if(raw % 5 === 0) return raw;
             let next = raw;
             if(now.getSeconds() > 0 || now.getMilliseconds() > 0) next += 1;
-            if(next % 5 === 0) return next;
             return roundUpToScheduleGrid(next);
         }
 
