@@ -142,6 +142,7 @@ async function checkLoginStatus() {
         localStorage.removeItem('ahrenslabs_sessionId');
         localStorage.removeItem('ahrenslabs_username');
         localStorage.removeItem('ahrenslabs_userId');
+        localStorage.removeItem('ahrenslabs_email');
 
         resolveHeaderAuthGuest();
         if (requiresLogin()) {
@@ -182,9 +183,15 @@ async function handleLogout() {
         }
     }
 
-    localStorage.removeItem('ahrenslabs_sessionId');
-    localStorage.removeItem('ahrenslabs_username');
-    localStorage.removeItem('ahrenslabs_userId');
+    if (window.AhrensTabAccountSession && typeof window.AhrensTabAccountSession.clear === 'function') {
+        window.AhrensTabAccountSession.clear();
+    } else {
+        localStorage.removeItem('ahrenslabs_sessionId');
+        localStorage.removeItem('ahrenslabs_username');
+        localStorage.removeItem('ahrenslabs_userId');
+        localStorage.removeItem('ahrenslabs_email');
+        localStorage.removeItem('ahrenslabs_email');
+    }
 
     window.location.href = 'account.html';
 }

@@ -894,6 +894,7 @@ export function layout(title: string, content: string): string {
 
   ${content}
 
+  <script src="https://ahrenslabs.com/js/account_session.js"></script>
   <script src="https://ahrenslabs.com/js/script.js"></script>
   <script src="https://ahrenslabs.com/js/link_auth.js"></script>
   <script src="https://ahrenslabs.com/js/header_nav.js?v=20260627h"></script>
