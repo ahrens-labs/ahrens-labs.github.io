@@ -2454,6 +2454,12 @@
             outline: 2px solid #ef4444;
             outline-offset: 2px;
         }
+        .cl-dep-picker-menu {
+            max-height: min(60vh, 26rem);
+        }
+        .cl-dep-list {
+            max-height: min(40vh, 18rem);
+        }
         .cl-mini-tip-overlay {
             position: fixed;
             inset: 0;
@@ -3748,12 +3754,12 @@
                                         <span class="cl-dep-picker-label truncate flex-1 text-left text-slate-500 dark:text-slate-400">Select assignment...</span>
                                         <i class="fa-solid fa-chevron-down text-[10px] text-slate-400 shrink-0"></i>
                                     </button>
-                                    <div class="cl-dep-picker-menu hidden absolute z-50 left-0 right-0 top-full mt-1 max-h-48 overflow-y-auto rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 shadow-lg py-1"></div>
+                                    <div class="cl-dep-picker-menu hidden absolute z-50 left-0 right-0 top-full mt-1 overflow-y-auto rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 shadow-lg py-1"></div>
                                     <input type="hidden" id="inputMustAfterSelect" value="">
                                 </div>
                                 <button type="button" onclick="addDependency('after')" class="h-11 px-4 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-semibold transition-colors">Add</button>
                             </div>
-                            <div id="inputMustAfterList" class="mt-2 space-y-1.5"></div>
+                            <div id="inputMustAfterList" class="cl-dep-list mt-2 space-y-1.5 overflow-y-auto pr-1"></div>
                             <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Same-subject assignments appear first.</p>
                         </div>
                         <div>
@@ -3765,12 +3771,12 @@
                                         <span class="cl-dep-picker-label truncate flex-1 text-left text-slate-500 dark:text-slate-400">Select assignment...</span>
                                         <i class="fa-solid fa-chevron-down text-[10px] text-slate-400 shrink-0"></i>
                                     </button>
-                                    <div class="cl-dep-picker-menu hidden absolute z-50 left-0 right-0 top-full mt-1 max-h-48 overflow-y-auto rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 shadow-lg py-1"></div>
+                                    <div class="cl-dep-picker-menu hidden absolute z-50 left-0 right-0 top-full mt-1 overflow-y-auto rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 shadow-lg py-1"></div>
                                     <input type="hidden" id="inputMustBeforeSelect" value="">
                                 </div>
                                 <button type="button" onclick="addDependency('before')" class="h-11 px-4 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-semibold transition-colors">Add</button>
                             </div>
-                            <div id="inputMustBeforeList" class="mt-2 space-y-1.5"></div>
+                            <div id="inputMustBeforeList" class="cl-dep-list mt-2 space-y-1.5 overflow-y-auto pr-1"></div>
                             <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Choose one, click Add, and repeat.</p>
                         </div>
                         <div>
@@ -3782,12 +3788,12 @@
                                         <span class="cl-dep-picker-label truncate flex-1 text-left text-slate-500 dark:text-slate-400">Select assignment...</span>
                                         <i class="fa-solid fa-chevron-down text-[10px] text-slate-400 shrink-0"></i>
                                     </button>
-                                    <div class="cl-dep-picker-menu hidden absolute z-50 left-0 right-0 top-full mt-1 max-h-48 overflow-y-auto rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 shadow-lg py-1"></div>
+                                    <div class="cl-dep-picker-menu hidden absolute z-50 left-0 right-0 top-full mt-1 overflow-y-auto rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 shadow-lg py-1"></div>
                                     <input type="hidden" id="inputDifferentDaySelect" value="">
                                 </div>
                                 <button type="button" onclick="addDependency('differentDay')" class="h-11 px-4 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-semibold transition-colors">Add</button>
                             </div>
-                            <div id="inputDifferentDayList" class="mt-2 space-y-1.5"></div>
+                            <div id="inputDifferentDayList" class="cl-dep-list mt-2 space-y-1.5 overflow-y-auto pr-1"></div>
                             <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Keeps both assignments on separate dates.</p>
                         </div>
                     </div>
@@ -11319,7 +11325,7 @@
                 const label = escapeHtml(dependencyOptionLabel(task, false));
                 const colorDot = dependencyColorDotHtml(getTaskColor(task));
                 return `
-                    <div class="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60">
+                    <div class="flex items-center justify-between gap-2 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60">
                         <span class="flex items-center gap-2 min-w-0">
                             ${colorDot}
                             <span class="text-xs text-slate-700 dark:text-slate-200 truncate">${label}</span>
@@ -11354,7 +11360,7 @@
                         const isSame = subject && String(t.subject || '').trim().toLowerCase() === String(subject).trim().toLowerCase();
                         const labelText = escapeHtml(dependencyOptionLabel(t, isSame));
                         return `
-                            <button type="button" class="cl-dep-picker-option w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" data-value="${escapeHtml(t.id)}">
+                            <button type="button" class="cl-dep-picker-option w-full flex items-center gap-2.5 px-3 py-1.5 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" data-value="${escapeHtml(t.id)}">
                                 ${dependencyColorDotHtml(getTaskColor(t))}
                                 <span class="truncate">${labelText}</span>
                             </button>
