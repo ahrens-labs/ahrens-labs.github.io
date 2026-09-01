@@ -12,6 +12,14 @@
         window.location.replace('/chess-replay.html?id=' + encodeURIComponent(decodeURIComponent(m[1])));
         return;
       }
+      var classifyMatch = path.match(/^\/classify(?:\/(.*))?\/?$/);
+      if (classifyMatch) {
+        try {
+          sessionStorage.setItem('classifyRouteRedirect', (classifyMatch[1] || '').replace(/\/+$/, ''));
+        } catch (e) {}
+        window.location.replace('/classify.html' + window.location.search + window.location.hash);
+        return;
+      }
     })();
   </script>
 </head>

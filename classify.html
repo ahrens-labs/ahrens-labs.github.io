@@ -2572,8 +2572,8 @@
                 </div>
             </div>
             <div class="th-topbar-auth" id="header-auth-buttons">
-                <button type="button" id="header-login-btn" class="th-topbar-auth-btn th-topbar-auth-login" onclick="window.location.href='account.html?return=classify.html'">Login</button>
-                <button type="button" id="header-signup-btn" class="th-topbar-auth-btn th-topbar-auth-signup" onclick="window.location.href='account.html?return=classify.html'">Sign Up</button>
+                <button type="button" id="header-login-btn" class="th-topbar-auth-btn th-topbar-auth-login" onclick="window.location.href='account.html?return=%2Fclassify'">Login</button>
+                <button type="button" id="header-signup-btn" class="th-topbar-auth-btn th-topbar-auth-signup" onclick="window.location.href='account.html?return=%2Fclassify'">Sign Up</button>
                 <span id="header-username" class="th-topbar-username"></span>
                 <button type="button" class="th-undo-btn" id="btn-classify-undo" aria-label="Undo last change" title="Undo" disabled>
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 7H5v4"></path><path d="M5 11c1.5-3 4.5-5 9-5 4.5 0 8 3.5 8 8s-3.5 8-8 8a8.2 8.2 0 0 1-5.7-2.3"></path></svg>
@@ -9584,29 +9584,77 @@
             plannerSet('classifyLastTab', routeKey);
         }
 
+        function getClassifyPathPrefix() {
+            const pathname = (location.pathname || '').replace(/\/+$/, '');
+            const classifyHtmlIdx = pathname.toLowerCase().lastIndexOf('/classify.html');
+            if(classifyHtmlIdx >= 0) {
+                return pathname.slice(0, classifyHtmlIdx) + '/classify';
+            }
+            const classifyIdx = pathname.toLowerCase().lastIndexOf('/classify');
+            if(classifyIdx >= 0) {
+                return pathname.slice(0, classifyIdx + '/classify'.length);
+            }
+            return '/classify';
+        }
+
+        function getClassifyPathSegmentsFromLocation() {
+            const pathname = (location.pathname || '').replace(/\/+$/, '');
+            const match = pathname.match(/\/classify(?:\.html)?(?:\/(.*))?$/i);
+            if(!match) return null;
+            const rest = (match[1] || '').trim().toLowerCase();
+            return rest ? rest.split('/').filter(Boolean) : [];
+        }
+
+        function isClassifyAppLocation() {
+            return /\/classify(?:\.html)?(?:\/|$)/i.test(location.pathname || '');
+        }
+
         function parseClassifyRoute() {
-            const raw = (location.hash || '').replace(/^#/, '').trim().toLowerCase();
-            if(!raw) {
+            const hashRaw = (location.hash || '').replace(/^#/, '').trim().toLowerCase();
+            if(hashRaw) {
+                const [tabPart, modePart] = hashRaw.split('/').filter(Boolean);
+                const tab = normalizeClassifyTab(tabPart);
+                let calendarMode = 'month';
+                if(tab === 'calendar' && modePart) {
+                    calendarMode = normalizeClassifyCalendarMode(modePart);
+                }
+                return { tab, calendarMode, fromLegacyHash: true };
+            }
+
+            const segments = getClassifyPathSegmentsFromLocation();
+            if(segments === null) {
                 const stored = getStoredClassifyRoute();
                 if(stored) return stored;
                 return { tab: 'dashboard', calendarMode: 'month' };
             }
-            const [tabPart, modePart] = raw.split('/').filter(Boolean);
-            const tab = normalizeClassifyTab(tabPart);
+
+            if(segments.length === 0) {
+                const stored = getStoredClassifyRoute();
+                if(stored) return stored;
+                return { tab: 'dashboard', calendarMode: 'month' };
+            }
+
+            const tab = normalizeClassifyTab(segments[0]);
             let calendarMode = 'month';
-            if(tab === 'calendar' && modePart) {
-                calendarMode = normalizeClassifyCalendarMode(modePart);
+            if(tab === 'calendar' && segments[1]) {
+                calendarMode = normalizeClassifyCalendarMode(segments[1]);
             }
             return { tab, calendarMode };
         }
 
-        function buildClassifyHash(tabId, calendarMode = 'month') {
+        function buildClassifyPath(tabId, calendarMode = 'month') {
             const tab = normalizeClassifyTab(tabId);
+            const prefix = getClassifyPathPrefix();
+            if(tab === 'dashboard') return prefix;
             if(tab === 'calendar') {
                 const mode = normalizeClassifyCalendarMode(calendarMode);
-                return mode === 'month' ? '#calendar' : `#calendar/${mode}`;
+                return mode === 'month' ? `${prefix}/calendar` : `${prefix}/calendar/${mode}`;
             }
-            return `#${tab}`;
+            return `${prefix}/${tab}`;
+        }
+
+        function getClassifyUrl(tabId, calendarMode = 'month') {
+            return buildClassifyPath(tabId, calendarMode) + (location.search || '');
         }
 
         function isClassifyTabActive(tabId) {
@@ -9614,30 +9662,46 @@
             return Boolean(el && !el.classList.contains('hidden'));
         }
 
+        function consumeClassifyRouteRedirect() {
+            try {
+                const pending = sessionStorage.getItem('classifyRouteRedirect');
+                if(pending === null) return false;
+                sessionStorage.removeItem('classifyRouteRedirect');
+                const prefix = getClassifyPathPrefix();
+                const cleaned = String(pending || '').replace(/^\/+/, '').replace(/\/+$/, '');
+                const target = cleaned ? `${prefix}/${cleaned}` : prefix;
+                history.replaceState({}, '', target + (location.search || ''));
+                return true;
+            } catch (error) {
+                return false;
+            }
+        }
+
         function syncClassifyUrl(tabId, calendarMode = calendarViewMode, replace = false) {
             if(suppressClassifyRouteSync) return;
             const tab = normalizeClassifyTab(tabId);
             const mode = tab === 'calendar' ? normalizeClassifyCalendarMode(calendarMode) : 'month';
             persistClassifyRoute(tab, mode);
-            const nextHash = buildClassifyHash(tab, mode);
-            if((location.hash || '') === nextHash) return;
+            const nextUrl = getClassifyUrl(tab, mode);
+            const currentUrl = (location.pathname || '').replace(/\/+$/, '') + (location.search || '');
+            if(currentUrl === nextUrl && !location.hash) return;
             suppressClassifyRouteSync = true;
             if(replace) {
-                history.replaceState({ classifyTab: tab, calendarMode: mode }, '', nextHash);
+                history.replaceState({ classifyTab: tab, calendarMode: mode }, '', nextUrl);
             } else {
-                history.pushState({ classifyTab: tab, calendarMode: mode }, '', nextHash);
+                history.pushState({ classifyTab: tab, calendarMode: mode }, '', nextUrl);
             }
             suppressClassifyRouteSync = false;
         }
 
         function applyClassifyRouteFromUrl() {
-            const hadHash = Boolean((location.hash || '').replace(/^#/, '').trim());
+            consumeClassifyRouteRedirect();
             const route = parseClassifyRoute();
             if(route.tab === 'calendar') {
                 calendarViewMode = route.calendarMode;
             }
             switchTab(route.tab, { updateUrl: false });
-            if(!hadHash) {
+            if(isClassifyAppLocation() || route.fromLegacyHash) {
                 syncClassifyUrl(route.tab, route.calendarMode, true);
             }
         }

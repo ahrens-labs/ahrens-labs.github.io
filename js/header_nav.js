@@ -43,7 +43,7 @@
       href: 'coding-lab.html',
       children: [
         { id: 'dungeonGame', label: 'Dungeon Game', href: 'dungeon_game.html' },
-        { id: 'classify', label: 'Classify', href: 'classify.html', icon: 'img/classify-logo-128.png' },
+        { id: 'classify', label: 'Classify', href: '/classify', icon: 'img/classify-logo-128.png' },
         { id: 'tether', label: 'Tether', href: 'tether.html', icon: 'img/tether-favicon-48.png' },
         { id: 'link', label: 'Link', href: '/link/dashboard', icon: 'img/link-favicon-48.png' },
         { id: 'digest', label: 'Digest', href: 'digest.html', icon: 'img/digest-favicon-48.png' },
@@ -285,6 +285,7 @@
       return (
         path === '/classify' ||
         path === '/classify/' ||
+        path.startsWith('/classify/') ||
         current === 'classify.html' ||
         current === 'classify'
       );
