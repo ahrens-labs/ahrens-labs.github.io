@@ -10639,9 +10639,6 @@
                 if(sort === 'subject') {
                     const subjectCmp = (a.subject || '').localeCompare(b.subject || '');
                     if(subjectCmp !== 0) return subjectCmp;
-                    const aDue = getTaskDueDate(a) || '9999-12-31';
-                    const bDue = getTaskDueDate(b) || '9999-12-31';
-                    return aDue.localeCompare(bDue);
                 }
                 const aDue = getTaskDueDate(a);
                 const bDue = getTaskDueDate(b);
@@ -18029,8 +18026,10 @@
         function startWeeklyPlanning() {
             switchTab('tasks');
             const taskFilter = document.getElementById('taskFilter');
+            const taskSort = document.getElementById('taskSort');
             const taskSearch = document.getElementById('taskSearch');
             if(taskFilter) taskFilter.value = 'thisweek';
+            if(taskSort) taskSort.value = 'autoschedule';
             if(taskSearch) taskSearch.value = '';
             renderTaskList();
             showNotification('Showing assignments due this week', 'info');
