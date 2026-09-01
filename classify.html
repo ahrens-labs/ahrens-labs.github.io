@@ -3359,6 +3359,73 @@
                     </div>
                 </div>
 
+                <details class="cl-form-optional-details" id="clOptionalRepeatPanel">
+                        <summary>Repeat</summary>
+                        <div class="cl-form-optional-details__body">
+                    <div id="cl-wt-repeat-panel" class="rounded-xl border border-slate-200/70 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-800/40 p-4 space-y-4">
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Repeat</label>
+                            <select id="inputRepeatType" onchange="updateRepeatInputs()" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
+                                <option value="none" selected>Does not repeat</option>
+                                <option value="daily">Daily</option>
+                                <option value="weekly">Weekly</option>
+                                <option value="custom">Custom weekdays</option>
+                            </select>
+                            <div id="weekDueOnlyWrapper" class="mt-3 hidden">
+                                <label class="inline-flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
+                                    <input id="inputWeekDueOnly" type="checkbox" onchange="updateRepeatInputs()">
+                                    One assignment due per week
+                                </label>
+                                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Set which day and time each weekly copy is due.</p>
+                                <div id="weekDueOnlyFieldsWrapper" class="mt-3 hidden grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label for="inputWeekDueOnlyDueDate" class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Due Date</label>
+                                        <input id="inputWeekDueOnlyDueDate" type="date" onchange="handleWeekDueOnlyFieldChange()" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
+                                    </div>
+                                    <div>
+                                        <label for="inputWeekDueOnlyDueTime" class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Due Time</label>
+                                        <input id="inputWeekDueOnlyDueTime" type="time" onchange="handleWeekDueOnlyFieldChange()" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="repeatDaysWrapper" class="mt-3 hidden">
+                                <div class="text-xs text-slate-500 dark:text-slate-400 mb-2">Repeat on</div>
+                                <div class="grid grid-cols-7 gap-2">
+                                    <label class="flex flex-col items-center text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                                        <input type="checkbox" class="repeat-day" data-day="0">
+                                        Sun
+                                    </label>
+                                    <label class="flex flex-col items-center text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                                        <input type="checkbox" class="repeat-day" data-day="1">
+                                        Mon
+                                    </label>
+                                    <label class="flex flex-col items-center text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                                        <input type="checkbox" class="repeat-day" data-day="2">
+                                        Tue
+                                    </label>
+                                    <label class="flex flex-col items-center text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                                        <input type="checkbox" class="repeat-day" data-day="3">
+                                        Wed
+                                    </label>
+                                    <label class="flex flex-col items-center text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                                        <input type="checkbox" class="repeat-day" data-day="4">
+                                        Thu
+                                    </label>
+                                    <label class="flex flex-col items-center text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                                        <input type="checkbox" class="repeat-day" data-day="5">
+                                        Fri
+                                    </label>
+                                    <label class="flex flex-col items-center text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                                        <input type="checkbox" class="repeat-day" data-day="6">
+                                        Sat
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                        </div>
+                    </details>
+
                 <div id="automaticEntryPanel" class="hidden rounded-xl border border-slate-200/70 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-800/40 p-4 space-y-3">
                     <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Details</label>
                     <textarea id="inputQuickDetails" rows="4" autocomplete="off" class="w-full px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none resize-y transition-all" placeholder="due friday 5pm 30m Writing after History Essay"></textarea>
@@ -3464,73 +3531,6 @@
                             </div>
                         </div>
                     </div>
-
-                    <details class="cl-form-optional-details" id="clOptionalRepeatPanel">
-                        <summary>Repeat</summary>
-                        <div class="cl-form-optional-details__body">
-                    <div id="cl-wt-repeat-panel" class="rounded-xl border border-slate-200/70 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-800/40 p-4 space-y-4">
-                        <div>
-                            <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Repeat</label>
-                            <select id="inputRepeatType" onchange="updateRepeatInputs()" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
-                                <option value="none" selected>Does not repeat</option>
-                                <option value="daily">Daily</option>
-                                <option value="weekly">Weekly</option>
-                                <option value="custom">Custom weekdays</option>
-                            </select>
-                            <div id="weekDueOnlyWrapper" class="mt-3 hidden">
-                                <label class="inline-flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
-                                    <input id="inputWeekDueOnly" type="checkbox" onchange="updateRepeatInputs()">
-                                    One assignment due per week
-                                </label>
-                                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Set which day and time each weekly copy is due.</p>
-                                <div id="weekDueOnlyFieldsWrapper" class="mt-3 hidden grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label for="inputWeekDueOnlyDueDate" class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Due Date</label>
-                                        <input id="inputWeekDueOnlyDueDate" type="date" onchange="handleWeekDueOnlyFieldChange()" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
-                                    </div>
-                                    <div>
-                                        <label for="inputWeekDueOnlyDueTime" class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Due Time</label>
-                                        <input id="inputWeekDueOnlyDueTime" type="time" onchange="handleWeekDueOnlyFieldChange()" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
-                                    </div>
-                                </div>
-                            </div>
-                            <div id="repeatDaysWrapper" class="mt-3 hidden">
-                                <div class="text-xs text-slate-500 dark:text-slate-400 mb-2">Repeat on</div>
-                                <div class="grid grid-cols-7 gap-2">
-                                    <label class="flex flex-col items-center text-[11px] font-semibold text-slate-600 dark:text-slate-300">
-                                        <input type="checkbox" class="repeat-day" data-day="0">
-                                        Sun
-                                    </label>
-                                    <label class="flex flex-col items-center text-[11px] font-semibold text-slate-600 dark:text-slate-300">
-                                        <input type="checkbox" class="repeat-day" data-day="1">
-                                        Mon
-                                    </label>
-                                    <label class="flex flex-col items-center text-[11px] font-semibold text-slate-600 dark:text-slate-300">
-                                        <input type="checkbox" class="repeat-day" data-day="2">
-                                        Tue
-                                    </label>
-                                    <label class="flex flex-col items-center text-[11px] font-semibold text-slate-600 dark:text-slate-300">
-                                        <input type="checkbox" class="repeat-day" data-day="3">
-                                        Wed
-                                    </label>
-                                    <label class="flex flex-col items-center text-[11px] font-semibold text-slate-600 dark:text-slate-300">
-                                        <input type="checkbox" class="repeat-day" data-day="4">
-                                        Thu
-                                    </label>
-                                    <label class="flex flex-col items-center text-[11px] font-semibold text-slate-600 dark:text-slate-300">
-                                        <input type="checkbox" class="repeat-day" data-day="5">
-                                        Fri
-                                    </label>
-                                    <label class="flex flex-col items-center text-[11px] font-semibold text-slate-600 dark:text-slate-300">
-                                        <input type="checkbox" class="repeat-day" data-day="6">
-                                        Sat
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                        </div>
-                    </details>
                 </div>
 
                 <details class="cl-form-optional-details" id="clOptionalDepsPanel">
@@ -5060,8 +5060,6 @@
 
         function taskNeedsAdvancedEditor(task) {
             if(!task) return false;
-            const repeatType = normalizeRepeatRule(task.repeatRule || {}).type;
-            if(repeatType && repeatType !== 'none') return true;
             if((task.mustBeAfter || []).length || (task.mustBeBefore || []).length || (task.mustBeDifferentDay || []).length) return true;
             if(getTaskScheduleMode(task) !== 'date') return true;
             if(task.dueTime) return true;
@@ -5161,7 +5159,8 @@
             const hint = document.getElementById('assignmentEditorModeHint');
             const simplePanel = document.getElementById('simpleEntryPanel');
             const manualPanels = document.getElementById('manualEntryPanels');
-            const optionalPanels = ['clOptionalRepeatPanel', 'clOptionalDepsPanel', 'clOptionalNotesPanel']
+            const repeatPanel = document.getElementById('clOptionalRepeatPanel');
+            const optionalPanels = ['clOptionalDepsPanel', 'clOptionalNotesPanel']
                 .map(id => document.getElementById(id))
                 .filter(Boolean);
 
@@ -5181,6 +5180,7 @@
             if(hint) hint.classList.toggle('hidden', !isManual || !isSimple);
             if(simplePanel) simplePanel.classList.toggle('hidden', !isManual || !isSimple);
             if(manualPanels) manualPanels.classList.toggle('hidden', !isManual || isSimple);
+            if(repeatPanel) repeatPanel.classList.toggle('hidden', !isManual);
             optionalPanels.forEach(panel => {
                 if(!isManual || isSimple) panel.open = false;
             });
@@ -5194,8 +5194,6 @@
             if(!document.getElementById('inputDuration')?.value) {
                 document.getElementById('inputDuration').value = document.getElementById('inputSimpleDuration')?.value || '30';
             }
-            if(document.getElementById('inputRepeatType')) document.getElementById('inputRepeatType').value = 'none';
-            setCheckedDays('.repeat-day', []);
         }
 
         function getClassifyTipsSeen() {
