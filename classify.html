@@ -12517,7 +12517,7 @@
         const CLASSIFY_COMMAND_HELP_HTML = `
             <div class="text-left text-sm space-y-3 max-h-[60vh] overflow-y-auto">
                 <div><strong>Create &amp; edit</strong><br>
-                new · add Homework · add "Timeline Essay" due friday 30m · add Essay subject Math · add due friday Essay 30m (defaults: target week, due Friday) · "Essay" not before Quiz · "Test" remove weekly · rename X to Y · delete X · undo</div>
+                new · add Homework · add "Timeline Essay" due friday 30m · add Essay writing 45m friday (on Friday, exact date) · add Essay subject Math · add due friday Essay 30m (defaults: target week, due Friday) · "Essay" not before Quiz · "Test" remove weekly · rename X to Y · delete X · undo</div>
                 <div><strong>Schedule</strong><br>
                 due friday 5pm · on/to friday 3pm · target week · exact date · flexible / no date · move to friday 3pm · clear time · auto plan</div>
                 <div><strong>Subjects</strong><br>
@@ -15298,14 +15298,7 @@
                 const bareDayMatch = working.match(new RegExp(`\\b(${weekdayPattern})${optionalTime}`, 'i'));
                 if(bareDayMatch) {
                     const parsedBareTime = parseQuickEntryTime(String(bareDayMatch[2] || '').trim());
-                    if(isCreateCommand) {
-                        result.scheduleType = 'week';
-                        result.dueDate = resolveQuickEntryDateToken(bareDayMatch[1]);
-                        if(parsedBareTime) result.dueTime = parsedBareTime;
-                        if(result.dueDate) result.week = getWeekKeyFromDateStr(result.dueDate);
-                    } else {
-                        applyQuickEntryBareDaySchedule(result, bareDayMatch[1], parsedBareTime || null);
-                    }
+                    applyQuickEntryBareDaySchedule(result, bareDayMatch[1], parsedBareTime || null);
                     touched.schedule = true;
                     working = stripQuickEntryMatch(working, bareDayMatch);
                 }
