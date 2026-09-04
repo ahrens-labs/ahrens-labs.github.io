@@ -625,6 +625,14 @@
       overflow-x: auto;
       overflow-y: hidden;
     }
+    .dk-reorder-enabled .dk-check-text[contenteditable="false"] {
+      cursor: grab;
+    }
+    .dk-reorder-enabled .dk-check-text[contenteditable="true"] {
+      cursor: text;
+      -webkit-user-select: text;
+      user-select: text;
+    }
     .dk-inline-link {
       cursor: text;
       text-decoration: underline;
@@ -1128,10 +1136,6 @@
       padding: 14px 32px;
       font-size: 1.05rem;
       font-weight: 800;
-    }
-    .dk-review-top .dk-btn-exit-review-top.hidden {
-      visibility: hidden;
-      pointer-events: none;
     }
     body.deck-app.dk-reviewing .th-app-header,
     body.deck-app.dk-reviewing .dk-bottom-nav,
@@ -1686,7 +1690,7 @@
 
       function isReorderDragBlockedTarget(el) {
         if (!el) return true;
-        return !!el.closest('.dk-btn, input, textarea, select, a, .dk-card-preview-checklist, .dk-linked-edit, .dk-check-remove, .dk-check-add');
+        return !!el.closest('.dk-btn, input, textarea, select, a, .dk-card-preview-checklist, .dk-check-remove, .dk-check-add');
       }
 
       function syncReorderButtons(container) {
@@ -3337,6 +3341,24 @@
         }).join('');
       }
 
+      function placeCaretFromPoint(x, y) {
+        let range = null;
+        if (document.caretRangeFromPoint) {
+          range = document.caretRangeFromPoint(x, y);
+        } else if (document.caretPositionFromPoint) {
+          const pos = document.caretPositionFromPoint(x, y);
+          if (pos) {
+            range = document.createRange();
+            range.setStart(pos.offsetNode, pos.offset);
+            range.collapse(true);
+          }
+        }
+        if (!range) return;
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }
+
       function attachLinkedEditField(el, opts) {
         opts = opts || {};
         el.classList.add('dk-linked-edit', 'dk-link-field');
@@ -3355,7 +3377,29 @@
         el.addEventListener('blur', () => {
           sync();
           populateLinkedEditField(el, serializeLinkedEditField(el));
+          if (opts.deferEditFocus) el.contentEditable = 'false';
         });
+        if (opts.deferEditFocus) {
+          el.contentEditable = 'false';
+          el.addEventListener('focus', () => {
+            if (el.contentEditable === 'false') el.contentEditable = 'true';
+          });
+          el.addEventListener('click', (ev) => {
+            const row = el.closest('[data-reorder-id]');
+            if (!row) return;
+            const listEl = row.parentElement;
+            const drag = listEl && listEl._dkDrag;
+            if (drag && drag.suppressClick) {
+              ev.preventDefault();
+              ev.stopPropagation();
+              return;
+            }
+            if (el.contentEditable === 'true' && document.activeElement === el) return;
+            if (el.contentEditable === 'false') el.contentEditable = 'true';
+            el.focus();
+            placeCaretFromPoint(ev.clientX, ev.clientY);
+          });
+        }
         el.addEventListener('paste', (ev) => {
           ev.preventDefault();
           const text = ev.clipboardData.getData('text/plain');
@@ -4160,6 +4204,7 @@
         attachLinkedEditField(text, {
           singleLine: true,
           placeholder: 'Checklist item',
+          deferEditFocus: !!opts.reorder,
           onChange: (value) => {
             item.text = value;
             touchCard(card);
