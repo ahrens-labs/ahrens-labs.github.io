@@ -693,7 +693,7 @@
     .dk-check-list { display: grid; gap: 6px; min-width: 0; }
     .dk-check-row {
       display: flex;
-      align-items: flex-start;
+      align-items: center;
       gap: 8px;
       min-width: 0;
     }
@@ -702,12 +702,15 @@
       height: 20px;
       accent-color: var(--dk-brand);
       flex-shrink: 0;
-      margin-top: 2px;
+      margin: 0;
     }
     .dk-check-row .dk-check-text {
       flex: 1 1 auto;
       min-width: 0;
       width: auto;
+      padding: 7px 12px;
+      line-height: 1.45;
+      min-height: 20px;
     }
     .dk-check-row.done .dk-check-text {
       text-decoration: line-through;
@@ -1243,6 +1246,7 @@
           </div>
           <div id="card-checklist-edit" class="dk-card-checklist">
             <p class="dk-card-checklist-label">Checklist</p>
+            <p class="dk-reorder-hint hidden" id="checklist-reorder-hint">Press and hold an item to drag and reorder.</p>
             <div id="card-checklist-edit-list"></div>
           </div>
           <div class="dk-card-delete-wrap">
@@ -1657,7 +1661,7 @@
 
       function isReorderDragBlockedTarget(el) {
         if (!el) return true;
-        return !!el.closest('.dk-btn, input, textarea, select, a, .dk-card-preview-checklist, .dk-check-list');
+        return !!el.closest('.dk-btn, input, textarea, select, a, .dk-card-preview-checklist, .dk-linked-edit, .dk-check-remove, .dk-check-add');
       }
 
       function syncReorderButtons(container) {
@@ -2073,6 +2077,31 @@
         const stack = deck ? stackById(deck, stackId) : null;
         if (!stack || !Array.isArray(stack.cards)) return false;
         return reorderListByDomOrder(stack.cards, orderedIds);
+      }
+
+      function reorderChecklistItem(card, doneFilter, fromId, toId) {
+        const checklist = ensureCardChecklist(card);
+        const segment = checklist.filter((it) => !!it.done === !!doneFilter);
+        return moveArrayItemById(segment, fromId, toId);
+      }
+
+      function commitChecklistSegmentOrder(card, doneFilter, orderedIds) {
+        const checklist = ensureCardChecklist(card);
+        const open = checklist.filter((it) => !it.done);
+        const done = checklist.filter((it) => it.done);
+        const segment = doneFilter ? done : open;
+        if (!reorderListByDomOrder(segment, orderedIds)) return false;
+        card.checklist = [...open, ...done];
+        save();
+        return true;
+      }
+
+      function attachChecklistReorderList(listEl, card, doneFilter) {
+        attachReorderList(
+          listEl,
+          (fromId, toId) => reorderChecklistItem(card, doneFilter, fromId, toId),
+          (ids) => commitChecklistSegmentOrder(card, doneFilter, ids)
+        );
       }
 
       function allStacksAcrossDecks() {
@@ -4087,10 +4116,15 @@
         }
       }
 
-      function checkRow(item, done, card, rerender) {
+      function checkRow(item, done, card, rerender, opts) {
+        opts = opts || {};
         const checklist = ensureCardChecklist(card);
         const row = document.createElement('div');
         row.className = 'dk-check-row' + (done ? ' done' : '');
+        if (opts.reorder) {
+          row.classList.add('dk-reorder-item');
+          row.dataset.reorderId = item.id;
+        }
         const box = document.createElement('input');
         box.type = 'checkbox';
         box.checked = done;
@@ -4134,9 +4168,10 @@
         const open = checklist.filter((it) => !it.done);
         const done = checklist.filter((it) => it.done);
         const openList = document.createElement('div');
-        openList.className = 'dk-check-list';
+        openList.className = 'dk-check-list dk-reorder-list';
         const rerender = () => renderCard();
-        open.forEach((it) => openList.appendChild(checkRow(it, false, card, rerender)));
+        open.forEach((it) => openList.appendChild(checkRow(it, false, card, rerender, { reorder: true })));
+        if (open.length > 1) attachChecklistReorderList(openList, card, false);
         const addForm = document.createElement('form');
         addForm.className = 'dk-check-add-form';
         const add = document.createElement('div');
@@ -4164,11 +4199,16 @@
           label.className = 'dk-completed-label';
           label.textContent = 'Completed';
           const doneList = document.createElement('div');
-          doneList.className = 'dk-check-list';
-          done.forEach((it) => doneList.appendChild(checkRow(it, true, card, rerender)));
+          doneList.className = 'dk-check-list dk-reorder-list';
+          done.forEach((it) => doneList.appendChild(checkRow(it, true, card, rerender, { reorder: true })));
+          if (done.length > 1) attachChecklistReorderList(doneList, card, true);
           wrap.append(label, doneList);
         }
         host.appendChild(wrap);
+        const reorderHint = document.getElementById('checklist-reorder-hint');
+        if (reorderHint) {
+          reorderHint.classList.toggle('hidden', open.length < 2 && done.length < 2);
+        }
       }
 
       function viewCheckRow(item, card, rerenderFn) {
