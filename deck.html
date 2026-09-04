@@ -1102,13 +1102,37 @@
       color: var(--dk-ink);
     }
     .dk-review-nav {
-      display: flex;
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
       gap: 10px;
       margin-top: 12px;
       flex-shrink: 0;
     }
-    #btn-review-prev { margin-right: auto; }
-    #btn-review-next { margin-left: auto; }
+    .dk-review-nav .dk-btn-review-prev {
+      grid-column: 1;
+      justify-self: start;
+      padding: 8px 14px;
+      font-size: 0.86rem;
+    }
+    .dk-review-nav .dk-btn-review-next {
+      grid-column: 2;
+      justify-self: center;
+      padding: 14px 32px;
+      font-size: 1.05rem;
+      font-weight: 800;
+    }
+    .dk-review-nav .dk-btn-exit-review-bottom {
+      grid-column: 2;
+      justify-self: center;
+      padding: 14px 32px;
+      font-size: 1.05rem;
+      font-weight: 800;
+    }
+    .dk-review-top .dk-btn-exit-review-top.hidden {
+      visibility: hidden;
+      pointer-events: none;
+    }
     body.deck-app.dk-reviewing .th-app-header,
     body.deck-app.dk-reviewing .dk-bottom-nav,
     body.deck-app.dk-reviewing .dk-wrap { display: none !important; }
@@ -1259,14 +1283,15 @@
 
     <section id="view-review" class="dk-review hidden" aria-label="Deck review">
       <div class="dk-review-top">
-        <button type="button" class="dk-btn dk-btn-back" id="btn-exit-review">← Exit review</button>
+        <button type="button" class="dk-btn dk-btn-back dk-btn-exit-review-top" id="btn-exit-review">← Exit review</button>
         <p class="dk-review-deck" id="review-deck-name"></p>
         <span class="dk-review-progress" id="review-progress"></span>
       </div>
       <div class="dk-review-body" id="review-body"></div>
       <div class="dk-review-nav">
-        <button type="button" class="dk-btn dk-btn-ghost" id="btn-review-prev">← Previous</button>
-        <button type="button" class="dk-btn dk-btn-primary" id="btn-review-next">Next →</button>
+        <button type="button" class="dk-btn dk-btn-ghost dk-btn-review-prev hidden" id="btn-review-prev">← Previous</button>
+        <button type="button" class="dk-btn dk-btn-primary dk-btn-review-next hidden" id="btn-review-next">Next →</button>
+        <button type="button" class="dk-btn dk-btn-primary dk-btn-exit-review-bottom hidden" id="btn-exit-review-bottom">Exit review</button>
       </div>
     </section>
 
@@ -4649,13 +4674,18 @@
       function syncReviewNavButtons(scope, idx, total) {
         const prevBtn = document.getElementById('btn-review-prev');
         const nextBtn = document.getElementById('btn-review-next');
+        const exitTop = document.getElementById('btn-exit-review');
+        const exitBottom = document.getElementById('btn-exit-review-bottom');
         const nav = document.querySelector('.dk-review-nav');
         const canStep = scope !== 'card' && total > 1;
+        const isLast = canStep && idx >= total - 1;
         const showPrev = canStep && idx > 0;
         const showNext = canStep && idx < total - 1;
         prevBtn.classList.toggle('hidden', !showPrev);
         nextBtn.classList.toggle('hidden', !showNext);
-        if (nav) nav.classList.toggle('hidden', !showPrev && !showNext);
+        exitTop.classList.toggle('hidden', isLast);
+        exitBottom.classList.toggle('hidden', !isLast);
+        if (nav) nav.classList.toggle('hidden', !showPrev && !showNext && !isLast);
       }
 
       function renderReview() {
@@ -5031,6 +5061,7 @@
       });
 
       document.getElementById('btn-exit-review').addEventListener('click', () => exitReview());
+      document.getElementById('btn-exit-review-bottom').addEventListener('click', () => exitReview());
       document.getElementById('btn-review-prev').addEventListener('click', () => reviewStep(-1));
       document.getElementById('btn-review-next').addEventListener('click', () => reviewStep(1));
       document.addEventListener('keydown', (ev) => {
