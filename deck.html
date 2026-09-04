@@ -633,6 +633,10 @@
       -webkit-user-select: text;
       user-select: text;
     }
+    .dk-check-reorder-list > [data-reorder-id].dk-reorder-enabled {
+      touch-action: none;
+      -webkit-tap-highlight-color: transparent;
+    }
     .dk-inline-link {
       cursor: text;
       text-decoration: underline;
@@ -1686,7 +1690,35 @@
       }
 
       const DK_HOLD_MS = 350;
+      const DK_HOLD_MS_TOUCH_CHECKLIST = 420;
       const DK_HOLD_MOVE_PX = { pointer: 10, touch: 28 };
+      const DK_HOLD_MOVE_PX_CHECKLIST = { pointer: 10, touch: 44 };
+
+      function isChecklistReorderContainer(container) {
+        return !!(container && container.classList.contains('dk-check-reorder-list'));
+      }
+
+      function holdMsForContainer(container, inputKind) {
+        if (inputKind === 'touch' && isChecklistReorderContainer(container)) return DK_HOLD_MS_TOUCH_CHECKLIST;
+        return DK_HOLD_MS;
+      }
+
+      function holdMoveLimitForContainer(container, drag) {
+        if (isChecklistReorderContainer(container)) {
+          return DK_HOLD_MOVE_PX_CHECKLIST[drag.inputKind] || DK_HOLD_MOVE_PX_CHECKLIST.pointer;
+        }
+        return DK_HOLD_MOVE_PX[drag.inputKind] || DK_HOLD_MOVE_PX.pointer;
+      }
+
+      function shouldCancelReorderHold(drag, x, y, container) {
+        const dx = x - drag.startX;
+        const dy = y - drag.startY;
+        const dist = Math.hypot(dx, dy);
+        const limit = holdMoveLimitForContainer(container, drag);
+        const elapsed = Date.now() - (drag.holdStartAt || drag.pressAt || 0);
+        if (elapsed < 220) return dist > limit * 1.75;
+        return dist > limit;
+      }
 
       function isReorderDragBlockedTarget(el) {
         if (!el) return true;
@@ -1777,6 +1809,13 @@
           const el = document.elementFromPoint(x, y);
           row = el ? el.closest('[data-reorder-id]') : null;
         }
+        if (!row) {
+          row = [...container.querySelectorAll('[data-reorder-id]')].find((candidate) => {
+            if (candidate === dragRow) return false;
+            const rect = candidate.getBoundingClientRect();
+            return y >= rect.top && y <= rect.bottom;
+          }) || null;
+        }
         if (row && container.contains(row) && row !== dragRow) return row;
         return null;
       }
@@ -1813,6 +1852,8 @@
             pendingTouchRow: null,
             pendingTouchMove: null,
             pendingTouchEnd: null,
+            pendingDocTouchMove: null,
+            holdStartAt: 0,
           };
 
           function cancelHold(drag) {
@@ -1829,6 +1870,10 @@
               row.removeEventListener('touchmove', drag.pendingTouchMove);
               row.removeEventListener('touchend', drag.pendingTouchEnd);
               row.removeEventListener('touchcancel', drag.pendingTouchEnd);
+            }
+            if (drag.pendingDocTouchMove) {
+              document.removeEventListener('touchmove', drag.pendingDocTouchMove);
+              drag.pendingDocTouchMove = null;
             }
             drag.pendingTouchRow = null;
             drag.pendingTouchMove = null;
@@ -1872,8 +1917,19 @@
             document.removeEventListener('touchcancel', onDocTouchEnd);
           }
 
-          function holdMoveLimit(drag) {
-            return DK_HOLD_MOVE_PX[drag.inputKind] || DK_HOLD_MOVE_PX.pointer;
+          function attachPendingHoldTouchLock(drag) {
+            if (drag.pendingDocTouchMove) return;
+            drag.pendingDocTouchMove = (ev) => {
+              if (!drag.pendingRow || drag.inputKind !== 'touch') return;
+              const touch = reorderTouchById(ev.touches, drag.pointerId);
+              if (!touch) return;
+              if (ev.cancelable) ev.preventDefault();
+              if (shouldCancelReorderHold(drag, touch.clientX, touch.clientY, container)) {
+                cancelHold(drag);
+                resetReorderTouchState(drag);
+              }
+            };
+            document.addEventListener('touchmove', drag.pendingDocTouchMove, { passive: false });
           }
 
           function shouldStartReorderPress(row) {
@@ -1917,6 +1973,7 @@
             drag.inputKind = inputKind;
             drag.startX = x;
             drag.startY = y;
+            drag.holdStartAt = Date.now();
             drag.captureRow = null;
             if (inputKind === 'pointer') {
               document.addEventListener('pointermove', onDocPointerMove, { passive: false });
@@ -1926,18 +1983,17 @@
               drag.pendingTouchRow = row;
               drag.pendingTouchMove = onPendingTouchMove;
               drag.pendingTouchEnd = onPendingTouchEnd;
-              row.addEventListener('touchmove', drag.pendingTouchMove, { passive: true });
+              row.addEventListener('touchmove', drag.pendingTouchMove, { passive: false });
               row.addEventListener('touchend', drag.pendingTouchEnd);
               row.addEventListener('touchcancel', drag.pendingTouchEnd);
+              attachPendingHoldTouchLock(drag);
             }
-            drag.holdTimer = setTimeout(() => activateDrag(drag, row), DK_HOLD_MS);
+            drag.holdTimer = setTimeout(() => activateDrag(drag, row), holdMsForContainer(container, inputKind));
           }
 
           function handleDragMove(drag, x, y, ev) {
             if (drag.holdTimer && drag.pendingRow) {
-              const dx = x - drag.startX;
-              const dy = y - drag.startY;
-              if (Math.hypot(dx, dy) > holdMoveLimit(drag)) {
+              if (shouldCancelReorderHold(drag, x, y, container)) {
                 cancelHold(drag);
                 if (drag.inputKind === 'touch') resetReorderTouchState(drag);
               }
@@ -1972,9 +2028,8 @@
             if (!drag || drag.inputKind !== 'touch' || !drag.holdTimer) return;
             const touch = reorderTouchById(ev.touches, drag.pointerId);
             if (!touch) return;
-            const dx = touch.clientX - drag.startX;
-            const dy = touch.clientY - drag.startY;
-            if (Math.hypot(dx, dy) > holdMoveLimit(drag)) {
+            if (ev.cancelable) ev.preventDefault();
+            if (shouldCancelReorderHold(drag, touch.clientX, touch.clientY, container)) {
               cancelHold(drag);
               resetReorderTouchState(drag);
             }
@@ -2017,10 +2072,18 @@
             handleDragEnd(drag);
           }
 
+          function cancelPendingHold(drag) {
+            if (!drag || drag.active) return;
+            cancelHold(drag);
+            resetReorderTouchState(drag);
+          }
+
           function tryStartReorderPress(row, pointerId, x, y, inputKind) {
             if (!shouldStartReorderPress(row)) return;
             beginReorderPress(row, pointerId, x, y, inputKind);
           }
+
+          container._dkCancelPendingHold = () => cancelPendingHold(container._dkDrag);
 
           container.addEventListener('click', (ev) => {
             const drag = container._dkDrag;
@@ -2036,8 +2099,9 @@
             const row = ev.target.closest('[data-reorder-id]');
             if (!row || !container.contains(row) || !row.classList.contains('dk-reorder-enabled')) return;
             const touch = ev.touches[0];
+            if (isChecklistReorderContainer(container) && ev.cancelable) ev.preventDefault();
             tryStartReorderPress(row, touch.identifier, touch.clientX, touch.clientY, 'touch');
-          }, { passive: true });
+          }, { passive: false });
 
           container.addEventListener('pointerdown', (ev) => {
             if (ev.button !== undefined && ev.button !== 0) return;
@@ -3381,8 +3445,58 @@
         });
         if (opts.deferEditFocus) {
           el.contentEditable = 'false';
+          let pendingTap = null;
+
+          function canEnterEditFromTap() {
+            const row = el.closest('[data-reorder-id]');
+            if (!row) return false;
+            const listEl = row.parentElement;
+            const drag = listEl && listEl._dkDrag;
+            if (drag && (drag.suppressClick || drag.active)) return false;
+            return true;
+          }
+
+          function enterEditAt(x, y) {
+            if (!canEnterEditFromTap()) return false;
+            const row = el.closest('[data-reorder-id]');
+            const listEl = row && row.parentElement;
+            if (listEl && listEl._dkCancelPendingHold) listEl._dkCancelPendingHold();
+            if (el.contentEditable === 'true' && document.activeElement === el) return true;
+            if (el.contentEditable === 'false') el.contentEditable = 'true';
+            el.focus();
+            placeCaretFromPoint(x, y);
+            return true;
+          }
+
           el.addEventListener('focus', () => {
             if (el.contentEditable === 'false') el.contentEditable = 'true';
+          });
+          el.addEventListener('touchstart', (ev) => {
+            if (ev.touches.length !== 1) return;
+            pendingTap = {
+              x: ev.touches[0].clientX,
+              y: ev.touches[0].clientY,
+              at: Date.now(),
+            };
+          }, { passive: true });
+          el.addEventListener('touchend', (ev) => {
+            if (!pendingTap) return;
+            const touch = ev.changedTouches[0];
+            if (!touch) {
+              pendingTap = null;
+              return;
+            }
+            const dt = Date.now() - pendingTap.at;
+            const dx = touch.clientX - pendingTap.x;
+            const dy = touch.clientY - pendingTap.y;
+            const x = touch.clientX;
+            const y = touch.clientY;
+            pendingTap = null;
+            if (dt > 320 || Math.hypot(dx, dy) > 14) return;
+            if (enterEditAt(x, y)) ev.preventDefault();
+          }, { passive: false });
+          el.addEventListener('touchcancel', () => {
+            pendingTap = null;
           });
           el.addEventListener('click', (ev) => {
             const row = el.closest('[data-reorder-id]');
@@ -3395,9 +3509,7 @@
               return;
             }
             if (el.contentEditable === 'true' && document.activeElement === el) return;
-            if (el.contentEditable === 'false') el.contentEditable = 'true';
-            el.focus();
-            placeCaretFromPoint(ev.clientX, ev.clientY);
+            enterEditAt(ev.clientX, ev.clientY);
           });
         }
         el.addEventListener('paste', (ev) => {
@@ -4238,7 +4350,7 @@
         const open = checklist.filter((it) => !it.done);
         const done = checklist.filter((it) => it.done);
         const openList = document.createElement('div');
-        openList.className = 'dk-check-list dk-reorder-list';
+        openList.className = 'dk-check-list dk-reorder-list dk-check-reorder-list';
         const rerender = () => renderCard();
         open.forEach((it) => openList.appendChild(checkRow(it, false, card, rerender, { reorder: true })));
         if (open.length > 1) attachChecklistReorderList(openList, card, false);
@@ -4269,7 +4381,7 @@
           label.className = 'dk-completed-label';
           label.textContent = 'Completed';
           const doneList = document.createElement('div');
-          doneList.className = 'dk-check-list dk-reorder-list';
+          doneList.className = 'dk-check-list dk-reorder-list dk-check-reorder-list';
           done.forEach((it) => doneList.appendChild(checkRow(it, true, card, rerender, { reorder: true })));
           if (done.length > 1) attachChecklistReorderList(doneList, card, true);
           wrap.append(label, doneList);
