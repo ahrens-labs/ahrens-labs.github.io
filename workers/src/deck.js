@@ -439,6 +439,7 @@ export async function buildDeckSyncFingerprintForUser(env, userId) {
 
   const parts = [`${deckData?.lastUpdated || 0}::${decks.length}::${cardCount}`];
   const sharedIds = collectSharedIdsFromDecks(decks);
+  if (!sharedIds.size) return parts.join('::');
   const sharedParts = [];
   for (const sharedId of [...sharedIds].sort()) {
     const record = await fetchDeckShare(env, sharedId);
