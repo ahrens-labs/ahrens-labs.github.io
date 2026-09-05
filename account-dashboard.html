@@ -1737,22 +1737,62 @@
       });
     }
 
+    function showDashApiError(message) {
+      const welcome = document.getElementById('dash-welcome');
+      if (welcome) welcome.textContent = message;
+      let banner = document.getElementById('dash-api-error');
+      if (!banner) {
+        banner = document.createElement('div');
+        banner.id = 'dash-api-error';
+        banner.setAttribute('role', 'alert');
+        banner.style.cssText =
+          'margin:0 0 1.25rem;padding:1rem 1.15rem;border-radius:12px;background:#fef2f2;border:1px solid #fecaca;color:#991b1b;font-size:0.95rem;line-height:1.5;';
+        const wrap = document.querySelector('.dash-wrap');
+        const top = document.querySelector('.dash-topbar');
+        if (wrap && top) wrap.insertBefore(banner, top.nextSibling);
+        else if (wrap) wrap.prepend(banner);
+      }
+      banner.textContent = message;
+    }
+
     async function requireUser() {
       const sessionId = getSessionId();
       if (!sessionId) {
         window.location.href = 'account.html';
         return null;
       }
-      const res = await fetch(`${API_BASE_URL}/api/user`, {
-        headers: { 'Authorization': `Bearer ${sessionId}` },
-      });
-      if (!res.ok) {
+      let res;
+      try {
+        res = await fetch(`${API_BASE_URL}/api/user`, {
+          headers: { Authorization: `Bearer ${sessionId}` },
+        });
+      } catch (err) {
+        showDashApiError(
+          'Could not reach the account service. Your session is still saved — try refreshing in a few minutes.'
+        );
+        return null;
+      }
+      if (res.ok) return res.json();
+
+      // Only treat auth failures as logged out. Rate limits / outages must not wipe the session.
+      if (res.status === 401 || res.status === 403) {
         localStorage.removeItem('ahrenslabs_sessionId');
         localStorage.removeItem('chessSessionId');
         window.location.href = 'account.html';
         return null;
       }
-      return res.json();
+
+      if (res.status === 429) {
+        showDashApiError(
+          'Account service is temporarily rate-limited (Cloudflare Workers daily request limit). Your login is still saved — try again after midnight UTC, or upgrade the Workers plan.'
+        );
+        return null;
+      }
+
+      showDashApiError(
+        `Account service returned an error (${res.status}). Your session is still saved — try refreshing shortly.`
+      );
+      return null;
     }
 
     function normalizeDashLbSavedRowColor(user) {

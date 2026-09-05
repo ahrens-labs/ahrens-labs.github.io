@@ -139,26 +139,36 @@ async function checkLoginStatus() {
             return;
         }
 
-        localStorage.removeItem('ahrenslabs_sessionId');
-        localStorage.removeItem('ahrenslabs_username');
-        localStorage.removeItem('ahrenslabs_userId');
-        localStorage.removeItem('ahrenslabs_email');
+        // Keep the saved session on rate limits / outages; only clear on real auth failures.
+        if (response.status === 401 || response.status === 403) {
+            localStorage.removeItem('ahrenslabs_sessionId');
+            localStorage.removeItem('ahrenslabs_username');
+            localStorage.removeItem('ahrenslabs_userId');
+            localStorage.removeItem('ahrenslabs_email');
 
-        resolveHeaderAuthGuest();
-        if (requiresLogin()) {
-            console.log('Invalid session on protected page, redirecting...');
-            const currentPage = getCurrentPageReturnTarget();
-            window.location.href = `account.html?return=${currentPage}`;
+            resolveHeaderAuthGuest();
+            if (requiresLogin()) {
+                console.log('Invalid session on protected page, redirecting...');
+                const currentPage = getCurrentPageReturnTarget();
+                window.location.href = `account.html?return=${currentPage}`;
+            }
+            return;
         }
-    } catch (error) {
-        console.error('Session check error:', error);
 
         if (sessionId && username) {
             resolveHeaderAuthUser(username);
         } else {
             resolveHeaderAuthGuest();
         }
+    } catch (error) {
+        console.error('Session check error:', error);
 
+        if (sessionId && username) {
+            resolveHeaderAuthUser(username);
+            return;
+        }
+
+        resolveHeaderAuthGuest();
         if (requiresLogin()) {
             console.log('Error checking auth on protected page, redirecting...');
             const currentPage = getCurrentPageReturnTarget();
