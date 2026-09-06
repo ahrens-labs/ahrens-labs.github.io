@@ -1953,9 +1953,11 @@ function getQuickAddScript(): string {
           });
           
           let daysAgo = 0;
+          let location = null;
           if (dateExtractResponse.ok) {
             const dateData = await dateExtractResponse.json();
             daysAgo = dateData.daysAgo ? dateData.daysAgo : 0;
+            location = dateData.location || null;
           }
           
           // Calculate the target date in local timezone
@@ -1965,7 +1967,7 @@ function getQuickAddScript(): string {
           const response = await fetch("/api/interactions/quick-add", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ text, newContact, date: localTimestamp })
+            body: JSON.stringify({ text, newContact, date: localTimestamp, location })
           });
           
           if (response.ok) {

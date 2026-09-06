@@ -58,6 +58,82 @@ async function runTextModel(
   throw lastError
 }
 
+function inferInteractionType(text: string): string {
+  const textLower = text.toLowerCase()
+  if (/\b(call|called|phone)\b/.test(textLower)) return 'call'
+  if (/\b(email|emailed)\b/.test(textLower)) return 'email'
+  if (/\b(meet|met|lunch|dinner|coffee)\b/.test(textLower)) return 'meeting'
+  if (/\b(message|messaged|text|texted)\b/.test(textLower)) return 'message'
+  return 'other'
+}
+
+function timestampFromDaysAgo(daysAgo: number, referenceDate = new Date()): number {
+  const safeDays = Number.isFinite(daysAgo) && daysAgo >= 0 ? daysAgo : 0
+  const targetDate = new Date(
+    referenceDate.getFullYear(),
+    referenceDate.getMonth(),
+    referenceDate.getDate() - safeDays,
+  )
+  return targetDate.getTime() - (targetDate.getTimezoneOffset() * 60000)
+}
+
+function parseAiJson(responseText: string, fallback: Record<string, unknown>) {
+  try {
+    return JSON.parse(responseText)
+  } catch {
+    const jsonMatch = responseText.match(/\{[\s\S]*\}/)
+    if (jsonMatch) {
+      try {
+        return JSON.parse(jsonMatch[0])
+      } catch {
+        return fallback
+      }
+    }
+    return fallback
+  }
+}
+
+async function extractInteractionMeta(
+  ai: Env['AI'],
+  text: string,
+  currentDate = new Date(),
+): Promise<{ daysAgo: number; location: string | null }> {
+  const prompt = `Extract ONLY the date and location from this interaction note. Do NOT summarize, rewrite, or extract any other content from the note.
+
+Today is ${currentDate.toDateString()}.
+
+Interaction text: "${text}"
+
+DATE RULES - calculate days ago from ${currentDate.toDateString()}:
+- "yesterday", "last night" = 1
+- "today", "this morning", "this afternoon", "tonight" = 0
+- "last week" = 7
+- "two days ago", "3 days ago" = exact number
+- Explicit dates like "November 1st" = exact days between that date and today
+- If no date mentioned = 0
+
+LOCATION RULES:
+- Extract where the interaction happened if mentioned (e.g., "at Starbucks", "at the office", "on Zoom")
+- If no location mentioned = null
+
+Respond ONLY with JSON:
+{"daysAgo": <number>, "location": "<location>" | null}`
+
+  try {
+    const dateResponse = await runTextModel(ai, [
+      { role: 'system', content: 'You extract structured date and location fields only. Respond ONLY with valid JSON.' },
+      { role: 'user', content: prompt },
+    ])
+    const parsed = parseAiJson(extractAiText(dateResponse) || '{}', { daysAgo: 0, location: null })
+    const daysAgo = typeof parsed.daysAgo === 'number' && parsed.daysAgo >= 0 ? parsed.daysAgo : 0
+    const location = typeof parsed.location === 'string' && parsed.location.trim() ? parsed.location.trim() : null
+    return { daysAgo, location }
+  } catch (error) {
+    console.error('Interaction meta extraction error:', error)
+    return { daysAgo: 0, location: null }
+  }
+}
+
 const app = new Hono<{ Bindings: Env }>()
 
 async function redirectAhrensLogin(c: any, clearLinkSession = false) {
@@ -2421,113 +2497,71 @@ Examples:
   }
 })
 
-// Extract date from natural language text
+// Extract date and location from natural language text
 app.post('/api/extract-date', requireAuth, async (c) => {
   const { text, currentDate } = await c.req.json()
-  
-  const dateExtractionPrompt = `Extract the date from this interaction note. Today is ${currentDate}.
-
-Interaction text: "${text}"
-
-Look for these date patterns and calculate days ago from ${currentDate}:
-
-RELATIVE DATES:
-- "yesterday", "last night", "last evening" = 1 day ago
-- "last Tuesday", "last Monday", etc = days since last occurrence of that weekday
-- "last week" = 7 days ago
-- "two days ago", "3 days ago", "a week ago" = calculate exact days
-- "today", "this morning", "this afternoon", "tonight" = 0 days ago
-
-EXPLICIT DATES:
-- "November 1st", "Nov 1", "11/1" = calculate days between that date and ${currentDate}
-- "October 15th" = calculate days ago
-- "on the 5th" = assume current month unless already passed, then calculate
-
-NO DATE:
-- If no date mentioned = 0 days ago (today)
-
-CRITICAL: Always calculate the EXACT number of days between the mentioned date and ${currentDate}.
-For explicit dates like "November 1st", count the actual days from Nov 1 to ${currentDate}.
-
-Respond ONLY with JSON:
-{
-  "daysAgo": <number of days ago, 0 for today, 1 for yesterday, etc>
-}
-
-Examples:
-"Had dinner yesterday with John" -> {"daysAgo":1}
-"Talked last night with Sarah" -> {"daysAgo":1}
-"Met on November 1st" (when today is Nov 9) -> {"daysAgo":8}
-"Coffee last Tuesday" -> {"daysAgo":<calculate days since last Tuesday>}
-"Called Mike" (no date) -> {"daysAgo":0}`
+  const referenceDate = currentDate ? new Date(currentDate) : new Date()
 
   try {
-    const dateResponse = await runTextModel(c.env.AI, [
-      { role: 'system', content: 'You are a date extraction assistant. Respond ONLY with valid JSON. Be precise with calculations.' },
-      { role: 'user', content: dateExtractionPrompt },
-    ])
-    
-    const dateText = dateResponse.response || '{}'
-    let dateInfo
-    try {
-      const jsonMatch = dateText.match(/\{[\s\S]*?\}/)
-      dateInfo = jsonMatch ? JSON.parse(jsonMatch[0]) : { daysAgo: 0 }
-    } catch (e) {
-      dateInfo = { daysAgo: 0 }
-    }
-    
-    return c.json({ daysAgo: dateInfo.daysAgo || 0 })
+    const meta = await extractInteractionMeta(c.env.AI, text, referenceDate)
+    return c.json({ daysAgo: meta.daysAgo, location: meta.location })
   } catch (error) {
     console.error('Date extraction error:', error)
-    return c.json({ daysAgo: 0 })
+    return c.json({ daysAgo: 0, location: null })
   }
 })
 
 // Quick add interaction with AI contact matching
 app.post('/api/interactions/quick-add', requireAuth, async (c) => {
   const user = c.get('user')
-  const { text, newContact, date } = await c.req.json()
+  const { text, newContact, date, location: clientLocation } = await c.req.json()
   
   if (!text || text.trim().length === 0) {
     return c.json({ error: 'Interaction text is required' }, 400)
   }
-  
-  // Extract date from text if not explicitly provided
-  let interactionDate = date
-  if (!date) {
-    interactionDate = Date.now() // Default to now if no date info provided
+
+  const interactionNotes = text.trim()
+  const referenceDate = new Date()
+  let interactionLocation =
+    typeof clientLocation === 'string' && clientLocation.trim() ? clientLocation.trim() : null
+
+  let now = date
+  if (!date || !interactionLocation) {
+    const meta = await extractInteractionMeta(c.env.AI, interactionNotes, referenceDate)
+    if (!date) {
+      now = timestampFromDaysAgo(meta.daysAgo, referenceDate)
+    }
+    if (!interactionLocation) {
+      interactionLocation = meta.location
+    }
   }
-  
+  now = now ?? timestampFromDaysAgo(0, referenceDate)
+  const interactionType = inferInteractionType(interactionNotes)
   let selectedContact
-  let interactionType = 'other'
-  let interactionNotes = text
-  let interactionLocation = null
   let isNewContact = false
   let createdContacts: any[] = []
   let createdContactNames: string[] = []
-  const now = interactionDate
   
   if (newContact) {
     // User indicated this is a new contact - extract info and create (may be multiple!)
-    const extractPrompt = `Extract contact information from this interaction note. There may be MULTIPLE new contacts!
+    const extractPrompt = `Extract ONLY contact names and location from this interaction note. There may be MULTIPLE new contacts.
 
-"${text}"
+"${interactionNotes}"
 
-IMPORTANT: Look for ALL person names in the text. Common patterns:
-- "Met with [Name] and [Name]"
-- "Talked to [Name]"
-- "[Name], [Name], and I discussed..."
-- "Watched game with [Name] and [Name]"
+IMPORTANT:
+- Look for ALL person names in the text
+- Do NOT summarize, rewrite, or extract any other content from the note
+- Preserve all other text in the note for storage as interaction notes
 
 Extract for EACH person:
-1. Contact name - the person's full name (REQUIRED - look carefully!)
+1. Contact name - the person's full name (REQUIRED)
 2. Email address (if mentioned)
 3. Phone number (if mentioned)
 4. Company name (if mentioned)
-5. Type of interaction: call, email, meeting, message, or other
-6. Location where interaction took place (if mentioned)
 
-Respond ONLY with valid JSON in this exact format (array of contacts):
+Also extract location where the interaction took place (if mentioned).
+
+Respond ONLY with valid JSON in this exact format:
 {
   "contacts": [
     {
@@ -2535,21 +2569,14 @@ Respond ONLY with valid JSON in this exact format (array of contacts):
       "email": null,
       "phone": null,
       "company": "Company Name"
-    },
-    {
-      "name": "Second Person",
-      "email": null,
-      "phone": null,
-      "company": null
     }
   ],
-  "interactionType": "meeting",
   "location": "Coffee shop" | null
 }
 
 Examples:
-"Met with Jacob Smith today" -> {"contacts":[{"name":"Jacob Smith","email":null,"phone":null,"company":null}],"interactionType":"meeting"}
-"Watched football game with Garrett Kerr and Tim Lee" -> {"contacts":[{"name":"Garrett Kerr","email":null,"phone":null,"company":null},{"name":"Tim Lee","email":null,"phone":null,"company":null}],"interactionType":"other"}`
+"Met with Jacob Smith today at the office" -> {"contacts":[{"name":"Jacob Smith","email":null,"phone":null,"company":null}],"location":"the office"}
+"Watched football game with Garrett Kerr and Tim Lee" -> {"contacts":[{"name":"Garrett Kerr","email":null,"phone":null,"company":null},{"name":"Tim Lee","email":null,"phone":null,"company":null}],"location":null}`
 
     try {
       const extractResponse = await runTextModel(c.env.AI, [
@@ -2570,7 +2597,7 @@ Examples:
           contactInfo = JSON.parse(jsonMatch[0])
         } else {
           console.error('Could not find valid JSON in AI response:', extractText)
-          contactInfo = { contacts: [{ name: 'Unknown Contact' }], interactionType: 'other' }
+          contactInfo = { contacts: [{ name: 'Unknown Contact' }], location: null }
         }
       }
       
@@ -2578,53 +2605,9 @@ Examples:
       
       // Ensure we have an array of contacts
       const contactsToCreate = Array.isArray(contactInfo.contacts) ? contactInfo.contacts : [{ name: 'Unknown Contact' }]
-      interactionType = contactInfo.interactionType || 'other'
-      interactionLocation = contactInfo.location || null
-      
-      // Clean up the notes by removing redundant information (same as existing contact flow)
-      let cleanedNotes = text
-      
-      // Remove any person names from the text (handles new contact names)
-      const namePattern = /\b(with|to|from|met|called|emailed|messaged|texted|chatted with|talked to|spoke with|saw)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/gi
-      cleanedNotes = cleanedNotes.replace(namePattern, '$1').trim()
-      
-      // Remove "new contact" phrase
-      cleanedNotes = cleanedNotes.replace(/\bnew\s+contact\b/gi, '').trim()
-      
-      // Remove created contact names
-      for (const contactData of contactsToCreate) {
-        if (contactData.name) {
-          const nameRegex = new RegExp(`\\b${contactData.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi')
-          cleanedNotes = cleanedNotes.replace(nameRegex, '').trim()
-        }
+      if (!interactionLocation && contactInfo.location) {
+        interactionLocation = contactInfo.location
       }
-      
-      // Remove common date references
-      cleanedNotes = cleanedNotes.replace(/\b(yesterday|today|last\s+(week|month|night)|this\s+(morning|afternoon|evening))\b/gi, '').trim()
-      
-      // Remove location if extracted
-      if (interactionLocation) {
-        const locationRegex = new RegExp(`\\bat\\s+${interactionLocation.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi')
-        cleanedNotes = cleanedNotes.replace(locationRegex, '').trim()
-      }
-      
-      // Remove common prepositions and connectors left over
-      cleanedNotes = cleanedNotes.replace(/^(with|to|from|at)\s+/i, '').trim()
-      cleanedNotes = cleanedNotes.replace(/\s+(with|to|from|at)$/i, '').trim()
-      
-      // Remove trailing punctuation
-      cleanedNotes = cleanedNotes.replace(/[.,;:]+$/, '').trim()
-      
-      // Clean up multiple spaces
-      cleanedNotes = cleanedNotes.replace(/\s+/g, ' ').trim()
-      
-      // If we removed too much, fall back to just the interaction verb
-      if (cleanedNotes.length < 3) {
-        const verbMatch = text.match(/^\s*(\w+)/i)
-        cleanedNotes = verbMatch ? verbMatch[1] : text
-      }
-      
-      interactionNotes = cleanedNotes
       
       // Create all new contacts and their interactions
       for (const contactData of contactsToCreate) {
@@ -2818,65 +2801,7 @@ Examples:
         console.log(`[Contact Matching] Selected "${bestMatch.name}" as best match (score: ${scoredMatches[0].score})`)
       }
       
-      // Determine interaction type and location from text
-      let interactionType = 'other'
-      let interactionLocation = null
-      
-      // Simple keyword-based type detection
-      const textLowerForType = text.toLowerCase()
-      if (textLowerForType.includes('call') || textLowerForType.includes('called') || textLowerForType.includes('phone')) {
-        interactionType = 'call'
-      } else if (textLowerForType.includes('email') || textLowerForType.includes('emailed')) {
-        interactionType = 'email'
-      } else if (textLowerForType.includes('meet') || textLowerForType.includes('met') || textLowerForType.includes('lunch') || textLowerForType.includes('dinner') || textLowerForType.includes('coffee')) {
-        interactionType = 'meeting'
-      } else if (textLowerForType.includes('message') || textLowerForType.includes('messaged') || textLowerForType.includes('text') || textLowerForType.includes('texted')) {
-        interactionType = 'message'
-      }
-      
-      // Simple location extraction - look for "at [location]"
-      const atMatch = text.match(/\bat\s+([^,.\n]+)/i)
-      if (atMatch && atMatch[1]) {
-        interactionLocation = atMatch[1].trim()
-      }
-      
-      // Clean up the notes by removing redundant information
-      let cleanedNotes = text
-      
-      // Strategy: Remove anything that looks like a person's name after common interaction verbs
-      // This handles cases where the transcribed name differs slightly from the contact name
-      const namePattern = /\b(with|to|from|met|called|emailed|messaged|texted|chatted with|talked to|spoke with|saw)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/gi
-      cleanedNotes = cleanedNotes.replace(namePattern, '$1').trim()
-      
-      // Also try to remove the exact contact name if it's still there
-      const nameRegex = new RegExp(`\\b${bestMatch.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi')
-      cleanedNotes = cleanedNotes.replace(nameRegex, '').trim()
-      
-      // Remove common date references
-      cleanedNotes = cleanedNotes.replace(/\b(yesterday|today|last\s+(week|month|night)|this\s+(morning|afternoon|evening))\b/gi, '').trim()
-      
-      // Remove location if extracted
-      if (interactionLocation) {
-        const locationRegex = new RegExp(`\\bat\\s+${interactionLocation.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi')
-        cleanedNotes = cleanedNotes.replace(locationRegex, '').trim()
-      }
-      
-      // Remove common prepositions and connectors left over
-      cleanedNotes = cleanedNotes.replace(/^(with|to|from|at)\s+/i, '').trim()
-      cleanedNotes = cleanedNotes.replace(/\s+(with|to|from|at)$/i, '').trim()
-      
-      // Clean up multiple spaces
-      cleanedNotes = cleanedNotes.replace(/\s+/g, ' ').trim()
-      
-      // If we removed too much, fall back to just the interaction verb
-      if (cleanedNotes.length < 3) {
-        // Extract just the action word (first word that's a verb)
-        const verbMatch = text.match(/^\s*(\w+)/i)
-        cleanedNotes = verbMatch ? verbMatch[1] : text
-      }
-      
       selectedContact = bestMatch
-      interactionNotes = cleanedNotes
       
       // Create interaction for ONLY the best match (not all matches)
       const interactionId = crypto.randomUUID()
@@ -2907,42 +2832,30 @@ Examples:
       `${idx + 1}. ${c.name}${c.email ? ` (${c.email})` : ''}${c.company ? ` - ${c.company}` : ''}${c.tags.length > 0 ? ` [${c.tags.join(', ')}]` : ''}`
     ).join('\n')
     
-    const prompt = `You are analyzing an interaction note to determine which contact(s) it refers to.
+    const prompt = `You are analyzing an interaction note to determine which contact(s) it refers to and where it took place.
 
-Interaction text: "${text}"
+Interaction text: "${interactionNotes}"
 
 Available contacts:
 ${contactsList}
 
-CRITICAL INSTRUCTIONS FOR NAME MATCHING:
-- Look for ANY person names mentioned in the text (e.g., "Chatted with Aaron Davis" -> look for "Aaron Davis")
-- Match FULL NAMES exactly (e.g., "Aaron Davis" should match contact "Aaron Davis")
-- Match FIRST NAME + LAST NAME even if separated (e.g., "talked to Aaron ... Davis" -> "Aaron Davis")
-- Match FIRST NAME ONLY if it's unique (e.g., "met Aaron" -> could match "Aaron Davis")
-- Match LAST NAME ONLY if it's unique (e.g., "saw Davis" -> could match "Aaron Davis")
-- Common interaction verbs: "met with", "talked to", "chatted with", "saw", "called", "emailed", "messaged"
-- This interaction may involve MULTIPLE contacts (e.g., "Met with John and Sarah")
-- ALWAYS extract the person's name from the text first, then find which contact number matches
-
-Step-by-step process:
-1. Extract ALL person names from the interaction text (look after words like "with", "to", "from")
-2. For each extracted name, find which contact number(s) match
-3. Determine interaction type from context (call, email, meeting, message, other)
-4. Extract location if mentioned
+CRITICAL INSTRUCTIONS:
+- Extract ONLY which contact(s) the note refers to and the location (if mentioned)
+- Do NOT summarize, rewrite, or extract any other content from the note
+- Look for ANY person names mentioned in the text
+- Match FULL NAMES, FIRST+LAST, or unique first/last names
+- This interaction may involve MULTIPLE contacts
 
 Respond in this exact JSON format:
 {
   "contactNumbers": [<number>, <number>, ...],
-  "type": "<type>",
   "location": "<location>" | null
 }
 
 Examples:
-"Chatted with Aaron Davis yesterday at church" + contacts list includes "2. Aaron Davis" -> {"contactNumbers": [2], "type": "other", "location": "church"}
-"Had lunch with Matt Walters at Starbucks" + contacts list includes "1. Matt Walters" -> {"contactNumbers": [1], "type": "meeting", "location": "Starbucks"}
-"Met with John and Sarah" + list has "1. John Smith" and "3. Sarah Jones" -> {"contactNumbers": [1, 3], "type": "meeting", "location": null}
-"Called Mike yesterday" + list has "2. Mike Johnson" -> {"contactNumbers": [2], "type": "call", "location": null}
-"Talked to Sarah Jones" + list has "3. Sarah Jones" -> {"contactNumbers": [3], "type": "other", "location": null}
+"Chatted with Aaron Davis yesterday at church" + contacts list includes "2. Aaron Davis" -> {"contactNumbers": [2], "location": "church"}
+"Had lunch with Matt Walters at Starbucks" + contacts list includes "1. Matt Walters" -> {"contactNumbers": [1], "location": "Starbucks"}
+"Met with John and Sarah" + list has "1. John Smith" and "3. Sarah Jones" -> {"contactNumbers": [1, 3], "location": null}
 
 IMPORTANT: Always try to find a match by extracting names from the text. Only use empty array [] if absolutely no name match is possible.`
 
@@ -3020,9 +2933,9 @@ IMPORTANT: Always try to find a match by extracting names from the text. Only us
       }
       
       selectedContact = selectedContacts[0] // For backward compatibility
-      interactionType = parsed.type || 'other'
-      interactionNotes = text // Use the full transcription, not a summary
-      interactionLocation = parsed.location || null
+      if (parsed.location && !interactionLocation) {
+        interactionLocation = parsed.location
+      }
       
       // Create interaction for ALL matched contacts
       const interactionIds = []
