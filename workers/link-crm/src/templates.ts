@@ -2830,7 +2830,7 @@ export function editInteractionPage(contact: any, interaction: any, allContacts:
           
           <div class="form-group">
             <label class="form-label">Location (optional)</label>
-            <input type="text" name="location" class="form-input" value="${interaction.location || ''}" placeholder="e.g., Coffee shop, Office, Zoom">
+            <input type="text" name="location" class="form-input" value="${escapeHtml(interaction.location || '')}" placeholder="e.g., Coffee shop, Office, Zoom">
           </div>
           
           <div class="flex" style="gap: 1rem; margin-top: 1.5rem;">

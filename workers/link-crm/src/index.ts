@@ -2157,6 +2157,7 @@ app.get('/interactions/:id/edit', requireAuth, async (c) => {
     id: result.id,
     type: result.type,
     notes: result.notes,
+    location: result.location,
     date: result.date
   }, allContacts))
 })
