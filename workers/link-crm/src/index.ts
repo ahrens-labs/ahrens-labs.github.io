@@ -2324,7 +2324,7 @@ app.post('/api/voice-command', requireAuth, async (c) => {
       audio: Array.from(new Uint8Array(arrayBuffer))
     })
     
-    const commandText = transcription.text.trim()
+    const commandText = (typeof transcription?.text === 'string' ? transcription.text : '').trim()
     
     if (!commandText) {
       return c.json({ error: 'No speech detected' }, 400)
@@ -2337,37 +2337,32 @@ app.post('/api/voice-command', requireAuth, async (c) => {
     if (intent.action === 'quick_add_interaction') {
       const referenceDate = new Date()
       const interactionDate = timestampFromDaysAgo(intent.daysAgo, referenceDate)
-      const apiBase = c.req.path.startsWith('/link') ? '/link' : ''
 
-      const quickAddRes = await app.request(`${apiBase}/api/interactions/quick-add`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Cookie: c.req.header('Cookie') || '',
-        },
-        body: JSON.stringify({
-          text: intent.text,
-          newContact: intent.newContact,
-          date: interactionDate,
-          location: intent.location,
-        }),
-      }, c.env)
+      const quickAddResult = await performQuickAddInteraction(c.env, user, {
+        text: intent.text,
+        newContact: intent.newContact,
+        date: interactionDate,
+        location: intent.location,
+      })
 
-      const quickAddResult = await quickAddRes.json() as Record<string, unknown>
-      if (quickAddRes.ok) {
+      if (quickAddResult.success) {
+        invalidateLinkUserCache(c, user.id)
+        const { status: _status, ...payload } = quickAddResult
         return c.json({
           action: 'quick_add_interaction',
           completed: true,
-          ...quickAddResult,
+          ...payload,
         })
       }
 
+      const status = typeof quickAddResult.status === 'number' ? quickAddResult.status : 400
+      const { status: _status, ...payload } = quickAddResult
       return c.json({
         action: 'quick_add_interaction',
         completed: false,
-        error: quickAddResult.error || 'Failed to add interaction',
-        ...quickAddResult,
-      }, quickAddRes.status as 400)
+        error: payload.error || 'Failed to add interaction',
+        ...payload,
+      }, status)
     }
 
     if (intent.action === 'search') {
@@ -2545,12 +2540,16 @@ app.post('/api/extract-date', requireAuth, async (c) => {
 })
 
 // Quick add interaction with AI contact matching
-app.post('/api/interactions/quick-add', requireAuth, async (c) => {
-  const user = c.get('user')
-  const { text, newContact, date, location: clientLocation } = await c.req.json()
+async function performQuickAddInteraction(
+  env: Env,
+  user: { id: string },
+  body: { text?: string; newContact?: boolean; date?: number; location?: string | null },
+) {
+  const { text, newContact, date, location: clientLocation } = body
+
   
   if (!text || text.trim().length === 0) {
-    return c.json({ error: 'Interaction text is required' }, 400)
+    return { success: false, error: 'Interaction text is required', status: 400 }
   }
 
   const interactionNotes = text.trim()
@@ -2563,7 +2562,7 @@ app.post('/api/interactions/quick-add', requireAuth, async (c) => {
 
   let now = date
   if (!date) {
-    const meta = await extractInteractionMeta(c.env.AI, interactionNotes, referenceDate)
+    const meta = await extractInteractionMeta(env.AI, interactionNotes, referenceDate)
     now = timestampFromDaysAgo(meta.daysAgo, referenceDate)
     if (!interactionLocation) {
       interactionLocation = meta.location
@@ -2613,7 +2612,7 @@ Examples:
 "Watched football game with Garrett Kerr and Tim Lee" -> {"contacts":[{"name":"Garrett Kerr","email":null,"phone":null,"company":null},{"name":"Tim Lee","email":null,"phone":null,"company":null}],"location":null}`
 
     try {
-      const extractResponse = await runTextModel(c.env.AI, [
+      const extractResponse = await runTextModel(env.AI, [
         { role: 'system', content: 'You are a precise data extraction assistant. Extract contact information and respond ONLY with valid JSON. No explanations, just JSON.' },
         { role: 'user', content: extractPrompt },
       ])
@@ -2660,16 +2659,16 @@ Examples:
           address: null,
           birthday: null,
           notes: `Auto-created from quick add interaction`
-        }, c.env.ENCRYPTION_KEY)
+        }, env.ENCRYPTION_KEY)
         
-        await c.env.DB.prepare(
+        await env.DB.prepare(
           `INSERT INTO contacts 
            (id, user_id, name, email, phone, title, company, birthday, relationship_status, 
             tags, notes, created_at, updated_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
         ).bind(
           newContactId,
-          (user as any).id,
+          user.id,
           encryptedData.name,
           encryptedData.email,
           encryptedData.phone,
@@ -2699,25 +2698,25 @@ Examples:
       
     } catch (extractError: any) {
       console.error('Error creating new contact:', extractError)
-      return c.json({ 
+      return { success: false, 
         error: 'Could not create new contact automatically. Please add manually.',
         details: extractError?.message || 'Unknown error'
-      }, 400)
+      , status: 400 }
     }
   } else {
     // Try to match to existing contact
-    const contactsResult = await c.env.DB.prepare(
+    const contactsResult = await env.DB.prepare(
       'SELECT * FROM contacts WHERE user_id = ?'
-    ).bind((user as any).id).all()
+    ).bind(user.id).all()
     
     if (!contactsResult.results || contactsResult.results.length === 0) {
-      return c.json({ error: 'No contacts found. Please add contacts first or check "new contact".' }, 400)
+      return { success: false, error: 'No contacts found. Please add contacts first or check "new contact".', status: 400 }
     }
     
     // Decrypt contacts in parallel
     const contacts: any[] = await Promise.all(
       (contactsResult.results || []).map(async (encContact: any) => {
-        const contact = await decryptContact(encContact, c.env.ENCRYPTION_KEY)
+        const contact = await decryptContact(encContact, env.ENCRYPTION_KEY)
         contact.id = encContact.id
         contact.tags = encContact.tags ? JSON.parse(encContact.tags) : []
         return contact
@@ -2840,15 +2839,15 @@ Examples:
       
       // Create interaction for ONLY the best match (not all matches)
       const interactionId = crypto.randomUUID()
-      await c.env.DB.prepare(
+      await env.DB.prepare(
         'INSERT INTO interactions (id, contact_id, type, date, notes, location, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
       ).bind(interactionId, bestMatch.id, interactionType, now, interactionNotes, interactionLocation, now).run()
       
       console.log(`[Direct Match] Created interaction for: ${bestMatch.name}`)
 
-      invalidateLinkUserCache(c, user.id)
+      /* cache invalidated by caller */
       
-      return c.json({
+      return {
         success: true,
         contactId: bestMatch.id,
         contactName: bestMatch.name,
@@ -2856,8 +2855,8 @@ Examples:
         contactNames: [bestMatch.name],
         interactionType,
         interactionNotes,
-        isNewContact: false
-      })
+        isNewContact: false,
+      }
     }
     
     // FALLBACK: If no direct matches, try AI with limited contact list (to avoid token limits)
@@ -2897,7 +2896,7 @@ Examples:
 IMPORTANT: Always try to find a match by extracting names from the text. Only use empty array [] if absolutely no name match is possible.`
 
     try {
-      const aiResponse = await runTextModel(c.env.AI, [
+      const aiResponse = await runTextModel(env.AI, [
         { role: 'system', content: 'You are a helpful assistant that analyzes interaction notes and matches them to contacts. Always respond with valid JSON only.' },
         { role: 'user', content: prompt },
       ])
@@ -2932,21 +2931,21 @@ IMPORTANT: Always try to find a match by extracting names from the text. Only us
       
       if (validContactNumbers.length === 0) {
         console.log('[Contact Matching] AI found no matches either')
-        return c.json({ 
+        return { success: false, 
           error: 'Could not determine which contact this interaction is about. Try checking "new contact" if this is someone new.',
           aiResponse: responseText,
           availableContacts: contacts.slice(0, 20).map(c => c.name).join(', ')
-        }, 400)
+        , status: 400 }
       }
       
       // Ensure we have valid contact numbers
       if (validContactNumbers.length === 0) {
         console.log('[Contact Matching] No valid contacts found after all attempts')
-        return c.json({ 
+        return { success: false, 
           error: 'Could not determine which contact this interaction is about. Try checking "new contact" if this is someone new.',
           aiResponse: responseText,
           availableContacts: contacts.map(c => c.name).join(', ')
-        }, 400)
+        , status: 400 }
       }
       
       // Get all matched contacts - filter out any undefined results
@@ -2963,10 +2962,10 @@ IMPORTANT: Always try to find a match by extracting names from the text. Only us
       
       if (selectedContacts.length === 0) {
         console.error('[Contact Matching] No valid contacts after filtering')
-        return c.json({ 
+        return { success: false, 
           error: 'Could not match to valid contacts.',
           availableContacts: contacts.map(c => c.name).join(', ')
-        }, 400)
+        , status: 400 }
       }
       
       selectedContact = selectedContacts[0] // For backward compatibility
@@ -2980,7 +2979,7 @@ IMPORTANT: Always try to find a match by extracting names from the text. Only us
       
       for (const contact of selectedContacts) {
         const interactionId = crypto.randomUUID()
-        await c.env.DB.prepare(
+        await env.DB.prepare(
           'INSERT INTO interactions (id, contact_id, type, date, notes, location, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
         ).bind(interactionId, contact.id, interactionType, now, interactionNotes, interactionLocation, now).run()
         
@@ -2990,9 +2989,9 @@ IMPORTANT: Always try to find a match by extracting names from the text. Only us
       
       console.log(`Created ${interactionIds.length} interactions for contacts: ${contactNames.join(', ')}`)
 
-      invalidateLinkUserCache(c, user.id)
+      /* cache invalidated by caller */
       
-      return c.json({ 
+      return { 
         success: true,
         contactId: selectedContact.id,
         contactName: contactNames.length > 1 ? contactNames.join(' and ') : contactNames[0],
@@ -3001,16 +3000,18 @@ IMPORTANT: Always try to find a match by extracting names from the text. Only us
         interactionType,
         interactionNotes,
         isNewContact
-      })
+      }
       
     } catch (error) {
       console.error('Contact matching error:', error)
       console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace')
       console.error('Error details:', JSON.stringify(error))
-      return c.json({ 
+      return {
+        success: false,
         error: 'Failed to match contact. Try checking "new contact" if this is someone new.',
-        details: error instanceof Error ? error.message : String(error)
-      }, 500)
+        details: error instanceof Error ? error.message : String(error),
+        status: 500,
+      }
     }
   }
   
@@ -3020,14 +3021,14 @@ IMPORTANT: Always try to find a match by extracting names from the text. Only us
     for (const contact of createdContacts) {
       const interactionId = crypto.randomUUID()
       
-      await c.env.DB.prepare(
+      await env.DB.prepare(
         'INSERT INTO interactions (id, contact_id, type, date, notes, location, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
       ).bind(interactionId, contact.id, interactionType, now, interactionNotes, interactionLocation, now).run()
     }
 
-    invalidateLinkUserCache(c, user.id)
+    /* cache invalidated by caller */
     
-    return c.json({ 
+    return {
       success: true,
       contactId: createdContacts[0].id,
       contactName: createdContactNames.length > 1 ? createdContactNames.join(' and ') : createdContactNames[0],
@@ -3035,12 +3036,25 @@ IMPORTANT: Always try to find a match by extracting names from the text. Only us
       contactNames: createdContactNames,
       interactionType,
       interactionNotes,
-      isNewContact
-    })
+      isNewContact,
+    }
   }
   
   // Shouldn't reach here, but just in case
-  return c.json({ error: 'Unknown error occurred' }, 500)
+  return { success: false, error: 'Unknown error occurred', status: 500 }
+}
+
+app.post('/api/interactions/quick-add', requireAuth, async (c) => {
+  const user = c.get('user')
+  const result = await performQuickAddInteraction(c.env, user, await c.req.json())
+  if (result.success) {
+    invalidateLinkUserCache(c, user.id)
+    const { status, ...payload } = result
+    return c.json(payload)
+  }
+  const status = typeof result.status === 'number' ? result.status : 400
+  const { status: _status, ...payload } = result
+  return c.json(payload, status)
 })
 
 const root = new Hono<{ Bindings: Env }>()
