@@ -135,8 +135,55 @@ Respond ONLY with JSON:
 }
 
 function extractLocationFromText(text: string): string | null {
-  const atMatch = text.match(/\bat\s+([^,.\n]+)/i)
+  const atMatch = text.match(/\b(?:at|on|in)\s+([^,.\n]+)/i)
   return atMatch?.[1]?.trim() || null
+}
+
+function escapeRegex(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function cleanInteractionNotes(
+  text: string,
+  options: { contactNames?: string[]; location?: string | null },
+): string {
+  let notes = text.trim()
+  if (!notes) return notes
+
+  notes = notes.replace(/\bnew\s+contact\b/gi, ' ')
+
+  for (const name of options.contactNames || []) {
+    if (!name || name === 'Unknown Contact') continue
+    const escaped = escapeRegex(name)
+    notes = notes.replace(
+      new RegExp(
+        `\\b(?:with|to|from|met|called|emailed|messaged|texted|chatted with|talked to|spoke with|saw)\\s+${escaped}\\b`,
+        'gi',
+      ),
+      ' ',
+    )
+    notes = notes.replace(new RegExp(`\\b${escaped}\\b`, 'gi'), ' ')
+  }
+
+  notes = notes.replace(
+    /\b(?:yesterday|today|tonight|last\s+(?:week|month|night|monday|tuesday|wednesday|thursday|friday|saturday|sunday)|this\s+(?:morning|afternoon|evening|week)|\d+\s+days?\s+ago|(?:two|three|2|3)\s+days?\s+ago)\b/gi,
+    ' ',
+  )
+
+  if (options.location) {
+    const escapedLocation = escapeRegex(options.location)
+    notes = notes.replace(
+      new RegExp(`\\b(?:at|on|in)\\s+${escapedLocation}\\b`, 'gi'),
+      ' ',
+    )
+  }
+
+  notes = notes.replace(/\s{2,}/g, ' ').trim()
+  notes = notes.replace(/^(?:with|to|from|at|on|in)\s+/i, '').trim()
+  notes = notes.replace(/\s+(?:with|to|from|at|on|in)$/i, '').trim()
+  notes = notes.replace(/\s+([,.;:])/g, '$1').trim()
+
+  return notes || text.trim()
 }
 
 function inferDaysAgoFromText(text: string): number {
@@ -2552,24 +2599,24 @@ async function performQuickAddInteraction(
     return { success: false, error: 'Interaction text is required', status: 400 }
   }
 
-  const interactionNotes = text.trim()
+  const originalNotes = text.trim()
   const referenceDate = new Date()
   let interactionLocation =
     typeof clientLocation === 'string' && clientLocation.trim() ? clientLocation.trim() : null
   if (!interactionLocation) {
-    interactionLocation = extractLocationFromText(interactionNotes)
+    interactionLocation = extractLocationFromText(originalNotes)
   }
 
   let now = date
   if (!date) {
-    const meta = await extractInteractionMeta(env.AI, interactionNotes, referenceDate)
+    const meta = await extractInteractionMeta(env.AI, originalNotes, referenceDate)
     now = timestampFromDaysAgo(meta.daysAgo, referenceDate)
     if (!interactionLocation) {
       interactionLocation = meta.location
     }
   }
   now = now ?? timestampFromDaysAgo(0, referenceDate)
-  const interactionType = inferInteractionType(interactionNotes)
+  const interactionType = inferInteractionType(originalNotes)
   let selectedContact
   let isNewContact = false
   let createdContacts: any[] = []
@@ -2579,7 +2626,7 @@ async function performQuickAddInteraction(
     // User indicated this is a new contact - extract info and create (may be multiple!)
     const extractPrompt = `Extract ONLY contact names and location from this interaction note. There may be MULTIPLE new contacts.
 
-"${interactionNotes}"
+"${originalNotes}"
 
 IMPORTANT:
 - Look for ALL person names in the text
@@ -2837,11 +2884,16 @@ Examples:
       
       selectedContact = bestMatch
       
+      const storedNotes = cleanInteractionNotes(originalNotes, {
+        contactNames: [bestMatch.name],
+        location: interactionLocation,
+      })
+
       // Create interaction for ONLY the best match (not all matches)
       const interactionId = crypto.randomUUID()
       await env.DB.prepare(
         'INSERT INTO interactions (id, contact_id, type, date, notes, location, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
-      ).bind(interactionId, bestMatch.id, interactionType, now, interactionNotes, interactionLocation, now).run()
+      ).bind(interactionId, bestMatch.id, interactionType, now, storedNotes, interactionLocation, now).run()
       
       console.log(`[Direct Match] Created interaction for: ${bestMatch.name}`)
 
@@ -2854,7 +2906,7 @@ Examples:
         contactCount: 1,
         contactNames: [bestMatch.name],
         interactionType,
-        interactionNotes,
+        interactionNotes: storedNotes,
         isNewContact: false,
       }
     }
@@ -2870,7 +2922,7 @@ Examples:
     
     const prompt = `You are analyzing an interaction note to determine which contact(s) it refers to and where it took place.
 
-Interaction text: "${interactionNotes}"
+Interaction text: "${originalNotes}"
 
 Available contacts:
 ${contactsList}
@@ -2976,12 +3028,16 @@ IMPORTANT: Always try to find a match by extracting names from the text. Only us
       // Create interaction for ALL matched contacts
       const interactionIds = []
       const contactNames = []
+      const storedNotes = cleanInteractionNotes(originalNotes, {
+        contactNames: selectedContacts.map((contact: any) => contact.name),
+        location: interactionLocation,
+      })
       
       for (const contact of selectedContacts) {
         const interactionId = crypto.randomUUID()
         await env.DB.prepare(
           'INSERT INTO interactions (id, contact_id, type, date, notes, location, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
-        ).bind(interactionId, contact.id, interactionType, now, interactionNotes, interactionLocation, now).run()
+        ).bind(interactionId, contact.id, interactionType, now, storedNotes, interactionLocation, now).run()
         
         interactionIds.push(interactionId)
         contactNames.push(contact.name)
@@ -2998,7 +3054,7 @@ IMPORTANT: Always try to find a match by extracting names from the text. Only us
         contactCount: contactNames.length,
         contactNames: contactNames,
         interactionType,
-        interactionNotes,
+        interactionNotes: storedNotes,
         isNewContact
       }
       
@@ -3017,13 +3073,18 @@ IMPORTANT: Always try to find a match by extracting names from the text. Only us
   
   // Create the interaction(s) for new contact(s) case
   if (isNewContact && typeof createdContacts !== 'undefined') {
+    const storedNotes = cleanInteractionNotes(originalNotes, {
+      contactNames: createdContactNames,
+      location: interactionLocation,
+    })
+
     // Multiple new contacts - create interaction for each
     for (const contact of createdContacts) {
       const interactionId = crypto.randomUUID()
       
       await env.DB.prepare(
         'INSERT INTO interactions (id, contact_id, type, date, notes, location, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
-      ).bind(interactionId, contact.id, interactionType, now, interactionNotes, interactionLocation, now).run()
+      ).bind(interactionId, contact.id, interactionType, now, storedNotes, interactionLocation, now).run()
     }
 
     /* cache invalidated by caller */
@@ -3035,7 +3096,7 @@ IMPORTANT: Always try to find a match by extracting names from the text. Only us
       contactCount: createdContactNames.length,
       contactNames: createdContactNames,
       interactionType,
-      interactionNotes,
+      interactionNotes: storedNotes,
       isNewContact,
     }
   }
