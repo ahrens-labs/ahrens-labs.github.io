@@ -3393,11 +3393,30 @@
 
   function startTetherSyncPoll() {
     clearInterval(tetherSyncPollTimer);
+    tetherSyncPollTimer = null;
+    if (document.hidden || !sessionId) return;
+    if (tetherSyncSocket && tetherSyncSocket.readyState === WebSocket.OPEN) return;
     tetherSyncPollTimer = setInterval(pollTetherSyncVersion, 60000);
   }
 
+  function stopTetherSyncPoll() {
+    clearInterval(tetherSyncPollTimer);
+    tetherSyncPollTimer = null;
+  }
+
+  function disconnectTetherSync() {
+    clearTimeout(tetherSyncReconnectTimer);
+    tetherSyncReconnectTimer = null;
+    clearInterval(tetherSyncPingTimer);
+    tetherSyncPingTimer = null;
+    if (tetherSyncSocket) {
+      try { tetherSyncSocket.close(); } catch { /* ignore */ }
+      tetherSyncSocket = null;
+    }
+  }
+
   function ensureTetherSyncConnected() {
-    if (!sessionId) return;
+    if (!sessionId || document.hidden) return;
     if (tetherSyncSocket && tetherSyncSocket.readyState === WebSocket.OPEN) return;
     if (tetherSyncSocket) {
       try { tetherSyncSocket.close(); } catch { /* ignore */ }
@@ -3406,8 +3425,14 @@
     connectTetherSync();
   }
 
+  function handleTetherPause() {
+    stopTetherSyncPoll();
+    disconnectTetherSync();
+  }
+
   function handleTetherResume() {
     ensureTetherSyncConnected();
+    startTetherSyncPoll();
     pollTetherSyncVersion();
   }
 
@@ -3426,7 +3451,7 @@
   }
 
   function connectTetherSync() {
-    if (!sessionId || tetherSyncSocket) return;
+    if (!sessionId || document.hidden || tetherSyncSocket) return;
     try {
       tetherSyncSocket = new WebSocket(tetherSyncWsUrl());
     } catch {
@@ -3435,11 +3460,13 @@
     }
     tetherSyncSocket.addEventListener('open', () => {
       clearInterval(tetherSyncPingTimer);
+      stopTetherSyncPoll();
       tetherSyncPingTimer = setInterval(() => {
+        if (document.hidden) return;
         if (tetherSyncSocket && tetherSyncSocket.readyState === WebSocket.OPEN) {
           try { tetherSyncSocket.send('ping'); } catch { /* ignore */ }
         }
-      }, 25000);
+      }, 45000);
     });
     tetherSyncSocket.addEventListener('message', (e) => {
       if (e.data === 'pong') return;
@@ -3453,6 +3480,8 @@
       tetherSyncSocket = null;
       clearInterval(tetherSyncPingTimer);
       clearTimeout(tetherSyncReconnectTimer);
+      if (document.hidden || !sessionId) return;
+      startTetherSyncPoll();
       tetherSyncReconnectTimer = setTimeout(connectTetherSync, 3000);
     });
     tetherSyncSocket.addEventListener('error', () => {
@@ -5378,7 +5407,8 @@
   }
 
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) handleTetherResume();
+    if (document.hidden) handleTetherPause();
+    else handleTetherResume();
   });
   window.addEventListener('focus', handleTetherResume);
   window.addEventListener('pageshow', (e) => {

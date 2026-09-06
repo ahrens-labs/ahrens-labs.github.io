@@ -10309,6 +10309,16 @@ export class UserAccount {
         return new Response(JSON.stringify(state), {
           headers: { 'Content-Type': 'application/json' }
         });
+      } else if (path === '/getPlatterSyncMeta' && request.method === 'GET') {
+        const meta = await this.getPlatterSyncMeta();
+        return new Response(JSON.stringify(meta), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+      } else if (path === '/bumpPlatterSyncGeneration' && request.method === 'POST') {
+        const meta = await this.bumpPlatterSyncGeneration();
+        return new Response(JSON.stringify(meta), {
+          headers: { 'Content-Type': 'application/json' }
+        });
       } else if (path === '/setPlatterState' && request.method === 'POST') {
         const body = await request.json();
         const state = await this.setPlatterState(body);
@@ -10330,6 +10340,16 @@ export class UserAccount {
       } else if (path === '/getTetherProjectIds' && request.method === 'GET') {
         const projectIds = await this.getTetherProjectIds();
         return new Response(JSON.stringify({ projectIds }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+      } else if (path === '/getTetherSyncMeta' && request.method === 'GET') {
+        const meta = await this.getTetherSyncMeta();
+        return new Response(JSON.stringify(meta), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+      } else if (path === '/bumpTetherSyncGeneration' && request.method === 'POST') {
+        const meta = await this.bumpTetherSyncGeneration();
+        return new Response(JSON.stringify(meta), {
           headers: { 'Content-Type': 'application/json' }
         });
       } else if (path === '/addTetherProjectId' && request.method === 'POST') {
@@ -10512,6 +10532,26 @@ export class UserAccount {
       return [];
     }
     return userData.tether.projectIds.filter((id) => typeof id === 'string' && id.trim());
+  }
+
+  async getTetherSyncMeta() {
+    const userData = await this.storage.get('userData');
+    const tether = userData?.tether;
+    return {
+      syncGeneration: Number(tether?.syncGeneration) || 0,
+    };
+  }
+
+  async bumpTetherSyncGeneration() {
+    const userData = await this.storage.get('userData');
+    if (!userData) return { syncGeneration: 0 };
+    if (!userData.tether || typeof userData.tether !== 'object') {
+      userData.tether = { projectIds: [], inboxTasks: [], labelColors: {}, settings: {} };
+    }
+    const next = (Number(userData.tether.syncGeneration) || 0) + 1;
+    userData.tether.syncGeneration = next;
+    await this.storage.put('userData', userData);
+    return { syncGeneration: next };
   }
 
   async addTetherProjectId(projectId) {
@@ -11833,6 +11873,33 @@ export class UserAccount {
     };
   }
 
+  async getPlatterSyncMeta() {
+    const userData = await this.storage.get('userData');
+    if (!userData) return { syncGeneration: 0, activeMenuId: null };
+    const platter = this.ensurePlatterBucket(userData);
+    return {
+      syncGeneration: Number(platter.syncGeneration) || 0,
+      activeMenuId: typeof platter.activeMenuId === 'string' && platter.activeMenuId.trim()
+        ? platter.activeMenuId.trim()
+        : null,
+    };
+  }
+
+  async bumpPlatterSyncGeneration() {
+    const userData = await this.storage.get('userData');
+    if (!userData) return { syncGeneration: 0, activeMenuId: null };
+    const platter = this.ensurePlatterBucket(userData);
+    const next = (Number(platter.syncGeneration) || 0) + 1;
+    platter.syncGeneration = next;
+    await this.storage.put('userData', userData);
+    return {
+      syncGeneration: next,
+      activeMenuId: typeof platter.activeMenuId === 'string' && platter.activeMenuId.trim()
+        ? platter.activeMenuId.trim()
+        : null,
+    };
+  }
+
   async setPlatterState(body) {
     const userData = await this.storage.get('userData');
     if (!userData) return { menuIds: [], activeMenuId: null };
@@ -11844,6 +11911,7 @@ export class UserAccount {
       const active = body.activeMenuId != null ? String(body.activeMenuId).trim() : '';
       platter.activeMenuId = active || null;
     }
+    platter.syncGeneration = (Number(platter.syncGeneration) || 0) + 1;
     await this.storage.put('userData', userData);
     return {
       menuIds: platter.menuIds,

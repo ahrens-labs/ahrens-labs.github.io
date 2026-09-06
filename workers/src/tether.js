@@ -35,7 +35,7 @@ function jsonResponse(body, corsHeaders, status = 200) {
 
 /** Short TTLs for authenticated GETs; keys are partitioned by userId. */
 const TETHER_CACHE_TTL = {
-  syncVersion: 5,
+  syncVersion: 30,
   list: 15,
   project: 15,
   prefs: 60,
@@ -182,6 +182,7 @@ async function notifyTetherSync(env, userId, payload) {
 
 async function publishInboxSync(env, userId, sourceClientId, ctx) {
   scheduleTetherCacheWork(ctx, invalidateTetherUserCache(userId));
+  await bumpTetherSyncGeneration(env, userId);
   await notifyTetherSync(env, userId, {
     type: 'inbox',
     ts: Date.now(),
@@ -196,6 +197,7 @@ async function publishProjectSync(env, project, sourceClientId, ctx) {
     ctx,
     invalidateTetherUsersCache(memberIds, { projectIds: projectId ? [projectId] : [] })
   );
+  await bumpTetherSyncGenerationForUsers(env, memberIds);
   const payload = {
     type: 'project',
     projectId,
@@ -208,12 +210,28 @@ async function publishProjectSync(env, project, sourceClientId, ctx) {
 async function publishProjectsListSync(env, userIds, sourceClientId, ctx) {
   const ids = userIds instanceof Set ? userIds : new Set(userIds || []);
   scheduleTetherCacheWork(ctx, invalidateTetherUsersCache(ids));
+  await bumpTetherSyncGenerationForUsers(env, ids);
   const payload = {
     type: 'projects',
     ts: Date.now(),
     sourceClientId,
   };
   await Promise.all([...ids].filter(Boolean).map((uid) => notifyTetherSync(env, uid, payload)));
+}
+
+async function bumpTetherSyncGeneration(env, userId) {
+  const stub = userAccountStub(env, userId);
+  if (!stub) return;
+  try {
+    await stub.fetch(new Request('http://do/bumpTetherSyncGeneration', { method: 'POST' }));
+  } catch {
+    /* sync meta is best-effort */
+  }
+}
+
+async function bumpTetherSyncGenerationForUsers(env, userIds) {
+  const ids = userIds instanceof Set ? [...userIds] : Array.isArray(userIds) ? userIds : [];
+  await Promise.all(ids.filter(Boolean).map((uid) => bumpTetherSyncGeneration(env, uid)));
 }
 
 function userAccountStub(env, userId) {
@@ -478,18 +496,16 @@ async function fetchProjectListMeta(env, projectId) {
 }
 
 async function buildSyncFingerprint(env, userId) {
-  const projectIds = await getTetherProjectIds(env, userId);
-  const metas = await Promise.all(projectIds.map((pid) => fetchProjectListMeta(env, pid)));
-  const inbox = await getInboxTasks(env, userId);
-  const projectParts = metas
-    .filter(Boolean)
-    .filter((m) => userCanAccessProject(m, userId))
-    .map((m) => `${m.id}:${m.updatedAt || 0}:${m.taskCount || 0}:${m.tasksDoneCount || 0}`)
-    .sort();
-  const inboxParts = inbox
-    .map((t) => `${t.id}:${t.status || 'todo'}:${String(t.title || '').slice(0, 48)}:${t.dueDate || ''}`)
-    .sort();
-  return `${projectParts.join('|')}::inbox::${inboxParts.join(';')}`;
+  const stub = userAccountStub(env, userId);
+  if (!stub) return '0';
+  try {
+    const res = await stub.fetch(new Request('http://do/getTetherSyncMeta', { method: 'GET' }));
+    if (!res.ok) return '0';
+    const data = await res.json();
+    return String(data?.syncGeneration || 0);
+  } catch {
+    return '0';
+  }
 }
 
 async function fetchAccessibleProjectSummaries(env, projectIds, userId) {

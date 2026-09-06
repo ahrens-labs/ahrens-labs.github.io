@@ -4434,15 +4434,34 @@
             }
         }
 
-        function startClassifySyncPoll() {
+        function startClassifySyncPoll(options = {}) {
             clearInterval(classifySyncPollTimer);
-            const intervalMs = document.hidden ? 90000 : 45000;
-            classifySyncPollTimer = setInterval(pollClassifySyncVersion, intervalMs);
+            classifySyncPollTimer = null;
+            if (document.hidden || !cloudSyncEnabled) return;
+            if (classifySyncSocket && classifySyncSocket.readyState === WebSocket.OPEN) return;
+            classifySyncPollTimer = setInterval(pollClassifySyncVersion, 60000);
+            if (options.immediate) pollClassifySyncVersion();
+        }
+
+        function stopClassifySyncPoll() {
+            clearInterval(classifySyncPollTimer);
+            classifySyncPollTimer = null;
+        }
+
+        function disconnectClassifySync() {
+            clearTimeout(classifySyncReconnectTimer);
+            classifySyncReconnectTimer = null;
+            clearInterval(classifySyncPingTimer);
+            classifySyncPingTimer = null;
+            if (classifySyncSocket) {
+                try { classifySyncSocket.close(); } catch { /* ignore */ }
+                classifySyncSocket = null;
+            }
         }
 
         function ensureClassifySyncConnected() {
             const sessionId = localStorage.getItem('ahrenslabs_sessionId');
-            if (!sessionId || !cloudSyncEnabled) return;
+            if (!sessionId || !cloudSyncEnabled || document.hidden) return;
             if (classifySyncSocket && classifySyncSocket.readyState === WebSocket.OPEN) return;
             if (classifySyncSocket) {
                 try { classifySyncSocket.close(); } catch { /* ignore */ }
@@ -4451,17 +4470,22 @@
             connectClassifySync();
         }
 
+        function handleClassifyPause() {
+            clearTimeout(classifyResumeTimer);
+            stopClassifySyncPoll();
+            disconnectClassifySync();
+        }
+
         function handleClassifyResume() {
             clearTimeout(classifyResumeTimer);
             classifyResumeTimer = setTimeout(async () => {
-                if (!classifyBootComplete) return;
-                startClassifySyncPoll();
+                if (!classifyBootComplete || document.hidden) return;
                 ensureClassifySyncConnected();
+                startClassifySyncPoll({ immediate: true });
                 if (cloudSyncTimer) {
                     clearTimeout(cloudSyncTimer);
                     cloudSyncTimer = null;
                 }
-                await pollClassifySyncVersion();
                 if(isAutoMaintainScheduleEnabled()) {
                     runPeriodicScheduleMaintain();
                 }
@@ -4471,7 +4495,7 @@
 
         function connectClassifySync() {
             const sessionId = localStorage.getItem('ahrenslabs_sessionId');
-            if (!sessionId || !cloudSyncEnabled || classifySyncSocket) return;
+            if (!sessionId || !cloudSyncEnabled || document.hidden || classifySyncSocket) return;
             try {
                 classifySyncSocket = new WebSocket(classifySyncWsUrl());
             } catch {
@@ -4480,11 +4504,13 @@
             }
             classifySyncSocket.addEventListener('open', () => {
                 clearInterval(classifySyncPingTimer);
+                stopClassifySyncPoll();
                 classifySyncPingTimer = setInterval(() => {
+                    if (document.hidden) return;
                     if (classifySyncSocket && classifySyncSocket.readyState === WebSocket.OPEN) {
                         try { classifySyncSocket.send('ping'); } catch { /* ignore */ }
                     }
-                }, 25000);
+                }, 45000);
             });
             classifySyncSocket.addEventListener('message', (e) => {
                 if (e.data === 'pong') return;
@@ -4498,6 +4524,8 @@
                 classifySyncSocket = null;
                 clearInterval(classifySyncPingTimer);
                 clearTimeout(classifySyncReconnectTimer);
+                if (document.hidden || !cloudSyncEnabled) return;
+                startClassifySyncPoll({ immediate: true });
                 classifySyncReconnectTimer = setTimeout(connectClassifySync, 3000);
             });
             classifySyncSocket.addEventListener('error', () => {
@@ -5043,8 +5071,8 @@
         });
 
         document.addEventListener('visibilitychange', () => {
-            startClassifySyncPoll();
-            if (!document.hidden) handleClassifyResume();
+            if (document.hidden) handleClassifyPause();
+            else handleClassifyResume();
         });
         window.addEventListener('focus', handleClassifyResume);
         window.addEventListener('pageshow', () => {

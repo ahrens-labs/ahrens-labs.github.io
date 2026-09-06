@@ -96,6 +96,7 @@ async function publishMenuSync(env, menu, sourceClientId, extraUserIds = []) {
   for (const uid of extraUserIds) {
     if (uid) ids.add(uid);
   }
+  await bumpPlatterSyncGenerationForUsers(env, ids);
   const payload = {
     type: 'menu',
     menuId: menu?.id || null,
@@ -106,11 +107,32 @@ async function publishMenuSync(env, menu, sourceClientId, extraUserIds = []) {
   await Promise.all([...ids].filter(Boolean).map((uid) => notifyPlatterSync(env, uid, payload)));
 }
 
+async function bumpPlatterSyncGeneration(env, userId) {
+  const stub = userAccountStub(env, userId);
+  if (!stub) return;
+  try {
+    await stub.fetch(new Request('http://do/bumpPlatterSyncGeneration', { method: 'POST' }));
+  } catch {
+    /* sync meta is best-effort */
+  }
+}
+
+async function bumpPlatterSyncGenerationForUsers(env, userIds) {
+  const ids = userIds instanceof Set ? [...userIds] : Array.isArray(userIds) ? [...userIds] : [];
+  await Promise.all(ids.filter(Boolean).map((uid) => bumpPlatterSyncGeneration(env, uid)));
+}
+
 async function buildSyncFingerprint(env, userId) {
-  const menus = await listAccessibleMenus(env, userId);
-  const state = await getPlatterState(env, userId);
-  const parts = menus.map((m) => `${m.id}:${m.updatedAt || 0}`).sort();
-  return `${state.activeMenuId || ''}::${parts.join('|')}`;
+  const stub = userAccountStub(env, userId);
+  if (!stub) return '0';
+  try {
+    const res = await stub.fetch(new Request('http://do/getPlatterSyncMeta', { method: 'GET' }));
+    if (!res.ok) return '0';
+    const data = await res.json();
+    return `${data?.activeMenuId || ''}::${data?.syncGeneration || 0}`;
+  } catch {
+    return '0';
+  }
 }
 
 async function sessionUserId(env, sessionId) {

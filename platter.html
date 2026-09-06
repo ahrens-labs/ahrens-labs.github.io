@@ -4091,11 +4091,34 @@
 
   function startPlatterSyncPoll() {
     clearInterval(platterSyncPollTimer);
+    platterSyncPollTimer = null;
+    if (document.hidden || !sessionId) return;
+    if (platterSyncSocket && platterSyncSocket.readyState === WebSocket.OPEN) return;
     platterSyncPollTimer = setInterval(pollPlatterSyncVersion, 60000);
   }
 
+  function stopPlatterSyncPoll() {
+    clearInterval(platterSyncPollTimer);
+    platterSyncPollTimer = null;
+  }
+
+  function disconnectPlatterSync() {
+    clearTimeout(platterSyncReconnectTimer);
+    platterSyncReconnectTimer = null;
+    clearInterval(platterSyncPingTimer);
+    platterSyncPingTimer = null;
+    if (platterSyncSocket) {
+      try {
+        platterSyncSocket.close();
+      } catch {
+        /* ignore */
+      }
+      platterSyncSocket = null;
+    }
+  }
+
   function ensurePlatterSyncConnected() {
-    if (!sessionId) return;
+    if (!sessionId || document.hidden) return;
     if (platterSyncSocket && platterSyncSocket.readyState === WebSocket.OPEN) return;
     if (platterSyncSocket) {
       try {
@@ -4108,8 +4131,14 @@
     connectPlatterSync();
   }
 
+  function handlePlatterPause() {
+    stopPlatterSyncPoll();
+    disconnectPlatterSync();
+  }
+
   function handlePlatterResume() {
     ensurePlatterSyncConnected();
+    startPlatterSyncPoll();
     pollPlatterSyncVersion();
     if (pendingRemoteRefresh || document.visibilityState === 'visible') {
       refreshFromCloud({ quiet: true });
@@ -4153,7 +4182,7 @@
   }
 
   function connectPlatterSync() {
-    if (!sessionId || platterSyncSocket) return;
+    if (!sessionId || document.hidden || platterSyncSocket) return;
     try {
       platterSyncSocket = new WebSocket(platterSyncWsUrl());
     } catch {
@@ -4162,7 +4191,9 @@
     }
     platterSyncSocket.addEventListener('open', () => {
       clearInterval(platterSyncPingTimer);
+      stopPlatterSyncPoll();
       platterSyncPingTimer = setInterval(() => {
+        if (document.hidden) return;
         if (platterSyncSocket && platterSyncSocket.readyState === WebSocket.OPEN) {
           try {
             platterSyncSocket.send('ping');
@@ -4170,7 +4201,7 @@
             /* ignore */
           }
         }
-      }, 25000);
+      }, 45000);
     });
     platterSyncSocket.addEventListener('message', (e) => {
       if (e.data === 'pong') return;
@@ -4184,6 +4215,8 @@
       platterSyncSocket = null;
       clearInterval(platterSyncPingTimer);
       clearTimeout(platterSyncReconnectTimer);
+      if (document.hidden || !sessionId) return;
+      startPlatterSyncPoll();
       platterSyncReconnectTimer = setTimeout(connectPlatterSync, 3000);
     });
     platterSyncSocket.addEventListener('error', () => {
@@ -5612,7 +5645,8 @@
   });
 
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') handlePlatterResume();
+    if (document.hidden) handlePlatterPause();
+    else handlePlatterResume();
   });
   window.addEventListener('online', handlePlatterResume);
   window.addEventListener('focus', () => {
