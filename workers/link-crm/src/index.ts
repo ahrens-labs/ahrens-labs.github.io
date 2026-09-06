@@ -134,6 +134,71 @@ Respond ONLY with JSON:
   }
 }
 
+function extractLocationFromText(text: string): string | null {
+  const atMatch = text.match(/\bat\s+([^,.\n]+)/i)
+  return atMatch?.[1]?.trim() || null
+}
+
+function inferDaysAgoFromText(text: string): number {
+  const lower = text.toLowerCase()
+  if (/\b(yesterday|last night|last evening)\b/.test(lower)) return 1
+  if (/\blast week\b/.test(lower)) return 7
+  const daysAgoMatch = lower.match(/\b(\d+)\s+days?\s+ago\b/)
+  if (daysAgoMatch) return Math.max(0, parseInt(daysAgoMatch[1], 10))
+  if (/\b(two|2)\s+days?\s+ago\b/.test(lower)) return 2
+  if (/\b(three|3)\s+days?\s+ago\b/.test(lower)) return 3
+  return 0
+}
+
+type VoiceCommandIntent =
+  | { action: 'quick_add_interaction'; text: string; newContact: boolean; daysAgo: number; location: string | null }
+  | { action: 'search'; query: string }
+  | { action: 'ai_summary'; contactName: string }
+  | { action: 'add_contact' }
+  | { action: 'add_reminder'; contactName: string; dateText: string; text: string }
+
+function classifyVoiceCommand(text: string): VoiceCommandIntent {
+  const trimmed = text.trim()
+  const lower = trimmed.toLowerCase()
+
+  if (/\b(summary|summarize|tell me about)\b/i.test(trimmed)) {
+    const contactName = trimmed
+      .replace(/^.*\b(summary|summarize|tell me about)\s+/i, '')
+      .replace(/^\s*contact\s+/i, '')
+      .trim()
+    return { action: 'ai_summary', contactName: contactName || trimmed }
+  }
+
+  if (/\b(reminder|remind me)\b/i.test(trimmed)) {
+    const dateTextMatch = trimmed.match(/\b(tomorrow|next week|next month|in \d+ days?)\b/i)
+    const dateText = dateTextMatch?.[1] || ''
+    const contactName = trimmed
+      .replace(/^.*\b(reminder|remind me)\s+(to\s+)?/i, '')
+      .replace(/\b(tomorrow|next week|next month|in \d+ days?)\b.*$/i, '')
+      .replace(/\b(for|with|to follow up with)\s+/i, '')
+      .trim()
+    return { action: 'add_reminder', contactName, dateText, text: trimmed }
+  }
+
+  if (/\b(add|create)\s+(a\s+)?new contact\b/i.test(trimmed) &&
+      !/\b(met|had|called|talked|spoke|emailed|lunch|coffee|meeting)\b/i.test(lower)) {
+    return { action: 'add_contact' }
+  }
+
+  if (/\b(find|search|show me)\b/i.test(trimmed)) {
+    const query = trimmed.replace(/^.*\b(find|search|show me)\s+/i, '').trim()
+    return { action: 'search', query: query || trimmed }
+  }
+
+  return {
+    action: 'quick_add_interaction',
+    text: trimmed,
+    newContact: /\b(new contact|create contact)\b/i.test(lower),
+    daysAgo: inferDaysAgoFromText(trimmed),
+    location: extractLocationFromText(trimmed),
+  }
+}
+
 const app = new Hono<{ Bindings: Env }>()
 
 async function redirectAhrensLogin(c: any, clearLinkSession = false) {
@@ -2241,7 +2306,7 @@ app.post('/api/transcribe', requireAuth, async (c) => {
   }
 })
 
-// Voice command processing with AI intent recognition
+// Voice command processing: transcribe, classify, and execute
 app.post('/api/voice-command', requireAuth, async (c) => {
   const user = c.get('user')
   
@@ -2265,90 +2330,55 @@ app.post('/api/voice-command', requireAuth, async (c) => {
       return c.json({ error: 'No speech detected' }, 400)
     }
     
-    // Step 2: Determine intent using AI
-    const intentPrompt = `You are a voice assistant for a CRM app. Analyze this voice command and determine the user's intent.
+    console.log('Voice command:', commandText)
+    const intent = classifyVoiceCommand(commandText)
+    console.log('Classified intent:', JSON.stringify(intent))
 
-Voice command: "${commandText}"
+    if (intent.action === 'quick_add_interaction') {
+      const referenceDate = new Date()
+      const interactionDate = timestampFromDaysAgo(intent.daysAgo, referenceDate)
+      const apiBase = c.req.path.startsWith('/link') ? '/link' : ''
 
-Available actions:
-1. "quick_add_interaction" - User wants to log an interaction with a contact (e.g., "I just met with John", "Log a call with Sarah", "Had lunch with Matt Walters yesterday")
-   - ALWAYS set "newContact": false by default (try to match existing contacts first)
-   - ONLY set "newContact": true if the command explicitly mentions "new contact" or "create contact"
-  - Extract "daysAgo" for interaction date based on the user's words (0 for today, 1 for yesterday, etc.)
-2. "search" - User wants to search for a contact (e.g., "Find John Smith", "Show me contacts at Acme Corp")
-3. "ai_summary" - User wants an AI summary of a contact. Keywords: "summary", "summarize", "tell me about" (e.g., "Summary John Smith", "Summarize Sarah", "Tell me about Mike")
-4. "add_contact" - User wants to add a new contact (e.g., "Add a new contact", "Create contact for Jane Doe")
-5. "add_reminder" - User wants to add a reminder for a contact (e.g., "Add reminder for John Smith", "Remind me to follow up with Sarah next week", "Set reminder to call Mike tomorrow")
-   - Extract contact name and date/time information
-   - Keywords: "reminder", "remind me", "set reminder", "follow up"
+      const quickAddRes = await app.request(`${apiBase}/api/interactions/quick-add`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Cookie: c.req.header('Cookie') || '',
+        },
+        body: JSON.stringify({
+          text: intent.text,
+          newContact: intent.newContact,
+          date: interactionDate,
+          location: intent.location,
+        }),
+      }, c.env)
 
-IMPORTANT: 
-- If the command contains words like "summary", "summarize", or "tell me about" followed by a name, it's ALWAYS "ai_summary".
-- If the command contains "reminder" or "remind me", it's ALWAYS "add_reminder"
-- ALWAYS try to match existing contacts first by setting "newContact": false
-- ONLY set "newContact": true if explicitly mentioned (e.g., "new contact", "create contact")
-- For interaction commands starting with "Met", "Had", "Talked", "Spoke", "Called", "Emailed", etc., use "quick_add_interaction"
-
-Respond with ONLY valid JSON in this format:
-{
-  "action": "quick_add_interaction" | "search" | "ai_summary" | "add_contact" | "add_reminder",
-  "text": "original command text (for quick_add_interaction or add_reminder)",
-  "query": "search query (for search)",
-  "contactName": "contact name (for ai_summary, search, or add_reminder)",
-  "newContact": true/false (for quick_add_interaction),
-  "daysAgo": <number of days ago, 0 for today> (for quick_add_interaction),
-  "dateText": "date/time mentioned (for add_reminder, e.g., 'next week', 'tomorrow', 'in 3 days')"
-}
-
-Examples:
-"I just had coffee with Sarah" -> {"action": "quick_add_interaction", "text": "I just had coffee with Sarah", "newContact": false, "daysAgo": 0}
-"Had lunch with Matt Walters yesterday" -> {"action": "quick_add_interaction", "text": "Had lunch with Matt Walters yesterday", "newContact": false, "daysAgo": 1}
-"Called Mike" -> {"action": "quick_add_interaction", "text": "Called Mike", "newContact": false, "daysAgo": 0}
-"Met with John Smith today, new contact" -> {"action": "quick_add_interaction", "text": "Met with John Smith today, new contact", "newContact": true, "daysAgo": 0}
-"Create new contact for Jane Doe" -> {"action": "quick_add_interaction", "text": "Create new contact for Jane Doe", "newContact": true, "daysAgo": 0}
-"Find John Smith" -> {"action": "search", "query": "John Smith"}
-"Summary Sarah Johnson" -> {"action": "ai_summary", "contactName": "Sarah Johnson"}
-"Summarize contact Aaron Klish" -> {"action": "ai_summary", "contactName": "Aaron Klish"}
-"Tell me about Mike" -> {"action": "ai_summary", "contactName": "Mike"}
-"Add new contact" -> {"action": "add_contact"}
-"Add reminder for John Smith" -> {"action": "add_reminder", "contactName": "John Smith", "dateText": "", "text": "Add reminder for John Smith"}
-"Remind me to follow up with Sarah next week" -> {"action": "add_reminder", "contactName": "Sarah", "dateText": "next week", "text": "follow up with Sarah"}
-"Set reminder to call Mike tomorrow" -> {"action": "add_reminder", "contactName": "Mike", "dateText": "tomorrow", "text": "call Mike"}`
-
-    const intentResponse = await runTextModel(c.env.AI, [{ role: 'user', content: intentPrompt }])
-    
-    let intent
-    try {
-      const responseText = intentResponse.response
-      console.log('Voice command:', commandText)
-      console.log('AI response:', responseText)
-      const jsonMatch = responseText.match(/\{[\s\S]*\}/)
-      if (jsonMatch) {
-        intent = JSON.parse(jsonMatch[0])
-        console.log('Parsed intent:', JSON.stringify(intent))
-      } else {
-        throw new Error('No JSON found in response')
+      const quickAddResult = await quickAddRes.json() as Record<string, unknown>
+      if (quickAddRes.ok) {
+        return c.json({
+          action: 'quick_add_interaction',
+          completed: true,
+          ...quickAddResult,
+        })
       }
-    } catch (parseError) {
-      console.error('Failed to parse intent:', intentResponse.response)
-      // Fallback: assume quick add interaction
+
       return c.json({
         action: 'quick_add_interaction',
-        text: commandText,
-        message: 'Processing as interaction note'
-      })
+        completed: false,
+        error: quickAddResult.error || 'Failed to add interaction',
+        ...quickAddResult,
+      }, quickAddRes.status as 400)
     }
-    
-    // Step 3: Execute action based on intent
-    console.log('Intent action:', intent.action)
+
     if (intent.action === 'search') {
       return c.json({
         action: 'search',
-        query: intent.query || intent.contactName || commandText
+        query: intent.query,
       })
-    } else if (intent.action === 'ai_summary') {
-      // Try to find the contact with fuzzy matching
-      const contactName = intent.contactName || commandText
+    }
+
+    if (intent.action === 'ai_summary') {
+      const contactName = intent.contactName
       const contactsResult = await c.env.DB.prepare(
         'SELECT id, name FROM contacts WHERE user_id = ?'
       ).bind(user.id).all()
@@ -2410,14 +2440,17 @@ Examples:
           message: 'Contact not found, searching...'
         })
       }
-    } else if (intent.action === 'add_contact') {
+    }
+
+    if (intent.action === 'add_contact') {
       return c.json({
         action: 'add_contact',
         message: 'Opening new contact form'
       })
-    } else if (intent.action === 'add_reminder') {
-      // Try to find the contact with fuzzy matching
-      const contactName = intent.contactName || ''
+    }
+
+    if (intent.action === 'add_reminder') {
+      const contactName = intent.contactName
       const contactsResult = await c.env.DB.prepare(
         'SELECT id, name FROM contacts WHERE user_id = ?'
       ).bind(user.id).all()
@@ -2483,14 +2516,14 @@ Examples:
           message: 'Contact not found. Please select a contact to add reminder.'
         })
       }
-    } else {
-      // Default to quick_add_interaction
-      return c.json({
-        action: 'quick_add_interaction',
-        text: intent.text || commandText,
-        newContact: intent.newContact || false
-      })
     }
+
+    return c.json({
+      action: 'quick_add_interaction',
+      completed: false,
+      error: 'Unsupported voice command',
+      text: commandText,
+    }, 400)
   } catch (error) {
     console.error('Voice command error:', error)
     return c.json({ error: 'Failed to process voice command' }, 500)
@@ -2524,13 +2557,14 @@ app.post('/api/interactions/quick-add', requireAuth, async (c) => {
   const referenceDate = new Date()
   let interactionLocation =
     typeof clientLocation === 'string' && clientLocation.trim() ? clientLocation.trim() : null
+  if (!interactionLocation) {
+    interactionLocation = extractLocationFromText(interactionNotes)
+  }
 
   let now = date
-  if (!date || !interactionLocation) {
+  if (!date) {
     const meta = await extractInteractionMeta(c.env.AI, interactionNotes, referenceDate)
-    if (!date) {
-      now = timestampFromDaysAgo(meta.daysAgo, referenceDate)
-    }
+    now = timestampFromDaysAgo(meta.daysAgo, referenceDate)
     if (!interactionLocation) {
       interactionLocation = meta.location
     }
@@ -2680,14 +2714,15 @@ Examples:
       return c.json({ error: 'No contacts found. Please add contacts first or check "new contact".' }, 400)
     }
     
-    // Decrypt contacts
-    const contacts: any[] = []
-    for (const encContact of contactsResult.results) {
-      const contact = await decryptContact(encContact, c.env.ENCRYPTION_KEY)
-      contact.id = encContact.id
-      contact.tags = encContact.tags ? JSON.parse(encContact.tags) : []
-      contacts.push(contact)
-    }
+    // Decrypt contacts in parallel
+    const contacts: any[] = await Promise.all(
+      (contactsResult.results || []).map(async (encContact: any) => {
+        const contact = await decryptContact(encContact, c.env.ENCRYPTION_KEY)
+        contact.id = encContact.id
+        contact.tags = encContact.tags ? JSON.parse(encContact.tags) : []
+        return contact
+      }),
+    )
     
     console.log('[Contact Matching] Total contacts:', contacts.length)
     
@@ -2810,8 +2845,10 @@ Examples:
       ).bind(interactionId, bestMatch.id, interactionType, now, interactionNotes, interactionLocation, now).run()
       
       console.log(`[Direct Match] Created interaction for: ${bestMatch.name}`)
+
+      invalidateLinkUserCache(c, user.id)
       
-      return c.json({ 
+      return c.json({
         success: true,
         contactId: bestMatch.id,
         contactName: bestMatch.name,

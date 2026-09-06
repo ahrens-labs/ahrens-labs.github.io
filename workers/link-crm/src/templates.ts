@@ -955,7 +955,7 @@ function getVoiceAssistantScript(): string {
               if (silenceTimer) clearTimeout(silenceTimer);
               silenceTimer = setTimeout(() => {
                 if (isAssistantRecording) stopAssistantRecording();
-              }, 2000);
+              }, 1200);
             }
             
             if (isAssistantRecording) requestAnimationFrame(checkSilence);
@@ -1016,7 +1016,6 @@ function getVoiceAssistantScript(): string {
           assistantBtn.innerHTML = '🎤';
           assistantBtn.style.background = '#16a34a';
         }
-        document.getElementById('voiceAssistantIndicator').style.display = 'none';
       }
     }
     
@@ -1082,55 +1081,25 @@ function getVoiceAssistantScript(): string {
         if (response.ok) {
           const result = await response.json();
           console.log('Voice command result:', result);
-          indicator.style.display = 'none';
           
           if (result.action === 'quick_add_interaction') {
-            indicator.innerHTML = '<div style="display: flex; align-items: center; gap: 0.5rem;"><div style="width: 16px; height: 16px; border: 2px solid white; border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite;"></div><span>Adding...</span></div>';
-            indicator.style.display = 'flex';
-            
-            try {
-              const now = new Date();
-              const daysAgo = Number.isFinite(result.daysAgo) ? result.daysAgo : 0;
-              const targetDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysAgo);
-              const localTimestamp = targetDate.getTime() - (targetDate.getTimezoneOffset() * 60000);
-              
-              const quickAddResponse = await fetch("/api/interactions/quick-add", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ text: result.text, newContact: result.newContact || false, date: localTimestamp })
-              });
-              
-              if (quickAddResponse.ok) {
-                const quickAddResult = await quickAddResponse.json();
-                let message;
-                if (result.newContact) {
-                  message = 'New contact created and interaction added to ' + quickAddResult.contactName;
-                } else if (quickAddResult.contactCount && (quickAddResult.contactCount !== 1)) {
-                  message = 'Interaction added to ' + quickAddResult.contactCount + ' contacts: ' + quickAddResult.contactName;
-                } else {
-                  message = 'Interaction added to ' + quickAddResult.contactName;
-                }
-                indicator.innerHTML = '✅ ' + message;
-                speak(message);
-                setTimeout(() => window.location.reload(), 2500);
+            if (result.completed) {
+              let message;
+              if (result.isNewContact) {
+                message = 'New contact created and interaction added to ' + result.contactName;
+              } else if (result.contactCount && (result.contactCount !== 1)) {
+                message = 'Interaction added to ' + result.contactCount + ' contacts: ' + result.contactName;
               } else {
-                const errorData = await quickAddResponse.json();
-                console.error('Quick add failed:', errorData);
-                const errorMsg = errorData.error || 'Unknown error';
-                if (errorData.availableContacts) {
-                  console.log('Available contacts:', errorData.availableContacts);
-                }
-                if (errorData.aiResponse) {
-                  console.log('AI response:', errorData.aiResponse);
-                }
-                indicator.innerHTML = '❌ ' + errorMsg;
-                speak(errorMsg);
-                setTimeout(() => indicator.style.display = 'none', 5000);
+                message = 'Interaction added to ' + result.contactName;
               }
-            } catch (error) {
-              console.error('Quick add error:', error);
-              indicator.innerHTML = '❌ Error adding interaction';
-              setTimeout(() => indicator.style.display = 'none', 3000);
+              indicator.innerHTML = '✅ ' + message;
+              speak(message);
+              setTimeout(() => window.location.reload(), 2500);
+            } else {
+              const errorMsg = result.error || 'Unknown error';
+              indicator.innerHTML = '❌ ' + errorMsg;
+              speak(errorMsg);
+              setTimeout(() => indicator.style.display = 'none', 5000);
             }
           } else if (result.action === 'search') {
             window.location.href = '/dashboard?search=' + encodeURIComponent(result.query);
