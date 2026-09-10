@@ -187,6 +187,19 @@
       color: var(--dk-muted);
       font-weight: 500;
     }
+    .dk-share-others-link {
+      display: inline;
+      margin: 0;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      font: inherit;
+      color: inherit;
+      font-weight: inherit;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      cursor: pointer;
+    }
     .dk-stack-meta-count {
       color: var(--dk-muted);
       font-weight: 500;
@@ -1487,7 +1500,17 @@
           checklist: checklist,
           sharedId: src.sharedId || null,
           sharedOut: !!(src.sharedOut || src.sharedId),
+          sharedMembers: normalizeShareMembers(src.sharedMembers),
         };
+      }
+
+      function normalizeShareMembers(raw) {
+        if (!Array.isArray(raw)) return [];
+        return raw.map((member) => ({
+          userId: member?.userId || '',
+          username: member?.username || '',
+          email: member?.email || '',
+        })).filter((member) => member.userId || member.username || member.email);
       }
 
       function normalizeSection(sec) {
@@ -1520,6 +1543,7 @@
           archivedAt: s.archivedAt || null,
           sharedId: s.sharedId || null,
           sharedOut: !!(s.sharedOut || s.sharedId),
+          sharedMembers: normalizeShareMembers(s.sharedMembers),
         }));
       }
 
@@ -1528,13 +1552,15 @@
         return deck.sharedId || deck.sharedRef?.sharedId || null;
       }
 
-      function applyShareMetaToContext(context, sharedId) {
+      function applyShareMetaToContext(context, sharedId, sharedMembers) {
         if (!context || !sharedId) return;
         const deck = deckById(context.deckId);
         if (!deck) return;
+        const members = normalizeShareMembers(sharedMembers);
         if (context.type === 'deck') {
           deck.sharedId = sharedId;
           deck.sharedOut = true;
+          if (members.length) deck.sharedMembers = members;
           return;
         }
         if (context.type === 'stack' && context.stackId) {
@@ -1542,6 +1568,7 @@
           if (stack) {
             stack.sharedId = sharedId;
             stack.sharedOut = true;
+            if (members.length) stack.sharedMembers = members;
           }
           return;
         }
@@ -1550,6 +1577,7 @@
           if (found?.card) {
             found.card.sharedId = sharedId;
             found.card.sharedOut = true;
+            if (members.length) found.card.sharedMembers = members;
           }
         }
       }
@@ -1558,15 +1586,73 @@
         return !!(entity && (entity.sharedId || entity.sharedRef || entity.sharedFrom || entity.sharedOut));
       }
 
+      const SHARE_RECIPIENT_DISPLAY_MAX = 4;
+
+      function shareMemberDisplayName(member) {
+        if (!member) return '';
+        return (member.username || member.email || member.userId || '').trim();
+      }
+
+      function entityShareIsIncoming(entity) {
+        return !!(entity && (entity.sharedRef || entity.sharedFrom));
+      }
+
+      function entityShareRecipientNames(entity) {
+        const names = normalizeShareMembers(entity?.sharedMembers)
+          .map(shareMemberDisplayName)
+          .filter(Boolean);
+        return [...new Set(names)];
+      }
+
       function entityShareLabel(entity) {
         if (!entityIsShared(entity)) return '';
-        if (entity.sharedRef && entity.sharedRef.ownerUsername) {
-          return 'Shared · ' + entity.sharedRef.ownerUsername;
+        if (entityShareIsIncoming(entity)) {
+          const owner = (entity.sharedRef?.ownerUsername || entity.sharedFrom?.ownerUsername || '').trim();
+          return owner ? ('Shared by ' + owner) : 'Shared';
         }
-        if (entity.sharedFrom && entity.sharedFrom.ownerUsername) {
-          return 'Shared · ' + entity.sharedFrom.ownerUsername;
+        const names = entityShareRecipientNames(entity);
+        if (!names.length) return 'Shared';
+        if (names.length > SHARE_RECIPIENT_DISPLAY_MAX) return 'Shared with others';
+        return 'Shared with ' + names.join(', ');
+      }
+
+      async function showShareRecipientsModal(entity) {
+        const names = entityShareRecipientNames(entity);
+        await showAlert({
+          title: 'Shared with',
+          message: names.length ? names.join(', ') : 'No collaborators listed yet.',
+        });
+      }
+
+      function buildShareMetaElement(entity) {
+        const span = document.createElement('span');
+        span.className = entityShareToneClass(entity);
+        if (entityShareIsIncoming(entity)) {
+          const owner = (entity.sharedRef?.ownerUsername || entity.sharedFrom?.ownerUsername || '').trim();
+          span.textContent = owner ? ('Shared by ' + owner) : 'Shared';
+          return span;
         }
-        return 'Shared';
+        const names = entityShareRecipientNames(entity);
+        if (!names.length) {
+          span.textContent = 'Shared';
+          return span;
+        }
+        if (names.length > SHARE_RECIPIENT_DISPLAY_MAX) {
+          span.textContent = 'Shared with ';
+          const othersBtn = document.createElement('button');
+          othersBtn.type = 'button';
+          othersBtn.className = 'dk-share-others-link';
+          othersBtn.textContent = 'others';
+          othersBtn.addEventListener('click', (ev) => {
+            ev.preventDefault();
+            ev.stopPropagation();
+            showShareRecipientsModal(entity);
+          });
+          span.appendChild(othersBtn);
+          return span;
+        }
+        span.textContent = 'Shared with ' + names.join(', ');
+        return span;
       }
 
       function appendShareMetaBits(bits, entity) {
@@ -1592,10 +1678,7 @@
             return;
           }
           if (part.share && entityIsShared(part.share)) {
-            const span = document.createElement('span');
-            span.className = entityShareToneClass(part.share);
-            span.textContent = entityShareLabel(part.share);
-            el.appendChild(span);
+            el.appendChild(buildShareMetaElement(part.share));
           }
         });
       }
@@ -1614,6 +1697,7 @@
           sharedRef: d.sharedRef || null,
           sharedFrom: d.sharedFrom || null,
           sharedOut: !!(d.sharedOut || d.sharedId),
+          sharedMembers: normalizeShareMembers(d.sharedMembers),
         }));
         return { decks };
       }
@@ -3059,7 +3143,9 @@
           const data = await response.json();
           if (!response.ok) throw new Error(data.error || 'Share failed');
           if (data.sharedId) {
-            applyShareMetaToContext(context, data.sharedId);
+            applyShareMetaToContext(context, data.sharedId, data.sharedMembers || [{
+              username: data.sharedWith || '',
+            }]);
             persistDeckLocally();
             renderCurrentView();
           }
@@ -4044,9 +4130,8 @@
         row.appendChild(label);
         if (entityIsShared(stack)) {
           row.appendChild(stackMetaDot());
-          const share = document.createElement('span');
-          share.className = 'dk-stack-meta-share ' + entityShareToneClass(stack);
-          share.textContent = entityShareLabel(stack);
+          const share = buildShareMetaElement(stack);
+          share.classList.add('dk-stack-meta-share');
           row.appendChild(share);
         }
         const deckName = document.createElement('span');
@@ -4132,7 +4217,7 @@
         if (entityIsShared(card)) {
           const shareMeta = document.createElement('p');
           shareMeta.className = 'dk-card-preview-meta';
-          shareMeta.textContent = entityShareLabel(card);
+          shareMeta.appendChild(buildShareMetaElement(card));
           inner.appendChild(shareMeta);
         }
         if (opts.showLocation) {
@@ -4523,14 +4608,19 @@
         const card = loc ? loc.card : null;
         if (!deck || !card) return openDeck(activeDeckId, { updateUrl: true });
         document.getElementById('card-title').value = card.title || '';
-        const whereBits = [];
-        appendShareMetaBits(whereBits, card);
         const where = loc.stack
           ? 'In ' + (loc.stack.name || 'Stack') + ' · ' + (deck.name || 'Untitled')
           : 'In ' + (deck.name || 'Untitled');
-        if (whereBits.length) whereBits.push(where);
-        document.getElementById('card-view-deck').textContent = whereBits.length ? whereBits.join(' · ') : where;
-        document.getElementById('card-view-deck').title = 'Change deck or stack';
+        const whereEl = document.getElementById('card-view-deck');
+        whereEl.textContent = '';
+        let whereFirst = true;
+        if (entityIsShared(card)) {
+          whereEl.appendChild(buildShareMetaElement(card));
+          whereFirst = false;
+        }
+        if (!whereFirst) whereEl.appendChild(document.createTextNode(' · '));
+        whereEl.appendChild(document.createTextNode(where));
+        whereEl.title = entityIsShared(card) ? entityShareLabel(card) + ' · ' + where : where;
         document.getElementById('btn-back-cards').textContent = loc.stack
           ? '← ' + (loc.stack.name || 'Stack')
           : '← ' + (deck.name || 'Cards');

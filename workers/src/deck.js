@@ -249,12 +249,25 @@ function extractSharePayload(deckEntry, type) {
   return null;
 }
 
+function shareMembersForClient(members) {
+  return (Array.isArray(members) ? members : [])
+    .map((member) => ({
+      userId: member?.userId || '',
+      username: member?.username || '',
+      email: member?.email || '',
+    }))
+    .filter((member) => member.userId || member.username || member.email);
+}
+
 function preserveShareMeta(target, source) {
   if (!source) return target;
   if (!target.sharedId && source.sharedId) target.sharedId = source.sharedId;
   if (source.sharedId || source.sharedOut) target.sharedOut = true;
   if (!target.sharedRef && source.sharedRef) {
     target.sharedRef = JSON.parse(JSON.stringify(source.sharedRef));
+  }
+  if (Array.isArray(source.sharedMembers) && source.sharedMembers.length) {
+    target.sharedMembers = JSON.parse(JSON.stringify(source.sharedMembers));
   }
   return target;
 }
@@ -422,7 +435,7 @@ export async function hydrateDeckDataForUser(env, userId, deckData) {
 
   return {
     ...deckData,
-    decks: hydrated,
+    decks: attachOwnerShareMembersTree(hydrated, shareCache, userId),
   };
 }
 
@@ -609,6 +622,56 @@ function assignSharedIdToOwnerSource(deck, type, stack, card, sharedId) {
   }
 }
 
+function assignSharedMembersToOwnerSource(deck, type, stack, card, members) {
+  const sharedMembers = shareMembersForClient(members);
+  if (!sharedMembers.length) return;
+  if (type === 'deck') {
+    deck.sharedMembers = sharedMembers;
+    return;
+  }
+  if (type === 'stack' && stack) {
+    stack.sharedMembers = sharedMembers;
+    return;
+  }
+  if (type === 'card' && card) {
+    card.sharedMembers = sharedMembers;
+  }
+}
+
+function attachOwnerShareMembers(entity, record, userId) {
+  if (!entity?.sharedId || !record || record.ownerUserId !== userId) return entity;
+  const sharedMembers = shareMembersForClient(record.members);
+  if (!sharedMembers.length) return entity;
+  return { ...entity, sharedMembers };
+}
+
+function attachOwnerShareMembersTree(decks, shareCache, userId) {
+  return (decks || []).map((deck) => {
+    let next = deck.sharedId && shareCache.has(deck.sharedId)
+      ? attachOwnerShareMembers(deck, shareCache.get(deck.sharedId), userId)
+      : deck;
+    const stacks = (next.stacks || []).map((stack) => {
+      let stackNext = stack.sharedId && shareCache.has(stack.sharedId)
+        ? attachOwnerShareMembers(stack, shareCache.get(stack.sharedId), userId)
+        : stack;
+      const cards = (stackNext.cards || []).map((card) => (
+        card.sharedId && shareCache.has(card.sharedId)
+          ? attachOwnerShareMembers(card, shareCache.get(card.sharedId), userId)
+          : card
+      ));
+      return cards !== stackNext.cards ? { ...stackNext, cards } : stackNext;
+    });
+    if (stacks !== next.stacks) next = { ...next, stacks };
+    const cards = (next.cards || []).map((card) => (
+      card.sharedId && shareCache.has(card.sharedId)
+        ? attachOwnerShareMembers(card, shareCache.get(card.sharedId), userId)
+        : card
+    ));
+    if (cards !== next.cards) next = { ...next, cards };
+    return next;
+  });
+}
+
 function existingSharedIdForSource(deck, type, stack, card) {
   if (type === 'deck') return deck.sharedId || null;
   if (type === 'stack' && stack) return stack.sharedId || null;
@@ -726,6 +789,7 @@ export async function handleDeckShareRequest(request, env, corsHeaders) {
   shareRecord.members = upsertShareMember(shareRecord.members, target);
   await saveDeckShare(env, shareRecord);
   assignSharedIdToOwnerSource(deck, sourceType, stack, card, sharedId);
+  assignSharedMembersToOwnerSource(deck, sourceType, stack, card, shareRecord.members);
 
   await saveDeckDataForUser(env, userId, {
     ...ownerData,
@@ -757,6 +821,7 @@ export async function handleDeckShareRequest(request, env, corsHeaders) {
     success: true,
     live: true,
     sharedWith: target.username || target.email || target.userId,
+    sharedMembers: shareMembersForClient(shareRecord.members),
     sharedType: shareType,
     sharedName: label,
     sharedId,
