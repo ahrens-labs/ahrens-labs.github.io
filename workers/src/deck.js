@@ -310,6 +310,17 @@ function deckShareId(deck) {
   return deck.sharedId || deck.sharedRef?.sharedId || null;
 }
 
+function userOwnsShareRecord(record, userId) {
+  return !!(record && userId && record.ownerUserId === userId);
+}
+
+function shouldHydrateEntryFromShareRecord(entry, record, userId) {
+  if (!record || !userId) return false;
+  if (entry?.sharedRef?.sharedId === record.id) return true;
+  if (userOwnsShareRecord(record, userId)) return false;
+  return userCanAccessShare(record, userId);
+}
+
 function applySharePayloadToDeckEntry(entry, record) {
   if (!record || !record.payload) return entry;
   const type = record.type;
@@ -374,15 +385,19 @@ function mergeStackFromShareRecord(stack, record) {
   return preserveShareMeta({ ...payload }, stack);
 }
 
-function applyNestedSharePayload(deck, shareCache) {
+function applyNestedSharePayload(deck, shareCache, userId) {
   let next = deck;
   const stacks = (deck.stacks || []).map((stack) => {
     if (stack.sharedId && shareCache.has(stack.sharedId)) {
-      return mergeStackFromShareRecord(stack, shareCache.get(stack.sharedId));
+      const record = shareCache.get(stack.sharedId);
+      if (shouldHydrateEntryFromShareRecord(stack, record, userId)) {
+        return mergeStackFromShareRecord(stack, record);
+      }
     }
     const cards = (stack.cards || []).map((card) => {
       if (card.sharedId && shareCache.has(card.sharedId)) {
         const record = shareCache.get(card.sharedId);
+        if (!shouldHydrateEntryFromShareRecord(card, record, userId)) return card;
         const payload = record?.payload;
         const merged = payload && typeof payload === 'object' ? { ...payload } : { ...card };
         return preserveShareMeta(merged, card);
@@ -395,6 +410,7 @@ function applyNestedSharePayload(deck, shareCache) {
   const cards = (deck.cards || []).map((card) => {
     if (card.sharedId && shareCache.has(card.sharedId)) {
       const record = shareCache.get(card.sharedId);
+      if (!shouldHydrateEntryFromShareRecord(card, record, userId)) return card;
       const payload = record?.payload;
       const merged = payload && typeof payload === 'object' ? { ...payload } : { ...card };
       return preserveShareMeta(merged, card);
@@ -425,12 +441,16 @@ export async function hydrateDeckDataForUser(env, userId, deckData) {
   const hydrated = decks.map((deck) => {
     const shareId = deckShareId(deck);
     if (shareId && shareCache.has(shareId)) {
-      return applyNestedSharePayload(
-        applySharePayloadToDeckEntry(deck, shareCache.get(shareId)),
-        shareCache
-      );
+      const record = shareCache.get(shareId);
+      if (shouldHydrateEntryFromShareRecord(deck, record, userId)) {
+        return applyNestedSharePayload(
+          applySharePayloadToDeckEntry(deck, record),
+          shareCache,
+          userId
+        );
+      }
     }
-    return applyNestedSharePayload(deck, shareCache);
+    return applyNestedSharePayload(deck, shareCache, userId);
   });
 
   return {
@@ -489,7 +509,7 @@ async function pushShareUpdate(env, userId, shareId, deckEntry, updatedShareIds)
 function collectSharePushTargets(decks) {
   const targets = [];
   for (const deck of decks || []) {
-    const deckShare = deckShareId(deck);
+    const deckShare = deck.sharedId || null;
     if (deckShare) targets.push({ shareId: deckShare, deckEntry: deck });
     for (const stack of deck.stacks || []) {
       if (stack.sharedId) {

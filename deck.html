@@ -1411,6 +1411,68 @@
         return 'deck_data_' + uid;
       }
 
+      function getDeckMetaStorageKey() {
+        return getStorageKey() + '_meta';
+      }
+
+      function readDeckPersistMeta() {
+        try {
+          return JSON.parse(localStorage.getItem(getDeckMetaStorageKey()) || '{}');
+        } catch {
+          return {};
+        }
+      }
+
+      function writeDeckPersistMeta(patch) {
+        const next = { ...readDeckPersistMeta(), ...patch };
+        localStorage.setItem(getDeckMetaStorageKey(), JSON.stringify(next));
+      }
+
+      function markDeckSyncedLocally(cloudLastUpdated) {
+        const meta = readDeckPersistMeta();
+        writeDeckPersistMeta({
+          lastModified: meta.lastModified || Date.now(),
+          lastSyncedAt: Date.now(),
+          cloudLastUpdated: cloudLastUpdated || meta.cloudLastUpdated || 0,
+        });
+      }
+
+      function deckHasPendingCloudSync() {
+        const meta = readDeckPersistMeta();
+        return (meta.lastModified || 0) > (meta.lastSyncedAt || 0);
+      }
+
+      function deckStateSummary(decks) {
+        let cardCount = 0;
+        let maxUpdated = 0;
+        (decks || []).forEach((deck) => {
+          maxUpdated = Math.max(maxUpdated, deck.updatedAt || 0, deck.createdAt || 0);
+          (deck.cards || []).forEach((card) => {
+            cardCount += 1;
+            maxUpdated = Math.max(maxUpdated, card.updatedAt || 0, card.createdAt || 0);
+          });
+          (deck.stacks || []).forEach((stack) => {
+            maxUpdated = Math.max(maxUpdated, stack.updatedAt || 0, stack.createdAt || 0);
+            (stack.cards || []).forEach((card) => {
+              cardCount += 1;
+              maxUpdated = Math.max(maxUpdated, card.updatedAt || 0, card.createdAt || 0);
+            });
+          });
+        });
+        return { cardCount, maxUpdated };
+      }
+
+      function localDeckStateIsNewerThanCloud(localDecks, cloudPayload) {
+        const local = deckStateSummary(localDecks);
+        const cloud = deckStateSummary(cloudPayload?.decks || []);
+        if (local.cardCount > cloud.cardCount) return true;
+        if (local.maxUpdated > cloud.maxUpdated) return true;
+        const meta = readDeckPersistMeta();
+        const cloudUpdated = cloudPayload?.lastUpdated || 0;
+        if ((meta.lastModified || 0) > cloudUpdated && deckHasPendingCloudSync()) return true;
+        return false;
+      }
+
       function deckApiBase() {
         return window.AHRENS_LABS_API_BASE || window.AHRENS_API_URL || '';
       }
@@ -1737,10 +1799,15 @@
 
       function persistDeckLocally() {
         localStorage.setItem(getStorageKey(), JSON.stringify(state));
+        writeDeckPersistMeta({ lastModified: Date.now() });
       }
 
       function buildDeckCloudPayload() {
-        return { decks: Array.isArray(state.decks) ? state.decks : [] };
+        const meta = readDeckPersistMeta();
+        return {
+          decks: Array.isArray(state.decks) ? state.decks : [],
+          clientLastModified: meta.lastModified || 0,
+        };
       }
 
       function reconcileActiveDeckSelection() {
@@ -2326,22 +2393,32 @@
         }
       }
 
-      async function loadDeckFromCloud() {
+      async function fetchDeckCloudPayload() {
         const sessionId = localStorage.getItem('ahrenslabs_sessionId');
-        if (!sessionId) return false;
+        if (!sessionId) return null;
         try {
           const response = await fetch(deckApiBase() + '/api/deck/load', {
             method: 'GET',
             headers: { Authorization: 'Bearer ' + sessionId },
           });
-          if (!response.ok) return false;
-          const data = await response.json();
-          applyDeckCloudPayload(data);
-          return true;
+          if (!response.ok) return null;
+          return await response.json();
         } catch (error) {
           console.error('Failed to load deck data from cloud:', error);
-          return false;
+          return null;
         }
+      }
+
+      async function loadDeckFromCloud() {
+        const data = await fetchDeckCloudPayload();
+        if (!data) return false;
+        applyDeckCloudPayload(data);
+        writeDeckPersistMeta({
+          cloudLastUpdated: data.lastUpdated || 0,
+          lastSyncedAt: Date.now(),
+          lastModified: readDeckPersistMeta().lastModified || Date.now(),
+        });
+        return true;
       }
 
       function queueDeckCloudSync() {
@@ -2365,10 +2442,35 @@
         return syncDeckToCloud();
       }
 
-      async function syncDeckToCloud() {
+      function flushDeckCloudSyncKeepalive() {
         if (!cloudSyncEnabled || suppressCloudSync) return;
         const sessionId = localStorage.getItem('ahrenslabs_sessionId');
         if (!sessionId) return;
+        if (cloudSyncTimer) {
+          clearTimeout(cloudSyncTimer);
+          cloudSyncTimer = null;
+        }
+        try {
+          fetch(deckApiBase() + '/api/deck/sync', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: 'Bearer ' + sessionId,
+              'X-Deck-Sync-Client': deckSyncClientId,
+            },
+            body: JSON.stringify(buildDeckCloudPayload()),
+            keepalive: true,
+          });
+          markDeckSyncedLocally(readDeckPersistMeta().cloudLastUpdated || 0);
+        } catch (error) {
+          console.error('Failed to queue deck sync on exit:', error);
+        }
+      }
+
+      async function syncDeckToCloud() {
+        if (!cloudSyncEnabled || suppressCloudSync) return false;
+        const sessionId = localStorage.getItem('ahrenslabs_sessionId');
+        if (!sessionId) return false;
         try {
           const response = await fetch(deckApiBase() + '/api/deck/sync', {
             method: 'POST',
@@ -2383,9 +2485,12 @@
             const data = await response.json().catch(() => ({}));
             throw new Error(data.error || 'Sync failed');
           }
+          markDeckSyncedLocally(Date.now());
           await updateDeckSyncFingerprint();
+          return true;
         } catch (error) {
           console.error('Failed to sync deck data to cloud:', error);
+          return false;
         }
       }
 
@@ -2418,6 +2523,10 @@
         const delay = sharedUpdate ? 0 : 60;
         deckSyncRefreshTimer = setTimeout(async () => {
           if (!evt || evt.sourceClientId === deckSyncClientId) return;
+          if (deckHasPendingCloudSync()) {
+            await syncDeckToCloud();
+            return;
+          }
           await refreshDeckFromCloud();
         }, delay);
       }
@@ -2440,8 +2549,9 @@
           const next = data.fingerprint || '';
           if (deckSyncFingerprint && next && next !== deckSyncFingerprint) {
             const recentLocalEdit = (Date.now() - deckLastLocalMutationAt) < DECK_LOCAL_EDIT_GRACE_MS;
-            if (recentLocalEdit && !deckHasSharedItems()) {
+            if ((recentLocalEdit || deckHasPendingCloudSync()) && !deckHasSharedItems()) {
               deckSyncFingerprint = next;
+              if (deckHasPendingCloudSync()) await syncDeckToCloud();
               return;
             }
             await refreshDeckFromCloud();
@@ -2494,7 +2604,11 @@
 
       function handleDeckPause() {
         clearTimeout(deckResumeTimer);
-        flushDeckCloudSync();
+        if (deckHasPendingCloudSync()) {
+          flushDeckCloudSyncKeepalive();
+        } else {
+          flushDeckCloudSync();
+        }
         stopDeckSyncPoll();
         disconnectDeckSync();
       }
@@ -2503,16 +2617,16 @@
         clearTimeout(deckResumeTimer);
         deckResumeTimer = setTimeout(async () => {
           if (!deckBootComplete || document.hidden) return;
+          if (cloudSyncTimer) {
+            clearTimeout(cloudSyncTimer);
+            cloudSyncTimer = null;
+          }
+          if (deckHasPendingCloudSync()) {
+            await syncDeckToCloud();
+          }
           ensureDeckSyncConnected();
           startDeckSyncPoll({ immediate: true });
-          const sessionId = localStorage.getItem('ahrenslabs_sessionId');
-          if (sessionId && cloudSyncEnabled) {
-            if (cloudSyncTimer) {
-              clearTimeout(cloudSyncTimer);
-              cloudSyncTimer = null;
-            }
-            await refreshDeckFromCloud();
-          } else {
+          if (!deckHasPendingCloudSync()) {
             await pollDeckSyncVersion();
           }
         }, 50);
@@ -2560,22 +2674,45 @@
 
       async function bootDeck() {
         const guestBackup = readGuestDeckBackup();
-        state = load();
+        const localState = load();
+        state = localState;
         activeDeckId = state.decks[0] ? state.decks[0].id : null;
-        persistDeckLocally();
 
         const sessionId = localStorage.getItem('ahrenslabs_sessionId');
         if (sessionId) {
-          const hadCloud = await loadDeckFromCloud();
-          if (!hadCloud && guestBackup.decks.length) {
+          const cloudData = await fetchDeckCloudPayload();
+          if (!cloudData && guestBackup.decks.length) {
             state = guestBackup;
             activeDeckId = state.decks[0] ? state.decks[0].id : null;
             persistDeckLocally();
+            cloudSyncEnabled = true;
             await syncDeckToCloud();
+          } else if (cloudData) {
+            const cloudHasDecks = (cloudData.decks || []).length > 0;
+            const localHasDecks = (localState.decks || []).length > 0;
+            if (localHasDecks && localDeckStateIsNewerThanCloud(localState.decks, cloudData)) {
+              persistDeckLocally();
+              cloudSyncEnabled = true;
+              await syncDeckToCloud();
+            } else if (cloudHasDecks || !localHasDecks) {
+              applyDeckCloudPayload(cloudData);
+              writeDeckPersistMeta({
+                cloudLastUpdated: cloudData.lastUpdated || 0,
+                lastSyncedAt: Date.now(),
+                lastModified: readDeckPersistMeta().lastModified || Date.now(),
+              });
+              persistDeckLocally();
+            } else {
+              persistDeckLocally();
+              cloudSyncEnabled = true;
+              await syncDeckToCloud();
+            }
           } else {
             persistDeckLocally();
           }
           await updateDeckSyncFingerprint();
+        } else {
+          persistDeckLocally();
         }
 
         cloudSyncEnabled = true;
@@ -5363,7 +5500,10 @@
 
       window.addEventListener('popstate', () => applyRouteFromUrl(false));
       window.addEventListener('hashchange', () => applyRouteFromUrl(false));
-      window.addEventListener('beforeunload', () => { flushDeckCloudSync(); });
+      window.addEventListener('beforeunload', () => {
+        if (deckHasPendingCloudSync()) flushDeckCloudSyncKeepalive();
+        else flushDeckCloudSync();
+      });
       document.addEventListener('visibilitychange', () => {
         if (document.hidden) handleDeckPause();
         else handleDeckResume();
