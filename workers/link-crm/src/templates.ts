@@ -3659,13 +3659,10 @@ function getCalendarHtml(year: number, month: number, interactionsByDate: Map<st
         ${interactions.length > 0 ? `
           <div style="flex: 1; display: flex; flex-direction: column; gap: 2px; overflow: hidden; min-height: 0;">
             ${interactions.slice(0, 3).map(i => {
-              const escapedNotes = (i.notes || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n').replace(/\r/g, '');
-              const escapedLocation = (i.location || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n').replace(/\r/g, '');
-              const escapedPhotoUrl = (i.contact_photo_url || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
               const displayNameFull = i.contact_name;
               const displayNameAbbr = abbreviateName(i.contact_name);
               return `
-              <div draggable="true" ondragstart="onInteractionDragStart(event, '${i.id}')" onclick="openInteractionModal('${i.id}', '${i.contact_id}', '${i.contact_name.replace(/'/g, "\\'").replace(/"/g, '&quot;')}', '${i.type}', ${i.date}, '${escapedNotes}', '${escapedLocation}', '${escapedPhotoUrl}')" style="font-size: 0.625rem; background: #16a34a; color: white; padding: 4px 6px; border-radius: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; line-height: 1.2; min-height: 20px;" title="${i.contact_name} - ${i.type}">
+              <div draggable="true" ondragstart="onInteractionDragStart(event, '${i.id}')" onclick="openInteractionModal('${i.id}')" style="font-size: 0.625rem; background: #16a34a; color: white; padding: 4px 6px; border-radius: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; line-height: 1.2; min-height: 20px;" title="${escapeHtml(i.contact_name)} - ${escapeHtml(i.type)}">
                 <span class="contact-name-full">${escapeHtml(displayNameFull)}</span><span class="contact-name-abbr">${escapeHtml(displayNameAbbr)}</span>
               </div>
             `}).join('')}
@@ -3755,14 +3752,25 @@ function getCalendarHtml(year: number, month: number, interactionsByDate: Map<st
 }
 
 export function interactionsPage(user: any, recentInteractions: any[], searchQuery: string = '', typeFilter: string = '', hasGoogleAccount: boolean = false, view: string = 'calendar', year?: number, month?: number): string {
+  const interactionModalData = Object.fromEntries(
+    recentInteractions.map((i) => [
+      i.id,
+      {
+        contactId: i.contact_id,
+        contactName: i.contact_name || 'Unknown',
+        contactPhotoUrl: i.contact_photo_url || null,
+        type: i.type || 'meeting',
+        date: i.date,
+        notes: i.notes || '',
+        location: i.location || '',
+      },
+    ]),
+  )
+
   const recentInteractionsList = recentInteractions.map(i => {
     const date = new Date(i.date);
-    const escapedNotes = (i.notes || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n').replace(/\r/g, '');
-    const escapedName = (i.contact_name || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
-    const escapedPhotoUrl = (i.contact_photo_url || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
-    const escapedLocation = (i.location || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n').replace(/\r/g, '');
     return `
-      <div class="card" onclick="openInteractionModal('${i.id}', '${i.contact_id}', '${escapedName}', '${i.type}', ${i.date}, '${escapedNotes}', '${escapedLocation}', '${escapedPhotoUrl}')" style="padding: 0.75rem; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">
+      <div class="card" onclick="openInteractionModal('${i.id}')" style="padding: 0.75rem; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">
         <div class="flex-between" style="margin-bottom: 0.25rem;">
           <div style="display: flex; gap: 0.75rem; align-items: center;">
             ${contactAvatarHtml(i.contact_name || 'Unknown', i.contact_photo_url, 28)}
@@ -3852,7 +3860,7 @@ export function interactionsPage(user: any, recentInteractions: any[], searchQue
     <!-- Interaction Modal -->
     <div id="interactionModal" class="modal">
       <div class="modal-content">
-        <h3 style="margin-bottom: 1.5rem;">Edit Interaction</h3>
+        <h2 style="margin-bottom: 1.5rem;">Edit Interaction</h2>
         <form id="interactionForm">
           <input type="hidden" id="modalInteractionId">
           <input type="hidden" id="modalContactId">
@@ -3895,6 +3903,14 @@ export function interactionsPage(user: any, recentInteractions: any[], searchQue
     </div>
     
     <script>
+      const interactionModalData = ${JSON.stringify(interactionModalData)};
+
+      function renderModalContactFallback(avatarEl, displayName, size) {
+        const px = size + 'px';
+        const initial = displayName.charAt(0).toUpperCase();
+        avatarEl.innerHTML = '<div style="width: ' + px + '; height: ' + px + '; border-radius: 9999px; background: #16a34a; color: white; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 600; flex-shrink: 0;">' + initial + '</div>';
+      }
+
       function setModalContactDisplay(name, photoUrl) {
         const avatarEl = document.getElementById('modalContactAvatar');
         const nameEl = document.getElementById('modalContactName');
@@ -3902,30 +3918,44 @@ export function interactionsPage(user: any, recentInteractions: any[], searchQue
         nameEl.textContent = displayName;
         const size = 40;
         const px = size + 'px';
+        avatarEl.innerHTML = '';
         if (photoUrl) {
-          avatarEl.innerHTML = '<img src="' + String(photoUrl).replace(/"/g, '&quot;') + '" alt="" style="width: ' + px + '; height: ' + px + '; object-fit: cover; border-radius: 9999px; border: 1px solid #e5e7eb; flex-shrink: 0;">';
+          const img = document.createElement('img');
+          img.src = photoUrl;
+          img.alt = '';
+          img.style.width = px;
+          img.style.height = px;
+          img.style.objectFit = 'cover';
+          img.style.borderRadius = '9999px';
+          img.style.border = '1px solid #e5e7eb';
+          img.style.flexShrink = '0';
+          img.onerror = function() {
+            renderModalContactFallback(avatarEl, displayName, size);
+          };
+          avatarEl.appendChild(img);
         } else {
-          const initial = displayName.charAt(0).toUpperCase();
-          avatarEl.innerHTML = '<div style="width: ' + px + '; height: ' + px + '; border-radius: 9999px; background: #16a34a; color: white; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 600; flex-shrink: 0;">' + initial + '</div>';
+          renderModalContactFallback(avatarEl, displayName, size);
         }
       }
 
-      function openInteractionModal(id, contactId, contactName, type, date, notes, location, contactPhotoUrl) {
+      function openInteractionModal(id) {
+        const data = interactionModalData[id];
+        if (!data) return;
+
         document.getElementById('modalInteractionId').value = id;
-        document.getElementById('modalContactId').value = contactId;
-        setModalContactDisplay(contactName, contactPhotoUrl || '');
-        document.getElementById('modalType').value = (type || 'meeting').toLowerCase();
+        document.getElementById('modalContactId').value = data.contactId;
+        setModalContactDisplay(data.contactName, data.contactPhotoUrl || '');
+        document.getElementById('modalType').value = (data.type || 'meeting').toLowerCase();
         
         // Convert timestamp to date string (UTC to avoid timezone issues)
-        const dateObj = new Date(date);
+        const dateObj = new Date(data.date);
         const year = dateObj.getUTCFullYear();
         const month = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
         const day = String(dateObj.getUTCDate()).padStart(2, '0');
         document.getElementById('modalDate').value = year + '-' + month + '-' + day;
         
-        // The notes are already properly escaped, just set them
-        document.getElementById('modalNotes').value = notes;
-        document.getElementById('modalLocation').value = location || '';
+        document.getElementById('modalNotes').value = data.notes || '';
+        document.getElementById('modalLocation').value = data.location || '';
         
         document.getElementById('interactionModal').classList.add('active');
       }
