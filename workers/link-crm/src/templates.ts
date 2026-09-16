@@ -19,6 +19,12 @@ function escapeHtml(text: string): string {
     .replace(/'/g, '&#039;')
 }
 
+function interactionEditHref(id: string, returnPath?: string | null): string {
+  const base = `/interactions/${id}/edit`
+  if (!returnPath) return base
+  return `${base}?return=${encodeURIComponent(returnPath)}`
+}
+
 function contactAvatarHtml(name: string, photoUrl?: string | null, size = 32): string {
   const px = `${size}px`
   if (photoUrl) {
@@ -2254,7 +2260,7 @@ export function dashboardPage(user: any, hasGoogleAccount: boolean = false, rece
   const recentInteractionsList = recentInteractions.map(i => {
     const date = new Date(i.date)
     return `
-      <a href="/interactions/${i.id}/edit" class="card" style="display: block; padding: 0.75rem; color: inherit; text-decoration: none; transition: background 0.2s;" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">
+      <a href="${interactionEditHref(i.id, '/dashboard')}" class="card" style="display: block; padding: 0.75rem; color: inherit; text-decoration: none; transition: background 0.2s;" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">
         <div class="flex-between" style="margin-bottom: 0.25rem;">
           <span style="display: flex; gap: 0.5rem; align-items: center; font-size: 0.875rem; color: #16a34a;">
             ${contactAvatarHtml(i.contact_name || 'Unknown', i.contact_photo_url, 28)}
@@ -2965,12 +2971,20 @@ export function editContactPage(contact: any): string {
   `);
 }
 
-export function editInteractionPage(contact: any, interaction: any, allContacts: any[]): string {
+export function editInteractionPage(contact: any, interaction: any, allContacts: any[], returnTo: string | null = null): string {
+  const backHref = returnTo || `/contacts/${contact.id}`
+  const backLabel = returnTo?.includes('/interactions')
+    ? '← Back to Interactions'
+    : returnTo === '/dashboard'
+      ? '← Back to Home'
+      : `← Back to ${contact.name}`
+  const afterSaveHref = returnTo || `/contacts/${contact.id}`
+
   return layout('Edit Interaction', `
     ${linkAppHeader()}
     <div class="container" style="max-width: 600px; margin-top: 2rem;">
       <div style="margin-bottom: 1rem;">
-        <a href="/contacts/${contact.id}" style="color: #6b7280;">← Back to ${contact.name}</a>
+        <a href="${escapeHtml(backHref)}" style="color: #6b7280;">${escapeHtml(backLabel)}</a>
       </div>
       
       <div class="card">
@@ -3021,7 +3035,7 @@ export function editInteractionPage(contact: any, interaction: any, allContacts:
           
           <div class="flex" style="gap: 1rem; margin-top: 1.5rem;">
             <button type="submit" class="btn btn-primary">Save Changes</button>
-            <a href="/contacts/${contact.id}" class="btn btn-secondary">Cancel</a>
+            <a href="${escapeHtml(backHref)}" class="btn btn-secondary">Cancel</a>
             <button type="button" onclick="deleteInteraction()" class="btn btn-danger" style="margin-left: auto;">Delete Interaction</button>
           </div>
         </form>
@@ -3029,6 +3043,8 @@ export function editInteractionPage(contact: any, interaction: any, allContacts:
     </div>
     
     <script>
+      const afterSaveHref = ${JSON.stringify(afterSaveHref)};
+
       document.getElementById('interactionForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const formData = new FormData(e.target);
@@ -3052,8 +3068,7 @@ export function editInteractionPage(contact: any, interaction: any, allContacts:
           });
           
           if (response.ok) {
-            const newContactId = formData.get('contactId');
-            window.location.href = '/contacts/' + newContactId;
+            window.location.href = afterSaveHref;
           } else {
             alert('Error updating interaction');
           }
@@ -3073,7 +3088,7 @@ export function editInteractionPage(contact: any, interaction: any, allContacts:
           });
           
           if (response.ok) {
-            window.location.href = '/contacts/${contact.id}';
+            window.location.href = afterSaveHref;
           } else {
             alert('Error deleting interaction');
           }
@@ -3611,7 +3626,7 @@ function getRemindersCalendarHtml(year: number, month: number, remindersByDate: 
   return calendarHtml;
 }
 
-function getCalendarHtml(year: number, month: number, interactionsByDate: Map<string, any[]>): string {
+function getCalendarHtml(year: number, month: number, interactionsByDate: Map<string, any[]>, editReturnPath: string): string {
   const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
   const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const daysAbbr = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -3662,9 +3677,9 @@ function getCalendarHtml(year: number, month: number, interactionsByDate: Map<st
               const displayNameFull = i.contact_name;
               const displayNameAbbr = abbreviateName(i.contact_name);
               return `
-              <div draggable="true" ondragstart="onInteractionDragStart(event, '${i.id}')" onclick="openInteractionModal('${i.id}')" style="font-size: 0.625rem; background: #16a34a; color: white; padding: 4px 6px; border-radius: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; line-height: 1.2; min-height: 20px;" title="${escapeHtml(i.contact_name)} - ${escapeHtml(i.type)}">
+              <a href="${interactionEditHref(i.id, editReturnPath)}" draggable="true" ondragstart="onInteractionDragStart(event, '${i.id}')" style="font-size: 0.625rem; background: #16a34a; color: white; padding: 4px 6px; border-radius: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; line-height: 1.2; min-height: 20px; text-decoration: none; display: block;" title="${escapeHtml(i.contact_name)} - ${escapeHtml(i.type)}">
                 <span class="contact-name-full">${escapeHtml(displayNameFull)}</span><span class="contact-name-abbr">${escapeHtml(displayNameAbbr)}</span>
-              </div>
+              </a>
             `}).join('')}
             ${interactions.length > 3 ? `<div style="font-size: 0.625rem; color: #6b7280;">+${interactions.length - 3} more</div>` : ''}
           </div>
@@ -3752,35 +3767,22 @@ function getCalendarHtml(year: number, month: number, interactionsByDate: Map<st
 }
 
 export function interactionsPage(user: any, recentInteractions: any[], searchQuery: string = '', typeFilter: string = '', hasGoogleAccount: boolean = false, view: string = 'calendar', year?: number, month?: number): string {
-  const interactionModalData = Object.fromEntries(
-    recentInteractions.map((i) => [
-      i.id,
-      {
-        contactId: i.contact_id,
-        contactName: i.contact_name || 'Unknown',
-        contactPhotoUrl: i.contact_photo_url || null,
-        type: i.type || 'meeting',
-        date: i.date,
-        notes: i.notes || '',
-        location: i.location || '',
-      },
-    ]),
-  )
+  const listReturnPath = `/interactions?view=list${searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : ''}${typeFilter ? `&type=${encodeURIComponent(typeFilter)}` : ''}`
 
   const recentInteractionsList = recentInteractions.map(i => {
     const date = new Date(i.date);
     return `
-      <div class="card" onclick="openInteractionModal('${i.id}')" style="padding: 0.75rem; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">
+      <a href="${interactionEditHref(i.id, listReturnPath)}" class="card" style="display: block; padding: 0.75rem; color: inherit; text-decoration: none; transition: background 0.2s;" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">
         <div class="flex-between" style="margin-bottom: 0.25rem;">
           <div style="display: flex; gap: 0.75rem; align-items: center;">
             ${contactAvatarHtml(i.contact_name || 'Unknown', i.contact_photo_url, 28)}
-            <a href="/contacts/${i.contact_id}" onclick="event.stopPropagation()" style="font-size: 0.875rem;">${escapeHtml(i.contact_name || 'Unknown')}</a>
+            <span style="font-size: 0.875rem; color: #16a34a;">${escapeHtml(i.contact_name || 'Unknown')}</span>
           </div>
           <span class="text-sm text-gray">${date.toLocaleDateString()}</span>
         </div>
-        <div style="font-size: 0.875rem; color: #6b7280; white-space: pre-wrap;">${i.notes || ''}</div>
-        ${i.location ? `<div style="font-size: 0.75rem; color: #9ca3af; margin-top: 0.25rem;">📍 ${i.location}</div>` : ''}
-      </div>
+        <div style="font-size: 0.875rem; color: #6b7280; white-space: pre-wrap;">${escapeHtml(i.notes || '')}</div>
+        ${i.location ? `<div style="font-size: 0.75rem; color: #9ca3af; margin-top: 0.25rem;">📍 ${escapeHtml(i.location)}</div>` : ''}
+      </a>
     `;
   }).join('')
   
@@ -3802,7 +3804,8 @@ export function interactionsPage(user: any, recentInteractions: any[], searchQue
       interactionsByDate.get(dateStr)!.push(i);
     });
     
-    calendarHtml = getCalendarHtml(displayYear, displayMonth, interactionsByDate);
+    const calendarReturnPath = `/interactions?view=calendar&year=${displayYear}&month=${displayMonth}`;
+    calendarHtml = getCalendarHtml(displayYear, displayMonth, interactionsByDate, calendarReturnPath);
   }
 
   return layout('Interactions', `
@@ -3856,177 +3859,6 @@ export function interactionsPage(user: any, recentInteractions: any[], searchQue
       
       ${getFooterLinks()}
     </div>
-    
-    <!-- Interaction Modal -->
-    <div id="interactionModal" class="modal">
-      <div class="modal-content">
-        <h2 style="margin-bottom: 1.5rem;">Edit Interaction</h2>
-        <form id="interactionForm">
-          <input type="hidden" id="modalInteractionId">
-          <input type="hidden" id="modalContactId">
-          
-          <div class="form-group">
-            <label class="form-label">Contact</label>
-            <div style="display: flex; gap: 0.75rem; align-items: center; margin-bottom: 0.5rem;">
-              <div id="modalContactAvatar"></div>
-              <div>
-                <div id="modalContactName" style="font-weight: 600;"></div>
-                <div class="text-sm text-gray">Selected contact</div>
-              </div>
-            </div>
-          </div>
-          
-          <input type="hidden" name="type" id="modalType" value="meeting">
-          
-          <div class="form-group">
-            <label class="form-label">Date</label>
-            <input type="date" name="date" id="modalDate" class="form-input" required>
-          </div>
-          
-          <div class="form-group">
-            <label class="form-label">Notes</label>
-            <textarea name="notes" id="modalNotes" class="form-textarea" required></textarea>
-          </div>
-          
-          <div class="form-group">
-            <label class="form-label">Location (optional)</label>
-            <input type="text" name="location" id="modalLocation" class="form-input" placeholder="e.g., Coffee shop, Office, Zoom">
-          </div>
-          
-          <div style="display: flex; gap: 0.5rem; margin-top: 1.5rem;">
-            <button type="submit" class="btn btn-primary">Save Changes</button>
-            <button type="button" onclick="closeInteractionModal()" class="btn btn-secondary">Cancel</button>
-            <button type="button" onclick="deleteInteraction()" class="btn btn-danger" style="margin-left: auto;">Delete</button>
-          </div>
-        </form>
-      </div>
-    </div>
-    
-    <script>
-      const interactionModalData = ${JSON.stringify(interactionModalData)};
-
-      function renderModalContactFallback(avatarEl, displayName, size) {
-        const px = size + 'px';
-        const initial = displayName.charAt(0).toUpperCase();
-        avatarEl.innerHTML = '<div style="width: ' + px + '; height: ' + px + '; border-radius: 9999px; background: #16a34a; color: white; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 600; flex-shrink: 0;">' + initial + '</div>';
-      }
-
-      function setModalContactDisplay(name, photoUrl) {
-        const avatarEl = document.getElementById('modalContactAvatar');
-        const nameEl = document.getElementById('modalContactName');
-        const displayName = name || 'Unknown';
-        nameEl.textContent = displayName;
-        const size = 40;
-        const px = size + 'px';
-        avatarEl.innerHTML = '';
-        if (photoUrl) {
-          const img = document.createElement('img');
-          img.src = photoUrl;
-          img.alt = '';
-          img.style.width = px;
-          img.style.height = px;
-          img.style.objectFit = 'cover';
-          img.style.borderRadius = '9999px';
-          img.style.border = '1px solid #e5e7eb';
-          img.style.flexShrink = '0';
-          img.onerror = function() {
-            renderModalContactFallback(avatarEl, displayName, size);
-          };
-          avatarEl.appendChild(img);
-        } else {
-          renderModalContactFallback(avatarEl, displayName, size);
-        }
-      }
-
-      function openInteractionModal(id) {
-        const data = interactionModalData[id];
-        if (!data) return;
-
-        document.getElementById('modalInteractionId').value = id;
-        document.getElementById('modalContactId').value = data.contactId;
-        setModalContactDisplay(data.contactName, data.contactPhotoUrl || '');
-        document.getElementById('modalType').value = (data.type || 'meeting').toLowerCase();
-        
-        // Convert timestamp to date string (UTC to avoid timezone issues)
-        const dateObj = new Date(data.date);
-        const year = dateObj.getUTCFullYear();
-        const month = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
-        const day = String(dateObj.getUTCDate()).padStart(2, '0');
-        document.getElementById('modalDate').value = year + '-' + month + '-' + day;
-        
-        document.getElementById('modalNotes').value = data.notes || '';
-        document.getElementById('modalLocation').value = data.location || '';
-        
-        document.getElementById('interactionModal').classList.add('active');
-      }
-      
-      function closeInteractionModal() {
-        document.getElementById('interactionModal').classList.remove('active');
-      }
-      
-      // Close modal when clicking outside
-      document.getElementById('interactionModal').addEventListener('click', (e) => {
-        if (e.target.id === 'interactionModal') {
-          closeInteractionModal();
-        }
-      });
-      
-      // Handle form submission
-      document.getElementById('interactionForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const formData = new FormData(e.target);
-        const id = document.getElementById('modalInteractionId').value;
-        // Parse date as UTC to avoid timezone shifts
-        const dateStr = formData.get('date');
-        const [year, month, day] = dateStr.split('-').map(Number);
-        const dateTimestamp = Date.UTC(year, month - 1, day);
-        const data = {
-          contactId: document.getElementById('modalContactId').value,
-          type: formData.get('type'),
-          date: dateTimestamp,
-          notes: formData.get('notes'),
-          location: formData.get('location') || null
-        };
-        
-        try {
-          const response = await fetch('/api/interactions/' + id, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-          });
-          
-          if (response.ok) {
-            window.location.reload();
-          } else {
-            alert('Error updating interaction');
-          }
-        } catch (error) {
-          alert('Error updating interaction');
-        }
-      });
-      
-      async function deleteInteraction() {
-        if (!confirm('Are you sure you want to delete this interaction?')) {
-          return;
-        }
-        
-        const id = document.getElementById('modalInteractionId').value;
-        
-        try {
-          const response = await fetch('/api/interactions/' + id, {
-            method: 'DELETE'
-          });
-          
-          if (response.ok) {
-            window.location.reload();
-          } else {
-            alert('Error deleting interaction');
-          }
-        } catch (error) {
-          alert('Error deleting interaction');
-        }
-      }
-    </script>
     
     ${getBottomNav('interactions')}
     ${getQuickAddModal()}

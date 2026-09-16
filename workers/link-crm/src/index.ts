@@ -35,6 +35,13 @@ function attachContactPhotoMeta(contact: any, contactId: string) {
   return contact
 }
 
+function sanitizeReturnPath(path: unknown): string | null {
+  if (typeof path !== 'string' || !path.startsWith('/') || path.startsWith('//')) {
+    return null
+  }
+  return path
+}
+
 function parseContactTags(raw: unknown): string[] {
   if (!raw || typeof raw !== 'string') return []
   try {
@@ -2282,13 +2289,15 @@ app.get('/interactions/:id/edit', requireAuth, async (c) => {
     })
   )
   
+  const returnTo = sanitizeReturnPath(c.req.query('return'))
+
   return serveLinkHtml(c, editInteractionPage(contact, {
     id: result.id,
     type: result.type,
     notes: result.notes,
     location: result.location,
     date: result.date
-  }, allContacts))
+  }, allContacts, returnTo))
 })
 
 // API: Update interaction
