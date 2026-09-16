@@ -1484,7 +1484,7 @@
       const DECK_SYNC_POLL_MS = 45000;
       const DECK_SYNC_POLL_SHARED_MS = 30000;
       const DECK_SYNC_PING_MS = 45000;
-      const DECK_LOCAL_EDIT_GRACE_MS = 1500;
+      const DECK_LOCAL_EDIT_GRACE_MS = 8000;
 
       let cloudSyncEnabled = false;
       let suppressCloudSync = false;
@@ -1498,7 +1498,26 @@
       let deckSyncRefreshing = false;
       let deckResumeTimer = null;
       let deckBootComplete = false;
+      let deckBootStartedAt = 0;
       let deckLastLocalMutationAt = 0;
+
+      function deckUserIsEditing() {
+        if (deckTitleEditing) return true;
+        if (currentView !== 'card') return false;
+        const active = document.activeElement;
+        if (!active || !active.closest) return false;
+        return !!active.closest('#view-card') && (
+          active.matches('input, textarea, [contenteditable="true"]')
+          || !!active.closest('.dk-linked-edit, .dk-check-text, .dk-check-add, .dk-section-title, .dk-section-body')
+        );
+      }
+
+      function deckShouldDeferCloudRefresh() {
+        if (deckHasPendingCloudSync()) return true;
+        if ((Date.now() - deckLastLocalMutationAt) < DECK_LOCAL_EDIT_GRACE_MS) return true;
+        if (deckUserIsEditing()) return true;
+        return false;
+      }
 
       function uidId() {
         return 'd' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
@@ -2496,6 +2515,10 @@
 
       async function refreshDeckFromCloud() {
         if (deckSyncRefreshing) return;
+        if (deckShouldDeferCloudRefresh()) {
+          if (deckHasPendingCloudSync()) await syncDeckToCloud();
+          return;
+        }
         deckSyncRefreshing = true;
         try {
           const loaded = await loadDeckFromCloud();
@@ -2523,8 +2546,8 @@
         const delay = sharedUpdate ? 0 : 60;
         deckSyncRefreshTimer = setTimeout(async () => {
           if (!evt || evt.sourceClientId === deckSyncClientId) return;
-          if (deckHasPendingCloudSync()) {
-            await syncDeckToCloud();
+          if (deckShouldDeferCloudRefresh()) {
+            if (deckHasPendingCloudSync()) await syncDeckToCloud();
             return;
           }
           await refreshDeckFromCloud();
@@ -2548,9 +2571,7 @@
           const data = await response.json();
           const next = data.fingerprint || '';
           if (deckSyncFingerprint && next && next !== deckSyncFingerprint) {
-            const recentLocalEdit = (Date.now() - deckLastLocalMutationAt) < DECK_LOCAL_EDIT_GRACE_MS;
-            if ((recentLocalEdit || deckHasPendingCloudSync()) && !deckHasSharedItems()) {
-              deckSyncFingerprint = next;
+            if (deckShouldDeferCloudRefresh()) {
               if (deckHasPendingCloudSync()) await syncDeckToCloud();
               return;
             }
@@ -2678,11 +2699,22 @@
         });
       }
 
-      async function reconcileDeckWithCloud(guestBackup, localState) {
+      async function reconcileDeckWithCloud(guestBackup) {
         const sessionId = localStorage.getItem('ahrenslabs_sessionId');
         if (!sessionId) return false;
 
         const cloudData = await fetchDeckCloudPayload();
+        const localDecks = state.decks || [];
+        const localHasDecks = localDecks.length > 0;
+        const editedSinceBoot = deckLastLocalMutationAt > deckBootStartedAt;
+
+        if (editedSinceBoot && localHasDecks) {
+          persistDeckLocally();
+          cloudSyncEnabled = true;
+          await syncDeckToCloud();
+          return false;
+        }
+
         if (!cloudData && guestBackup.decks.length) {
           state = guestBackup;
           activeDeckId = state.decks[0] ? state.decks[0].id : null;
@@ -2697,14 +2729,19 @@
         }
 
         const cloudHasDecks = (cloudData.decks || []).length > 0;
-        const localHasDecks = (localState.decks || []).length > 0;
-        if (localHasDecks && localDeckStateIsNewerThanCloud(localState.decks, cloudData)) {
+        if (localHasDecks && localDeckStateIsNewerThanCloud(localDecks, cloudData)) {
           persistDeckLocally();
           cloudSyncEnabled = true;
           await syncDeckToCloud();
           return false;
         }
         if (cloudHasDecks || !localHasDecks) {
+          if (deckUserIsEditing() || deckHasPendingCloudSync()) {
+            persistDeckLocally();
+            cloudSyncEnabled = true;
+            await syncDeckToCloud();
+            return false;
+          }
           applyDeckCloudPayload(cloudData);
           writeDeckPersistMeta({
             cloudLastUpdated: cloudData.lastUpdated || 0,
@@ -2721,11 +2758,11 @@
         return false;
       }
 
-      async function finishDeckBootSync(guestBackup, localState) {
+      async function finishDeckBootSync(guestBackup) {
         await waitForDeckFirstPaint();
         try {
-          const viewChanged = await reconcileDeckWithCloud(guestBackup, localState);
-          if (viewChanged) applyRouteFromUrl(true);
+          const viewChanged = await reconcileDeckWithCloud(guestBackup);
+          if (viewChanged && !deckShouldDeferCloudRefresh()) applyRouteFromUrl(true);
         } catch (error) {
           console.error('Failed to reconcile deck with cloud:', error);
         }
@@ -2735,6 +2772,7 @@
       }
 
       function bootDeck() {
+        deckBootStartedAt = Date.now();
         const guestBackup = readGuestDeckBackup();
         const localState = load();
         state = localState;
@@ -2745,7 +2783,7 @@
 
         const sessionId = localStorage.getItem('ahrenslabs_sessionId');
         if (sessionId) {
-          void finishDeckBootSync(guestBackup, localState);
+          void finishDeckBootSync(guestBackup);
         }
       }
 
