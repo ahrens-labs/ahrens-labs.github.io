@@ -1,0 +1,52 @@
+---
+description: Cross-app Ahrens Labs standards for Cloudflare request budget, load speed, and security
+alwaysApply: true
+---
+
+# Ahrens Labs — general rules & best practices
+
+Apply these to every Ahrens Labs app (site pages, Workers, Durable Objects, KV, and client JS).
+
+## 1) Minimize Cloudflare requests
+
+Worker invocations, Durable Object `fetch` calls, and KV ops share a tight budget. Prefer fewer, richer round-trips over many small ones.
+
+- **Batch reads/writes** in one DO request or Worker handler when possible (e.g. one `getData` that returns what the page needs, not N sequential DO calls).
+- **Avoid request fan-out** in loops: do not call a DO/KV once per item when you can list, page, or merge in one pass.
+- **Cache on the edge or client** for read-heavy, slowly changing data (catalogs, public prefs) with clear invalidation.
+- **Reuse session/auth resolution** within a single request; do not re-open Session + UserAccount DOs repeatedly for the same user.
+- **Paginate deliberately** for admin/bulk tools; keep page sizes reasonable and stop when the job is done.
+
+```js
+// ❌ BAD — one DO round-trip per account
+for (const id of ids) {
+  await env.USER_ACCOUNT.get(env.USER_ACCOUNT.idFromName(id)).fetch(...);
+}
+
+// ✅ GOOD — bounded parallel batches or a single list/aggregate path
+for (let i = 0; i < ids.length; i += BATCH) {
+  await Promise.all(ids.slice(i, i + BATCH).map(loadOne));
+}
+```
+
+## 2) Optimize page loading speed
+
+Users should see useful content quickly.
+
+- **Critical path first**: render shell + above-the-fold content before secondary fetches (stats, admin tables, previews).
+- **Defer non-critical work**: lazy-load heavy scripts, catalogs, and below-the-fold panels; avoid blocking the first paint.
+- **Parallelize independent fetches** (`Promise.all`) instead of awaiting sequentially when there is no dependency.
+- **Keep payloads small**: send only fields the UI needs; prefer summaries over full histories on list views.
+- **Avoid layout thrash / auth flash**: resolve session once and show stable UI (skeleton or hidden guest controls until ready).
+
+## 3) Security: encrypt data and protect credentials
+
+Treat credentials and personal data as sensitive end-to-end.
+
+- **Never store plaintext passwords**; use strong one-way hashing (existing account crypto). Never log passwords, tokens, or session IDs.
+- **Encrypt sensitive data at rest** when storing secrets, private profile fields, or tokens in DOs/KV beyond what hashing already covers; use TLS (HTTPS) for all client ↔ Worker traffic.
+- **Secrets only in Worker secrets / env**, never in client JS, git, or public pages.
+- **Authz on every sensitive API**: verify session and ownership (or admin gate) server-side; do not trust client-supplied user IDs alone.
+- **Minimize PII in logs and emails**; scrub tokens from URLs in analytics and error reports.
+
+When a change trades request count, load speed, or security against convenience, prefer **security first**, then **fewer Cloudflare requests**, then **perceived load speed**.
