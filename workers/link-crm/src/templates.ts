@@ -3661,10 +3661,11 @@ function getCalendarHtml(year: number, month: number, interactionsByDate: Map<st
             ${interactions.slice(0, 3).map(i => {
               const escapedNotes = (i.notes || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n').replace(/\r/g, '');
               const escapedLocation = (i.location || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n').replace(/\r/g, '');
+              const escapedPhotoUrl = (i.contact_photo_url || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
               const displayNameFull = i.contact_name;
               const displayNameAbbr = abbreviateName(i.contact_name);
               return `
-              <div draggable="true" ondragstart="onInteractionDragStart(event, '${i.id}')" onclick="openInteractionModal('${i.id}', '${i.contact_id}', '${i.contact_name.replace(/'/g, "\\'").replace(/"/g, '&quot;')}', '${i.type}', ${i.date}, '${escapedNotes}', '${escapedLocation}')" style="font-size: 0.625rem; background: #16a34a; color: white; padding: 4px 6px; border-radius: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; line-height: 1.2; min-height: 20px;" title="${i.contact_name} - ${i.type}">
+              <div draggable="true" ondragstart="onInteractionDragStart(event, '${i.id}')" onclick="openInteractionModal('${i.id}', '${i.contact_id}', '${i.contact_name.replace(/'/g, "\\'").replace(/"/g, '&quot;')}', '${i.type}', ${i.date}, '${escapedNotes}', '${escapedLocation}', '${escapedPhotoUrl}')" style="font-size: 0.625rem; background: #16a34a; color: white; padding: 4px 6px; border-radius: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; line-height: 1.2; min-height: 20px;" title="${i.contact_name} - ${i.type}">
                 <span class="contact-name-full">${escapeHtml(displayNameFull)}</span><span class="contact-name-abbr">${escapeHtml(displayNameAbbr)}</span>
               </div>
             `}).join('')}
@@ -3758,9 +3759,10 @@ export function interactionsPage(user: any, recentInteractions: any[], searchQue
     const date = new Date(i.date);
     const escapedNotes = (i.notes || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n').replace(/\r/g, '');
     const escapedName = (i.contact_name || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+    const escapedPhotoUrl = (i.contact_photo_url || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
     const escapedLocation = (i.location || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n').replace(/\r/g, '');
     return `
-      <div class="card" onclick="openInteractionModal('${i.id}', '${i.contact_id}', '${escapedName}', '${i.type}', ${i.date}, '${escapedNotes}', '${escapedLocation}')" style="padding: 0.75rem; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">
+      <div class="card" onclick="openInteractionModal('${i.id}', '${i.contact_id}', '${escapedName}', '${i.type}', ${i.date}, '${escapedNotes}', '${escapedLocation}', '${escapedPhotoUrl}')" style="padding: 0.75rem; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">
         <div class="flex-between" style="margin-bottom: 0.25rem;">
           <div style="display: flex; gap: 0.75rem; align-items: center;">
             ${contactAvatarHtml(i.contact_name || 'Unknown', i.contact_photo_url, 28)}
@@ -3857,7 +3859,13 @@ export function interactionsPage(user: any, recentInteractions: any[], searchQue
           
           <div class="form-group">
             <label class="form-label">Contact</label>
-            <div id="modalContactName" style="padding: 0.5rem; background: #f9fafb; border-radius: 0.375rem; font-weight: 500;"></div>
+            <div style="display: flex; gap: 0.75rem; align-items: center; margin-bottom: 0.5rem;">
+              <div id="modalContactAvatar"></div>
+              <div>
+                <div id="modalContactName" style="font-weight: 600;"></div>
+                <div class="text-sm text-gray">Selected contact</div>
+              </div>
+            </div>
           </div>
           
           <input type="hidden" name="type" id="modalType" value="meeting">
@@ -3887,10 +3895,25 @@ export function interactionsPage(user: any, recentInteractions: any[], searchQue
     </div>
     
     <script>
-      function openInteractionModal(id, contactId, contactName, type, date, notes, location) {
+      function setModalContactDisplay(name, photoUrl) {
+        const avatarEl = document.getElementById('modalContactAvatar');
+        const nameEl = document.getElementById('modalContactName');
+        const displayName = name || 'Unknown';
+        nameEl.textContent = displayName;
+        const size = 40;
+        const px = size + 'px';
+        if (photoUrl) {
+          avatarEl.innerHTML = '<img src="' + String(photoUrl).replace(/"/g, '&quot;') + '" alt="" style="width: ' + px + '; height: ' + px + '; object-fit: cover; border-radius: 9999px; border: 1px solid #e5e7eb; flex-shrink: 0;">';
+        } else {
+          const initial = displayName.charAt(0).toUpperCase();
+          avatarEl.innerHTML = '<div style="width: ' + px + '; height: ' + px + '; border-radius: 9999px; background: #16a34a; color: white; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 600; flex-shrink: 0;">' + initial + '</div>';
+        }
+      }
+
+      function openInteractionModal(id, contactId, contactName, type, date, notes, location, contactPhotoUrl) {
         document.getElementById('modalInteractionId').value = id;
         document.getElementById('modalContactId').value = contactId;
-        document.getElementById('modalContactName').textContent = contactName;
+        setModalContactDisplay(contactName, contactPhotoUrl || '');
         document.getElementById('modalType').value = (type || 'meeting').toLowerCase();
         
         // Convert timestamp to date string (UTC to avoid timezone issues)
