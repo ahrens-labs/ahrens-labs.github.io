@@ -731,7 +731,8 @@ app.get('/dashboard', requireAuth, async (c) => {
           const decryptedContact = await decryptContact(contactResult, c.env.ENCRYPTION_KEY)
           recentInteractions.push({
             ...interaction,
-            contact_name: decryptedContact.name
+            contact_name: decryptedContact.name,
+            contact_photo_url: contactPhotoUrl(interaction.contact_id, contactResult),
           })
         }
       }
@@ -750,7 +751,8 @@ app.get('/dashboard', requireAuth, async (c) => {
           ...contact,
           name: decrypted.name,
           email: decrypted.email,
-          company: decrypted.company
+          company: decrypted.company,
+          photoUrl: contactPhotoUrl(contact.id, contact),
         })
       }
     } catch (error) {
@@ -794,8 +796,10 @@ app.get('/people', requireAuth, async (c) => {
         const decrypted = await decryptContact(contact, c.env.ENCRYPTION_KEY)
         return {
           ...decrypted,
+          id: contact.id,
           tags: contact.tags ? JSON.parse(contact.tags) : [],
-          created_at: contact.created_at
+          created_at: contact.created_at,
+          photoUrl: contactPhotoUrl(contact.id, contact),
         }
       })
     )
@@ -900,7 +904,8 @@ app.get('/interactions', requireAuth, async (c) => {
         const decryptedContact = await decryptContact(contactResult, c.env.ENCRYPTION_KEY)
         recentInteractions.push({
           ...interaction,
-          contact_name: decryptedContact.name
+          contact_name: decryptedContact.name,
+          contact_photo_url: contactPhotoUrl(interaction.contact_id, contactResult),
         })
       }
     }
@@ -2257,7 +2262,10 @@ app.get('/interactions/:id/edit', requireAuth, async (c) => {
     'SELECT * FROM contacts WHERE id = ?'
   ).bind(result.contact_id).first()
   
-  const contact = await decryptContact(contactResult, c.env.ENCRYPTION_KEY)
+  const contact = attachContactPhotoMeta(
+    await decryptContact(contactResult, c.env.ENCRYPTION_KEY),
+    result.contact_id as string,
+  )
   
   // Get all user's contacts for the dropdown
   const allContactsResult = await c.env.DB.prepare(
@@ -2265,11 +2273,11 @@ app.get('/interactions/:id/edit', requireAuth, async (c) => {
   ).bind(user.id).all()
   
   const allContacts = await Promise.all(
-    (allContactsResult.results || []).map(async (contact: any) => {
-      const decrypted = await decryptContact(contact, c.env.ENCRYPTION_KEY)
+    (allContactsResult.results || []).map(async (contactRow: any) => {
+      const decrypted = await decryptContact(contactRow, c.env.ENCRYPTION_KEY)
       return {
-        id: contact.id,
-        name: decrypted.name
+        id: contactRow.id,
+        name: decrypted.name,
       }
     })
   )

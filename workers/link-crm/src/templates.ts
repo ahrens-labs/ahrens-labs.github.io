@@ -19,6 +19,16 @@ function escapeHtml(text: string): string {
     .replace(/'/g, '&#039;')
 }
 
+function contactAvatarHtml(name: string, photoUrl?: string | null, size = 32): string {
+  const px = `${size}px`
+  if (photoUrl) {
+    return `<img src="${escapeHtml(photoUrl)}" alt="" style="width: ${px}; height: ${px}; object-fit: cover; border-radius: 9999px; border: 1px solid #e5e7eb; flex-shrink: 0;">`
+  }
+  const initial = escapeHtml((name || '?').charAt(0).toUpperCase())
+  const fontSize = Math.max(11, Math.round(size * 0.4))
+  return `<div style="width: ${px}; height: ${px}; border-radius: 9999px; background: #16a34a; color: white; display: flex; align-items: center; justify-content: center; font-size: ${fontSize}px; font-weight: 600; flex-shrink: 0;">${initial}</div>`
+}
+
 function contactPhotoFieldsHtml(prefix: string, existingPhotoUrl?: string | null): string {
   const preview = existingPhotoUrl
     ? `<img id="${prefix}PhotoPreview" src="${escapeHtml(existingPhotoUrl)}" alt="" style="width: 80px; height: 80px; object-fit: cover; border-radius: 9999px; border: 2px solid #e5e7eb;">`
@@ -580,7 +590,7 @@ export function layout(title: string, content: string): string {
     .home-list-item {
       display: flex;
       justify-content: space-between;
-      align-items: flex-start;
+      align-items: center;
       gap: 0.75rem;
       padding: 0.75rem 1rem;
       background: white;
@@ -2246,7 +2256,10 @@ export function dashboardPage(user: any, hasGoogleAccount: boolean = false, rece
     return `
       <a href="/interactions/${i.id}/edit" class="card" style="display: block; padding: 0.75rem; color: inherit; text-decoration: none; transition: background 0.2s;" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">
         <div class="flex-between" style="margin-bottom: 0.25rem;">
-          <span style="font-size: 0.875rem; color: #16a34a;">${escapeHtml(i.contact_name || 'Unknown')}</span>
+          <span style="display: flex; gap: 0.5rem; align-items: center; font-size: 0.875rem; color: #16a34a;">
+            ${contactAvatarHtml(i.contact_name || 'Unknown', i.contact_photo_url, 28)}
+            ${escapeHtml(i.contact_name || 'Unknown')}
+          </span>
           <span class="text-sm text-gray">${date.toLocaleDateString()}</span>
         </div>
         <div style="font-size: 0.875rem; color: #6b7280; white-space: pre-wrap;">${escapeHtml(i.notes || '')}</div>
@@ -2260,6 +2273,7 @@ export function dashboardPage(user: any, hasGoogleAccount: boolean = false, rece
     const meta = [c.company, c.email].filter(Boolean).join(' · ')
     return `
       <a href="/contacts/${c.id}" class="home-list-item">
+        ${contactAvatarHtml(c.name || 'Unknown', c.photoUrl, 36)}
         <div class="home-list-main">
           <div class="home-list-title">${escapeHtml(c.name || 'Unknown')}</div>
           ${meta ? `<div class="home-list-meta">${escapeHtml(meta)}</div>` : ''}
@@ -2331,7 +2345,12 @@ export function peoplePage(user: any, contacts: any[], allTags: string[], search
       <td style="width: 2.5rem;">
         <input type="checkbox" class="contact-select" value="${c.id}" aria-label="Select ${String(c.name || '').replace(/"/g, '&quot;')}" style="cursor: pointer; width: 1rem; height: 1rem;">
       </td>
-      <td><a href="/contacts/${c.id}">${c.name}</a></td>
+      <td>
+        <a href="/contacts/${c.id}" style="display: flex; align-items: center; gap: 0.625rem;">
+          ${contactAvatarHtml(c.name || 'Unknown', c.photoUrl, 32)}
+          <span>${escapeHtml(c.name || 'Unknown')}</span>
+        </a>
+      </td>
       <td class="text-sm">${c.phone || '-'}</td>
       <td class="text-sm">${c.email || '-'}</td>
       <td class="text-sm">${c.tags ? c.tags.join(', ') : '-'}</td>
@@ -2959,9 +2978,16 @@ export function editInteractionPage(contact: any, interaction: any, allContacts:
         <form id="interactionForm">
           <div class="form-group">
             <label class="form-label">Contact</label>
+            <div style="display: flex; gap: 0.75rem; align-items: center; margin-bottom: 0.5rem;">
+              ${contactAvatarHtml(contact.name || 'Unknown', contact.photoUrl, 40)}
+              <div>
+                <div style="font-weight: 600;">${escapeHtml(contact.name || 'Unknown')}</div>
+                <div class="text-sm text-gray">Selected contact</div>
+              </div>
+            </div>
             <select name="contactId" class="form-select" required id="contactSelect">
               ${allContacts.map(c => `
-                <option value="${c.id}" ${c.id === contact.id ? 'selected' : ''}>${c.name}</option>
+                <option value="${c.id}" ${c.id === contact.id ? 'selected' : ''}>${escapeHtml(c.name || 'Unknown')}</option>
               `).join('')}
             </select>
             <p class="text-sm text-gray" style="margin-top: 0.25rem;">Change this if the interaction was added to the wrong contact</p>
@@ -3737,7 +3763,8 @@ export function interactionsPage(user: any, recentInteractions: any[], searchQue
       <div class="card" onclick="openInteractionModal('${i.id}', '${i.contact_id}', '${escapedName}', '${i.type}', ${i.date}, '${escapedNotes}', '${escapedLocation}')" style="padding: 0.75rem; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">
         <div class="flex-between" style="margin-bottom: 0.25rem;">
           <div style="display: flex; gap: 0.75rem; align-items: center;">
-            <a href="/contacts/${i.contact_id}" onclick="event.stopPropagation()" style="font-size: 0.875rem;">${i.contact_name}</a>
+            ${contactAvatarHtml(i.contact_name || 'Unknown', i.contact_photo_url, 28)}
+            <a href="/contacts/${i.contact_id}" onclick="event.stopPropagation()" style="font-size: 0.875rem;">${escapeHtml(i.contact_name || 'Unknown')}</a>
           </div>
           <span class="text-sm text-gray">${date.toLocaleDateString()}</span>
         </div>
