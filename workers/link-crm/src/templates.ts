@@ -3068,7 +3068,7 @@ export function editInteractionPage(contact: any, interaction: any, allContacts:
           });
           
           if (response.ok) {
-            window.location.href = afterSaveHref;
+            window.location.href = window.linkApi ? window.linkApi(afterSaveHref) : afterSaveHref;
           } else {
             alert('Error updating interaction');
           }
@@ -3088,7 +3088,7 @@ export function editInteractionPage(contact: any, interaction: any, allContacts:
           });
           
           if (response.ok) {
-            window.location.href = afterSaveHref;
+            window.location.href = window.linkApi ? window.linkApi(afterSaveHref) : afterSaveHref;
           } else {
             alert('Error deleting interaction');
           }
