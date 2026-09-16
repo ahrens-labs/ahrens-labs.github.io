@@ -36,6 +36,13 @@ import { handleDeckShareRequest, hydrateDeckDataForUser, processDeckSyncPayload,
 export { PlatterMenu } from './platter.js';
 export { DeckShare } from './deck.js';
 import { handleLinkRequest, handleLinkConsumeBridge, handleInternalUserProfile } from './link.js';
+import {
+  getAppDataKey,
+  encryptDeckBlob,
+  decryptDeckBlob,
+  encryptInboxTasks,
+  decryptInboxTasks,
+} from './app-data-crypto.js';
 
 /** Stored on `emailPreferences.digestTimeZone` for compatibility; digest send time uses UTC (see `getDigestSendUtcHM`). */
 const DEFAULT_DIGEST_TIMEZONE = 'Etc/UTC';
@@ -4688,7 +4695,9 @@ function adminAppUsageFields(row) {
   const appTetherProjectCount = Array.isArray(tether?.projectIds)
     ? tether.projectIds.filter((id) => String(id || '').trim()).length
     : 0;
-  const appTetherInboxCount = Array.isArray(tether?.inboxTasks) ? tether.inboxTasks.length : 0;
+  const appTetherInboxCount = Array.isArray(tether?.inboxTasks)
+    ? tether.inboxTasks.length
+    : Number(tether?.inboxTaskCount) || 0;
   const appTether = appTetherProjectCount > 0 || appTetherInboxCount > 0;
 
   const platter = row && typeof row.platter === 'object' ? row.platter : null;
@@ -4702,14 +4711,16 @@ function adminAppUsageFields(row) {
 
   const deck = games && typeof games.deck === 'object' ? games.deck : null;
   const deckList = Array.isArray(deck?.decks) ? deck.decks : [];
-  const appDeckCount = deckList.length;
-  let appDeckCardCount = 0;
-  for (const entry of deckList) {
-    if (!entry || typeof entry !== 'object') continue;
-    appDeckCardCount += Array.isArray(entry.cards) ? entry.cards.length : 0;
-    const stacks = Array.isArray(entry.stacks) ? entry.stacks : [];
-    for (const stack of stacks) {
-      appDeckCardCount += Array.isArray(stack?.cards) ? stack.cards.length : 0;
+  const appDeckCount = deck && deck._redacted ? Number(deck.deckCount) || 0 : deckList.length;
+  let appDeckCardCount = deck && deck._redacted ? Number(deck.cardCount) || 0 : 0;
+  if (!(deck && deck._redacted)) {
+    for (const entry of deckList) {
+      if (!entry || typeof entry !== 'object') continue;
+      appDeckCardCount += Array.isArray(entry.cards) ? entry.cards.length : 0;
+      const stacks = Array.isArray(entry.stacks) ? entry.stacks : [];
+      for (const stack of stacks) {
+        appDeckCardCount += Array.isArray(stack?.cards) ? stack.cards.length : 0;
+      }
     }
   }
   const appDeckLastUpdated =
@@ -10650,7 +10661,8 @@ export class UserAccount {
     if (!userData || !userData.tether || !Array.isArray(userData.tether.inboxTasks)) {
       return [];
     }
-    return userData.tether.inboxTasks;
+    const key = getAppDataKey(this.env);
+    return decryptInboxTasks(userData.tether.inboxTasks, key);
   }
 
   async saveTetherInbox(tasks) {
@@ -10659,9 +10671,11 @@ export class UserAccount {
     if (!userData.tether || typeof userData.tether !== 'object') {
       userData.tether = { projectIds: [], inboxTasks: [], labelColors: {}, settings: {} };
     }
-    userData.tether.inboxTasks = Array.isArray(tasks) ? tasks : [];
+    const key = getAppDataKey(this.env);
+    const plain = Array.isArray(tasks) ? tasks : [];
+    userData.tether.inboxTasks = await encryptInboxTasks(plain, key);
     await this.storage.put('userData', userData);
-    return userData.tether.inboxTasks;
+    return plain;
   }
 
   async getTetherLabelColors() {
@@ -10771,6 +10785,38 @@ export class UserAccount {
       ...safeData,
       emailPreferences,
     };
+    // Do not expose Deck/Tether content bodies via generic profile reads (ciphertext or plaintext).
+    if (out.games && typeof out.games === 'object') {
+      out.games = { ...out.games };
+      if (out.games.deck && typeof out.games.deck === 'object') {
+        const d = out.games.deck;
+        const decks = Array.isArray(d.decks) ? d.decks : [];
+        let cardCount = 0;
+        for (const deck of decks) {
+          cardCount += Array.isArray(deck?.cards) ? deck.cards.length : 0;
+          for (const st of Array.isArray(deck?.stacks) ? deck.stacks : []) {
+            cardCount += Array.isArray(st?.cards) ? st.cards.length : 0;
+          }
+        }
+        out.games.deck = {
+          _redacted: true,
+          deckCount: decks.length,
+          cardCount,
+          lastUpdated: d.lastUpdated ?? null,
+        };
+      }
+    }
+    if (out.tether && typeof out.tether === 'object') {
+      const t = out.tether;
+      out.tether = {
+        projectIds: Array.isArray(t.projectIds) ? t.projectIds : [],
+        inboxTaskCount: Array.isArray(t.inboxTasks) ? t.inboxTasks.length : 0,
+        labelColors: t.labelColors && typeof t.labelColors === 'object' ? t.labelColors : {},
+        settings: t.settings && typeof t.settings === 'object' ? t.settings : {},
+        syncGeneration: t.syncGeneration ?? null,
+        _inboxRedacted: true,
+      };
+    }
     if (Array.isArray(userData.headerNavItems) && userData.headerNavItems.length > 0) {
       out.headerNavItems = sanitizeHeaderNavItems(userData.headerNavItems);
     }
@@ -11848,11 +11894,16 @@ export class UserAccount {
     }
 
     const decks = Array.isArray(deckData?.decks) ? deckData.decks : [];
-    userData.games.deck = {
-      ...userData.games.deck,
-      decks,
-      lastUpdated: Date.now(),
-    };
+    const key = getAppDataKey(this.env);
+    const toStore = await encryptDeckBlob(
+      {
+        ...userData.games.deck,
+        decks,
+        lastUpdated: Date.now(),
+      },
+      key
+    );
+    userData.games.deck = toStore;
     await this.storage.put('userData', userData);
   }
 
@@ -11864,7 +11915,8 @@ export class UserAccount {
         lastUpdated: null,
       };
     }
-    return userData.games.deck;
+    const key = getAppDataKey(this.env);
+    return decryptDeckBlob(userData.games.deck, key);
   }
 
   async getDeckSyncMeta() {

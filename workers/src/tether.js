@@ -1,5 +1,13 @@
 // Tether — shared project & task management (Durable Object + API handlers)
 
+import {
+  getAppDataKey,
+  encryptTetherProject,
+  decryptTetherProject,
+  encryptListMeta,
+  decryptListMeta,
+} from './app-data-crypto.js';
+
 function parseBearerToken(authHeader) {
   if (!authHeader || typeof authHeader !== 'string') return null;
   const m = authHeader.match(/^Bearer\s+(\S+)/i);
@@ -36,8 +44,8 @@ function jsonResponse(body, corsHeaders, status = 200) {
 /** Short TTLs for authenticated GETs; keys are partitioned by userId. */
 const TETHER_CACHE_TTL = {
   syncVersion: 30,
-  list: 15,
-  project: 15,
+  list: 0, // content endpoints: do not cache decrypted bodies
+  project: 0,
   prefs: 60,
 };
 
@@ -94,9 +102,11 @@ async function invalidateTetherUsersCache(userIds, opts) {
  * Cache keys include userId so responses are never shared across accounts.
  */
 async function cachedTetherGet(ctx, userId, path, query, corsHeaders, load, maxAgeSec) {
+  const ttl = Number(maxAgeSec);
+  const useCache = Number.isFinite(ttl) && ttl > 0;
   const key = tetherCacheRequest(userId, path, query);
   try {
-    if (typeof caches !== 'undefined') {
+    if (useCache && typeof caches !== 'undefined') {
       const hit = await caches.default.match(key);
       if (hit) {
         const headers = new Headers(hit.headers);
@@ -115,13 +125,15 @@ async function cachedTetherGet(ctx, userId, path, query, corsHeaders, load, maxA
   const response = jsonResponse(body, {
     ...corsHeaders,
     'Cache-Control': 'private, no-store',
-    'X-Tether-Cache': 'MISS',
+    'X-Tether-Cache': useCache ? 'MISS' : 'BYPASS',
   });
+
+  if (!useCache) return response;
 
   try {
     if (typeof caches !== 'undefined') {
       const cacheHeaders = new Headers(response.headers);
-      cacheHeaders.set('Cache-Control', `public, max-age=${Math.max(1, Number(maxAgeSec) || 15)}`);
+      cacheHeaders.set('Cache-Control', `public, max-age=${Math.max(1, ttl)}`);
       cacheHeaders.delete('Set-Cookie');
       const stored = new Response(response.clone().body, {
         status: response.status,
@@ -1247,29 +1259,37 @@ export class TetherProject {
     try {
       if (path === '/create' && request.method === 'POST') {
         const project = await request.json();
-        await this.storage.put('project', project);
-        await this.storage.put('listMeta', buildListMeta(project));
+        const key = getAppDataKey(this.env);
+        const metaPlain = buildListMeta(project);
+        await this.storage.put('project', await encryptTetherProject(project, key));
+        await this.storage.put('listMeta', await encryptListMeta(metaPlain, key));
         return jsonResponse({ success: true }, {});
       }
       if (path === '/get' && request.method === 'GET') {
         const project = await this.storage.get('project');
         if (!project) return jsonResponse({ error: 'Not found' }, {}, 404);
-        return jsonResponse(project, {});
+        const key = getAppDataKey(this.env);
+        return jsonResponse(await decryptTetherProject(project, key), {});
       }
       if (path === '/get-list-meta' && request.method === 'GET') {
+        const key = getAppDataKey(this.env);
         let meta = await this.storage.get('listMeta');
         if (!meta) {
-          const project = await this.storage.get('project');
-          if (!project) return jsonResponse({ error: 'Not found' }, {}, 404);
+          const projectEnc = await this.storage.get('project');
+          if (!projectEnc) return jsonResponse({ error: 'Not found' }, {}, 404);
+          const project = await decryptTetherProject(projectEnc, key);
           meta = buildListMeta(project);
-          await this.storage.put('listMeta', meta);
+          await this.storage.put('listMeta', await encryptListMeta(meta, key));
+          return jsonResponse(meta, {});
         }
-        return jsonResponse(meta, {});
+        return jsonResponse(await decryptListMeta(meta, key), {});
       }
       if (path === '/save' && request.method === 'POST') {
         const project = await request.json();
-        await this.storage.put('project', project);
-        await this.storage.put('listMeta', buildListMeta(project));
+        const key = getAppDataKey(this.env);
+        const metaPlain = buildListMeta(project);
+        await this.storage.put('project', await encryptTetherProject(project, key));
+        await this.storage.put('listMeta', await encryptListMeta(metaPlain, key));
         return jsonResponse({ success: true }, {});
       }
       if (path === '/delete' && request.method === 'POST') {

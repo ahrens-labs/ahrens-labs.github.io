@@ -1,5 +1,13 @@
 // Deck — live shared decks, stacks, and cards (Durable Object + API handlers)
 
+import {
+  getAppDataKey,
+  encryptSharePayload,
+  decryptSharePayload,
+  encryptString,
+  decryptString,
+} from './app-data-crypto.js';
+
 function normalizeEmail(email) {
   const e = String(email || '').trim().toLowerCase();
   return e.includes('@') ? e : '';
@@ -864,11 +872,29 @@ export class DeckShare {
       if (path === '/get' && request.method === 'GET') {
         const record = await this.storage.get('record');
         if (!record) return jsonResponse({ error: 'Not found' }, {}, 404);
-        return jsonResponse(record, {});
+        const key = getAppDataKey(this.env);
+        if (!key || !record || typeof record !== 'object') {
+          return jsonResponse(record, {});
+        }
+        const out = { ...record };
+        if (out.payload != null) out.payload = await decryptSharePayload(out.payload, key);
+        if (out.label != null) out.label = await decryptString(out.label, key);
+        if (out.contextDeckName != null) out.contextDeckName = await decryptString(out.contextDeckName, key);
+        return jsonResponse(out, {});
       }
       if (path === '/save' && request.method === 'POST') {
         const record = await request.json();
-        await this.storage.put('record', record);
+        const key = getAppDataKey(this.env);
+        let toStore = record;
+        if (key && record && typeof record === 'object') {
+          toStore = { ...record };
+          if (toStore.payload != null) toStore.payload = await encryptSharePayload(toStore.payload, key);
+          if (toStore.label != null) toStore.label = await encryptString(toStore.label, key);
+          if (toStore.contextDeckName != null) {
+            toStore.contextDeckName = await encryptString(toStore.contextDeckName, key);
+          }
+        }
+        await this.storage.put('record', toStore);
         return jsonResponse({ success: true }, {});
       }
       if (path === '/delete' && request.method === 'POST') {

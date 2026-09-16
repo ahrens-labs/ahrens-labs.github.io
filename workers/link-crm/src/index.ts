@@ -4,7 +4,7 @@ import { getSessionIdFromCookie, getUserFromSession, deleteSession, clearSession
 import { checkRateLimit, clearRateLimit, formatLockoutMessage } from './ratelimit'
 import { getGoogleAuthUrl, handleGoogleCallback } from './oauth'
 import { landingPage, signinPage, signupPage, dashboardPage, peoplePage, interactionsPage, newContactPage, contactDetailPage, editContactPage, editInteractionPage, newInteractionPage, newDatePage, editDatePage, remindersPage, newReminderPage, editReminderPage, privacyPolicyPage, termsOfServicePage } from './templates'
-import { decryptContact, generateId, encryptContact } from './crypto'
+import { decryptContact, decryptInteraction, decryptReminder, generateId, encryptContact, encryptInteraction, encryptReminder } from './crypto'
 import { AHRENS_LINK_HOME, ahrensLoginRedirect, isAhrensHost, linkPwaPaths, linkprmRedirectTarget, publicPath, sessionCookiePath } from './host'
 import { serveLinkHtml } from './html'
 import {
@@ -682,11 +682,13 @@ app.get('/api/search', requireAuth, async (c) => {
       const contactRow = contactsResult.results?.find((row: any) => row.id === interaction.contact_id)
       if (!contactRow) continue
       const decryptedContact = await decryptContact(contactRow, c.env.ENCRYPTION_KEY)
+      const decryptedIx = await decryptInteraction(interaction, c.env.ENCRYPTION_KEY)
       const searchableText = [
         decryptedContact.name,
         interaction.type,
-        interaction.notes,
-        interaction.location,
+        decryptedIx.notes,
+        decryptedIx.location,
+        decryptedIx.title,
       ].filter(Boolean).join(' ').toLowerCase()
 
       if (searchableText.includes(query)) {
@@ -695,7 +697,7 @@ app.get('/api/search', requireAuth, async (c) => {
         interactions.push({
           id: interaction.id,
           title: `${decryptedContact.name || 'Contact'} · ${interaction.type || 'interaction'}`,
-          meta: `${dateLabel}${interaction.location ? ` • ${interaction.location}` : ''}`,
+          meta: `${dateLabel}${decryptedIx.location ? ` • ${decryptedIx.location}` : ''}`,
           href: publicPath(c.req.raw, `/contacts/${interaction.contact_id}`),
         })
       }
@@ -736,8 +738,9 @@ app.get('/dashboard', requireAuth, async (c) => {
 
         if (contactResult) {
           const decryptedContact = await decryptContact(contactResult, c.env.ENCRYPTION_KEY)
+          const decryptedIx = await decryptInteraction(interaction, c.env.ENCRYPTION_KEY)
           recentInteractions.push({
-            ...interaction,
+            ...decryptedIx,
             contact_name: decryptedContact.name,
             contact_photo_url: contactPhotoUrl(interaction.contact_id, contactResult),
           })
@@ -755,10 +758,7 @@ app.get('/dashboard', requireAuth, async (c) => {
       for (const contact of (contactsResult.results || [])) {
         const decrypted = await decryptContact(contact, c.env.ENCRYPTION_KEY)
         recentContacts.push({
-          ...contact,
-          name: decrypted.name,
-          email: decrypted.email,
-          company: decrypted.company,
+          ...decrypted,
           photoUrl: contactPhotoUrl(contact.id, contact),
         })
       }
@@ -909,8 +909,9 @@ app.get('/interactions', requireAuth, async (c) => {
       
       if (contactResult) {
         const decryptedContact = await decryptContact(contactResult, c.env.ENCRYPTION_KEY)
+        const decryptedIx = await decryptInteraction(interaction, c.env.ENCRYPTION_KEY)
         recentInteractions.push({
-          ...interaction,
+          ...decryptedIx,
           contact_name: decryptedContact.name,
           contact_photo_url: contactPhotoUrl(interaction.contact_id, contactResult),
         })
@@ -987,8 +988,9 @@ app.get('/reminders', requireAuth, async (c) => {
     (remindersResult.results || []).map(async (r: any) => {
       const contact = await c.env.DB.prepare('SELECT * FROM contacts WHERE id = ?').bind(r.contact_id).first()
       const decrypted = await decryptContact(contact, c.env.ENCRYPTION_KEY)
+      const decryptedReminder = await decryptReminder(r, c.env.ENCRYPTION_KEY)
       return {
-        ...r,
+        ...decryptedReminder,
         contact_name: decrypted.name
       }
     })
@@ -1052,7 +1054,7 @@ app.get('/reminders/:id/edit', requireAuth, async (c) => {
     })
   )
   
-  return serveLinkHtml(c, editReminderPage(user, reminder, contacts))
+  return serveLinkHtml(c, editReminderPage(user, await decryptReminder(reminder, c.env.ENCRYPTION_KEY), contacts))
 })
 
 // New contact form
@@ -1065,21 +1067,13 @@ app.get('/contacts/new', requireAuth, async (c) => {
 app.get('/api/contacts', requireAuth, async (c) => {
   const user = c.get('user')
   return cachedUserGet(c, user.id, '/api/contacts', LINK_CACHE_TTL.api, async () => {
-  const search = c.req.query('search')
-  
-  let query = 'SELECT * FROM contacts WHERE user_id = ?'
-  const params = [user.id]
-  
-  if (search) {
-    query += ' AND (name LIKE ? OR company LIKE ?)'
-    params.push(`%${search}%`, `%${search}%`)
-  }
-  
-  query += ' ORDER BY created_at DESC'
-  
-  const result = await c.env.DB.prepare(query).bind(...params).all()
-  
-  // Decrypt contacts
+  const search = (c.req.query('search') || '').trim().toLowerCase()
+
+  // Never SQL-LIKE on ciphertext (name/company are encrypted). Decrypt then filter.
+  const result = await c.env.DB.prepare(
+    'SELECT * FROM contacts WHERE user_id = ? ORDER BY created_at DESC'
+  ).bind(user.id).all()
+
   const contacts = await Promise.all(
     (result.results || []).map(async (contact: any) => {
       const decrypted = await decryptContact(contact, c.env.ENCRYPTION_KEY)
@@ -1089,8 +1083,26 @@ app.get('/api/contacts', requireAuth, async (c) => {
       }
     })
   )
-  
-  return c.json(contacts)
+
+  if (!search) return c.json(contacts)
+
+  const filtered = contacts.filter((contact: any) => {
+    const hay = [
+      contact.name,
+      contact.email,
+      contact.phone,
+      contact.title,
+      contact.company,
+      contact.notes,
+      Array.isArray(contact.tags) ? contact.tags.join(' ') : '',
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase()
+    return hay.includes(search)
+  })
+
+  return c.json(filtered)
   })
 })
 
@@ -1103,7 +1115,10 @@ app.post('/api/contacts', requireAuth, async (c) => {
   const encrypted = await encryptContact({
     name: body.name,
     email: body.email || null,
-    phone: body.phone || null
+    phone: body.phone || null,
+    title: body.title || null,
+    company: body.company || null,
+    notes: body.notes || null,
   }, c.env.ENCRYPTION_KEY)
   
   await c.env.DB.prepare(
@@ -1117,12 +1132,12 @@ app.post('/api/contacts', requireAuth, async (c) => {
     encrypted.name,
     encrypted.email,
     encrypted.phone,
-    body.title || null,
-    body.company || null,
+    encrypted.title || null,
+    encrypted.company || null,
     body.birthday || null,
     body.relationshipStatus || 'MONTHLY',
     body.tags ? JSON.stringify(body.tags) : null,
-    body.notes || null,
+    encrypted.notes || null,
     Date.now(),
     Date.now()
   ).run()
@@ -1291,7 +1306,10 @@ app.post('/api/contacts/import-csv', requireAuth, async (c) => {
       const encrypted = await encryptContact({
         name: contact.name,
         email: contact.email,
-        phone: contact.phone
+        phone: contact.phone,
+        title: contact.title,
+        company: contact.company,
+        notes: contact.notes,
       }, c.env.ENCRYPTION_KEY)
       
       const contactId = generateId()
@@ -1307,15 +1325,15 @@ app.post('/api/contacts/import-csv', requireAuth, async (c) => {
           encrypted.name,
           encrypted.email,
           encrypted.phone,
-          contact.title,
-          contact.company,
+          encrypted.title || null,
+          encrypted.company || null,
           null,
           'MONTHLY',
           contact.tags ? JSON.stringify(contact.tags) : null,
-          contact.notes,
+          encrypted.notes || null,
           Date.now(),
           Date.now()
-        ), duplicates
+        )
       )
     }
     
@@ -1514,10 +1532,14 @@ app.post('/api/reminders', requireAuth, async (c) => {
   const reminderId = crypto.randomUUID()
   console.log('Inserting reminder with ID:', reminderId)
   
+  const encReminder = await encryptReminder(
+    { title: title || '', description: description || '' },
+    c.env.ENCRYPTION_KEY
+  )
   const insertResult = await c.env.DB.prepare(
     `INSERT INTO reminders (id, contact_id, type, date, title, description, dismissed, created_at)
      VALUES (?, ?, ?, ?, ?, ?, 0, unixepoch())`
-  ).bind(reminderId, contact_id, type, dateTimestamp, title || '', description || '').run()
+  ).bind(reminderId, contact_id, type, dateTimestamp, encReminder.title, encReminder.description).run()
   
   console.log('Insert result:', JSON.stringify(insertResult))
   
@@ -1627,11 +1649,15 @@ app.post('/api/reminders/:id', requireAuth, async (c) => {
   }
   
   // Update reminder
+  const encReminder = await encryptReminder(
+    { title: (title as string) || '', description: (description as string) || '' },
+    c.env.ENCRYPTION_KEY
+  )
   await c.env.DB.prepare(
     `UPDATE reminders 
      SET contact_id = ?, type = ?, date = ?, title = ?, description = ?
      WHERE id = ?`
-  ).bind(contact_id, type, date, title || '', description || '', reminderId).run()
+  ).bind(contact_id, type, date, encReminder.title, encReminder.description, reminderId).run()
   
   invalidateLinkUserCache(c, user.id)
   return c.redirect('/reminders')
@@ -1809,13 +1835,19 @@ app.get('/contacts/:id', requireAuth, async (c) => {
   const interactionsResult = await c.env.DB.prepare(
     'SELECT * FROM interactions WHERE contact_id = ? ORDER BY date DESC'
   ).bind(contactId).all()
+
+  const interactions = await Promise.all(
+    (interactionsResult.results || []).map((row: any) =>
+      decryptInteraction(row, c.env.ENCRYPTION_KEY)
+    )
+  )
   
   // Get dates
   const datesResult = await c.env.DB.prepare(
     'SELECT * FROM contact_dates WHERE contact_id = ? ORDER BY month, day'
   ).bind(contactId).all()
   
-  return serveLinkHtml(c, contactDetailPage(contact, interactionsResult.results || [], datesResult.results || []))
+  return serveLinkHtml(c, contactDetailPage(contact, interactions, datesResult.results || []))
   })
 })
 
@@ -1836,6 +1868,11 @@ app.post('/api/contacts/:id/interactions', requireAuth, async (c) => {
   
   const interactionId = generateId()
   const interactionDate = body.date || Date.now()
+  const encIx = await encryptInteraction({
+    title: body.title || null,
+    notes: body.notes || null,
+    location: body.location || null,
+  }, c.env.ENCRYPTION_KEY)
   await c.env.DB.prepare(
     `INSERT INTO interactions (id, contact_id, type, title, notes, location, duration, date, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
@@ -1843,9 +1880,9 @@ app.post('/api/contacts/:id/interactions', requireAuth, async (c) => {
     interactionId,
     contactId,
     body.type,
-    body.title || null,
-    body.notes || null,
-    body.location || null,
+    encIx.title || null,
+    encIx.notes || null,
+    encIx.location || null,
     body.duration || null,
     interactionDate,
     Date.now()
@@ -1898,20 +1935,24 @@ app.put('/api/contacts/:id', requireAuth, async (c) => {
   const encrypted = await encryptContact({
     name: body.name,
     email: body.email,
-    phone: body.phone
+    phone: body.phone,
+    company: body.company || null,
+    notes: body.notes || null,
+    title: body.title || null,
   }, c.env.ENCRYPTION_KEY)
   
   await c.env.DB.prepare(
     `UPDATE contacts 
-     SET name = ?, email = ?, phone = ?, company = ?, tags = ?, notes = ?, updated_at = ?
+     SET name = ?, email = ?, phone = ?, title = ?, company = ?, tags = ?, notes = ?, updated_at = ?
      WHERE id = ?`
   ).bind(
     encrypted.name,
     encrypted.email,
     encrypted.phone,
-    body.company || null,
+    encrypted.title || null,
+    encrypted.company || null,
     body.tags && body.tags.length > 0 ? JSON.stringify(body.tags) : null,
-    body.notes || null,
+    encrypted.notes || null,
     Date.now(),
     contactId
   ).run()
@@ -2291,11 +2332,12 @@ app.get('/interactions/:id/edit', requireAuth, async (c) => {
   
   const returnTo = sanitizeReturnPath(c.req.query('return'))
 
+  const decryptedIx = await decryptInteraction(result, c.env.ENCRYPTION_KEY)
   return serveLinkHtml(c, editInteractionPage(contact, {
     id: result.id,
     type: result.type,
-    notes: result.notes,
-    location: result.location,
+    notes: decryptedIx.notes,
+    location: decryptedIx.location,
     date: result.date
   }, allContacts, returnTo))
 })
@@ -2326,6 +2368,11 @@ app.put('/api/interactions/:id', requireAuth, async (c) => {
     if (!newContact) {
       return c.json({ error: 'Contact not found' }, 404)
     }
+
+    const encIx = await encryptInteraction({
+      notes: body.notes || null,
+      location: body.location || null,
+    }, c.env.ENCRYPTION_KEY)
     
     // Update with new contact
     await c.env.DB.prepare(
@@ -2335,12 +2382,16 @@ app.put('/api/interactions/:id', requireAuth, async (c) => {
     ).bind(
       body.contactId,
       body.type,
-      body.notes || null,
-      body.location || null,
+      encIx.notes || null,
+      encIx.location || null,
       body.date,
       interactionId
     ).run()
   } else {
+    const encIx = await encryptInteraction({
+      notes: body.notes || null,
+      location: body.location || null,
+    }, c.env.ENCRYPTION_KEY)
     // Update without changing contact
     await c.env.DB.prepare(
       `UPDATE interactions 
@@ -2348,8 +2399,8 @@ app.put('/api/interactions/:id', requireAuth, async (c) => {
        WHERE id = ?`
     ).bind(
       body.type,
-      body.notes || null,
-      body.location || null,
+      encIx.notes || null,
+      encIx.location || null,
       body.date,
       interactionId
     ).run()
@@ -2374,12 +2425,13 @@ app.get('/api/interactions/:id', requireAuth, async (c) => {
     return c.json({ error: 'Interaction not found' }, 404)
   }
 
+  const decryptedIx = await decryptInteraction(result, c.env.ENCRYPTION_KEY)
   return c.json({
     id: result.id,
     contact_id: result.contact_id,
     type: result.type,
-    notes: result.notes,
-    location: result.location,
+    notes: decryptedIx.notes,
+    location: decryptedIx.location,
     date: result.date
   })
   })
@@ -2430,11 +2482,16 @@ app.post('/api/contacts/:id/ai-summary', requireAuth, async (c) => {
     ).bind(contactId).all()
 
     const interactions = interactionsResult.results || []
-    const interactionsList = interactions.map((i: any) => {
-      const when = i.date ? new Date(Number(i.date)).toLocaleDateString() : 'Unknown date'
-      const notes = String(i.notes || '').slice(0, 300)
-      return `- ${when}: ${i.type || 'other'} - ${notes || 'No notes'}`
-    }).join('\n')
+    const interactionsList = (
+      await Promise.all(
+        interactions.map(async (i: any) => {
+          const d = await decryptInteraction(i, c.env.ENCRYPTION_KEY)
+          const when = i.date ? new Date(Number(i.date)).toLocaleDateString() : 'Unknown date'
+          const notes = String(d.notes || '').slice(0, 300)
+          return `- ${when}: ${i.type || 'other'} - ${notes || 'No notes'}`
+        })
+      )
+    ).join('\n')
 
     const prompt = `Summarize this contact in 2-3 natural, conversational sentences as if speaking to someone. Use simple language without formal business jargon.
 
@@ -2852,8 +2909,6 @@ Examples:
           email,
           phone,
           company,
-          address: null,
-          birthday: null,
           notes: `Auto-created from quick add interaction`
         }, env.ENCRYPTION_KEY)
         
@@ -2869,11 +2924,11 @@ Examples:
           encryptedData.email,
           encryptedData.phone,
           null, // title
-          company,
+          encryptedData.company || null,
           null, // birthday
           'MONTHLY', // relationship_status
           JSON.stringify([]), // tags
-          `Auto-created from quick add interaction`,
+          encryptedData.notes || null,
           now,
           now
         ).run()
@@ -3040,9 +3095,13 @@ Examples:
 
       // Create interaction for ONLY the best match (not all matches)
       const interactionId = crypto.randomUUID()
+      const encIx = await encryptInteraction({
+        notes: storedNotes,
+        location: interactionLocation,
+      }, env.ENCRYPTION_KEY)
       await env.DB.prepare(
         'INSERT INTO interactions (id, contact_id, type, date, notes, location, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
-      ).bind(interactionId, bestMatch.id, interactionType, now, storedNotes, interactionLocation, now).run()
+      ).bind(interactionId, bestMatch.id, interactionType, now, encIx.notes || null, encIx.location || null, now).run()
       
       console.log(`[Direct Match] Created interaction for: ${bestMatch.name}`)
 
@@ -3193,9 +3252,13 @@ IMPORTANT: Always try to find a match by extracting names from the text. Only us
       
       for (const contact of selectedContacts) {
         const interactionId = crypto.randomUUID()
+        const encIx = await encryptInteraction({
+          notes: storedNotes,
+          location: interactionLocation,
+        }, env.ENCRYPTION_KEY)
         await env.DB.prepare(
           'INSERT INTO interactions (id, contact_id, type, date, notes, location, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
-        ).bind(interactionId, contact.id, interactionType, now, storedNotes, interactionLocation, now).run()
+        ).bind(interactionId, contact.id, interactionType, now, encIx.notes || null, encIx.location || null, now).run()
         
         interactionIds.push(interactionId)
         contactNames.push(contact.name)
@@ -3239,10 +3302,14 @@ IMPORTANT: Always try to find a match by extracting names from the text. Only us
     // Multiple new contacts - create interaction for each
     for (const contact of createdContacts) {
       const interactionId = crypto.randomUUID()
+      const encIx = await encryptInteraction({
+        notes: storedNotes,
+        location: interactionLocation,
+      }, env.ENCRYPTION_KEY)
       
       await env.DB.prepare(
         'INSERT INTO interactions (id, contact_id, type, date, notes, location, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
-      ).bind(interactionId, contact.id, interactionType, now, storedNotes, interactionLocation, now).run()
+      ).bind(interactionId, contact.id, interactionType, now, encIx.notes || null, encIx.location || null, now).run()
     }
 
     /* cache invalidated by caller */
