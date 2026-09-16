@@ -2672,55 +2672,81 @@
         });
       }
 
-      async function bootDeck() {
+      function waitForDeckFirstPaint() {
+        return new Promise((resolve) => {
+          requestAnimationFrame(() => requestAnimationFrame(resolve));
+        });
+      }
+
+      async function reconcileDeckWithCloud(guestBackup, localState) {
+        const sessionId = localStorage.getItem('ahrenslabs_sessionId');
+        if (!sessionId) return false;
+
+        const cloudData = await fetchDeckCloudPayload();
+        if (!cloudData && guestBackup.decks.length) {
+          state = guestBackup;
+          activeDeckId = state.decks[0] ? state.decks[0].id : null;
+          persistDeckLocally();
+          cloudSyncEnabled = true;
+          await syncDeckToCloud();
+          return true;
+        }
+        if (!cloudData) {
+          persistDeckLocally();
+          return false;
+        }
+
+        const cloudHasDecks = (cloudData.decks || []).length > 0;
+        const localHasDecks = (localState.decks || []).length > 0;
+        if (localHasDecks && localDeckStateIsNewerThanCloud(localState.decks, cloudData)) {
+          persistDeckLocally();
+          cloudSyncEnabled = true;
+          await syncDeckToCloud();
+          return false;
+        }
+        if (cloudHasDecks || !localHasDecks) {
+          applyDeckCloudPayload(cloudData);
+          writeDeckPersistMeta({
+            cloudLastUpdated: cloudData.lastUpdated || 0,
+            lastSyncedAt: Date.now(),
+            lastModified: readDeckPersistMeta().lastModified || Date.now(),
+          });
+          persistDeckLocally();
+          return true;
+        }
+
+        persistDeckLocally();
+        cloudSyncEnabled = true;
+        await syncDeckToCloud();
+        return false;
+      }
+
+      async function finishDeckBootSync(guestBackup, localState) {
+        await waitForDeckFirstPaint();
+        try {
+          const viewChanged = await reconcileDeckWithCloud(guestBackup, localState);
+          if (viewChanged) applyRouteFromUrl(true);
+        } catch (error) {
+          console.error('Failed to reconcile deck with cloud:', error);
+        }
+        connectDeckSync();
+        startDeckSyncPoll({ immediate: true });
+        await updateDeckSyncFingerprint();
+      }
+
+      function bootDeck() {
         const guestBackup = readGuestDeckBackup();
         const localState = load();
         state = localState;
         activeDeckId = state.decks[0] ? state.decks[0].id : null;
+        cloudSyncEnabled = true;
+        applyRouteFromUrl(true);
+        deckBootComplete = true;
 
         const sessionId = localStorage.getItem('ahrenslabs_sessionId');
         if (sessionId) {
-          const cloudData = await fetchDeckCloudPayload();
-          if (!cloudData && guestBackup.decks.length) {
-            state = guestBackup;
-            activeDeckId = state.decks[0] ? state.decks[0].id : null;
-            persistDeckLocally();
-            cloudSyncEnabled = true;
-            await syncDeckToCloud();
-          } else if (cloudData) {
-            const cloudHasDecks = (cloudData.decks || []).length > 0;
-            const localHasDecks = (localState.decks || []).length > 0;
-            if (localHasDecks && localDeckStateIsNewerThanCloud(localState.decks, cloudData)) {
-              persistDeckLocally();
-              cloudSyncEnabled = true;
-              await syncDeckToCloud();
-            } else if (cloudHasDecks || !localHasDecks) {
-              applyDeckCloudPayload(cloudData);
-              writeDeckPersistMeta({
-                cloudLastUpdated: cloudData.lastUpdated || 0,
-                lastSyncedAt: Date.now(),
-                lastModified: readDeckPersistMeta().lastModified || Date.now(),
-              });
-              persistDeckLocally();
-            } else {
-              persistDeckLocally();
-              cloudSyncEnabled = true;
-              await syncDeckToCloud();
-            }
-          } else {
-            persistDeckLocally();
-          }
-          await updateDeckSyncFingerprint();
-        } else {
-          persistDeckLocally();
+          void finishDeckBootSync(guestBackup, localState);
         }
-
-        cloudSyncEnabled = true;
-        applyRouteFromUrl(true);
-        connectDeckSync();
-        startDeckSyncPoll({ immediate: true });
-        deckBootComplete = true;
-        await updateDeckSyncFingerprint();
       }
 
       function save() {
