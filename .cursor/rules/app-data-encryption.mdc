@@ -1,0 +1,49 @@
+---
+description: Platform-key (option A) app-data encryption for Link, Deck, and Tether
+alwaysApply: true
+---
+
+# App-data encryption — Link, Deck, Tether
+
+**Decision (locked):** use **option A — platform key** encryption at rest for Link CRM, Deck, and Tether.
+
+## Model
+
+- One (or more) Worker secrets hold AES-GCM-256 keys (same pattern as Link’s `ENCRYPTION_KEY`).
+- Workers **encrypt on write, decrypt on read**; clients still receive plaintext JSON over HTTPS.
+- This protects DO/D1/KV dumps and over-broad debug paths. It does **not** hide content from a compromised Worker that holds the key.
+- Passwords remain **hashed** (PBKDF2), not encrypted.
+- Do **not** pursue zero-knowledge (option C) unless product requirements change.
+
+## Per-app targets
+
+### Link (`workers/link-crm`)
+- Already encrypts contact `name`, `email`, `phone`.
+- Extend to: `notes`, `company`, `title`, interaction/reminder/voice-note text, OAuth tokens where stored.
+- Keep login emails and FKs queryable in plaintext.
+- Search/sort: decrypt-then-filter in Worker (SQL `LIKE`/`ORDER BY` on ciphertext is invalid).
+
+### Deck (`games.deck` + `DeckShare`)
+- Encrypt sensitive card/deck/stack content at rest in UserAccount and **DeckShare payloads**.
+- Decrypt in `/api/deck/load|sync|share` paths only.
+- IDs, timestamps, member roles may stay plaintext.
+
+### Tether (`userData.tether` + `TetherProject`)
+- Encrypt project titles/descriptions, task titles/notes/DoD, inbox tasks, and denormalized `listMeta` text.
+- Decrypt in tether APIs before responses; avoid long-lived caches of decrypted bodies.
+- IDs, due dates, status, member userIds may stay plaintext.
+
+## Implementation rules
+
+- Version ciphertext (e.g. prefix or `enc:1`) so plaintext legacy rows migrate lazily or via job.
+- Never put encryption keys in client JS, git, or public pages — `wrangler secret` only.
+- Do not return full decrypted Deck/Tether blobs from generic `/api/user` or unauthenticated debug.
+- Admin list-accounts may keep **counts/flags** without decrypting content bodies.
+- Prefer shared crypto helpers in the Worker that owns the data; do not re-invent AES-GCM per route.
+
+## Rollout order
+
+1. Restrict plaintext dump endpoints (e.g. `/api/debug`).
+2. Finish Link field coverage + search.
+3. Deck blobs + share payloads.
+4. Tether projects + inbox + listMeta.

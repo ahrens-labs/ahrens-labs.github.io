@@ -250,16 +250,25 @@ export default {
       } else if (path === '/internal/grace-ahrens/send' && request.method === 'POST') {
         return handleGraceAhrensSend(request, env);
       } else if (path === '/api/debug' && request.method === 'GET') {
+        // Platform-key encryption Phase 0: never dump UserAccount plaintext without auth.
+        const sessionId = parseBearerToken(request.headers.get('Authorization'));
+        const gate = sessionId ? await assertAdminBroadcastSession(env, sessionId) : { ok: false };
+        if (!gate.ok && !testSecretOk(env, request)) {
+          return new Response(JSON.stringify({ error: 'Forbidden' }), {
+            status: 403,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
         const testEmail = url.searchParams.get('email') || 'debug@test.com';
         const userId = generateUserId(testEmail);
         const userAccountId = env.USER_ACCOUNT.idFromName(userId);
         const userAccount = env.USER_ACCOUNT.get(userAccountId);
-        
+
         const debugReq = new Request('http://do/debug', { method: 'GET' });
         const debugRes = await userAccount.fetch(debugReq);
         const debugData = await debugRes.json();
         const sender = String(env.SENDER_EMAIL || env.VERIFICATION_FROM_EMAIL || '').trim();
-        
+
         return new Response(JSON.stringify({
           email: testEmail,
           userId,
@@ -10405,6 +10414,62 @@ export class UserAccount {
           userDataSafe = { ...userData };
           if ('passwordHash' in userDataSafe) {
             userDataSafe.passwordHash = userDataSafe.passwordHash ? '[redacted]' : null;
+          }
+          for (const k of [
+            'verificationToken',
+            'verificationTokenExpiry',
+            'passwordResetToken',
+            'passwordResetTokenExpiry',
+          ]) {
+            if (k in userDataSafe) delete userDataSafe[k];
+          }
+          // Redact app content bodies (platform-key encryption rollout); keep structure/counts.
+          if (userDataSafe.games && typeof userDataSafe.games === 'object') {
+            userDataSafe.games = { ...userDataSafe.games };
+            if (userDataSafe.games.deck && typeof userDataSafe.games.deck === 'object') {
+              const d = userDataSafe.games.deck;
+              const decks = Array.isArray(d.decks) ? d.decks : [];
+              let cardCount = 0;
+              for (const deck of decks) {
+                cardCount += Array.isArray(deck?.cards) ? deck.cards.length : 0;
+                for (const st of Array.isArray(deck?.stacks) ? deck.stacks : []) {
+                  cardCount += Array.isArray(st?.cards) ? st.cards.length : 0;
+                }
+              }
+              userDataSafe.games.deck = {
+                _redacted: true,
+                deckCount: decks.length,
+                cardCount,
+                lastUpdated: d.lastUpdated ?? null,
+              };
+            }
+            if (userDataSafe.games.classify && typeof userDataSafe.games.classify === 'object') {
+              const c = userDataSafe.games.classify;
+              userDataSafe.games.classify = {
+                _redacted: true,
+                taskCount: Array.isArray(c.tasks) ? c.tasks.length : 0,
+              };
+            }
+            if (userDataSafe.games.dungeon && typeof userDataSafe.games.dungeon === 'object') {
+              const slots = userDataSafe.games.dungeon.saveSlots;
+              userDataSafe.games.dungeon = {
+                _redacted: true,
+                slotCount:
+                  slots && typeof slots === 'object'
+                    ? Object.values(slots).filter(Boolean).length
+                    : 0,
+              };
+            }
+          }
+          if (userDataSafe.tether && typeof userDataSafe.tether === 'object') {
+            const t = userDataSafe.tether;
+            userDataSafe.tether = {
+              _redacted: true,
+              projectCount: Array.isArray(t.projectIds) ? t.projectIds.length : 0,
+              inboxTaskCount: Array.isArray(t.inboxTasks) ? t.inboxTasks.length : 0,
+              hasSettings: !!t.settings,
+              syncGeneration: t.syncGeneration ?? null,
+            };
           }
         }
         return new Response(JSON.stringify({

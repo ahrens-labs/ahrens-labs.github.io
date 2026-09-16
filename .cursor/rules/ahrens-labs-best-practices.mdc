@@ -44,7 +44,7 @@ Users should see useful content quickly.
 Treat credentials and personal data as sensitive end-to-end.
 
 - **Never store plaintext passwords**; use strong one-way hashing (existing account crypto). Never log passwords, tokens, or session IDs.
-- **Encrypt sensitive data at rest** when storing secrets, private profile fields, or tokens in DOs/KV beyond what hashing already covers; use TLS (HTTPS) for all client ↔ Worker traffic.
+- **Encrypt sensitive app data at rest** with a **platform key (option A)** for Link, Deck, and Tether — see `.cursor/rules/app-data-encryption.mdc`. TLS for all client ↔ Worker traffic.
 - **Secrets only in Worker secrets / env**, never in client JS, git, or public pages.
 - **Authz on every sensitive API**: verify session and ownership (or admin gate) server-side; do not trust client-supplied user IDs alone.
 - **Minimize PII in logs and emails**; scrub tokens from URLs in analytics and error reports.
