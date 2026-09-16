@@ -19,6 +19,126 @@ function escapeHtml(text: string): string {
     .replace(/'/g, '&#039;')
 }
 
+function contactPhotoFieldsHtml(prefix: string, existingPhotoUrl?: string | null): string {
+  const preview = existingPhotoUrl
+    ? `<img id="${prefix}PhotoPreview" src="${escapeHtml(existingPhotoUrl)}" alt="" style="width: 80px; height: 80px; object-fit: cover; border-radius: 9999px; border: 2px solid #e5e7eb;">`
+    : `<div id="${prefix}PhotoPreview" style="width: 80px; height: 80px; border-radius: 9999px; background: #f3f4f6; border: 2px dashed #d1d5db; display: flex; align-items: center; justify-content: center; color: #9ca3af; font-size: 0.75rem;">No photo</div>`
+
+  return `
+          <div class="form-group">
+            <label class="form-label">Photo (optional)</label>
+            <div style="display: flex; gap: 1rem; align-items: flex-start; flex-wrap: wrap;">
+              ${preview}
+              <div style="flex: 1; min-width: 200px;">
+                <input type="file" id="${prefix}PhotoFile" accept="image/jpeg,image/png,image/webp" class="form-input" style="margin-bottom: 0.5rem;">
+                <input type="url" id="${prefix}PhotoUrl" class="form-input" placeholder="Or paste image URL">
+                ${existingPhotoUrl ? `<button type="button" id="${prefix}PhotoRemove" class="btn btn-secondary" style="margin-top: 0.5rem; font-size: 0.875rem;">Remove photo</button>` : ''}
+              </div>
+            </div>
+          </div>`
+}
+
+function contactPhotoScript(prefix: string, contactId?: string): string {
+  const hasContactId = contactId ? 'true' : 'false'
+  const contactIdLiteral = contactId ? `'${contactId}'` : 'null'
+
+  return `
+      function ${prefix}ArrayBufferToBase64(buffer) {
+        const bytes = new Uint8Array(buffer);
+        let binary = '';
+        const chunk = 8192;
+        for (let i = 0; i < bytes.length; i += chunk) {
+          binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+        }
+        return btoa(binary);
+      }
+
+      async function ${prefix}CompressPhoto(file) {
+        const bitmap = await createImageBitmap(file);
+        const maxSize = 400;
+        const scale = Math.min(1, maxSize / Math.max(bitmap.width, bitmap.height));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+        canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+        let quality = 0.85;
+        let blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', quality));
+        while (blob && blob.size > 180000 && quality > 0.45) {
+          quality -= 0.08;
+          blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', quality));
+        }
+        return blob;
+      }
+
+      function ${prefix}SetPreview(url) {
+        const preview = document.getElementById('${prefix}PhotoPreview');
+        if (!preview) return;
+        if (preview.tagName === 'IMG') {
+          preview.src = url;
+        } else {
+          preview.outerHTML = '<img id="${prefix}PhotoPreview" src="' + url.replace(/"/g, '&quot;') + '" alt="" style="width: 80px; height: 80px; object-fit: cover; border-radius: 9999px; border: 2px solid #e5e7eb;">';
+        }
+      }
+
+      async function ${prefix}UploadPhoto(contactId) {
+        const fileInput = document.getElementById('${prefix}PhotoFile');
+        const urlInput = document.getElementById('${prefix}PhotoUrl');
+        const file = fileInput && fileInput.files && fileInput.files[0] ? fileInput.files[0] : null;
+        const url = urlInput && urlInput.value ? urlInput.value.trim() : '';
+        if (!file && !url) return true;
+
+        let body;
+        if (file) {
+          const blob = await ${prefix}CompressPhoto(file);
+          const base64 = ${prefix}ArrayBufferToBase64(await blob.arrayBuffer());
+          body = { imageData: base64, contentType: 'image/jpeg' };
+        } else {
+          body = { url };
+        }
+
+        const response = await fetch('/api/contacts/' + contactId + '/photo', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({}));
+          throw new Error(err.error || 'Could not save photo');
+        }
+        return true;
+      }
+
+      (function init${prefix}Photo() {
+        const fileInput = document.getElementById('${prefix}PhotoFile');
+        if (fileInput) {
+          fileInput.addEventListener('change', async () => {
+            const file = fileInput.files && fileInput.files[0];
+            if (!file) return;
+            try {
+              const blob = await ${prefix}CompressPhoto(file);
+              ${prefix}SetPreview(URL.createObjectURL(blob));
+            } catch (e) {
+              alert('Could not load image file');
+            }
+          });
+        }
+
+        const removeBtn = document.getElementById('${prefix}PhotoRemove');
+        if (removeBtn && ${hasContactId}) {
+          removeBtn.addEventListener('click', async () => {
+            if (!confirm('Remove this contact photo?')) return;
+            const response = await fetch('/api/contacts/${contactId || ''}/photo', { method: 'DELETE' });
+            if (response.ok) {
+              window.location.reload();
+            } else {
+              alert('Could not remove photo');
+            }
+          });
+        }
+      })();`
+}
+
 function navUserLabel(user: { ahrens_username?: string | null }): string {
   const username = (user.ahrens_username || '').trim()
   if (username) return escapeHtml(username)
@@ -1870,6 +1990,9 @@ function getQuickAddModal(): string {
               <span class="form-label" style="margin: 0;">This is a new contact (create new contact instead of matching existing)</span>
             </label>
           </div>
+          <div id="quickAddPhotoFields" style="display: none;">
+            ${contactPhotoFieldsHtml('quickAddContact')}
+          </div>
           <div class="flex" style="gap: 1rem;">
             <button type="submit" class="btn btn-primary" id="quickAddBtn">Add Interaction</button>
             <button type="button" onclick="hideQuickAddForm()" class="btn btn-secondary">Cancel</button>
@@ -1883,6 +2006,12 @@ function getQuickAddModal(): string {
 function getQuickAddScript(): string {
   return `
     <script>
+      ${contactPhotoScript('quickAddContact')}
+
+      document.getElementById("newContactCheck").addEventListener("change", (e) => {
+        document.getElementById("quickAddPhotoFields").style.display = e.target.checked ? "block" : "none";
+      });
+
       function showQuickAddForm() {
         document.getElementById("quickAddModal").classList.add("active");
       }
@@ -1941,6 +2070,13 @@ function getQuickAddScript(): string {
           
           if (response.ok) {
             const result = await response.json();
+            if (result.isNewContact && result.contactId && result.contactCount === 1) {
+              try {
+                await quickAddContactUploadPhoto(result.contactId);
+              } catch (photoError) {
+                alert(photoError.message || "Interaction saved, but photo could not be saved");
+              }
+            }
             let message;
             if (result.isNewContact) {
               let isMultiple = false;
@@ -2411,6 +2547,8 @@ export function newContactPage(): string {
             <label class="form-label">Notes</label>
             <textarea name="notes" class="form-textarea"></textarea>
           </div>
+
+          ${contactPhotoFieldsHtml('newContact')}
           
           <div class="flex" style="gap: 1rem; margin-top: 1.5rem;">
             <button type="submit" class="btn btn-primary">Add Contact</button>
@@ -2421,6 +2559,8 @@ export function newContactPage(): string {
     </div>
     
     <script>
+      ${contactPhotoScript('newContact')}
+
       document.getElementById('contactForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const formData = new FormData(e.target);
@@ -2441,6 +2581,12 @@ export function newContactPage(): string {
           });
           
           if (response.ok) {
+            const created = await response.json();
+            try {
+              await newContactUploadPhoto(created.id);
+            } catch (photoError) {
+              alert(photoError.message || 'Contact saved, but photo could not be saved');
+            }
             window.location.href = '/people';
           } else {
             alert('Error adding contact');
@@ -2465,7 +2611,12 @@ export function contactDetailPage(contact: any, interactions: any[], dates: any[
       
       <div class="card">
         <div class="flex-between" style="margin-bottom: 1.5rem;">
-          <h1 style="font-size: 1.875rem;">${contact.name}</h1>
+          <div style="display: flex; gap: 1rem; align-items: center;">
+            ${contact.photoUrl
+              ? `<img src="${escapeHtml(contact.photoUrl)}" alt="" style="width: 72px; height: 72px; object-fit: cover; border-radius: 9999px; border: 2px solid #e5e7eb;">`
+              : `<div style="width: 72px; height: 72px; border-radius: 9999px; background: #16a34a; color: white; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; font-weight: 600;">${escapeHtml((contact.name || '?').charAt(0).toUpperCase())}</div>`}
+            <h1 style="font-size: 1.875rem; margin: 0;">${contact.name}</h1>
+          </div>
           <div style="display: flex; gap: 0.5rem;">
             <button onclick="generateAISummary()" class="btn btn-primary" id="aiSummaryBtn">AI Summary</button>
             <a href="/contacts/${contact.id}/edit" class="btn btn-secondary">Edit Contact</a>
@@ -2721,6 +2872,8 @@ export function editContactPage(contact: any): string {
             <label class="form-label">Notes</label>
             <textarea name="notes" class="form-textarea">${contact.notes || ''}</textarea>
           </div>
+
+          ${contactPhotoFieldsHtml('editContact', contact.photoUrl)}
           
           <div class="flex" style="gap: 1rem; margin-top: 1.5rem;">
             <button type="submit" class="btn btn-primary">Save Changes</button>
@@ -2732,6 +2885,8 @@ export function editContactPage(contact: any): string {
     </div>
     
     <script>
+      ${contactPhotoScript('editContact', contact.id)}
+
       document.getElementById('contactForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const formData = new FormData(e.target);
@@ -2752,6 +2907,11 @@ export function editContactPage(contact: any): string {
           });
           
           if (response.ok) {
+            try {
+              await editContactUploadPhoto('${contact.id}');
+            } catch (photoError) {
+              alert(photoError.message || 'Contact saved, but photo could not be saved');
+            }
             window.location.href = '/contacts/${contact.id}';
           } else {
             alert('Error updating contact');
@@ -2940,6 +3100,7 @@ export function newInteractionPage(allContacts: any[], preselectedContactId?: st
                 <input type="tel" id="newContactPhone" class="form-input" placeholder="Phone number">
               </div>
             </div>
+            ${contactPhotoFieldsHtml('interactionNewContact')}
             <button type="button" onclick="createNewContact()" class="btn btn-primary" id="createContactBtn" style="font-size: 0.875rem;">Create Contact</button>
           </div>
           
@@ -2969,6 +3130,8 @@ export function newInteractionPage(allContacts: any[], preselectedContactId?: st
     </div>
     
     <script>
+      ${contactPhotoScript('interactionNewContact')}
+
       // Contact search data
       const allContacts = ${JSON.stringify(allContacts.map(c => ({ id: c.id, name: c.name })))};
       const contactSearch = document.getElementById('contactSearch');
@@ -3059,6 +3222,11 @@ export function newInteractionPage(allContacts: any[], preselectedContactId?: st
           
           if (response.ok) {
             const data = await response.json();
+            try {
+              await interactionNewContactUploadPhoto(data.id);
+            } catch (photoError) {
+              alert(photoError.message || 'Contact created, but photo could not be saved');
+            }
             // Add to our local list
             allContacts.push({ id: data.id, name: name });
             allContacts.sort((a, b) => a.name.localeCompare(b.name));

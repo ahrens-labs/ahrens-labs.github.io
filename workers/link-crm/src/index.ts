@@ -13,6 +13,27 @@ import {
   cachedUserGet,
   invalidateLinkUserCache,
 } from './cache'
+import { filterToCoListedContacts } from './contact-matching'
+import {
+  decodeBase64Photo,
+  decodeStoredPhoto,
+  encodePhotoForStorage,
+  fetchPhotoFromUrl,
+} from './contact-photos'
+
+function contactHasPhoto(row: { photo_data?: unknown; photo_key?: unknown }): boolean {
+  return typeof row.photo_data === 'string' && row.photo_data.length > 0
+}
+
+function contactPhotoUrl(contactId: string, row: { photo_data?: unknown; photo_key?: unknown }): string | null {
+  return contactHasPhoto(row) ? `/api/contacts/${contactId}/photo` : null
+}
+
+function attachContactPhotoMeta(contact: any, contactId: string) {
+  contact.id = contactId
+  contact.photoUrl = contactPhotoUrl(contactId, contact)
+  return contact
+}
 
 function parseContactTags(raw: unknown): string[] {
   if (!raw || typeof raw !== 'string') return []
@@ -1766,7 +1787,10 @@ app.get('/contacts/:id', requireAuth, async (c) => {
     return c.text('Contact not found', 404)
   }
   
-  const contact = await decryptContact(contactResult, c.env.ENCRYPTION_KEY)
+  const contact = attachContactPhotoMeta(
+    await decryptContact(contactResult, c.env.ENCRYPTION_KEY),
+    contactId,
+  )
   contact.tags = parseContactTags(contactResult.tags)
   
   // Get interactions
@@ -1834,7 +1858,10 @@ app.get('/contacts/:id/edit', requireAuth, async (c) => {
     return c.text('Contact not found', 404)
   }
   
-  const contact = await decryptContact(contactResult, c.env.ENCRYPTION_KEY)
+  const contact = attachContactPhotoMeta(
+    await decryptContact(contactResult, c.env.ENCRYPTION_KEY),
+    contactId,
+  )
   contact.tags = parseContactTags(contactResult.tags)
   
   return serveLinkHtml(c, editContactPage(contact))
@@ -1882,6 +1909,100 @@ app.put('/api/contacts/:id', requireAuth, async (c) => {
   return c.json({ success: true })
 })
 
+// API: Upload or import contact photo
+app.post('/api/contacts/:id/photo', requireAuth, async (c) => {
+  const user = c.get('user')
+  const contactId = c.req.param('id')
+  const body = await c.req.json().catch(() => null)
+
+  const existing = await c.env.DB.prepare(
+    'SELECT id FROM contacts WHERE id = ? AND user_id = ?',
+  ).bind(contactId, user.id).first<{ id: string }>()
+
+  if (!existing) {
+    return c.json({ error: 'Contact not found' }, 404)
+  }
+
+  try {
+    let data: ArrayBuffer
+    let contentType = 'image/jpeg'
+
+    if (body?.url && typeof body.url === 'string') {
+      const fetched = await fetchPhotoFromUrl(body.url.trim())
+      data = fetched.data
+      contentType = fetched.contentType
+    } else if (body?.imageData && typeof body.imageData === 'string') {
+      data = decodeBase64Photo(body.imageData)
+      contentType =
+        typeof body.contentType === 'string' && body.contentType.trim()
+          ? body.contentType.trim()
+          : 'image/jpeg'
+    } else {
+      return c.json({ error: 'Provide imageData or url' }, 400)
+    }
+
+    const stored = encodePhotoForStorage(data, contentType)
+
+    await c.env.DB.prepare(
+      `UPDATE contacts
+       SET photo_data = ?, photo_content_type = ?, photo_key = 'stored', updated_at = ?
+       WHERE id = ?`,
+    ).bind(stored.photoData, stored.photoContentType, Date.now(), contactId).run()
+
+    invalidateLinkUserCache(c, user.id)
+    return c.json({ success: true, photoUrl: `/api/contacts/${contactId}/photo` })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to save photo'
+    return c.json({ error: message }, 400)
+  }
+})
+
+// API: Serve contact photo
+app.get('/api/contacts/:id/photo', requireAuth, async (c) => {
+  const user = c.get('user')
+  const contactId = c.req.param('id')
+
+  const contact = await c.env.DB.prepare(
+    'SELECT photo_data, photo_content_type FROM contacts WHERE id = ? AND user_id = ?',
+  ).bind(contactId, user.id).first<{ photo_data: string | null; photo_content_type: string | null }>()
+
+  if (!contact?.photo_data) {
+    return c.text('Photo not found', 404)
+  }
+
+  const bytes = decodeStoredPhoto(contact.photo_data)
+  const contentType = contact.photo_content_type || 'image/jpeg'
+  return new Response(bytes, {
+    headers: {
+      'Content-Type': contentType,
+      'Cache-Control': 'private, max-age=3600',
+    },
+  })
+})
+
+// API: Remove contact photo
+app.delete('/api/contacts/:id/photo', requireAuth, async (c) => {
+  const user = c.get('user')
+  const contactId = c.req.param('id')
+
+  const existing = await c.env.DB.prepare(
+    'SELECT id FROM contacts WHERE id = ? AND user_id = ?',
+  ).bind(contactId, user.id).first<{ id: string }>()
+
+  if (!existing) {
+    return c.json({ error: 'Contact not found' }, 404)
+  }
+
+  await c.env.DB.prepare(
+    `UPDATE contacts
+     SET photo_data = NULL, photo_content_type = NULL, photo_key = NULL, updated_at = ?
+     WHERE id = ?`,
+  ).bind(Date.now(), contactId).run()
+
+  invalidateLinkUserCache(c, user.id)
+  return c.json({ success: true })
+})
+
 // API: Delete contact
 app.delete('/api/contacts/:id', requireAuth, async (c) => {
   const user = c.get('user')
@@ -1890,7 +2011,7 @@ app.delete('/api/contacts/:id', requireAuth, async (c) => {
   // Verify contact belongs to user
   const existing = await c.env.DB.prepare(
     'SELECT id FROM contacts WHERE id = ? AND user_id = ?'
-  ).bind(contactId, user.id).first()
+  ).bind(contactId, user.id).first<{ id: string }>()
   
   if (!existing) {
     return c.json({ error: 'Contact not found' }, 404)
@@ -2625,16 +2746,17 @@ async function performQuickAddInteraction(
   
   if (newContact) {
     // User indicated this is a new contact - extract info and create (may be multiple!)
-    const extractPrompt = `Extract ONLY contact names and location from this interaction note. There may be MULTIPLE new contacts.
+    const extractPrompt = `Extract ONLY contact names and location from this interaction note.
 
 "${originalNotes}"
 
 IMPORTANT:
-- Look for ALL person names in the text
+- Extract the person(s) this interaction is WITH — not people merely mentioned in passing
+- Return MULTIPLE contacts ONLY when names appear together in a list (e.g. "with Bill and Mary", "Garrett Kerr and Tim Lee")
+- Do NOT extract relatives or others mentioned in narrative (e.g. "Bill's wife is Mary" -> only Bill, NOT Mary)
 - Do NOT summarize, rewrite, or extract any other content from the note
-- Preserve all other text in the note for storage as interaction notes
 
-Extract for EACH person:
+Extract for EACH person in the interaction:
 1. Contact name - the person's full name (REQUIRED)
 2. Email address (if mentioned)
 3. Phone number (if mentioned)
@@ -2657,7 +2779,8 @@ Respond ONLY with valid JSON in this exact format:
 
 Examples:
 "Met with Jacob Smith today at the office" -> {"contacts":[{"name":"Jacob Smith","email":null,"phone":null,"company":null}],"location":"the office"}
-"Watched football game with Garrett Kerr and Tim Lee" -> {"contacts":[{"name":"Garrett Kerr","email":null,"phone":null,"company":null},{"name":"Tim Lee","email":null,"phone":null,"company":null}],"location":null}`
+"Watched football game with Garrett Kerr and Tim Lee" -> {"contacts":[{"name":"Garrett Kerr","email":null,"phone":null,"company":null},{"name":"Tim Lee","email":null,"phone":null,"company":null}],"location":null}
+"Bill's wife is Mary and his daughter is Julie" -> {"contacts":[{"name":"Bill","email":null,"phone":null,"company":null}],"location":null}`
 
     try {
       const extractResponse = await runTextModel(env.AI, [
@@ -2684,8 +2807,16 @@ Examples:
       
       console.log('Parsed contact info:', JSON.stringify(contactInfo))
       
-      // Ensure we have an array of contacts
-      const contactsToCreate = Array.isArray(contactInfo.contacts) ? contactInfo.contacts : [{ name: 'Unknown Contact' }]
+      // Ensure we have an array of contacts; only keep multiple when co-listed in the text
+      let contactsToCreate = Array.isArray(contactInfo.contacts)
+        ? contactInfo.contacts.map((c: any) => ({
+            name: c?.name || 'Unknown Contact',
+            email: c?.email || null,
+            phone: c?.phone || null,
+            company: c?.company || null,
+          }))
+        : [{ name: 'Unknown Contact', email: null, phone: null, company: null }]
+      contactsToCreate = filterToCoListedContacts(originalNotes, contactsToCreate)
       if (!interactionLocation && contactInfo.location) {
         interactionLocation = contactInfo.location
       }
@@ -2931,9 +3062,9 @@ ${contactsList}
 CRITICAL INSTRUCTIONS:
 - Extract ONLY which contact(s) the note refers to and the location (if mentioned)
 - Do NOT summarize, rewrite, or extract any other content from the note
-- Look for ANY person names mentioned in the text
 - Match FULL NAMES, FIRST+LAST, or unique first/last names
-- This interaction may involve MULTIPLE contacts
+- Return MULTIPLE contactNumbers ONLY when names appear together in a list (e.g. "with John and Sarah")
+- Do NOT match people merely mentioned in narrative (e.g. "Bill's wife Mary" -> only Bill)
 
 Respond in this exact JSON format:
 {
@@ -2945,6 +3076,7 @@ Examples:
 "Chatted with Aaron Davis yesterday at church" + contacts list includes "2. Aaron Davis" -> {"contactNumbers": [2], "location": "church"}
 "Had lunch with Matt Walters at Starbucks" + contacts list includes "1. Matt Walters" -> {"contactNumbers": [1], "location": "Starbucks"}
 "Met with John and Sarah" + list has "1. John Smith" and "3. Sarah Jones" -> {"contactNumbers": [1, 3], "location": null}
+"Bill's wife is Mary" + list has Bill and Mary -> {"contactNumbers": [<Bill's number only>], "location": null}
 
 IMPORTANT: Always try to find a match by extracting names from the text. Only use empty array [] if absolutely no name match is possible.`
 
@@ -3002,7 +3134,7 @@ IMPORTANT: Always try to find a match by extracting names from the text. Only us
       }
       
       // Get all matched contacts - filter out any undefined results
-      const selectedContacts = validContactNumbers
+      const aiMatchedContacts = validContactNumbers
         .map((num: any) => {
           const index = parseInt(num) - 1
           if (index >= 0 && index < limitedContacts.length) {
@@ -3012,6 +3144,14 @@ IMPORTANT: Always try to find a match by extracting names from the text. Only us
           return null
         })
         .filter((c: any) => c !== null)
+
+      const selectedContacts = filterToCoListedContacts(originalNotes, aiMatchedContacts)
+      if (selectedContacts.length < aiMatchedContacts.length) {
+        console.log(
+          '[Contact Matching] Reduced AI matches to single contact (not co-listed):',
+          selectedContacts.map((c: any) => c.name).join(', '),
+        )
+      }
       
       if (selectedContacts.length === 0) {
         console.error('[Contact Matching] No valid contacts after filtering')
