@@ -491,21 +491,83 @@ export async function d1GetProject(env, projectId) {
 }
 
 export async function d1GetProjectListMeta(env, projectId) {
-  const project = await d1GetProject(env, projectId);
-  if (!project) return null;
-  const tasks = Array.isArray(project.tasks) ? project.tasks : [];
-  const members = Array.isArray(project.members) ? project.members : [];
+  if (!hasTetherD1(env) || !projectId) return null;
+  const db = env.TETHER_DB;
+  const key = getAppDataKey(env);
+  const pid = String(projectId);
+  const proj = await db
+    .prepare(
+      `SELECT id, owner_user_id, title, description, updated_at,
+              (SELECT COUNT(*) FROM tether_project_members m WHERE m.project_id = p.id) AS member_count,
+              (SELECT COUNT(*) FROM tether_tasks t WHERE t.project_id = p.id) AS task_count,
+              (SELECT COUNT(*) FROM tether_tasks t WHERE t.project_id = p.id AND t.status = 'done') AS tasks_done_count
+       FROM tether_projects p WHERE id = ?`
+    )
+    .bind(pid)
+    .first();
+  if (!proj) return null;
+  const members =
+    (
+      await db
+        .prepare(`SELECT user_id FROM tether_project_members WHERE project_id = ?`)
+        .bind(pid)
+        .all()
+    ).results || [];
+  const title = await decryptString(proj.title, key);
+  const description = await decryptString(proj.description || '', key);
   return {
-    id: project.id,
-    title: project.title,
-    description: project.description || '',
-    ownerUserId: project.ownerUserId,
-    memberUserIds: members.map((m) => m.userId).filter(Boolean),
-    memberCount: members.length,
-    taskCount: tasks.length,
-    tasksDoneCount: tasks.filter((t) => (t.status || 'todo') === 'done').length,
-    updatedAt: project.updatedAt,
+    id: proj.id,
+    title: title || '',
+    description: description || '',
+    ownerUserId: proj.owner_user_id,
+    memberUserIds: members.map((m) => m.user_id).filter(Boolean),
+    memberCount: Number(proj.member_count) || members.length,
+    taskCount: Number(proj.task_count) || 0,
+    tasksDoneCount: Number(proj.tasks_done_count) || 0,
+    updatedAt: Number(proj.updated_at) || 0,
   };
+}
+
+/** Project list summaries for one user in a small number of D1 queries (no full task decrypt). */
+export async function d1ListProjectSummariesForUser(env, userId) {
+  if (!hasTetherD1(env) || !userId) return [];
+  const db = env.TETHER_DB;
+  const key = getAppDataKey(env);
+  const uid = String(userId);
+  const rows =
+    (
+      await db
+        .prepare(
+          `SELECT p.id, p.owner_user_id, p.title, p.description, p.updated_at,
+                  (SELECT COUNT(*) FROM tether_project_members m WHERE m.project_id = p.id) AS member_count,
+                  (SELECT COUNT(*) FROM tether_tasks t WHERE t.project_id = p.id) AS task_count,
+                  (SELECT COUNT(*) FROM tether_tasks t WHERE t.project_id = p.id AND t.status = 'done') AS tasks_done_count
+           FROM tether_user_projects up
+           JOIN tether_projects p ON p.id = up.project_id
+           WHERE up.user_id = ?
+           ORDER BY p.updated_at DESC`
+        )
+        .bind(uid)
+        .all()
+    ).results || [];
+
+  const out = [];
+  for (const proj of rows) {
+    const title = await decryptString(proj.title, key);
+    const description = await decryptString(proj.description || '', key);
+    out.push({
+      id: proj.id,
+      title: title || '',
+      description: description || '',
+      ownerUserId: proj.owner_user_id,
+      isOwner: proj.owner_user_id === uid,
+      memberCount: Number(proj.member_count) || 0,
+      taskCount: Number(proj.task_count) || 0,
+      tasksDoneCount: Number(proj.tasks_done_count) || 0,
+      updatedAt: Number(proj.updated_at) || 0,
+    });
+  }
+  return out;
 }
 
 export async function d1GetUserProjectIds(env, userId) {
@@ -672,8 +734,8 @@ export async function d1PutSettings(env, userId, settings) {
 }
 
 /**
- * My Tasks via SQL: inbox for user + project tasks where user is assignee.
- * Returns plaintext task objects with projectId / projectTitle attached.
+ * My Tasks via SQL: inbox + assigned project tasks.
+ * Avoids loading full project documents (was N full decrypts on every first load).
  */
 export async function d1GetMyTasks(env, userId) {
   if (!hasTetherD1(env) || !userId) return [];
@@ -682,11 +744,16 @@ export async function d1GetMyTasks(env, userId) {
   const uid = String(userId);
 
   const inbox = await d1GetInbox(env, uid);
-  const tasks = inbox.map((t) => ({
-    ...t,
-    projectId: null,
-    projectTitle: 'None',
-  }));
+  const tasks = inbox.map((t) => {
+    const { dependsOnTitles, blockedByIncomplete } = enrichLocalDeps(t, inbox);
+    return {
+      ...t,
+      projectId: null,
+      projectTitle: 'None',
+      dependsOnTitles,
+      blockedByIncomplete,
+    };
+  });
 
   const assignedRows =
     (
@@ -705,53 +772,85 @@ export async function d1GetMyTasks(env, userId) {
         .all()
     ).results || [];
 
-  // Need full project task graphs for dependency titles — load per distinct project.
-  const projectIds = [...new Set(assignedRows.map((r) => r.project_id).filter(Boolean))];
-  const projectCache = new Map();
-  for (const pid of projectIds) {
-    projectCache.set(pid, await d1GetProject(env, pid));
+  if (!assignedRows.length) {
+    tasks.sort(sortMyTasks);
+    return tasks;
   }
 
-  for (const pid of projectIds) {
-    const project = projectCache.get(pid);
-    if (!project) continue;
-    const projectTasks = project.tasks || [];
-    const byId = new Map(projectTasks.map((t) => [t.id, t]));
-    const titleDecrypted = project.title;
-    for (const task of projectTasks) {
-      if (!(task.assigneeUserIds || []).includes(uid)) continue;
-      const depIds = task.dependsOnTaskIds || [];
-      const dependsOnTitles = depIds.map((id) => byId.get(id)?.title).filter(Boolean);
-      const blockedByIncomplete = depIds
-        .map((id) => byId.get(id))
-        .filter((dep) => dep && (dep.status || 'todo') !== 'done')
-        .map((dep) => dep.title);
-      tasks.push({
-        ...task,
-        projectId: project.id,
-        projectTitle: titleDecrypted,
-        dependsOnTitles,
-        blockedByIncomplete,
-      });
+  const assignedTasks = await loadTaskGraph(db, assignedRows, key);
+  const projectIdByTask = new Map(assignedRows.map((r) => [r.id, r.project_id]));
+  const projectTitleById = new Map();
+  const uniqueProjectRows = new Map();
+  for (const row of assignedRows) {
+    if (row.project_id && !uniqueProjectRows.has(row.project_id)) {
+      uniqueProjectRows.set(row.project_id, row.project_title);
     }
   }
+  await Promise.all(
+    [...uniqueProjectRows.entries()].map(async ([pid, encTitle]) => {
+      projectTitleById.set(pid, (await decryptString(encTitle || '', key)) || '');
+    })
+  );
 
-  for (const task of tasks) {
-    if (task.projectId != null) continue;
-    const { dependsOnTitles, blockedByIncomplete } = enrichLocalDeps(task, inbox);
-    task.dependsOnTitles = dependsOnTitles;
-    task.blockedByIncomplete = blockedByIncomplete;
+  // Load dependency tasks once (id/title/status only) for assigned tasks — not whole projects.
+  const assignedIds = assignedTasks.map((t) => t.id);
+  const depLinks = await queryByTaskIdIn(
+    db,
+    'SELECT task_id, depends_on_task_id FROM tether_task_deps WHERE task_id',
+    assignedIds
+  );
+  const depTargetIds = [...new Set(depLinks.map((d) => d.depends_on_task_id).filter(Boolean))];
+  const depTaskById = new Map();
+  if (depTargetIds.length) {
+    for (const chunk of chunkArray(depTargetIds, D1_MAX_BOUND_PARAMS)) {
+      const placeholders = chunk.map(() => '?').join(',');
+      const depRows =
+        (
+          await db
+            .prepare(`SELECT id, title, status FROM tether_tasks WHERE id IN (${placeholders})`)
+            .bind(...chunk)
+            .all()
+        ).results || [];
+      for (const row of depRows) {
+        const title = await decryptString(row.title, key);
+        depTaskById.set(row.id, { id: row.id, title: title || '', status: row.status || 'todo' });
+      }
+    }
+  }
+  const depsByTask = new Map();
+  for (const link of depLinks) {
+    if (!depsByTask.has(link.task_id)) depsByTask.set(link.task_id, []);
+    depsByTask.get(link.task_id).push(link.depends_on_task_id);
   }
 
-  tasks.sort((a, b) => {
-    const da = a.dueDate || '';
-    const db_ = b.dueDate || '';
-    if (da && db_ && da !== db_) return da.localeCompare(db_);
-    if (da && !db_) return -1;
-    if (!da && db_) return 1;
-    return String(a.title || '').localeCompare(String(b.title || ''));
-  });
+  for (const task of assignedTasks) {
+    const pid = projectIdByTask.get(task.id) || null;
+    const depIds = depsByTask.get(task.id) || task.dependsOnTaskIds || [];
+    const dependsOnTitles = depIds.map((id) => depTaskById.get(id)?.title).filter(Boolean);
+    const blockedByIncomplete = depIds
+      .map((id) => depTaskById.get(id))
+      .filter((dep) => dep && (dep.status || 'todo') !== 'done')
+      .map((dep) => dep.title);
+    tasks.push({
+      ...task,
+      projectId: pid,
+      projectTitle: pid ? projectTitleById.get(pid) || '' : '',
+      dependsOnTitles,
+      blockedByIncomplete,
+    });
+  }
+
+  tasks.sort(sortMyTasks);
   return tasks;
+}
+
+function sortMyTasks(a, b) {
+  const da = a.dueDate || '';
+  const db_ = b.dueDate || '';
+  if (da && db_ && da !== db_) return da.localeCompare(db_);
+  if (da && !db_) return -1;
+  if (!da && db_) return 1;
+  return String(a.title || '').localeCompare(String(b.title || ''));
 }
 
 function enrichLocalDeps(task, allTasks) {

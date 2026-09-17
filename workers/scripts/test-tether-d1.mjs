@@ -227,6 +227,40 @@ function createMemoryDb() {
         tables.tether_task_deps.set(`${b[0]}|${b[1]}`, { task_id: b[0], depends_on_task_id: b[1] });
         return { results: [] };
       }
+      if (sql.startsWith('SELECT p.id, p.owner_user_id, p.title, p.description, p.updated_at')) {
+        const uid = b[0];
+        const pids = [...tables.tether_user_projects.values()].filter((r) => r.user_id === uid).map((r) => r.project_id);
+        const results = [];
+        for (const pid of pids) {
+          const p = tables.tether_projects.get(pid);
+          if (!p) continue;
+          const members = [...tables.tether_project_members.values()].filter((m) => m.project_id === pid);
+          const tasks = [...tables.tether_tasks.values()].filter((t) => t.project_id === pid);
+          results.push({
+            ...p,
+            member_count: members.length,
+            task_count: tasks.length,
+            tasks_done_count: tasks.filter((t) => t.status === 'done').length,
+          });
+        }
+        return { results };
+      }
+      if (sql.startsWith('SELECT id, owner_user_id, title, description, updated_at')) {
+        const p = tables.tether_projects.get(b[0]);
+        if (!p) return { results: [] };
+        const members = [...tables.tether_project_members.values()].filter((m) => m.project_id === p.id);
+        const tasks = [...tables.tether_tasks.values()].filter((t) => t.project_id === p.id);
+        return { results: [{
+          ...p,
+          member_count: members.length,
+          task_count: tasks.length,
+          tasks_done_count: tasks.filter((t) => t.status === 'done').length,
+        }] };
+      }
+      if (sql.startsWith('SELECT id, title, status FROM tether_tasks WHERE id IN')) {
+        const ids = new Set(b);
+        return { results: [...tables.tether_tasks.values()].filter((t) => ids.has(t.id)).map((t) => ({ id: t.id, title: t.title, status: t.status })) };
+      }
       if (sql.startsWith('SELECT id, owner_user_id, title, description, created_at, updated_at FROM tether_projects')) {
         const row = tables.tether_projects.get(b[0]);
         return { results: row ? [row] : [] };

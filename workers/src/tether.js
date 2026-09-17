@@ -26,6 +26,7 @@ import {
   d1PutLabelColors,
   d1PutSettings,
   d1GetMyTasks,
+  d1ListProjectSummariesForUser,
   tetherDocFingerprint,
 } from './tether-d1.js';
 
@@ -307,6 +308,9 @@ async function getTetherProjectIdsFromDo(env, userId) {
 }
 
 async function getTetherProjectIds(env, userId) {
+  if (tetherD1PrimaryEnabled(env) && tetherD1UserDataEnabled(env)) {
+    return d1GetUserProjectIds(env, userId);
+  }
   if (tetherD1ReadEnabled(env) || tetherD1UserDataEnabled(env)) {
     const fromD1 = await d1GetUserProjectIds(env, userId);
     if (fromD1.length) return fromD1;
@@ -368,6 +372,9 @@ async function getInboxTasksFromDo(env, userId) {
 }
 
 async function getInboxTasks(env, userId) {
+  if (tetherD1UserDataEnabled(env) && tetherD1PrimaryEnabled(env)) {
+    return d1GetInbox(env, userId);
+  }
   if (tetherD1UserDataEnabled(env)) {
     const fromD1 = await d1GetInbox(env, userId);
     if (fromD1.length) return fromD1;
@@ -405,6 +412,10 @@ async function saveInboxTasks(env, userId, tasks) {
 }
 
 async function getLabelColors(env, userId) {
+  if (tetherD1UserDataEnabled(env) && tetherD1PrimaryEnabled(env)) {
+    const prefs = await d1GetPrefs(env, userId);
+    return prefs.labelColors && typeof prefs.labelColors === 'object' ? prefs.labelColors : {};
+  }
   if (tetherD1UserDataEnabled(env)) {
     const prefs = await d1GetPrefs(env, userId);
     if (prefs.labelColors && Object.keys(prefs.labelColors).length) return prefs.labelColors;
@@ -459,6 +470,10 @@ function normalizeTetherSettings(raw) {
 }
 
 async function getTetherSettings(env, userId) {
+  if (tetherD1UserDataEnabled(env) && tetherD1PrimaryEnabled(env)) {
+    const prefs = await d1GetPrefs(env, userId);
+    return normalizeTetherSettings(prefs.settings);
+  }
   if (tetherD1UserDataEnabled(env)) {
     const prefs = await d1GetPrefs(env, userId);
     if (prefs.settings && Object.keys(prefs.settings).length) {
@@ -987,6 +1002,12 @@ export async function handleTetherRequest(request, env, corsHeaders, path, ctx) 
 
   if (path === '/api/tether/projects' && request.method === 'GET') {
     return cachedTetherGet(ctx, userId, path, '', corsHeaders, async () => {
+      if (tetherD1ReadEnabled(env)) {
+        const projects = await d1ListProjectSummariesForUser(env, userId);
+        if (projects.length || (tetherD1PrimaryEnabled(env) && tetherD1UserDataEnabled(env))) {
+          return { projects };
+        }
+      }
       const projectIds = await getTetherProjectIds(env, userId);
       const projects = await fetchAccessibleProjectSummaries(env, projectIds, userId);
       return { projects };
@@ -1002,15 +1023,9 @@ export async function handleTetherRequest(request, env, corsHeaders, path, ctx) 
 
   if (path === '/api/tether/my-tasks' && request.method === 'GET') {
     return cachedTetherGet(ctx, userId, path, '', corsHeaders, async () => {
-      if (tetherD1ReadEnabled(env)) {
-        // Heal any DO-only projects into D1 before querying My Tasks.
-        const projectIds = await getTetherProjectIds(env, userId);
-        await Promise.all(projectIds.map((pid) => fetchProject(env, pid, ctx)));
-        if (tetherD1UserDataEnabled(env)) {
-          await getInboxTasks(env, userId);
-          const tasks = await d1GetMyTasks(env, userId);
-          return { tasks };
-        }
+      if (tetherD1ReadEnabled(env) && tetherD1UserDataEnabled(env)) {
+        const tasks = await d1GetMyTasks(env, userId);
+        return { tasks };
       }
       const projectIds = await getTetherProjectIds(env, userId);
       const accessible = await fetchAccessibleProjects(env, projectIds, userId);
