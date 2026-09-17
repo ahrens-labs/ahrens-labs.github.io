@@ -3766,7 +3766,7 @@ function getCalendarHtml(year: number, month: number, interactionsByDate: Map<st
   return calendarHtml;
 }
 
-export function interactionsPage(user: any, recentInteractions: any[], searchQuery: string = '', typeFilter: string = '', hasGoogleAccount: boolean = false, view: string = 'calendar', year?: number, month?: number): string {
+export function interactionsPage(user: any, recentInteractions: any[], searchQuery: string = '', typeFilter: string = '', hasGoogleAccount: boolean = false, view: string = 'list', year?: number, month?: number): string {
   const listReturnPath = `/interactions?view=list${searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : ''}${typeFilter ? `&type=${encodeURIComponent(typeFilter)}` : ''}`
 
   const recentInteractionsList = recentInteractions.map(i => {
@@ -3816,8 +3816,8 @@ export function interactionsPage(user: any, recentInteractions: any[], searchQue
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; margin-top: 1rem;">
           <h2 style="margin: 0;">Interactions</h2>
           <div style="display: flex; gap: 0.5rem;">
-            <a href="/interactions?view=calendar" class="btn ${view === 'calendar' ? 'btn-primary' : 'btn-secondary'}" style="padding: 0.5rem 1rem; font-size: 0.875rem;">📅 Calendar</a>
             <a href="/interactions?view=list" class="btn ${view === 'list' ? 'btn-primary' : 'btn-secondary'}" style="padding: 0.5rem 1rem; font-size: 0.875rem;">📋 List</a>
+            <a href="/interactions?view=calendar" class="btn ${view === 'calendar' ? 'btn-primary' : 'btn-secondary'}" style="padding: 0.5rem 1rem; font-size: 0.875rem;">📅 Calendar</a>
             <a href="/interactions/new" class="btn btn-primary">+ Add Interaction</a>
           </div>
         </div>

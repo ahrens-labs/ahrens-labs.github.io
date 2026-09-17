@@ -865,7 +865,7 @@ app.get('/interactions', requireAuth, async (c) => {
   return cachedUserGet(c, user.id, '/interactions', LINK_CACHE_TTL.page, async () => {
   const search = c.req.query('search')
   const typeFilter = c.req.query('type')
-  const view = c.req.query('view') || 'calendar'
+  const view = c.req.query('view') || 'list'
   const yearParam = c.req.query('year')
   const monthParam = c.req.query('month')
   
