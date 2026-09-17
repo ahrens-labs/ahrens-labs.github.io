@@ -126,6 +126,31 @@ async function rowToTask(row, keyHex) {
   return decrypted;
 }
 
+const D1_MAX_BOUND_PARAMS = 99;
+
+function chunkArray(items, size) {
+  const out = [];
+  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
+  return out;
+}
+
+async function queryByTaskIdIn(db, sqlPrefix, ids) {
+  if (!ids.length) return [];
+  const rows = [];
+  for (const chunk of chunkArray(ids, D1_MAX_BOUND_PARAMS)) {
+    const placeholders = chunk.map(() => '?').join(',');
+    const part =
+      (
+        await db
+          .prepare(`${sqlPrefix} IN (${placeholders})`)
+          .bind(...chunk)
+          .all()
+      ).results || [];
+    rows.push(...part);
+  }
+  return rows;
+}
+
 /**
  * Replace a full project document in D1 (last-write-wins).
  * Updates members, removed list, tasks, assignees, deps, and membership index.
@@ -144,23 +169,28 @@ export async function d1PutProject(env, project) {
   const removed = Array.isArray(project.removedMemberUserIds) ? project.removedMemberUserIds : [];
   const tasks = Array.isArray(project.tasks) ? project.tasks : [];
 
-  const existingTaskIds = (
-    await db
-      .prepare('SELECT id FROM tether_tasks WHERE project_id = ?')
-      .bind(projectId)
-      .all()
-  ).results?.map((r) => r.id) || [];
-
   const stmts = [];
 
-  if (existingTaskIds.length) {
-    for (const tid of existingTaskIds) {
-      stmts.push(db.prepare('DELETE FROM tether_task_assignees WHERE task_id = ?').bind(tid));
-      stmts.push(db.prepare('DELETE FROM tether_task_deps WHERE task_id = ?').bind(tid));
-    }
-    stmts.push(db.prepare('DELETE FROM tether_tasks WHERE project_id = ?').bind(projectId));
-  }
-
+  // Single-bind deletes (avoid per-task IN lists that hit D1's 100-variable limit).
+  stmts.push(
+    db
+      .prepare(
+        `DELETE FROM tether_task_assignees WHERE task_id IN (
+           SELECT id FROM tether_tasks WHERE project_id = ?
+         )`
+      )
+      .bind(projectId)
+  );
+  stmts.push(
+    db
+      .prepare(
+        `DELETE FROM tether_task_deps WHERE task_id IN (
+           SELECT id FROM tether_tasks WHERE project_id = ?
+         )`
+      )
+      .bind(projectId)
+  );
+  stmts.push(db.prepare('DELETE FROM tether_tasks WHERE project_id = ?').bind(projectId));
   stmts.push(db.prepare('DELETE FROM tether_project_members WHERE project_id = ?').bind(projectId));
   stmts.push(db.prepare('DELETE FROM tether_project_removed WHERE project_id = ?').bind(projectId));
   stmts.push(db.prepare('DELETE FROM tether_user_projects WHERE project_id = ?').bind(projectId));
@@ -256,50 +286,53 @@ export async function d1PutProject(env, project) {
     }
   }
 
-  await db.batch(stmts);
+  // D1 batches can be large; chunk to keep each batch manageable.
+  for (const chunk of chunkArray(stmts, 200)) {
+    await db.batch(chunk);
+  }
 }
 
 export async function d1DeleteProject(env, projectId) {
   if (!hasTetherD1(env) || !projectId) return;
   const db = env.TETHER_DB;
   const pid = String(projectId);
-  const taskIds =
-    (await db.prepare('SELECT id FROM tether_tasks WHERE project_id = ?').bind(pid).all()).results?.map(
-      (r) => r.id
-    ) || [];
-  const stmts = [];
-  for (const tid of taskIds) {
-    stmts.push(db.prepare('DELETE FROM tether_task_assignees WHERE task_id = ?').bind(tid));
-    stmts.push(db.prepare('DELETE FROM tether_task_deps WHERE task_id = ?').bind(tid));
-  }
-  stmts.push(db.prepare('DELETE FROM tether_tasks WHERE project_id = ?').bind(pid));
-  stmts.push(db.prepare('DELETE FROM tether_project_members WHERE project_id = ?').bind(pid));
-  stmts.push(db.prepare('DELETE FROM tether_project_removed WHERE project_id = ?').bind(pid));
-  stmts.push(db.prepare('DELETE FROM tether_user_projects WHERE project_id = ?').bind(pid));
-  stmts.push(db.prepare('DELETE FROM tether_projects WHERE id = ?').bind(pid));
-  if (stmts.length) await db.batch(stmts);
+  const stmts = [
+    db
+      .prepare(
+        `DELETE FROM tether_task_assignees WHERE task_id IN (
+           SELECT id FROM tether_tasks WHERE project_id = ?
+         )`
+      )
+      .bind(pid),
+    db
+      .prepare(
+        `DELETE FROM tether_task_deps WHERE task_id IN (
+           SELECT id FROM tether_tasks WHERE project_id = ?
+         )`
+      )
+      .bind(pid),
+    db.prepare('DELETE FROM tether_tasks WHERE project_id = ?').bind(pid),
+    db.prepare('DELETE FROM tether_project_members WHERE project_id = ?').bind(pid),
+    db.prepare('DELETE FROM tether_project_removed WHERE project_id = ?').bind(pid),
+    db.prepare('DELETE FROM tether_user_projects WHERE project_id = ?').bind(pid),
+    db.prepare('DELETE FROM tether_projects WHERE id = ?').bind(pid),
+  ];
+  await db.batch(stmts);
 }
 
 async function loadTaskGraph(db, taskRows, keyHex) {
   if (!taskRows.length) return [];
   const ids = taskRows.map((r) => r.id);
-  const placeholders = ids.map(() => '?').join(',');
-  const assigneeRows =
-    (
-      await db
-        .prepare(`SELECT task_id, user_id FROM tether_task_assignees WHERE task_id IN (${placeholders})`)
-        .bind(...ids)
-        .all()
-    ).results || [];
-  const depRows =
-    (
-      await db
-        .prepare(
-          `SELECT task_id, depends_on_task_id FROM tether_task_deps WHERE task_id IN (${placeholders})`
-        )
-        .bind(...ids)
-        .all()
-    ).results || [];
+  const assigneeRows = await queryByTaskIdIn(
+    db,
+    'SELECT task_id, user_id FROM tether_task_assignees WHERE task_id',
+    ids
+  );
+  const depRows = await queryByTaskIdIn(
+    db,
+    'SELECT task_id, depends_on_task_id FROM tether_task_deps WHERE task_id',
+    ids
+  );
   const assigneesByTask = new Map();
   for (const a of assigneeRows) {
     if (!assigneesByTask.has(a.task_id)) assigneesByTask.set(a.task_id, []);
@@ -442,22 +475,24 @@ export async function d1PutInbox(env, userId, tasks) {
   const key = getAppDataKey(env);
   const uid = String(userId);
   const list = Array.isArray(tasks) ? tasks : [];
-  const existing =
-    (
-      await db
-        .prepare(`SELECT id FROM tether_tasks WHERE owner_user_id = ? AND project_id IS NULL`)
-        .bind(uid)
-        .all()
-    ).results?.map((r) => r.id) || [];
 
-  const stmts = [];
-  for (const tid of existing) {
-    stmts.push(db.prepare('DELETE FROM tether_task_assignees WHERE task_id = ?').bind(tid));
-    stmts.push(db.prepare('DELETE FROM tether_task_deps WHERE task_id = ?').bind(tid));
-  }
-  stmts.push(
-    db.prepare(`DELETE FROM tether_tasks WHERE owner_user_id = ? AND project_id IS NULL`).bind(uid)
-  );
+  const stmts = [
+    db
+      .prepare(
+        `DELETE FROM tether_task_assignees WHERE task_id IN (
+           SELECT id FROM tether_tasks WHERE owner_user_id = ? AND project_id IS NULL
+         )`
+      )
+      .bind(uid),
+    db
+      .prepare(
+        `DELETE FROM tether_task_deps WHERE task_id IN (
+           SELECT id FROM tether_tasks WHERE owner_user_id = ? AND project_id IS NULL
+         )`
+      )
+      .bind(uid),
+    db.prepare(`DELETE FROM tether_tasks WHERE owner_user_id = ? AND project_id IS NULL`).bind(uid),
+  ];
 
   const now = Date.now();
   for (let i = 0; i < list.length; i++) {
@@ -497,7 +532,9 @@ export async function d1PutInbox(env, userId, tasks) {
       );
     }
   }
-  if (stmts.length) await db.batch(stmts);
+  for (const chunk of chunkArray(stmts, 200)) {
+    await db.batch(chunk);
+  }
 }
 
 export async function d1GetInbox(env, userId) {

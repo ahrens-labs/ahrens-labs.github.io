@@ -80,9 +80,47 @@ function createMemoryDb() {
           .map((t) => ({ id: t.id }));
         return { results };
       }
+      if (sql.startsWith('DELETE FROM tether_task_assignees WHERE task_id IN')) {
+        let taskIds;
+        if (sql.includes('project_id = ?') && !sql.includes('owner_user_id')) {
+          taskIds = new Set([...tables.tether_tasks.values()].filter((t) => t.project_id === b[0]).map((t) => t.id));
+        } else if (sql.includes('owner_user_id = ?')) {
+          taskIds = new Set(
+            [...tables.tether_tasks.values()]
+              .filter((t) => t.owner_user_id === b[0] && t.project_id == null)
+              .map((t) => t.id)
+          );
+        } else {
+          taskIds = new Set(b);
+        }
+        for (const k of [...tables.tether_task_assignees.keys()]) {
+          const tid = k.split('|')[0];
+          if (taskIds.has(tid)) tables.tether_task_assignees.delete(k);
+        }
+        return { results: [] };
+      }
       if (sql.startsWith('DELETE FROM tether_task_assignees WHERE task_id')) {
         for (const k of [...tables.tether_task_assignees.keys()]) {
           if (k.startsWith(`${b[0]}|`)) tables.tether_task_assignees.delete(k);
+        }
+        return { results: [] };
+      }
+      if (sql.startsWith('DELETE FROM tether_task_deps WHERE task_id IN')) {
+        let taskIds;
+        if (sql.includes('project_id = ?') && !sql.includes('owner_user_id')) {
+          taskIds = new Set([...tables.tether_tasks.values()].filter((t) => t.project_id === b[0]).map((t) => t.id));
+        } else if (sql.includes('owner_user_id = ?')) {
+          taskIds = new Set(
+            [...tables.tether_tasks.values()]
+              .filter((t) => t.owner_user_id === b[0] && t.project_id == null)
+              .map((t) => t.id)
+          );
+        } else {
+          taskIds = new Set(b);
+        }
+        for (const k of [...tables.tether_task_deps.keys()]) {
+          const tid = k.split('|')[0];
+          if (taskIds.has(tid)) tables.tether_task_deps.delete(k);
         }
         return { results: [] };
       }
@@ -377,8 +415,41 @@ async function testFlags() {
   assert.equal(tetherD1PrimaryEnabled({ TETHER_DB: {}, TETHER_D1_PRIMARY: '1' }), true);
 }
 
+
+async function testLargeProjectChunking() {
+  const env = { TETHER_DB: createMemoryDb(), APP_DATA_ENCRYPTION_KEY: KEY };
+  const tasks = [];
+  for (let i = 0; i < 150; i++) {
+    tasks.push({
+      id: `task-${i}`,
+      title: `T${i}`,
+      status: 'todo',
+      sortOrder: i,
+      assigneeUserIds: i % 2 === 0 ? ['user_1'] : [],
+      dependsOnTaskIds: i > 0 ? [`task-${i - 1}`] : [],
+    });
+  }
+  const project = {
+    id: 'proj-big',
+    title: 'Big',
+    description: '',
+    ownerUserId: 'user_1',
+    members: [{ userId: 'user_1', role: 'owner', addedAt: 1 }],
+    tasks,
+    createdAt: 1,
+    updatedAt: 2,
+  };
+  await d1PutProject(env, project);
+  const loaded = await d1GetProject(env, 'proj-big');
+  assert.equal(loaded.tasks.length, 150);
+  assert.equal(loaded.tasks[10].title, 'T10');
+  assert.deepEqual(loaded.tasks[10].dependsOnTaskIds, ['task-9']);
+}
+
 await testProjectRoundTrip();
 await testInboxAndMyTasks();
 await testDeleteAndPrefs();
 await testFlags();
+await testLargeProjectChunking();
 console.log('tether-d1 tests passed');
+
