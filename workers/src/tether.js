@@ -7,6 +7,27 @@ import {
   encryptListMeta,
   decryptListMeta,
 } from './app-data-crypto.js';
+import {
+  tetherD1WriteEnabled,
+  tetherD1ReadEnabled,
+  tetherD1PrimaryEnabled,
+  tetherD1UserDataEnabled,
+  tetherD1CompareEnabled,
+  d1PutProject,
+  d1DeleteProject,
+  d1GetProject,
+  d1GetProjectListMeta,
+  d1GetUserProjectIds,
+  d1AddUserProjectId,
+  d1RemoveUserProjectId,
+  d1PutInbox,
+  d1GetInbox,
+  d1GetPrefs,
+  d1PutLabelColors,
+  d1PutSettings,
+  d1GetMyTasks,
+  tetherDocFingerprint,
+} from './tether-d1.js';
 
 function parseBearerToken(authHeader) {
   if (!authHeader || typeof authHeader !== 'string') return null;
@@ -277,7 +298,7 @@ async function fetchUserProfile(env, userId) {
   }
 }
 
-async function getTetherProjectIds(env, userId) {
+async function getTetherProjectIdsFromDo(env, userId) {
   const stub = userAccountStub(env, userId);
   if (!stub) return [];
   const res = await stub.fetch(new Request('http://do/getTetherProjectIds', { method: 'GET' }));
@@ -285,29 +306,55 @@ async function getTetherProjectIds(env, userId) {
   return Array.isArray(data.projectIds) ? data.projectIds : [];
 }
 
+async function getTetherProjectIds(env, userId) {
+  if (tetherD1ReadEnabled(env) || tetherD1UserDataEnabled(env)) {
+    const fromD1 = await d1GetUserProjectIds(env, userId);
+    if (fromD1.length) return fromD1;
+    // Heal empty D1 membership from UserAccount during cutover.
+    const fromDo = await getTetherProjectIdsFromDo(env, userId);
+    if (fromDo.length && tetherD1WriteEnabled(env)) {
+      await Promise.all(fromDo.map((pid) => d1AddUserProjectId(env, userId, pid)));
+    }
+    return fromDo;
+  }
+  return getTetherProjectIdsFromDo(env, userId);
+}
+
 async function addTetherProjectId(env, userId, projectId) {
-  const stub = userAccountStub(env, userId);
-  if (!stub) return;
-  await stub.fetch(
-    new Request('http://do/addTetherProjectId', {
-      method: 'POST',
-      body: JSON.stringify({ projectId }),
-    })
-  );
+  if (!tetherD1PrimaryEnabled(env) || !tetherD1UserDataEnabled(env)) {
+    const stub = userAccountStub(env, userId);
+    if (stub) {
+      await stub.fetch(
+        new Request('http://do/addTetherProjectId', {
+          method: 'POST',
+          body: JSON.stringify({ projectId }),
+        })
+      );
+    }
+  }
+  if (tetherD1WriteEnabled(env) || tetherD1PrimaryEnabled(env)) {
+    await d1AddUserProjectId(env, userId, projectId);
+  }
 }
 
 async function removeTetherProjectId(env, userId, projectId) {
-  const stub = userAccountStub(env, userId);
-  if (!stub) return;
-  await stub.fetch(
-    new Request('http://do/removeTetherProjectId', {
-      method: 'POST',
-      body: JSON.stringify({ projectId }),
-    })
-  );
+  if (!tetherD1PrimaryEnabled(env) || !tetherD1UserDataEnabled(env)) {
+    const stub = userAccountStub(env, userId);
+    if (stub) {
+      await stub.fetch(
+        new Request('http://do/removeTetherProjectId', {
+          method: 'POST',
+          body: JSON.stringify({ projectId }),
+        })
+      );
+    }
+  }
+  if (tetherD1WriteEnabled(env) || tetherD1PrimaryEnabled(env)) {
+    await d1RemoveUserProjectId(env, userId, projectId);
+  }
 }
 
-async function getInboxTasks(env, userId) {
+async function getInboxTasksFromDo(env, userId) {
   const stub = userAccountStub(env, userId);
   if (!stub) return [];
   const res = await stub.fetch(new Request('http://do/getTetherInbox', { method: 'GET' }));
@@ -320,45 +367,85 @@ async function getInboxTasks(env, userId) {
   }
 }
 
+async function getInboxTasks(env, userId) {
+  if (tetherD1UserDataEnabled(env)) {
+    const fromD1 = await d1GetInbox(env, userId);
+    if (fromD1.length) return fromD1;
+    const fromDo = await getInboxTasksFromDo(env, userId);
+    if (fromDo.length && tetherD1WriteEnabled(env)) {
+      try {
+        await d1PutInbox(env, userId, fromDo);
+      } catch {
+        /* heal best-effort */
+      }
+    }
+    return fromDo;
+  }
+  return getInboxTasksFromDo(env, userId);
+}
+
 async function saveInboxTasks(env, userId, tasks) {
-  const stub = userAccountStub(env, userId);
-  if (!stub) throw new Error('Account not found');
-  const res = await stub.fetch(
-    new Request('http://do/saveTetherInbox', {
-      method: 'PUT',
-      body: JSON.stringify({ tasks }),
-    })
-  );
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Failed to save inbox');
-  return Array.isArray(data.tasks) ? data.tasks : tasks;
+  const plain = Array.isArray(tasks) ? tasks : [];
+  if (!tetherD1UserDataEnabled(env) || !tetherD1PrimaryEnabled(env)) {
+    const stub = userAccountStub(env, userId);
+    if (!stub) throw new Error('Account not found');
+    const res = await stub.fetch(
+      new Request('http://do/saveTetherInbox', {
+        method: 'PUT',
+        body: JSON.stringify({ tasks: plain }),
+      })
+    );
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to save inbox');
+  }
+  if (tetherD1WriteEnabled(env) || tetherD1UserDataEnabled(env)) {
+    await d1PutInbox(env, userId, plain);
+  }
+  return plain;
 }
 
 async function getLabelColors(env, userId) {
+  if (tetherD1UserDataEnabled(env)) {
+    const prefs = await d1GetPrefs(env, userId);
+    if (prefs.labelColors && Object.keys(prefs.labelColors).length) return prefs.labelColors;
+  }
   const stub = userAccountStub(env, userId);
   if (!stub) return {};
   const res = await stub.fetch(new Request('http://do/getTetherLabelColors', { method: 'GET' }));
   if (!res.ok) return {};
   try {
     const data = await res.json();
-    return data.labelColors && typeof data.labelColors === 'object' ? data.labelColors : {};
+    const colors = data.labelColors && typeof data.labelColors === 'object' ? data.labelColors : {};
+    if (tetherD1UserDataEnabled(env) && tetherD1WriteEnabled(env) && Object.keys(colors).length) {
+      try {
+        await d1PutLabelColors(env, userId, colors);
+      } catch {
+        /* heal */
+      }
+    }
+    return colors;
   } catch {
     return {};
   }
 }
 
 async function saveLabelColors(env, userId, labelColors) {
-  const stub = userAccountStub(env, userId);
-  if (!stub) throw new Error('Account not found');
-  const res = await stub.fetch(
-    new Request('http://do/saveTetherLabelColors', {
-      method: 'PUT',
-      body: JSON.stringify({ labelColors }),
-    })
-  );
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Failed to save label colors');
-  return data.labelColors && typeof data.labelColors === 'object' ? data.labelColors : labelColors;
+  if (!tetherD1UserDataEnabled(env) || !tetherD1PrimaryEnabled(env)) {
+    const stub = userAccountStub(env, userId);
+    if (!stub) throw new Error('Account not found');
+    const res = await stub.fetch(
+      new Request('http://do/saveTetherLabelColors', {
+        method: 'PUT',
+        body: JSON.stringify({ labelColors }),
+      })
+    );
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to save label colors');
+  }
+  if (tetherD1WriteEnabled(env) || tetherD1UserDataEnabled(env)) {
+    await d1PutLabelColors(env, userId, labelColors);
+  }
+  return labelColors && typeof labelColors === 'object' ? labelColors : {};
 }
 
 const DEFAULT_TETHER_SETTINGS = { myTasksShowAllDays: false };
@@ -372,31 +459,109 @@ function normalizeTetherSettings(raw) {
 }
 
 async function getTetherSettings(env, userId) {
+  if (tetherD1UserDataEnabled(env)) {
+    const prefs = await d1GetPrefs(env, userId);
+    if (prefs.settings && Object.keys(prefs.settings).length) {
+      return normalizeTetherSettings(prefs.settings);
+    }
+  }
   const stub = userAccountStub(env, userId);
   if (!stub) return { ...DEFAULT_TETHER_SETTINGS };
   const res = await stub.fetch(new Request('http://do/getTetherSettings', { method: 'GET' }));
   if (!res.ok) return { ...DEFAULT_TETHER_SETTINGS };
   try {
     const data = await res.json();
-    return normalizeTetherSettings(data.settings);
+    const settings = normalizeTetherSettings(data.settings);
+    if (tetherD1UserDataEnabled(env) && tetherD1WriteEnabled(env)) {
+      try {
+        await d1PutSettings(env, userId, settings);
+      } catch {
+        /* heal */
+      }
+    }
+    return settings;
   } catch {
     return { ...DEFAULT_TETHER_SETTINGS };
   }
 }
 
 async function saveTetherSettings(env, userId, settings) {
-  const stub = userAccountStub(env, userId);
-  if (!stub) throw new Error('Account not found');
   const normalized = normalizeTetherSettings(settings);
-  const res = await stub.fetch(
-    new Request('http://do/saveTetherSettings', {
-      method: 'PUT',
-      body: JSON.stringify({ settings: normalized }),
+  if (!tetherD1UserDataEnabled(env) || !tetherD1PrimaryEnabled(env)) {
+    const stub = userAccountStub(env, userId);
+    if (!stub) throw new Error('Account not found');
+    const res = await stub.fetch(
+      new Request('http://do/saveTetherSettings', {
+        method: 'PUT',
+        body: JSON.stringify({ settings: normalized }),
+      })
+    );
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to save settings');
+  }
+  if (tetherD1WriteEnabled(env) || tetherD1UserDataEnabled(env)) {
+    await d1PutSettings(env, userId, normalized);
+  }
+  return normalized;
+}
+
+async function persistProjectToDo(env, project, mode = 'save') {
+  const stub = tetherProjectStub(env, project.id);
+  if (!stub) throw new Error('Project storage unavailable');
+  const path = mode === 'create' ? '/create' : '/save';
+  await stub.fetch(
+    new Request(`http://do${path}`, {
+      method: 'POST',
+      body: JSON.stringify(project),
     })
   );
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Failed to save settings');
-  return normalizeTetherSettings(data.settings);
+}
+
+async function deleteProjectFromDo(env, projectId) {
+  const stub = tetherProjectStub(env, projectId);
+  if (!stub) return;
+  await stub.fetch(new Request('http://do/delete', { method: 'POST' }));
+}
+
+/** Write project document honoring dual-write / D1-primary flags. */
+async function persistProject(env, project, { create = false } = {}) {
+  if (!tetherD1PrimaryEnabled(env)) {
+    await persistProjectToDo(env, project, create ? 'create' : 'save');
+  }
+  if (tetherD1WriteEnabled(env) || tetherD1PrimaryEnabled(env)) {
+    try {
+      await d1PutProject(env, project);
+    } catch (err) {
+      if (tetherD1PrimaryEnabled(env)) throw err;
+      console.warn('[tether-d1] putProject failed', project?.id, err?.message || err);
+    }
+  }
+}
+
+async function removeProjectStorage(env, projectId) {
+  if (!tetherD1PrimaryEnabled(env)) {
+    await deleteProjectFromDo(env, projectId);
+  }
+  if (tetherD1WriteEnabled(env) || tetherD1PrimaryEnabled(env)) {
+    try {
+      await d1DeleteProject(env, projectId);
+    } catch (err) {
+      if (tetherD1PrimaryEnabled(env)) throw err;
+      console.warn('[tether-d1] deleteProject failed', projectId, err?.message || err);
+    }
+  }
+}
+
+function scheduleD1Compare(ctx, env, projectId, doProject, d1Project) {
+  if (!tetherD1CompareEnabled(env)) return;
+  const work = Promise.resolve().then(() => {
+    const a = tetherDocFingerprint(doProject);
+    const b = tetherDocFingerprint(d1Project);
+    if (a !== b) {
+      console.warn('[tether-d1] compare mismatch', projectId, { doLen: a.length, d1Len: b.length });
+    }
+  });
+  scheduleTetherCacheWork(ctx, work);
 }
 
 function enrichTaskWithDeps(task, allTasks) {
@@ -410,12 +575,40 @@ function enrichTaskWithDeps(task, allTasks) {
   return { dependsOnTitles, blockedByIncomplete };
 }
 
-async function fetchProject(env, projectId) {
+async function fetchProjectFromDo(env, projectId) {
   const stub = tetherProjectStub(env, projectId);
   if (!stub) return null;
   const res = await stub.fetch(new Request('http://do/get', { method: 'GET' }));
   if (!res.ok) return null;
   return res.json();
+}
+
+async function fetchProject(env, projectId, ctx = null) {
+  if (tetherD1ReadEnabled(env)) {
+    const fromD1 = await d1GetProject(env, projectId);
+    if (fromD1) {
+      if (tetherD1CompareEnabled(env)) {
+        scheduleTetherCacheWork(
+          ctx,
+          fetchProjectFromDo(env, projectId).then((fromDo) => {
+            scheduleD1Compare(ctx, env, projectId, fromDo, fromD1);
+          })
+        );
+      }
+      return fromD1;
+    }
+    const fromDo = await fetchProjectFromDo(env, projectId);
+    if (fromDo && tetherD1WriteEnabled(env)) {
+      scheduleTetherCacheWork(
+        ctx,
+        d1PutProject(env, fromDo).catch((err) => {
+          console.warn('[tether-d1] heal put failed', projectId, err?.message || err);
+        })
+      );
+    }
+    return fromDo;
+  }
+  return fetchProjectFromDo(env, projectId);
 }
 
 function userCanAccessProject(project, userId) {
@@ -500,6 +693,10 @@ function buildListMeta(project) {
 }
 
 async function fetchProjectListMeta(env, projectId) {
+  if (tetherD1ReadEnabled(env)) {
+    const meta = await d1GetProjectListMeta(env, projectId);
+    if (meta) return meta;
+  }
   const stub = tetherProjectStub(env, projectId);
   if (!stub) return null;
   const res = await stub.fetch(new Request('http://do/get-list-meta', { method: 'GET' }));
@@ -542,6 +739,76 @@ async function fetchAccessibleProjects(env, projectIds, userId) {
   return results.filter(Boolean);
 }
 
+/**
+ * Backfill one user's Tether data from Durable Objects into D1.
+ * Idempotent: overwrites D1 rows for discovered project IDs + inbox/prefs.
+ */
+export async function backfillUserTetherToD1(env, userId) {
+  if (!userId || !env.TETHER_DB) {
+    return { ok: false, error: 'D1 unavailable' };
+  }
+  const projectIds = await getTetherProjectIdsFromDo(env, userId);
+  let projectsOk = 0;
+  let projectsFail = 0;
+  const seen = new Set();
+  for (const pid of projectIds) {
+    if (!pid || seen.has(pid)) continue;
+    seen.add(pid);
+    try {
+      const project = await fetchProjectFromDo(env, pid);
+      if (!project) {
+        projectsFail++;
+        continue;
+      }
+      await d1PutProject(env, project);
+      for (const m of project.members || []) {
+        if (m?.userId) await d1AddUserProjectId(env, m.userId, pid);
+      }
+      projectsOk++;
+    } catch (err) {
+      projectsFail++;
+      console.warn('[tether-d1] backfill project failed', pid, err?.message || err);
+    }
+  }
+
+  let inboxCount = 0;
+  try {
+    const inbox = await getInboxTasksFromDo(env, userId);
+    await d1PutInbox(env, userId, inbox);
+    inboxCount = inbox.length;
+  } catch (err) {
+    console.warn('[tether-d1] backfill inbox failed', userId, err?.message || err);
+  }
+
+  try {
+    const stub = userAccountStub(env, userId);
+    if (stub) {
+      const [colorsRes, settingsRes] = await Promise.all([
+        stub.fetch(new Request('http://do/getTetherLabelColors', { method: 'GET' })),
+        stub.fetch(new Request('http://do/getTetherSettings', { method: 'GET' })),
+      ]);
+      const colorsData = colorsRes.ok ? await colorsRes.json() : {};
+      const settingsData = settingsRes.ok ? await settingsRes.json() : {};
+      const labelColors =
+        colorsData.labelColors && typeof colorsData.labelColors === 'object' ? colorsData.labelColors : {};
+      const settings = normalizeTetherSettings(settingsData.settings);
+      await d1PutLabelColors(env, userId, labelColors);
+      await d1PutSettings(env, userId, settings);
+    }
+  } catch (err) {
+    console.warn('[tether-d1] backfill prefs failed', userId, err?.message || err);
+  }
+
+  return {
+    ok: true,
+    userId,
+    projectIds: projectIds.length,
+    projectsOk,
+    projectsFail,
+    inboxCount,
+  };
+}
+
 /** Reject saves where a done task still has incomplete dependencies. */
 function validateTaskDependencyCompletion(tasks) {
   if (!Array.isArray(tasks)) return null;
@@ -577,13 +844,7 @@ async function addMemberToProject(env, project, profile) {
   });
 
   const updated = { ...project, members, updatedAt: Date.now() };
-  const stub = tetherProjectStub(env, project.id);
-  await stub.fetch(
-    new Request('http://do/save', {
-      method: 'POST',
-      body: JSON.stringify(updated),
-    })
-  );
+  await persistProject(env, updated);
   await addTetherProjectId(env, profile.userId, project.id);
   return updated;
 }
@@ -630,6 +891,80 @@ function newProjectId() {
 
 export async function handleTetherRequest(request, env, corsHeaders, path, ctx) {
   const url = new URL(request.url);
+
+  // Phase 2: DO → D1 backfill (admin / test-secret, or one-shot AUTO_BACKFILL).
+  if (path === '/api/tether/admin/backfill-d1' && request.method === 'POST') {
+    const testSecret = String(env.TEST_SECRET || '').trim();
+    const provided = String(request.headers.get('X-Test-Secret') || '').trim();
+    const autoOk = String(env.TETHER_D1_AUTO_BACKFILL || '') === '1';
+    if ((!testSecret || provided !== testSecret) && !autoOk) {
+      return jsonResponse({ error: 'Forbidden' }, corsHeaders, 403);
+    }
+    if (!env.TETHER_DB) {
+      return jsonResponse({ error: 'TETHER_DB binding missing' }, corsHeaders, 503);
+    }
+    let body = {};
+    try {
+      body = await request.json();
+    } catch {
+      body = {};
+    }
+    const singleUserId = body.userId != null ? String(body.userId).trim() : '';
+    const userIds = [];
+    if (singleUserId) {
+      userIds.push(singleUserId);
+    } else if (Array.isArray(body.userIds)) {
+      for (const u of body.userIds) {
+        const id = u != null ? String(u).trim() : '';
+        if (id) userIds.push(id);
+      }
+    } else {
+      // Walk username registry when no user list provided.
+      if (!env.USERNAME_REGISTRY) {
+        return jsonResponse({ error: 'USERNAME_REGISTRY unavailable' }, corsHeaders, 503);
+      }
+      const registry = env.USERNAME_REGISTRY.get(env.USERNAME_REGISTRY.idFromName('global'));
+      const seen = new Set();
+      let startAfter;
+      for (let pages = 0; pages < 500; pages++) {
+        const res = await registry.fetch(
+          new Request('http://do/listUserIdsPage', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ limit: 100, ...(startAfter ? { startAfter } : {}) }),
+          })
+        );
+        if (!res.ok) break;
+        const data = await res.json();
+        for (const uid of data.userIds || []) {
+          const id = uid != null ? String(uid).trim() : '';
+          if (!id || seen.has(id)) continue;
+          seen.add(id);
+          userIds.push(id);
+        }
+        if (!data.nextListCursor) break;
+        startAfter = data.nextListCursor;
+      }
+    }
+
+    const limit = Math.min(Number(body.limit) || userIds.length, userIds.length);
+    const results = [];
+    for (let i = 0; i < limit; i++) {
+      results.push(await backfillUserTetherToD1(env, userIds[i]));
+    }
+    return jsonResponse(
+      {
+        ok: true,
+        scanned: userIds.length,
+        processed: results.length,
+        projectsOk: results.reduce((n, r) => n + (r.projectsOk || 0), 0),
+        projectsFail: results.reduce((n, r) => n + (r.projectsFail || 0), 0),
+        results: body.includeResults ? results : undefined,
+      },
+      corsHeaders
+    );
+  }
+
   let sessionId = parseBearerToken(request.headers.get('Authorization'));
   if (!sessionId) {
     sessionId = String(url.searchParams.get('session') || '').trim() || null;
@@ -667,6 +1002,16 @@ export async function handleTetherRequest(request, env, corsHeaders, path, ctx) 
 
   if (path === '/api/tether/my-tasks' && request.method === 'GET') {
     return cachedTetherGet(ctx, userId, path, '', corsHeaders, async () => {
+      if (tetherD1ReadEnabled(env)) {
+        // Heal any DO-only projects into D1 before querying My Tasks.
+        const projectIds = await getTetherProjectIds(env, userId);
+        await Promise.all(projectIds.map((pid) => fetchProject(env, pid, ctx)));
+        if (tetherD1UserDataEnabled(env)) {
+          await getInboxTasks(env, userId);
+          const tasks = await d1GetMyTasks(env, userId);
+          return { tasks };
+        }
+      }
       const projectIds = await getTetherProjectIds(env, userId);
       const accessible = await fetchAccessibleProjects(env, projectIds, userId);
       const inboxTasks = await getInboxTasks(env, userId);
@@ -800,13 +1145,7 @@ export async function handleTetherRequest(request, env, corsHeaders, path, ctx) 
     if (depError) return jsonResponse({ error: depError.error }, corsHeaders, depError.status);
 
     await saveInboxTasks(env, userId, inboxTasks);
-    const stub = tetherProjectStub(env, projectId);
-    await stub.fetch(
-      new Request('http://do/save', {
-        method: 'POST',
-        body: JSON.stringify(project),
-      })
-    );
+    await persistProject(env, project);
     const syncClientId = readSyncClientId(request, body);
     await publishInboxSync(env, userId, syncClientId, ctx);
     await publishProjectSync(env, project, syncClientId, ctx);
@@ -867,10 +1206,7 @@ export async function handleTetherRequest(request, env, corsHeaders, path, ctx) 
       inboxTasks.push(moved);
       await saveInboxTasks(env, userId, inboxTasks);
       if (sourceProject) {
-        const stub = tetherProjectStub(env, sourceProject.id);
-        await stub.fetch(
-          new Request('http://do/save', { method: 'POST', body: JSON.stringify(sourceProject) })
-        );
+        await persistProject(env, sourceProject);
       }
       const syncClientId = readSyncClientId(request, body);
       await publishInboxSync(env, userId, syncClientId, ctx);
@@ -891,16 +1227,10 @@ export async function handleTetherRequest(request, env, corsHeaders, path, ctx) 
     if (!fromProjectId) {
       await saveInboxTasks(env, userId, inboxTasks);
     } else if (sourceProject) {
-      const sourceStub = tetherProjectStub(env, sourceProject.id);
-      await sourceStub.fetch(
-        new Request('http://do/save', { method: 'POST', body: JSON.stringify(sourceProject) })
-      );
+      await persistProject(env, sourceProject);
     }
 
-    const targetStub = tetherProjectStub(env, toProjectId);
-    await targetStub.fetch(
-      new Request('http://do/save', { method: 'POST', body: JSON.stringify(targetProject) })
-    );
+    await persistProject(env, targetProject);
     const syncClientId = readSyncClientId(request, body);
     await publishInboxSync(env, userId, syncClientId, ctx);
     if (sourceProject) await publishProjectSync(env, sourceProject, syncClientId, ctx);
@@ -939,8 +1269,7 @@ export async function handleTetherRequest(request, env, corsHeaders, path, ctx) 
     for (const member of project.members || []) {
       if (member.userId) await removeTetherProjectId(env, member.userId, projectId);
     }
-    const stub = tetherProjectStub(env, projectId);
-    await stub.fetch(new Request('http://do/delete', { method: 'POST' }));
+    await removeProjectStorage(env, projectId);
 
     const syncClientId = readSyncClientId(request, body);
     await publishInboxSync(env, userId, syncClientId, ctx);
@@ -978,13 +1307,7 @@ export async function handleTetherRequest(request, env, corsHeaders, path, ctx) 
       updatedAt: now,
     };
 
-    const stub = tetherProjectStub(env, projectId);
-    await stub.fetch(
-      new Request('http://do/create', {
-        method: 'POST',
-        body: JSON.stringify(project),
-      })
-    );
+    await persistProject(env, project, { create: true });
     await addTetherProjectId(env, userId, projectId);
     await publishProjectsListSync(env, [userId], readSyncClientId(request, body), ctx);
     return jsonResponse({ project: { ...project, isOwner: true } }, corsHeaders, 201);
@@ -1072,13 +1395,7 @@ export async function handleTetherRequest(request, env, corsHeaders, path, ctx) 
     const depError = validateTaskDependencyCompletion(updated.tasks);
     if (depError) return jsonResponse({ error: depError.error }, corsHeaders, depError.status);
 
-    const stub = tetherProjectStub(env, projectId);
-    await stub.fetch(
-      new Request('http://do/save', {
-        method: 'POST',
-        body: JSON.stringify(updated),
-      })
-    );
+    await persistProject(env, updated);
     await publishProjectSync(env, updated, readSyncClientId(request, body), ctx);
     return jsonResponse({ project: { ...updated, isOwner: userIsOwner(updated, userId) } }, corsHeaders);
   }
@@ -1097,8 +1414,7 @@ export async function handleTetherRequest(request, env, corsHeaders, path, ctx) 
     for (const member of project.members || []) {
       if (member.userId) await removeTetherProjectId(env, member.userId, projectId);
     }
-    const stub = tetherProjectStub(env, projectId);
-    await stub.fetch(new Request('http://do/delete', { method: 'POST' }));
+    await removeProjectStorage(env, projectId);
     await publishProjectsListSync(env, projectMemberIds(project), readSyncClientId(request, null), ctx);
     return jsonResponse({ success: true }, corsHeaders);
   }
@@ -1133,13 +1449,7 @@ export async function handleTetherRequest(request, env, corsHeaders, path, ctx) 
         ? project
         : { ...project, removedMemberUserIds: clearedRemoved, updatedAt: Date.now() };
     if (projectForShare !== project) {
-      const shareStub = tetherProjectStub(env, projectId);
-      await shareStub.fetch(
-        new Request('http://do/save', {
-          method: 'POST',
-          body: JSON.stringify(projectForShare),
-        })
-      );
+      await persistProject(env, projectForShare);
     }
     const updated = await addMemberToProject(env, projectForShare, target);
     await publishProjectSync(env, updated, readSyncClientId(request, body), ctx);
@@ -1171,13 +1481,7 @@ export async function handleTetherRequest(request, env, corsHeaders, path, ctx) 
       removedMemberUserIds: rememberRemovedMember(project, removeUserId),
       updatedAt: Date.now(),
     };
-    const stub = tetherProjectStub(env, projectId);
-    await stub.fetch(
-      new Request('http://do/save', {
-        method: 'POST',
-        body: JSON.stringify(updated),
-      })
-    );
+    await persistProject(env, updated);
     await removeTetherProjectId(env, removeUserId, projectId);
     const syncClientId = readSyncClientId(request, body);
     await publishProjectSync(env, updated, syncClientId, ctx);

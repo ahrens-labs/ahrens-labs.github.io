@@ -29,8 +29,9 @@ import {
   resolveSubscriberSinceMs,
   subscriberSendKey,
 } from './sports-digest-send.js';
-import { handleTetherRequest } from './tether.js';
+import { handleTetherRequest, backfillUserTetherToD1 } from './tether.js';
 export { TetherProject, TetherSync } from './tether.js';
+import { d1CountProjectsForUser, d1CountInboxTasksForUser, d1CountProjects } from './tether-d1.js';
 import { handlePlatterRequest } from './platter.js';
 import { handleDeckShareRequest, hydrateDeckDataForUser, processDeckSyncPayload, buildDeckSyncFingerprintForUser, DeckShare } from './deck.js';
 export { PlatterMenu } from './platter.js';
@@ -315,6 +316,7 @@ export default {
   scheduled(controller, env, ctx) {
     ctx.waitUntil(
       (async () => {
+        await maybeAutoBackfillTetherD1(env);
         await handleScheduledCron(controller, env);
         await handleSportsDigestScheduledCron(controller, env);
       })().catch((err) => {
@@ -5066,6 +5068,47 @@ async function listAllRegistryUserIds(env) {
   return userIds;
 }
 
+/** One-shot DO→D1 backfill when TETHER_D1_AUTO_BACKFILL=1 (cron). */
+async function maybeAutoBackfillTetherD1(env) {
+  if (!env.TETHER_DB) return;
+  if (String(env.TETHER_D1_AUTO_BACKFILL || '') !== '1') return;
+  try {
+    await env.TETHER_DB.prepare(
+      `CREATE TABLE IF NOT EXISTS tether_migration_meta (
+         key TEXT PRIMARY KEY NOT NULL,
+         value TEXT,
+         updated_at INTEGER
+       )`
+    ).run();
+    const row = await env.TETHER_DB.prepare(
+      `SELECT value FROM tether_migration_meta WHERE key = 'auto_backfill_done'`
+    ).first();
+    if (row && String(row.value) === '1') return;
+
+    const userIds = await listAllRegistryUserIds(env);
+    let projectsOk = 0;
+    let projectsFail = 0;
+    for (const uid of userIds) {
+      const r = await backfillUserTetherToD1(env, uid);
+      projectsOk += Number(r.projectsOk) || 0;
+      projectsFail += Number(r.projectsFail) || 0;
+    }
+    await env.TETHER_DB.prepare(
+      `INSERT INTO tether_migration_meta (key, value, updated_at) VALUES (?, ?, ?)
+       ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`
+    )
+      .bind('auto_backfill_done', '1', Date.now())
+      .run();
+    console.log('[tether-d1] auto-backfill complete', {
+      users: userIds.length,
+      projectsOk,
+      projectsFail,
+    });
+  } catch (err) {
+    console.error('[tether-d1] auto-backfill failed', err?.message || err);
+  }
+}
+
 async function resolveAdminAccountRowFromUserId(env, userIdRaw, opts = {}) {
   const uid = userIdRaw != null ? String(userIdRaw).trim() : '';
   if (!uid) return null;
@@ -5074,10 +5117,24 @@ async function resolveAdminAccountRowFromUserId(env, userIdRaw, opts = {}) {
   try {
     const dataRes = await stub.fetch(new Request('http://do/getData', { method: 'GET' }));
     const row = await dataRes.json();
-    return adminAccountRowFromProfile(row, {
+    const account = adminAccountRowFromProfile(row, {
       slotUserId: uid,
       lookupEmail: opts.lookupEmail,
     });
+    if (account && env.TETHER_DB) {
+      try {
+        const [projectCount, inboxCount] = await Promise.all([
+          d1CountProjectsForUser(env, uid),
+          d1CountInboxTasksForUser(env, uid),
+        ]);
+        account.appTetherProjectCount = Math.max(Number(account.appTetherProjectCount) || 0, projectCount);
+        account.appTetherInboxCount = Math.max(Number(account.appTetherInboxCount) || 0, inboxCount);
+        account.appTether = account.appTetherProjectCount > 0 || account.appTetherInboxCount > 0;
+      } catch {
+        /* D1 counts are best-effort for admin */
+      }
+    }
+    return account;
   } catch {
     return null;
   }

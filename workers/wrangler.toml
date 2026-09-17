@@ -138,3 +138,24 @@ SPORTS_DIGEST_BUILD_URL = "https://sports-digest.matthewahrens.workers.dev"
 #   openssl rand -hex 32 | npx wrangler secret put APP_DATA_ENCRYPTION_KEY
 # Without the secret, Deck/Tether content is stored plaintext (dev fallback).
 # Link CRM uses its own ENCRYPTION_KEY secret on the link worker.
+#
+# Tether D1 cutover flags (binding TETHER_DB required):
+#   TETHER_D1_WRITE=1       dual-write DO + D1 (default when binding present)
+#   TETHER_D1_COMPARE=1     log DO vs D1 fingerprints on read
+#   TETHER_D1_READ=1        serve project/my-tasks reads from D1
+#   TETHER_D1_PRIMARY=1     stop TetherProject DO writes (D1 is source of truth)
+#   TETHER_D1_USER_DATA=1   inbox/prefs/membership index primary on D1
+TETHER_D1_WRITE = "1"
+TETHER_D1_COMPARE = "0"
+TETHER_D1_READ = "1"
+TETHER_D1_PRIMARY = "1"
+TETHER_D1_USER_DATA = "1"
+# One-shot open backfill — leave "0" unless intentionally re-running migration.
+TETHER_D1_AUTO_BACKFILL = "0"
+
+# Tether project/task storage (migrating off TetherProject Durable Objects).
+[[d1_databases]]
+binding = "TETHER_DB"
+database_name = "tether-db"
+database_id = "bf962faf-fcbd-45e6-bc01-602f155abc99"
+migrations_dir = "migrations/tether"

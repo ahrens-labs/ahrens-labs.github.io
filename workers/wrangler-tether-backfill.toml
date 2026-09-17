@@ -1,0 +1,20 @@
+# Ephemeral config for Tether DO → D1 backfill via `wrangler dev --remote`.
+# Prefer: POST https://<worker>/api/tether/admin/backfill-d1 with X-Test-Secret
+# Do not deploy this config.
+name = "chess-accounts-tether-backfill"
+main = "scripts/tether-d1-backfill-entry.js"
+compatibility_date = "2025-05-01"
+
+[durable_objects]
+bindings = [
+  { name = "USER_ACCOUNT", class_name = "UserAccount", script_name = "chess-accounts" },
+  { name = "USERNAME_REGISTRY", class_name = "UsernameRegistry", script_name = "chess-accounts" },
+  { name = "TETHER_PROJECT", class_name = "TetherProject", script_name = "chess-accounts" },
+  { name = "TETHER_SYNC", class_name = "TetherSync", script_name = "chess-accounts" },
+  { name = "SESSION", class_name = "Session", script_name = "chess-accounts" }
+]
+
+[[d1_databases]]
+binding = "TETHER_DB"
+database_name = "tether-db"
+database_id = "bf962faf-fcbd-45e6-bc01-602f155abc99"
