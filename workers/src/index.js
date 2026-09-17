@@ -32,8 +32,9 @@ import {
 import { handleTetherRequest, backfillUserTetherToD1 } from './tether.js';
 export { TetherProject, TetherSync } from './tether.js';
 import { d1CountProjectsForUser, d1CountInboxTasksForUser, d1CountProjects } from './tether-d1.js';
+import { d1CountDecksForUser, d1CountCardsForUser } from './deck-d1.js';
 import { handlePlatterRequest } from './platter.js';
-import { handleDeckShareRequest, hydrateDeckDataForUser, processDeckSyncPayload, buildDeckSyncFingerprintForUser, DeckShare } from './deck.js';
+import { handleDeckShareRequest, hydrateDeckDataForUser, processDeckSyncPayload, buildDeckSyncFingerprintForUser, getDeckDataForUser, DeckShare, backfillUserDeckToD1 } from './deck.js';
 export { PlatterMenu } from './platter.js';
 export { DeckShare } from './deck.js';
 import { handleLinkRequest, handleLinkConsumeBridge, handleInternalUserProfile } from './link.js';
@@ -226,6 +227,8 @@ export default {
         return handleDeckLoad(request, env, corsHeaders);
       } else if (path === '/api/deck/share' && request.method === 'POST') {
         return handleDeckShareRequest(request, env, corsHeaders);
+      } else if (path === '/api/deck/admin/backfill-d1' && request.method === 'POST') {
+        return handleDeckD1Backfill(request, env, corsHeaders);
       } else if (path === '/api/kyrachyng/progress/sync' && request.method === 'POST') {
         return handleKyrachyngProgressSync(request, env, corsHeaders);
       } else if (path === '/api/kyrachyng/progress/load' && request.method === 'GET') {
@@ -2177,6 +2180,64 @@ async function handleDeckLiveSync(request, env, corsHeaders) {
   return stub.fetch(request);
 }
 
+async function handleDeckD1Backfill(request, env, corsHeaders) {
+  const testSecret = String(env.TEST_SECRET || '').trim();
+  const provided = String(request.headers.get('X-Test-Secret') || '').trim();
+  const autoOk = String(env.DECK_D1_AUTO_BACKFILL || '') === '1';
+  if ((!testSecret || provided !== testSecret) && !autoOk) {
+    return new Response(JSON.stringify({ error: 'Forbidden' }), {
+      status: 403,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+  if (!env.DECK_DB) {
+    return new Response(JSON.stringify({ error: 'DECK_DB binding missing' }), {
+      status: 503,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  let body = {};
+  try {
+    body = await request.json();
+  } catch {
+    body = {};
+  }
+
+  const userIds = [];
+  const singleUserId = body.userId != null ? String(body.userId).trim() : '';
+  if (singleUserId) {
+    userIds.push(singleUserId);
+  } else if (Array.isArray(body.userIds)) {
+    for (const u of body.userIds) {
+      const id = u != null ? String(u).trim() : '';
+      if (id) userIds.push(id);
+    }
+  } else {
+    const all = await listAllRegistryUserIds(env);
+    userIds.push(...all);
+  }
+
+  const limit = Math.min(Number(body.limit) || userIds.length, userIds.length);
+  const results = [];
+  for (let i = 0; i < limit; i++) {
+    results.push(await backfillUserDeckToD1(env, userIds[i]));
+  }
+
+  return new Response(
+    JSON.stringify({
+      ok: true,
+      scanned: userIds.length,
+      processed: results.length,
+      deckCount: results.reduce((n, r) => n + (r.deckCount || 0), 0),
+      sharesOk: results.reduce((n, r) => n + (r.sharesOk || 0), 0),
+      sharesFail: results.reduce((n, r) => n + (r.sharesFail || 0), 0),
+      results: body.includeResults ? results : undefined,
+    }),
+    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  );
+}
+
 async function handleDeckSyncVersion(request, env, corsHeaders) {
   const userId = await resolveDeckUserId(request, env);
   if (!userId) {
@@ -2242,11 +2303,7 @@ async function handleDeckLoad(request, env, corsHeaders) {
     });
   }
 
-  const userAccountId = env.USER_ACCOUNT.idFromName(userResult.userId);
-  const userAccount = env.USER_ACCOUNT.get(userAccountId);
-  const getReq = new Request('http://do/getDeckData', { method: 'GET' });
-  const dataRes = await userAccount.fetch(getReq);
-  const deckData = await dataRes.json();
+  const deckData = await getDeckDataForUser(env, userResult.userId);
   const hydrated = await hydrateDeckDataForUser(env, userResult.userId, deckData);
 
   return new Response(JSON.stringify(hydrated), {
@@ -5121,15 +5178,34 @@ async function resolveAdminAccountRowFromUserId(env, userIdRaw, opts = {}) {
       slotUserId: uid,
       lookupEmail: opts.lookupEmail,
     });
-    if (account && env.TETHER_DB) {
+    if (account && (env.TETHER_DB || env.DECK_DB)) {
       try {
-        const [projectCount, inboxCount] = await Promise.all([
-          d1CountProjectsForUser(env, uid),
-          d1CountInboxTasksForUser(env, uid),
-        ]);
-        account.appTetherProjectCount = Math.max(Number(account.appTetherProjectCount) || 0, projectCount);
-        account.appTetherInboxCount = Math.max(Number(account.appTetherInboxCount) || 0, inboxCount);
+        const jobs = [];
+        if (env.TETHER_DB) {
+          jobs.push(d1CountProjectsForUser(env, uid), d1CountInboxTasksForUser(env, uid));
+        } else {
+          jobs.push(Promise.resolve(null), Promise.resolve(null));
+        }
+        if (env.DECK_DB) {
+          jobs.push(d1CountDecksForUser(env, uid), d1CountCardsForUser(env, uid));
+        } else {
+          jobs.push(Promise.resolve(null), Promise.resolve(null));
+        }
+        const [projectCount, inboxCount, deckCount, cardCount] = await Promise.all(jobs);
+        if (projectCount != null) {
+          account.appTetherProjectCount = Math.max(Number(account.appTetherProjectCount) || 0, projectCount);
+        }
+        if (inboxCount != null) {
+          account.appTetherInboxCount = Math.max(Number(account.appTetherInboxCount) || 0, inboxCount);
+        }
         account.appTether = account.appTetherProjectCount > 0 || account.appTetherInboxCount > 0;
+        if (deckCount != null) {
+          account.appDeckCount = Math.max(Number(account.appDeckCount) || 0, deckCount);
+        }
+        if (cardCount != null) {
+          account.appDeckCardCount = Math.max(Number(account.appDeckCardCount) || 0, cardCount);
+        }
+        account.appDeck = account.appDeckCount > 0;
       } catch {
         /* D1 counts are best-effort for admin */
       }

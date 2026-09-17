@@ -7,7 +7,24 @@ import {
   encryptString,
   decryptString,
 } from './app-data-crypto.js';
+import {
+  deckD1WriteEnabled,
+  deckD1ReadEnabled,
+  deckD1PrimaryEnabled,
+  deckD1CompareEnabled,
+  hasDeckD1,
+  d1PutUserDeckData,
+  d1GetUserDeckData,
+  d1PutShare,
+  d1DeleteShare,
+  d1GetShare,
+  d1GetSharesByIds,
+  deckBlobFingerprint,
+} from './deck-d1.js';
 
+function hasDeckD1Storage(env) {
+  return hasDeckD1(env);
+}
 function normalizeEmail(email) {
   const e = String(email || '').trim().toLowerCase();
   return e.includes('@') ? e : '';
@@ -108,7 +125,7 @@ export async function resolveDeckUserId(request, env) {
   return userResult.userId || null;
 }
 
-async function getDeckDataForUser(env, userId) {
+async function getDeckDataFromDo(env, userId) {
   const userAccountId = env.USER_ACCOUNT.idFromName(userId);
   const userAccount = env.USER_ACCOUNT.get(userAccountId);
   const getReq = new Request('http://do/getDeckData', { method: 'GET' });
@@ -117,14 +134,120 @@ async function getDeckDataForUser(env, userId) {
   return dataRes.json();
 }
 
+async function getDeckDataForUser(env, userId) {
+  if (deckD1ReadEnabled(env)) {
+    const fromD1 = await d1GetUserDeckData(env, userId);
+    if (fromD1) {
+      if (deckD1CompareEnabled(env)) {
+        getDeckDataFromDo(env, userId)
+          .then((fromDo) => {
+            const a = deckBlobFingerprint(fromDo);
+            const b = deckBlobFingerprint(fromD1);
+            if (a !== b) console.warn('[deck-d1] user blob compare mismatch', userId);
+          })
+          .catch(() => {});
+      }
+      return fromD1;
+    }
+    const fromDo = await getDeckDataFromDo(env, userId);
+    if (deckD1WriteEnabled(env) && Array.isArray(fromDo?.decks) && fromDo.decks.length) {
+      d1PutUserDeckData(env, userId, fromDo).catch((err) => {
+        console.warn('[deck-d1] heal user blob failed', userId, err?.message || err);
+      });
+    }
+    return fromDo;
+  }
+  return getDeckDataFromDo(env, userId);
+}
+
+export { getDeckDataForUser };
+
 async function saveDeckDataForUser(env, userId, deckData) {
-  const userAccountId = env.USER_ACCOUNT.idFromName(userId);
-  const userAccount = env.USER_ACCOUNT.get(userAccountId);
-  const updateReq = new Request('http://do/updateDeckData', {
-    method: 'POST',
-    body: JSON.stringify(deckData),
-  });
-  await userAccount.fetch(updateReq);
+  const payload = {
+    ...deckData,
+    decks: Array.isArray(deckData?.decks) ? deckData.decks : [],
+    lastUpdated: Number(deckData?.lastUpdated) || Date.now(),
+  };
+  if (!deckD1PrimaryEnabled(env)) {
+    const userAccountId = env.USER_ACCOUNT.idFromName(userId);
+    const userAccount = env.USER_ACCOUNT.get(userAccountId);
+    const updateReq = new Request('http://do/updateDeckData', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    await userAccount.fetch(updateReq);
+  }
+  if (deckD1WriteEnabled(env) || deckD1PrimaryEnabled(env)) {
+    try {
+      await d1PutUserDeckData(env, userId, payload);
+    } catch (err) {
+      if (deckD1PrimaryEnabled(env)) throw err;
+      console.warn('[deck-d1] put user blob failed', userId, err?.message || err);
+    }
+  }
+}
+
+async function fetchDeckShareFromDo(env, sharedId) {
+  const stub = deckShareStub(env, sharedId);
+  if (!stub) return null;
+  try {
+    const res = await stub.fetch(new Request('http://do/get', { method: 'GET' }));
+    if (!res.ok) return null;
+    return res.json();
+  } catch {
+    return null;
+  }
+}
+
+async function fetchDeckShare(env, sharedId) {
+  if (deckD1ReadEnabled(env)) {
+    const fromD1 = await d1GetShare(env, sharedId);
+    if (fromD1) {
+      if (deckD1CompareEnabled(env)) {
+        fetchDeckShareFromDo(env, sharedId)
+          .then((fromDo) => {
+            if ((fromDo?.updatedAt || 0) !== (fromD1?.updatedAt || 0)) {
+              console.warn('[deck-d1] share compare mismatch', sharedId);
+            }
+          })
+          .catch(() => {});
+      }
+      return fromD1;
+    }
+    const fromDo = await fetchDeckShareFromDo(env, sharedId);
+    if (fromDo && deckD1WriteEnabled(env)) {
+      d1PutShare(env, fromDo).catch((err) => {
+        console.warn('[deck-d1] heal share failed', sharedId, err?.message || err);
+      });
+    }
+    return fromDo;
+  }
+  return fetchDeckShareFromDo(env, sharedId);
+}
+
+async function saveDeckShare(env, record) {
+  if (!deckD1PrimaryEnabled(env)) {
+    const stub = deckShareStub(env, record.id);
+    if (!stub) throw new Error('Shared deck storage unavailable');
+    const res = await stub.fetch(
+      new Request('http://do/save', {
+        method: 'POST',
+        body: JSON.stringify(record),
+      })
+    );
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || 'Failed to save shared deck');
+    }
+  }
+  if (deckD1WriteEnabled(env) || deckD1PrimaryEnabled(env)) {
+    try {
+      await d1PutShare(env, record);
+    } catch (err) {
+      if (deckD1PrimaryEnabled(env)) throw err;
+      console.warn('[deck-d1] put share failed', record?.id, err?.message || err);
+    }
+  }
 }
 
 async function notifyDeckSync(env, userId, payload) {
@@ -139,33 +262,6 @@ async function notifyDeckSync(env, userId, payload) {
     );
   } catch {
     /* best-effort */
-  }
-}
-
-async function fetchDeckShare(env, sharedId) {
-  const stub = deckShareStub(env, sharedId);
-  if (!stub) return null;
-  try {
-    const res = await stub.fetch(new Request('http://do/get', { method: 'GET' }));
-    if (!res.ok) return null;
-    return res.json();
-  } catch {
-    return null;
-  }
-}
-
-async function saveDeckShare(env, record) {
-  const stub = deckShareStub(env, record.id);
-  if (!stub) throw new Error('Shared deck storage unavailable');
-  const res = await stub.fetch(
-    new Request('http://do/save', {
-      method: 'POST',
-      body: JSON.stringify(record),
-    })
-  );
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    throw new Error(data.error || 'Failed to save shared deck');
   }
 }
 
@@ -432,19 +528,45 @@ function applyNestedSharePayload(deck, shareCache, userId) {
 export async function hydrateDeckDataForUser(env, userId, deckData) {
   const decks = Array.isArray(deckData?.decks) ? deckData.decks.map((d) => ({ ...d })) : [];
   const sharedIds = collectSharedIdsFromDecks(decks);
-  if (!sharedIds.size || !env.DECK_SHARE) {
+  if (!sharedIds.size) {
     return { ...deckData, decks };
   }
 
   const shareCache = new Map();
-  await Promise.all(
-    [...sharedIds].map(async (sharedId) => {
-      const record = await fetchDeckShare(env, sharedId);
-      if (record && userCanAccessShare(record, userId)) {
-        shareCache.set(sharedId, record);
-      }
-    })
-  );
+  if (deckD1ReadEnabled(env)) {
+    const fromD1 = await d1GetSharesByIds(env, [...sharedIds]);
+    for (const [id, record] of fromD1) {
+      if (record && userCanAccessShare(record, userId)) shareCache.set(id, record);
+    }
+    // Heal any misses from Durable Objects during cutover.
+    const missing = [...sharedIds].filter((id) => !shareCache.has(id));
+    if (missing.length && !deckD1PrimaryEnabled(env)) {
+      await Promise.all(
+        missing.map(async (sharedId) => {
+          const record = await fetchDeckShareFromDo(env, sharedId);
+          if (record && userCanAccessShare(record, userId)) {
+            shareCache.set(sharedId, record);
+            if (deckD1WriteEnabled(env)) {
+              d1PutShare(env, record).catch(() => {});
+            }
+          }
+        })
+      );
+    }
+  } else if (env.DECK_SHARE) {
+    await Promise.all(
+      [...sharedIds].map(async (sharedId) => {
+        const record = await fetchDeckShare(env, sharedId);
+        if (record && userCanAccessShare(record, userId)) {
+          shareCache.set(sharedId, record);
+        }
+      })
+    );
+  }
+
+  if (!shareCache.size) {
+    return { ...deckData, decks };
+  }
 
   const hydrated = decks.map((deck) => {
     const shareId = deckShareId(deck);
@@ -481,9 +603,20 @@ export async function buildDeckSyncFingerprintForUser(env, userId) {
   const parts = [`${deckData?.lastUpdated || 0}::${decks.length}::${cardCount}`];
   const sharedIds = collectSharedIdsFromDecks(decks);
   if (!sharedIds.size) return parts.join('::');
+
+  let shareCache = new Map();
+  if (deckD1ReadEnabled(env)) {
+    shareCache = await d1GetSharesByIds(env, [...sharedIds]);
+  } else {
+    for (const sharedId of sharedIds) {
+      const record = await fetchDeckShare(env, sharedId);
+      if (record) shareCache.set(sharedId, record);
+    }
+  }
+
   const sharedParts = [];
   for (const sharedId of [...sharedIds].sort()) {
-    const record = await fetchDeckShare(env, sharedId);
+    const record = shareCache.get(sharedId);
     if (record && userCanAccessShare(record, userId)) {
       sharedParts.push(`${sharedId}:${record.updatedAt || 0}`);
     }
@@ -555,7 +688,7 @@ export async function processDeckSyncPayload(env, userId, deckData, sourceClient
   );
   const updatedShareIds = new Set();
 
-  if (env.DECK_SHARE) {
+  if (env.DECK_SHARE || deckD1WriteEnabled(env) || deckD1PrimaryEnabled(env)) {
     for (const target of collectSharePushTargets(decks)) {
       await pushShareUpdate(env, userId, target.shareId, target.deckEntry, updatedShareIds);
     }
@@ -729,8 +862,8 @@ export async function handleDeckShareRequest(request, env, corsHeaders) {
   const userId = await resolveDeckUserId(request, env);
   if (!userId) return jsonResponse({ error: 'Not authenticated' }, corsHeaders, 401);
 
-  if (!env.DECK_SHARE) {
-    return jsonResponse({ error: 'Live sharing unavailable — deploy worker with DECK_SHARE binding' }, corsHeaders, 503);
+  if (!env.DECK_SHARE && !hasDeckD1Storage(env)) {
+    return jsonResponse({ error: 'Live sharing unavailable — deploy worker with DECK_SHARE or DECK_DB binding' }, corsHeaders, 503);
   }
 
   let body;
@@ -855,6 +988,45 @@ export async function handleDeckShareRequest(request, env, corsHeaders) {
     sharedId,
     deckId: recipientDeckId,
   }, corsHeaders);
+}
+
+/**
+ * Backfill one user's Deck UA blob + referenced DeckShare records into D1.
+ */
+export async function backfillUserDeckToD1(env, userId) {
+  if (!userId || !env.DECK_DB) return { ok: false, error: 'D1 unavailable' };
+  const deckData = await getDeckDataFromDo(env, userId);
+  const decks = Array.isArray(deckData?.decks) ? deckData.decks : [];
+  await d1PutUserDeckData(env, userId, {
+    decks,
+    lastUpdated: deckData?.lastUpdated || Date.now(),
+  });
+
+  const sharedIds = collectSharedIdsFromDecks(decks);
+  let sharesOk = 0;
+  let sharesFail = 0;
+  for (const sharedId of sharedIds) {
+    try {
+      const record = await fetchDeckShareFromDo(env, sharedId);
+      if (!record) {
+        sharesFail++;
+        continue;
+      }
+      await d1PutShare(env, record);
+      sharesOk++;
+    } catch (err) {
+      sharesFail++;
+      console.warn('[deck-d1] backfill share failed', sharedId, err?.message || err);
+    }
+  }
+
+  return {
+    ok: true,
+    userId,
+    deckCount: decks.length,
+    sharesOk,
+    sharesFail,
+  };
 }
 
 export class DeckShare {

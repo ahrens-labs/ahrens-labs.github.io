@@ -152,6 +152,17 @@ TETHER_D1_PRIMARY = "1"
 TETHER_D1_USER_DATA = "1"
 # One-shot open backfill — leave "0" unless intentionally re-running migration.
 TETHER_D1_AUTO_BACKFILL = "0"
+#
+# Deck D1 cutover flags (binding DECK_DB required):
+#   DECK_D1_WRITE=1     dual-write UA + DeckShare + D1
+#   DECK_D1_COMPARE=1   log fingerprint mismatches
+#   DECK_D1_READ=1      serve load/hydrate/fingerprint from D1
+#   DECK_D1_PRIMARY=1   stop UA deck blob + DeckShare DO writes
+DECK_D1_WRITE = "1"
+DECK_D1_COMPARE = "0"
+DECK_D1_READ = "1"
+DECK_D1_PRIMARY = "1"
+DECK_D1_AUTO_BACKFILL = "0"
 
 # Tether project/task storage (migrating off TetherProject Durable Objects).
 [[d1_databases]]
@@ -159,3 +170,10 @@ binding = "TETHER_DB"
 database_name = "tether-db"
 database_id = "bf962faf-fcbd-45e6-bc01-602f155abc99"
 migrations_dir = "migrations/tether"
+
+# Deck library + share payloads (migrating off UserAccount games.deck + DeckShare DOs).
+[[d1_databases]]
+binding = "DECK_DB"
+database_name = "deck-db"
+database_id = "45a2d043-3a67-47de-8fc4-0a3eb6b57f52"
+migrations_dir = "migrations/deck"
