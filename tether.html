@@ -1552,22 +1552,74 @@
     if (!sessionId) return { ...defaultTetherSettings };
     try {
       const data = await api('/api/tether/settings', { method: 'GET' });
-      let settings = normalizeTetherSettings(data.settings);
-      try {
-        const raw = localStorage.getItem(TETHER_SETTINGS_KEY);
-        if (raw) {
-          const local = normalizeTetherSettings(JSON.parse(raw));
-          if (local.myTasksShowAllDays && !settings.myTasksShowAllDays) {
-            settings = local;
-            await saveTetherSettings(settings);
-          }
-          localStorage.removeItem(TETHER_SETTINGS_KEY);
-        }
-      } catch {}
-      return settings;
+      return mergeLocalTetherSettings(data.settings);
     } catch {
       return { ...defaultTetherSettings };
     }
+  }
+
+  async function mergeLocalTetherSettings(settings) {
+    let next = normalizeTetherSettings(settings);
+    try {
+      const raw = localStorage.getItem(TETHER_SETTINGS_KEY);
+      if (raw) {
+        const local = normalizeTetherSettings(JSON.parse(raw));
+        if (local.myTasksShowAllDays && !next.myTasksShowAllDays) {
+          next = local;
+          await saveTetherSettings(next);
+        }
+        localStorage.removeItem(TETHER_SETTINGS_KEY);
+      }
+    } catch {}
+    return next;
+  }
+
+  function personalTasksFromMyTasks(tasks) {
+    return (tasks || [])
+      .filter((t) => !t.projectId)
+      .map((t) => {
+        const { projectId, projectTitle, dependsOnTitles, blockedByIncomplete, ...rest } = t;
+        return rest;
+      });
+  }
+
+  async function applyPersonalTasksRecurrence(tasks) {
+    personalTasks = Array.isArray(tasks) ? tasks : [];
+    let changed = false;
+    for (const t of personalTasks) {
+      if (ensureRecurrenceDueDate(t)) changed = true;
+    }
+    if (!changed) return false;
+    const saved = await api('/api/tether/inbox', {
+      method: 'PUT',
+      body: JSON.stringify({ tasks: personalTasks }),
+    });
+    personalTasks = saved.tasks || personalTasks;
+    invalidateSearchCache();
+    return true;
+  }
+
+  async function applyTetherBootstrap(data) {
+    projects = data.projects || [];
+    writeProjectsCache(projects);
+    renderProjectList();
+    labelColorOverrides = data.labelColors || {};
+    tetherSettings = await mergeLocalTetherSettings(data.settings);
+    personalTasks = Array.isArray(data.inbox) ? data.inbox : personalTasksFromMyTasks(data.tasks);
+    myTasks = data.tasks || [];
+    if (data.fingerprint) tetherSyncFingerprint = data.fingerprint;
+    const recurrenceSaved = await applyPersonalTasksRecurrence(personalTasks);
+    if (recurrenceSaved) {
+      const myData = await api('/api/tether/my-tasks', { method: 'GET' });
+      myTasks = myData.tasks || myTasks;
+      personalTasks = personalTasksFromMyTasks(myTasks);
+    }
+  }
+
+  async function loadTetherBootstrap() {
+    const data = await api('/api/tether/bootstrap', { method: 'GET' });
+    await applyTetherBootstrap(data);
+    return data;
   }
 
   async function saveTetherSettings(nextSettings) {
@@ -3070,9 +3122,15 @@
   }
 
   async function loadMyTasks() {
-    await loadPersonalTasks();
     const myData = await api('/api/tether/my-tasks', { method: 'GET' });
     myTasks = myData.tasks || [];
+    personalTasks = personalTasksFromMyTasks(myTasks);
+    const recurrenceSaved = await applyPersonalTasksRecurrence(personalTasks);
+    if (recurrenceSaved) {
+      const refreshed = await api('/api/tether/my-tasks', { method: 'GET' });
+      myTasks = refreshed.tasks || myTasks;
+      personalTasks = personalTasksFromMyTasks(myTasks);
+    }
     renderMyTasksView();
   }
 
@@ -5385,11 +5443,11 @@
     }
     try {
       initLabelColorPopover();
-      const jobs = [loadUser(), loadProjects(), loadLabelColors(), loadTetherSettings().then(s => { tetherSettings = s; })];
+      const jobs = [loadUser(), loadTetherBootstrap()];
       if (projectId && onProjects) jobs.push(loadProject(projectId, taskId || null));
       await Promise.all(jobs);
       if (onMyTasks) {
-        await loadMyTasks();
+        renderMyTasksView();
         if (!view && !projectId) syncUrlState({ view: 'my-tasks' });
         if (taskId) {
           const mt = myTasks.find(t => t.id === taskId);
@@ -5397,7 +5455,7 @@
         }
       }
       startTetherSyncPoll();
-      await updateTetherSyncFingerprint();
+      if (!tetherSyncFingerprint) await updateTetherSyncFingerprint();
     } catch (e) {
       showBanner(e.message || 'Could not load Tether');
     } finally {

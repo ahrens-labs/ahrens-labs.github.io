@@ -72,6 +72,7 @@ const TETHER_CACHE_TTL = {
 };
 
 const TETHER_USER_CACHE_PATHS = [
+  '/api/tether/bootstrap',
   '/api/tether/projects',
   '/api/tether/sync-version',
   '/api/tether/my-tasks',
@@ -590,6 +591,118 @@ function enrichTaskWithDeps(task, allTasks) {
   return { dependsOnTitles, blockedByIncomplete };
 }
 
+function inboxTasksFromMyTasks(tasks) {
+  return (tasks || [])
+    .filter((t) => !t.projectId)
+    .map((t) => {
+      const { projectId, projectTitle, dependsOnTitles, blockedByIncomplete, ...rest } = t;
+      return rest;
+    });
+}
+
+async function listProjectsForUser(env, userId) {
+  if (tetherD1ReadEnabled(env)) {
+    const projects = await d1ListProjectSummariesForUser(env, userId);
+    if (projects.length || (tetherD1PrimaryEnabled(env) && tetherD1UserDataEnabled(env))) {
+      return projects;
+    }
+  }
+  const projectIds = await getTetherProjectIds(env, userId);
+  return fetchAccessibleProjectSummaries(env, projectIds, userId);
+}
+
+async function listMyTasksForUser(env, userId) {
+  if (tetherD1ReadEnabled(env) && tetherD1UserDataEnabled(env)) {
+    return d1GetMyTasks(env, userId);
+  }
+  const projectIds = await getTetherProjectIds(env, userId);
+  const accessible = await fetchAccessibleProjects(env, projectIds, userId);
+  const inboxTasks = await getInboxTasks(env, userId);
+  const tasks = [];
+
+  for (const task of inboxTasks) {
+    const { dependsOnTitles, blockedByIncomplete } = enrichTaskWithDeps(task, inboxTasks);
+    tasks.push({
+      ...task,
+      projectId: null,
+      projectTitle: 'None',
+      dependsOnTitles,
+      blockedByIncomplete,
+    });
+  }
+
+  for (const project of accessible) {
+    const projectTasks = project.tasks || [];
+    const byId = new Map(projectTasks.map((t) => [t.id, t]));
+    for (const task of projectTasks) {
+      if (!(task.assigneeUserIds || []).includes(userId)) continue;
+      const depIds = task.dependsOnTaskIds || [];
+      const dependsOnTitles = depIds.map((id) => byId.get(id)?.title).filter(Boolean);
+      const blockedByIncomplete = depIds
+        .map((id) => byId.get(id))
+        .filter((dep) => dep && (dep.status || 'todo') !== 'done')
+        .map((dep) => dep.title);
+      tasks.push({
+        ...task,
+        projectId: project.id,
+        projectTitle: project.title,
+        dependsOnTitles,
+        blockedByIncomplete,
+      });
+    }
+  }
+  tasks.sort((a, b) => {
+    const da = a.dueDate || '';
+    const db = b.dueDate || '';
+    if (da && db && da !== db) return da.localeCompare(db);
+    if (da && !db) return -1;
+    if (!da && db) return 1;
+    return String(a.title || '').localeCompare(String(b.title || ''));
+  });
+  return tasks;
+}
+
+/** One round-trip payload for Tether first paint: projects, my-tasks, inbox, prefs, sync fingerprint. */
+async function loadTetherBootstrap(env, userId) {
+  const d1Fast =
+    tetherD1ReadEnabled(env) && tetherD1UserDataEnabled(env) && tetherD1PrimaryEnabled(env);
+
+  if (d1Fast) {
+    const [projects, tasks, prefs, fingerprint] = await Promise.all([
+      listProjectsForUser(env, userId),
+      d1GetMyTasks(env, userId),
+      d1GetPrefs(env, userId),
+      buildSyncFingerprint(env, userId),
+    ]);
+    return {
+      projects,
+      tasks,
+      inbox: inboxTasksFromMyTasks(tasks),
+      labelColors: prefs.labelColors && typeof prefs.labelColors === 'object' ? prefs.labelColors : {},
+      settings: normalizeTetherSettings(prefs.settings),
+      fingerprint,
+      ts: Date.now(),
+    };
+  }
+
+  const [projects, tasks, labelColors, settings, fingerprint] = await Promise.all([
+    listProjectsForUser(env, userId),
+    listMyTasksForUser(env, userId),
+    getLabelColors(env, userId),
+    getTetherSettings(env, userId),
+    buildSyncFingerprint(env, userId),
+  ]);
+  return {
+    projects,
+    tasks,
+    inbox: inboxTasksFromMyTasks(tasks),
+    labelColors,
+    settings,
+    fingerprint,
+    ts: Date.now(),
+  };
+}
+
 async function fetchProjectFromDo(env, projectId) {
   const stub = tetherProjectStub(env, projectId);
   if (!stub) return null;
@@ -1000,16 +1113,14 @@ export async function handleTetherRequest(request, env, corsHeaders, path, ctx) 
     return jsonResponse({ error: 'Not authenticated' }, corsHeaders, 401);
   }
 
+  if (path === '/api/tether/bootstrap' && request.method === 'GET') {
+    const body = await loadTetherBootstrap(env, userId);
+    return jsonResponse(body, corsHeaders);
+  }
+
   if (path === '/api/tether/projects' && request.method === 'GET') {
     return cachedTetherGet(ctx, userId, path, '', corsHeaders, async () => {
-      if (tetherD1ReadEnabled(env)) {
-        const projects = await d1ListProjectSummariesForUser(env, userId);
-        if (projects.length || (tetherD1PrimaryEnabled(env) && tetherD1UserDataEnabled(env))) {
-          return { projects };
-        }
-      }
-      const projectIds = await getTetherProjectIds(env, userId);
-      const projects = await fetchAccessibleProjectSummaries(env, projectIds, userId);
+      const projects = await listProjectsForUser(env, userId);
       return { projects };
     }, TETHER_CACHE_TTL.list);
   }
@@ -1023,54 +1134,7 @@ export async function handleTetherRequest(request, env, corsHeaders, path, ctx) 
 
   if (path === '/api/tether/my-tasks' && request.method === 'GET') {
     return cachedTetherGet(ctx, userId, path, '', corsHeaders, async () => {
-      if (tetherD1ReadEnabled(env) && tetherD1UserDataEnabled(env)) {
-        const tasks = await d1GetMyTasks(env, userId);
-        return { tasks };
-      }
-      const projectIds = await getTetherProjectIds(env, userId);
-      const accessible = await fetchAccessibleProjects(env, projectIds, userId);
-      const inboxTasks = await getInboxTasks(env, userId);
-      const tasks = [];
-
-      for (const task of inboxTasks) {
-        const { dependsOnTitles, blockedByIncomplete } = enrichTaskWithDeps(task, inboxTasks);
-        tasks.push({
-          ...task,
-          projectId: null,
-          projectTitle: 'None',
-          dependsOnTitles,
-          blockedByIncomplete,
-        });
-      }
-
-      for (const project of accessible) {
-        const projectTasks = project.tasks || [];
-        const byId = new Map(projectTasks.map((t) => [t.id, t]));
-        for (const task of projectTasks) {
-          if (!(task.assigneeUserIds || []).includes(userId)) continue;
-          const depIds = task.dependsOnTaskIds || [];
-          const dependsOnTitles = depIds.map((id) => byId.get(id)?.title).filter(Boolean);
-          const blockedByIncomplete = depIds
-            .map((id) => byId.get(id))
-            .filter((dep) => dep && (dep.status || 'todo') !== 'done')
-            .map((dep) => dep.title);
-          tasks.push({
-            ...task,
-            projectId: project.id,
-            projectTitle: project.title,
-            dependsOnTitles,
-            blockedByIncomplete,
-          });
-        }
-      }
-      tasks.sort((a, b) => {
-        const da = a.dueDate || '';
-        const db = b.dueDate || '';
-        if (da && db && da !== db) return da.localeCompare(db);
-        if (da && !db) return -1;
-        if (!da && db) return 1;
-        return String(a.title || '').localeCompare(String(b.title || ''));
-      });
+      const tasks = await listMyTasksForUser(env, userId);
       return { tasks };
     }, TETHER_CACHE_TTL.list);
   }
