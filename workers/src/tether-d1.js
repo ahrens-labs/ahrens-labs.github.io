@@ -21,9 +21,73 @@ const TASK_CORE_KEYS = new Set([
   'sortOrder',
   'assigneeUserIds',
   'dependsOnTaskIds',
+  // Recurrence is stored in recurrence_json (flat client fields, not a nested object).
   'recurrence',
+  'recurrenceInterval',
+  'recurrenceDay',
+  'recurrenceWeekOfMonth',
+  'recurrenceMonth',
 ]);
 
+const RECURRENCE_KEYS = [
+  'recurrence',
+  'recurrenceInterval',
+  'recurrenceDay',
+  'recurrenceWeekOfMonth',
+  'recurrenceMonth',
+];
+
+/** Pack client recurrence fields (string + flat helpers) into recurrence_json. */
+function packRecurrenceFields(task) {
+  if (!task || typeof task !== 'object') return null;
+  const out = {};
+  // Client uses recurrence as a string: daily|weekly|monthly|yearly
+  if (typeof task.recurrence === 'string' && task.recurrence.trim()) {
+    out.recurrence = task.recurrence.trim();
+  } else if (task.recurrence && typeof task.recurrence === 'object') {
+    // Legacy/mistaken object shape — flatten known keys
+    const obj = task.recurrence;
+    if (typeof obj.recurrence === 'string') out.recurrence = obj.recurrence;
+    else if (typeof obj.frequency === 'string') out.recurrence = obj.frequency;
+    if (obj.recurrenceInterval != null) out.recurrenceInterval = obj.recurrenceInterval;
+    else if (obj.interval != null) out.recurrenceInterval = obj.interval;
+    if (obj.recurrenceDay != null) out.recurrenceDay = obj.recurrenceDay;
+    if (obj.recurrenceWeekOfMonth != null) out.recurrenceWeekOfMonth = obj.recurrenceWeekOfMonth;
+    if (obj.recurrenceMonth != null) out.recurrenceMonth = obj.recurrenceMonth;
+  }
+  if (task.recurrenceInterval != null && task.recurrenceInterval !== '') {
+    out.recurrenceInterval = task.recurrenceInterval;
+  }
+  if (task.recurrenceDay != null && task.recurrenceDay !== '') {
+    out.recurrenceDay = task.recurrenceDay;
+  }
+  if (task.recurrenceWeekOfMonth != null && task.recurrenceWeekOfMonth !== '') {
+    out.recurrenceWeekOfMonth = task.recurrenceWeekOfMonth;
+  }
+  if (task.recurrenceMonth != null && task.recurrenceMonth !== '') {
+    out.recurrenceMonth = task.recurrenceMonth;
+  }
+  return Object.keys(out).length ? out : null;
+}
+
+function applyRecurrenceFields(base, packed) {
+  if (!packed) return;
+  if (typeof packed === 'string') {
+    base.recurrence = packed;
+    return;
+  }
+  if (typeof packed !== 'object') return;
+  for (const key of RECURRENCE_KEYS) {
+    if (packed[key] != null && packed[key] !== '') base[key] = packed[key];
+  }
+  // Older mistaken { frequency, interval } shape
+  if (!base.recurrence && typeof packed.frequency === 'string') {
+    base.recurrence = packed.frequency;
+  }
+  if (base.recurrenceInterval == null && packed.interval != null) {
+    base.recurrenceInterval = packed.interval;
+  }
+}
 export function hasTetherD1(env) {
   return !!(env && env.TETHER_DB);
 }
@@ -78,6 +142,7 @@ function taskExtra(task) {
 
 async function encryptTaskRow(task, keyHex) {
   const enc = await encryptTetherTask(task, keyHex);
+  const recurrenceFields = packRecurrenceFields(task);
   return {
     id: String(task.id),
     title: enc.title != null ? String(enc.title) : '',
@@ -87,7 +152,7 @@ async function encryptTaskRow(task, keyHex) {
     status: String(task.status || 'todo'),
     due_date: task.dueDate != null && String(task.dueDate).trim() ? String(task.dueDate) : null,
     sort_order: Number.isFinite(Number(task.sortOrder)) ? Number(task.sortOrder) : 0,
-    recurrence_json: task.recurrence && typeof task.recurrence === 'object' ? JSON.stringify(task.recurrence) : null,
+    recurrence_json: recurrenceFields ? JSON.stringify(recurrenceFields) : null,
     extra_json: (() => {
       const ex = taskExtra(task);
       return ex ? JSON.stringify(ex) : null;
@@ -114,12 +179,18 @@ async function rowToTask(row, keyHex) {
     dueDate: row.due_date || '',
     sortOrder: Number(row.sort_order) || 0,
   };
-  if (row.recurrence_json) {
-    const rec = safeJsonParse(row.recurrence_json, null);
-    if (rec) base.recurrence = rec;
-  }
+  applyRecurrenceFields(base, safeJsonParse(row.recurrence_json, null));
   const extra = safeJsonParse(row.extra_json, null);
-  if (extra && typeof extra === 'object') Object.assign(base, extra);
+  if (extra && typeof extra === 'object') {
+    // Prefer recurrence_json; only fill missing recurrence fields from extra (partial legacy rows).
+    for (const [k, v] of Object.entries(extra)) {
+      if (RECURRENCE_KEYS.includes(k)) {
+        if (base[k] == null || base[k] === '') base[k] = v;
+      } else {
+        base[k] = v;
+      }
+    }
+  }
   const decrypted = await decryptTetherTask(base, keyHex);
   decrypted.assigneeUserIds = Array.isArray(row._assignees) ? row._assignees : [];
   decrypted.dependsOnTaskIds = Array.isArray(row._deps) ? row._deps : [];

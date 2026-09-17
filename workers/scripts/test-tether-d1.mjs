@@ -349,7 +349,9 @@ function sampleProject(owner = 'user_1') {
         sortOrder: 0,
         assigneeUserIds: [owner],
         dependsOnTaskIds: [],
-        recurrence: { frequency: 'weekly', interval: 1 },
+        recurrence: 'weekly',
+        recurrenceInterval: 1,
+        recurrenceDay: 1,
       },
       {
         id: 'task-b',
@@ -375,6 +377,9 @@ async function testProjectRoundTrip() {
   assert.equal(loaded.tasks.length, 2);
   assert.equal(loaded.tasks[0].notes, 'secret');
   assert.deepEqual(loaded.tasks[0].labels, ['infra']);
+  assert.equal(loaded.tasks[0].recurrence, 'weekly');
+  assert.equal(loaded.tasks[0].recurrenceInterval, 1);
+  assert.equal(loaded.tasks[0].recurrenceDay, 1);
   assert.deepEqual(loaded.tasks[1].dependsOnTaskIds, ['task-a']);
   assert.deepEqual(loaded.removedMemberUserIds, ['user_x']);
   assert.equal(tetherDocFingerprint(loaded), tetherDocFingerprint(project));
