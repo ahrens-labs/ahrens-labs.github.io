@@ -3249,6 +3249,7 @@
       const linkTextInput = document.getElementById('dk-link-text');
       const linkUrlInput = document.getElementById('dk-link-url');
       let linkModalResolve = null;
+      let linkInsertField = null;
 
       function closeLinkModal(result) {
         linkModalEl.classList.remove('open');
@@ -3745,6 +3746,150 @@
         sel.addRange(range);
       }
 
+      const LINK_MARK_START = '\uE000';
+      const LINK_MARK_END = '\uE001';
+
+      function formatInlineLinkMarkdown(label, url) {
+        const href = normalizeLinkUrl(url);
+        const text = (label || '').trim();
+        if (!href) return text;
+        if (!text || text === href || text === url) return href;
+        return '[' + text + '](' + href + ')';
+      }
+
+      function getLinkedEditLinkSelection(field) {
+        const fullMd = serializeLinkedEditField(field);
+        const sel = window.getSelection();
+        if (!sel || !sel.rangeCount || !field.contains(sel.anchorNode)) {
+          return {
+            start: fullMd.length,
+            end: fullMd.length,
+            snapshot: fullMd,
+            label: '',
+            url: '',
+            selected: '',
+          };
+        }
+
+        const range = sel.getRangeAt(0).cloneRange();
+        const anchorEl = (sel.anchorNode.nodeType === Node.ELEMENT_NODE
+          ? sel.anchorNode
+          : sel.anchorNode.parentElement)?.closest?.('.dk-inline-link');
+        const focusEl = (sel.focusNode.nodeType === Node.ELEMENT_NODE
+          ? sel.focusNode
+          : sel.focusNode.parentElement)?.closest?.('.dk-inline-link');
+        const sharedLink = (anchorEl && focusEl && anchorEl === focusEl && field.contains(anchorEl))
+          ? anchorEl
+          : null;
+
+        const caretAtEndOfLink = !!(sharedLink && range.collapsed && (() => {
+          if (range.startContainer === sharedLink) {
+            return range.startOffset >= sharedLink.childNodes.length;
+          }
+          if (range.startContainer.nodeType === Node.TEXT_NODE && sharedLink.contains(range.startContainer)) {
+            if (range.startOffset < (range.startContainer.nodeValue || '').length) return false;
+            let n = range.startContainer;
+            while (n && n !== sharedLink) {
+              let sib = n.nextSibling;
+              while (sib) {
+                if (sib.nodeType === Node.TEXT_NODE && (sib.nodeValue || '').length) return false;
+                if (sib.nodeType === Node.ELEMENT_NODE && (sib.textContent || '').length) return false;
+                sib = sib.nextSibling;
+              }
+              n = n.parentNode;
+            }
+            return true;
+          }
+          return false;
+        })());
+
+        // Collapsed caret at the end of a link means "insert after", not "edit link".
+        const editLink = sharedLink && (!range.collapsed || !caretAtEndOfLink) ? sharedLink : null;
+        const selectedText = editLink ? (editLink.textContent || '') : sel.toString();
+        const selectedUrl = editLink
+          ? (editLink.dataset.linkUrl || editLink.getAttribute('href') || '')
+          : '';
+
+        const startMarker = document.createTextNode(LINK_MARK_START);
+        const endMarker = document.createTextNode(LINK_MARK_END);
+
+        function placeCollapsedMarkersAfter(node) {
+          if (node.nextSibling) node.parentNode.insertBefore(startMarker, node.nextSibling);
+          else node.parentNode.appendChild(startMarker);
+          if (startMarker.nextSibling) startMarker.parentNode.insertBefore(endMarker, startMarker.nextSibling);
+          else startMarker.parentNode.appendChild(endMarker);
+        }
+
+        try {
+          if (editLink) {
+            editLink.parentNode.insertBefore(startMarker, editLink);
+            if (editLink.nextSibling) {
+              editLink.parentNode.insertBefore(endMarker, editLink.nextSibling);
+            } else {
+              editLink.parentNode.appendChild(endMarker);
+            }
+          } else if (range.collapsed && sharedLink && caretAtEndOfLink) {
+            placeCollapsedMarkersAfter(sharedLink);
+          } else if (range.collapsed) {
+            range.insertNode(startMarker);
+            if (startMarker.nextSibling) {
+              startMarker.parentNode.insertBefore(endMarker, startMarker.nextSibling);
+            } else {
+              startMarker.parentNode.appendChild(endMarker);
+            }
+          } else {
+            const sc = range.startContainer;
+            const so = range.startOffset;
+            const ec = range.endContainer;
+            const eo = range.endOffset;
+
+            const endRange = document.createRange();
+            endRange.setStart(ec, eo);
+            endRange.collapse(true);
+            endRange.insertNode(endMarker);
+
+            const startRange = document.createRange();
+            try {
+              startRange.setStart(sc, so);
+            } catch {
+              startRange.setStartBefore(endMarker);
+            }
+            startRange.collapse(true);
+            startRange.insertNode(startMarker);
+          }
+
+          const markedMd = serializeLinkedEditField(field);
+          const start = markedMd.indexOf(LINK_MARK_START);
+          const endMarked = markedMd.indexOf(LINK_MARK_END);
+          const snapshot = markedMd.split(LINK_MARK_START).join('').split(LINK_MARK_END).join('');
+
+          if (start < 0 || endMarked < 0) {
+            return {
+              start: fullMd.length,
+              end: fullMd.length,
+              snapshot: fullMd,
+              label: selectedUrl ? selectedText : '',
+              url: selectedUrl,
+              selected: selectedText,
+            };
+          }
+
+          const end = endMarked - LINK_MARK_START.length;
+          return {
+            start,
+            end: Math.max(start, end),
+            snapshot,
+            label: selectedUrl ? selectedText : '',
+            url: selectedUrl,
+            selected: selectedText,
+          };
+        } finally {
+          startMarker.remove();
+          endMarker.remove();
+          field.normalize();
+        }
+      }
+
       function attachLinkedEditField(el, opts) {
         opts = opts || {};
         el.classList.add('dk-linked-edit', 'dk-link-field');
@@ -3761,6 +3906,12 @@
 
         el.addEventListener('input', sync);
         el.addEventListener('blur', () => {
+          // Keep DOM stable while the link modal holds focus so insert
+          // offsets (and checklist deferEditFocus) stay valid.
+          if (linkInsertField === el) {
+            sync();
+            return;
+          }
           sync();
           populateLinkedEditField(el, serializeLinkedEditField(el));
           if (opts.deferEditFocus) el.contentEditable = 'false';
@@ -3890,59 +4041,53 @@
 
       async function handleLinkShortcut(field) {
         if (!field || !field.classList.contains('dk-linked-edit')) return;
-        const sel = window.getSelection();
-        if (!sel.rangeCount) return;
-        const range = sel.getRangeAt(0);
-        if (!field.contains(range.commonAncestorContainer)) return;
-
-        let linkEl = null;
-        let anchor = range.commonAncestorContainer;
-        if (anchor.nodeType === Node.TEXT_NODE) anchor = anchor.parentElement;
-        if (anchor && anchor.closest) linkEl = anchor.closest('.dk-inline-link');
-
-        let defaultText = range.toString();
+        const selInfo = getLinkedEditLinkSelection(field);
+        let defaultText = selInfo.selected || '';
         let defaultUrl = '';
         let editing = false;
 
-        if (linkEl && field.contains(linkEl)) {
-          defaultText = linkEl.textContent || '';
-          defaultUrl = linkEl.dataset.linkUrl || linkEl.getAttribute('href') || '';
+        if (selInfo.url) {
+          defaultText = selInfo.label || '';
+          defaultUrl = selInfo.url;
           editing = true;
         } else if (looksLikeUrl(defaultText)) {
           defaultUrl = defaultText.trim();
           defaultText = '';
         }
 
-        const result = await showLinkPrompt({
-          defaultText,
-          defaultUrl,
-          editing,
-        });
-        if (!result) return;
+        linkInsertField = field;
+        let result = null;
+        try {
+          result = await showLinkPrompt({
+            defaultText,
+            defaultUrl,
+            editing,
+          });
+        } finally {
+          linkInsertField = null;
+        }
+        if (!result) {
+          if (field.contentEditable === 'false') field.contentEditable = 'true';
+          field.focus();
+          return;
+        }
         const url = normalizeLinkUrl(result.url);
         if (!url || !isSafeLinkUrl(url)) {
           await showAlert({
             title: 'Invalid link',
             message: 'Enter a valid http, https, or mailto URL.',
           });
+          if (field.contentEditable === 'false') field.contentEditable = 'true';
+          field.focus();
           return;
         }
         const label = (result.text || '').trim() || url;
-
-        if (editing && linkEl) {
-          linkEl.textContent = label;
-          linkEl.dataset.linkUrl = url;
-          linkEl.href = url;
-        } else {
-          range.deleteContents();
-          const inlineLink = createInlineLinkElement(label, url);
-          range.insertNode(inlineLink);
-          range.setStartAfter(inlineLink);
-          range.collapse(true);
-          sel.removeAllRanges();
-          sel.addRange(range);
-        }
-
+        const md = typeof selInfo.snapshot === 'string' ? selInfo.snapshot : serializeLinkedEditField(field);
+        const start = Math.max(0, Math.min(selInfo.start, md.length));
+        const end = Math.max(start, Math.min(selInfo.end, md.length));
+        const next = md.slice(0, start) + formatInlineLinkMarkdown(label, url) + md.slice(end);
+        if (field.contentEditable === 'false') field.contentEditable = 'true';
+        populateLinkedEditField(field, next);
         field.dispatchEvent(new Event('input', { bubbles: true }));
         field.focus();
       }
