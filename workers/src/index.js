@@ -2275,9 +2275,9 @@ async function handleDeckSync(request, env, corsHeaders) {
 
   const deckData = await request.json();
   const sourceClientId = readDeckSyncClientId(request);
-  await processDeckSyncPayload(env, userResult.userId, deckData, sourceClientId);
+  const result = await processDeckSyncPayload(env, userResult.userId, deckData, sourceClientId);
 
-  return new Response(JSON.stringify({ success: true }), {
+  return new Response(JSON.stringify({ success: true, ...(result || {}) }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
 }

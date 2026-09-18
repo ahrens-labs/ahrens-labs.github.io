@@ -132,6 +132,7 @@ async function testUserBlobRoundTrip() {
   const env = { DECK_DB: createMemoryDb(), APP_DATA_ENCRYPTION_KEY: KEY };
   const deckData = {
     lastUpdated: 100,
+    clientLastModified: 90,
     decks: [
       {
         id: 'd1',
@@ -146,7 +147,31 @@ async function testUserBlobRoundTrip() {
   assert.equal(loaded.decks[0].name, 'Notes');
   assert.equal(loaded.decks[0].cards[0].notes, 'secret');
   assert.equal(loaded.decks[0].cards[0].checklist[0].text, 'one');
+  assert.equal(loaded.clientLastModified, 90);
   assert.equal(await d1CountDecksForUser(env, 'user_1'), 1);
+}
+
+async function testLegacyDecksJsonArray() {
+  const db = createMemoryDb();
+  const env = { DECK_DB: db, APP_DATA_ENCRYPTION_KEY: KEY };
+  const { encryptDeckBlob } = await import('../src/app-data-crypto.js');
+  const encrypted = await encryptDeckBlob(
+    {
+      decks: [{ id: 'd1', name: 'Legacy', cards: [], stacks: [] }],
+      lastUpdated: 50,
+    },
+    KEY
+  );
+  // Simulate pre-wrapper rows that stored a bare decks array.
+  await db.prepare(
+    `INSERT INTO deck_user_data (user_id, decks_json, last_updated, deck_count, card_count, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?)`
+  )
+    .bind('user_legacy', JSON.stringify(encrypted.decks || []), 50, 1, 0, 50)
+    .run();
+  const loaded = await d1GetUserDeckData(env, 'user_legacy');
+  assert.equal(loaded.decks[0].name, 'Legacy');
+  assert.equal(loaded.clientLastModified, 0);
 }
 
 async function testShareBatch() {
@@ -177,6 +202,7 @@ async function testFlags() {
 }
 
 await testUserBlobRoundTrip();
+await testLegacyDecksJsonArray();
 await testShareBatch();
 await testFlags();
 console.log('deck-d1 tests passed');

@@ -682,6 +682,19 @@ function collectSharePushTargets(decks) {
 
 export async function processDeckSyncPayload(env, userId, deckData, sourceClientId) {
   const existing = await getDeckDataForUser(env, userId);
+  const incomingMod = Number(deckData?.clientLastModified) || 0;
+  const existingMod = Number(existing?.clientLastModified) || 0;
+
+  // Reject stale full-document overwrites from in-flight / multi-tab races.
+  // Legacy clients that omit clientLastModified are still accepted.
+  if (incomingMod > 0 && existingMod > 0 && incomingMod < existingMod) {
+    return {
+      ignored: true,
+      lastUpdated: existing.lastUpdated || null,
+      clientLastModified: existingMod,
+    };
+  }
+
   const decks = mergeDecksShareMetadata(
     Array.isArray(deckData?.decks) ? deckData.decks : [],
     existing.decks
@@ -694,10 +707,12 @@ export async function processDeckSyncPayload(env, userId, deckData, sourceClient
     }
   }
 
+  const lastUpdated = Date.now();
   await saveDeckDataForUser(env, userId, {
     ...deckData,
     decks,
-    lastUpdated: Date.now(),
+    clientLastModified: incomingMod || existingMod || lastUpdated,
+    lastUpdated,
   });
 
   for (const sharedId of updatedShareIds) {
@@ -712,6 +727,12 @@ export async function processDeckSyncPayload(env, userId, deckData, sourceClient
     ts: Date.now(),
     sourceClientId: sourceClientId || null,
   });
+
+  return {
+    ignored: false,
+    lastUpdated,
+    clientLastModified: incomingMod || existingMod || lastUpdated,
+  };
 }
 
 function buildShareLabel(sourceType, deck, stack, card) {

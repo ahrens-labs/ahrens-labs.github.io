@@ -1428,13 +1428,18 @@
         localStorage.setItem(getDeckMetaStorageKey(), JSON.stringify(next));
       }
 
-      function markDeckSyncedLocally(cloudLastUpdated) {
+      function markDeckSyncedLocally(cloudLastUpdated, syncedModified) {
         const meta = readDeckPersistMeta();
+        const lastModified = meta.lastModified || 0;
+        const payloadModified = Number(syncedModified) || 0;
+        // Never clear pending when a newer local edit landed while this sync was in flight.
+        if (payloadModified > 0 && lastModified > payloadModified) return false;
         writeDeckPersistMeta({
-          lastModified: meta.lastModified || Date.now(),
-          lastSyncedAt: Date.now(),
+          lastModified: lastModified || Date.now(),
+          lastSyncedAt: payloadModified > 0 ? payloadModified : Date.now(),
           cloudLastUpdated: cloudLastUpdated || meta.cloudLastUpdated || 0,
         });
+        return true;
       }
 
       function deckHasPendingCloudSync() {
@@ -1489,6 +1494,8 @@
       let cloudSyncEnabled = false;
       let suppressCloudSync = false;
       let cloudSyncTimer = null;
+      let deckCloudSyncInFlight = null;
+      let deckCloudSyncAgain = false;
       let deckSyncFingerprint = '';
       let deckSyncSocket = null;
       let deckSyncPollTimer = null;
@@ -2470,6 +2477,7 @@
           cloudSyncTimer = null;
         }
         try {
+          // Best-effort only: do not mark synced — keepalive may be dropped by the browser.
           fetch(deckApiBase() + '/api/deck/sync', {
             method: 'POST',
             headers: {
@@ -2480,7 +2488,6 @@
             body: JSON.stringify(buildDeckCloudPayload()),
             keepalive: true,
           });
-          markDeckSyncedLocally(readDeckPersistMeta().cloudLastUpdated || 0);
         } catch (error) {
           console.error('Failed to queue deck sync on exit:', error);
         }
@@ -2490,27 +2497,76 @@
         if (!cloudSyncEnabled || suppressCloudSync) return false;
         const sessionId = localStorage.getItem('ahrenslabs_sessionId');
         if (!sessionId) return false;
-        try {
-          const response = await fetch(deckApiBase() + '/api/deck/sync', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: 'Bearer ' + sessionId,
-              'X-Deck-Sync-Client': deckSyncClientId,
-            },
-            body: JSON.stringify(buildDeckCloudPayload()),
-          });
-          if (!response.ok) {
-            const data = await response.json().catch(() => ({}));
-            throw new Error(data.error || 'Sync failed');
-          }
-          markDeckSyncedLocally(Date.now());
-          await updateDeckSyncFingerprint();
-          return true;
-        } catch (error) {
-          console.error('Failed to sync deck data to cloud:', error);
-          return false;
+        if (deckCloudSyncInFlight) {
+          deckCloudSyncAgain = true;
+          return deckCloudSyncInFlight;
         }
+
+        deckCloudSyncInFlight = (async () => {
+          let ok = false;
+          try {
+            do {
+              deckCloudSyncAgain = false;
+              const payload = buildDeckCloudPayload();
+              const syncedModified = Number(payload.clientLastModified) || 0;
+              const response = await fetch(deckApiBase() + '/api/deck/sync', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  Authorization: 'Bearer ' + sessionId,
+                  'X-Deck-Sync-Client': deckSyncClientId,
+                },
+                body: JSON.stringify(payload),
+              });
+              if (!response.ok) {
+                const data = await response.json().catch(() => ({}));
+                throw new Error(data.error || 'Sync failed');
+              }
+              const result = await response.json().catch(() => ({}));
+              if (result && result.ignored) {
+                const meta = readDeckPersistMeta();
+                if ((meta.lastModified || 0) > syncedModified) {
+                  // Newer local edits landed during the request — push again.
+                  deckCloudSyncAgain = true;
+                } else {
+                  markDeckSyncedLocally(result.lastUpdated || Date.now(), syncedModified);
+                  if (!deckShouldDeferCloudRefresh()) {
+                    const cloudData = await fetchDeckCloudPayload();
+                    if (cloudData) {
+                      applyDeckCloudPayload(cloudData);
+                      writeDeckPersistMeta({
+                        cloudLastUpdated: cloudData.lastUpdated || 0,
+                        lastSyncedAt: Date.now(),
+                        lastModified: readDeckPersistMeta().lastModified || Date.now(),
+                      });
+                      localStorage.setItem(getStorageKey(), JSON.stringify(state));
+                      renderCurrentView();
+                    }
+                  }
+                }
+                ok = true;
+              } else if (!markDeckSyncedLocally(Date.now(), syncedModified)) {
+                deckCloudSyncAgain = true;
+                ok = true;
+              } else {
+                ok = true;
+              }
+              await updateDeckSyncFingerprint();
+            } while (deckCloudSyncAgain && deckHasPendingCloudSync());
+            return ok;
+          } catch (error) {
+            console.error('Failed to sync deck data to cloud:', error);
+            return false;
+          } finally {
+            deckCloudSyncInFlight = null;
+            if (deckCloudSyncAgain && deckHasPendingCloudSync()) {
+              deckCloudSyncAgain = false;
+              queueDeckCloudSync();
+            }
+          }
+        })();
+
+        return deckCloudSyncInFlight;
       }
 
       async function refreshDeckFromCloud() {
@@ -2521,11 +2577,21 @@
         }
         deckSyncRefreshing = true;
         try {
-          const loaded = await loadDeckFromCloud();
-          if (loaded) {
-            persistDeckLocally();
-            renderCurrentView();
+          const cloudData = await fetchDeckCloudPayload();
+          if (!cloudData) return;
+          if (localDeckStateIsNewerThanCloud(state.decks, cloudData) || deckHasPendingCloudSync()) {
+            await syncDeckToCloud();
+            return;
           }
+          applyDeckCloudPayload(cloudData);
+          writeDeckPersistMeta({
+            cloudLastUpdated: cloudData.lastUpdated || 0,
+            lastSyncedAt: Date.now(),
+            lastModified: readDeckPersistMeta().lastModified || Date.now(),
+          });
+          // Persist without bumping lastModified (avoid false pending after applying cloud).
+          localStorage.setItem(getStorageKey(), JSON.stringify(state));
+          renderCurrentView();
           await updateDeckSyncFingerprint();
         } finally {
           deckSyncRefreshing = false;
@@ -3704,10 +3770,14 @@
             out += '\n';
             return;
           }
-          if (node.classList && node.classList.contains('dk-inline-link')) {
+          const isInlineLink = tag === 'A' || (node.classList && node.classList.contains('dk-inline-link'));
+          if (isInlineLink) {
             const url = node.dataset.linkUrl || node.getAttribute('href') || '';
             const label = node.textContent || '';
-            if (!url) return;
+            if (!url) {
+              if (label) out += label;
+              return;
+            }
             if (!label || label === url) out += url;
             else out += '[' + label + '](' + url + ')';
             return;

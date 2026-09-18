@@ -66,8 +66,12 @@ export async function d1PutUserDeckData(env, userId, deckData) {
   const uid = String(userId);
   const decks = Array.isArray(deckData?.decks) ? deckData.decks : [];
   const lastUpdated = Number(deckData?.lastUpdated) || Date.now();
-  const encrypted = await encryptDeckBlob({ decks, lastUpdated }, key);
-  const decksJson = JSON.stringify(encrypted.decks || []);
+  const clientLastModified = Number(deckData?.clientLastModified) || 0;
+  const encrypted = await encryptDeckBlob({ decks, lastUpdated, clientLastModified }, key);
+  const decksJson = JSON.stringify({
+    decks: encrypted.decks || [],
+    clientLastModified: encrypted.clientLastModified || clientLastModified || 0,
+  });
   await env.DECK_DB.prepare(
     `INSERT INTO deck_user_data (user_id, decks_json, last_updated, deck_count, card_count, updated_at)
      VALUES (?, ?, ?, ?, ?, ?)
@@ -91,14 +95,22 @@ export async function d1GetUserDeckData(env, userId) {
     .bind(String(userId))
     .first();
   if (!row) return null;
-  const decks = safeJsonParse(row.decks_json, []);
+  const parsed = safeJsonParse(row.decks_json, []);
+  // Legacy rows stored a bare decks array; newer rows wrap { decks, clientLastModified }.
+  const decksRaw = Array.isArray(parsed) ? parsed : (Array.isArray(parsed?.decks) ? parsed.decks : []);
+  const storedClientMod = Array.isArray(parsed) ? 0 : (Number(parsed?.clientLastModified) || 0);
   const decrypted = await decryptDeckBlob(
-    { decks: Array.isArray(decks) ? decks : [], lastUpdated: Number(row.last_updated) || null },
+    {
+      decks: decksRaw,
+      lastUpdated: Number(row.last_updated) || null,
+      clientLastModified: storedClientMod,
+    },
     key
   );
   return {
     decks: Array.isArray(decrypted?.decks) ? decrypted.decks : [],
     lastUpdated: decrypted?.lastUpdated != null ? decrypted.lastUpdated : Number(row.last_updated) || null,
+    clientLastModified: Number(decrypted?.clientLastModified) || storedClientMod || 0,
   };
 }
 
