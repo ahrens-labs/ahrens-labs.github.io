@@ -7656,8 +7656,8 @@
         }
 
         // 1) User-set rules (dependencies, block times, due dates, locked dates/times, avoid dates)
-        // 2) Fit every assignment due on a day onto that day before other packing
-        // 3) Pack as much as possible onto today, then fill other days
+        // 2) Fit every assignment due on a day onto that day before other packing (due today must land on today)
+        // 3) Pack as much as possible onto today, then fill other days; work dates prefer earliest open day, not only due date
         // 4) Earliest open slot on a 5-minute grid within each task's constraints (due-on-day tasks need not be earliest in the day)
         function sortScheduleDatesByPreference(dates, weekKey = null) {
             const unique = Array.from(new Set((dates || []).filter(Boolean)));
@@ -7913,6 +7913,7 @@
             if(targetWeek === weekKey) return true;
             if(inWeekRange(task.date)) return true;
             if(inWeekRange(dueDate)) return true;
+            if(task.repeatGroupId && taskOccurrenceDateInWeek(task, weekKey)) return true;
             if(includeFlexible && !targetWeek && !task.date && !dueDate) return true;
             return false;
         }
@@ -8134,7 +8135,7 @@
             adjustable.forEach(task => {
                 if(dateById.has(task.id)) return;
                 const due = getTaskDueDate(task);
-                if(!due || due < todayStr) return;
+                if(!due || due !== todayStr) return;
                 const eligibleDates = getScheduleEligibleDates(task, weekKey);
                 if(!eligibleDates.includes(due)) return;
                 const validDates = getAllValidWeekDates(task, eligibleDates, dateById, weekKey);
@@ -8977,12 +8978,14 @@
         }
 
         function preferDatesForScheduling(task, dates) {
-            const afterDue = preferDatesForDueTask(task, dates);
+            const list = Array.isArray(dates) ? [...dates.filter(Boolean)].sort((a, b) => a.localeCompare(b)) : [];
+            if(list.length <= 1) return list;
+            const todayStr = getDateStrLocal();
             const due = getTaskDueDate(task);
-            if(due && afterDue[0] === due) {
-                return [due, ...preferCurrentDayInDates(afterDue.slice(1))];
+            if(due === todayStr && list.includes(todayStr)) {
+                return [todayStr, ...list.filter(d => d !== todayStr)];
             }
-            return preferCurrentDayInDates(afterDue);
+            return preferCurrentDayInDates(list);
         }
 
         function sortDaysForPackingPass(days, weekKey, floating, unscheduledIds, candidateDatesByTask) {
@@ -20057,7 +20060,8 @@
             return activeWeek;
         }
 
-        function ensureActiveRepeatWeekOccurrences() {
+        function ensureRepeatWeekOccurrencesForWeek(weekKey) {
+            if(!weekKey) return 0;
             let created = 0;
             const groupIds = new Set(tasks.filter(t => t.repeatGroupId).map(t => t.repeatGroupId));
             groupIds.forEach(groupId => {
@@ -20066,44 +20070,50 @@
                 if(!template) return;
                 const rule = normalizeRepeatRule(template.repeatRule || {});
                 if(rule.type === 'none' || rule.days.length === 0) return;
-
-                const activeWeek = getRepeatGroupActiveWeekKey(groupTasks);
-                if(!activeWeek || isRepeatWeekSkipped(groupId, activeWeek)) return;
+                if(isRepeatWeekSkipped(groupId, weekKey)) return;
 
                 if(template.weekDueOnly) {
-                    if(getRepeatGroupTasksForWeek(groupId, activeWeek).length === 0) {
-                        created += addRepeatWeekOccurrences(groupId, activeWeek, rule, template);
+                    if(getRepeatGroupTasksForWeek(groupId, weekKey).length === 0) {
+                        created += addRepeatWeekOccurrences(groupId, weekKey, rule, template);
                     }
 
-                    getRepeatGroupTasksForWeek(groupId, activeWeek).forEach(task => {
+                    getRepeatGroupTasksForWeek(groupId, weekKey).forEach(task => {
                         if(task.completed) return;
-                        const weekKey = getTaskTargetWeekKey(task) || activeWeek;
-                        if(!task.repeatWeekKey) task.repeatWeekKey = weekKey;
-                        if(!task.week) task.week = weekKey;
-                        if(!task.dueDate) task.dueDate = getWeekDueDateForRepeat(weekKey, task);
+                        const resolvedWeek = getTaskTargetWeekKey(task) || weekKey;
+                        if(!task.repeatWeekKey) task.repeatWeekKey = resolvedWeek;
+                        if(!task.week) task.week = resolvedWeek;
+                        if(!task.dueDate) task.dueDate = getWeekDueDateForRepeat(resolvedWeek, task);
                         if(task.weekDueOnly && task.scheduleType !== 'week') task.scheduleType = 'week';
                         ensureTargetWeekScheduleType(task);
                     });
                 } else {
-                    const weekOccurrences = getRepeatGroupTasksForWeek(groupId, activeWeek);
-                    const expectedDates = getRepeatDatesForWeek(activeWeek, rule);
+                    const weekOccurrences = getRepeatGroupTasksForWeek(groupId, weekKey);
+                    const expectedDates = getRepeatDatesForWeek(weekKey, rule);
                     const coveredDates = new Set(weekOccurrences.flatMap(t => getRepeatOccurrenceDatesForTask(t)));
                     const needsOccurrences = expectedDates.some(dateStr =>
-                        !coveredDates.has(dateStr) && !isRepeatOccurrenceSuppressed(groupId, dateStr, activeWeek)
+                        !coveredDates.has(dateStr) && !isRepeatOccurrenceSuppressed(groupId, dateStr, weekKey)
                     );
                     if(weekOccurrences.length === 0 || needsOccurrences) {
-                        created += addRepeatWeekOccurrences(groupId, activeWeek, rule, template);
+                        created += addRepeatWeekOccurrences(groupId, weekKey, rule, template);
                     }
 
-                    getRepeatGroupTasksForWeek(groupId, activeWeek).forEach(task => {
+                    getRepeatGroupTasksForWeek(groupId, weekKey).forEach(task => {
                         if(task.completed) return;
-                        const weekKey = task.repeatWeekKey || (task.date ? getWeekKeyFromDateStr(task.date) : activeWeek);
-                        if(!task.repeatWeekKey) task.repeatWeekKey = weekKey;
-                        if(!task.week) task.week = weekKey;
+                        const resolvedWeek = task.repeatWeekKey || (task.date ? getWeekKeyFromDateStr(task.date) : weekKey);
+                        if(!task.repeatWeekKey) task.repeatWeekKey = resolvedWeek;
+                        if(!task.week) task.week = resolvedWeek;
                     });
                 }
 
                 enforceRepeatGroupFixedTimes(groupId);
+            });
+            return created;
+        }
+
+        function ensureActiveRepeatWeekOccurrences() {
+            let created = 0;
+            getUpcomingWeekKeys(12).forEach(weekKey => {
+                created += ensureRepeatWeekOccurrencesForWeek(weekKey);
             });
             if(created > 0) syncAllTaskDependencies();
             return created;
@@ -20333,6 +20343,7 @@
         function autoBlockWeekTimes(showToast = true, weekKey = getCurrentWeekKey(), allowDateShift = true, forceRebuildAutoSlots = false) {
             if(showToast && !classifyUndoApplying) recordClassifyUndoPoint({ force: true });
             const scheduleSnapshot = captureWeekScheduleSnapshot(weekKey);
+            ensureRepeatWeekOccurrencesForWeek(weekKey);
             assignWeekTaskDates(weekKey, true);
             enforceNoPastUnstartedTimes();
             (tasks || []).forEach(task => {
