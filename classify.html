@@ -4888,29 +4888,7 @@
             }
         }
 
-        function queueClassifyCloudSync() {
-            if (!cloudSyncEnabled || suppressCloudSync) return;
-            const sessionId = localStorage.getItem('ahrenslabs_sessionId');
-            if (!sessionId) return;
-            if (cloudSyncTimer) {
-                clearTimeout(cloudSyncTimer);
-                cloudSyncTimer = null;
-            }
-            if (cloudSyncInFlight) {
-                cloudSyncPending = true;
-                return;
-            }
-            cloudSyncInFlight = true;
-            syncClassifyDataToCloud().finally(() => {
-                cloudSyncInFlight = false;
-                if (cloudSyncPending) {
-                    cloudSyncPending = false;
-                    queueClassifyCloudSync();
-                }
-            });
-        }
-
-        function flushClassifyCloudSync() {
+        function runClassifyCloudSyncPass() {
             if (!cloudSyncEnabled || suppressCloudSync) return Promise.resolve();
             const sessionId = localStorage.getItem('ahrenslabs_sessionId');
             if (!sessionId) return Promise.resolve();
@@ -4918,7 +4896,39 @@
                 clearTimeout(cloudSyncTimer);
                 cloudSyncTimer = null;
             }
-            return syncClassifyDataToCloud();
+            if (cloudSyncInFlight) {
+                cloudSyncPending = true;
+                return Promise.resolve();
+            }
+            cloudSyncInFlight = true;
+            return syncClassifyDataToCloud().finally(() => {
+                cloudSyncInFlight = false;
+                if (cloudSyncPending) {
+                    cloudSyncPending = false;
+                    return runClassifyCloudSyncPass();
+                }
+            });
+        }
+
+        function queueClassifyCloudSync() {
+            runClassifyCloudSyncPass().catch(() => {});
+        }
+
+        function flushClassifyCloudSync() {
+            if (cloudSyncInFlight) {
+                cloudSyncPending = true;
+                return new Promise(resolve => {
+                    const waitForTurn = () => {
+                        if (!cloudSyncInFlight) {
+                            resolve(runClassifyCloudSyncPass());
+                        } else {
+                            requestAnimationFrame(waitForTurn);
+                        }
+                    };
+                    waitForTurn();
+                });
+            }
+            return runClassifyCloudSyncPass();
         }
 
         async function syncClassifyDataToCloud() {
@@ -10591,9 +10601,7 @@
                         ...options
                     }) || 0;
                     if(changed > 0) {
-                        invalidateClassifyScheduleCaches();
-                        plannerSet('plannerTasksV2', JSON.stringify(tasks));
-                        renderAll();
+                        saveData({ skipAutoSchedule: true, skipUndoRecord: true });
                     }
                 } catch (error) {
                     console.warn('Deferred schedule maintain failed:', error);
@@ -10663,7 +10671,7 @@
             plannerSet('plannerScheduleRulesV1', JSON.stringify(normalizeScheduleRules(scheduleRules)));
             plannerSet('plannerVacationsV1', JSON.stringify(normalizeVacationRanges(vacationRanges)));
             plannerSet('plannerRepeatSkipsV1', JSON.stringify(repeatSkips));
-            queueClassifyCloudSync();
+            flushClassifyCloudSync().catch(() => {});
             if(!classifyUndoApplying) {
                 classifyLastSavedSnapshot = captureClassifyUndoSnapshot();
                 updateClassifyUndoButton();
