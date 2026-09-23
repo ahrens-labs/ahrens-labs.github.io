@@ -3840,11 +3840,11 @@
                         <div id="cl-wt-week-fields" class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div id="weekInputWrapper" class="hidden">
                                 <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Target Week</label>
-                                <input id="inputWeek" type="week" onchange="updateScheduleInputs()" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
+                                <input id="inputWeek" type="week" onchange="handleTargetWeekInputChange()" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
                             </div>
                             <div id="dueDateWrapper">
                                 <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Due Date</label>
-                                <input id="inputDueDate" type="date" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
+                                <input id="inputDueDate" type="date" onchange="handleTargetWeekDueDateChange()" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
                             </div>
                         </div>
                         <div id="cl-wt-exact-date-fields" class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -7776,15 +7776,19 @@
         function ensureTargetWeekScheduleType(task) {
             if(!isTargetWeekAssignment(task)) return task;
             task.scheduleType = 'week';
+            if(task.dueDate) {
+                const dueWeek = getWeekKeyFromDateStr(task.dueDate);
+                if(dueWeek) {
+                    task.week = dueWeek;
+                    if(task.weekDueOnly && task.repeatWeekKey) task.repeatWeekKey = dueWeek;
+                }
+            }
             if(!task.week) {
                 task.week = task.dueDate
                     ? getWeekKeyFromDateStr(task.dueDate)
                     : getCurrentWeekKey();
             }
             if(!task.dueDate) task.dueDate = resolveTargetWeekDueDate(task, task.week);
-            if(!task.week && task.dueDate) {
-                task.week = getWeekKeyFromDateStr(task.dueDate);
-            }
             return task;
         }
 
@@ -14313,7 +14317,9 @@
                 };
             }
             if((fragment.scheduleType === 'week' || fragment.dueDate)) {
-                const week = fragment.week || getCurrentWeekKey();
+                const week = fragment.week
+                    || (fragment.dueDate ? getWeekKeyFromDateStr(fragment.dueDate) : null)
+                    || getCurrentWeekKey();
                 const dueDate = fragment.dueDate || getWeekDueDateForRepeat(week, { dueDate: null });
                 return {
                     scheduleType: 'week',
@@ -14321,7 +14327,7 @@
                     dateSource: null,
                     dueDate,
                     dueTime: fragment.dueTime || null,
-                    week: fragment.week || getWeekKeyFromDateStr(dueDate),
+                    week: getWeekKeyFromDateStr(dueDate) || week,
                     time: null,
                     timeSource: null,
                     assignmentMode: 'ADJUSTABLE',
@@ -17763,7 +17769,7 @@
                 dueDateInput.disabled = false;
                 dueTimeInput.disabled = false;
                 if(!weekInput.value) weekInput.value = getCurrentWeekKey();
-                syncWeekDueDateInputToWeek(weekInput.value, dueDateInput);
+                reconcileTargetWeekDueInputs(weekInput, dueDateInput);
             } else if(scheduleType === 'flexible') {
                 if(exactDateTimingWrapper) exactDateTimingWrapper.classList.add('hidden');
                 weekWrapper.classList.add('hidden');
@@ -17807,7 +17813,7 @@
                 dueTimeWrapper.classList.add('hidden');
                 dueDateInput.disabled = false;
                 dueTimeInput.disabled = false;
-                syncWeekDueDateInputToWeek(weekInput.value, dueDateInput);
+                reconcileTargetWeekDueInputs(weekInput, dueDateInput);
                 syncWeekDueOnlyFieldInputs(false);
                 timeInput.value = '';
                 dateInput.value = '';
@@ -17833,10 +17839,23 @@
             const weekInput = document.getElementById('inputWeek');
             const dueDateInput = document.getElementById('inputDueDate');
             const repeatDueDateInput = document.getElementById('inputWeekDueOnlyDueDate');
-            if(weekInput?.value && dueDateInput) {
-                syncWeekDueDateInputToWeek(weekInput.value, dueDateInput);
-                if(repeatDueDateInput) repeatDueDateInput.value = dueDateInput.value;
-            }
+            if(dueDateInput) reconcileTargetWeekDueInputs(weekInput, dueDateInput);
+            if(repeatDueDateInput && dueDateInput) repeatDueDateInput.value = dueDateInput.value;
+        }
+
+        function handleTargetWeekDueDateChange() {
+            const weekInput = document.getElementById('inputWeek');
+            const dueDateInput = document.getElementById('inputDueDate');
+            reconcileTargetWeekDueInputs(weekInput, dueDateInput);
+            syncWeekDueOnlyFieldInputs(false);
+        }
+
+        function handleTargetWeekInputChange() {
+            const weekInput = document.getElementById('inputWeek');
+            const dueDateInput = document.getElementById('inputDueDate');
+            if(weekInput?.value && dueDateInput) snapDueDateIntoWeek(weekInput.value, dueDateInput);
+            syncWeekDueOnlyFieldInputs(false);
+            updateScheduleInputs();
         }
 
         function updateWeekDueOnlyFieldVisibility() {
@@ -17851,7 +17870,7 @@
             const dueDateInput = document.getElementById('inputDueDate');
             const repeatDueDateInput = document.getElementById('inputWeekDueOnlyDueDate');
             if(!weekInput.value) weekInput.value = getCurrentWeekKey();
-            if(dueDateInput) syncWeekDueDateInputToWeek(weekInput.value, dueDateInput);
+            if(dueDateInput) reconcileTargetWeekDueInputs(weekInput, dueDateInput);
             if(repeatDueDateInput && !repeatDueDateInput.value) {
                 repeatDueDateInput.value = dueDateInput?.value || getDateInWeekForWeekday(weekInput.value, 5);
             }
@@ -18129,14 +18148,32 @@
             return getDateInWeekForWeekday(weekKey, 5);
         }
 
-        function syncWeekDueDateInputToWeek(weekKey, dueDateInput) {
+        function reconcileTargetWeekDueInputs(weekInput, dueDateInput) {
+            if(!dueDateInput) return;
+            const weekKey = weekInput?.value || getCurrentWeekKey();
+            if(weekInput && !weekInput.value) weekInput.value = weekKey;
+            const currentDue = dueDateInput.value;
+            if(!currentDue) {
+                dueDateInput.value = getDateInWeekForWeekday(weekKey, 5);
+                return;
+            }
+            const { startStr, endStr } = getWeekBoundsFromWeekKey(weekKey);
+            if(currentDue >= startStr && currentDue <= endStr) return;
+            const dueWeek = getWeekKeyFromDateStr(currentDue);
+            if(dueWeek && weekInput) weekInput.value = dueWeek;
+        }
+
+        function snapDueDateIntoWeek(weekKey, dueDateInput) {
             if(!weekKey || !dueDateInput) return;
             const { startStr, endStr } = getWeekBoundsFromWeekKey(weekKey);
             const currentDue = dueDateInput.value;
-            if(!currentDue || currentDue < startStr || currentDue > endStr) {
-                const weekday = getWeekdayFromDateStr(currentDue) ?? 5;
-                dueDateInput.value = getDateInWeekForWeekday(weekKey, weekday);
+            if(!currentDue) {
+                dueDateInput.value = getDateInWeekForWeekday(weekKey, 5);
+                return;
             }
+            if(currentDue >= startStr && currentDue <= endStr) return;
+            const weekday = getWeekdayFromDateStr(currentDue) ?? 5;
+            dueDateInput.value = getDateInWeekForWeekday(weekKey, weekday);
         }
 
         function pickRepeatTemplate(groupTasks = []) {
@@ -18331,11 +18368,14 @@
             const weekDueOnly = Boolean(repeatBuild.weekDueOnly);
 
             const scheduleType = weekDueOnly ? 'week' : scheduleTypeRaw;
-            const week = scheduleType === 'week' ? (weekRaw || getCurrentWeekKey()) : weekRaw;
+            let week = scheduleType === 'week' ? (weekRaw || getCurrentWeekKey()) : weekRaw;
             const isExactDateSchedule = scheduleType === 'date' && !weekDueOnly;
-            const dueDate = (scheduleType === 'week' || weekDueOnly)
+            let dueDate = (scheduleType === 'week' || weekDueOnly)
                 ? (dueDateRaw || getWeekDueDateForRepeat(week, { dueDate: null }))
                 : (isExactDateSchedule ? null : dueDateRaw);
+            if((scheduleType === 'week' || weekDueOnly) && dueDate) {
+                week = getWeekKeyFromDateStr(dueDate) || week;
+            }
             const dueTime = dueTimeRaw;
 
             if(scheduleType === 'week' && !week) {
@@ -18524,10 +18564,12 @@
                     tasks = tasks.map(t => {
                         if(t.repeatGroupId !== groupId) return t;
                         const isEditedInstance = t.id === editingId;
-                        const instanceWeekKey = t.repeatWeekKey || t.week || startWeekKey;
+                        const instanceWeekKey = isEditedInstance
+                            ? (week || t.repeatWeekKey || t.week || startWeekKey)
+                            : (t.repeatWeekKey || t.week || startWeekKey);
                         const instanceDueDate = weekDueOnly
                             ? (isEditedInstance
-                                ? (dueDateRaw || getWeekDueDateForRepeat(instanceWeekKey, normalizedTaskData))
+                                ? (dueDate || dueDateRaw || getWeekDueDateForRepeat(instanceWeekKey, normalizedTaskData))
                                 : t.dueDate)
                             : (isExactDateSchedule ? null : t.dueDate);
                         const instanceDueTime = weekDueOnly
