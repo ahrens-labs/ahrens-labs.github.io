@@ -8083,7 +8083,7 @@
                 const task = adjustable[index];
                 const eligibleDates = getScheduleEligibleDates(task, weekKey);
                 const validDates = getAllValidWeekDates(task, eligibleDates, workingDates, weekKey);
-                const datesToTry = getCapacityAwareValidDates(task, validDates, workingDates);
+                const datesToTry = preferDatesForDueTask(task, getCapacityAwareValidDates(task, validDates, workingDates));
                 for(const picked of datesToTry) {
                     workingDates.set(task.id, picked);
                     if(tryAssignDates(index + 1, workingDates)) return true;
@@ -8113,7 +8113,7 @@
                     if(dateById.has(task.id)) return;
                     const eligibleDates = getScheduleEligibleDates(task, weekKey);
                     const validDates = getAllValidWeekDates(task, eligibleDates, dateById, weekKey);
-                    const picked = getCapacityAwareValidDates(task, validDates, dateById)[0] || validDates[0];
+                    const picked = preferDatesForDueTask(task, getCapacityAwareValidDates(task, validDates, dateById))[0] || validDates[0];
                     if(!picked) return;
                     dateById.set(task.id, picked);
                 });
@@ -8880,6 +8880,60 @@
             return compareTasksForScheduling(a, b);
         }
 
+        function taskIsDueOnDate(task, dateStr) {
+            if(!task || !dateStr) return false;
+            return getTaskDueDate(task) === dateStr;
+        }
+
+        function compareTasksForPackingOnDate(a, b, dateStr) {
+            const aDueOnDay = taskIsDueOnDate(a, dateStr);
+            const bDueOnDay = taskIsDueOnDate(b, dateStr);
+            if(aDueOnDay !== bDueOnDay) return aDueOnDay ? -1 : 1;
+            return compareTasksForPacking(a, b);
+        }
+
+        function preferDatesForDueTask(task, dates) {
+            const list = Array.isArray(dates) ? dates.filter(Boolean) : [];
+            if(list.length <= 1) return list;
+            const due = getTaskDueDate(task);
+            if(!due || !list.includes(due)) return list;
+            return [due, ...list.filter(d => d !== due)];
+        }
+
+        function sortDaysForPackingPass(days, weekKey, floating, unscheduledIds, candidateDatesByTask) {
+            const sorted = sortScheduleDatesByPreference(Array.from(new Set((days || []).filter(Boolean))), weekKey);
+            const todayStr = getDateStrLocal();
+            const duePressure = (day) => {
+                let weight = 0;
+                (floating || []).forEach(task => {
+                    if(!unscheduledIds.has(task.id)) return;
+                    const candidates = candidateDatesByTask.get(task.id) || [];
+                    if(!candidates.includes(day)) return;
+                    if(taskIsDueOnDate(task, day)) weight += 100;
+                });
+                if(day === todayStr) weight += 25;
+                return weight;
+            };
+            return sorted.sort((a, b) => {
+                const pressureDiff = duePressure(b) - duePressure(a);
+                if(pressureDiff !== 0) return pressureDiff;
+                return a.localeCompare(b);
+            });
+        }
+
+        function sortTaskIdsDueTodayFirst(taskIds) {
+            const todayStr = getDateStrLocal();
+            return Array.from(new Set((taskIds || []).filter(Boolean))).sort((a, b) => {
+                const ta = tasks.find(t => t.id === a);
+                const tb = tasks.find(t => t.id === b);
+                if(!ta || !tb) return String(a).localeCompare(String(b));
+                const aDueToday = taskIsDueOnDate(ta, todayStr) ? 0 : 1;
+                const bDueToday = taskIsDueOnDate(tb, todayStr) ? 0 : 1;
+                if(aDueToday !== bDueToday) return aDueToday - bDueToday;
+                return compareTasksForScheduling(ta, tb);
+            });
+        }
+
         function orderTasksByDependencies(taskList = []) {
             const items = (taskList || []).filter(Boolean);
             if(items.length <= 1) return { ordered: items, hasCycle: false };
@@ -9107,7 +9161,7 @@
             return cleared;
         }
 
-        function findLeadAssignmentTaskForDate(dateStr, anchor) {
+        function findLeadAssignmentTaskForDate(dateStr, anchor, { preferNonDueForAnchor = false } = {}) {
             const pool = (tasks || []).filter(t => {
                 if(!t || t.completed || !isTaskVisibleInClassify(t)) return false;
                 if(t.repeatNoAutoTime || isRepeatFixedTimeTask(t)) return false;
@@ -9118,7 +9172,14 @@
                 }
                 return !t.date || t.date === dateStr;
             });
-            const ordered = orderTasksByDependencies(pool).ordered.sort(compareTasksForScheduling);
+            const ordered = orderTasksByDependencies(pool).ordered.sort((a, b) => {
+                if(preferNonDueForAnchor) {
+                    const aDue = taskIsDueOnDate(a, dateStr) ? 1 : 0;
+                    const bDue = taskIsDueOnDate(b, dateStr) ? 1 : 0;
+                    if(aDue !== bDue) return aDue - bDue;
+                }
+                return compareTasksForPackingOnDate(a, b, dateStr);
+            });
             for(const task of ordered) {
                 const constraints = getSchedulingConstraintsForTaskOnDate(task, dateStr, anchor);
                 if(!constraints) continue;
@@ -9160,7 +9221,7 @@
             let busy = [...fixedBusy, ...getBlockedSlotsForDate(dateStr)]
                 .sort((a, b) => a.start - b.start);
 
-            const ordered = orderTasksByDependencies(movable).ordered.sort(compareTasksForPacking);
+            const ordered = orderTasksByDependencies(movable).ordered.sort((a, b) => compareTasksForPackingOnDate(a, b, dateStr));
             let placed = 0;
             ordered.forEach(task => {
                 const constraints = getSchedulingConstraintsForTaskOnDate(task, dateStr, dayStart);
@@ -9213,7 +9274,7 @@
                 return 0;
             }
 
-            const lead = findLeadAssignmentTaskForDate(dateStr, anchor);
+            const lead = findLeadAssignmentTaskForDate(dateStr, anchor, { preferNonDueForAnchor: true });
             if(!lead) return 0;
 
             if(lead.date && lead.date !== dateStr) {
@@ -11155,7 +11216,7 @@
             const depOrderedFloating = orderTasksByDependencies(
                 dayTasks.filter(t => !fixedIds.has(t.id) && (!t.time || isPastUnstartedAutoSlotToday(t, dateStr)))
             );
-            let floating = [...depOrderedFloating.ordered].sort(compareTasksForPacking);
+            let floating = [...depOrderedFloating.ordered].sort((a, b) => compareTasksForPackingOnDate(a, b, dateStr));
             
             const daySchedule = getScheduleForDate(dateStr);
             const dayEnd = timeToMin(daySchedule.end);
@@ -20104,7 +20165,7 @@
         }
 
         function scheduleTargetWeekTasksImmediately(taskIds = []) {
-            const ids = Array.from(new Set((taskIds || []).filter(Boolean)));
+            const ids = sortTaskIdsDueTodayFirst(taskIds);
             if(ids.length === 0) return 0;
             let scheduled = 0;
 
@@ -20379,21 +20440,44 @@
                 );
 
                 const unscheduledIds = new Set(floating.map(t => t.id));
-                const dayOrder = sortScheduleDatesByPreference(
-                    Array.from(new Set(
-                        floating.flatMap(task => candidateDatesByTask.get(task.id) || [])
-                    )),
-                    weekKey
+                const dayOrder = sortDaysForPackingPass(
+                    floating.flatMap(task => candidateDatesByTask.get(task.id) || []),
+                    weekKey,
+                    floating,
+                    unscheduledIds,
+                    candidateDatesByTask
                 );
+
+                const packDueOnDayFirst = (day) => {
+                    const dueOnDay = orderTasksByDependencies(
+                        floating.filter(task =>
+                            unscheduledIds.has(task.id) &&
+                            taskIsDueOnDate(task, day) &&
+                            (candidateDatesByTask.get(task.id) || []).includes(day)
+                        )
+                    ).ordered.sort((a, b) => compareTasksForPackingOnDate(a, b, day));
+                    dueOnDay.forEach(task => {
+                        if(tryPlaceTaskWithDateList(task, [day], { floating, unscheduledIds, candidateDatesByTask })) {
+                            unscheduledIds.delete(task.id);
+                        }
+                    });
+                };
+
+                dayOrder.forEach(day => packDueOnDayFirst(day));
 
                 for(const day of dayOrder) {
                     let packedAny = false;
                     do {
                         packedAny = false;
-                        for(const task of floating) {
-                            if(!unscheduledIds.has(task.id)) continue;
+                        const tasksForDay = floating
+                            .filter(task => {
+                                if(!unscheduledIds.has(task.id)) return false;
+                                const candidates = candidateDatesByTask.get(task.id) || [];
+                                return candidates.includes(day);
+                            })
+                            .sort((a, b) => compareTasksForPackingOnDate(a, b, day));
+                        for(const task of tasksForDay) {
                             const candidates = candidateDatesByTask.get(task.id) || [];
-                            if(!candidates.includes(day)) continue;
                             if(shouldDeferToLaterDay(task, day, candidates)) continue;
                             if(tryPlaceTaskWithDateList(task, [day], { floating, unscheduledIds, candidateDatesByTask })) {
                                 unscheduledIds.delete(task.id);
