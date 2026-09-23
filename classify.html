@@ -4918,6 +4918,40 @@
             }
         }
 
+        const EXACT_TASK_SNAPSHOT_KEYS = [
+            'title', 'subject', 'date', 'eventDate', 'dateSource', 'dueDate', 'due', 'week',
+            'scheduleType', 'weekDueOnly', 'assignmentMode', 'time', 'timeSource', 'startedAt',
+            'dueTime', 'duration', 'actualMinutes', 'color',
+            'mustBeBefore', 'mustBeAfter', 'mustBeDifferentDay', 'mustBeBeforeIds', 'mustBeAfterIds',
+            'avoidScheduleDates', 'notes', 'completed', 'completedDate', 'splitGroupId', 'splitPercent',
+            'repeatGroupId', 'repeatWeekKey', 'repeatRule', 'repeatNoAutoTime', 'repeatType', 'repeatDays'
+        ];
+
+        function cloneSnapshotValue(value) {
+            if(value !== null && typeof value === 'object') {
+                return JSON.parse(JSON.stringify(value));
+            }
+            return value;
+        }
+
+        function overlayExactTaskSnapshot(normalized, raw) {
+            const out = { ...normalized };
+            EXACT_TASK_SNAPSHOT_KEYS.forEach(key => {
+                if(Object.prototype.hasOwnProperty.call(raw, key)) {
+                    out[key] = cloneSnapshotValue(raw[key]);
+                }
+            });
+            if(Object.prototype.hasOwnProperty.call(raw, 'date') && !Object.prototype.hasOwnProperty.call(raw, 'eventDate')) {
+                out.eventDate = raw.date;
+            }
+            return out;
+        }
+
+        function normalizeStoredTask(task) {
+            const raw = JSON.parse(JSON.stringify(task || {}));
+            return overlayExactTaskSnapshot(normalizeTask(raw), raw);
+        }
+
         // State
         const storedTasks = safeJsonParse(plannerGet('plannerTasksV2'), []);
         const storedCompletionHistory = safeJsonParse(plannerGet('plannerCompletionHistoryV1'), []);
@@ -7608,8 +7642,9 @@
         }
 
         // 1) User-set rules (dependencies, block times, due dates, locked dates/times, avoid dates)
-        // 2) Fit every assignment somewhere valid
-        // 3) Earliest open slot on a 5-minute grid (not tight packing or reshuffling for optimization)
+        // 2) Fit assignments due on a day onto that day before filling the rest of the week
+        // 3) Fit every remaining assignment somewhere valid
+        // 4) Earliest open slot on a 5-minute grid within each task's constraints (due-on-day tasks need not be earliest in the day)
         function sortScheduleDatesByPreference(dates, weekKey = null) {
             const unique = Array.from(new Set((dates || []).filter(Boolean)));
             unique.sort((a, b) => a.localeCompare(b));
@@ -10148,41 +10183,7 @@
             };
         }
 
-        const EXACT_TASK_SNAPSHOT_KEYS = [
-            'title', 'subject', 'date', 'eventDate', 'dateSource', 'dueDate', 'due', 'week',
-            'scheduleType', 'weekDueOnly', 'assignmentMode', 'time', 'timeSource', 'startedAt',
-            'dueTime', 'duration', 'actualMinutes', 'color',
-            'mustBeBefore', 'mustBeAfter', 'mustBeDifferentDay', 'mustBeBeforeIds', 'mustBeAfterIds',
-            'avoidScheduleDates', 'notes', 'completed', 'completedDate', 'splitGroupId', 'splitPercent',
-            'repeatGroupId', 'repeatWeekKey', 'repeatRule', 'repeatNoAutoTime', 'repeatType', 'repeatDays'
-        ];
-
-        function cloneSnapshotValue(value) {
-            if(value !== null && typeof value === 'object') {
-                return JSON.parse(JSON.stringify(value));
-            }
-            return value;
-        }
-
-        function overlayExactTaskSnapshot(normalized, raw) {
-            const out = { ...normalized };
-            EXACT_TASK_SNAPSHOT_KEYS.forEach(key => {
-                if(Object.prototype.hasOwnProperty.call(raw, key)) {
-                    out[key] = cloneSnapshotValue(raw[key]);
-                }
-            });
-            if(Object.prototype.hasOwnProperty.call(raw, 'date') && !Object.prototype.hasOwnProperty.call(raw, 'eventDate')) {
-                out.eventDate = raw.date;
-            }
-            return out;
-        }
-
         function restoreTaskFromUndoSnapshot(task) {
-            const raw = JSON.parse(JSON.stringify(task || {}));
-            return overlayExactTaskSnapshot(normalizeTask(raw), raw);
-        }
-
-        function normalizeStoredTask(task) {
             const raw = JSON.parse(JSON.stringify(task || {}));
             return overlayExactTaskSnapshot(normalizeTask(raw), raw);
         }
