@@ -10179,6 +10179,69 @@
             return (String(taskA?.id || '') > String(taskB?.id || '')) ? taskA : taskB;
         }
 
+        function clearTaskTimeForOverlapResolution(task) {
+            if(!task || task.completed || isAssignmentStarted(task)) return false;
+            task.time = null;
+            task.timeSource = null;
+            if(!isFixedTask(task)) task.assignmentMode = 'ADJUSTABLE';
+            return true;
+        }
+
+        function resolveSchedulingOverlapPair(first, second) {
+            if(!first || !second || first.id === second.id) return false;
+            if(isAssignmentStarted(first) || isAssignmentStarted(second)) return false;
+
+            let loser = pickOverlapLoser(first, second);
+            let winner = loser === first ? second : first;
+
+            if(isUserScheduleLocked(loser) && !isUserScheduleLocked(winner)) {
+                loser = winner;
+                winner = loser === first ? second : first;
+            } else if(isUserScheduleLocked(loser) && isUserScheduleLocked(winner)) {
+                if(isFixedTask(winner) && !isFixedTask(loser)) {
+                    /* keep loser */
+                } else if(isFixedTask(loser) && !isFixedTask(winner)) {
+                    loser = winner;
+                } else {
+                    const firstStart = timeToMin(first.time);
+                    const secondStart = timeToMin(second.time);
+                    loser = secondStart >= firstStart ? second : first;
+                }
+            }
+
+            return clearTaskTimeForOverlapResolution(loser);
+        }
+
+        function reconcileScheduleOverlapsAndRepack(options = {}) {
+            const { taskIds = [], weekKeys = [] } = options || {};
+            const dates = new Set();
+            (taskIds || []).forEach(id => {
+                const task = tasks.find(t => t.id === id);
+                if(task?.date) dates.add(task.date);
+            });
+            (weekKeys || []).forEach(weekKey => {
+                getWeekdayDateStringsFromWeekKey(weekKey).forEach(dateStr => dates.add(dateStr));
+            });
+
+            enforceNoOverlappingTimes();
+
+            const todayStr = getDateStrLocal();
+            const scopedDates = Array.from(dates).filter(d => d && d >= todayStr);
+            const repackIds = [];
+            (tasks || []).forEach(task => {
+                if(!task || task.completed || !task.date || task.date < todayStr) return;
+                if(scopedDates.length > 0 && !scopedDates.includes(task.date)) return;
+                if(task.time) return;
+                if(!taskNeedsCalendarScheduling(task)) return;
+                repackIds.push(task.id);
+            });
+            if(repackIds.length > 0) {
+                scheduleTargetWeekTasksImmediately(Array.from(new Set(repackIds)));
+            }
+            enforceNoOverlappingTimes();
+            return repackIds.length;
+        }
+
         function enforceNoOverlappingTimes(startDate = null, endDate = null) {
             const inRange = (dateStr) => {
                 if(!dateStr) return false;
@@ -10217,11 +10280,7 @@
                             if(!taskOccupiedRangesOverlap(first, second, dateStr)) {
                                 continue;
                             }
-                            const loser = pickOverlapLoser(first, second);
-                            if(loser && !isUserScheduleLocked(loser)) {
-                                loser.time = null;
-                                loser.timeSource = null;
-                                loser.assignmentMode = 'ADJUSTABLE';
+                            if(resolveSchedulingOverlapPair(first, second)) {
                                 cleared++;
                                 changed = true;
                             }
@@ -10694,9 +10753,6 @@
 
             if(skipScheduleRefresh) return;
 
-            enforceNoPastUnstartedTimes();
-            reconcileBeforeAfterSchedule(getAllBeforeAfterLinkedTaskIds());
-
             let keys = Array.from(new Set((weekKeys || []).filter(Boolean)));
             if(keys.length === 0 && ((seedTaskIds && seedTaskIds.length) || (previousSnapshots && previousSnapshots.length))) {
                 const weekKeySet = new Set();
@@ -10717,6 +10773,11 @@
             if(keys.length === 0) {
                 keys = getRelevantUpcomingWeekKeys();
             }
+
+            reconcileScheduleOverlapsAndRepack({ taskIds: seedTaskIds, weekKeys: keys });
+            enforceNoPastUnstartedTimes();
+            reconcileBeforeAfterSchedule(getAllBeforeAfterLinkedTaskIds());
+
             const seedIdsNeedingSchedule = (seedTaskIds || []).filter(id => {
                 const task = tasks.find(t => t.id === id);
                 return task && taskNeedsCalendarScheduling(task);
@@ -10737,7 +10798,12 @@
             if(immediateIds.size > 0) {
                 scheduleTargetWeekTasksImmediately(Array.from(immediateIds));
             }
+            reconcileScheduleOverlapsAndRepack({
+                taskIds: Array.from(immediateIds),
+                weekKeys: keys
+            });
             runImmediateScheduleMaintain({ persist: false, syncCloud: false });
+            enforceNoOverlappingTimes();
         }
 
         function refreshClassifyLikeReload(options = {}) {
@@ -10911,8 +10977,8 @@
 
             if(!classifyUndoApplying) {
                 pruneExpiredScheduleItems();
+                enforceNoOverlappingTimes();
                 if(!skipAutoSchedule) {
-                    enforceNoOverlappingTimes();
                     enforceDependencyOrder();
                 }
             }
@@ -20601,7 +20667,11 @@
             );
             if(options.length === 0) return false;
             const slot = options[Math.max(0, selectScheduleSlotIndex(options, task))];
-            task.time = minToInputTime(slot.start);
+            const nextTime = minToInputTime(slot.start);
+            if(findSchedulingConflict(dateStr, nextTime, constraints.duration, task.id, task)) {
+                return false;
+            }
+            task.time = nextTime;
             task.timeSource = 'auto';
             task.assignmentMode = 'ADJUSTABLE';
             return true;
