@@ -8750,6 +8750,84 @@
             );
         }
 
+        function getRepeatGroupAnchorDate(groupTasks = [], templateTask = null) {
+            const members = (groupTasks || []).filter(t => t?.repeatGroupId);
+            const template = templateTask || pickRepeatTemplate(members);
+            if(!template && members.length === 0) return null;
+            const pool = members.length ? members : [template].filter(Boolean);
+
+            let earliestWeek = null;
+            pool.forEach(t => {
+                const wk = t.repeatWeekKey
+                    || (t.date ? getWeekKeyFromDateStr(t.date) : null)
+                    || (getTaskDueDate(t) ? getWeekKeyFromDateStr(getTaskDueDate(t)) : null)
+                    || (t.week && /^\d{4}-W\d{2}$/.test(t.week) ? t.week : null);
+                if(wk && (!earliestWeek || wk.localeCompare(earliestWeek) < 0)) earliestWeek = wk;
+            });
+
+            const dateFromTask = (t) => {
+                if(!t) return null;
+                return t.date || getTaskDueDate(t) || null;
+            };
+
+            if(earliestWeek) {
+                const inFirstWeek = pool.filter(t => {
+                    const wk = t.repeatWeekKey
+                        || (t.date ? getWeekKeyFromDateStr(t.date) : null)
+                        || (getTaskDueDate(t) ? getWeekKeyFromDateStr(getTaskDueDate(t)) : null)
+                        || t.week;
+                    return wk === earliestWeek;
+                });
+                const dated = inFirstWeek.map(dateFromTask).filter(Boolean).sort((a, b) => a.localeCompare(b));
+                if(dated.length) return dated[0];
+                const seed = inFirstWeek[0] || template;
+                if(seed?.weekDueOnly) return getWeekDueDateForRepeat(earliestWeek, seed);
+            }
+            return dateFromTask(template) || null;
+        }
+
+        function isRepeatWeekBeforeAnchor(weekKey, anchorDate) {
+            if(!weekKey || !anchorDate) return false;
+            const { endStr } = getWeekBoundsFromWeekKey(weekKey);
+            return endStr < anchorDate;
+        }
+
+        function filterRepeatDatesOnOrAfterAnchor(dates, anchorDate) {
+            const list = Array.isArray(dates) ? dates.filter(Boolean) : [];
+            if(!anchorDate) return list;
+            return list.filter(d => d >= anchorDate);
+        }
+
+        function taskRepeatOccurrenceIsBeforeAnchor(task, anchorDate) {
+            if(!task || !anchorDate || task.completed) return false;
+            const occurrenceDates = getRepeatOccurrenceDatesForTask(task);
+            if(occurrenceDates.some(d => d < anchorDate)) return true;
+            const due = getTaskDueDate(task);
+            if(due && due < anchorDate) return true;
+            if(task.date && task.date < anchorDate) return true;
+            const weekKey = task.repeatWeekKey || task.week;
+            if((task.weekDueOnly || task.scheduleType === 'week') && isRepeatWeekBeforeAnchor(weekKey, anchorDate)) {
+                return true;
+            }
+            return false;
+        }
+
+        function removeRepeatOccurrencesBeforeAnchor(groupId) {
+            if(!groupId) return 0;
+            const groupTasks = tasks.filter(t => t.repeatGroupId === groupId);
+            const anchorDate = getRepeatGroupAnchorDate(groupTasks);
+            if(!anchorDate) return 0;
+            let removed = 0;
+            for(let i = tasks.length - 1; i >= 0; i--) {
+                const t = tasks[i];
+                if(taskRepeatOccurrenceIsBeforeAnchor(t, anchorDate)) {
+                    tasks.splice(i, 1);
+                    removed++;
+                }
+            }
+            return removed;
+        }
+
         function timeToMin(t) {
             if(!t || !t.includes(':')) return 0;
             const [h, m] = t.split(':').map(Number);
@@ -18325,6 +18403,9 @@
             if(!groupId || !weekKey || !templateTask) return 0;
             const rule = normalizeRepeatRule(repeatRule || templateTask.repeatRule || {});
             if(rule.type === 'none' || rule.days.length === 0) return 0;
+            const groupTasks = tasks.filter(t => t.repeatGroupId === groupId);
+            const anchorDate = getRepeatGroupAnchorDate(groupTasks, templateTask);
+            if(isRepeatWeekBeforeAnchor(weekKey, anchorDate)) return 0;
             if(templateTask.weekDueOnly) {
                 if(isRepeatWeekSkipped(groupId, weekKey)) return 0;
                 if(getRepeatGroupTasksForWeek(groupId, weekKey).length > 0) return 0;
@@ -18348,11 +18429,11 @@
                     repeatNoAutoTime: false
                 });
                 tasks.push(occurrence);
+                removeRepeatOccurrencesBeforeAnchor(groupId);
                 return 1;
             }
             const existing = getRepeatGroupTasksForWeek(groupId, weekKey);
-            const dates = getRepeatDatesForWeek(weekKey, rule);
-            const groupTasks = tasks.filter(t => t.repeatGroupId === groupId);
+            const dates = filterRepeatDatesOnOrAfterAnchor(getRepeatDatesForWeek(weekKey, rule), anchorDate);
             const fixedProfile = getRepeatGroupFixedTimeProfile(groupTasks, templateTask);
             const templateIsFixed = Boolean(fixedProfile) || isFixedTask(templateTask);
             const fixedTime = fixedProfile?.time || (templateIsFixed ? (templateTask.time || null) : null);
@@ -18382,7 +18463,10 @@
                 tasks.push(occurrence);
                 added++;
             });
-            if(added > 0) enforceRepeatGroupFixedTimes(groupId);
+            if(added > 0) {
+                enforceRepeatGroupFixedTimes(groupId);
+                removeRepeatOccurrencesBeforeAnchor(groupId);
+            }
             return added;
         }
 
@@ -18782,6 +18866,7 @@
                     addRepeatWeekOccurrences(groupId, startWeekKey, repeatRule, template);
                 }
 
+                removeRepeatOccurrencesBeforeAnchor(groupId);
                 pruneRepeatFutureWeeks();
                 syncAllTaskDependencies();
                 const groupSeeds = tasks
@@ -20164,6 +20249,8 @@
                 const rule = normalizeRepeatRule(template.repeatRule || {});
                 if(rule.type === 'none' || rule.days.length === 0) return;
                 if(isRepeatWeekSkipped(groupId, weekKey)) return;
+                const anchorDate = getRepeatGroupAnchorDate(groupTasks, template);
+                if(isRepeatWeekBeforeAnchor(weekKey, anchorDate)) return;
 
                 if(template.weekDueOnly) {
                     if(getRepeatGroupTasksForWeek(groupId, weekKey).length === 0) {
@@ -20181,7 +20268,7 @@
                     });
                 } else {
                     const weekOccurrences = getRepeatGroupTasksForWeek(groupId, weekKey);
-                    const expectedDates = getRepeatDatesForWeek(weekKey, rule);
+                    const expectedDates = filterRepeatDatesOnOrAfterAnchor(getRepeatDatesForWeek(weekKey, rule), anchorDate);
                     const coveredDates = new Set(weekOccurrences.flatMap(t => getRepeatOccurrenceDatesForTask(t)));
                     const needsOccurrences = expectedDates.some(dateStr =>
                         !coveredDates.has(dateStr) && !isRepeatOccurrenceSuppressed(groupId, dateStr, weekKey)
@@ -20199,6 +20286,7 @@
                 }
 
                 enforceRepeatGroupFixedTimes(groupId);
+                removeRepeatOccurrencesBeforeAnchor(groupId);
             });
             return created;
         }
