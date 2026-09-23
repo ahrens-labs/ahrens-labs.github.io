@@ -8146,9 +8146,6 @@
 
         function restoreWeekScheduleSnapshot(snapshot) {
             if(!snapshot) return;
-            for(let i = tasks.length - 1; i >= 0; i--) {
-                if(!snapshot.taskIds.has(tasks[i].id)) tasks.splice(i, 1);
-            }
             snapshot.fields.forEach((saved, id) => {
                 const t = tasks.find(x => x.id === id);
                 if(!t) return;
@@ -8940,6 +8937,7 @@
             let removed = 0;
             for(let i = tasks.length - 1; i >= 0; i--) {
                 const t = tasks[i];
+                if(t.repeatGroupId !== groupId) continue;
                 if(taskRepeatOccurrenceIsBeforeAnchor(t, anchorDate)) {
                     tasks.splice(i, 1);
                     removed++;
