@@ -4193,13 +4193,27 @@
             if(!task || task.completed) return false;
             if(isRepeatOccurrenceRemoved(task)) return false;
             if(task.repeatNoAutoTime) return false;
-            if(task.weekDueOnly) return false;
+            if(!taskNeedsCalendarScheduling(task)) return false;
 
-            const dateStr = focusDate || task.date || null;
+            const dateStr = focusDate || task.date || getTaskDueDate(task) || null;
             if(dateStr) {
+                if(
+                    task.time &&
+                    task.date === dateStr &&
+                    !isPastUnstartedAutoSlotToday(task, dateStr)
+                ) {
+                    return false;
+                }
                 return !taskHasEffectiveScheduleOnDate(task, dateStr, scheduleCache);
             }
             return true;
+        }
+
+        function getNeedTimeFocusDateForRange(task, startStr, endStr) {
+            if(task.date && task.date >= startStr && task.date <= endStr) return task.date;
+            const due = getTaskDueDate(task);
+            if(due && due >= startStr && due <= endStr) return due;
+            return null;
         }
 
         function countTasksNeedingTimeInRange(startStr, endStr) {
@@ -4210,7 +4224,7 @@
             const scheduleCache = new Map();
             return tasks.filter(t => {
                 if(!isActiveCalendarTaskInRange(t, startStr, endStr)) return false;
-                const focusDate = (t.date && t.date >= startStr && t.date <= endStr) ? t.date : null;
+                const focusDate = getNeedTimeFocusDateForRange(t, startStr, endStr);
                 return taskCountsAsNeedingTime(t, { scheduleCache, focusDate });
             }).sort(compareTasksForScheduling);
         }
@@ -11499,7 +11513,7 @@
                 if(dueDate) return dueDate >= startStr && dueDate <= endStr;
                 return t.week === currentWeekKey;
             });
-            const unscheduled = activeTasks.filter(t => !t.date && (!t.week || t.week === currentWeekKey));
+            const unscheduledCount = countTasksNeedingTimeInRange(startStr, endStr);
             const plannedMinutes = dueThisWeek.reduce((sum, t) => sum + (parseInt(t.duration, 10) || 30), 0);
 
             const dayLoads = {};
@@ -11517,7 +11531,7 @@
             const endLabel = new Date(`${endStr}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
             weekRangeLabel.textContent = `Week: ${startLabel} - ${endLabel}`;
             weekDueCount.textContent = dueThisWeek.length;
-            weekUnscheduledCount.textContent = unscheduled.length;
+            weekUnscheduledCount.textContent = unscheduledCount;
             weekPlannedMinutes.textContent = plannedMinutes;
             weekBusiestDay.textContent = busiestLabel;
         }
@@ -20933,7 +20947,10 @@
                 updated += finalDependencyClears;
             }
 
+            persistSmartScheduleTimesForWeek(weekKey, true);
+
             const depOrdered = round.depOrdered;
+            const missingTasks = getWeekTasksMissingSchedule(weekKey);
             const scheduleComplete = isWeekScheduleComplete(weekKey, {
                 unresolvedViolations,
                 hasCycle: depOrdered.hasCycle,
@@ -20941,31 +20958,40 @@
             });
 
             if(!scheduleComplete) {
-                const missingTasks = getWeekTasksMissingSchedule(weekKey);
-                const unresolvedNames = [
-                    ...new Set([
-                        ...missingTasks.map(t => t.title || 'Untitled'),
-                        ...(backtrackResult.unresolved || [])
-                    ])
-                ];
-                restoreWeekScheduleSnapshot(scheduleSnapshot);
                 if(showToast) {
-                    discardLastClassifyUndoPoint();
                     if(depOrdered.hasCycle) {
-                        showNotification('Some before/after links form a cycle. Could not schedule everything.', 'error');
+                        showNotification('Some before/after links form a cycle. Not every assignment could be scheduled.', 'error');
                     } else if(unresolvedViolations > 0) {
-                        showNotification('Some before/after links conflict with user-locked times. Could not schedule everything.', 'error');
+                        showNotification('Some before/after links conflict with locked times. Not every assignment could be scheduled.', 'error');
                     }
-                    const names = unresolvedNames.slice(0, 4).join(', ');
-                    const extra = unresolvedNames.length > 4 ? ` (+${unresolvedNames.length - 4} more)` : '';
-                    confirmAction(
-                        'Scheduling Failed',
-                        `Could not fit every assignment with current constraints. Nothing was changed. Unscheduled: ${names}${extra}. Relax blocked times, before/after links, or day limits.`,
-                        'OK',
-                        () => {}
-                    );
+                    const needCount = countTasksNeedingTimeInRange(startStr, endStr);
+                    if(needCount > 0) {
+                        showNotification(
+                            `${needCount} assignment${needCount === 1 ? '' : 's'} still need time this week — tap the calendar stat to review.`,
+                            'info'
+                        );
+                    } else if(missingTasks.length > 0) {
+                        showNotification(
+                            `${missingTasks.length} assignment${missingTasks.length === 1 ? '' : 's'} could not be fully scheduled with current constraints.`,
+                            'info'
+                        );
+                    }
                 }
-                return 0;
+                if(updated > 0 && showToast) {
+                    saveData({ skipAutoSchedule: true, skipUndoRecord: true });
+                    setCalendarViewMode('week');
+                    switchTab('calendar');
+                } else if(showToast && updated === 0 && missingTasks.length === 0) {
+                    discardLastClassifyUndoPoint();
+                }
+                enforceAllRepeatGroupFixedTimes();
+                const leadAdjustedPartial = ensureLeadAssignmentAtNowForDate(todayStr);
+                if(leadAdjustedPartial > 0) {
+                    updated += leadAdjustedPartial;
+                    enforceNoOverlappingTimes(startStr, endStr);
+                    enforceDependencyOrder(startStr, endStr);
+                }
+                return updated;
             }
 
             if(overlapClears > 0 && showToast) {
