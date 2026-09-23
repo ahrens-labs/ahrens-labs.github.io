@@ -4163,9 +4163,12 @@
             if(!isTaskVisibleInClassify(task)) return false;
             if(isRepeatOccurrenceRemoved(task)) return false;
             if(task.date && task.date >= startStr && task.date <= endStr) return true;
-            if(!task.date && task.week) {
-                const { startStr: weekStart, endStr: weekEnd } = getWeekBoundsFromWeekKey(task.week);
-                return weekStart <= endStr && weekEnd >= startStr;
+            if(!task.date) {
+                const weekKey = task.repeatWeekKey || task.week;
+                if(weekKey) {
+                    const { startStr: weekStart, endStr: weekEnd } = getWeekBoundsFromWeekKey(weekKey);
+                    if(weekStart <= endStr && weekEnd >= startStr) return true;
+                }
             }
             const dueDate = getTaskDueDate(task);
             return Boolean(dueDate && dueDate >= startStr && dueDate <= endStr);
@@ -4188,24 +4191,36 @@
             );
         }
 
+        function assignmentHasScheduledTime(task, dateStr = null) {
+            if(!task) return false;
+            if(isRepeatFixedTimeTask(task) && task.time) return true;
+            if(isFixedTask(task) && task.time) {
+                const focus = dateStr || task.date || getTaskDueDate(task);
+                if(!focus || task.date === focus) return true;
+            }
+            if(!task.time) return false;
+            const focus = dateStr || task.date || getTaskDueDate(task);
+            if(!focus) return true;
+            if(task.date && task.date !== focus) return false;
+            return !isPastUnstartedAutoSlotToday(task, focus);
+        }
+
         function taskCountsAsNeedingTime(task, options = {}) {
             const { scheduleCache = null, focusDate = null } = options || {};
             if(!task || task.completed) return false;
+            if(!isTaskVisibleInClassify(task)) return false;
             if(isRepeatOccurrenceRemoved(task)) return false;
-            if(task.repeatNoAutoTime) return false;
-            if(!taskNeedsCalendarScheduling(task)) return false;
 
             const dateStr = focusDate || task.date || getTaskDueDate(task) || null;
+            if(assignmentHasScheduledTime(task, dateStr)) return false;
+
             if(dateStr) {
-                if(
-                    task.time &&
-                    task.date === dateStr &&
-                    !isPastUnstartedAutoSlotToday(task, dateStr)
-                ) {
-                    return false;
-                }
+                if(!task.time) return true;
+                if(task.date === dateStr && isPastUnstartedAutoSlotToday(task, dateStr)) return true;
+                if(task.date && task.date !== dateStr) return true;
                 return !taskHasEffectiveScheduleOnDate(task, dateStr, scheduleCache);
             }
+
             return true;
         }
 
@@ -4213,6 +4228,15 @@
             if(task.date && task.date >= startStr && task.date <= endStr) return task.date;
             const due = getTaskDueDate(task);
             if(due && due >= startStr && due <= endStr) return due;
+            const weekKey = task.repeatWeekKey || task.week;
+            if(weekKey) {
+                const { startStr: weekStart, endStr: weekEnd } = getWeekBoundsFromWeekKey(weekKey);
+                if(weekStart <= endStr && weekEnd >= startStr) {
+                    const overlapStart = weekStart >= startStr ? weekStart : startStr;
+                    const overlapEnd = weekEnd <= endStr ? weekEnd : endStr;
+                    if(overlapStart <= overlapEnd) return overlapStart;
+                }
+            }
             return null;
         }
 
@@ -4231,10 +4255,15 @@
 
         function describeTaskNeedTimeReason(task) {
             if(!task) return '';
+            if(task.repeatGroupId && task.repeatNoAutoTime) {
+                return 'Repeating · time not set';
+            }
             if(!task.date) {
-                if(task.week) return `Target week ${task.week}`;
+                if(task.repeatWeekKey || task.week) {
+                    return `Target week ${task.repeatWeekKey || task.week}`;
+                }
                 const due = getTaskDueDate(task);
-                if(due) return `Due ${formatDateLabel(due)}`;
+                if(due) return `Due ${formatDateLabel(due)} · no time`;
                 return 'No date assigned';
             }
             if(!task.time) return `${formatDateLabel(task.date)} · no time`;
