@@ -7818,7 +7818,7 @@
         }
 
         // 1) User-set rules (dependencies, block times, due dates, locked dates/times, avoid dates)
-        // 2) Fit every assignment due on a day onto that day before other packing (due today must land on today)
+        // 2) Per day: exact-date events on that date first, then due-on-that-day (today emphasized), then gap-fill with due-later work
         // 3) Pack as much as possible onto today, then fill other days; work dates prefer earliest open day, not only due date
         // 4) Earliest open slot on a 5-minute grid within each task's constraints (due-on-day tasks need not be earliest in the day)
         function sortScheduleDatesByPreference(dates, weekKey = null) {
@@ -9198,11 +9198,41 @@
             return getTaskDueDate(task) === dateStr;
         }
 
+        function isExactDateAssignmentOnDate(task, dateStr) {
+            return Boolean(
+                task &&
+                !task.weekDueOnly &&
+                task.scheduleType === 'date' &&
+                task.date === dateStr
+            );
+        }
+
+        function schedulingPriorityTierOnDate(task, dateStr) {
+            if(isExactDateAssignmentOnDate(task, dateStr)) return 0;
+            if(taskIsDueOnDate(task, dateStr)) return 1;
+            return 2;
+        }
+
         function compareTasksForPackingOnDate(a, b, dateStr) {
-            const aDueOnDay = taskIsDueOnDate(a, dateStr);
-            const bDueOnDay = taskIsDueOnDate(b, dateStr);
-            if(aDueOnDay !== bDueOnDay) return aDueOnDay ? -1 : 1;
-            return compareTasksForPacking(a, b);
+            const tierA = schedulingPriorityTierOnDate(a, dateStr);
+            const tierB = schedulingPriorityTierOnDate(b, dateStr);
+            if(tierA !== tierB) return tierA - tierB;
+            if(tierA === 2) {
+                const dueA = getTaskDueDate(a) || '9999-12-31';
+                const dueB = getTaskDueDate(b) || '9999-12-31';
+                if(dueA !== dueB) return dueA.localeCompare(dueB);
+            }
+            const aAfter = new Set(a?.mustBeAfter || []);
+            const aBefore = new Set(a?.mustBeBefore || []);
+            const bAfter = new Set(b?.mustBeAfter || []);
+            const bBefore = new Set(b?.mustBeBefore || []);
+            if(aAfter.has(b.id) || aBefore.has(b.id) || bAfter.has(a.id) || bBefore.has(b.id)) {
+                if(aAfter.has(b.id) || bBefore.has(a.id)) return 1;
+                if(aBefore.has(b.id) || bAfter.has(a.id)) return -1;
+            }
+            const durationDiff = (parseInt(a.duration, 10) || 30) - (parseInt(b.duration, 10) || 30);
+            if(durationDiff !== 0) return durationDiff;
+            return (a.title || '').localeCompare(b.title || '');
         }
 
         function preferDatesForDueTask(task, dates) {
@@ -20987,6 +21017,10 @@
                     if(!placed) return false;
                     const nextTime = minToInputTime(placed.slot.start);
                     const finalDate = hasUserLockedDate ? task.date : placed.date;
+                    const duration = parseInt(task.duration, 10) || 30;
+                    if(findSchedulingConflict(finalDate, nextTime, duration, task.id, task)) {
+                        return false;
+                    }
                     const taskChanged = task.time !== nextTime || task.date !== finalDate || task.timeSource !== 'auto';
                     task.time = nextTime;
                     task.assignmentMode = 'ADJUSTABLE';
@@ -21016,42 +21050,35 @@
                     candidateDatesByTask
                 );
 
-                const packDueOnDayFirst = (day) => {
-                    const dueOnDay = orderTasksByDependencies(
-                        floating.filter(task =>
-                            unscheduledIds.has(task.id) &&
-                            taskIsDueOnDate(task, day) &&
-                            (candidateDatesByTask.get(task.id) || []).includes(day)
-                        )
-                    ).ordered.sort((a, b) => compareTasksForPackingOnDate(a, b, day));
-                    dueOnDay.forEach(task => {
-                        if(tryPlaceTaskWithDateList(task, [day], { floating, unscheduledIds, candidateDatesByTask })) {
-                            unscheduledIds.delete(task.id);
-                        }
-                    });
-                };
-
-                const packGreedyOnDay = (day) => {
+                const packDayByPriorityTiers = (day) => {
                     if(!day || day < todayStr) return;
-                    let packedAny = false;
-                    do {
-                        packedAny = false;
-                        const tasksForDay = floating
-                            .filter(task => {
-                                if(!unscheduledIds.has(task.id)) return false;
+                    const tierMatchers = [
+                        task => isExactDateAssignmentOnDate(task, day),
+                        task => taskIsDueOnDate(task, day) && !isExactDateAssignmentOnDate(task, day),
+                        task => !isExactDateAssignmentOnDate(task, day) && !taskIsDueOnDate(task, day)
+                    ];
+                    tierMatchers.forEach(matchesTier => {
+                        let packedAny = false;
+                        do {
+                            packedAny = false;
+                            const tasksForDay = orderTasksByDependencies(
+                                floating.filter(task => {
+                                    if(!unscheduledIds.has(task.id)) return false;
+                                    if(!matchesTier(task)) return false;
+                                    const candidates = candidateDatesByTask.get(task.id) || [];
+                                    return candidates.includes(day);
+                                })
+                            ).ordered.sort((a, b) => compareTasksForPackingOnDate(a, b, day));
+                            for(const task of tasksForDay) {
                                 const candidates = candidateDatesByTask.get(task.id) || [];
-                                return candidates.includes(day);
-                            })
-                            .sort((a, b) => compareTasksForPackingOnDate(a, b, day));
-                        for(const task of tasksForDay) {
-                            const candidates = candidateDatesByTask.get(task.id) || [];
-                            if(shouldDeferToLaterDay(task, day, candidates)) continue;
-                            if(tryPlaceTaskWithDateList(task, [day], { floating, unscheduledIds, candidateDatesByTask })) {
-                                unscheduledIds.delete(task.id);
-                                packedAny = true;
+                                if(shouldDeferToLaterDay(task, day, candidates)) continue;
+                                if(tryPlaceTaskWithDateList(task, [day], { floating, unscheduledIds, candidateDatesByTask })) {
+                                    unscheduledIds.delete(task.id);
+                                    packedAny = true;
+                                }
                             }
-                        }
-                    } while(packedAny);
+                        } while(packedAny);
+                    });
                 };
 
                 const duePlacementDays = sortScheduleDatesByPreference(
@@ -21065,15 +21092,14 @@
                     ])),
                     weekKey
                 );
-                duePlacementDays.forEach(day => packDueOnDayFirst(day));
-
-                if(processDates.includes(todayStr) || duePlacementDays.includes(todayStr) || dayOrder.includes(todayStr)) {
-                    packGreedyOnDay(todayStr);
-                }
-                for(const day of dayOrder) {
-                    if(day === todayStr) continue;
-                    packGreedyOnDay(day);
-                }
+                const packingDaySet = new Set();
+                const orderedPackingDays = [];
+                [todayStr, ...duePlacementDays, ...dayOrder, ...processDates].forEach(day => {
+                    if(!day || day < todayStr || packingDaySet.has(day)) return;
+                    packingDaySet.add(day);
+                    orderedPackingDays.push(day);
+                });
+                orderedPackingDays.forEach(day => packDayByPriorityTiers(day));
 
                 floating.forEach(task => {
                     if(!unscheduledIds.has(task.id)) return;
