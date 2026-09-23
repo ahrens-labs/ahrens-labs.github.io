@@ -4827,7 +4827,7 @@
         }
 
         function applyClassifyCloudPayload(payload = {}) {
-            tasks = Array.isArray(payload.tasks) ? payload.tasks.filter(Boolean).map(normalizeTask) : [];
+            tasks = Array.isArray(payload.tasks) ? payload.tasks.filter(Boolean).map(normalizeStoredTask) : [];
             completionHistory = Array.isArray(payload.completionHistory)
                 ? payload.completionHistory.filter(Boolean).map(normalizeCompletionEntry)
                 : [];
@@ -4927,7 +4927,7 @@
         const storedRepeatSkips = safeJsonParse(plannerGet('plannerRepeatSkipsV1'), {});
         let subjectColors = safeJsonParse(plannerGet('plannerSubjectColors'), {}) || {};
         let tasks = Array.isArray(storedTasks) ? storedTasks.filter(Boolean) : [];
-        tasks = tasks.map(normalizeTask);
+        tasks = tasks.map(normalizeStoredTask);
         let completionHistory = Array.isArray(storedCompletionHistory)
             ? storedCompletionHistory.filter(Boolean).map(normalizeCompletionEntry)
             : [];
@@ -7093,12 +7093,13 @@
             const weekKeyForDue = task.week
                 || (normalizedDueDateBase ? getWeekKeyFromDateStr(normalizedDueDateBase) : null);
             const isTargetWeekTask = inferredScheduleType === 'week';
-            let normalizedDueDate = (isTargetWeekTask || weekDueOnly)
-                ? resolveTargetWeekDueDate(
-                    { dueDate: normalizedDueDateBase || task.dueDate || null, week: weekKeyForDue || task.week || null },
+            let normalizedDueDate = normalizedDueDateBase;
+            if((isTargetWeekTask || weekDueOnly) && !normalizedDueDate) {
+                normalizedDueDate = resolveTargetWeekDueDate(
+                    { dueDate: null, week: weekKeyForDue || task.week || null },
                     weekKeyForDue || task.week || null
-                )
-                : normalizedDueDateBase;
+                );
+            }
             let normalizedWeek = isExactDateTask
                 ? null
                 : (inferredScheduleType === 'flexible'
@@ -7344,21 +7345,12 @@
             task.timeSource = 'user';
             task.assignmentMode = 'FIXED';
             task.startedAt = Date.now();
-
             if(wasTargetWeek) {
-                task.scheduleType = 'week';
-                task.week = preservedTargetWeek || getWeekKeyFromDateStr(date);
-                task.weekDueOnly = preservedWeekDueOnly;
-                task.dueDate = preservedDueDate;
-                task.dueTime = preservedDueTime;
-            } else {
-                task.scheduleType = 'date';
-                task.week = null;
-                task.weekDueOnly = false;
-                task.dueDate = null;
-                task.dueTime = null;
+                task.week = preservedTargetWeek || task.week || getWeekKeyFromDateStr(date);
             }
-            enforceScheduleTypeFieldSeparation(task);
+            task.weekDueOnly = preservedWeekDueOnly;
+            task.dueDate = preservedDueDate;
+            task.dueTime = preservedDueTime;
 
             saveData({ skipAutoSchedule: true, skipUndoRecord: true });
             setStartButtonBusy(id, false);
@@ -7693,7 +7685,6 @@
             const mode = getTaskScheduleMode(task);
 
             if(mode === 'date') {
-                task.dueDate = null;
                 task.week = null;
                 task.weekDueOnly = false;
                 return task;
@@ -7706,7 +7697,11 @@
                 const keepCalendarSlot = Boolean(
                     task.date && (
                         isAssignmentStarted(task) ||
+                        isFixedTask(task) ||
+                        isUserScheduleLocked(task) ||
+                        task.dateSource === 'user' ||
                         task.dateSource === 'auto' ||
+                        task.timeSource === 'user' ||
                         (task.timeSource === 'auto' && task.time)
                     )
                 );
@@ -7723,6 +7718,7 @@
                 return task;
             }
 
+            if(isAssignmentStarted(task) || isFixedTask(task) || isUserScheduleLocked(task)) return task;
             task.week = null;
             task.weekDueOnly = false;
             task.date = null;
@@ -7750,7 +7746,7 @@
                     ? getWeekKeyFromDateStr(task.dueDate)
                     : getCurrentWeekKey();
             }
-            task.dueDate = resolveTargetWeekDueDate(task, task.week);
+            if(!task.dueDate) task.dueDate = resolveTargetWeekDueDate(task, task.week);
             if(!task.week && task.dueDate) {
                 task.week = getWeekKeyFromDateStr(task.dueDate);
             }
@@ -10125,6 +10121,11 @@
             return overlayExactTaskSnapshot(normalizeTask(raw), raw);
         }
 
+        function normalizeStoredTask(task) {
+            const raw = JSON.parse(JSON.stringify(task || {}));
+            return overlayExactTaskSnapshot(normalizeTask(raw), raw);
+        }
+
         function applyClassifyUndoSnapshot(snapshot) {
             if(!snapshot) return;
             tasks = Array.isArray(snapshot.tasks) ? snapshot.tasks.filter(Boolean).map(restoreTaskFromUndoSnapshot) : [];
@@ -11907,6 +11908,51 @@
             updateAssignmentEditorComplexityUI();
         }
 
+        function maskQuotedCommandSpans(text) {
+            const slots = [];
+            const masked = String(text || '').replace(/"([^"]*)"|'([^']*)'/g, (full) => {
+                const token = `\u0000Q${slots.length}\u0000`;
+                slots.push(full);
+                return token;
+            });
+            return { masked, slots };
+        }
+
+        function unmaskQuotedCommandSpans(text, slots) {
+            return String(text || '').replace(/\u0000Q(\d+)\u0000/g, (_, index) => slots[Number(index)] || '');
+        }
+
+        function isDurationCommandToken(text) {
+            return /^\d+(?:\.\d+)?\s*(?:m|min|mins|minutes?|h|hr|hrs|hours?)$/i.test(String(text || '').trim())
+                || /^\d+(?:\.\d+)?[mh]$/i.test(String(text || '').trim());
+        }
+
+        function parseDurationCommandToken(text) {
+            const raw = String(text || '').trim();
+            const match = raw.match(/^(\d+(?:\.\d+)?)\s*(m|min|mins|minutes?|h|hr|hrs|hours?)$/i)
+                || raw.match(/^(\d+(?:\.\d+)?)([mh])$/i);
+            if(!match) return null;
+            const value = parseFloat(match[1]);
+            const isHours = /^h/i.test(match[2]);
+            return String(Math.max(1, Math.round(isHours ? value * 60 : value)));
+        }
+
+        function findExplicitCommandTime(text) {
+            const working = String(text || '');
+            const patterns = [
+                /\bat\s+(\d{1,2}(?::\d{2})?(?:\s*(?:am|pm))?)\b/i,
+                /\b(\d{1,2}:\d{2}(?:\s*(?:am|pm))?)\b/i,
+                /\b(\d{1,2}\s*(?:am|pm))\b/i
+            ];
+            for(const pattern of patterns) {
+                const match = working.match(pattern);
+                if(!match) continue;
+                const parsed = parseQuickEntryTime(String(match[1] || '').trim());
+                if(parsed) return { match, parsed };
+            }
+            return null;
+        }
+
         function parseQuickEntryTime(text) {
             const raw = String(text || '').trim();
             if(!raw) return null;
@@ -12383,13 +12429,14 @@
         }
 
         function parseCommandBareTimeMatch(commandText, presetTaskQuery) {
-            const match = commandText.match(/^(.+?)\s+(?:at\s+)?(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)$/i);
+            const match = commandText.match(/^(.+?)\s+((?:at\s+)?(?:\d{1,2}:\d{2}(?:\s*(?:am|pm))?|\d{1,2}\s*(?:am|pm)|at\s+\d{1,2}(?::\d{2})?))$/i);
             if(!match) return null;
-            const parsedTime = parseQuickEntryTime(match[2].trim());
-            if(!parsedTime) return null;
+            if(isDurationCommandToken(match[2])) return null;
+            const explicit = findExplicitCommandTime(match[2]);
+            if(!explicit) return null;
             const taskQuery = match[1].trim();
             if(!taskQuery || /^(move|schedule|reschedule|due|set)$/i.test(taskQuery)) return null;
-            return applyPresetTaskQuery({ action: 'setTime', taskQuery, time: parsedTime }, presetTaskQuery);
+            return applyPresetTaskQuery({ action: 'setTime', taskQuery, time: explicit.parsed }, presetTaskQuery);
         }
 
         function resolveQuickEntryDateToken(token, { allowPast = false } = {}) {
@@ -13405,10 +13452,14 @@
             if(match) return { action: 'move', taskQuery, destination: match[1].trim() };
             match = body.match(/^to\s+(.+)$/i);
             if(match) {
-                const dest = match[1].trim().replace(/^at\s+/i, '');
-                const parsedTime = parseQuickEntryTime(dest);
-                if(parsedTime && !looksLikeScheduleDateText(dest)) {
-                    return { action: 'setTime', taskQuery, time: parsedTime };
+                const dest = match[1].trim();
+                const duration = parseDurationCommandToken(dest);
+                if(duration) return { action: 'duration', taskQuery, duration };
+                const explicit = findExplicitCommandTime(dest);
+                const destKey = dest.replace(/\s+/g, ' ').trim().toLowerCase();
+                const matchKey = explicit ? explicit.match[0].replace(/\s+/g, ' ').trim().toLowerCase() : '';
+                if(explicit && matchKey === destKey && !looksLikeScheduleDateText(dest)) {
+                    return { action: 'setTime', taskQuery, time: explicit.parsed };
                 }
                 return { action: 'move', taskQuery, destination: dest };
             }
@@ -13449,10 +13500,11 @@
                     depQuery: match[2].trim()
                 };
             }
-            match = body.match(/^(?:at\s+)?(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)$/i);
-            if(match) {
-                const parsedTime = parseQuickEntryTime(match[1].trim());
-                if(parsedTime) return { action: 'setTime', taskQuery, time: parsedTime };
+            const durationMinutes = parseDurationCommandToken(body);
+            if(durationMinutes) return { action: 'duration', taskQuery, duration: durationMinutes };
+            const explicitBodyTime = findExplicitCommandTime(body);
+            if(explicitBodyTime && explicitBodyTime.match[0].trim() === body.trim()) {
+                return { action: 'setTime', taskQuery, time: explicitBodyTime.parsed };
             }
             if(hasDueKeyword(body)) {
                 const dueDestination = body.replace(/^\s*(?:due|by)\s+(?:to\s+)?(?:on\s+)?/i, '').trim() || body;
@@ -13562,7 +13614,7 @@
             if(!working) return result;
 
             const weekdayPattern = QUICK_ENTRY_DATE_WORDS;
-            const timeCapture = '(\\d{1,2}(?::\\d{2})?\\s*(?:am|pm)?)';
+            const timeCapture = '(\\d{1,2}(?::\\d{2})?\\s*(?:am|pm)?)(?!\\d)(?!\\s*(?:m|min|mins|minutes?|h|hr|hrs|hours?)\\b)';
             const optionalTime = `(?:\\s+(?:at\\s+)?${timeCapture})?`;
             const duePattern = new RegExp(`\\b(?:due|by)\\s+(?:to\\s+)?(?:on\\s+)?(${weekdayPattern})${optionalTime}`, 'i');
             const dueMatch = working.match(duePattern);
@@ -13598,11 +13650,8 @@
             }
 
             if(!result.dueTime && !result.time) {
-                const looseTimeMatch = working.match(new RegExp(`\\b${timeCapture}`, 'i'));
-                if(looseTimeMatch) {
-                    const parsedLooseTime = parseQuickEntryTime(String(looseTimeMatch[1] || '').trim());
-                    applyQuickEntryLooseTime(result, parsedLooseTime);
-                }
+                const looseTime = findExplicitCommandTime(working);
+                if(looseTime) applyQuickEntryLooseTime(result, looseTime.parsed);
             }
 
             return result;
@@ -15075,7 +15124,7 @@
         }
 
         function parseQuickEntryRepeatFragment(working) {
-            const timeCapture = '(\\d{1,2}(?::\\d{2})?\\s*(?:am|pm)?)';
+            const timeCapture = '(\\d{1,2}(?::\\d{2})?\\s*(?:am|pm)?)(?!\\d)(?!\\s*(?:m|min|mins|minutes?|h|hr|hrs|hours?)\\b)';
             const weekdayGroup = `((?:${QUICK_ENTRY_REPEAT_WEEKDAY})(?:\\s*(?:,|and|\\s+)\\s*(?:${QUICK_ENTRY_REPEAT_WEEKDAY}))*)`;
 
             let match = working.match(new RegExp(`\\b(?:due|by)\\s+(?:every|weekly)(?:\\s+on)?\\s+${weekdayGroup}(?:\\s+(?:at\\s+)?${timeCapture})?\\b`, 'i'));
@@ -15362,6 +15411,8 @@
             }
 
             if(working) {
+            const maskedQuotes = maskQuotedCommandSpans(working);
+            working = maskedQuotes.masked;
             const dependencyStop = getQuickEntryDependencyStopLookahead();
             const dependencyTarget = getQuickEntryDependencyTargetPattern();
             const dependencyPatterns = [
@@ -15422,7 +15473,7 @@
             }
 
             const weekdayPattern = QUICK_ENTRY_DATE_WORDS;
-            const timeCapture = '(\\d{1,2}(?::\\d{2})?\\s*(?:am|pm)?)';
+            const timeCapture = '(\\d{1,2}(?::\\d{2})?\\s*(?:am|pm)?)(?!\\d)(?!\\s*(?:m|min|mins|minutes?|h|hr|hrs|hours?)\\b)';
             const optionalTime = `(?:\\s+(?:at\\s+)?${timeCapture})?`;
 
             const targetWeekMatch = working.match(/\btarget\s+week\b/i);
@@ -15498,16 +15549,15 @@
             }
 
             if(!result.dueTime && !result.time) {
-                const looseTimeMatch = working.match(new RegExp(`\\b(?:at\\s+)?${timeCapture}`, 'i'));
-                if(looseTimeMatch) {
-                    const parsedLooseTime = parseQuickEntryTime(String(looseTimeMatch[1] || '').trim());
-                    if(parsedLooseTime) {
-                        applyQuickEntryLooseTime(result, parsedLooseTime);
-                        touched.schedule = true;
-                        working = stripQuickEntryMatch(working, looseTimeMatch);
-                    }
+                const looseTime = findExplicitCommandTime(working);
+                if(looseTime && !isDurationCommandToken(looseTime.match[0])) {
+                    applyQuickEntryLooseTime(result, looseTime.parsed);
+                    touched.schedule = true;
+                    working = stripQuickEntryMatch(working, looseTime.match);
                 }
             }
+
+            working = unmaskQuotedCommandSpans(working, maskedQuotes.slots);
 
             const notesMatch = working.match(/\bnotes\s+(.+)$/i);
             if(notesMatch) {
@@ -20047,16 +20097,10 @@
 
         function assignImmediateScheduleDate(task, dateStr, weekKey) {
             if(!task || !dateStr) return;
+            if(isFixedTask(task) || isAssignmentStarted(task) || isUserScheduleLocked(task)) return;
             task.date = dateStr;
             if(task.dateSource !== 'user') task.dateSource = 'auto';
-            if(isTargetWeekAssignment(task)) {
-                task.week = weekKey;
-                ensureTargetWeekScheduleType(task);
-            } else if(task.scheduleType === 'date') {
-                task.week = null;
-                task.weekDueOnly = false;
-                task.dueDate = null;
-            }
+            if(isTargetWeekAssignment(task) && !task.week) task.week = weekKey;
         }
 
         function scheduleTargetWeekTasksImmediately(taskIds = []) {
@@ -20308,65 +20352,6 @@
                         if(slot) {
                             placed = { slot, date: candidateDate, busy: candidateBusy };
                             break;
-                        }
-                        if(!placed && isSplittableAutoTask(task, 45)) {
-                            const duration = parseInt(task.duration, 10) || 30;
-                            const dueDate = getTaskDueDate(task);
-                            const candidateSchedule = getScheduleForDate(candidateDate);
-                            const targetDayEnd = timeToMin(candidateSchedule.end);
-                            const targetDueLimit = (task.dueTime && dueDate === candidateDate) ? timeToMin(task.dueTime) : targetDayEnd;
-                            const maxEnd = Math.min(targetDayEnd, targetDueLimit);
-                            const bestGap = getOpenGaps(candidateBusy, candidateDayStart, maxEnd, 0)
-                                .find(gap => gap.length >= 15) || null;
-                            if(bestGap && bestGap.length >= 15 && bestGap.length < duration) {
-                                const roundedGap = Math.floor(bestGap.length / 5) * 5;
-                                if(roundedGap >= 5) {
-                                    const { baseTitle, baseRemaining } = extractRemainingPercentFromTitle(task.title || '');
-                                    const groupId = generateId();
-                                    let firstDuration = Math.min(duration - 5, roundedGap);
-                                    firstDuration = Math.max(5, Math.floor(firstDuration / 5) * 5);
-                                    let secondDuration = duration - firstDuration;
-                                    if(secondDuration < 5) {
-                                        firstDuration = Math.max(5, duration - 5);
-                                        secondDuration = duration - firstDuration;
-                                    }
-                                    let firstPercent = Math.round(baseRemaining * (firstDuration / duration));
-                                    firstPercent = Math.max(1, Math.min(baseRemaining - 1, firstPercent));
-                                    const secondPercent = baseRemaining - firstPercent;
-
-                                    task.title = `${baseTitle} (${firstPercent}% part)`;
-                                    task.duration = firstDuration;
-                                    task.splitGroupId = groupId;
-                                    task.splitPercent = firstPercent;
-
-                                    const remainderTask = normalizeTask({
-                                        ...task,
-                                        id: generateId(),
-                                        title: `${baseTitle} (${secondPercent}% part)`,
-                                        duration: secondDuration,
-                                        date: null,
-                                        time: null,
-                                        timeSource: null,
-                                        splitGroupId: groupId,
-                                        splitPercent: secondPercent,
-                                        repeatGroupId: null,
-                                        repeatWeekKey: null,
-                                        repeatRule: normalizeRepeatRule({ type: 'none' })
-                                    });
-
-                                    const alignedGapStart = roundUpToScheduleGrid(bestGap.start);
-                                    const slotForPart = { start: alignedGapStart, end: alignedGapStart + firstDuration };
-                                    placed = { slot: slotForPart, date: candidateDate, busy: candidateBusy };
-
-                                    if(context) {
-                                        context.floating.push(remainderTask);
-                                        context.unscheduledIds.add(remainderTask.id);
-                                        context.candidateDatesByTask.set(remainderTask.id, getTaskCandidateDates(remainderTask));
-                                        tasks.push(remainderTask);
-                                    }
-                                    break;
-                                }
-                            }
                         }
                     }
 
