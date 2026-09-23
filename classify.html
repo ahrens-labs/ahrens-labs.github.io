@@ -17001,6 +17001,7 @@
             }
 
             const completedTaskRef = task;
+            celebrateTaskCompletion(mode);
             closeTimeModal();
             flushClassifyUiImmediate({ skipUndoRecord: true });
             flushClassifyCloudSync().catch(() => {});
@@ -17024,9 +17025,19 @@
             clearCompletedTaskStartedState(task);
             if(task.repeatGroupId) recordRepeatOccurrenceException(task.repeatGroupId, task);
 
+            celebrateTaskCompletion('full');
             flushClassifyUiImmediate({ skipUndoRecord: true });
             flushClassifyCloudSync().catch(() => {});
             runTaskCompletionFollowUp(task, { mode: 'full' });
+        }
+
+        function celebrateTaskCompletion(mode = 'full') {
+            if(mode === 'partial' || !isCompletionConfettiEnabled()) return;
+            try {
+                triggerConfetti();
+            } catch (error) {
+                console.error('Confetti failed:', error);
+            }
         }
 
         function runTaskCompletionFollowUp(completedTaskRef, options = {}) {
@@ -17039,14 +17050,6 @@
                         : 'Created a follow-up assignment for the remaining work',
                     'success'
                 );
-            }
-
-            if(mode !== 'partial' && isCompletionConfettiEnabled()) {
-                try {
-                    triggerConfetti();
-                } catch (error) {
-                    console.error('Confetti failed:', error);
-                }
             }
 
             try {
@@ -19039,12 +19042,17 @@
         function triggerConfetti() {
             if(!confettiCtx) return;
             const particles = [];
-            for(let i=0; i<100; i++) {
+            const originX = window.innerWidth / 2;
+            const originY = window.innerHeight * 0.42;
+            for(let i = 0; i < 64; i++) {
                 particles.push({
-                    x: window.innerWidth / 2, y: window.innerHeight / 2,
-                    vx: (Math.random() - 0.5) * 10, vy: (Math.random() - 0.5) * 10,
-                    size: Math.random() * 5 + 2, color: `hsl(${Math.random() * 360}, 100%, 50%)`,
-                    life: 100
+                    x: originX,
+                    y: originY,
+                    vx: (Math.random() - 0.5) * 18,
+                    vy: (Math.random() - 0.85) * 14,
+                    size: Math.random() * 4 + 2,
+                    color: `hsl(${Math.random() * 360}, 100%, 50%)`,
+                    life: 36
                 });
             }
             function animateConfetti() {
@@ -19052,7 +19060,11 @@
                 let active = false;
                 particles.forEach(p => {
                     if(p.life > 0) {
-                        p.x += p.vx; p.y += p.vy; p.vy += 0.2; p.life--;
+                        p.x += p.vx;
+                        p.y += p.vy;
+                        p.vy += 0.55;
+                        p.vx *= 0.96;
+                        p.life -= 2;
                         confettiCtx.fillStyle = p.color;
                         confettiCtx.fillRect(p.x, p.y, p.size, p.size);
                         active = true;
