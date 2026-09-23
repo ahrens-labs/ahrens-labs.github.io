@@ -4567,7 +4567,7 @@
                 changed += reconcileBeforeAfterSchedule(getAllBeforeAfterLinkedTaskIds());
             }
 
-            const weekKeys = getUpcomingWeekKeys(weeksAhead);
+            const weekKeys = getRelevantUpcomingWeekKeys();
             const weeksNeedingWork = new Set();
             if(pastCleared > 0) weeksNeedingWork.add(getCurrentWeekKey());
 
@@ -4600,7 +4600,16 @@
                 return changed;
             }
 
-            weeksNeedingWork.forEach(weekKey => {
+            const weeksToPlan = Array.from(weeksNeedingWork)
+                .filter(Boolean)
+                .sort((a, b) => {
+                    const current = getCurrentWeekKey();
+                    if(a === current) return -1;
+                    if(b === current) return 1;
+                    return a.localeCompare(b);
+                })
+                .slice(0, 4);
+            weeksToPlan.forEach(weekKey => {
                 changed += assignWeekTaskDates(weekKey, true) || 0;
                 changed += autoBlockWeekTimes(false, weekKey, true, hadViolations || pastCleared > 0, true) || 0;
             });
@@ -4617,7 +4626,7 @@
                 });
             }
 
-            weeksNeedingWork.forEach(weekKey => {
+            weeksToPlan.forEach(weekKey => {
                 const missing = getWeekTasksMissingSchedule(weekKey);
                 if(missing.length === 0) return;
                 changed += scheduleTargetWeekTasksImmediately(missing.map(t => t.id)) || 0;
@@ -5034,7 +5043,9 @@
                 canvas.height = window.innerHeight;
             });
 
-            renderAll();
+            const bootRoute = getStoredClassifyRoute();
+            classifyActiveTab = bootRoute?.tab || 'dashboard';
+            renderAll({ forceAll: true });
             setupSearchListener();
             setupDependencyPickers();
             updateDateDisplay();
@@ -10135,6 +10146,7 @@
             const { updateUrl = true, replaceUrl = false } = options || {};
             clearClassifyBootTab();
             tabId = normalizeClassifyTab(tabId);
+            classifyActiveTab = tabId;
 
             CLASSIFY_TABS.forEach(id => {
                 const el = document.getElementById(id + 'Tab');
@@ -10321,12 +10333,10 @@
                 try {
                     if(typeof work === 'function') work();
                     saveData({ skipAutoSchedule: true, skipUndoRecord });
-                    renderAll();
                 } catch (error) {
                     console.error('Deferred classify schedule work failed:', error);
                     try {
                         saveData({ skipAutoSchedule: true, skipUndoRecord });
-                        renderAll();
                     } catch (saveError) {
                         console.error('Deferred classify save failed:', saveError);
                     }
@@ -10545,6 +10555,51 @@
         }
 
         let saveDataAutoScheduleGuard = false;
+        let classifyScheduleMaintainTimer = null;
+        let classifyActiveTab = 'dashboard';
+        const smartScheduleCache = new Map();
+        let tasksByScheduleDateIndex = null;
+
+        function invalidateClassifyScheduleCaches() {
+            smartScheduleCache.clear();
+            tasksByScheduleDateIndex = null;
+        }
+
+        function getTasksForScheduleDate(dateStr) {
+            if(!dateStr) return [];
+            if(!tasksByScheduleDateIndex) {
+                tasksByScheduleDateIndex = new Map();
+                (tasks || []).forEach(t => {
+                    if(!t || t.completed || !isTaskVisibleInClassify(t) || !t.date) return;
+                    if(!tasksByScheduleDateIndex.has(t.date)) tasksByScheduleDateIndex.set(t.date, []);
+                    tasksByScheduleDateIndex.get(t.date).push(t);
+                });
+            }
+            return tasksByScheduleDateIndex.get(dateStr) || [];
+        }
+
+        function queueClassifyScheduleMaintain(options = {}) {
+            if(classifyScheduleMaintainTimer) clearTimeout(classifyScheduleMaintainTimer);
+            classifyScheduleMaintainTimer = setTimeout(() => {
+                classifyScheduleMaintainTimer = null;
+                if(classifyUndoApplying) return;
+                try {
+                    const changed = maintainClassifyScheduleIfNeeded({
+                        persist: false,
+                        syncCloud: false,
+                        weeksAhead: 6,
+                        ...options
+                    }) || 0;
+                    if(changed > 0) {
+                        invalidateClassifyScheduleCaches();
+                        plannerSet('plannerTasksV2', JSON.stringify(tasks));
+                        renderAll();
+                    }
+                } catch (error) {
+                    console.warn('Deferred schedule maintain failed:', error);
+                }
+            }, 200);
+        }
 
         function prepareAdjustableTasksForRepack(weekKeys = [], forceRebuildAutoSlots = true) {
             const keySet = new Set((weekKeys || []).filter(Boolean));
@@ -10587,12 +10642,13 @@
                 }
             }
 
+            invalidateClassifyScheduleCaches();
+
             if(!skipAutoSchedule && !saveDataAutoScheduleGuard) {
                 saveDataAutoScheduleGuard = true;
                 try {
                     reconcileBeforeAfterSchedule(getAllBeforeAfterLinkedTaskIds());
-                    reoptimizeAffectedWeeks();
-                    runImmediateScheduleMaintain({ persist: false, syncCloud: false });
+                    queueClassifyScheduleMaintain({ weeksAhead: 6 });
                 } catch (error) {
                     console.error('Adjustable auto-schedule failed:', error);
                 } finally {
@@ -11144,32 +11200,42 @@
             );
         }
 
-        function renderAll() {
+        function renderAll(options = {}) {
+            const { forceAll = false } = options || {};
             updateSubjectSuggestions();
-            try {
-                renderDashboardStats();
-            } catch (error) {
-                console.error('renderDashboardStats failed:', error);
+            const tab = classifyActiveTab || 'dashboard';
+            if(forceAll || tab === 'dashboard') {
+                try {
+                    renderDashboardStats();
+                } catch (error) {
+                    console.error('renderDashboardStats failed:', error);
+                }
+                try {
+                    renderDashboard();
+                } catch (error) {
+                    console.error('renderDashboard failed:', error);
+                }
             }
-            try {
-                renderDashboard();
-            } catch (error) {
-                console.error('renderDashboard failed:', error);
+            if(forceAll || tab === 'assignments') {
+                try {
+                    renderTaskList();
+                } catch (error) {
+                    console.error('renderTaskList failed:', error);
+                }
             }
-            try {
-                renderTaskList();
-            } catch (error) {
-                console.error('renderTaskList failed:', error);
+            if(forceAll || tab === 'calendar') {
+                try {
+                    renderCalendar();
+                } catch (error) {
+                    console.error('renderCalendar failed:', error);
+                }
             }
-            try {
-                renderCalendar();
-            } catch (error) {
-                console.error('renderCalendar failed:', error);
-            }
-            try {
-                renderAnalytics();
-            } catch (error) {
-                console.error('renderAnalytics failed:', error);
+            if(forceAll || tab === 'analytics') {
+                try {
+                    renderAnalytics();
+                } catch (error) {
+                    console.error('renderAnalytics failed:', error);
+                }
             }
             scheduleClassifyHotspotRefresh();
         }
@@ -11243,8 +11309,13 @@
 
         // --- Smart Scheduling Algorithm ---
         function getSmartSchedule(dateStr) {
-            if(isDateInVacation(dateStr)) return [];
-            let dayTasks = tasks.filter(t => !t.completed && isTaskVisibleInClassify(t) && t.date === dateStr);
+            if(!dateStr) return [];
+            if(smartScheduleCache.has(dateStr)) return smartScheduleCache.get(dateStr);
+            if(isDateInVacation(dateStr)) {
+                smartScheduleCache.set(dateStr, []);
+                return [];
+            }
+            let dayTasks = getTasksForScheduleDate(dateStr);
             const fixedCandidates = dayTasks
                 .filter(t => t.time && !isPastUnstartedAutoSlotToday(t, dateStr))
                 .sort((a,b) => a.time.localeCompare(b.time));
@@ -11326,7 +11397,9 @@
                 if(!placed) return;
             });
 
-            return schedule.sort((a,b) => a.start - b.start);
+            const sorted = schedule.sort((a,b) => a.start - b.start);
+            smartScheduleCache.set(dateStr, sorted);
+            return sorted;
         }
 
         function injectBreakItems(schedule = [], dateStr) {
@@ -20112,7 +20185,7 @@
 
         function ensureActiveRepeatWeekOccurrences() {
             let created = 0;
-            getUpcomingWeekKeys(12).forEach(weekKey => {
+            getRelevantUpcomingWeekKeys().forEach(weekKey => {
                 created += ensureRepeatWeekOccurrencesForWeek(weekKey);
             });
             if(created > 0) syncAllTaskDependencies();
