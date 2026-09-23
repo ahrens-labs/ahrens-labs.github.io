@@ -7642,8 +7642,8 @@
         }
 
         // 1) User-set rules (dependencies, block times, due dates, locked dates/times, avoid dates)
-        // 2) Fit assignments due on a day onto that day before filling the rest of the week
-        // 3) Fit every remaining assignment somewhere valid
+        // 2) Fit every assignment due on a day onto that day before other packing
+        // 3) Pack as much as possible onto today, then fill other days
         // 4) Earliest open slot on a 5-minute grid within each task's constraints (due-on-day tasks need not be earliest in the day)
         function sortScheduleDatesByPreference(dates, weekKey = null) {
             const unique = Array.from(new Set((dates || []).filter(Boolean)));
@@ -8117,12 +8117,25 @@
                 !t.completed && !(isUserScheduleLocked(t) && t.date)
             );
 
+            adjustable.forEach(task => {
+                if(dateById.has(task.id)) return;
+                const due = getTaskDueDate(task);
+                if(!due || due < todayStr) return;
+                const eligibleDates = getScheduleEligibleDates(task, weekKey);
+                if(!eligibleDates.includes(due)) return;
+                const validDates = getAllValidWeekDates(task, eligibleDates, dateById, weekKey);
+                if(validDates.includes(due)) dateById.set(task.id, due);
+            });
+
             const tryAssignDates = (index, workingDates) => {
                 if(index >= adjustable.length) return true;
                 const task = adjustable[index];
+                if(workingDates.has(task.id)) {
+                    return tryAssignDates(index + 1, workingDates);
+                }
                 const eligibleDates = getScheduleEligibleDates(task, weekKey);
                 const validDates = getAllValidWeekDates(task, eligibleDates, workingDates, weekKey);
-                const datesToTry = preferDatesForDueTask(task, getCapacityAwareValidDates(task, validDates, workingDates));
+                const datesToTry = preferDatesForScheduling(task, getCapacityAwareValidDates(task, validDates, workingDates));
                 for(const picked of datesToTry) {
                     workingDates.set(task.id, picked);
                     if(tryAssignDates(index + 1, workingDates)) return true;
@@ -8152,7 +8165,7 @@
                     if(dateById.has(task.id)) return;
                     const eligibleDates = getScheduleEligibleDates(task, weekKey);
                     const validDates = getAllValidWeekDates(task, eligibleDates, dateById, weekKey);
-                    const picked = preferDatesForDueTask(task, getCapacityAwareValidDates(task, validDates, dateById))[0] || validDates[0];
+                    const picked = preferDatesForScheduling(task, getCapacityAwareValidDates(task, validDates, dateById))[0] || validDates[0];
                     if(!picked) return;
                     dateById.set(task.id, picked);
                 });
@@ -8939,6 +8952,25 @@
             return [due, ...list.filter(d => d !== due)];
         }
 
+        function preferCurrentDayInDates(dates, dateStr = getDateStrLocal()) {
+            const list = Array.isArray(dates) ? [...dates.filter(Boolean)] : [];
+            if(list.length <= 1 || !dateStr || !list.includes(dateStr)) return list;
+            const idx = list.indexOf(dateStr);
+            if(idx <= 0) return list;
+            list.splice(idx, 1);
+            list.unshift(dateStr);
+            return list;
+        }
+
+        function preferDatesForScheduling(task, dates) {
+            const afterDue = preferDatesForDueTask(task, dates);
+            const due = getTaskDueDate(task);
+            if(due && afterDue[0] === due) {
+                return [due, ...preferCurrentDayInDates(afterDue.slice(1))];
+            }
+            return preferCurrentDayInDates(afterDue);
+        }
+
         function sortDaysForPackingPass(days, weekKey, floating, unscheduledIds, candidateDatesByTask) {
             const sorted = sortScheduleDatesByPreference(Array.from(new Set((days || []).filter(Boolean))), weekKey);
             const todayStr = getDateStrLocal();
@@ -8950,7 +8982,7 @@
                     if(!candidates.includes(day)) return;
                     if(taskIsDueOnDate(task, day)) weight += 100;
                 });
-                if(day === todayStr) weight += 25;
+                if(day === todayStr) weight += 200;
                 return weight;
             };
             return sorted.sort((a, b) => {
@@ -18618,7 +18650,8 @@
                             mustBeDifferentDay: normalizedTaskData.mustBeDifferentDay,
                             repeatRule,
                             weekDueOnly,
-                            repeatNoAutoTime
+                            repeatNoAutoTime,
+                            repeatWeekKey: (isEditedInstance && weekDueOnly) ? instanceWeekKey : t.repeatWeekKey
                         };
                         return normalizeTask(updated);
                     });
@@ -20506,9 +20539,8 @@
                     });
                 };
 
-                dayOrder.forEach(day => packDueOnDayFirst(day));
-
-                for(const day of dayOrder) {
+                const packGreedyOnDay = (day) => {
+                    if(!day || day < todayStr) return;
                     let packedAny = false;
                     do {
                         packedAny = false;
@@ -20528,6 +20560,27 @@
                             }
                         }
                     } while(packedAny);
+                };
+
+                const duePlacementDays = sortScheduleDatesByPreference(
+                    Array.from(new Set([
+                        ...dayOrder,
+                        ...floating.flatMap(task => {
+                            const due = getTaskDueDate(task);
+                            const candidates = candidateDatesByTask.get(task.id) || [];
+                            return (due && candidates.includes(due)) ? [due] : [];
+                        })
+                    ])),
+                    weekKey
+                );
+                duePlacementDays.forEach(day => packDueOnDayFirst(day));
+
+                if(processDates.includes(todayStr) || duePlacementDays.includes(todayStr) || dayOrder.includes(todayStr)) {
+                    packGreedyOnDay(todayStr);
+                }
+                for(const day of dayOrder) {
+                    if(day === todayStr) continue;
+                    packGreedyOnDay(day);
                 }
 
                 floating.forEach(task => {
