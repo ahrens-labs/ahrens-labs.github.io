@@ -11976,9 +11976,23 @@ export class UserAccount {
       };
     }
 
+    const existing = userData.games.classify || {};
+    const incomingTasks = Array.isArray(classifyData?.tasks) ? classifyData.tasks : null;
+    const existingTasks = Array.isArray(existing.tasks) ? existing.tasks : [];
+    let nextPayload = { ...classifyData };
+    if (
+      incomingTasks &&
+      incomingTasks.length === 0 &&
+      existingTasks.length > 0 &&
+      !classifyData?.allowEmptyClassifySync
+    ) {
+      const { tasks: _droppedTasks, allowEmptyClassifySync: _allowEmpty, ...rest } = nextPayload;
+      nextPayload = rest;
+    }
+
     userData.games.classify = {
-      ...userData.games.classify,
-      ...classifyData,
+      ...existing,
+      ...nextPayload,
       lastUpdated: Date.now()
     };
     await this.storage.put('userData', userData);

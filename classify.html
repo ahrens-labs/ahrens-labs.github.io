@@ -4326,6 +4326,8 @@
         let classifySyncFingerprint = '';
         let classifySyncRefreshing = false;
         let pendingClassifyRemoteRefresh = false;
+        let classifyPendingCloudUploadAfterLocalRecovery = false;
+        let classifyAllowEmptyCloudSync = false;
         let classifyBootComplete = false;
         let classifyResumeTimer = null;
         let assignmentTimeRefreshTimer = null;
@@ -4845,11 +4847,78 @@
                 completionConfettiEnabled: isCompletionConfettiEnabled(),
                 breakReminderEnabled: isBreakReminderEnabled(),
                 weekViewShowNotes: areWeekViewNotesShown(),
-                autoMaintainScheduleEnabled: isAutoMaintainScheduleEnabled()
+                autoMaintainScheduleEnabled: isAutoMaintainScheduleEnabled(),
+                ...(classifyAllowEmptyCloudSync ? { allowEmptyClassifySync: true } : {})
             };
         }
 
+        function readLocalClassifyTasksFromStorage() {
+            const stored = safeJsonParse(plannerGet('plannerTasksV2'), []);
+            return Array.isArray(stored) ? stored.filter(Boolean) : [];
+        }
+
+        function getClassifyPayloadTaskCount(payload) {
+            return Array.isArray(payload?.tasks) ? payload.tasks.filter(Boolean).length : 0;
+        }
+
+        function classifyCloudLastUpdated(payload) {
+            return Number(payload?.lastUpdated) || 0;
+        }
+
+        function shouldRejectEmptyCloudOverwrite(payload, { memoryTaskCount = 0 } = {}) {
+            const cloudCount = getClassifyPayloadTaskCount(payload);
+            if(cloudCount > 0) return false;
+            const localStoredCount = readLocalClassifyTasksFromStorage().length;
+            const localCount = Math.max(memoryTaskCount, localStoredCount);
+            if(localCount === 0) return false;
+            const cloudUpdated = classifyCloudLastUpdated(payload);
+            if(cloudUpdated === 0) return true;
+            const localUpdated = Number(plannerGet('plannerClassifyLastUpdatedV1')) || 0;
+            if(localUpdated > 0 && localUpdated > cloudUpdated + 5000) return true;
+            return false;
+        }
+
+        function recoverClassifyDataFromLocalStorageIfNeeded(cloudPayload) {
+            const memoryCount = (tasks || []).length;
+            if(memoryCount > 0) return false;
+            const localTasks = readLocalClassifyTasksFromStorage();
+            if(localTasks.length === 0) return false;
+            const cloudCount = cloudPayload ? getClassifyPayloadTaskCount(cloudPayload) : 0;
+            if(cloudCount > 0) return false;
+            tasks = localTasks.map(normalizeStoredTask);
+            const localHistory = safeJsonParse(plannerGet('plannerCompletionHistoryV1'), []);
+            if(
+                Array.isArray(localHistory) &&
+                localHistory.length > 0 &&
+                (!Array.isArray(completionHistory) || completionHistory.length === 0)
+            ) {
+                completionHistory = localHistory.filter(Boolean).map(normalizeCompletionEntry);
+            }
+            const localColors = safeJsonParse(plannerGet('plannerSubjectColors'), null);
+            if(localColors && typeof localColors === 'object' && Object.keys(localColors).length > 0) {
+                if(!subjectColors || Object.keys(subjectColors).length === 0) {
+                    subjectColors = localColors;
+                }
+            }
+            return true;
+        }
+
         function applyClassifyCloudPayload(payload = {}) {
+            const memoryBefore = (tasks || []).length;
+            if(shouldRejectEmptyCloudOverwrite(payload, { memoryTaskCount: memoryBefore })) {
+                applyClassifyCloudPreferences(payload);
+                if(payload.calendarViewMode) calendarViewMode = payload.calendarViewMode || calendarViewMode;
+                if(payload.darkMode === 'true' || payload.darkMode === 'false') {
+                    plannerSet('darkMode', payload.darkMode);
+                }
+                syncWeekCalendarWeekendsSettingsState();
+                if(memoryBefore === 0 && recoverClassifyDataFromLocalStorageIfNeeded(payload)) {
+                    classifyPendingCloudUploadAfterLocalRecovery = true;
+                } else if(memoryBefore > 0 || (tasks || []).length > 0) {
+                    classifyPendingCloudUploadAfterLocalRecovery = true;
+                }
+                return;
+            }
             tasks = Array.isArray(payload.tasks) ? payload.tasks.filter(Boolean).map(normalizeStoredTask) : [];
             completionHistory = Array.isArray(payload.completionHistory)
                 ? payload.completionHistory.filter(Boolean).map(normalizeCompletionEntry)
@@ -4865,6 +4934,9 @@
             }
             applyClassifyCloudPreferences(payload);
             syncWeekCalendarWeekendsSettingsState();
+            if((tasks || []).length === 0 && recoverClassifyDataFromLocalStorageIfNeeded(payload)) {
+                classifyPendingCloudUploadAfterLocalRecovery = true;
+            }
         }
 
         async function loadClassifyDataFromCloud() {
@@ -5119,6 +5191,10 @@
 
             // Enable cloud syncing after initial load/migrations
             cloudSyncEnabled = true;
+            if(classifyPendingCloudUploadAfterLocalRecovery) {
+                classifyPendingCloudUploadAfterLocalRecovery = false;
+                queueClassifyCloudSync();
+            }
             maintainClassifyScheduleIfNeeded({ persist: true, syncCloud: true });
             lastPeriodicScheduleMaintainPeriod = getCurrentSchedulePeriodKey();
             loadClassifyUndoStack();
@@ -5400,7 +5476,9 @@
             resetClassifyOnboardingState();
             suppressCloudSync = false;
 
+            classifyAllowEmptyCloudSync = true;
             saveData({ skipUndoRecord: true, skipAutoSchedule: true });
+            classifyAllowEmptyCloudSync = false;
             initClassifyUndoBaseline();
             flushClassifyCloudSync();
             closeClassifyResetDataModal();
@@ -7549,25 +7627,42 @@
             );
         }
 
-        function getRepeatGroupFixedTimeProfile(groupTasks = [], fallbackTask = null) {
+        function pickBestRepeatFixedTimeSource(sources = []) {
+            return [...sources].sort((a, b) => {
+                const aActive = a.completed ? 1 : 0;
+                const bActive = b.completed ? 1 : 0;
+                if(aActive !== bActive) return aActive - bActive;
+                const aFixed = isFixedTask(a) ? 1 : 0;
+                const bFixed = isFixedTask(b) ? 1 : 0;
+                if(aFixed !== bFixed) return bFixed - aFixed;
+                const aUser = a.timeSource === 'user' ? 1 : 0;
+                const bUser = b.timeSource === 'user' ? 1 : 0;
+                if(aUser !== bUser) return bUser - aUser;
+                const aKey = a.repeatWeekKey || '';
+                const bKey = b.repeatWeekKey || '';
+                return bKey.localeCompare(aKey);
+            })[0] || null;
+        }
+
+        function repeatFixedTimeSourcesForWeekday(groupTasks = [], weekday = null, fallbackTask = null) {
             const candidates = [...(groupTasks || [])];
             if(fallbackTask) candidates.push(fallbackTask);
-            const best = candidates
-                .filter(isIntentionalRepeatFixedTimeSource)
-                .sort((a, b) => {
-                    const aActive = a.completed ? 1 : 0;
-                    const bActive = b.completed ? 1 : 0;
-                    if(aActive !== bActive) return aActive - bActive;
-                    const aFixed = isFixedTask(a) ? 1 : 0;
-                    const bFixed = isFixedTask(b) ? 1 : 0;
-                    if(aFixed !== bFixed) return bFixed - aFixed;
-                    const aUser = a.timeSource === 'user' ? 1 : 0;
-                    const bUser = b.timeSource === 'user' ? 1 : 0;
-                    if(aUser !== bUser) return bUser - aUser;
-                    const aKey = a.repeatWeekKey || '';
-                    const bKey = b.repeatWeekKey || '';
-                    return bKey.localeCompare(aKey);
-                })[0];
+            return candidates.filter(t => {
+                if(!isIntentionalRepeatFixedTimeSource(t)) return false;
+                if(weekday == null) return true;
+                if(!t.date) return false;
+                return getWeekdayFromDateStr(t.date) === weekday;
+            });
+        }
+
+        function getRepeatFixedTimeProfileForOccurrence(groupTasks = [], { dateStr = null, weekday = null, fallbackTask = null } = {}) {
+            let wd = weekday;
+            if(wd == null && dateStr) wd = getWeekdayFromDateStr(dateStr);
+            let sources = repeatFixedTimeSourcesForWeekday(groupTasks, wd, fallbackTask);
+            if(sources.length === 0 && wd != null) {
+                sources = repeatFixedTimeSourcesForWeekday(groupTasks, null, fallbackTask);
+            }
+            const best = pickBestRepeatFixedTimeSource(sources);
             if(!best?.time) return null;
             return {
                 time: best.time,
@@ -7576,22 +7671,39 @@
             };
         }
 
+        function getRepeatGroupFixedTimeProfile(groupTasks = [], fallbackTask = null) {
+            return getRepeatFixedTimeProfileForOccurrence(groupTasks, { fallbackTask });
+        }
+
         function applyRepeatFixedTimeProfile(task, profile) {
             if(!task || !profile?.time) return task;
             task.time = profile.time;
             task.timeSource = 'user';
             task.assignmentMode = 'FIXED';
+            task.repeatNoAutoTime = false;
             return task;
+        }
+
+        function applyRepeatFixedTimeProfileToWeekday(groupId, profile, weekday, { includeCompleted = false } = {}) {
+            if(!groupId || !profile?.time || weekday == null) return;
+            (tasks || []).forEach(task => {
+                if(task.repeatGroupId !== groupId) return;
+                if(!includeCompleted && task.completed) return;
+                if(task.weekDueOnly || task.scheduleType !== 'date') return;
+                if(isAssignmentStarted(task)) return;
+                if(!task.date || getWeekdayFromDateStr(task.date) !== weekday) return;
+                applyRepeatFixedTimeProfile(task, profile);
+            });
         }
 
         function enforceRepeatGroupFixedTimes(groupId) {
             if(!groupId) return;
             const groupTasks = tasks.filter(t => t.repeatGroupId === groupId);
-            const profile = getRepeatGroupFixedTimeProfile(groupTasks);
-            if(!profile) return;
             groupTasks.forEach(task => {
                 if(task.completed || task.weekDueOnly || task.scheduleType !== 'date') return;
                 if(isAssignmentStarted(task)) return;
+                const profile = getRepeatFixedTimeProfileForOccurrence(groupTasks, { dateStr: task.date });
+                if(!profile) return;
                 applyRepeatFixedTimeProfile(task, profile);
             });
         }
@@ -7599,8 +7711,9 @@
         function isRepeatFixedTimeTask(task) {
             if(!task?.repeatGroupId || task.weekDueOnly || task.scheduleType !== 'date') return false;
             if(isAssignmentStarted(task)) return false;
-            const profile = getRepeatGroupFixedTimeProfile(
-                tasks.filter(t => t.repeatGroupId === task.repeatGroupId)
+            const profile = getRepeatFixedTimeProfileForOccurrence(
+                tasks.filter(t => t.repeatGroupId === task.repeatGroupId),
+                { dateStr: task.date }
             );
             return Boolean(profile?.time);
         }
@@ -7611,9 +7724,8 @@
             }
             if(isAssignmentStarted(task)) return false;
             if(task.time && (isFixedTask(task) || task.timeSource === 'user')) return false;
-            const profile = getRepeatGroupFixedTimeProfile(
-                tasks.filter(t => t.repeatGroupId === task.repeatGroupId)
-            );
+            const groupTasks = tasks.filter(t => t.repeatGroupId === task.repeatGroupId);
+            const profile = getRepeatFixedTimeProfileForOccurrence(groupTasks, { dateStr: task.date });
             if(!profile?.time) return false;
             applyRepeatFixedTimeProfile(task, profile);
             return true;
@@ -8171,7 +8283,11 @@
                 }
                 const eligibleDates = getScheduleEligibleDates(task, weekKey);
                 const validDates = getAllValidWeekDates(task, eligibleDates, workingDates, weekKey);
-                const datesToTry = preferDatesForScheduling(task, getCapacityAwareValidDates(task, validDates, workingDates));
+                const datesToTry = preferDatesForScheduling(
+                    task,
+                    getCapacityAwareValidDates(task, validDates, workingDates),
+                    workingDates
+                );
                 for(const picked of datesToTry) {
                     workingDates.set(task.id, picked);
                     if(tryAssignDates(index + 1, workingDates)) return true;
@@ -8201,7 +8317,11 @@
                     if(dateById.has(task.id)) return;
                     const eligibleDates = getScheduleEligibleDates(task, weekKey);
                     const validDates = getAllValidWeekDates(task, eligibleDates, dateById, weekKey);
-                    const picked = preferDatesForScheduling(task, getCapacityAwareValidDates(task, validDates, dateById))[0] || validDates[0];
+                    const picked = preferDatesForScheduling(
+                        task,
+                        getCapacityAwareValidDates(task, validDates, dateById),
+                        dateById
+                    )[0] || validDates[0];
                     if(!picked) return;
                     dateById.set(task.id, picked);
                 });
@@ -9076,15 +9196,55 @@
             return list;
         }
 
-        function preferDatesForScheduling(task, dates) {
-            const list = Array.isArray(dates) ? [...dates.filter(Boolean)].sort((a, b) => a.localeCompare(b)) : [];
+        function preferDatesForScheduling(task, dates, dateById = null) {
+            const list = Array.from(new Set((dates || []).filter(Boolean))).sort((a, b) => a.localeCompare(b));
             if(list.length <= 1) return list;
             const todayStr = getDateStrLocal();
             const due = getTaskDueDate(task);
-            if(due === todayStr && list.includes(todayStr)) {
-                return [todayStr, ...list.filter(d => d !== todayStr)];
-            }
-            return preferCurrentDayInDates(list);
+            const workingDates = dateById instanceof Map ? dateById : null;
+
+            return [...list].sort((a, b) => {
+                if(a === todayStr && b !== todayStr) return -1;
+                if(b === todayStr && a !== todayStr) return 1;
+                if(due) {
+                    if(a === due && b !== due) return -1;
+                    if(b === due && a !== due) return 1;
+                }
+                if(workingDates) {
+                    const loadA = getAssignedLoadMinutesForDate(a, workingDates, task?.id) > 0;
+                    const loadB = getAssignedLoadMinutesForDate(b, workingDates, task?.id) > 0;
+                    if(loadA && !loadB) return -1;
+                    if(!loadA && loadB) return 1;
+                }
+                return a.localeCompare(b);
+            });
+        }
+
+        function shouldKeepPrefilledWorkDate(task) {
+            if(!task?.date) return false;
+            if(hasUserLockedCalendarDate(task)) return true;
+            if(isFixedTask(task) || isRepeatFixedTimeTask(task)) return true;
+            const due = getTaskDueDate(task);
+            if(due && task.date === due) return true;
+            return false;
+        }
+
+        function releaseAutoSpreadWorkDatesBeforePack(weekTasks = []) {
+            let released = 0;
+            (weekTasks || []).forEach(task => {
+                if(!task || task.completed || isAssignmentStarted(task)) return;
+                if(shouldKeepPrefilledWorkDate(task)) return;
+                if(!task.date && !task.time) return;
+                if(task.dateSource && task.dateSource !== 'auto') return;
+                if(task.timeSource === 'user') return;
+                task.date = null;
+                task.dateSource = null;
+                task.time = null;
+                task.timeSource = null;
+                task.assignmentMode = 'ADJUSTABLE';
+                released++;
+            });
+            return released;
         }
 
         function sortDaysForPackingPass(days, weekKey, floating, unscheduledIds, candidateDatesByTask) {
@@ -9102,6 +9262,8 @@
                 return weight;
             };
             return sorted.sort((a, b) => {
+                if(a === todayStr && b !== todayStr) return -1;
+                if(b === todayStr && a !== todayStr) return 1;
                 const pressureDiff = duePressure(b) - duePressure(a);
                 if(pressureDiff !== 0) return pressureDiff;
                 return a.localeCompare(b);
@@ -9147,7 +9309,7 @@
                 (Array.isArray(t.mustBeBefore) ? t.mustBeBefore : []).forEach(refId => addEdge(t.id, refId));
             });
 
-            const queue = items.filter(t => (indegree.get(t.id) || 0) === 0).sort(compareTasksForScheduling);
+            const queue = items.filter(t => (indegree.get(t.id) || 0) === 0).sort(compareTasksForPacking);
             const ordered = [];
             while(queue.length > 0) {
                 const next = queue.shift();
@@ -9160,7 +9322,7 @@
                         const depTask = byId.get(depId);
                         if(depTask) {
                             queue.push(depTask);
-                            queue.sort(compareTasksForScheduling);
+                            queue.sort(compareTasksForPacking);
                         }
                     }
                 });
@@ -10743,6 +10905,7 @@
             }
 
             plannerSet('plannerTasksV2', JSON.stringify(tasks));
+            plannerSet('plannerClassifyLastUpdatedV1', String(Date.now()));
             plannerSet('plannerCompletionHistoryV1', JSON.stringify(completionHistory));
             plannerSet('plannerSubjectColors', JSON.stringify(subjectColors));
             plannerSet('plannerBlockedTimesV1', JSON.stringify(normalizeBlockedTimes(blockedTimes)));
@@ -13683,11 +13846,16 @@
                             timeSource: 'user',
                             assignmentMode: 'FIXED'
                         };
-                        tasks.forEach(t => {
-                            if(t.repeatGroupId !== current.repeatGroupId || t.completed) return;
-                            if(t.weekDueOnly || t.scheduleType !== 'date') return;
-                            applyRepeatFixedTimeProfile(t, profile);
-                        });
+                        const weekday = current.date ? getWeekdayFromDateStr(current.date) : null;
+                        if(weekday != null) {
+                            applyRepeatFixedTimeProfileToWeekday(current.repeatGroupId, profile, weekday);
+                        } else {
+                            tasks.forEach(t => {
+                                if(t.repeatGroupId !== current.repeatGroupId || t.completed) return;
+                                if(t.weekDueOnly || t.scheduleType !== 'date') return;
+                                applyRepeatFixedTimeProfile(t, profile);
+                            });
+                        }
                     }
                     enforceRepeatGroupFixedTimes(current.repeatGroupId);
                 }
@@ -17359,11 +17527,8 @@
                         timeSource: 'user',
                         assignmentMode: 'FIXED'
                     };
-                    tasks.forEach(t => {
-                        if(t.repeatGroupId !== movedTask.repeatGroupId || t.completed) return;
-                        if(t.weekDueOnly || t.scheduleType !== 'date') return;
-                        applyRepeatFixedTimeProfile(t, profile);
-                    });
+                    const weekday = getWeekdayFromDateStr(dateStr);
+                    applyRepeatFixedTimeProfileToWeekday(movedTask.repeatGroupId, profile, weekday);
                     enforceRepeatGroupFixedTimes(movedTask.repeatGroupId);
                 }
             }, getCommandLineScheduleRefreshOptions(previousSnapshot, { date: dateStr, id: taskId }));
@@ -18434,12 +18599,18 @@
             }
             const existing = getRepeatGroupTasksForWeek(groupId, weekKey);
             const dates = filterRepeatDatesOnOrAfterAnchor(getRepeatDatesForWeek(weekKey, rule), anchorDate);
-            const fixedProfile = getRepeatGroupFixedTimeProfile(groupTasks, templateTask);
-            const templateIsFixed = Boolean(fixedProfile) || isFixedTask(templateTask);
-            const fixedTime = fixedProfile?.time || (templateIsFixed ? (templateTask.time || null) : null);
             let added = 0;
             dates.forEach(dateStr => {
                 if(isRepeatOccurrenceSuppressed(groupId, dateStr, weekKey)) return;
+                const fixedProfile = getRepeatFixedTimeProfileForOccurrence(groupTasks, {
+                    dateStr,
+                    fallbackTask: templateTask
+                });
+                const fixedTime = fixedProfile?.time
+                    || (isFixedTask(templateTask) && templateTask.date && getWeekdayFromDateStr(templateTask.date) === getWeekdayFromDateStr(dateStr)
+                        ? templateTask.time
+                        : null);
+                const templateIsFixed = Boolean(fixedTime);
                 const occurrence = normalizeTask({
                     ...templateTask,
                     id: generateId(),
@@ -18475,17 +18646,7 @@
             let removed = 0;
             groupIds.forEach(groupId => {
                 const groupTasks = tasks.filter(t => t.repeatGroupId === groupId);
-                const weekKeys = Array.from(new Set(groupTasks.map(t => t.repeatWeekKey).filter(Boolean))).sort((a, b) => a.localeCompare(b));
-                if(weekKeys.length === 0) return;
-                let firstIncomplete = null;
-                for(const weekKey of weekKeys) {
-                    const weekTasks = groupTasks.filter(t => t.repeatWeekKey === weekKey);
-                    const allDone = weekTasks.length > 0 && weekTasks.every(t => t.completed);
-                    if(!allDone) {
-                        firstIncomplete = weekKey;
-                        break;
-                    }
-                }
+                const firstIncomplete = getRepeatGroupFirstIncompleteWeekKey(groupTasks);
                 if(!firstIncomplete) return;
                 const beforeLen = tasks.length;
                 tasks = tasks.filter(t => !(t.repeatGroupId === groupId && t.repeatWeekKey && t.repeatWeekKey > firstIncomplete));
@@ -18500,16 +18661,19 @@
             groupIds.forEach(groupId => {
                 const groupTasks = tasks.filter(t => t.repeatGroupId === groupId);
                 if(groupTasks.length === 0) return;
-                const weekKeys = Array.from(new Set(groupTasks.map(t => t.repeatWeekKey).filter(Boolean))).sort((a, b) => a.localeCompare(b));
+                if(getRepeatGroupFirstIncompleteWeekKey(groupTasks)) return;
+                const weekKeys = Array.from(new Set(groupTasks.map(t => t.repeatWeekKey).filter(Boolean)))
+                    .sort((a, b) => a.localeCompare(b));
                 if(weekKeys.length === 0) return;
-                const allCompleted = groupTasks.every(t => t.completed);
-                if(!allCompleted) return;
+                if(!groupTasks.every(t => t.completed)) return;
                 const lastWeekKey = weekKeys[weekKeys.length - 1];
                 const nextWeekKey = getNextWeekKey(lastWeekKey);
+                if(isRepeatWeekSkipped(groupId, nextWeekKey)) return;
                 if(groupTasks.some(t => t.repeatWeekKey === nextWeekKey)) return;
                 const template = pickRepeatTemplate(groupTasks);
                 created += addRepeatWeekOccurrences(groupId, nextWeekKey, template.repeatRule, template);
                 enforceRepeatGroupFixedTimes(groupId);
+                removeRepeatOccurrencesBeforeAnchor(groupId);
             });
             if(created > 0) syncAllTaskDependencies();
             return created;
@@ -20222,20 +20386,34 @@
             }, { busyButton: btn, busyLabel: 'Updating…' });
         }
 
-        function getRepeatGroupActiveWeekKey(groupTasks = []) {
-            const weekKeys = Array.from(new Set(groupTasks.map(t => {
-                if(t.repeatWeekKey) return t.repeatWeekKey;
-                if(t.date) return getWeekKeyFromDateStr(t.date);
-                return getTaskTargetWeekKey(t);
-            }).filter(Boolean))).sort();
-            let activeWeek = weekKeys.find(wk => groupTasks.some(t => {
-                const taskWeek = t.repeatWeekKey || (t.date ? getWeekKeyFromDateStr(t.date) : getTaskTargetWeekKey(t));
-                return taskWeek === wk && !t.completed;
-            }));
-            if(!activeWeek) {
-                activeWeek = weekKeys.length ? getNextWeekKey(weekKeys[weekKeys.length - 1]) : getCurrentWeekKey();
+        function getRepeatGroupTaskWeekKey(task) {
+            if(!task) return null;
+            return task.repeatWeekKey
+                || (task.date ? getWeekKeyFromDateStr(task.date) : null)
+                || getTaskTargetWeekKey(task)
+                || null;
+        }
+
+        function getRepeatGroupFirstIncompleteWeekKey(groupTasks = []) {
+            const weekKeys = Array.from(new Set(groupTasks.map(getRepeatGroupTaskWeekKey).filter(Boolean)))
+                .sort((a, b) => a.localeCompare(b));
+            for(const weekKey of weekKeys) {
+                const weekTasks = groupTasks.filter(t => getRepeatGroupTaskWeekKey(t) === weekKey);
+                if(weekTasks.length === 0) continue;
+                if(!weekTasks.every(t => t.completed)) return weekKey;
             }
-            return activeWeek;
+            return null;
+        }
+
+        function getRepeatGroupActiveWeekKey(groupTasks = []) {
+            const weekKeys = Array.from(new Set(groupTasks.map(getRepeatGroupTaskWeekKey).filter(Boolean)))
+                .sort((a, b) => a.localeCompare(b));
+            const incompleteWeek = getRepeatGroupFirstIncompleteWeekKey(groupTasks);
+            if(incompleteWeek) return incompleteWeek;
+            if(weekKeys.length) return getNextWeekKey(weekKeys[weekKeys.length - 1]);
+            const anchor = getRepeatGroupAnchorDate(groupTasks);
+            if(anchor) return getWeekKeyFromDateStr(anchor);
+            return getCurrentWeekKey();
         }
 
         function ensureRepeatWeekOccurrencesForWeek(weekKey) {
@@ -20244,6 +20422,8 @@
             const groupIds = new Set(tasks.filter(t => t.repeatGroupId).map(t => t.repeatGroupId));
             groupIds.forEach(groupId => {
                 const groupTasks = tasks.filter(t => t.repeatGroupId === groupId);
+                const focusWeek = getRepeatGroupFirstIncompleteWeekKey(groupTasks);
+                if(!focusWeek || weekKey !== focusWeek) return;
                 const template = pickRepeatTemplate(groupTasks);
                 if(!template) return;
                 const rule = normalizeRepeatRule(template.repeatRule || {});
@@ -20293,10 +20473,17 @@
 
         function ensureActiveRepeatWeekOccurrences() {
             let created = 0;
-            getRelevantUpcomingWeekKeys().forEach(weekKey => {
+            const focusWeeks = new Set();
+            const groupIds = new Set(tasks.filter(t => t.repeatGroupId).map(t => t.repeatGroupId));
+            groupIds.forEach(groupId => {
+                const groupTasks = tasks.filter(t => t.repeatGroupId === groupId);
+                const focusWeek = getRepeatGroupFirstIncompleteWeekKey(groupTasks);
+                if(focusWeek) focusWeeks.add(focusWeek);
+            });
+            focusWeeks.forEach(weekKey => {
                 created += ensureRepeatWeekOccurrencesForWeek(weekKey);
             });
-            if(created > 0) syncAllTaskDependencies();
+            if(pruneRepeatFutureWeeks() > 0 || created > 0) syncAllTaskDependencies();
             return created;
         }
 
@@ -20324,7 +20511,7 @@
             } else if(!eligible.length && task.date && task.date >= todayStr) {
                 eligible = [task.date];
             }
-            return sortScheduleDatesByPreference(eligible, resolvedWeekKey);
+            return preferDatesForScheduling(task, sortScheduleDatesByPreference(eligible, resolvedWeekKey));
         }
 
         function pickImmediateScheduleDateForTask(task, weekKey = null) {
@@ -20540,6 +20727,8 @@
                 return false;
             });
             let weekTasks = collectWeekTasks();
+            releaseAutoSpreadWorkDatesBeforePack(weekTasks);
+            weekTasks = collectWeekTasks();
             weekTasks.forEach(task => restoreRepeatFixedTimeIfMissing(task));
             const weekDates = getWeekdayDateStringsFromWeekKey(weekKey);
             const todayStr = getDateStrLocal();
@@ -20679,7 +20868,7 @@
                 const tryPlaceTaskWithDateList = (task, dateList, context) => {
                     const hasUserLockedDate = hasUserLockedCalendarDate(task);
                     let placed = null;
-                    for(const candidateDate of sortScheduleDatesByPreference(dateList || [], weekKey)) {
+                    for(const candidateDate of preferDatesForScheduling(task, dateList || [], null)) {
                         if(!candidateDate || candidateDate < todayStr) continue;
                         if(hasUserLockedDate && task.date && candidateDate !== task.date) continue;
                         const dueDate = getTaskDueDate(task);
@@ -20881,7 +21070,10 @@
                     const options = [];
                     const duration = parseInt(task.duration, 10) || 30;
                     const dueDate = getTaskDueDate(task);
-                    const candidateDates = sortScheduleDatesByPreference(getTaskCandidateDates(task), weekKey);
+                    const candidateDates = preferDatesForScheduling(
+                        task,
+                        sortScheduleDatesByPreference(getTaskCandidateDates(task), weekKey)
+                    );
                     candidateDates.forEach(date => {
                         if(isDateBlockedForTask(task, date)) return;
                         const dayEnd = timeToMin(getScheduleForDate(date).end);
