@@ -9257,16 +9257,11 @@
             const list = Array.from(new Set((dates || []).filter(Boolean))).sort((a, b) => a.localeCompare(b));
             if(list.length <= 1) return list;
             const todayStr = getDateStrLocal();
-            const due = getTaskDueDate(task);
             const workingDates = dateById instanceof Map ? dateById : null;
 
             return [...list].sort((a, b) => {
                 if(a === todayStr && b !== todayStr) return -1;
                 if(b === todayStr && a !== todayStr) return 1;
-                if(due) {
-                    if(a === due && b !== due) return -1;
-                    if(b === due && a !== due) return 1;
-                }
                 if(workingDates) {
                     const loadA = getAssignedLoadMinutesForDate(a, workingDates, task?.id) > 0;
                     const loadB = getAssignedLoadMinutesForDate(b, workingDates, task?.id) > 0;
@@ -9281,9 +9276,25 @@
             if(!task?.date) return false;
             if(hasUserLockedCalendarDate(task)) return true;
             if(isFixedTask(task) || isRepeatFixedTimeTask(task)) return true;
-            const due = getTaskDueDate(task);
-            if(due && task.date === due) return true;
             return false;
+        }
+
+        function collectChronologicalPackingDays(todayStr, dayLists = []) {
+            const seen = new Set();
+            const ordered = [];
+            const add = (day) => {
+                if(!day || day < todayStr || seen.has(day)) return;
+                seen.add(day);
+                ordered.push(day);
+            };
+            add(todayStr);
+            const rest = [];
+            (dayLists || []).flat().forEach(day => {
+                if(day && day >= todayStr) rest.push(day);
+            });
+            rest.sort((a, b) => a.localeCompare(b));
+            rest.forEach(day => add(day));
+            return ordered;
         }
 
         function releaseAutoSpreadWorkDatesBeforePack(weekTasks = []) {
@@ -10243,7 +10254,8 @@
         }
 
         function reconcileScheduleOverlapsAndRepack(options = {}) {
-            const { taskIds = [], weekKeys = [] } = options || {};
+            const { taskIds = [], weekKeys = [], quick = false } = options || {};
+            const scheduleProfile = quick ? 'quick' : 'full';
             const dates = new Set();
             (taskIds || []).forEach(id => {
                 const task = tasks.find(t => t.id === id);
@@ -10266,7 +10278,21 @@
                 repackIds.push(task.id);
             });
             if(repackIds.length > 0) {
-                scheduleTargetWeekTasksImmediately(Array.from(new Set(repackIds)));
+                const weekKeysToRepack = new Set((weekKeys || []).filter(Boolean));
+                repackIds.forEach(id => {
+                    const task = tasks.find(t => t.id === id);
+                    if(!task) return;
+                    const targetWeek = getTaskTargetWeekKey(task);
+                    if(targetWeek) weekKeysToRepack.add(targetWeek);
+                    if(task.date) weekKeysToRepack.add(getWeekKeyFromDateStr(task.date));
+                });
+                if(weekKeysToRepack.size > 0) {
+                    weekKeysToRepack.forEach(weekKey => {
+                        autoBlockWeekTimes(false, weekKey, true, false, scheduleProfile);
+                    });
+                } else {
+                    scheduleTargetWeekTasksImmediately(Array.from(new Set(repackIds)));
+                }
             }
             enforceNoOverlappingTimes();
             return repackIds.length;
@@ -10557,6 +10583,8 @@
         let classifyUndoRemoteSuppressUntil = 0;
         let classifyLastLocalMutationAt = 0;
 
+        let classifyUndoPersistTimer = null;
+
         function persistClassifyUndoStack() {
             try {
                 localStorage.setItem(
@@ -10582,6 +10610,14 @@
                     /* ignore */
                 }
             }
+        }
+
+        function schedulePersistClassifyUndoStack() {
+            if(classifyUndoPersistTimer) clearTimeout(classifyUndoPersistTimer);
+            classifyUndoPersistTimer = setTimeout(() => {
+                classifyUndoPersistTimer = null;
+                persistClassifyUndoStack();
+            }, 400);
         }
 
         function loadClassifyUndoStack() {
@@ -10643,13 +10679,15 @@
             if(classifyUndoApplying) return;
             const snapshot = captureClassifyUndoSnapshot();
             const top = classifyUndoStack[classifyUndoStack.length - 1];
-            if(!force && top && JSON.stringify(top) === JSON.stringify(snapshot)) return;
+            if(!force && top && top.tasks?.length === snapshot.tasks?.length && top.calendarViewMode === snapshot.calendarViewMode) {
+                return;
+            }
             classifyUndoStack.push(snapshot);
             if(classifyUndoStack.length > CLASSIFY_UNDO_LIMIT) {
                 classifyUndoStack.shift();
             }
             classifyLastLocalMutationAt = Date.now();
-            persistClassifyUndoStack();
+            schedulePersistClassifyUndoStack();
             updateClassifyUndoButton();
         }
 
@@ -10657,6 +10695,7 @@
             const {
                 skipScheduleRefresh = false,
                 seedTaskIds = [],
+                previousSnapshots = [],
                 weekKeys = null,
                 skipUndoRecord = true,
                 ...restSaveOptions
@@ -10666,20 +10705,20 @@
                 saveData({ skipUndoRecord: true, skipAutoSchedule: true, ...restSaveOptions });
                 return;
             }
-            recordClassifyUndoPoint({ force: true });
             mutator();
-            if(skipScheduleRefresh) {
-                saveData({ skipUndoRecord: true, skipAutoSchedule: true, ...restSaveOptions });
-                return;
-            }
-            flushClassifyUiImmediate({ skipUndoRecord, ...restSaveOptions });
-            deferClassifyScheduleWork(() => {
-                refreshClassifyScheduleState({
-                    seedTaskIds,
-                    weekKeys,
-                    skipScheduleRefresh: false
-                });
-            }, { skipUndoRecord: true });
+            queueDeferredClassifyUndoPoint();
+            instantClassifyUiRefresh();
+            scheduleClassifyPersistence({
+                skipUndoRecord,
+                skipAutoSchedule: true,
+                ...restSaveOptions
+            });
+            if(skipScheduleRefresh) return;
+            queueClassifyScheduleRefresh({
+                seedTaskIds,
+                previousSnapshots,
+                weekKeys
+            });
         }
 
         function reconcileDerivedStateAfterUndo() {
@@ -10687,27 +10726,238 @@
         }
 
         function flushClassifyUiImmediate(options = {}) {
-            const { skipUndoRecord = true } = options || {};
-            saveData({ skipAutoSchedule: true, skipUndoRecord });
+            const { skipUndoRecord = true, ...rest } = options || {};
+            instantClassifyUiRefresh();
+            scheduleClassifyPersistence({
+                skipAutoSchedule: true,
+                skipUndoRecord,
+                skipUndoBaseline: true,
+                ...rest
+            });
+        }
+
+        let classifyScheduleBusy = false;
+        let classifyPersistTimer = null;
+        let classifyPersistPendingOptions = null;
+
+        function instantClassifyUiRefresh() {
+            invalidateClassifyScheduleCaches();
             updateDateDisplay();
-            updateSubjectSuggestions();
+            renderAll({ light: true, skipDashboardSchedule: true });
+        }
+
+        function queueDeferredClassifyUndoPoint() {
+            if(classifyUndoApplying || !classifyLastSavedSnapshot) return;
+            const snapshot = classifyLastSavedSnapshot;
+            queueMicrotask(() => {
+                if(classifyUndoApplying) return;
+                try {
+                    const cloned = JSON.parse(JSON.stringify(snapshot));
+                    const top = classifyUndoStack[classifyUndoStack.length - 1];
+                    if(top && top.tasks?.length === cloned.tasks?.length && top.calendarViewMode === cloned.calendarViewMode) {
+                        return;
+                    }
+                    classifyUndoStack.push(cloned);
+                    if(classifyUndoStack.length > CLASSIFY_UNDO_LIMIT) {
+                        classifyUndoStack.shift();
+                    }
+                    classifyLastLocalMutationAt = Date.now();
+                    schedulePersistClassifyUndoStack();
+                    updateClassifyUndoButton();
+                } catch (error) {
+                    console.warn('Deferred undo snapshot failed:', error);
+                }
+            });
+        }
+
+        function scheduleClassifyPersistence(options = {}) {
+            classifyPersistPendingOptions = {
+                ...(classifyPersistPendingOptions || {}),
+                ...options,
+                skipRender: true,
+                lightRender: true,
+                skipOverlapEnforce: true
+            };
+            if(classifyPersistTimer) clearTimeout(classifyPersistTimer);
+            classifyPersistTimer = setTimeout(() => {
+                classifyPersistTimer = null;
+                const persistOptions = classifyPersistPendingOptions || {};
+                classifyPersistPendingOptions = null;
+                saveData(persistOptions);
+            }, 80);
+        }
+
+        function setClassifyScheduleBusy(busy) {
+            classifyScheduleBusy = Boolean(busy);
+            try {
+                updateCalendarSummary();
+            } catch (error) {
+                /* ignore */
+            }
+        }
+
+        function classifyYieldToMain() {
+            return new Promise(resolve => {
+                requestAnimationFrame(() => setTimeout(resolve, 0));
+            });
+        }
+
+        function refreshClassifyScheduleStateInteractive(options = {}) {
+            const {
+                seedTaskIds = [],
+                previousSnapshots = [],
+                weekKeys = null,
+                fullRefresh = false
+            } = options || {};
+
+            const explicitKeys = Array.from(new Set((weekKeys || []).filter(Boolean)));
+            const keys = fullRefresh
+                ? (explicitKeys.length > 0 ? explicitKeys : getRelevantUpcomingWeekKeys())
+                : collectScheduleWeekKeysFromHints({ weekKeys, seedTaskIds, previousSnapshots });
+
+            classifyLastInteractiveScheduleAt = Date.now();
+            enforceNoPastUnstartedTimes();
+
+            const dependencySeeds = Array.from(new Set([
+                ...(seedTaskIds || []),
+                ...(previousSnapshots || []).map(snapshot => snapshot?.id).filter(Boolean)
+            ]));
+            if(fullRefresh) {
+                reconcileBeforeAfterSchedule(getAllBeforeAfterLinkedTaskIds());
+            } else if(dependencySeeds.length > 0) {
+                reconcileBeforeAfterSchedule(dependencySeeds);
+            }
+
+            if(fullRefresh) {
+                reoptimizeAffectedWeeks(keys);
+                scheduleUnassignedTargetWeekTasksInWeeks(keys);
+                reconcileScheduleOverlapsAndRepack({ taskIds: seedTaskIds, weekKeys: keys, quick: false });
+                enforceNoOverlappingTimes();
+                return Promise.resolve();
+            }
+
+            let weekIndex = 0;
+            const runNextWeek = () => {
+                if(weekIndex >= keys.length) {
+                    reconcileScheduleOverlapsAndRepack({ taskIds: seedTaskIds, weekKeys: keys, quick: true });
+                    enforceNoOverlappingTimes();
+                    return Promise.resolve();
+                }
+                const weekKey = keys[weekIndex++];
+                assignWeekTaskDates(weekKey, true);
+                autoBlockWeekTimes(false, weekKey, true, false, 'quick');
+                return classifyYieldToMain().then(runNextWeek);
+            };
+            return runNextWeek();
+        }
+
+        let classifyDeferredScheduleTimer = null;
+        const classifyDeferredCustomWork = [];
+        let classifyPendingScheduleRefresh = null;
+        let classifyDeferredSaveOptions = { skipUndoRecord: true };
+        let classifySchedulePolishTimer = null;
+        const classifySchedulePolishWeekKeys = new Set();
+
+        function mergeClassifyScheduleRefreshOptions(next, prev) {
+            if(!prev) return { ...(next || {}) };
+            const merged = { ...(prev || {}) };
+            const incoming = next || {};
+            merged.seedTaskIds = Array.from(new Set([...(merged.seedTaskIds || []), ...(incoming.seedTaskIds || [])]));
+            merged.previousSnapshots = [...(merged.previousSnapshots || []), ...(incoming.previousSnapshots || [])];
+            if(incoming.weekKeys?.length) merged.weekKeys = incoming.weekKeys;
+            else if(!merged.weekKeys && prev.weekKeys) merged.weekKeys = prev.weekKeys;
+            merged.fullRefresh = Boolean(merged.fullRefresh || incoming.fullRefresh);
+            merged.skipScheduleRefresh = false;
+            return merged;
+        }
+
+        function queueClassifyScheduleRefresh(options = {}) {
+            setClassifyScheduleBusy(true);
+            classifyPendingScheduleRefresh = mergeClassifyScheduleRefreshOptions(
+                options,
+                classifyPendingScheduleRefresh
+            );
+            scheduleDeferredClassifyWork({ skipUndoRecord: true });
+        }
+
+        function queueClassifySchedulePolish(weekKeys = []) {
+            (weekKeys || []).filter(Boolean).forEach(weekKey => classifySchedulePolishWeekKeys.add(weekKey));
+            if(classifySchedulePolishWeekKeys.size === 0) return;
+            if(classifySchedulePolishTimer) clearTimeout(classifySchedulePolishTimer);
+            classifySchedulePolishTimer = setTimeout(() => {
+                classifySchedulePolishTimer = null;
+                const keys = Array.from(classifySchedulePolishWeekKeys);
+                classifySchedulePolishWeekKeys.clear();
+                requestAnimationFrame(() => {
+                    try {
+                        keys.forEach(weekKey => autoBlockWeekTimes(false, weekKey, true, true, 'full'));
+                        saveData({
+                            skipAutoSchedule: true,
+                            skipUndoRecord: true,
+                            lightRender: true,
+                            skipOverlapEnforce: true
+                        });
+                    } catch (error) {
+                        console.warn('Deferred schedule polish failed:', error);
+                    }
+                });
+            }, 900);
+        }
+
+        function scheduleDeferredClassifyWork(options = {}) {
+            classifyDeferredSaveOptions = { skipUndoRecord: true, ...(options || {}) };
+            if(classifyDeferredScheduleTimer) clearTimeout(classifyDeferredScheduleTimer);
+            classifyDeferredScheduleTimer = setTimeout(() => {
+                classifyDeferredScheduleTimer = null;
+                const customWork = classifyDeferredCustomWork.splice(0);
+                const scheduleOpts = classifyPendingScheduleRefresh;
+                classifyPendingScheduleRefresh = null;
+                const saveOpts = classifyDeferredSaveOptions;
+                classifyDeferredSaveOptions = { skipUndoRecord: true };
+
+                setTimeout(() => {
+                    setClassifyScheduleBusy(true);
+                    const finishSchedulePass = () => {
+                        setClassifyScheduleBusy(false);
+                        saveData({
+                            skipAutoSchedule: true,
+                            skipUndoRecord: saveOpts.skipUndoRecord !== false,
+                            lightRender: true,
+                            skipOverlapEnforce: true,
+                            skipDashboardSchedule: true
+                        });
+                    };
+                    try {
+                        customWork.forEach(fn => {
+                            if(typeof fn === 'function') fn();
+                        });
+                        if(scheduleOpts && !scheduleOpts.skipScheduleRefresh) {
+                            refreshClassifyScheduleStateInteractive(scheduleOpts)
+                                .then(() => {
+                                    if(!scheduleOpts.fullRefresh) {
+                                        const polishKeys = collectScheduleWeekKeysFromHints(scheduleOpts);
+                                        queueClassifySchedulePolish(polishKeys);
+                                    }
+                                    finishSchedulePass();
+                                })
+                                .catch(error => {
+                                    console.error('Deferred classify schedule work failed:', error);
+                                    finishSchedulePass();
+                                });
+                            return;
+                        }
+                        finishSchedulePass();
+                    } catch (error) {
+                        console.error('Deferred classify schedule work failed:', error);
+                        finishSchedulePass();
+                    }
+                }, 0);
+            }, 120);
         }
 
         function deferClassifyScheduleWork(work, options = {}) {
-            const { skipUndoRecord = true } = options || {};
-            setTimeout(() => {
-                try {
-                    if(typeof work === 'function') work();
-                    saveData({ skipAutoSchedule: true, skipUndoRecord });
-                } catch (error) {
-                    console.error('Deferred classify schedule work failed:', error);
-                    try {
-                        saveData({ skipAutoSchedule: true, skipUndoRecord });
-                    } catch (saveError) {
-                        console.error('Deferred classify save failed:', saveError);
-                    }
-                }
-            }, 0);
+            if(typeof work === 'function') classifyDeferredCustomWork.push(work);
+            scheduleDeferredClassifyWork(options);
         }
 
         function setActionButtonBusy(btn, busy = true, busyLabel = 'Saving…') {
@@ -10773,73 +11023,100 @@
             if(typeof cleanup === 'function') cleanup();
         }
 
+        const CLASSIFY_INTERACTIVE_WEEK_LIMIT = 2;
+        let classifyLastInteractiveScheduleAt = 0;
+
+        function collectScheduleWeekKeysFromHints(options = {}) {
+            const { weekKeys = null, seedTaskIds = [], previousSnapshots = [] } = options || {};
+            const weekKeySet = new Set((weekKeys || []).filter(Boolean));
+            weekKeySet.add(getCurrentWeekKey());
+            const addWeekKeys = (ids = []) => {
+                collectWeekKeysForTasks(ids).forEach(weekKey => weekKeySet.add(weekKey));
+            };
+            addWeekKeys(seedTaskIds);
+            (previousSnapshots || []).forEach(snapshot => {
+                if(!snapshot) return;
+                if(snapshot.id) addWeekKeys([snapshot.id]);
+                if(snapshot.date) weekKeySet.add(getWeekKeyFromDateStr(snapshot.date));
+                if(snapshot.dueDate) weekKeySet.add(getWeekKeyFromDateStr(snapshot.dueDate));
+                if(snapshot.week) weekKeySet.add(snapshot.week);
+                if(snapshot.repeatWeekKey) weekKeySet.add(snapshot.repeatWeekKey);
+            });
+            const current = getCurrentWeekKey();
+            return Array.from(weekKeySet).filter(Boolean).sort((a, b) => {
+                if(a === current) return -1;
+                if(b === current) return 1;
+                return a.localeCompare(b);
+            }).slice(0, CLASSIFY_INTERACTIVE_WEEK_LIMIT);
+        }
+
+        function planAffectedWeeksIncremental(weekKeys, options = {}) {
+            const { forceRebuildAutoSlots = false, quick = true } = options || {};
+            const profile = quick ? 'quick' : 'full';
+            const keys = Array.from(new Set((weekKeys || []).filter(Boolean)));
+            if(keys.length === 0) return 0;
+            let changed = 0;
+            keys.forEach(weekKey => {
+                changed += assignWeekTaskDates(weekKey, true) || 0;
+                changed += autoBlockWeekTimes(false, weekKey, true, forceRebuildAutoSlots, profile) || 0;
+            });
+            return changed;
+        }
+
         function refreshClassifyScheduleState(options = {}) {
             const {
                 seedTaskIds = [],
                 previousSnapshots = [],
                 weekKeys = null,
-                skipScheduleRefresh = false
+                skipScheduleRefresh = false,
+                fullRefresh = false,
+                quick = !fullRefresh
             } = options || {};
 
             if(skipScheduleRefresh) return;
 
-            let keys = Array.from(new Set((weekKeys || []).filter(Boolean)));
-            if(keys.length === 0 && ((seedTaskIds && seedTaskIds.length) || (previousSnapshots && previousSnapshots.length))) {
-                const weekKeySet = new Set();
-                const addWeekKeys = (ids = []) => {
-                    collectWeekKeysForTasks(ids).forEach(weekKey => weekKeySet.add(weekKey));
-                };
-                addWeekKeys(seedTaskIds);
-                (previousSnapshots || []).forEach(snapshot => {
-                    if(!snapshot) return;
-                    if(snapshot.id) addWeekKeys([snapshot.id]);
-                    if(snapshot.date) weekKeySet.add(getWeekKeyFromDateStr(snapshot.date));
-                    if(snapshot.dueDate) weekKeySet.add(getWeekKeyFromDateStr(snapshot.dueDate));
-                    if(snapshot.week) weekKeySet.add(snapshot.week);
-                    if(snapshot.repeatWeekKey) weekKeySet.add(snapshot.repeatWeekKey);
-                });
-                keys = Array.from(weekKeySet);
-            }
-            if(keys.length === 0) {
-                keys = getRelevantUpcomingWeekKeys();
-            }
+            const explicitKeys = Array.from(new Set((weekKeys || []).filter(Boolean)));
+            const keys = fullRefresh
+                ? (explicitKeys.length > 0 ? explicitKeys : getRelevantUpcomingWeekKeys())
+                : collectScheduleWeekKeysFromHints({ weekKeys, seedTaskIds, previousSnapshots });
 
-            reconcileScheduleOverlapsAndRepack({ taskIds: seedTaskIds, weekKeys: keys });
+            classifyLastInteractiveScheduleAt = Date.now();
+
             enforceNoPastUnstartedTimes();
-            reconcileBeforeAfterSchedule(getAllBeforeAfterLinkedTaskIds());
+
+            const dependencySeeds = Array.from(new Set([
+                ...(seedTaskIds || []),
+                ...(previousSnapshots || []).map(snapshot => snapshot?.id).filter(Boolean)
+            ]));
+            if(fullRefresh) {
+                reconcileBeforeAfterSchedule(getAllBeforeAfterLinkedTaskIds());
+            } else if(dependencySeeds.length > 0) {
+                reconcileBeforeAfterSchedule(dependencySeeds);
+            }
 
             const seedIdsNeedingSchedule = (seedTaskIds || []).filter(id => {
                 const task = tasks.find(t => t.id === id);
                 return task && taskNeedsCalendarScheduling(task);
             });
-            if(seedIdsNeedingSchedule.length > 0) {
+            if(!quick && seedIdsNeedingSchedule.length > 0) {
                 scheduleTargetWeekTasksImmediately(seedIdsNeedingSchedule);
             }
-            reoptimizeAffectedWeeks(keys);
-            scheduleUnassignedTargetWeekTasksInWeeks(keys);
-            const immediateIds = new Set(seedTaskIds || []);
-            keys.forEach(weekKey => {
-                tasks.forEach(task => {
-                    if(!isTaskTargetedForWeek(task, weekKey, true)) return;
-                    if(!taskNeedsCalendarScheduling(task)) return;
-                    if(getTaskDueDate(task) || task.dueTime) immediateIds.add(task.id);
-                });
-            });
-            if(immediateIds.size > 0) {
-                scheduleTargetWeekTasksImmediately(Array.from(immediateIds));
+
+            if(fullRefresh) {
+                reoptimizeAffectedWeeks(keys);
+                scheduleUnassignedTargetWeekTasksInWeeks(keys);
+            } else {
+                planAffectedWeeksIncremental(keys, { forceRebuildAutoSlots: false, quick });
             }
-            reconcileScheduleOverlapsAndRepack({
-                taskIds: Array.from(immediateIds),
-                weekKeys: keys
-            });
-            runImmediateScheduleMaintain({ persist: false, syncCloud: false });
+
+            reconcileScheduleOverlapsAndRepack({ taskIds: seedTaskIds, weekKeys: keys, quick });
             enforceNoOverlappingTimes();
         }
 
         function refreshClassifyLikeReload(options = {}) {
             updateDateDisplay();
             updateSubjectSuggestions();
-            refreshClassifyScheduleState(options);
+            refreshClassifyScheduleState({ ...options, fullRefresh: true });
             renderAll();
         }
 
@@ -10867,13 +11144,14 @@
 
             deferClassifyScheduleWork(() => {
                 if(typeof preScheduleRefresh === 'function') preScheduleRefresh();
-                refreshClassifyScheduleState({
+            }, { skipUndoRecord: true });
+            if(!skipScheduleRefresh) {
+                queueClassifyScheduleRefresh({
                     seedTaskIds,
                     previousSnapshots,
-                    weekKeys,
-                    skipScheduleRefresh: false
+                    weekKeys
                 });
-            }, { skipUndoRecord: true });
+            }
         }
 
         function finalizeClassifyCompletion(options = {}) {
@@ -10890,11 +11168,8 @@
             }
             deferClassifyScheduleWork(() => {
                 if(task) reAutoScheduleAfterCompletion(task, spawnedRepeats);
-                refreshClassifyScheduleState({
-                    seedTaskIds,
-                    skipScheduleRefresh: false
-                });
             }, { skipUndoRecord: true });
+            queueClassifyScheduleRefresh({ seedTaskIds });
         }
 
         function updateClassifyUndoButton() {
@@ -10952,16 +11227,20 @@
         }
 
         function queueClassifyScheduleMaintain(options = {}) {
+            const { skipIfRecentInteractive = false, ...maintainOptions } = options || {};
             if(classifyScheduleMaintainTimer) clearTimeout(classifyScheduleMaintainTimer);
             classifyScheduleMaintainTimer = setTimeout(() => {
                 classifyScheduleMaintainTimer = null;
                 if(classifyUndoApplying) return;
+                if(skipIfRecentInteractive && Date.now() - classifyLastInteractiveScheduleAt < 1500) {
+                    return;
+                }
                 try {
                     const changed = maintainClassifyScheduleIfNeeded({
                         persist: false,
                         syncCloud: false,
                         weeksAhead: 6,
-                        ...options
+                        ...maintainOptions
                     }) || 0;
                     if(changed > 0) {
                         saveData({ skipAutoSchedule: true, skipUndoRecord: true });
@@ -10969,7 +11248,7 @@
                 } catch (error) {
                     console.warn('Deferred schedule maintain failed:', error);
                 }
-            }, 200);
+            }, 350);
         }
 
         function prepareAdjustableTasksForRepack(weekKeys = [], forceRebuildAutoSlots = true) {
@@ -10993,21 +11272,33 @@
         }
 
         function saveData(options = {}) {
-            const { skipAutoSchedule = false, skipUndoRecord = false } = options || {};
+            const {
+                skipAutoSchedule = false,
+                skipUndoRecord = false,
+                lightRender = false,
+                skipRender = false,
+                skipOverlapEnforce = false,
+                skipUndoBaseline = false,
+                skipDashboardSchedule = false
+            } = options || {};
 
             if(!skipUndoRecord && !classifyUndoApplying && classifyLastSavedSnapshot) {
-                classifyUndoStack.push(classifyLastSavedSnapshot);
+                classifyUndoStack.push(JSON.parse(JSON.stringify(classifyLastSavedSnapshot)));
                 if(classifyUndoStack.length > CLASSIFY_UNDO_LIMIT) {
                     classifyUndoStack.shift();
                 }
                 classifyLastLocalMutationAt = Date.now();
-                persistClassifyUndoStack();
+                schedulePersistClassifyUndoStack();
                 updateClassifyUndoButton();
             }
 
             if(!classifyUndoApplying) {
-                pruneExpiredScheduleItems();
-                enforceNoOverlappingTimes();
+                if(!lightRender) {
+                    pruneExpiredScheduleItems();
+                }
+                if(!skipOverlapEnforce) {
+                    enforceNoOverlappingTimes();
+                }
                 if(!skipAutoSchedule) {
                     enforceDependencyOrder();
                 }
@@ -11019,7 +11310,7 @@
                 saveDataAutoScheduleGuard = true;
                 try {
                     reconcileBeforeAfterSchedule(getAllBeforeAfterLinkedTaskIds());
-                    queueClassifyScheduleMaintain({ weeksAhead: 6 });
+                    queueClassifyScheduleMaintain({ weeksAhead: 6, skipIfRecentInteractive: true });
                 } catch (error) {
                     console.error('Adjustable auto-schedule failed:', error);
                 } finally {
@@ -11036,11 +11327,13 @@
             plannerSet('plannerVacationsV1', JSON.stringify(normalizeVacationRanges(vacationRanges)));
             plannerSet('plannerRepeatSkipsV1', JSON.stringify(repeatSkips));
             flushClassifyCloudSync().catch(() => {});
-            if(!classifyUndoApplying) {
+            if(!classifyUndoApplying && !skipUndoBaseline) {
                 classifyLastSavedSnapshot = captureClassifyUndoSnapshot();
                 updateClassifyUndoButton();
             }
-            renderAll();
+            if(!skipRender) {
+                renderAll({ light: lightRender, skipDashboardSchedule: skipDashboardSchedule || lightRender });
+            }
             if(!classifyUndoApplying && !options.skipCloudSuppress) {
                 classifyUndoRemoteSuppressUntil = Date.now() + 30000;
                 updateClassifySyncFingerprint().catch(() => {});
@@ -11573,17 +11866,17 @@
         }
 
         function renderAll(options = {}) {
-            const { forceAll = false } = options || {};
-            updateSubjectSuggestions();
+            const { forceAll = false, light = false, skipDashboardSchedule = false } = options || {};
+            if(!light) updateSubjectSuggestions();
             const tab = classifyActiveTab || 'dashboard';
             if(forceAll || tab === 'dashboard') {
                 try {
-                    renderDashboardStats();
+                    renderDashboardStats({ animate: !light });
                 } catch (error) {
                     console.error('renderDashboardStats failed:', error);
                 }
                 try {
-                    renderDashboard();
+                    renderDashboard({ skipSmartSchedule: light || skipDashboardSchedule });
                 } catch (error) {
                     console.error('renderDashboard failed:', error);
                 }
@@ -11802,7 +12095,8 @@
         }
 
         // --- Dashboard Logic ---
-        function renderDashboardStats() {
+        function renderDashboardStats(options = {}) {
+            const { animate = true } = options || {};
             const statTotalEl = document.getElementById('statTotal');
             const statCompletedEl = document.getElementById('statCompleted');
             const statCompletionRateEl = document.getElementById('statCompletionRate');
@@ -11817,21 +12111,43 @@
             const todayStr = getDateStrLocal();
             const dueToday = tasks.filter(t => !t.completed && isTaskVisibleInClassify(t) && getTaskDueDate(t) === todayStr).length;
 
-            animateValue('statTotal', parseInt(statTotalEl.innerText, 10) || 0, total, 500);
-            animateValue('statCompleted', parseInt(statCompletedEl.innerText, 10) || 0, completed, 500);
+            if(animate) {
+                animateValue('statTotal', parseInt(statTotalEl.innerText, 10) || 0, total, 500);
+                animateValue('statCompleted', parseInt(statCompletedEl.innerText, 10) || 0, completed, 500);
+                animateValue('statPending', parseInt(statPendingEl.innerText, 10) || 0, pending, 500);
+            } else {
+                statTotalEl.innerText = String(total);
+                statCompletedEl.innerText = String(completed);
+                statPendingEl.innerText = String(pending);
+            }
             statCompletionRateEl.innerText = completionRate;
-            animateValue('statPending', parseInt(statPendingEl.innerText, 10) || 0, pending, 500);
             dashDueCountEl.innerText = dueToday;
         }
 
-        function renderDashboard() {
+        function renderDashboard(options = {}) {
+            const { skipSmartSchedule = false } = options || {};
             const todayStr = getDateStrLocal();
             const todayListEl = document.getElementById('todayList');
             const overdueListEl = document.getElementById('overdueList');
             const subjectProgressEl = document.getElementById('subjectProgressList');
             if(!todayListEl || !overdueListEl || !subjectProgressEl) return;
 
-            const schedule = getSmartSchedule(todayStr);
+            const schedule = skipSmartSchedule
+                ? tasks
+                    .filter(t => !t.completed && isTaskVisibleInClassify(t) && t.date === todayStr)
+                    .sort((a, b) => {
+                        if(a.time && b.time) return a.time.localeCompare(b.time);
+                        if(a.time) return -1;
+                        if(b.time) return 1;
+                        return (a.title || '').localeCompare(b.title || '');
+                    })
+                    .map(t => ({
+                        start: t.time ? timeToMin(t.time) : 0,
+                        end: (t.time ? timeToMin(t.time) : 0) + (parseInt(t.duration, 10) || 30),
+                        task: t,
+                        type: t.time ? (isFixedTask(t) ? 'fixed' : 'auto') : 'auto'
+                    }))
+                : getSmartSchedule(todayStr);
             if(schedule.length === 0) {
                 todayListEl.innerHTML = `
                     <div class="flex flex-col items-center justify-center py-12 text-slate-400 dark:text-slate-600">
@@ -11842,7 +12158,9 @@
                 todayListEl.innerHTML = schedule.map(item => {
                     const t = item.task;
                     const color = getTaskColor(t);
-                    const timeDisplay = item.type === 'overflow' ? 'Late' : minToTime(item.start);
+                    const timeDisplay = !t.time
+                        ? '—'
+                        : (item.type === 'overflow' ? 'Late' : minToTime(item.start));
                     const isAuto = item.type === 'auto';
                     const dueLabel = formatDueLabel(t);
                     return `
@@ -17808,6 +18126,10 @@
             if(navLabel) navLabel.textContent = ctx.periodLabel;
             if(srLabel) srLabel.textContent = ctx.periodLabel;
             if(!summaryEl) return;
+            if(classifyScheduleBusy) {
+                summaryEl.innerHTML = '<span class="cl-calendar-stat"><i class="fa-solid fa-spinner fa-spin"></i> Updating schedule…</span>';
+                return;
+            }
             summaryEl.innerHTML = ctx.unscheduled > 0
                 ? `<button type="button" class="cl-calendar-stat cl-calendar-stat--accent cl-calendar-stat--clickable" onclick="openNeedTimeModal()" aria-label="Show assignments that need time"><i class="fa-solid fa-circle-exclamation"></i> ${ctx.unscheduled} need time</button>`
                 : '';
@@ -20835,7 +21157,12 @@
             return maintainClassifyScheduleIfNeeded({ persist, weeksAhead, ...options });
         }
 
-        function autoBlockWeekTimes(showToast = true, weekKey = getCurrentWeekKey(), allowDateShift = true, forceRebuildAutoSlots = false) {
+        function autoBlockWeekTimes(showToast = true, weekKey = getCurrentWeekKey(), allowDateShift = true, forceRebuildAutoSlots = false, scheduleProfile = 'full') {
+            if(typeof scheduleProfile === 'boolean') scheduleProfile = 'full';
+            const quickSchedule = scheduleProfile === 'quick';
+            const innerPassMax = quickSchedule ? 2 : 5;
+            const outerPassMax = quickSchedule ? 1 : 6;
+            const maxFitAttempts = quickSchedule ? 0 : 120;
             if(showToast && !classifyUndoApplying) recordClassifyUndoPoint({ force: true });
             const scheduleSnapshot = captureWeekScheduleSnapshot(weekKey);
             ensureRepeatWeekOccurrencesForWeek(weekKey);
@@ -21092,13 +21419,10 @@
                     ])),
                     weekKey
                 );
-                const packingDaySet = new Set();
-                const orderedPackingDays = [];
-                [todayStr, ...duePlacementDays, ...dayOrder, ...processDates].forEach(day => {
-                    if(!day || day < todayStr || packingDaySet.has(day)) return;
-                    packingDaySet.add(day);
-                    orderedPackingDays.push(day);
-                });
+                const orderedPackingDays = collectChronologicalPackingDays(
+                    todayStr,
+                    [duePlacementDays, dayOrder, processDates]
+                );
                 orderedPackingDays.forEach(day => packDayByPriorityTiers(day));
 
                 floating.forEach(task => {
@@ -21329,9 +21653,9 @@
                     round = attemptSchedule();
                     innerPass++;
                     if(round.changed === 0) break;
-                } while(innerPass < 5);
+                } while(innerPass < innerPassMax);
 
-                if(getWeekTasksNeedingSchedule().length > 0) {
+                if(!quickSchedule && getWeekTasksNeedingSchedule().length > 0) {
                     backtrackResult = solveWithBacktracking();
                 }
 
@@ -21339,15 +21663,15 @@
                 unresolvedViolations = depFix.unresolvedCount;
                 outerPass++;
                 if(depFix.resetCount === 0) break;
-            } while(outerPass < 6);
+            } while(outerPass < outerPassMax);
 
-            if(getWeekTasksNeedingSchedule().length > 0) {
+            if(!quickSchedule && getWeekTasksNeedingSchedule().length > 0) {
                 backtrackResult = solveWithBacktracking();
             }
 
-            if(!backtrackResult.solved) {
+            if(!quickSchedule && !backtrackResult.solved) {
                 let fitAttempts = 0;
-                while(!backtrackResult.solved && fitAttempts < 120) {
+                while(!backtrackResult.solved && fitAttempts < maxFitAttempts) {
                     fitAttempts++;
                     const missing = getWeekTasksNeedingSchedule();
                     if(missing.length === 0) {
@@ -21430,7 +21754,7 @@
                 }
             }
 
-            if(getWeekTasksNeedingSchedule().length > 0) {
+            if(!quickSchedule && getWeekTasksNeedingSchedule().length > 0) {
                 assignWeekTaskDates(weekKey, true);
                 weekTasks = collectWeekTasks();
                 round = attemptSchedule();
@@ -21445,7 +21769,7 @@
             const dependencyClears = enforceDependencyOrder(startStr, endStr);
             if(dependencyClears > 0) {
                 updated += dependencyClears;
-                if(getWeekTasksNeedingSchedule().length > 0) {
+                if(!quickSchedule && getWeekTasksNeedingSchedule().length > 0) {
                     backtrackResult = solveWithBacktracking();
                 }
             }
