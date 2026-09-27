@@ -1812,7 +1812,38 @@
           sharedMembers: normalizeShareMembers(d.sharedMembers),
           receivedFrom: normalizeReceivedFrom(d.receivedFrom),
         }));
+        dedupeOwnedShareLinks(decks);
         return { decks };
+      }
+
+      function dedupeOwnedShareLinks(decks) {
+        const holders = new Map();
+        const note = (entity) => {
+          if (!entity || !entity.sharedId) return;
+          const list = holders.get(entity.sharedId);
+          if (list) list.push(entity);
+          else holders.set(entity.sharedId, [entity]);
+        };
+        decks.forEach((deck) => {
+          if (deck.sharedRef) return;
+          note(deck);
+          (deck.stacks || []).forEach((stack) => {
+            note(stack);
+            (stack.cards || []).forEach(note);
+          });
+          (deck.cards || []).forEach(note);
+        });
+        const age = (entity) => Number(entity.createdAt) || Infinity;
+        holders.forEach((list) => {
+          if (list.length < 2) return;
+          const keep = list.reduce((best, entity) => (age(entity) < age(best) ? entity : best));
+          list.forEach((entity) => {
+            if (entity === keep) return;
+            entity.sharedId = null;
+            entity.sharedOut = false;
+            entity.sharedMembers = [];
+          });
+        });
       }
 
       function deckIsShared(deck) {
@@ -4549,6 +4580,11 @@
         copy.createdAt = Date.now();
         copy.updatedAt = Date.now();
         copy.receivedFrom = null;
+        copy.sharedId = null;
+        copy.sharedOut = false;
+        copy.sharedMembers = [];
+        delete copy.sharedRef;
+        delete copy.sharedFrom;
         copy.sections = (copy.sections || []).map((sec) => ({ ...sec, id: uidId() }));
         copy.checklist = (copy.checklist || []).map((it) => ({
           ...it,

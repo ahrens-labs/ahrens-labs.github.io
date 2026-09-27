@@ -647,6 +647,39 @@ async function pushShareUpdate(env, userId, shareId, deckEntry, updatedShareIds)
   updatedShareIds.add(shareId);
 }
 
+/**
+ * A sharedId must belong to exactly one owned entity; otherwise every holder pushes its
+ * content into the same share. Keep the oldest holder (clones get a fresh createdAt).
+ */
+function dedupeOwnedShareLinks(decks) {
+  const holders = new Map();
+  const note = (entity) => {
+    if (!entity?.sharedId) return;
+    const list = holders.get(entity.sharedId);
+    if (list) list.push(entity);
+    else holders.set(entity.sharedId, [entity]);
+  };
+  for (const deck of decks || []) {
+    if (!deck || deck.sharedRef) continue;
+    note(deck);
+    for (const stack of deck.stacks || []) {
+      note(stack);
+      for (const card of stack?.cards || []) note(card);
+    }
+    for (const card of deck.cards || []) note(card);
+  }
+  const age = (entity) => Number(entity.createdAt) || Infinity;
+  for (const list of holders.values()) {
+    if (list.length < 2) continue;
+    const keep = list.reduce((best, entity) => (age(entity) < age(best) ? entity : best));
+    for (const entity of list) {
+      if (entity === keep) continue;
+      for (const field of SHARE_LINK_FIELDS) delete entity[field];
+    }
+  }
+  return decks;
+}
+
 function collectSharePushTargets(decks) {
   const targets = [];
   for (const deck of decks || []) {
@@ -703,7 +736,7 @@ export async function processDeckSyncPayload(env, userId, deckData, sourceClient
     existing.decks,
     copyAcks
   );
-  const decks = mergeDecksShareMetadata(restoredCopies.decks, existing.decks);
+  const decks = dedupeOwnedShareLinks(mergeDecksShareMetadata(restoredCopies.decks, existing.decks));
   const updatedShareIds = new Set();
 
   if (env.DECK_SHARE || deckD1WriteEnabled(env) || deckD1PrimaryEnabled(env)) {
