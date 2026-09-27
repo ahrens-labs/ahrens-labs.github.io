@@ -647,7 +647,7 @@
       user-select: text;
     }
     .dk-check-reorder-list > [data-reorder-id].dk-reorder-enabled {
-      touch-action: none;
+      touch-action: pan-y;
       -webkit-tap-highlight-color: transparent;
     }
     .dk-inline-link {
@@ -2032,6 +2032,7 @@
             pendingTouchMove: null,
             pendingTouchEnd: null,
             pendingDocTouchMove: null,
+            pendingScroll: null,
             holdStartAt: 0,
           };
 
@@ -2053,6 +2054,10 @@
             if (drag.pendingDocTouchMove) {
               document.removeEventListener('touchmove', drag.pendingDocTouchMove);
               drag.pendingDocTouchMove = null;
+            }
+            if (drag.pendingScroll) {
+              document.removeEventListener('scroll', drag.pendingScroll, true);
+              drag.pendingScroll = null;
             }
             drag.pendingTouchRow = null;
             drag.pendingTouchMove = null;
@@ -2096,19 +2101,24 @@
             document.removeEventListener('touchcancel', onDocTouchEnd);
           }
 
-          function attachPendingHoldTouchLock(drag) {
+          function attachPendingHoldScrollWatch(drag) {
             if (drag.pendingDocTouchMove) return;
             drag.pendingDocTouchMove = (ev) => {
               if (!drag.pendingRow || drag.inputKind !== 'touch') return;
               const touch = reorderTouchById(ev.touches, drag.pointerId);
               if (!touch) return;
-              if (ev.cancelable) ev.preventDefault();
-              if (shouldCancelReorderHold(drag, touch.clientX, touch.clientY, container)) {
+              if (!ev.cancelable || shouldCancelReorderHold(drag, touch.clientX, touch.clientY, container)) {
                 cancelHold(drag);
                 resetReorderTouchState(drag);
               }
             };
-            document.addEventListener('touchmove', drag.pendingDocTouchMove, { passive: false });
+            drag.pendingScroll = () => {
+              if (!drag.pendingRow || drag.inputKind !== 'touch') return;
+              cancelHold(drag);
+              resetReorderTouchState(drag);
+            };
+            document.addEventListener('touchmove', drag.pendingDocTouchMove, { passive: true });
+            document.addEventListener('scroll', drag.pendingScroll, { capture: true, passive: true });
           }
 
           function shouldStartReorderPress(row) {
@@ -2162,10 +2172,10 @@
               drag.pendingTouchRow = row;
               drag.pendingTouchMove = onPendingTouchMove;
               drag.pendingTouchEnd = onPendingTouchEnd;
-              row.addEventListener('touchmove', drag.pendingTouchMove, { passive: false });
+              row.addEventListener('touchmove', drag.pendingTouchMove, { passive: true });
               row.addEventListener('touchend', drag.pendingTouchEnd);
               row.addEventListener('touchcancel', drag.pendingTouchEnd);
-              attachPendingHoldTouchLock(drag);
+              attachPendingHoldScrollWatch(drag);
             }
             drag.holdTimer = setTimeout(() => activateDrag(drag, row), holdMsForContainer(container, inputKind));
           }
@@ -2207,8 +2217,7 @@
             if (!drag || drag.inputKind !== 'touch' || !drag.holdTimer) return;
             const touch = reorderTouchById(ev.touches, drag.pointerId);
             if (!touch) return;
-            if (ev.cancelable) ev.preventDefault();
-            if (shouldCancelReorderHold(drag, touch.clientX, touch.clientY, container)) {
+            if (!ev.cancelable || shouldCancelReorderHold(drag, touch.clientX, touch.clientY, container)) {
               cancelHold(drag);
               resetReorderTouchState(drag);
             }
@@ -2278,9 +2287,8 @@
             const row = ev.target.closest('[data-reorder-id]');
             if (!row || !container.contains(row) || !row.classList.contains('dk-reorder-enabled')) return;
             const touch = ev.touches[0];
-            if (isChecklistReorderContainer(container) && ev.cancelable) ev.preventDefault();
             tryStartReorderPress(row, touch.identifier, touch.clientX, touch.clientY, 'touch');
-          }, { passive: false });
+          }, { passive: true });
 
           container.addEventListener('pointerdown', (ev) => {
             if (ev.button !== undefined && ev.button !== 0) return;
