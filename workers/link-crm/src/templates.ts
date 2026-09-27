@@ -998,11 +998,7 @@ export function layout(title: string, content: string): string {
 
       if (event.key.toLowerCase() === 'q') {
         event.preventDefault();
-        if (typeof window.showQuickAddForm === 'function') {
-          window.showQuickAddForm();
-        } else {
-          window.location.href = window.linkApi ? window.linkApi('/interactions/new') : '/interactions/new';
-        }
+        window.location.href = window.linkApi ? window.linkApi('/interactions/new') : '/interactions/new';
       }
     });
 
@@ -1978,251 +1974,6 @@ function getImportScript(): string {
   return ``;
 }
 
-function getQuickAddModal(): string {
-  return `
-    <div id="quickAddModal" class="modal">
-      <div class="modal-content">
-        <h2 style="margin-bottom: 1rem;">Quick Add Interaction</h2>
-        <p class="text-sm text-gray" style="margin-bottom: 1rem;">Describe your interaction and AI will figure out which contact it belongs to.</p>
-        <form id="quickAddForm">
-          <div class="form-group">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
-              <label class="form-label" style="margin-bottom: 0;">Interaction Details *</label>
-              <button type="button" onclick="toggleVoiceRecording()" class="btn btn-secondary" id="voiceBtn" style="padding: 0.25rem 0.75rem; font-size: 0.875rem;">
-                🎤 Voice Input
-              </button>
-            </div>
-            <textarea name="text" id="interactionText" class="form-textarea" placeholder="Example: Had coffee with Sarah today. She mentioned their new cloud migration project..." style="min-height: 120px;" required></textarea>
-            <div id="recordingIndicator" style="display: none; margin-top: 0.5rem; padding: 0.5rem; background: #fee2e2; border-radius: 0.375rem; color: #991b1b; font-size: 0.875rem;">
-              🔴 Recording... Click "Stop Recording" to finish
-            </div>
-            <div id="transcribingIndicator" style="display: none; margin-top: 0.5rem; padding: 0.5rem; background: #dbeafe; border-radius: 0.375rem; color: #1e40af; font-size: 0.875rem;">
-              ⏳ Transcribing audio...
-            </div>
-          </div>
-          <div class="form-group">
-            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
-              <input type="checkbox" name="newContact" id="newContactCheck" style="cursor: pointer;">
-              <span class="form-label" style="margin: 0;">This is a new contact (create new contact instead of matching existing)</span>
-            </label>
-          </div>
-          <div id="quickAddPhotoFields" style="display: none;">
-            ${contactPhotoFieldsHtml('quickAddContact')}
-          </div>
-          <div class="flex" style="gap: 1rem;">
-            <button type="submit" class="btn btn-primary" id="quickAddBtn">Add Interaction</button>
-            <button type="button" onclick="hideQuickAddForm()" class="btn btn-secondary">Cancel</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  `
-}
-
-function getQuickAddScript(): string {
-  return `
-    <script>
-      ${contactPhotoScript('quickAddContact')}
-
-      document.getElementById("newContactCheck").addEventListener("change", (e) => {
-        document.getElementById("quickAddPhotoFields").style.display = e.target.checked ? "block" : "none";
-      });
-
-      function showQuickAddForm() {
-        document.getElementById("quickAddModal").classList.add("active");
-      }
-      
-      function hideQuickAddForm() {
-        document.getElementById("quickAddModal").classList.remove("active");
-        document.getElementById("quickAddForm").reset();
-      }
-      
-      document.getElementById("quickAddModal").addEventListener("click", (e) => {
-        if (e.target.id === "quickAddModal") {
-          hideQuickAddForm();
-        }
-      });
-      
-      document.getElementById("quickAddForm").addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const btn = document.getElementById("quickAddBtn");
-        const originalText = btn.textContent;
-        btn.disabled = true;
-        btn.textContent = "Processing...";
-        
-        const formData = new FormData(e.target);
-        const text = formData.get("text");
-        const newContact = formData.get("newContact") === "on";
-        
-        try {
-          // First, extract date from text
-          const now = new Date();
-          const dateExtractResponse = await fetch("/api/extract-date", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ 
-              text, 
-              currentDate: now.toDateString() 
-            })
-          });
-          
-          let daysAgo = 0;
-          let location = null;
-          if (dateExtractResponse.ok) {
-            const dateData = await dateExtractResponse.json();
-            daysAgo = dateData.daysAgo ? dateData.daysAgo : 0;
-            location = dateData.location || null;
-          }
-          
-          // Calculate the target date in local timezone
-          const targetDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysAgo);
-          const localTimestamp = targetDate.getTime() - (targetDate.getTimezoneOffset() * 60000);
-          
-          const response = await fetch("/api/interactions/quick-add", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ text, newContact, date: localTimestamp, location })
-          });
-          
-          if (response.ok) {
-            const result = await response.json();
-            if (result.isNewContact && result.contactId && result.contactCount === 1) {
-              try {
-                await quickAddContactUploadPhoto(result.contactId);
-              } catch (photoError) {
-                alert(photoError.message || "Interaction saved, but photo could not be saved");
-              }
-            }
-            let message;
-            if (result.isNewContact) {
-              let isMultiple = false;
-              if (result.contactCount) {
-                if (result.contactCount !== 1) {
-                  isMultiple = true;
-                }
-              }
-              if (isMultiple) {
-                message = "Created " + result.contactCount + " new contacts: " + result.contactName + " and added interaction";
-              } else {
-                message = "Created new contact: " + result.contactName + " and added interaction";
-              }
-            } else {
-              let isMultiple = false;
-              if (result.contactCount) {
-                if (result.contactCount !== 1) {
-                  isMultiple = true;
-                }
-              }
-              if (isMultiple) {
-                message = "Interaction added to " + result.contactCount + " contacts: " + result.contactName;
-              } else {
-                message = "Interaction added to " + result.contactName;
-              }
-            }
-            // Reset form before reload
-            document.getElementById("quickAddForm").reset();
-            hideQuickAddForm();
-            alert(message);
-            window.location.reload();
-          } else {
-            const error = await response.json();
-            let errorMsg = error.error ? error.error : "Error adding interaction";
-            if (error.details) {
-              errorMsg = errorMsg + "\\n\\nDetails: " + error.details;
-            }
-            alert(errorMsg);
-            btn.disabled = false;
-            btn.textContent = originalText;
-          }
-        } catch (error) {
-          alert("Error adding interaction");
-          btn.disabled = false;
-          btn.textContent = originalText;
-        }
-      });
-      
-      // Voice recording functionality
-      let mediaRecorder = null;
-      let audioChunks = [];
-      let isRecording = false;
-      
-      async function toggleVoiceRecording() {
-        if (!isRecording) {
-          try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            mediaRecorder = new MediaRecorder(stream);
-            audioChunks = [];
-            
-            mediaRecorder.ondataavailable = (event) => {
-              audioChunks.push(event.data);
-            };
-            
-            mediaRecorder.onstop = async () => {
-              const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-              await transcribeAudio(audioBlob);
-              stream.getTracks().forEach(track => track.stop());
-            };
-            
-            mediaRecorder.start();
-            isRecording = true;
-            document.getElementById('voiceBtn').textContent = '⏹️ Stop Recording';
-            document.getElementById('voiceBtn').style.background = '#ef4444';
-            document.getElementById('voiceBtn').style.color = 'white';
-            document.getElementById('recordingIndicator').style.display = 'block';
-          } catch (error) {
-            console.error('Microphone error:', error);
-            if (error.name === 'NotAllowedError') {
-              alert('Microphone access denied. Please allow microphone access in your browser settings and try again.');
-            } else if (error.name === 'NotFoundError') {
-              alert('No microphone found. Please ensure a microphone is connected and try again.');
-            } else if (error.name === 'NotSupportedError') {
-              alert('Your browser does not support microphone access. Please use a modern browser like Chrome, Firefox, or Safari.');
-            } else if (window.location.protocol !== 'https:') {
-              alert('Microphone access requires HTTPS. Please access this site using https://');
-            } else {
-              alert('Error accessing microphone: ' + error.message + '. Please check your browser permissions.');
-            }
-          }
-        } else {
-          mediaRecorder.stop();
-          isRecording = false;
-          document.getElementById('voiceBtn').textContent = '🎤 Voice Input';
-          document.getElementById('voiceBtn').style.background = '';
-          document.getElementById('voiceBtn').style.color = '';
-          document.getElementById('recordingIndicator').style.display = 'none';
-        }
-      }
-      
-      async function transcribeAudio(audioBlob) {
-        const transcribingIndicator = document.getElementById('transcribingIndicator');
-        transcribingIndicator.style.display = 'block';
-        
-        try {
-          const formData = new FormData();
-          formData.append('audio', audioBlob, 'recording.webm');
-          
-          const response = await fetch('/api/transcribe', {
-            method: 'POST',
-            body: formData
-          });
-          
-          if (response.ok) {
-            const data = await response.json();
-            document.getElementById('interactionText').value = data.text;
-          } else {
-            alert('Error transcribing audio. Please try again.');
-          }
-        } catch (error) {
-          alert('Error transcribing audio. Please try again.');
-          console.error('Transcription error:', error);
-        } finally {
-          transcribingIndicator.style.display = 'none';
-        }
-      }
-    </script>
-  `
-}
-
 function getBottomNav(activePage: string): string {
   return `
     <div class="bottom-nav">
@@ -2300,7 +2051,7 @@ export function dashboardPage(user: any, hasGoogleAccount: boolean = false, rece
         </div>
 
         <div class="home-actions">
-          <button type="button" class="btn btn-secondary" onclick="showQuickAddForm()">✍️ + Interaction</button>
+          <a href="/interactions/new?returnTo=/dashboard" class="btn btn-secondary">✍️ + Interaction</a>
           <a href="/contacts/new" class="btn btn-secondary">👥 + Person</a>
           <a href="/reminders/new" class="btn btn-secondary">⏰ + Reminder</a>
         </div>
@@ -2338,8 +2089,6 @@ export function dashboardPage(user: any, hasGoogleAccount: boolean = false, rece
     </div>
     
     ${getBottomNav('home')}
-    ${getQuickAddModal()}
-    ${getQuickAddScript()}
     ${hasGoogleAccount ? getImportScript() : ''}
     ${getVoiceAssistantScript()}
   `)
@@ -2726,29 +2475,7 @@ export function contactDetailPage(contact: any, interactions: any[], dates: any[
       <div class="card">
         <div class="flex-between" style="margin-bottom: 1.5rem;">
           <h2 style="font-size: 1.5rem;">Interactions</h2>
-          <button onclick="showAddInteractionForm()" class="btn btn-primary">Add Interaction</button>
-        </div>
-        
-        <div id="addInteractionForm" style="display: none; margin-bottom: 1.5rem; padding: 1rem; background: #f9fafb; border-radius: 0.5rem;">
-          <h3 style="margin-bottom: 1rem;">New Interaction</h3>
-          <form id="interactionForm">
-            <input type="hidden" name="type" value="meeting">
-            
-            <div class="form-group">
-              <label class="form-label">Date</label>
-              <input type="date" name="date" class="form-input" id="newInteractionDate" required>
-            </div>
-            
-            <div class="form-group">
-              <label class="form-label">Notes</label>
-              <textarea name="notes" class="form-textarea" required></textarea>
-            </div>
-            
-            <div class="flex" style="gap: 1rem;">
-              <button type="submit" class="btn btn-primary">Save</button>
-              <button type="button" onclick="hideAddInteractionForm()" class="btn btn-secondary">Cancel</button>
-            </div>
-          </form>
+          <a href="/interactions/new?contact=${contact.id}&returnTo=/contacts/${contact.id}" class="btn btn-primary">Add Interaction</a>
         </div>
         
         ${interactions.length > 0 ? `
@@ -2807,50 +2534,6 @@ export function contactDetailPage(contact: any, interactions: any[], dates: any[
         document.getElementById('aiSummaryCard').style.display = 'none';
       }
       
-      function showAddInteractionForm() {
-        document.getElementById('addInteractionForm').style.display = 'block';
-        const today = new Date();
-        const year = today.getFullYear();
-        const month = String(today.getMonth() + 1).padStart(2, '0');
-        const day = String(today.getDate()).padStart(2, '0');
-        document.getElementById('newInteractionDate').value = year + '-' + month + '-' + day;
-      }
-      
-      function hideAddInteractionForm() {
-        document.getElementById('addInteractionForm').style.display = 'none';
-        document.getElementById('interactionForm').reset();
-      }
-      
-      document.getElementById('interactionForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const formData = new FormData(e.target);
-        // Parse date as UTC to avoid timezone shifts
-        const dateStr = formData.get('date');
-        const [year, month, day] = dateStr.split('-').map(Number);
-        const data = {
-          type: formData.get('type'),
-          date: Date.UTC(year, month - 1, day),
-          notes: formData.get('notes'),
-          location: formData.get('location') || null
-        };
-        
-        try {
-          const contactId = document.getElementById("contactId").textContent;
-          const response = await fetch('/api/contacts/' + contactId + '/interactions', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-          });
-          
-          if (response.ok) {
-            window.location.reload();
-          } else {
-            alert('Error adding interaction');
-          }
-        } catch (error) {
-          alert('Error adding interaction');
-        }
-      });
     </script>
     
     ${getFooterLinks()}
@@ -3102,12 +2785,15 @@ export function editInteractionPage(contact: any, interaction: any, allContacts:
   `);
 }
 
-export function newInteractionPage(allContacts: any[], preselectedContactId?: string): string {
+export function newInteractionPage(allContacts: any[], preselectedContactId?: string, returnTo: string = '/interactions'): string {
+  const backLabel = returnTo === '/dashboard'
+    ? 'Back to Dashboard'
+    : returnTo.startsWith('/contacts/') ? 'Back to Contact' : 'Back to Interactions'
   return layout('Add Interaction', `
     ${linkAppHeader()}
     <div class="container" style="max-width: 600px; margin-top: 2rem;">
       <div style="margin-bottom: 1rem;">
-        <a href="/interactions" style="color: #6b7280;">← Back to Interactions</a>
+        <a href="${returnTo}" style="color: #6b7280;">← ${backLabel}</a>
       </div>
       
       <div class="card">
@@ -3164,7 +2850,7 @@ export function newInteractionPage(allContacts: any[], preselectedContactId?: st
           
           <div class="flex" style="gap: 1rem; margin-top: 1.5rem;">
             <button type="submit" class="btn btn-primary">Add Interaction</button>
-            <a href="/interactions" class="btn btn-secondary">Cancel</a>
+            <a href="${returnTo}" class="btn btn-secondary">Cancel</a>
           </div>
         </form>
       </div>
@@ -3377,7 +3063,7 @@ export function newInteractionPage(allContacts: any[], preselectedContactId?: st
           });
           
           if (response.ok) {
-            window.location.href = '/interactions';
+            window.location.href = '${returnTo}';
           } else {
             alert('Error adding interaction');
           }
@@ -3861,8 +3547,6 @@ export function interactionsPage(user: any, recentInteractions: any[], searchQue
     </div>
     
     ${getBottomNav('interactions')}
-    ${getQuickAddModal()}
-    ${getQuickAddScript()}
     ${hasGoogleAccount ? getImportScript() : ''}
     ${getVoiceAssistantScript()}
   `)

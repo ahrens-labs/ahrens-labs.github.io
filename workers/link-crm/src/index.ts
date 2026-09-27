@@ -2265,14 +2265,21 @@ app.delete('/api/dates/:id', requireAuth, async (c) => {
   return c.json({ success: true })
 })
 
+/** App-relative paths only; the value is rendered into links and a redirect. */
+function safeInteractionReturnTo(raw: string | undefined): string {
+  const value = String(raw || '')
+  return /^\/(dashboard|interactions|contacts\/[A-Za-z0-9-]+)$/.test(value) ? value : '/interactions'
+}
+
 // New interaction page
 app.get('/interactions/new', requireAuth, async (c) => {
   const user = c.get('user')
-  const contactId = c.req.query('contact')
+  const requestedContactId = c.req.query('contact')
+  const returnTo = safeInteractionReturnTo(c.req.query('returnTo'))
   
   // Get all user's contacts for the dropdown
   const allContactsResult = await c.env.DB.prepare(
-    'SELECT id, name FROM contacts WHERE user_id = ? ORDER BY name'
+    'SELECT id, name FROM contacts WHERE user_id = ?'
   ).bind(user.id).all()
   
   const allContacts = await Promise.all(
@@ -2284,8 +2291,12 @@ app.get('/interactions/new', requireAuth, async (c) => {
       }
     })
   )
+  allContacts.sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')))
+  const contactId = allContacts.some((contact) => contact.id === requestedContactId)
+    ? requestedContactId
+    : undefined
   
-  return serveLinkHtml(c, newInteractionPage(allContacts, contactId))
+  return serveLinkHtml(c, newInteractionPage(allContacts, contactId, returnTo))
 })
 
 // Edit interaction page
