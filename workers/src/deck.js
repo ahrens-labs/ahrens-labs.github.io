@@ -879,7 +879,17 @@ function buildRecipientReferenceDeck({ sharedId, type, label, ownerProfile }) {
   };
 }
 
-export async function handleDeckShareRequest(request, env, corsHeaders) {
+function scheduleShareRecipientNotice(executionCtx, notifyShareRecipient, notice) {
+  if (typeof notifyShareRecipient !== 'function' || !notice.to) return;
+  const task = Promise.resolve()
+    .then(() => notifyShareRecipient(notice))
+    .catch((err) => {
+      console.warn('[deck] share notification email failed', err?.code || '', err?.message || err);
+    });
+  if (executionCtx && typeof executionCtx.waitUntil === 'function') executionCtx.waitUntil(task);
+}
+
+export async function handleDeckShareRequest(request, env, corsHeaders, { executionCtx, notifyShareRecipient } = {}) {
   const userId = await resolveDeckUserId(request, env);
   if (!userId) return jsonResponse({ error: 'Not authenticated' }, corsHeaders, 401);
 
@@ -968,6 +978,7 @@ export async function handleDeckShareRequest(request, env, corsHeaders) {
     };
   }
 
+  const isNewMember = !(shareRecord.members || []).some((m) => m && m.userId === target.userId);
   shareRecord.members = upsertShareMember(shareRecord.members, target);
   await saveDeckShare(env, shareRecord);
   assignSharedIdToOwnerSource(deck, sourceType, stack, card, sharedId);
@@ -998,6 +1009,17 @@ export async function handleDeckShareRequest(request, env, corsHeaders) {
   }
 
   await publishDeckShareSync(env, shareRecord, null, [target.userId]);
+
+  if (isNewMember) {
+    scheduleShareRecipientNotice(executionCtx, notifyShareRecipient, {
+      to: target.email,
+      recipientName: target.username || '',
+      sharerName: ownerProfile.username || '',
+      itemType: sourceType,
+      itemName: label,
+      recipientDeckId,
+    });
+  }
 
   return jsonResponse({
     success: true,
