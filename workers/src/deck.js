@@ -695,10 +695,15 @@ export async function processDeckSyncPayload(env, userId, deckData, sourceClient
     };
   }
 
-  const decks = mergeDecksShareMetadata(
-    Array.isArray(deckData?.decks) ? deckData.decks : [],
-    existing.decks
+  const copyAcks = new Set(
+    (Array.isArray(deckData?.copyAcks) ? deckData.copyAcks : []).map(String)
   );
+  const restoredCopies = restorePendingCopies(
+    Array.isArray(deckData?.decks) ? deckData.decks : [],
+    existing.decks,
+    copyAcks
+  );
+  const decks = mergeDecksShareMetadata(restoredCopies.decks, existing.decks);
   const updatedShareIds = new Set();
 
   if (env.DECK_SHARE || deckD1WriteEnabled(env) || deckD1PrimaryEnabled(env)) {
@@ -708,8 +713,9 @@ export async function processDeckSyncPayload(env, userId, deckData, sourceClient
   }
 
   const lastUpdated = Date.now();
+  const { copyAcks: _copyAcks, ...deckDataToStore } = deckData || {};
   await saveDeckDataForUser(env, userId, {
-    ...deckData,
+    ...deckDataToStore,
     decks,
     clientLastModified: incomingMod || existingMod || lastUpdated,
     lastUpdated,
@@ -732,6 +738,7 @@ export async function processDeckSyncPayload(env, userId, deckData, sourceClient
     ignored: false,
     lastUpdated,
     clientLastModified: incomingMod || existingMod || lastUpdated,
+    copiesRestored: restoredCopies.restored > 0,
   };
 }
 
@@ -1030,6 +1037,127 @@ export async function handleDeckShareRequest(request, env, corsHeaders, { execut
     sharedName: label,
     sharedId,
     deckId: recipientDeckId,
+  }, corsHeaders);
+}
+
+const SEND_COPY_EMAIL_THROTTLE_MS = 10 * 60 * 1000;
+const SHARE_LINK_FIELDS = ['sharedId', 'sharedOut', 'sharedMembers', 'sharedRef', 'sharedFrom'];
+
+function buildReceivedCardCopy(card, receivedFrom, now) {
+  const src = JSON.parse(JSON.stringify(card));
+  const copy = {
+    ...src,
+    id: newDeckEntityId(),
+    createdAt: now,
+    updatedAt: now,
+    archived: false,
+    archivedAt: null,
+    sections: (Array.isArray(src.sections) ? src.sections : []).map((sec) => ({ ...sec, id: newDeckEntityId() })),
+    checklist: (Array.isArray(src.checklist) ? src.checklist : []).map((it) => ({ ...it, id: newDeckEntityId() })),
+    receivedFrom,
+  };
+  for (const field of SHARE_LINK_FIELDS) delete copy[field];
+  return copy;
+}
+
+/**
+ * Received copies are saved server-side while the recipient's app may hold an older snapshot.
+ * Until the client acknowledges a pending copy, its absence from a sync is not treated as a delete.
+ */
+function restorePendingCopies(incomingDecks, existingDecks, acks) {
+  const incomingIds = new Set(incomingDecks.filter(Boolean).map((d) => d.id));
+  const missing = (existingDecks || []).filter(
+    (d) => d && d.copyPending && !incomingIds.has(d.id) && !acks.has(String(d.id))
+  );
+  if (!missing.length) return { decks: incomingDecks, restored: 0 };
+  return { decks: [...missing, ...incomingDecks], restored: missing.length };
+}
+
+export async function handleDeckSendCopyRequest(request, env, corsHeaders, { executionCtx, notifyCopyRecipient } = {}) {
+  const userId = await resolveDeckUserId(request, env);
+  if (!userId) return jsonResponse({ error: 'Not authenticated' }, corsHeaders, 401);
+
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return jsonResponse({ error: 'Invalid JSON' }, corsHeaders, 400);
+  }
+
+  const deckId = String(body.deckId || '').trim();
+  const stackId = body.stackId ? String(body.stackId).trim() : '';
+  const cardId = String(body.cardId || '').trim();
+  if (!deckId || !cardId) return jsonResponse({ error: 'deckId and cardId required' }, corsHeaders, 400);
+
+  const [senderProfile, resolved] = await Promise.all([
+    fetchUserProfile(env, userId),
+    resolveShareTarget(env, body.usernameOrEmail),
+  ]);
+  if (!senderProfile) return jsonResponse({ error: 'Account not found' }, corsHeaders, 404);
+  if (resolved.error) return jsonResponse({ error: resolved.error }, corsHeaders, resolved.status);
+  const target = resolved.profile;
+  if (target.userId === userId) {
+    return jsonResponse({ error: 'You cannot send a copy to yourself' }, corsHeaders, 400);
+  }
+
+  const senderData = await getDeckDataForUser(env, userId);
+  let deck = findDeck(senderData.decks, deckId);
+  let found = deck ? findCardInDeckTree(deck, cardId, stackId || null) : null;
+  if (!found && deck?.sharedRef) {
+    const hydrated = await hydrateDeckDataForUser(env, userId, senderData);
+    deck = findDeck(hydrated.decks, deckId);
+    found = deck ? findCardInDeckTree(deck, cardId, stackId || null) : null;
+  }
+  if (!found) return jsonResponse({ error: 'Card not found' }, corsHeaders, 404);
+
+  const now = Date.now();
+  const receivedFrom = {
+    userId: senderProfile.userId,
+    username: senderProfile.username || '',
+    sentAt: now,
+  };
+  const cardCopy = buildReceivedCardCopy(found.card, receivedFrom, now);
+  const cardTitle = String(cardCopy.title || '').trim() || 'Untitled card';
+
+  const recipientData = await getDeckDataForUser(env, target.userId);
+  const recipientDecks = Array.isArray(recipientData.decks) ? recipientData.decks.slice() : [];
+  const recentlyNotified = recipientDecks.some(
+    (d) => d?.receivedFrom?.userId === userId && now - (Number(d.receivedFrom.sentAt) || 0) < SEND_COPY_EMAIL_THROTTLE_MS
+  );
+  const recipientDeck = {
+    id: newDeckEntityId(),
+    name: cardTitle,
+    createdAt: now,
+    updatedAt: now,
+    cards: [cardCopy],
+    stacks: [],
+    receivedFrom,
+    copyPending: true,
+  };
+  recipientDecks.unshift(recipientDeck);
+  await saveDeckDataForUser(env, target.userId, {
+    ...recipientData,
+    decks: recipientDecks,
+    lastUpdated: now,
+  });
+  await notifyDeckSync(env, target.userId, { type: 'deck', ts: now, sourceClientId: null });
+
+  if (!recentlyNotified) {
+    scheduleShareRecipientNotice(executionCtx, notifyCopyRecipient, {
+      to: target.email,
+      recipientName: target.username || '',
+      sharerName: senderProfile.username || '',
+      itemType: 'card',
+      itemName: cardTitle,
+      recipientDeckId: recipientDeck.id,
+      recipientCardId: cardCopy.id,
+    });
+  }
+
+  return jsonResponse({
+    success: true,
+    sentTo: target.username || target.email || target.userId,
+    cardTitle,
   }, corsHeaders);
 }
 

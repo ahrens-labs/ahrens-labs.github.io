@@ -1276,6 +1276,7 @@
             <div class="dk-context-actions">
               <button type="button" class="dk-btn dk-btn-ghost" id="btn-review-card">Review</button>
               <button type="button" class="dk-btn dk-btn-ghost dk-btn-small" id="btn-share-card">Share</button>
+              <button type="button" class="dk-btn dk-btn-ghost dk-btn-small" id="btn-send-copy-card">Send a copy</button>
               <button type="button" class="dk-btn dk-btn-ghost dk-btn-small" id="btn-clone-card">Clone</button>
             </div>
           </nav>
@@ -1589,7 +1590,28 @@
           sharedId: src.sharedId || null,
           sharedOut: !!(src.sharedOut || src.sharedId),
           sharedMembers: normalizeShareMembers(src.sharedMembers),
+          receivedFrom: normalizeReceivedFrom(src.receivedFrom),
         };
+      }
+
+      function normalizeReceivedFrom(raw) {
+        if (!raw || typeof raw !== 'object') return null;
+        const username = String(raw.username || '').trim();
+        if (!username && !raw.userId) return null;
+        return { userId: raw.userId || '', username, sentAt: Number(raw.sentAt) || 0 };
+      }
+
+      function receivedFromLabel(entity) {
+        const from = entity && entity.receivedFrom;
+        if (!from) return '';
+        return from.username ? ('Sent by ' + from.username) : 'Sent to you';
+      }
+
+      function buildReceivedMetaElement(entity) {
+        const span = document.createElement('span');
+        span.className = 'dk-share-in';
+        span.textContent = receivedFromLabel(entity);
+        return span;
       }
 
       function normalizeShareMembers(raw) {
@@ -1767,6 +1789,8 @@
           }
           if (part.share && entityIsShared(part.share)) {
             el.appendChild(buildShareMetaElement(part.share));
+          } else if (part.received && part.received.receivedFrom) {
+            el.appendChild(buildReceivedMetaElement(part.received));
           }
         });
       }
@@ -1786,6 +1810,7 @@
           sharedFrom: d.sharedFrom || null,
           sharedOut: !!(d.sharedOut || d.sharedId),
           sharedMembers: normalizeShareMembers(d.sharedMembers),
+          receivedFrom: normalizeReceivedFrom(d.receivedFrom),
         }));
         return { decks };
       }
@@ -1828,12 +1853,49 @@
         writeDeckPersistMeta({ lastModified: Date.now() });
       }
 
+      const DECK_COPY_ACKS_MAX = 100;
+
+      function getDeckCopyAcksKey() {
+        return getStorageKey() + '_copy_acks';
+      }
+
+      function readDeckCopyAcks() {
+        try {
+          const list = JSON.parse(localStorage.getItem(getDeckCopyAcksKey()) || '[]');
+          return Array.isArray(list) ? list.map(String) : [];
+        } catch {
+          return [];
+        }
+      }
+
+      function writeDeckCopyAcks(list) {
+        if (list.length) localStorage.setItem(getDeckCopyAcksKey(), JSON.stringify(list.slice(-DECK_COPY_ACKS_MAX)));
+        else localStorage.removeItem(getDeckCopyAcksKey());
+      }
+
+      function recordPendingCopyAcks(payload) {
+        const ids = (Array.isArray(payload?.decks) ? payload.decks : [])
+          .filter((d) => d && d.copyPending && d.id)
+          .map((d) => String(d.id));
+        if (!ids.length) return;
+        const acks = readDeckCopyAcks();
+        writeDeckCopyAcks([...acks.filter((id) => !ids.includes(id)), ...ids]);
+      }
+
+      function clearSentDeckCopyAcks(sent) {
+        if (!sent || !sent.length) return;
+        writeDeckCopyAcks(readDeckCopyAcks().filter((id) => !sent.includes(id)));
+      }
+
       function buildDeckCloudPayload() {
         const meta = readDeckPersistMeta();
-        return {
+        const payload = {
           decks: Array.isArray(state.decks) ? state.decks : [],
           clientLastModified: meta.lastModified || 0,
         };
+        const copyAcks = readDeckCopyAcks();
+        if (copyAcks.length) payload.copyAcks = copyAcks;
+        return payload;
       }
 
       function reconcileActiveDeckSelection() {
@@ -1853,6 +1915,7 @@
       }
 
       function applyDeckCloudPayload(payload) {
+        recordPendingCopyAcks(payload);
         suppressCloudSync = true;
         state = parseDeckState(payload || {});
         reconcileActiveDeckSelection();
@@ -2501,6 +2564,19 @@
         }
       }
 
+      async function pullAndApplyDeckCloudState() {
+        const cloudData = await fetchDeckCloudPayload();
+        if (!cloudData) return;
+        applyDeckCloudPayload(cloudData);
+        writeDeckPersistMeta({
+          cloudLastUpdated: cloudData.lastUpdated || 0,
+          lastSyncedAt: Date.now(),
+          lastModified: readDeckPersistMeta().lastModified || Date.now(),
+        });
+        localStorage.setItem(getStorageKey(), JSON.stringify(state));
+        renderCurrentView();
+      }
+
       async function syncDeckToCloud() {
         if (!cloudSyncEnabled || suppressCloudSync) return false;
         const sessionId = localStorage.getItem('ahrenslabs_sessionId');
@@ -2538,25 +2614,16 @@
                   deckCloudSyncAgain = true;
                 } else {
                   markDeckSyncedLocally(result.lastUpdated || Date.now(), syncedModified);
-                  if (!deckShouldDeferCloudRefresh()) {
-                    const cloudData = await fetchDeckCloudPayload();
-                    if (cloudData) {
-                      applyDeckCloudPayload(cloudData);
-                      writeDeckPersistMeta({
-                        cloudLastUpdated: cloudData.lastUpdated || 0,
-                        lastSyncedAt: Date.now(),
-                        lastModified: readDeckPersistMeta().lastModified || Date.now(),
-                      });
-                      localStorage.setItem(getStorageKey(), JSON.stringify(state));
-                      renderCurrentView();
-                    }
-                  }
+                  if (!deckShouldDeferCloudRefresh()) await pullAndApplyDeckCloudState();
                 }
                 ok = true;
-              } else if (!markDeckSyncedLocally(Date.now(), syncedModified)) {
-                deckCloudSyncAgain = true;
-                ok = true;
               } else {
+                clearSentDeckCopyAcks(payload.copyAcks);
+                if (!markDeckSyncedLocally(Date.now(), syncedModified)) {
+                  deckCloudSyncAgain = true;
+                } else if (result && result.copiesRestored && !deckShouldDeferCloudRefresh()) {
+                  await pullAndApplyDeckCloudState();
+                }
                 ok = true;
               }
               await updateDeckSyncFingerprint();
@@ -3366,6 +3433,7 @@
       const shareModalTitle = document.getElementById('dk-share-title');
       const shareModalMessage = document.getElementById('dk-share-message');
       const shareModalInput = document.getElementById('dk-share-input');
+      const shareModalOk = document.getElementById('dk-share-ok');
       let shareModalContext = null;
 
       function closeShareModal() {
@@ -3377,11 +3445,70 @@
         shareModalContext = context;
         const labels = { deck: 'deck', stack: 'stack', card: 'card' };
         const label = labels[context.type] || 'item';
-        shareModalTitle.textContent = 'Share ' + label;
-        shareModalMessage.textContent = 'Give another Ahrens Labs user live access. Edits sync for everyone with access.';
+        if (context.mode === 'copy') {
+          shareModalTitle.textContent = 'Send a copy of this ' + label;
+          shareModalMessage.textContent = 'Give another Ahrens Labs user their own copy. They can edit, archive, or delete it without changing yours, and your later edits won\u2019t reach them.';
+          shareModalOk.textContent = 'Send copy';
+        } else {
+          shareModalTitle.textContent = 'Share ' + label;
+          shareModalMessage.textContent = 'Give another Ahrens Labs user live access. Edits sync for everyone with access.';
+          shareModalOk.textContent = 'Share';
+        }
         shareModalInput.value = '';
         shareModalEl.classList.add('open');
         setTimeout(() => shareModalInput.focus(), 0);
+      }
+
+      function submitShareModal() {
+        if (shareModalContext && shareModalContext.mode === 'copy') return performSendCopy();
+        return performShare();
+      }
+
+      async function performSendCopy() {
+        const context = shareModalContext;
+        if (!context) return closeShareModal();
+        const usernameOrEmail = shareModalInput.value.trim();
+        if (!usernameOrEmail) {
+          await showAlert({ title: 'Send a copy', message: 'Enter a username or email.' });
+          return;
+        }
+        const sessionId = localStorage.getItem('ahrenslabs_sessionId');
+        if (!sessionId) {
+          closeShareModal();
+          await showAlert({
+            title: 'Sign in required',
+            message: 'Log in to your Ahrens Labs account to send copies to other users.',
+          });
+          return;
+        }
+        shareModalOk.disabled = true;
+        try {
+          await flushDeckCloudSync();
+          const response = await fetch(deckApiBase() + '/api/deck/send-copy', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: 'Bearer ' + sessionId,
+            },
+            body: JSON.stringify({
+              deckId: context.deckId,
+              stackId: context.stackId || undefined,
+              cardId: context.cardId,
+              usernameOrEmail,
+            }),
+          });
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(data.error || 'Send failed');
+          closeShareModal();
+          await showAlert({
+            title: 'Copy sent',
+            message: 'Sent a copy of "' + (data.cardTitle || 'card') + '" to ' + (data.sentTo || 'that user') + '. Your card stays unchanged.',
+          });
+        } catch (error) {
+          await showAlert({ title: 'Send failed', message: error.message || 'Send failed' });
+        } finally {
+          shareModalOk.disabled = false;
+        }
       }
 
       async function performShare() {
@@ -4236,6 +4363,7 @@
           if (isDeckArchived(d)) appendArchivedBadge(titleEl);
           const metaParts = [];
           if (entityIsShared(d)) metaParts.push({ share: d });
+          else if (d.receivedFrom) metaParts.push({ received: d });
           if (stats.stacks) metaParts.push(stats.stacks + (stats.stacks === 1 ? ' stack' : ' stacks'));
           if (stats.totalCards) metaParts.push(stats.totalCards + (stats.totalCards === 1 ? ' card' : ' cards'));
           if (!metaParts.length) metaParts.push('Empty deck');
@@ -4420,6 +4548,7 @@
         copy.id = uidId();
         copy.createdAt = Date.now();
         copy.updatedAt = Date.now();
+        copy.receivedFrom = null;
         copy.sections = (copy.sections || []).map((sec) => ({ ...sec, id: uidId() }));
         copy.checklist = (copy.checklist || []).map((it) => ({
           ...it,
@@ -4643,6 +4772,11 @@
           shareMeta.className = 'dk-card-preview-meta';
           shareMeta.appendChild(buildShareMetaElement(card));
           inner.appendChild(shareMeta);
+        } else if (card.receivedFrom) {
+          const receivedMeta = document.createElement('p');
+          receivedMeta.className = 'dk-card-preview-meta';
+          receivedMeta.appendChild(buildReceivedMetaElement(card));
+          inner.appendChild(receivedMeta);
         }
         if (opts.showLocation) {
           const meta = document.createElement('p');
@@ -5038,13 +5172,19 @@
         const whereEl = document.getElementById('card-view-deck');
         whereEl.textContent = '';
         let whereFirst = true;
+        let whereLabel = '';
         if (entityIsShared(card)) {
           whereEl.appendChild(buildShareMetaElement(card));
+          whereLabel = entityShareLabel(card);
+          whereFirst = false;
+        } else if (card.receivedFrom) {
+          whereEl.appendChild(buildReceivedMetaElement(card));
+          whereLabel = receivedFromLabel(card);
           whereFirst = false;
         }
         if (!whereFirst) whereEl.appendChild(document.createTextNode(' · '));
         whereEl.appendChild(document.createTextNode(where));
-        whereEl.title = entityIsShared(card) ? entityShareLabel(card) + ' · ' + where : where;
+        whereEl.title = whereLabel ? whereLabel + ' · ' + where : where;
         document.getElementById('btn-back-cards').textContent = loc.stack
           ? '← ' + (loc.stack.name || 'Stack')
           : '← ' + (deck.name || 'Cards');
@@ -5629,17 +5769,28 @@
           cardId: loc.card.id,
         });
       });
+      document.getElementById('btn-send-copy-card').addEventListener('click', () => {
+        const loc = activeCardLocation();
+        if (!loc) return;
+        openShareModal({
+          mode: 'copy',
+          type: 'card',
+          deckId: loc.deck.id,
+          stackId: loc.stack ? loc.stack.id : null,
+          cardId: loc.card.id,
+        });
+      });
       document.getElementById('btn-clone-card').addEventListener('click', () => {
         const loc = activeCardLocation();
         if (!loc) return;
         cloneCardById(loc.deck.id, loc.stack ? loc.stack.id : null, loc.card.id);
       });
       document.getElementById('dk-share-cancel').addEventListener('click', closeShareModal);
-      document.getElementById('dk-share-ok').addEventListener('click', performShare);
+      shareModalOk.addEventListener('click', submitShareModal);
       shareModalInput.addEventListener('keydown', (ev) => {
         if (ev.key === 'Enter') {
           ev.preventDefault();
-          performShare();
+          if (!shareModalOk.disabled) submitShareModal();
         }
       });
       shareModalEl.addEventListener('click', (ev) => {

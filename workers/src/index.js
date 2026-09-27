@@ -34,7 +34,7 @@ export { TetherProject, TetherSync } from './tether.js';
 import { d1CountProjectsForUser, d1CountInboxTasksForUser, d1CountProjects } from './tether-d1.js';
 import { d1CountDecksForUser, d1CountCardsForUser } from './deck-d1.js';
 import { handlePlatterRequest } from './platter.js';
-import { handleDeckShareRequest, hydrateDeckDataForUser, processDeckSyncPayload, buildDeckSyncFingerprintForUser, getDeckDataForUser, DeckShare, backfillUserDeckToD1 } from './deck.js';
+import { handleDeckShareRequest, handleDeckSendCopyRequest, hydrateDeckDataForUser, processDeckSyncPayload, buildDeckSyncFingerprintForUser, getDeckDataForUser, DeckShare, backfillUserDeckToD1 } from './deck.js';
 export { PlatterMenu } from './platter.js';
 export { DeckShare } from './deck.js';
 import { handleLinkRequest, handleLinkConsumeBridge, handleInternalUserProfile } from './link.js';
@@ -229,6 +229,11 @@ export default {
         return handleDeckShareRequest(request, env, corsHeaders, {
           executionCtx,
           notifyShareRecipient: (notice) => sendDeckShareEmail(env, notice),
+        });
+      } else if (path === '/api/deck/send-copy' && request.method === 'POST') {
+        return handleDeckSendCopyRequest(request, env, corsHeaders, {
+          executionCtx,
+          notifyCopyRecipient: (notice) => sendDeckShareEmail(env, { ...notice, kind: 'copy' }),
         });
       } else if (path === '/api/deck/admin/backfill-d1' && request.method === 'POST') {
         return handleDeckD1Backfill(request, env, corsHeaders);
@@ -9157,22 +9162,34 @@ async function sendAccountDeletedEmail(env, email, username) {
 
 const DECK_SHARE_ITEM_NOUNS = { card: 'card', stack: 'stack', deck: 'deck' };
 
-async function sendDeckShareEmail(env, { to, recipientName, sharerName, itemType, itemName, recipientDeckId }) {
+async function sendDeckShareEmail(env, { to, recipientName, sharerName, itemType, itemName, recipientDeckId, recipientCardId, kind }) {
   if (!to) return;
+  const isCopy = kind === 'copy';
   const noun = DECK_SHARE_ITEM_NOUNS[itemType] || 'item';
   const sharer = String(sharerName || '').replace(/\s+/g, ' ').trim().slice(0, 80) || 'Someone';
   const recipient = String(recipientName || '').replace(/\s+/g, ' ').trim().slice(0, 80) || 'there';
   const rawName = String(itemName || '').replace(/\s+/g, ' ').trim();
   const name = (rawName.length > 120 ? rawName.slice(0, 117) + '…' : rawName) || `Untitled ${noun}`;
   const base = sitePublicBase(env);
-  const deckUrl = recipientDeckId
-    ? `${base}/deck.html#/decks/${encodeURIComponent(recipientDeckId)}`
-    : `${base}/deck.html`;
+  let deckUrl = `${base}/deck.html`;
+  if (recipientDeckId) {
+    deckUrl += `#/decks/${encodeURIComponent(recipientDeckId)}`;
+    if (recipientCardId) deckUrl += `/card/${encodeURIComponent(recipientCardId)}`;
+  }
   const sharerHtml = escapeHtmlEmail(sharer);
   const recipientHtml = escapeHtmlEmail(recipient);
   const nameHtml = escapeHtmlEmail(name);
   const urlHtml = escapeHtmlEmail(deckUrl);
-  const subject = `${sharer} shared a ${noun} with you on Deck`;
+  const subject = isCopy
+    ? `${sharer} sent you a copy of a ${noun} on Deck`
+    : `${sharer} shared a ${noun} with you on Deck`;
+  const heading = isCopy ? `You received a copy of a ${noun}` : `A ${noun} was shared with you`;
+  const introHtml = isCopy
+    ? `<strong style="color:#0f172a;">${sharerHtml}</strong> sent you a copy of a ${noun} on Deck. It's yours to edit, archive, or delete — your changes won't affect their version.`
+    : `<strong style="color:#0f172a;">${sharerHtml}</strong> shared a ${noun} with you on Deck. You can view and edit it together — changes sync live.`;
+  const introText = isCopy
+    ? `${sharer} sent you a copy of a ${noun} on Deck: ${name}\nIt's yours to edit, archive, or delete — your changes won't affect their version.`
+    : `${sharer} shared a ${noun} with you on Deck: ${name}`;
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width"></head>
@@ -9183,13 +9200,13 @@ async function sendDeckShareEmail(env, { to, recipientName, sharerName, itemType
         <tr>
           <td style="padding:22px 28px;background:linear-gradient(120deg,#4f46e5 0%,#6366f1 100%);">
             <p style="margin:0;font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#e0e7ff;">Deck · Ahrens Labs</p>
-            <p style="margin:8px 0 0 0;font-size:22px;font-weight:900;line-height:1.25;color:#ffffff;">A ${noun} was shared with you</p>
+            <p style="margin:8px 0 0 0;font-size:22px;font-weight:900;line-height:1.25;color:#ffffff;">${heading}</p>
           </td>
         </tr>
         <tr>
           <td style="padding:24px 28px;">
             <p style="margin:0 0 12px 0;font-size:16px;font-weight:700;">Hi ${recipientHtml},</p>
-            <p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;color:#334155;"><strong style="color:#0f172a;">${sharerHtml}</strong> shared a ${noun} with you on Deck. You can view and edit it together — changes sync live.</p>
+            <p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;color:#334155;">${introHtml}</p>
             <div style="margin:0 0 22px 0;padding:14px 16px;background:#eef2ff;border:1px solid #c7d2fe;border-radius:12px;font-size:16px;font-weight:700;color:#3730a3;">${nameHtml}</div>
             <div style="text-align:center;">
               <a href="${urlHtml}" style="display:inline-block;padding:13px 26px;background:#4f46e5;color:#ffffff !important;text-decoration:none;border-radius:999px;font-weight:800;font-size:15px;">Open in Deck</a>
@@ -9204,7 +9221,7 @@ async function sendDeckShareEmail(env, { to, recipientName, sharerName, itemType
   const text = [
     `Hi ${recipient},`,
     '',
-    `${sharer} shared a ${noun} with you on Deck: ${name}`,
+    introText,
     '',
     `Open it here: ${deckUrl}`,
   ].join('\n');
