@@ -4031,6 +4031,44 @@
             return normalizeRepeatSkips(out);
         }
 
+        function normalizeRepeatGroupFixedWeekdayTimes(raw = {}) {
+            const out = {};
+            if(!raw || typeof raw !== 'object') return out;
+            Object.entries(raw).forEach(([groupId, byDay]) => {
+                if(!groupId || !byDay || typeof byDay !== 'object') return;
+                const days = {};
+                Object.entries(byDay).forEach(([weekday, timeValue]) => {
+                    const wd = Number(weekday);
+                    const time = String(timeValue || '').trim();
+                    if(!Number.isInteger(wd) || wd < 0 || wd > 6 || !isTimeOnScheduleGrid(time)) return;
+                    days[String(wd)] = time;
+                });
+                if(Object.keys(days).length > 0) out[groupId] = days;
+            });
+            return out;
+        }
+
+        function mergeRepeatGroupFixedWeekdayTimes(local = {}, remote = {}) {
+            const out = normalizeRepeatGroupFixedWeekdayTimes(local);
+            Object.entries(normalizeRepeatGroupFixedWeekdayTimes(remote)).forEach(([groupId, remoteDays]) => {
+                if(!out[groupId]) out[groupId] = { ...remoteDays };
+                else out[groupId] = { ...out[groupId], ...remoteDays };
+            });
+            return out;
+        }
+
+        function recordRepeatGroupFixedWeekdayTime(groupId, weekday, timeValue) {
+            if(!groupId || weekday == null || !timeValue || !isTimeOnScheduleGrid(timeValue)) return;
+            if(!repeatGroupFixedWeekdayTimes[groupId]) repeatGroupFixedWeekdayTimes[groupId] = {};
+            repeatGroupFixedWeekdayTimes[groupId][String(weekday)] = timeValue;
+        }
+
+        function getStoredRepeatFixedProfile(groupId, weekday) {
+            const time = repeatGroupFixedWeekdayTimes?.[groupId]?.[String(weekday)];
+            if(!time) return null;
+            return { time, timeSource: 'user', assignmentMode: 'FIXED' };
+        }
+
         function isRepeatWeekSkipped(groupId, weekKey) {
             if(!groupId || !weekKey) return false;
             const markers = repeatSkips[groupId];
@@ -4861,6 +4899,7 @@
                 scheduleRules: normalizeScheduleRules(scheduleRules),
                 vacations: Array.isArray(vacationRanges) ? vacationRanges : [],
                 repeatSkips: normalizeRepeatSkips(repeatSkips),
+                repeatGroupFixedWeekdayTimes: normalizeRepeatGroupFixedWeekdayTimes(repeatGroupFixedWeekdayTimes),
                 subjectColors: subjectColors || {},
                 calendarViewMode: calendarViewMode || 'week',
                 darkMode: plannerGet('darkMode'),
@@ -4956,6 +4995,10 @@
             scheduleRules = normalizeScheduleRules(payload.scheduleRules);
             vacationRanges = normalizeVacationRanges(payload.vacations);
             repeatSkips = mergeRepeatSkips(repeatSkips, normalizeRepeatSkips(payload.repeatSkips));
+            repeatGroupFixedWeekdayTimes = mergeRepeatGroupFixedWeekdayTimes(
+                repeatGroupFixedWeekdayTimes,
+                normalizeRepeatGroupFixedWeekdayTimes(payload.repeatGroupFixedWeekdayTimes)
+            );
             subjectColors = payload.subjectColors || {};
             calendarViewMode = payload.calendarViewMode || 'week';
             if (payload.darkMode === 'true' || payload.darkMode === 'false') {
@@ -5093,6 +5136,7 @@
         const storedScheduleRules = safeJsonParse(plannerGet('plannerScheduleRulesV1'), null);
         const storedVacations = safeJsonParse(plannerGet('plannerVacationsV1'), []);
         const storedRepeatSkips = safeJsonParse(plannerGet('plannerRepeatSkipsV1'), {});
+        const storedRepeatFixedWeekdayTimes = safeJsonParse(plannerGet('plannerRepeatFixedWeekdayTimesV1'), {});
         let subjectColors = safeJsonParse(plannerGet('plannerSubjectColors'), {}) || {};
         let tasks = Array.isArray(storedTasks) ? storedTasks.filter(Boolean) : [];
         tasks = tasks.map(normalizeStoredTask);
@@ -5103,6 +5147,7 @@
         let scheduleRules = normalizeScheduleRules(storedScheduleRules);
         let vacationRanges = normalizeVacationRanges(storedVacations);
         let repeatSkips = normalizeRepeatSkips(storedRepeatSkips);
+        let repeatGroupFixedWeekdayTimes = normalizeRepeatGroupFixedWeekdayTimes(storedRepeatFixedWeekdayTimes);
         let editingId = null;
         let currentCalendarDate = new Date();
         let calendarViewMode = plannerGet('calendarViewMode') || 'week';
@@ -5227,6 +5272,7 @@
             maintainClassifyScheduleIfNeeded({ persist: true, syncCloud: true });
             lastPeriodicScheduleMaintainPeriod = getCurrentSchedulePeriodKey();
             loadClassifyUndoStack();
+            syncRepeatGroupFixedWeekdayTimesFromTasks();
             initClassifyUndoBaseline();
             document.getElementById('btn-classify-undo')?.addEventListener('click', undoClassifyLastAction);
             renderAll();
@@ -7335,7 +7381,9 @@
                 : null;
             if(Boolean(task.completed)) {
                 normalizedStartedAt = null;
-                normalizedAssignmentMode = 'ADJUSTABLE';
+                if(!task.repeatGroupId) {
+                    normalizedAssignmentMode = 'ADJUSTABLE';
+                }
             }
             const mustBeBefore = Array.from(new Set(
                 (Array.isArray(task.mustBeBefore) ? task.mustBeBefore : (Array.isArray(task.mustBeBeforeIds) ? task.mustBeBeforeIds : []))
@@ -7651,8 +7699,7 @@
                 task.scheduleType === 'date' &&
                 task.time &&
                 !isAssignmentStarted(task) &&
-                isFixedTask(task) &&
-                task.timeSource === 'user'
+                (isFixedTask(task) || task.assignmentMode === 'FIXED' || task.timeSource === 'user')
             );
         }
 
@@ -7684,9 +7731,14 @@
             });
         }
 
-        function getRepeatFixedTimeProfileForOccurrence(groupTasks = [], { dateStr = null, weekday = null, fallbackTask = null } = {}) {
+        function getRepeatFixedTimeProfileForOccurrence(groupTasks = [], { dateStr = null, weekday = null, fallbackTask = null, groupId = null } = {}) {
             let wd = weekday;
             if(wd == null && dateStr) wd = getWeekdayFromDateStr(dateStr);
+            const resolvedGroupId = groupId || fallbackTask?.repeatGroupId || groupTasks.find(t => t?.repeatGroupId)?.repeatGroupId || null;
+            if(resolvedGroupId && wd != null) {
+                const stored = getStoredRepeatFixedProfile(resolvedGroupId, wd);
+                if(stored?.time) return stored;
+            }
             let sources = repeatFixedTimeSourcesForWeekday(groupTasks, wd, fallbackTask);
             if(sources.length === 0 && wd != null) {
                 sources = repeatFixedTimeSourcesForWeekday(groupTasks, null, fallbackTask);
@@ -7715,6 +7767,7 @@
 
         function applyRepeatFixedTimeProfileToWeekday(groupId, profile, weekday, { includeCompleted = false } = {}) {
             if(!groupId || !profile?.time || weekday == null) return;
+            recordRepeatGroupFixedWeekdayTime(groupId, weekday, profile.time);
             (tasks || []).forEach(task => {
                 if(task.repeatGroupId !== groupId) return;
                 if(!includeCompleted && task.completed) return;
@@ -7731,7 +7784,10 @@
             groupTasks.forEach(task => {
                 if(task.completed || task.weekDueOnly || task.scheduleType !== 'date') return;
                 if(isAssignmentStarted(task)) return;
-                const profile = getRepeatFixedTimeProfileForOccurrence(groupTasks, { dateStr: task.date });
+                const profile = getRepeatFixedTimeProfileForOccurrence(groupTasks, {
+                    dateStr: task.date,
+                    groupId
+                });
                 if(!profile) return;
                 applyRepeatFixedTimeProfile(task, profile);
             });
@@ -7742,7 +7798,7 @@
             if(isAssignmentStarted(task)) return false;
             const profile = getRepeatFixedTimeProfileForOccurrence(
                 tasks.filter(t => t.repeatGroupId === task.repeatGroupId),
-                { dateStr: task.date }
+                { dateStr: task.date, groupId: task.repeatGroupId }
             );
             return Boolean(profile?.time);
         }
@@ -7754,7 +7810,10 @@
             if(isAssignmentStarted(task)) return false;
             if(task.time && (isFixedTask(task) || task.timeSource === 'user')) return false;
             const groupTasks = tasks.filter(t => t.repeatGroupId === task.repeatGroupId);
-            const profile = getRepeatFixedTimeProfileForOccurrence(groupTasks, { dateStr: task.date });
+            const profile = getRepeatFixedTimeProfileForOccurrence(groupTasks, {
+                dateStr: task.date,
+                groupId: task.repeatGroupId
+            });
             if(!profile?.time) return false;
             applyRepeatFixedTimeProfile(task, profile);
             return true;
@@ -7763,6 +7822,17 @@
         function enforceAllRepeatGroupFixedTimes() {
             const groupIds = new Set((tasks || []).map(t => t.repeatGroupId).filter(Boolean));
             groupIds.forEach(groupId => enforceRepeatGroupFixedTimes(groupId));
+        }
+
+        function syncRepeatGroupFixedWeekdayTimesFromTasks() {
+            (tasks || []).forEach(task => {
+                if(!task?.repeatGroupId || !task.date || !task.time) return;
+                if(task.weekDueOnly || task.scheduleType !== 'date') return;
+                if(!isIntentionalRepeatFixedTimeSource(task) && task.timeSource !== 'user' && !isFixedTask(task)) return;
+                const weekday = getWeekdayFromDateStr(task.date);
+                if(weekday == null) return;
+                recordRepeatGroupFixedWeekdayTime(task.repeatGroupId, weekday, task.time);
+            });
         }
 
         function restoreAllRepeatFixedTimesIfMissing() {
@@ -10646,6 +10716,7 @@
                 scheduleRules: JSON.parse(JSON.stringify(normalizeScheduleRules(scheduleRules))),
                 vacationRanges: JSON.parse(JSON.stringify(vacationRanges || [])),
                 repeatSkips: JSON.parse(JSON.stringify(normalizeRepeatSkips(repeatSkips))),
+                repeatGroupFixedWeekdayTimes: JSON.parse(JSON.stringify(normalizeRepeatGroupFixedWeekdayTimes(repeatGroupFixedWeekdayTimes))),
                 calendarViewMode: calendarViewMode || 'week'
             };
         }
@@ -10666,6 +10737,7 @@
             scheduleRules = normalizeScheduleRules(snapshot.scheduleRules);
             vacationRanges = normalizeVacationRanges(snapshot.vacationRanges);
             repeatSkips = normalizeRepeatSkips(snapshot.repeatSkips);
+            repeatGroupFixedWeekdayTimes = normalizeRepeatGroupFixedWeekdayTimes(snapshot.repeatGroupFixedWeekdayTimes);
             calendarViewMode = snapshot.calendarViewMode || 'week';
         }
 
@@ -11326,6 +11398,7 @@
             plannerSet('plannerScheduleRulesV1', JSON.stringify(normalizeScheduleRules(scheduleRules)));
             plannerSet('plannerVacationsV1', JSON.stringify(normalizeVacationRanges(vacationRanges)));
             plannerSet('plannerRepeatSkipsV1', JSON.stringify(repeatSkips));
+            plannerSet('plannerRepeatFixedWeekdayTimesV1', JSON.stringify(normalizeRepeatGroupFixedWeekdayTimes(repeatGroupFixedWeekdayTimes)));
             flushClassifyCloudSync().catch(() => {});
             if(!classifyUndoApplying && !skipUndoBaseline) {
                 classifyLastSavedSnapshot = captureClassifyUndoSnapshot();
@@ -17698,7 +17771,8 @@
             const completedTaskRef = task;
             celebrateTaskCompletion(mode);
             closeTimeModal();
-            flushClassifyUiImmediate({ skipUndoRecord: true });
+            refreshAssignmentsAfterCompletion(completedTaskRef?.id);
+            scheduleClassifyPersistence({ skipUndoRecord: true, skipAutoSchedule: true });
             flushClassifyCloudSync().catch(() => {});
 
             runTaskCompletionFollowUp(completedTaskRef, {
@@ -17721,7 +17795,8 @@
             if(task.repeatGroupId) recordRepeatOccurrenceException(task.repeatGroupId, task);
 
             celebrateTaskCompletion('full');
-            flushClassifyUiImmediate({ skipUndoRecord: true });
+            refreshAssignmentsAfterCompletion(taskId);
+            scheduleClassifyPersistence({ skipUndoRecord: true, skipAutoSchedule: true });
             flushClassifyCloudSync().catch(() => {});
             runTaskCompletionFollowUp(task, { mode: 'full' });
         }
@@ -17782,9 +17857,40 @@
         function clearCompletedTaskStartedState(task) {
             if(!task) return;
             task.startedAt = null;
-            if(task.completed) {
-                task.assignmentMode = 'ADJUSTABLE';
+        }
+
+        function refreshAssignmentsAfterCompletion(completedTaskId = null) {
+            const filterEl = document.getElementById('taskFilter');
+            if(filterEl && filterEl.value === 'active') {
+                filterEl.value = 'all';
             }
+            invalidateClassifyScheduleCaches();
+            updateDateDisplay();
+            const tab = classifyActiveTab || 'dashboard';
+            if(tab === 'assignments') {
+                renderTaskList();
+            } else if(tab === 'calendar') {
+                renderCalendar();
+            } else if(tab === 'dashboard') {
+                renderDashboardStats({ animate: false });
+                renderDashboard({ skipSmartSchedule: false });
+            } else {
+                renderAll({ light: true, skipDashboardSchedule: true });
+            }
+            requestAnimationFrame(() => {
+                if((classifyActiveTab || 'dashboard') !== 'assignments') return;
+                const headings = document.querySelectorAll('#fullTaskList section h3');
+                for(const heading of headings) {
+                    if(heading.textContent.trim() === 'Completed') {
+                        heading.closest('section')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                        break;
+                    }
+                }
+                if(completedTaskId) {
+                    const row = document.querySelector(`#fullTaskList input[onclick="toggleComplete('${completedTaskId}')"]`);
+                    row?.closest('section')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
+            });
         }
 
         function clearDayForEarliestRepack(dateStr) {
@@ -19049,13 +19155,17 @@
                 if(isRepeatOccurrenceSuppressed(groupId, dateStr, weekKey)) return;
                 const fixedProfile = getRepeatFixedTimeProfileForOccurrence(groupTasks, {
                     dateStr,
-                    fallbackTask: templateTask
+                    fallbackTask: templateTask,
+                    groupId
                 });
                 const fixedTime = fixedProfile?.time
                     || (isFixedTask(templateTask) && templateTask.date && getWeekdayFromDateStr(templateTask.date) === getWeekdayFromDateStr(dateStr)
                         ? templateTask.time
                         : null);
                 const templateIsFixed = Boolean(fixedTime);
+                if(templateIsFixed) {
+                    recordRepeatGroupFixedWeekdayTime(groupId, getWeekdayFromDateStr(dateStr), fixedTime);
+                }
                 const occurrence = normalizeTask({
                     ...templateTask,
                     id: generateId(),
@@ -19450,6 +19560,16 @@
                         return normalizeTask(updated);
                     });
 
+                    if(isExactDateSchedule && assignmentMode === 'FIXED' && inputTimeValue && date) {
+                        const weekday = getWeekdayFromDateStr(date);
+                        if(weekday != null) {
+                            applyRepeatFixedTimeProfileToWeekday(groupId, {
+                                time: inputTimeValue,
+                                timeSource: 'user',
+                                assignmentMode: 'FIXED'
+                            }, weekday, { includeCompleted: true });
+                        }
+                    }
                     enforceRepeatGroupFixedTimes(groupId);
                     const groupTasks = tasks.filter(t => t.repeatGroupId === groupId);
                     const weekKeys = Array.from(new Set(groupTasks.map(t => t.repeatWeekKey).filter(Boolean))).sort((a, b) => a.localeCompare(b));
@@ -21194,7 +21314,7 @@
             // Reset only auto-scheduled slots; user-locked placements stay put.
             weekTasks.forEach(t => {
                 if(!t.date || !processDates.includes(t.date) || t.completed) return;
-                if(isUserScheduleLocked(t) || isFixedTask(t) || t.repeatNoAutoTime) return;
+                if(isUserScheduleLocked(t) || isFixedTask(t) || isRepeatFixedTimeTask(t) || t.repeatNoAutoTime) return;
                 if(!t.time) return;
                 if(
                     forceRebuildAutoSlots ||
