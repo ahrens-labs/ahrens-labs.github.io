@@ -4121,6 +4121,61 @@
             getRepeatOccurrenceDatesForTask(task).forEach(dateStr => recordRepeatDateSkip(groupId, dateStr));
         }
 
+        function repeatGroupHasOccurrenceCoverage(groupId, dateStr) {
+            if(!groupId || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr || '')) return false;
+            return tasks.some(t =>
+                t.repeatGroupId === groupId &&
+                getRepeatOccurrenceDatesForTask(t).includes(dateStr)
+            );
+        }
+
+        function pruneRepeatDuplicatesAfterCompletion(completedTask) {
+            if(!completedTask?.repeatGroupId) return 0;
+            const groupId = completedTask.repeatGroupId;
+            let removed = 0;
+            const removedIds = [];
+            if(completedTask.weekDueOnly) {
+                const weekKey = completedTask.repeatWeekKey || completedTask.week;
+                if(weekKey) {
+                    for(let i = tasks.length - 1; i >= 0; i--) {
+                        const t = tasks[i];
+                        if(t.id === completedTask.id || t.repeatGroupId !== groupId || t.completed) continue;
+                        const taskWeek = t.repeatWeekKey || t.week;
+                        if(taskWeek === weekKey) {
+                            removedIds.push(t.id);
+                            tasks.splice(i, 1);
+                            removed++;
+                        }
+                    }
+                }
+            }
+            const coveredDates = new Set(getRepeatOccurrenceDatesForTask(completedTask));
+            coveredDates.forEach(dateStr => {
+                for(let i = tasks.length - 1; i >= 0; i--) {
+                    const t = tasks[i];
+                    if(t.id === completedTask.id || t.repeatGroupId !== groupId || t.completed) continue;
+                    if(getRepeatOccurrenceDatesForTask(t).includes(dateStr)) {
+                        removedIds.push(t.id);
+                        tasks.splice(i, 1);
+                        removed++;
+                    }
+                }
+            });
+            if(removedIds.length > 0) removeDependencyReferences(removedIds);
+            return removed;
+        }
+
+        function commitClassifyCompletionState() {
+            classifyLastLocalMutationAt = Date.now();
+            classifyUndoRemoteSuppressUntil = Date.now() + 30000;
+            classifyLastSavedSnapshot = captureClassifyUndoSnapshot();
+            invalidateClassifyScheduleCaches();
+            persistClassifyLocally();
+            plannerSet('plannerRepeatSkipsV1', JSON.stringify(repeatSkips));
+            plannerSet('plannerRepeatFixedWeekdayTimesV1', JSON.stringify(normalizeRepeatGroupFixedWeekdayTimes(repeatGroupFixedWeekdayTimes)));
+            plannerSet('plannerClassifyLastUpdatedV1', String(Date.now()));
+        }
+
         function inferDeletedRepeatDates(groupId, task) {
             if(!groupId || !task) return [];
             const weekKey = task.repeatWeekKey || task.week;
@@ -4410,6 +4465,10 @@
             localStorage.setItem(plannerStorageKey('plannerScheduleRulesV1'), JSON.stringify(normalizeScheduleRules(scheduleRules)));
             localStorage.setItem(plannerStorageKey('plannerVacationsV1'), JSON.stringify(vacationRanges));
             localStorage.setItem(plannerStorageKey('plannerRepeatSkipsV1'), JSON.stringify(repeatSkips));
+            localStorage.setItem(
+                plannerStorageKey('plannerRepeatFixedWeekdayTimesV1'),
+                JSON.stringify(normalizeRepeatGroupFixedWeekdayTimes(repeatGroupFixedWeekdayTimes))
+            );
             if (calendarViewMode) localStorage.setItem(plannerStorageKey('calendarViewMode'), calendarViewMode);
             if (plannerGet('walkthroughCompleted') === 'true' || plannerGet('orientationCompleted') === 'true') {
                 localStorage.setItem(plannerStorageKey('walkthroughCompleted'), 'true');
@@ -4617,7 +4676,7 @@
         }
 
         function maintainClassifyScheduleIfNeeded(options = {}) {
-            const { persist = false, weeksAhead = 12, syncCloud = false } = options || {};
+            const { persist = false, weeksAhead = 12, syncCloud = false, maxWeeks = 4 } = options || {};
             if(classifyUndoApplying) return 0;
 
             let changed = 0;
@@ -4677,10 +4736,11 @@
                     if(b === current) return 1;
                     return a.localeCompare(b);
                 })
-                .slice(0, 4);
+                .slice(0, Math.max(1, maxWeeks));
             weeksToPlan.forEach(weekKey => {
                 changed += assignWeekTaskDates(weekKey, true) || 0;
-                changed += autoBlockWeekTimes(false, weekKey, true, hadViolations || pastCleared > 0, true) || 0;
+                const blockProfile = maxWeeks <= 2 ? 'quick' : 'full';
+                changed += autoBlockWeekTimes(false, weekKey, true, hadViolations || pastCleared > 0, blockProfile) || 0;
             });
 
             const missingIds = (tasks || [])
@@ -4767,23 +4827,50 @@
             }, 4000);
         }
 
+        let classifyScheduleTickInFlight = false;
+
+        function persistClassifyScheduleTickChanges() {
+            classifyLastLocalMutationAt = Date.now();
+            invalidateClassifyScheduleCaches();
+            persistClassifyLocally();
+            plannerSet('plannerClassifyLastUpdatedV1', String(Date.now()));
+        }
+
         function runPeriodicScheduleMaintain() {
-            if(!isAutoMaintainScheduleEnabled()) return 0;
+            if(document.hidden || classifyUndoApplying || classifyScheduleTickInFlight) return 0;
             if(!isPastScheduleMaintainTick()) return 0;
             const periodKey = getCurrentSchedulePeriodKey();
+            if(periodKey < 0) return 0;
             if(periodKey === lastPeriodicScheduleMaintainPeriod) return 0;
             lastPeriodicScheduleMaintainPeriod = periodKey;
 
+            classifyScheduleTickInFlight = true;
             let changed = 0;
             try {
-                changed = maintainClassifyScheduleIfNeeded({ persist: true, syncCloud: false }) || 0;
+                changed += enforceNoPastUnstartedTimes() || 0;
+                if(isAutoMaintainScheduleEnabled()) {
+                    changed += maintainClassifyScheduleIfNeeded({
+                        persist: false,
+                        syncCloud: false,
+                        maxWeeks: 2
+                    }) || 0;
+                } else {
+                    const todayStr = getDateStrLocal();
+                    changed += ensureLeadAssignmentAtNowForDate(todayStr) || 0;
+                    changed += enforceNoOverlappingTimes(todayStr, todayStr) || 0;
+                    changed += enforceDependencyOrder(todayStr, todayStr) || 0;
+                }
             } catch (error) {
                 console.warn('Periodic schedule maintain failed:', error);
+            } finally {
+                classifyScheduleTickInFlight = false;
             }
+
             if(changed > 0) {
+                persistClassifyScheduleTickChanges();
+                instantClassifyUiRefresh();
                 pendingPeriodicScheduleCloudSync = true;
                 queuePeriodicScheduleCloudSync();
-                renderAll();
             }
             updateDateDisplay();
             return changed;
@@ -4792,6 +4879,14 @@
         function refreshAssignmentTimesDisplay() {
             if(document.hidden) return;
             runPeriodicScheduleMaintain();
+            updateDateDisplay();
+            if(classifyActiveTab === 'calendar') {
+                try {
+                    renderCalendar();
+                } catch (error) {
+                    console.warn('Calendar refresh on schedule tick failed:', error);
+                }
+            }
         }
 
         function startAssignmentTimeRefresh() {
@@ -4807,7 +4902,15 @@
                 }, msUntilNextSchedulePeriod());
             };
             scheduleNext();
+            if(!document.hidden) {
+                runPeriodicScheduleMaintain();
+            }
         }
+
+        document.addEventListener('visibilitychange', () => {
+            if(document.hidden) return;
+            refreshAssignmentTimesDisplay();
+        });
 
         const plannerSet = (key, value) => {
             localStorage.setItem(plannerStorageKey(key), value);
@@ -17769,10 +17872,18 @@
             }
 
             const completedTaskRef = task;
+            if(task.repeatGroupId) pruneRepeatDuplicatesAfterCompletion(task);
+            commitClassifyCompletionState();
             celebrateTaskCompletion(mode);
             closeTimeModal();
             refreshAssignmentsAfterCompletion(completedTaskRef?.id);
-            scheduleClassifyPersistence({ skipUndoRecord: true, skipAutoSchedule: true });
+            saveData({
+                skipUndoRecord: true,
+                skipAutoSchedule: true,
+                lightRender: true,
+                skipOverlapEnforce: true,
+                skipDashboardSchedule: true
+            });
             flushClassifyCloudSync().catch(() => {});
 
             runTaskCompletionFollowUp(completedTaskRef, {
@@ -17793,10 +17904,18 @@
             task.completedDate = getDateStrLocal();
             clearCompletedTaskStartedState(task);
             if(task.repeatGroupId) recordRepeatOccurrenceException(task.repeatGroupId, task);
+            pruneRepeatDuplicatesAfterCompletion(task);
+            commitClassifyCompletionState();
 
             celebrateTaskCompletion('full');
             refreshAssignmentsAfterCompletion(taskId);
-            scheduleClassifyPersistence({ skipUndoRecord: true, skipAutoSchedule: true });
+            saveData({
+                skipUndoRecord: true,
+                skipAutoSchedule: true,
+                lightRender: true,
+                skipOverlapEnforce: true,
+                skipDashboardSchedule: true
+            });
             flushClassifyCloudSync().catch(() => {});
             runTaskCompletionFollowUp(task, { mode: 'full' });
         }
@@ -17838,6 +17957,7 @@
                 try {
                     spawned = advanceRepeatSeriesIfReady();
                     pruneRepeatFutureWeeks();
+                    pruneRepeatDuplicatesAfterCompletion(completedTaskRef);
                     if(spawned > 0) syncAllTaskDependencies();
                     if(mode === 'partial') {
                         enforceDifferentDayAfterCompletion(completedTaskRef);
@@ -17848,6 +17968,16 @@
                     }
                     reAutoScheduleAfterCompletion(completedTaskRef, spawned > 0);
                     runImmediateScheduleMaintain({ persist: false, syncCloud: false });
+                    pruneRepeatDuplicatesAfterCompletion(completedTaskRef);
+                    commitClassifyCompletionState();
+                    refreshAssignmentsAfterCompletion(completedTaskRef?.id);
+                    saveData({
+                        skipUndoRecord: true,
+                        skipAutoSchedule: true,
+                        lightRender: true,
+                        skipOverlapEnforce: true,
+                        skipDashboardSchedule: true
+                    });
                 } catch (error) {
                     console.error('Completion schedule refresh failed:', error);
                 }
@@ -19153,6 +19283,7 @@
             let added = 0;
             dates.forEach(dateStr => {
                 if(isRepeatOccurrenceSuppressed(groupId, dateStr, weekKey)) return;
+                if(repeatGroupHasOccurrenceCoverage(groupId, dateStr)) return;
                 const fixedProfile = getRepeatFixedTimeProfileForOccurrence(groupTasks, {
                     dateStr,
                     fallbackTask: templateTask,
