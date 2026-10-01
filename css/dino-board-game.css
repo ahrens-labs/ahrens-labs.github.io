@@ -761,6 +761,27 @@ button { font-family: inherit; }
 .setup:not(.vs-ai) .only-ai, .setup.vs-ai .only-2p { display: none; }
 .ai-card { padding: 0.7rem 0.8rem; border-radius: 12px; border: 2px dashed var(--bone-dark); font-size: 1.05rem; font-weight: 600; background: #fffaf0; }
 
+.ai-opts { display: grid; gap: 0.7rem; margin: 0.4rem 0 0.8rem; }
+.seg-group { display: grid; gap: 0.3rem; margin-bottom: 0.6rem; }
+.seg-label { font-weight: 700; font-size: 0.95rem; }
+.seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.4rem; }
+.seg-btn {
+  display: grid; gap: 1px; align-content: start;
+  padding: 0.5rem 0.55rem;
+  border-radius: 12px;
+  border: 2px solid var(--bone-dark);
+  background: #fff;
+  font: inherit; text-align: left; cursor: pointer;
+  transition: transform 0.12s, box-shadow 0.12s;
+}
+.seg-btn b { font-family: "Lilita One", sans-serif; font-weight: 400; font-size: 1.02rem; }
+.seg-btn small { color: var(--muted); font-size: 0.78rem; line-height: 1.25; }
+.seg-btn:hover { transform: translateY(-1px); }
+.seg-btn.on { border-color: var(--amber); background: #fff8e1; box-shadow: 0 0 0 3px rgba(255, 179, 0, 0.35); }
+@media (max-width: 480px) {
+  .seg-btn small { font-size: 0.72rem; }
+}
+
 .ai-bar {
   display: flex; align-items: center; gap: 0.6rem;
   margin-top: 12px;

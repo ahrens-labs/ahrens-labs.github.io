@@ -136,6 +136,16 @@
   let pendingCard = null;
   let pendingConfirm = null;
   let setupVsAi = false;
+  const PREFS_KEY = 'ahrensDinoBoardGame.prefs';
+  const prefs = (() => {
+    try {
+      return JSON.parse(localStorage.getItem(PREFS_KEY)) || {};
+    } catch {
+      return {};
+    }
+  })();
+  let setupLevel = prefs.level || 'medium';
+  let setupPace = prefs.pace || 'medium';
   let aiTimer = null;
   let aiPending = false;
   const fxSeen = new Map();
@@ -355,7 +365,10 @@
   }
 
   function legalEdges(p) {
-    const b = state.players[p].board;
+    return legalEdgesB(state.players[p].board);
+  }
+
+  function legalEdgesB(b) {
     const out = [];
     const splitsItem = (e) => {
       const [x, y] = edgeCells(e);
@@ -435,7 +448,10 @@
   }
 
   function placeItem(p, kind, cells, species) {
-    const b = state.players[p].board;
+    return placeItemB(state.players[p].board, kind, cells, species);
+  }
+
+  function placeItemB(b, kind, cells, species) {
     const id = b.nextId++;
     const sorted = cells.slice().sort((x, y) => x - y);
     b.items[id] = { id, kind, species: species || null, cells: sorted, dead: false };
@@ -484,13 +500,21 @@
   }
 
   // ---------------------------------------------------------------- feeding / production / scoring helpers
+  // Feeders take 1 food per feeder square off the enclosure's whole bill (not off each dino).
   function enclosureCost(cp) {
     const c = { meat: 0, plant: 0, flex: 0 };
     const extra = cp.inactive || 0;
     cp.living.forEach((d) => {
       const f = SPECIES[d.species].food;
-      c[f.t] += Math.max(0, f.n + extra - cp.feederSquares);
+      c[f.t] += f.n + extra;
     });
+    let off = cp.feederSquares;
+    for (const k of ['meat', 'plant', 'flex']) {
+      const t = Math.min(off, c[k]);
+      c[k] -= t;
+      off -= t;
+    }
+    c.discount = cp.feederSquares - off;
     c.total = c.meat + c.plant + c.flex;
     return c;
   }
@@ -649,13 +673,14 @@
     };
   }
 
-  function newGame(names, first, ai) {
+  function newGame(names, first, ai, level, pace) {
     resetFx();
     const deck = shuffle(DECK.slice());
     const faceUp = [deck.shift(), deck.shift()];
     state = {
       v: 1,
       ai: ai == null ? null : ai,
+      aiCfg: ai == null ? null : aiProfile(level, pace),
       players: [newPlayer(0, names[0]), newPlayer(1, names[1])],
       first,
       round: 1,
@@ -1113,18 +1138,17 @@
       const S = SPECIES[it.species];
       card = cardHtml(it.species, { cls: 'solo' });
       if (!it.dead) {
-        const eats = Math.max(0, S.food.n + (cp.inactive || 0) - cp.feederSquares);
-        const why = [];
-        if (cp.inactive) why.push(`+${cp.inactive} because it’s inactive`);
-        if (cp.feederSquares) why.push(`−${cp.feederSquares} from the feeder`);
-        facts.push(`<li>Eats <b>${eats} ${foodText({ t: S.food.t, n: '' }).trim()}</b> each Feeding${why.length ? ` <span class="muted">(card says ${S.food.n}; ${why.join(', ')})</span>` : ''}.</li>`);
+        const eats = S.food.n + (cp.inactive || 0);
+        const why = cp.inactive ? ` <span class="muted">(card says ${S.food.n}; +${cp.inactive} because it’s inactive)</span>` : '';
+        facts.push(`<li>Eats <b>${eats} ${foodText({ t: S.food.t, n: '' }).trim()}</b> each Feeding${why}.</li>`);
+        if (cp.feederSquares) facts.push(`<li>The feeder here takes <b>${cp.feederSquares} food</b> off the whole enclosure’s bill.</li>`);
         facts.push(`<li>Adds <b>🪙${S.prod}</b> when you pick ${encl.replace('Enclosure', 'enclosure')} in Production (whole enclosure makes 🪙${cp.prod}).</li>`);
         facts.push(`<li>Worth <b>${S.pts} point${S.pts === 1 ? '' : 's'}</b> at the end if active.</li>`);
         facts.push(`<li><b>${TYPE_LABEL[S.type]}:</b> ${TYPE_HELP[S.type]}</li>`);
       }
     } else if (it.kind === 'feeder') {
       card = `<div class="piece-art">🌾</div>`;
-      facts.push(`<li>${plural(it.cells.length, 'square')}: every dino in ${encl.toLowerCase()} eats <b>${it.cells.length} less</b> food (never below 0).</li>`);
+      facts.push(`<li>${plural(it.cells.length, 'square')}: ${encl.toLowerCase()} needs <b>${it.cells.length} less</b> food in total each Feeding.</li>`);
     } else {
       card = `<div class="piece-art">💧</div>`;
       facts.push(`<li>Lets ${encl.toLowerCase()} hold <b>one more species</b> (now ${cp.species.size} of ${1 + cp.waters.length} allowed).</li>`);
@@ -1431,6 +1455,7 @@
         <div class="phase-row${fresh}" data-round="${state.round}">${phases}</div>
       </div>
       <div class="top-actions">
+        ${state.aiCfg ? `<button class="btn sm ghost" data-act="aiSettings" title="Computer settings">🤖 ${AI_LEVELS[state.aiCfg.level]} · ${AI_PACES[state.aiCfg.pace]}</button>` : ''}
         <button class="btn sm ghost" data-act="rules">📜 Rules</button>
         <button class="btn sm ghost" data-act="newGame">🥚 New game</button>
       </div>`);
@@ -1475,16 +1500,16 @@
       });
     }
     prevRes = snap;
+    const over = cur() && cur().t === 'gameOver';
     const changed = setHtml(el, [0, 1]
       .map((p) => {
         const P = state.players[p];
-        const sc = scorePlayer(p).total;
         const bonus = P.bonusNext + P.bonusPending;
         const chips = RES.map(([k, img, label]) => chip(tok(img), P[k], label, k, resFx[p][k])).join('');
         return `<div class="player pl-${P.color}${p === activeP ? ' active' : ''}${p === target ? ' target' : ''}" data-player="${p}">
           <div class="p-head">
             <div class="p-name"><img class="p-mascot" src="${IMG}${MASCOT[p]}.webp" alt="">${esc(P.name)}${p === state.first ? ' <span class="tag">1st</span>' : ''}${p === activeP ? ' <span class="tag turn-tag">TURN</span>' : ''}${p === target ? ' <span class="tag target-tag">TARGET</span>' : ''}</div>
-            <div class="p-score" title="Score if the game ended right now">⭐ ${sc}</div>
+            ${over ? `<div class="p-score" title="Final score">⭐ ${scorePlayer(p).total}</div>` : ''}
           </div>
           <div class="res">
             ${chips}
@@ -1687,7 +1712,7 @@
         else if (cp.inactive >= 4) status = `<span class="status-pill danger">💤 last chance!</span>`;
         else status = `<span class="status-pill warn">💤 inactive ${cp.inactive}/4</span>`;
         const extra = cp.inactive ? ` · +${cp.inactive} each` : '';
-        const feeder = cp.feederSquares ? ` · feeder −${cp.feederSquares}` : '';
+        const feeder = c.discount ? ` · feeder −${c.discount}` : '';
         return `<div class="erow ${on ? 'on' : ''} ${affordable ? '' : 'dis'}" data-act="feedToggle" data-key="${cp.key}">
           <span class="ebadge">${cp.name}</span>
           <span class="edinos">${dinoSummary(cp)}<small>${status}${extra}${feeder}</small></span>
@@ -1826,14 +1851,14 @@
       const v = validateSel();
       return `<h3>${isFeeder ? '🌾 Place a feeder' : '💧 Place a watering hole'} · ${costText(cost)}</h3>
         ${placementBox(isFeeder ? 'Select any number of connected squares in one enclosure' : 'Select 6 connected squares in one enclosure')}
-        ${isFeeder ? '<p class="muted">Each square makes every dino there eat 1 less. Over 5 squares costs +🪙2 each.</p>' : '<p class="muted">Lets one additional dino species share this enclosure.</p>'}
+        ${isFeeder ? '<p class="muted">Each square takes 1 food off that enclosure’s total each Feeding. Over 5 squares costs +🪙2 each.</p>' : '<p class="muted">Lets one additional dino species share this enclosure.</p>'}
         <button class="btn big" data-act="place" ${v.ok ? '' : 'disabled'}>Buy &amp; place</button>
 `;
     }
     return `<h3>🛒 Shop</h3>
       <div class="opt-list">
         <button class="opt" data-act="buyDiamond" ${canAfford(P, DIAMOND_COST) ? '' : 'disabled'}><span class="o-i">💎</span><span class="o-t"><b>Diamond · 🪙6</b><small>Worth 3 points at the end. Some dinos cost diamonds.</small></span></button>
-        <button class="opt" data-act="shopItem" data-item="feeder" ${canAfford(P, feederCost(1)) ? '' : 'disabled'}><span class="o-i">🌾</span><span class="o-t"><b>Feeder · 💎1 + 🪙3</b><small>Each square makes dinos there eat 1 less.</small></span></button>
+        <button class="opt" data-act="shopItem" data-item="feeder" ${canAfford(P, feederCost(1)) ? '' : 'disabled'}><span class="o-i">🌾</span><span class="o-t"><b>Feeder · 💎1 + 🪙3</b><small>Each square = 1 less food for that enclosure.</small></span></button>
         <button class="opt" data-act="shopItem" data-item="water" ${canAfford(P, WATER_COST) ? '' : 'disabled'}><span class="o-i">💧</span><span class="o-t"><b>Watering hole · 💎2 + 🪙4</b><small>Takes 6 squares. One more kind of dino can live there.</small></span></button>
       </div>`;
   }
@@ -2057,6 +2082,10 @@
           <div class="name-field only-2p"><label for="name1"><img class="nf-dino" src="${IMG}${MASCOT[1]}.webp" alt=""><span class="dot-blue"></span>Blue player</label><input id="name1" maxlength="18" value="Blue" autocomplete="off"></div>
           <div class="name-field only-ai"><label><img class="nf-dino" src="${IMG}${MASCOT[1]}.webp" alt=""><span class="dot-blue"></span>Opponent</label><div class="ai-card">🤖 Computer</div></div>
         </div>
+        <div class="ai-opts only-ai">
+          ${segGroup('Difficulty', 'setupOpt', 'level', AI_LEVELS, AI_LEVEL_HELP, setupLevel)}
+          ${segGroup('Computer speed', 'setupOpt', 'pace', AI_PACES, AI_PACE_HELP, setupPace)}
+        </div>
         <div class="first-q">🎬 Who watched a dino movie most recently? They go first.</div>
         <div class="first-btns">
           <button class="btn fr" data-act="setupStart" data-first="0"><span class="only-2p">🔴 Red did!</span><span class="only-ai">🔴 I did!</span></button>
@@ -2068,7 +2097,30 @@
     </div>`);
   }
 
+  function segGroup(label, act, k, opts, help, val) {
+    const btns = Object.keys(opts)
+      .map((v) => `<button class="seg-btn${v === val ? ' on' : ''}" data-act="${act}" data-k="${k}" data-v="${v}"><b>${opts[v]}</b><small>${help[v]}</small></button>`)
+      .join('');
+    return `<div class="seg-group"><div class="seg-label">${label}</div><div class="seg" role="radiogroup">${btns}</div></div>`;
+  }
+
+  function savePrefs(level, pace) {
+    try {
+      localStorage.setItem(PREFS_KEY, JSON.stringify({ level, pace }));
+    } catch {
+      /* storage blocked */
+    }
+  }
+
   // ---------------------------------------------------------------- modals
+  function openAiSettings() {
+    const c = aiCfg();
+    openModal(`<div class="modal-head"><h2>🤖 Computer settings</h2><button class="x" data-act="closeModal" aria-label="Close">✕</button></div>
+      ${segGroup('Difficulty', 'setAiOpt', 'level', AI_LEVELS, AI_LEVEL_HELP, c.level)}
+      ${segGroup('Speed', 'setAiOpt', 'pace', AI_PACES, AI_PACE_HELP, c.pace)}
+      <p class="muted">Changes apply right away. Pick Slow to watch each of the computer’s moves.</p>`, 'small');
+  }
+
   function openRules() {
     openModal(`<div class="modal-head"><h2>📜 How to play</h2><button class="x" data-act="closeModal" aria-label="Close">✕</button></div>
       <p>Two players each build a dino park on a 10×10 grid over <b>18 rounds</b>. Most points wins.</p>
@@ -2100,7 +2152,7 @@
       <ul>
         <li><b>Play a dino</b> — pay its cost and fill its squares in one enclosure.</li>
         <li><b>Draw a card</b> — face-up or top of the deck. It joins your dino book.</li>
-        <li><b>Buy from the shop</b> — 💎 Diamond (🪙6), 🌾 Feeder (💎1 + 🪙3, +🪙2 per square over 5; each square = 1 less food per dino in that enclosure), 💧 Watering hole (💎2 + 🪙4, 6 squares; allows one more species in that enclosure).</li>
+        <li><b>Buy from the shop</b> — 💎 Diamond (🪙6), 🌾 Feeder (💎1 + 🪙3, +🪙2 per square over 5; each square = 1 less food in total for that enclosure each Feeding), 💧 Watering hole (💎2 + 🪙4, 6 squares; allows one more species in that enclosure).</li>
         <li><b>Use a dino action</b> — a red ability of a dino in an active enclosure.</li>
         <li><b>Gain 3 coins.</b></li>
         <li><b>Draw in 2 fences.</b></li>
@@ -2121,7 +2173,7 @@
         <li>Dinos, feeders, and watering holes must fill <b>connected</b> squares inside one enclosure.</li>
         <li>Fences can’t cut through a dino, feeder, or watering hole, and can’t leave two species together without a watering hole. Splitting an inactive enclosure keeps its marker on every part that still has dinos.</li>
         <li>Squares filled by your opponent (Brachiosaurus, Spinosaurus) can’t be used, but fences can still pass them.</li>
-        <li>The inactive surcharge applies to <b>each dino</b> in the enclosure; feeders reduce each dino’s total food by 1 per feeder square (never below 0).</li>
+        <li>The inactive surcharge applies to <b>each dino</b> in the enclosure; feeders take 1 food per feeder square off the enclosure’s total (never below 0).</li>
         <li>Your book dinos (and drawn cards) can be played any number of times unless T. Rex blocks them.</li>
         <li>Nothing new can be placed in an extinct (💀) enclosure.</li>
         <li>Triceratops page plants score only if you have a Triceratops in an active enclosure at the end.</li>
@@ -2168,7 +2220,14 @@
     if (act === 'setupStart') {
       const n0 = (document.getElementById('name0').value || '').trim() || 'Red';
       const n1 = setupVsAi ? 'Computer' : (document.getElementById('name1').value || '').trim() || 'Blue';
-      newGame([n0, n1], +ds.first, setupVsAi ? 1 : null);
+      newGame([n0, n1], +ds.first, setupVsAi ? 1 : null, setupLevel, setupPace);
+      return;
+    }
+    if (act === 'setupOpt') {
+      if (ds.k === 'level') setupLevel = ds.v;
+      else setupPace = ds.v;
+      savePrefs(setupLevel, setupPace);
+      el.parentElement.querySelectorAll('.seg-btn').forEach((b) => b.classList.toggle('on', b === el));
       return;
     }
     if (!state) return;
@@ -2187,6 +2246,15 @@
       return;
     }
     if (act === 'book') { openBook(+ds.p); return; }
+    if (act === 'aiSettings') { openAiSettings(); return; }
+    if (act === 'setAiOpt' && state.aiCfg) {
+      state.aiCfg[ds.k] = ds.v;
+      savePrefs(state.aiCfg.level, state.aiCfg.pace);
+      save();
+      openAiSettings();
+      renderTop();
+      return;
+    }
 
     const T = cur();
     if (!T) return;
@@ -2616,19 +2684,91 @@
   }
 
   // ---------------------------------------------------------------- computer player
-  const FREE_ACTS = new Set(['rules', 'book', 'closeModal', 'newGame', 'confirmYes']);
-  // Fence plan: close four quadrants, then split each quadrant into a 2-row and a 3-row pen.
-  const AI_PLAN = [
-    ['h40', 'h41', 'h42', 'h43', 'h44', 'v4', 'v13', 'v22', 'v31', 'v40'],
-    ['h45', 'h46', 'h47', 'h48', 'h49'],
-    ['v49', 'v58', 'v67', 'v76', 'v85'],
-    ['h10', 'h11', 'h12', 'h13', 'h14'],
-    ['h75', 'h76', 'h77', 'h78', 'h79'],
-    ['h15', 'h16', 'h17', 'h18', 'h19'],
-    ['h70', 'h71', 'h72', 'h73', 'h74'],
+  const FREE_ACTS = new Set(['rules', 'book', 'closeModal', 'newGame', 'confirmYes', 'aiSettings', 'setAiOpt']);
+  const AI_LEVELS = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
+  const AI_PACES = { fast: 'Fast', medium: 'Medium', slow: 'Slow' };
+  const AI_LEVEL_HELP = { easy: 'Plays for fun and makes mistakes', medium: 'Plans one move at a time', hard: 'Plans whole turns and the rounds ahead' };
+  const AI_PACE_HELP = { fast: 'Quick turns', medium: 'Easy to follow', slow: 'Step by step' };
+  const PACE_MULT = { fast: 0.4, medium: 1, slow: 2.1 };
+  const LEVEL_TUNE = {
+    easy: { depth: 1, noise: 2.6, style: 1.2, foresight: 0.3, blunder: 0.2 },
+    medium: { depth: 1, noise: 0.8, style: 1, foresight: 0.85, blunder: 0 },
+    hard: { depth: 2, noise: 0.15, style: 0.3, foresight: 1, blunder: 0 },
+  };
+  const AI_STYLES = {
+    builder: { sp: { trex: 3, mosasaurus: 3, spinosaurus: 1.5, brachiosaurus: 1.5, allosaurus: 1 }, act: { fences: 0.8, diamond: 0.4 } },
+    herder: { sp: { compy: 1.5, microraptor: 2, parasaurolophus: 2, stegosaurus: 1, triceratops: 0.8 }, act: { feeder: 1.2, draw: 0.4 } },
+    raider: { sp: { velociraptor: 2.5, allosaurus: 2.5, brachiosaurus: 1.5, dilophosaurus: 1.5, carnotaurus: 1 }, act: { dinoAct: 1, draw: 0.3 } },
+    banker: { sp: { pachy: 3, triceratops: 2, ankylosaurus: 1, gigantoraptor: 1 }, act: { diamond: 1, gain3: 0.4 } },
+  };
+  // Fence layouts (the first segments build the outer pens, the rest split them). Each game picks
+  // one, applies a random rotation/mirror, and shuffles the order of the splits.
+  const AI_PLANS = [
+    {
+      head: 3,
+      segs: [
+        ['h40', 'h41', 'h42', 'h43', 'h44', 'v4', 'v13', 'v22', 'v31', 'v40'],
+        ['h45', 'h46', 'h47', 'h48', 'h49'],
+        ['v49', 'v58', 'v67', 'v76', 'v85'],
+        ['h10', 'h11', 'h12', 'h13', 'h14'],
+        ['h75', 'h76', 'h77', 'h78', 'h79'],
+        ['h15', 'h16', 'h17', 'h18', 'h19'],
+        ['h70', 'h71', 'h72', 'h73', 'h74'],
+      ],
+    },
+    {
+      head: 3,
+      segs: [
+        ['h20', 'h21', 'h22', 'h23', 'v3', 'v12', 'v21'],
+        ['h24', 'h25', 'h26', 'h27', 'h28', 'h29'],
+        ['v31', 'v40', 'v49', 'v58', 'v67', 'v76', 'v85'],
+        ['h60', 'h61', 'h62', 'h63', 'h64'],
+        ['h65', 'h66', 'h67', 'h68', 'h69'],
+        ['v7', 'v16', 'v25'],
+      ],
+    },
   ];
-  const ACT_VALUE = { triceratops: 0.5, velociraptor: 0.45, allosaurus: 0.6, parasaurolophus: 0.5 };
-  const EVENT_VALUE = { spinosaurus: 5, stegosaurus: 4, brachiosaurus: 2.5, trex: 3, carnotaurus: 5, ankylosaurus: 4, dilophosaurus: 7, gigantoraptor: 2 };
+  const FOOD_PER_PHASE = 3.2;
+  // Idle coins are worth less than the points they buy: spending them later costs an action.
+  const COIN_VALUE = 0.38;
+  const SURPLUS_COIN_VALUE = 0.22;
+  const COIN_RESERVE = 12;
+  const OPP_WEIGHT = 0.6;
+
+  function aiProfile(level, pace) {
+    const plan = AI_PLANS[rand(AI_PLANS.length)];
+    const tail = shuffle(plan.segs.slice(plan.head).map((_, i) => i + plan.head));
+    return {
+      level: AI_LEVELS[level] ? level : 'medium',
+      pace: AI_PACES[pace] ? pace : 'medium',
+      style: Object.keys(AI_STYLES)[rand(4)],
+      plan: { i: AI_PLANS.indexOf(plan), t: rand(8), order: plan.segs.slice(0, plan.head).map((_, i) => i).concat(tail) },
+    };
+  }
+
+  function aiCfg() {
+    if (!state.aiCfg) state.aiCfg = aiProfile('medium', 'medium');
+    return state.aiCfg;
+  }
+
+  function edgeRC(e) {
+    const i = +e.slice(1);
+    return e[0] === 'h' ? ['h', Math.floor(i / N), i % N] : ['v', Math.floor(i / 9), i % 9];
+  }
+
+  function xformEdge(e, t) {
+    let [k, r, c] = edgeRC(e);
+    if (t & 4) [k, r, c] = [k === 'h' ? 'v' : 'h', c, r];
+    if (t & 1) c = (k === 'h' ? 9 : 8) - c;
+    if (t & 2) r = (k === 'h' ? 8 : 9) - r;
+    return k === 'h' ? `h${r * N + c}` : `v${r * 9 + c}`;
+  }
+
+  function aiPlan() {
+    const { i, t, order } = aiCfg().plan;
+    const segs = AI_PLANS[i].segs;
+    return order.map((n) => segs[n].map((e) => xformEdge(e, t)));
+  }
 
   function isAiTask(T) {
     if (!state || state.ai == null || !T || T.t === 'gameOver') return false;
@@ -2636,41 +2776,139 @@
     return T.t === 'roll' && state.first === state.ai;
   }
 
-  function roundsLeft() {
-    return ROUNDS - state.round + 1;
+  function tune() {
+    return LEVEL_TUNE[aiCfg().level];
   }
 
-  function feedingLeft() {
-    const T = cur();
-    if (state.round < ROUNDS) return true;
-    const fk = state.phaseOrder.indexOf('feed');
-    return !T || T.k === undefined || T.k <= fk;
+  function noise(scale) {
+    return (Math.random() + Math.random() + Math.random() - 1.5) * scale;
   }
 
-  function foodDemand(p) {
-    return sumCosts(feedables(analyze(state.players[p].board)).map(enclosureCost));
+  // What is still to come after the current phase: how many feedings, productions, food phases and
+  // action phases, and whether food arrives before the next feeding.
+  function aiTimeline(k) {
+    const rest = k == null || k < 0 ? state.phaseOrder.slice() : state.phaseOrder.slice(k + 1);
+    const future = ROUNDS - state.round;
+    const tl = { feeds: 0, prods: 0, prodSpend: 0, prodsBeforeFeed: 0, foods: 0, acts: 0, foodBeforeFeed: 0, future };
+    let seenFood = false;
+    let seenFeed = false;
+    rest.forEach((ph, i) => {
+      if (ph === 'feed') {
+        tl.feeds++;
+        if (!seenFeed) tl.foodBeforeFeed = seenFood ? 1 : 0;
+        seenFeed = true;
+      } else if (ph === 'food') {
+        tl.foods++;
+        seenFood = true;
+      } else if (ph === 'action') {
+        tl.acts++;
+      } else {
+        tl.prods++;
+        tl.prodSpend += rest.slice(i + 1).includes('action') || future > 0 ? 1 : 0;
+        if (!seenFeed) tl.prodsBeforeFeed++;
+      }
+    });
+    if (!seenFeed && future > 0) {
+      tl.foodBeforeFeed = 0.5;
+      tl.prodsBeforeFeed += 0.5;
+    }
+    tl.feeds += future;
+    tl.prods += future;
+    tl.foods += future;
+    tl.acts += future;
+    if (future > 0) tl.prodSpend += future - 0.5;
+    return tl;
   }
 
-  function dinoValue(p, sp) {
-    const S = SPECIES[sp];
-    const left = roundsLeft();
+  // ----- lightweight model of one player, used to try moves without touching the real game
+  function cloneBoard(b) {
+    return Object.assign({}, b, {
+      h: b.h.slice(), v: b.v.slice(), cells: b.cells.slice(), items: Object.assign({}, b.items),
+      inactive: Object.assign({}, b.inactive), placedRound: Object.assign({}, b.placedRound),
+      dead: Object.assign({}, b.dead), names: Object.assign({}, b.names),
+    });
+  }
+
+  function aiModel(p, actsLeft) {
     const P = state.players[p];
-    let v = S.pts;
-    if (!feedingLeft()) return v + (sp === 'pachy' ? Math.floor(P.coins / 5) : 0);
-    v += S.prod * Math.min(left, 12) * 0.4 - S.food.n * Math.min(left, 12) * 0.22;
-    v += EVENT_VALUE[sp] || 0;
-    if (ACT_VALUE[sp]) v += ACT_VALUE[sp] * Math.min(left, 10);
-    if (sp === 'pachy') v += Math.floor(P.coins / 5);
-    if (sp === 'microraptor' || sp === 'compy') v += 1.5;
-    return v;
+    const O = state.players[other(p)];
+    return {
+      p, actsLeft,
+      coins: P.coins, diamonds: P.diamonds, meat: P.meat, plants: P.plants, triPlants: P.triPlants,
+      board: cloneBoard(P.board),
+      book: P.book.filter((sp) => !P.blocked.includes(sp)),
+      faceUp: state.faceUp.slice(),
+      deck: state.deck.length,
+      opp: { coins: O.coins, food: O.meat + O.plants },
+      extra: 0,
+    };
   }
 
-  function foodOk(p, sp) {
-    if (!feedingLeft()) return true;
-    const P = state.players[p];
-    const d = foodDemand(p).total;
-    const cap = 4 + (P.meat + P.plants) / Math.max(2, roundsLeft());
-    return d + SPECIES[sp].food.n <= cap;
+  function copyModel(m) {
+    return Object.assign({}, m, { board: cloneBoard(m.board), book: m.book.slice(), faceUp: m.faceUp.slice(), opp: Object.assign({}, m.opp) });
+  }
+
+  const affordM = (m, cost) => m.diamonds >= cost.d && m.coins >= cost.c;
+  function payM(m, cost) {
+    m.diamonds -= cost.d;
+    m.coins -= cost.c;
+  }
+
+  function demandOf(b) {
+    return sumCosts(feedables(analyze(b)).map(enclosureCost));
+  }
+
+  // How much of `n` new food should be meat, given what the dinos eat.
+  function aiSplitFood(b, meat, plants, n) {
+    const d = demandOf(b);
+    const needM = Math.max(0, d.meat - meat);
+    const needP = Math.max(0, d.plant - plants);
+    if (needM + needP >= n) return needM + needP ? Math.round((n * needM) / (needM + needP)) : 0;
+    const rest = n - needM - needP;
+    return needM + Math.round((rest * (d.meat + 1)) / (d.meat + d.plant + 2));
+  }
+
+  function addFood(m, n) {
+    const meat = clamp(aiSplitFood(m.board, m.meat, m.plants, n), 0, n);
+    m.meat += meat;
+    m.plants += n - meat;
+  }
+
+  function payFoodM(m, c) {
+    m.meat -= c.meat;
+    m.plants -= c.plant;
+    for (let i = 0; i < c.flex; i++) {
+      if (m.meat >= m.plants && m.meat > 0) m.meat--;
+      else m.plants--;
+    }
+  }
+
+  function oppFreeValid(p) {
+    const an = analyze(state.players[other(p)].board);
+    return an.comps.filter((cp) => cp.valid && !cp.dead).reduce((s, cp) => s + cp.empty, 0);
+  }
+
+  function fillHarm(p, n) {
+    const free = oppFreeValid(p);
+    return (Math.min(n, free) * 0.3 + Math.max(0, n - free) * 0.04) * OPP_WEIGHT;
+  }
+
+  function trexHarm(p) {
+    const O = state.players[other(p)];
+    const opts = trexOptions(p);
+    if (!opts.length) return 0;
+    return Math.max(...opts.map((sp) => SPECIES[sp].pts * 0.25 + (canAfford(O, SPECIES[sp].cost) ? 1.5 : 0.5))) * OPP_WEIGHT;
+  }
+
+  function cardValue(sp, tl) {
+    if (tl.acts < 2) return 0.2;
+    return 0.6 + SPECIES[sp].pts * 0.15 + (tl.acts >= 6 ? 0.6 : 0);
+  }
+
+  function deckValue(m, tl) {
+    const pool = state.deck.filter((sp) => !m.book.includes(sp));
+    if (!pool.length) return 0;
+    return (pool.reduce((s, sp) => s + cardValue(sp, tl), 0) / pool.length) * 0.85;
   }
 
   function growFrom(start, free, size) {
@@ -2688,17 +2926,16 @@
     return out.length >= size ? out.slice(0, size) : null;
   }
 
-  function aiFindCells(p, size, sp, onlyKey) {
-    const b = state.players[p].board;
+  function aiFindCellsB(b, size, sp, onlyKey) {
     const an = analyze(b);
     let best = null;
     an.comps.forEach((cp) => {
       if (!cp.valid || cp.dead || cp.empty < size) return;
       if (onlyKey != null && cp.key !== onlyKey) return;
       if (sp) {
-        const s = new Set(cp.species);
-        s.add(sp);
-        if (s.size > 1 + cp.waters.length) return;
+        const kinds = new Set(cp.species);
+        kinds.add(sp);
+        if (kinds.size > 1 + cp.waters.length) return;
       }
       const free = new Set(cp.cells.filter((i) => b.cells[i] === 0));
       free.forEach((start) => {
@@ -2707,26 +2944,21 @@
         const rs = cells.map((i) => Math.floor(i / N));
         const cs = cells.map((i) => i % N);
         const box = (Math.max(...rs) - Math.min(...rs) + 1) * (Math.max(...cs) - Math.min(...cs) + 1);
-        const score = (sp && cp.species.has(sp) ? 30 : 0) - (cp.empty - size) * 0.4 - (box - size) * 0.6 - (cp.inactive ? 20 : 0);
+        let score = (sp && cp.species.has(sp) ? 30 : 0) + cp.prod * 2 - (cp.empty - size) * 0.4 - (box - size) * 0.6 - (cp.inactive ? 20 : 0);
+        if (sp === 'compy') score += cells.reduce((s, i) => s + orthNbrs(i).filter((j) => { const it = b.items[b.cells[j]]; return it && it.species === 'compy'; }).length * 6, 0);
         if (!best || score > best.score) best = { cells, score };
       });
     });
     return best ? best.cells : null;
   }
 
-  function aiFreeSpace(p) {
-    const an = analyze(state.players[p].board);
-    return an.comps.filter((cp) => cp.valid && !cp.dead).reduce((m, cp) => Math.max(m, cp.empty), 0);
-  }
-
-  function aiPlanEdges(p, max) {
-    const b = state.players[p].board;
-    const legal = new Set(legalEdges(p));
+  function aiPlanEdgesB(b, max) {
+    const legal = new Set(legalEdgesB(b));
     const out = [];
-    for (const seg of AI_PLAN) {
+    for (const seg of aiPlan()) {
       if (out.length >= max) break;
       const todo = seg.filter((e) => !b[e[0]][+e.slice(1)]);
-      if (!todo.length || todo.some((e) => !legal.has(e)) || fenceProblem(b, todo)) continue;
+      if (!todo.length || todo.some((e) => !legal.has(e)) || fenceProblem(b, out.concat(todo))) continue;
       for (const e of todo) {
         if (out.length >= max) break;
         out.push(e);
@@ -2735,96 +2967,361 @@
     return fenceProblem(b, out) ? [] : out;
   }
 
-  function aiMeatShare(p, total) {
-    const P = state.players[p];
-    const d = foodDemand(p);
-    const needM = Math.max(0, d.meat - P.meat);
-    const needP = Math.max(0, d.plant - P.plants);
-    if (needM + needP === 0) return Math.round((total * (d.meat + 1)) / (d.meat + d.plant + 2));
-    return Math.round((total * needM) / (needM + needP));
-  }
-
-  function aiTarget(p) {
-    const P = state.players[p];
-    return P.book
-      .filter((sp) => !P.blocked.includes(sp) && aiFindCells(p, SPECIES[sp].space, sp))
-      .sort((a, b) => dinoValue(p, b) - dinoValue(p, a))[0];
-  }
-
-  function aiFeederOption(p) {
-    const P = state.players[p];
-    const an = analyze(P.board);
+  function aiFeederB(m) {
+    const b = m.board;
+    const an = analyze(b);
     let best = null;
-    an.comps.filter((cp) => cp.valid && !cp.dead && cp.living.length >= 2 && cp.empty > 0).forEach((cp) => {
-      const maxFood = Math.max(...cp.living.map((d) => SPECIES[d.species].food.n + (cp.inactive || 0))) - cp.feederSquares;
-      const size = Math.min(5, cp.empty, maxFood);
-      if (size <= 0 || !canAfford(P, feederCost(size))) return;
-      const saving = cp.living.reduce((s, d) => s + Math.min(size, Math.max(0, SPECIES[d.species].food.n + (cp.inactive || 0) - cp.feederSquares)), 0);
-      const cells = aiFindCells(p, size, null, cp.key);
-      const score = saving * Math.min(roundsLeft(), 8) * 0.22;
-      if (cells && (!best || score > best.score)) best = { kind: 'feeder', cells, score };
+    an.comps.filter((cp) => cp.valid && !cp.dead && cp.living.length && cp.empty > 0).forEach((cp) => {
+      const bill = cp.living.reduce((s, d) => s + SPECIES[d.species].food.n, 0) - cp.feederSquares;
+      const size = Math.min(5, cp.empty, bill);
+      if (size <= 0 || !affordM(m, feederCost(size))) return;
+      const cells = aiFindCellsB(b, size, null, cp.key);
+      if (cells && (!best || size > best.n)) best = { kind: 'feeder', cells, n: size };
     });
     return best;
   }
 
-  function aiDeckValue(p) {
-    const P = state.players[p];
-    const pool = state.deck.filter((sp) => !P.book.includes(sp));
-    if (!pool.length) return 0;
-    return (pool.reduce((s, sp) => s + dinoValue(p, sp), 0) / state.deck.length) * 0.8;
-  }
-
-  function aiDrawChoice(p) {
-    const P = state.players[p];
-    let best = { from: state.deck.length ? 'deck' : null, v: state.deck.length ? aiDeckValue(p) : -1 };
-    state.faceUp.forEach((sp, i) => {
-      if (!sp) return;
-      const v = P.book.includes(sp) ? 0 : dinoValue(p, sp);
-      if (v > best.v) best = { from: i, v };
+  function simulateFeedB(b, list, fedKeys) {
+    list.forEach((cp) => {
+      if (fedKeys.has(cp.key)) {
+        delete b.inactive[cp.key];
+        delete b.placedRound[cp.key];
+      } else if (!b.inactive[cp.key]) {
+        b.inactive[cp.key] = 1;
+        b.placedRound[cp.key] = state.round;
+      }
     });
-    return best;
+    Object.keys(b.inactive).forEach((key) => {
+      if (b.placedRound[key] === state.round) return;
+      if (b.inactive[key] >= 4) {
+        delete b.inactive[key];
+        delete b.placedRound[key];
+        b.dead[key] = true;
+        const cp = list.find((c) => String(c.key) === key);
+        if (cp) cp.dinos.forEach((d) => { b.items[d.id] = Object.assign({}, d, { dead: true }); });
+      } else {
+        b.inactive[key]++;
+      }
+    });
   }
 
-  function aiChooseAction(p) {
-    const P = state.players[p];
-    const O = state.players[other(p)];
-    const left = roundsLeft();
-    const opts = [{ kind: 'gain3', score: !feedingLeft() && left === 1 ? 0.3 : 2.4 }];
-    const plays = playOptions(p, false)
-      .filter((o) => o.ok && foodOk(p, o.sp))
-      .map((o) => ({ sp: o.sp, v: dinoValue(p, o.sp) }))
-      .sort((a, b) => b.v - a.v);
-    for (const x of plays) {
-      const cells = aiFindCells(p, SPECIES[x.sp].space, x.sp);
-      if (cells && x.v > 2) {
-        opts.push({ kind: 'play', sp: x.sp, cells, score: 3 + x.v });
+  function compyPairs(b, an, cp) {
+    let n = 0;
+    cp.living.forEach((d) => {
+      if (d.species !== 'compy') return;
+      orthNbrs(d.cells[0]).forEach((j) => {
+        const it = b.items[b.cells[j]];
+        if (it && it.species === 'compy' && !it.dead && an.compOf[j] === cp.idx) n++;
+      });
+    });
+    return n;
+  }
+
+  // Estimated final score for the model, looking at the rest of the game.
+  function aiEval(m, tl) {
+    const T = tune();
+    const b = m.board;
+    const an = analyze(b);
+    const live = an.comps.filter((cp) => cp.valid && !cp.dead && cp.living.length);
+    const futureActs = m.actsLeft + 2 * tl.acts;
+    const compVal = (cp) => cp.living.reduce((s, d) => s + SPECIES[d.species].pts, 0) + compyPairs(b, an, cp);
+    const keep = new Map();
+    const prodW = new Map();
+
+    if (!tl.feeds) {
+      live.forEach((cp) => { keep.set(cp.key, cp.inactive ? 0 : 1); prodW.set(cp.key, cp.inactive ? 0 : 1); });
+    } else {
+      // Next feeding: feed what the food on hand (plus food coming first) can cover.
+      let sm = m.meat;
+      let sp = m.plants;
+      let sf = tl.foodBeforeFeed * FOOD_PER_PHASE;
+      const ranked = live
+        .map((cp) => ({ cp, c: enclosureCost(cp), v: compVal(cp) + cp.prod * 1.5 }))
+        .sort((x, y) => (y.v / Math.max(1, y.c.total) + (y.cp.inactive >= 3 ? 40 : 0)) - (x.v / Math.max(1, x.c.total) + (x.cp.inactive >= 3 ? 40 : 0)));
+      const fed = [];
+      ranked.forEach((x) => {
+        const useM = Math.min(x.c.meat, sm);
+        const useP = Math.min(x.c.plant, sp);
+        const gap = x.c.meat - useM + x.c.plant - useP + x.c.flex;
+        const flexPool = sf + (sm - useM) + (sp - useP);
+        if (gap > flexPool + 1e-9) return;
+        sm -= useM;
+        sp -= useP;
+        let g = gap;
+        const fromF = Math.min(g, sf);
+        sf -= fromF;
+        g -= fromF;
+        const fromM = Math.min(g, sm);
+        sm -= fromM;
+        sp -= g - fromM;
+        fed.push(x.cp.key);
+      });
+      const fedSet = new Set(fed);
+      const left = sm + sp + sf;
+      const feedsAfter = tl.feeds - 1;
+      const steady = live.filter((cp) => fedSet.has(cp.key)).reduce((s, cp) => s + Math.max(0, cp.living.reduce((t, d) => t + SPECIES[d.species].food.n, 0) - cp.feederSquares), 0);
+      const incomePhases = Math.min(Math.max(0, tl.foods - tl.foodBeforeFeed), feedsAfter);
+      const need = steady * feedsAfter;
+      const ratio = need > 0 ? clamp((left + incomePhases * FOOD_PER_PHASE) / need, 0, 1) : 1;
+      const r = 1 - (1 - ratio) * T.foresight;
+      live.forEach((cp) => {
+        if (fedSet.has(cp.key)) {
+          keep.set(cp.key, feedsAfter ? Math.pow(r, 1.3) : 1);
+          prodW.set(cp.key, 0.4 + 0.6 * r);
+        } else {
+          const marker = Math.min(4, (cp.inactive || 0) + 1);
+          const survive = [1, 0.8, 0.6, 0.4, 0.15][marker];
+          const w = feedsAfter ? r * (1 - T.foresight * (1 - survive)) : 0;
+          keep.set(cp.key, cp.inactive >= 4 ? 0 : w);
+          prodW.set(cp.key, w * 0.6);
+        }
+      });
+      m.foodLeft = left;
+    }
+
+    let v = 0;
+    let micro = 0;
+    let microEncl = 0;
+    let triAlive = 0;
+    let pachy = 0;
+    let bestProd = 0;
+    let bestNow = 0;
+    live.forEach((cp) => {
+      if (!cp.inactive) bestNow = Math.max(bestNow, cp.prod);
+      const w = keep.get(cp.key);
+      v += compVal(cp) * w;
+      const nm = cp.living.filter((d) => d.species === 'microraptor').length;
+      if (nm) { micro += nm * w; microEncl += w; }
+      if (cp.living.some((d) => d.species === 'triceratops')) triAlive = Math.max(triAlive, w);
+      pachy += cp.living.filter((d) => d.species === 'pachy').length * w;
+      bestProd = Math.max(bestProd, cp.prod * prodW.get(cp.key));
+    });
+    v += micro * 2 * microEncl;
+    v += triAlive * m.triPlants * 1.5;
+    v += m.diamonds * 3;
+
+    const spendable = futureActs > 0;
+    const prodCoins = bestProd * tl.prods;
+    if (futureActs <= 2) v += Math.min(Math.floor(m.coins / 6), futureActs) * 3 + (spendable ? (m.coins % 6) * 0.05 : 0);
+    else {
+      const usable = Math.min(m.coins, futureActs * 6);
+      v += Math.min(usable, COIN_RESERVE) * COIN_VALUE + Math.max(0, usable - COIN_RESERVE) * SURPLUS_COIN_VALUE;
+    }
+    const spendNow = Math.min(tl.prodsBeforeFeed, tl.prodSpend);
+    v += (bestNow * spendNow + bestProd * (tl.prodSpend - spendNow)) * COIN_VALUE;
+    v += (pachy * (m.coins + prodCoins * 0.5)) / 5;
+
+    if (tl.feeds) v += Math.min(m.foodLeft || 0, 6) * 0.1;
+    else v += 0;
+
+    const freeValid = an.comps.filter((cp) => cp.valid && !cp.dead).reduce((s, cp) => s + cp.empty, 0);
+    const actScale = Math.min(1, futureActs / 5);
+    v += Math.min(freeValid, 30) * 0.2 * actScale;
+    let progress = 0;
+    aiPlan().forEach((seg) => {
+      const built = seg.filter((e) => b[e[0]][+e.slice(1)]).length;
+      if (built && built < seg.length) progress += built / seg.length;
+    });
+    v += progress * (freeValid > 25 ? 0.8 : 2) * Math.min(1, futureActs / 6);
+    return v + m.extra;
+  }
+
+  function aiEvent(m, sp, tl) {
+    switch (sp) {
+      case 'stegosaurus': addFood(m, 10); break;
+      case 'carnotaurus': addFood(m, 14); break;
+      case 'brachiosaurus': m.extra += fillHarm(m.p, 5); break;
+      case 'trex': m.extra += trexHarm(m.p); break;
+      case 'gigantoraptor': if (tl.future > 0) m.extra += 3; break;
+      case 'dilophosaurus': {
+        m.coins += 5;
+        addFood(m, 5);
+        const edges = aiPlanEdgesB(m.board, 5);
+        if (edges.length) applyEdges(m.board, edges);
+        m.extra += m.faceUp.some(Boolean) ? Math.max(...m.faceUp.filter(Boolean).map((x) => cardValue(x, tl))) : deckValue(m, tl);
         break;
       }
+      case 'spinosaurus': {
+        const opt = aiSpinoPick(m, tl);
+        aiSpinoApply(m, opt);
+        m.extra += deckValue(m, tl);
+        break;
+      }
+      case 'ankylosaurus': {
+        const free = aiActions(m, tl, true);
+        let best = null;
+        free.forEach((a) => {
+          const n = aiApply(m, a, tl, true);
+          const val = aiEval(n, tl);
+          if (!best || val > best.val) best = { n, val };
+        });
+        if (best) Object.assign(m, best.n, { actsLeft: m.actsLeft });
+        break;
+      }
+      default: break;
     }
-    const edges = aiPlanEdges(p, 2);
-    if (edges.length) {
-      const space = aiFreeSpace(p);
-      opts.push({ kind: 'fences', edges, score: space < 5 ? 6 : space < 10 ? 3 : 0.8 });
-    }
-    if (canAfford(P, DIAMOND_COST)) {
-      const target = aiTarget(p);
-      let s = left === 1 ? 3.3 : 0.8;
-      if (target && P.diamonds < SPECIES[target].cost.d) s = 4.5;
-      opts.push({ kind: 'diamond', score: s });
-    }
-    const feeder = aiFeederOption(p);
-    if (feeder) opts.push(feeder);
-    dinoActionOptions(p).forEach((o) => {
-      let s = 0;
-      if (o.sp === 'triceratops') s = 1.6;
-      else if (o.sp === 'velociraptor') s = Math.min(2 * o.count, O.meat + O.plants) * 0.75;
-      else if (o.sp === 'allosaurus') s = Math.min(3, O.coins) * 0.85;
-      else if (o.sp === 'parasaurolophus') s = 2 * o.count * 0.85;
-      opts.push({ kind: 'dinoAct', sp: o.sp, key: o.key, score: s });
+  }
+
+  function aiSpinoApply(m, o) {
+    if (o === 'dia') m.diamonds++;
+    else if (o === 'coins') m.coins += 5;
+    else if (o === 'food') addFood(m, 15);
+    else m.extra += fillHarm(m.p, 10);
+  }
+
+  function aiSpinoPick(m, tl) {
+    let best = null;
+    ['dia', 'coins', 'food', 'fill'].forEach((o) => {
+      const n = copyModel(m);
+      aiSpinoApply(n, o);
+      const val = aiEval(n, tl);
+      if (!best || val > best.val) best = { o, val };
     });
-    const draw = aiDrawChoice(p);
-    if (draw.from !== null && left > 3) opts.push({ kind: 'draw', from: draw.from, score: Math.min(4.2, draw.v * 0.3) });
-    return opts.sort((a, b) => b.score - a.score)[0];
+    return best.o;
+  }
+
+  function aiActions(m, tl, freeOnly) {
+    const b = m.board;
+    const out = [];
+    const seen = new Set();
+    m.book.forEach((sp) => {
+      if (seen.has(sp)) return;
+      seen.add(sp);
+      const S = SPECIES[sp];
+      if (freeOnly ? S.pts > 5 : !affordM(m, S.cost)) return;
+      const cells = aiFindCellsB(b, S.space, sp);
+      if (cells) out.push({ kind: freeOnly ? 'free' : 'play', sp, cells });
+    });
+    if (freeOnly) return out;
+    out.push({ kind: 'gain3' });
+    const edges = aiPlanEdgesB(b, 2);
+    if (edges.length) out.push({ kind: 'fences', edges });
+    if (m.coins >= 6) out.push({ kind: 'diamond' });
+    const feeder = aiFeederB(m);
+    if (feeder) out.push(feeder);
+    const an = analyze(b);
+    an.comps.filter((cp) => cp.active).forEach((cp) => {
+      const counts = {};
+      cp.living.forEach((d) => { if (SPECIES[d.species].type === 'action') counts[d.species] = (counts[d.species] || 0) + 1; });
+      Object.keys(counts).forEach((sp) => out.push({ kind: 'dinoAct', sp, key: cp.key, count: counts[sp] }));
+    });
+    m.faceUp.forEach((sp, i) => { if (sp && !m.book.includes(sp)) out.push({ kind: 'draw', from: i, sp }); });
+    if (m.deck > 0) out.push({ kind: 'draw', from: 'deck' });
+    return out;
+  }
+
+  function aiApply(m, a, tl, keepActs) {
+    const n = copyModel(m);
+    if (!keepActs) n.actsLeft = Math.max(0, m.actsLeft - 1);
+    switch (a.kind) {
+      case 'gain3': n.coins += 3; break;
+      case 'diamond': n.coins -= 6; n.diamonds++; break;
+      case 'fences': applyEdges(n.board, a.edges); break;
+      case 'feeder': payM(n, feederCost(a.cells.length)); placeItemB(n.board, 'feeder', a.cells); break;
+      case 'play':
+      case 'free':
+        if (a.kind === 'play') payM(n, SPECIES[a.sp].cost);
+        placeItemB(n.board, 'dino', a.cells, a.sp);
+        aiEvent(n, a.sp, tl);
+        break;
+      case 'dinoAct':
+        if (a.sp === 'triceratops') n.triPlants++;
+        else if (a.sp === 'parasaurolophus') n.coins += 2 * a.count;
+        else if (a.sp === 'allosaurus') {
+          const s = Math.min(3, n.opp.coins);
+          n.coins += s;
+          n.opp.coins -= s;
+          n.extra += s * COIN_VALUE * OPP_WEIGHT;
+        } else if (a.sp === 'velociraptor') {
+          const s = Math.min(2 * a.count, n.opp.food);
+          addFood(n, s);
+          n.opp.food -= s;
+          n.extra += s * 0.3 * OPP_WEIGHT;
+        }
+        break;
+      case 'draw':
+        if (a.from === 'deck') {
+          n.extra += deckValue(n, tl);
+          n.deck--;
+        } else {
+          n.extra += cardValue(a.sp, tl) + 0.3;
+          n.book.push(a.sp);
+          n.faceUp[a.from] = null;
+        }
+        break;
+      default: break;
+    }
+    return n;
+  }
+
+  function styleBias(a) {
+    const st = AI_STYLES[aiCfg().style];
+    const sp = a.sp && (a.kind === 'play' || a.kind === 'free') ? st.sp[a.sp] || 0 : 0;
+    return (sp + (st.act[a.kind] || 0)) * tune().style;
+  }
+
+  function pickBest(scored) {
+    scored.sort((x, y) => y.v - x.v);
+    const T = tune();
+    if (T.blunder && scored.length > 1 && Math.random() < T.blunder) return scored[1 + rand(Math.min(3, scored.length - 1))];
+    return scored[0];
+  }
+
+  function aiChooseAction(p, T) {
+    const tl = aiTimeline(T.k);
+    const m0 = aiModel(p, T.remaining);
+    const depth = tune().depth;
+    const scored = aiActions(m0, tl).map((a) => {
+      const m1 = aiApply(m0, a, tl);
+      let v = aiEval(m1, tl);
+      if (depth > 1 && m1.actsLeft > 0) {
+        aiActions(m1, tl).forEach((a2) => {
+          v = Math.max(v, aiEval(aiApply(m1, a2, tl), tl));
+        });
+      }
+      return { a, v: v + styleBias(a) + noise(tune().noise) };
+    });
+    return pickBest(scored).a;
+  }
+
+  function aiFoodPick(p, T) {
+    const tl = aiTimeline(T.k);
+    const P = state.players[p];
+    const plan = aiPlanEdgesB(P.board, T.amount);
+    const scored = [];
+    for (let f = 0; f <= plan.length; f++) {
+      const food = T.amount - f;
+      const base = aiModel(p, 0);
+      if (f) applyEdges(base.board, plan.slice(0, f));
+      const meats = new Set([clamp(aiSplitFood(base.board, base.meat, base.plants, food), 0, food), 0, food, Math.floor(food / 2), Math.ceil(food / 2)]);
+      meats.forEach((meat) => {
+        const n = copyModel(base);
+        n.meat += meat;
+        n.plants += food - meat;
+        scored.push({ edges: plan.slice(0, f), meat, plant: food - meat, v: aiEval(n, tl) + noise(tune().noise * 0.6) + (f ? (AI_STYLES[aiCfg().style].act.fences || 0) * 0.3 * tune().style : 0) });
+      });
+    }
+    return pickBest(scored);
+  }
+
+  function aiFeedPick(p, T) {
+    const P = state.players[p];
+    const list = feedables(analyze(P.board));
+    if (aiCfg().level === 'easy' || list.length > 8) return defaultFeed(p);
+    const tl = aiTimeline(T.k);
+    let best = null;
+    for (let mask = 0; mask < 1 << list.length; mask++) {
+      const fed = list.filter((_, i) => mask & (1 << i));
+      const tot = sumCosts(fed.map(enclosureCost));
+      if (!canPayFood(P, tot)) continue;
+      const m = aiModel(p, 0);
+      payFoodM(m, tot);
+      const keys = new Set(fed.map((cp) => cp.key));
+      simulateFeedB(m.board, list, keys);
+      const v = aiEval(m, tl) + noise(tune().noise * 0.3);
+      if (!best || v > best.v) best = { v, keys };
+    }
+    return best ? best.keys : defaultFeed(p);
   }
 
   function aiRubbleCells(q, n) {
@@ -2835,10 +3332,28 @@
       if (b.cells[i] !== 0) continue;
       const cp = an.comps[an.compOf[i]];
       const checker = (Math.floor(i / N) + (i % N)) % 2 === 0 ? 2 : 0;
-      const s = cp.valid && !cp.dead ? 10 + cp.empty * 0.2 + checker : checker * 0.5 + Math.random();
-      scored.push([s, i]);
+      const s = cp.valid && !cp.dead ? 10 + cp.empty * 0.4 + checker : checker * 0.5 + Math.random();
+      scored.push([s + Math.random() * (aiCfg().level === 'easy' ? 8 : 0.5), i]);
     }
     return scored.sort((a, b) => b[0] - a[0]).slice(0, n).map((x) => x[1]);
+  }
+
+  function aiDrawPick(p, deckOnly) {
+    const tl = aiTimeline(cur().k);
+    const m = aiModel(p, 0);
+    let best = { from: 'deck', v: state.deck.length ? deckValue(m, tl) : -1 };
+    if (!deckOnly) {
+      state.faceUp.forEach((sp, i) => {
+        if (!sp) return;
+        const v = (m.book.includes(sp) ? 0 : cardValue(sp, tl)) + noise(tune().noise * 0.3);
+        if (v > best.v) best = { from: i, v };
+      });
+    }
+    return best.from;
+  }
+
+  function aiDelay(ms) {
+    return ms * PACE_MULT[aiCfg().pace];
   }
 
   function aiSchedule() {
@@ -2850,7 +3365,7 @@
       if (busy || aiPending) { aiSchedule(); return; }
       const now = cur();
       if (isAiTask(now)) aiStep(now);
-    }, T.t === 'roll' || T.t === 'gainFood' ? 1100 : 850);
+    }, aiDelay(T.t === 'roll' || T.t === 'gainFood' ? 1100 : 850));
   }
 
   function aiShow(note, then) {
@@ -2862,7 +3377,7 @@
       aiPending = false;
       if (state !== token) return;
       then();
-    }, 900);
+    }, aiDelay(900));
   }
 
   function aiPlace(sp, cells, free) {
@@ -2875,51 +3390,53 @@
     }
     ui.sel.cells = new Set(cells);
     document.getElementById('boards')._html = null;
-    aiShow(`Placing ${spName(sp)}…`, () => handle('place', {}));
+    aiShow(`Playing ${spName(sp)}${free ? ' for free' : ''}…`, () => handle('place', {}));
   }
 
   function aiStep(T) {
     const p = T.p;
-    const P = p !== undefined ? state.players[p] : null;
     const panel = document.getElementById('panel');
     lastClickRect = panel ? panel.getBoundingClientRect() : null;
     switch (T.t) {
-      case 'roll': handle('roll', {}); return;
-      case 'carno': handle('carnoRoll', {}); return;
+      case 'roll': aiShow('Rolling the die…', () => handle('roll', {})); return;
+      case 'carno': aiShow('Rolling for Carnotaurus…', () => handle('carnoRoll', {})); return;
       case 'gainFood': {
-        if (T.amount == null) { handle('rollBonus', {}); return; }
-        const d = foodDemand(p);
-        const short = Math.max(0, d.total + 1 - (P.meat + P.plants));
-        const edges = aiPlanEdges(p, T.amount - Math.min(T.amount, short));
-        const food = T.amount - edges.length;
-        ui.meat = clamp(aiMeatShare(p, food), 0, food);
-        ui.plant = food - ui.meat;
-        ui.sel.edges = new Set(edges);
+        if (T.amount == null) { aiShow('Rolling the bonus die…', () => handle('rollBonus', {})); return; }
+        const pick = aiFoodPick(p, T);
+        ui.meat = pick.meat;
+        ui.plant = pick.plant;
+        ui.sel.edges = new Set(pick.edges);
         document.getElementById('boards')._html = null;
-        aiShow(`Taking ${food} food${edges.length ? ` and ${plural(edges.length, 'fence')}` : ''}…`, () => handle('confirmGain', {}));
+        const food = pick.meat + pick.plant;
+        aiShow(`Taking ${food} food${pick.edges.length ? ` and ${plural(pick.edges.length, 'fence')}` : ''}…`, () => handle('confirmGain', {}));
         return;
       }
-      case 'feed':
-        ui.feed = defaultFeed(p);
-        aiShow('Feeding dinos…', () => handle('confirmFeed', {}));
+      case 'feed': {
+        ui.feed = aiFeedPick(p, T);
+        const names = feedables(analyze(state.players[p].board)).filter((cp) => ui.feed.has(cp.key)).map((cp) => cp.name);
+        aiShow(names.length ? `Feeding enclosure${names.length > 1 ? 's' : ''} ${names.join(', ')}…` : 'Not feeding this time…', () => handle('confirmFeed', {}));
         return;
+      }
       case 'produce': {
         const best = producible(p).sort((a, b) => b.prod - a.prod)[0];
-        handle('produce', { key: best.key });
+        aiShow(`Collecting 🪙${best.prod} from enclosure ${best.name}…`, () => handle('produce', { key: best.key }));
         return;
       }
-      case 'foodChoice':
-        ui.meat = clamp(aiMeatShare(p, T.amount), 0, T.amount);
+      case 'foodChoice': {
+        const P = state.players[p];
+        ui.meat = clamp(aiSplitFood(P.board, P.meat, P.plants, T.amount), 0, T.amount);
         aiShow('Choosing food…', () => handle('confirmFood', {}));
         return;
+      }
       case 'steal': {
+        const P = state.players[p];
         const [lo, hi] = stealRange(T);
-        ui.meat = clamp(aiMeatShare(p, T.amount), lo, hi);
-        handle('confirmSteal', {});
+        ui.meat = clamp(aiSplitFood(P.board, P.meat, P.plants, T.amount), lo, hi);
+        aiShow('Stealing food…', () => handle('confirmSteal', {}));
         return;
       }
       case 'drawFences':
-        ui.sel.edges = new Set(aiPlanEdges(p, T.count));
+        ui.sel.edges = new Set(aiPlanEdgesB(state.players[p].board, T.count));
         document.getElementById('boards')._html = null;
         aiShow('Building fences…', () => handle('confirmFences', {}));
         return;
@@ -2929,38 +3446,35 @@
         aiShow('Filling in your squares…', () => handle('place', {}));
         return;
       case 'drawCard': {
-        const d = T.source === 'deck' ? { from: 'deck' } : aiDrawChoice(p);
-        handle('take', { from: String(d.from === null ? 'deck' : d.from) });
+        const from = aiDrawPick(p, T.source === 'deck');
+        aiShow(from === 'deck' ? 'Drawing from the deck…' : `Taking ${spName(state.faceUp[from])}…`, () => handle('take', { from: String(from) }));
         return;
       }
       case 'spino': {
-        const target = aiTarget(p);
-        const d = foodDemand(p);
-        let o = 'coins';
-        if (target && P.diamonds < SPECIES[target].cost.d) o = 'dia';
-        else if (d.total * 2 > P.meat + P.plants) o = 'food';
-        else if (emptyCount(other(p)) >= 10) o = 'fill';
-        handle('spino', { o });
+        const o = aiSpinoPick(aiModel(p, 0), aiTimeline(T.k));
+        const label = { dia: 'a diamond', coins: '5 coins', food: '15 food', fill: 'to fill your squares' }[o];
+        aiShow(`Spinosaurus: choosing ${label}…`, () => handle('spino', { o }));
         return;
       }
       case 'trex': {
         const O = state.players[other(p)];
         const onBoard = (sp) => Object.values(O.board.items).filter((it) => it.species === sp && !it.dead).length;
-        const sp = trexOptions(p).sort((a, b) => (onBoard(b) * 4 + SPECIES[b].pts) - (onBoard(a) * 4 + SPECIES[a].pts))[0];
-        handle('trex', { sp });
+        const score = (sp) => onBoard(sp) * 3 + SPECIES[sp].pts + (canAfford(O, SPECIES[sp].cost) ? 4 : 0) + noise(tune().noise);
+        const sp = trexOptions(p).map((x) => ({ x, s: score(x) })).sort((a, b) => b.s - a.s)[0].x;
+        aiShow(`T. Rex: blocking your ${spName(sp)}…`, () => handle('trex', { sp }));
         return;
       }
       case 'freePlay': {
-        const opts = playOptions(p, true).filter((o) => o.ok).sort((a, b) => dinoValue(p, b.sp) - dinoValue(p, a.sp));
-        for (const o of opts) {
-          const cells = aiFindCells(p, SPECIES[o.sp].space, o.sp);
-          if (cells) { aiPlace(o.sp, cells, true); return; }
-        }
-        handle('skip', {});
+        const tl = aiTimeline(T.k);
+        const m = aiModel(p, 0);
+        const scored = aiActions(m, tl, true).map((a) => ({ a, v: aiEval(aiApply(m, a, tl, true), tl) + styleBias(a) + noise(tune().noise) }));
+        if (!scored.length) { handle('skip', {}); return; }
+        const a = pickBest(scored).a;
+        aiPlace(a.sp, a.cells, true);
         return;
       }
       case 'actions': {
-        const c = aiChooseAction(p);
+        const c = aiChooseAction(p, T);
         if (c.kind === 'play') { aiPlace(c.sp, c.cells, false); return; }
         if (c.kind === 'fences') {
           handle('mode', { m: 'fences2' });
@@ -2969,7 +3483,7 @@
           aiShow('Building 2 fences…', () => handle('confirmFences', {}));
           return;
         }
-        if (c.kind === 'diamond') { handle('buyDiamond', {}); return; }
+        if (c.kind === 'diamond') { aiShow('Buying a diamond…', () => handle('buyDiamond', {})); return; }
         if (c.kind === 'feeder') {
           handle('mode', { m: 'shop' });
           handle('shopItem', { item: 'feeder' });
@@ -2978,13 +3492,15 @@
           aiShow('Building a feeder…', () => handle('place', {}));
           return;
         }
-        if (c.kind === 'dinoAct') { handle('dinoAct', { sp: c.sp, key: String(c.key) }); return; }
+        if (c.kind === 'dinoAct') { aiShow(`Using ${spName(c.sp)}’s power…`, () => handle('dinoAct', { sp: c.sp, key: String(c.key) })); return; }
         if (c.kind === 'draw') {
-          handle('mode', { m: 'draw' });
-          handle('take', { from: String(c.from) });
+          aiShow(c.from === 'deck' ? 'Drawing from the deck…' : `Drawing ${spName(c.sp)}…`, () => {
+            handle('mode', { m: 'draw' });
+            handle('take', { from: String(c.from) });
+          });
           return;
         }
-        handle('mode', { m: 'gain3' });
+        aiShow('Taking 3 coins…', () => handle('mode', { m: 'gain3' }));
         return;
       }
       default:
