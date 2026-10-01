@@ -2733,9 +2733,6 @@
   const FORECAST_FOOD = 3.2;
   // Points already on the board count a little more than points the forecast hopes for.
   const FORECAST_TRUST = 0.95;
-  // Early cards keep options open (later draws, switching plans) that the forecast's fixed book can't see.
-  const DRAW_OPTION = 1.5;
-  const DRAW_OPTION_ROUNDS = 6;
   // Idle coins are worth less than the points they buy: spending them later costs an action.
   const COIN_VALUE = 0.38;
   const SURPLUS_COIN_VALUE = 0.22;
@@ -2743,6 +2740,8 @@
   const OPP_WEIGHT = 0.6;
   // Hard measures T. Rex blocks and filled squares with the opponent's own forecast, so it can trust them more.
   const TREX_WEIGHT = 0.8;
+  // Dinos are where the points are: Hard breaks near-ties toward playing one.
+  const PLAY_PRIORITY = 0.5;
 
   function aiProfile(level, pace) {
     const plan = AI_PLANS[rand(AI_PLANS.length)];
@@ -3348,6 +3347,7 @@
           const score = got + (newBest - best) * roundsLeft * 0.45 + (EVENT_COINS[sp] || 0) * lam + gainFood * 0.05 +
             (sp === 'pachy' ? 2 : 0) - coinCost * lam - (S.cost.d - missing) * 3;
           consider(score, acts + fenceActs, () => {
+            if (aiCtx.planLog) aiCtx.planLog.push(sp);
             if (size) { encl.push(e); open -= size; }
             coins -= coinCost;
             coins += EVENT_COINS[sp] || 0;
@@ -3450,9 +3450,13 @@
     aiCtx.targets = [];
     if (!tune().proj || tl.acts + m0.actsLeft === 0) return;
     const b = m0.board;
+    // See which dinos the forecast wants to play, and fence enclosures that fit those.
+    aiCtx.planLog = [];
     const base = aiEval(m0, tl);
+    const wanted = [...new Set(aiCtx.planLog)].slice(0, 2);
+    aiCtx.planLog = null;
     const found = [];
-    aiTargetCands(b, m0.book).forEach((c) => {
+    aiTargetCands(b, wanted.length ? wanted : m0.book).forEach((c) => {
       if (fenceProblem(b, c.need)) return;
       const m2 = copyModel(m0);
       applyEdges(m2.board, c.need);
@@ -3630,7 +3634,6 @@
         }
         break;
       case 'draw':
-        if (tune().proj && state.round <= DRAW_OPTION_ROUNDS) n.extra += DRAW_OPTION;
         if (a.from === 'deck') {
           if (tune().proj) n.pendingDeck = (n.pendingDeck || 0) + 1;
           else n.extra += deckValue(n, tl);
@@ -3673,7 +3676,7 @@
           v = Math.max(v, aiEval(aiApply(m1, a2, tl), tl));
         });
       }
-      return { a, v: v + styleBias(a) + noise(tune().noise) };
+      return { a, v: v + styleBias(a) + noise(tune().noise) + (tune().proj && a.kind === 'play' ? PLAY_PRIORITY : 0) };
     });
     return pickBest(scored).a;
   }
@@ -3723,11 +3726,17 @@
   function aiFeedPick(p, T) {
     const P = state.players[p];
     const list = feedables(analyze(P.board));
+    const costOf = (keys) => sumCosts(list.filter((cp) => keys.has(cp.key)).map(enclosureCost));
+    // Feeding is never worth skipping: feed everything when the food covers it.
+    const all = new Set(list.map((cp) => cp.key));
+    if (canPayFood(P, costOf(all))) return all;
     if (aiCfg().level === 'easy') return defaultFeed(p);
+    // Otherwise only consider choices that leave no affordable enclosure unfed.
+    const full = (keys) => list.every((cp) => keys.has(cp.key) || !canPayFood(P, costOf(new Set(keys).add(cp.key))));
     const tl = aiTimeline(T.k);
     const score = (keys) => {
-      const tot = sumCosts(list.filter((cp) => keys.has(cp.key)).map(enclosureCost));
-      if (!canPayFood(P, tot)) return -Infinity;
+      const tot = costOf(keys);
+      if (!canPayFood(P, tot) || !full(keys)) return -Infinity;
       const m = aiModel(p, 0);
       payFoodM(m, tot);
       simulateFeedB(m.board, list, keys);
@@ -3748,13 +3757,14 @@
     for (let pass = 0; pass < 4; pass++) {
       let improved = false;
       list.forEach((cp) => {
-        const flip = new Set(keys);
-        if (flip.has(cp.key)) flip.delete(cp.key); else flip.add(cp.key);
-        const tries = [flip];
-        if (!keys.has(cp.key)) keys.forEach((k) => { const sw = new Set(flip); sw.delete(k); tries.push(sw); });
-        tries.forEach((t) => {
-          const tv = score(t);
-          if (tv > v + 1e-6) { v = tv; keys = t; improved = true; }
+        if (keys.has(cp.key)) return;
+        keys.forEach((k) => {
+          const sw = new Set(keys);
+          sw.delete(k);
+          sw.add(cp.key);
+          list.forEach((x) => { if (!sw.has(x.key) && canPayFood(P, costOf(new Set(sw).add(x.key)))) sw.add(x.key); });
+          const tv = score(sw);
+          if (tv > v + 1e-6) { v = tv; keys = sw; improved = true; }
         });
       });
       if (!improved) break;
