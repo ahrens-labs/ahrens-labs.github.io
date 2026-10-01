@@ -3228,7 +3228,7 @@
     for (let j = 0; j < slots.length; j++) {
       const r = slots[j];
       if (r !== lastR) {
-        coins += r === 1 && tl.prodsBeforeFeed >= 1 ? awakeBest() : best;
+        coins += r === 1 ? best - (best - awakeBest()) * Math.min(1, tl.prodsBeforeFeed) : best;
         lastR = r;
       }
       if (skip) { skip--; continue; }
@@ -3643,7 +3643,7 @@
     if (aiCfg().level === 'easy' || list.length > 8) return defaultFeed(p);
     const tl = aiTimeline(T.k);
     let best = null;
-    for (let mask = 0; mask < 1 << list.length; mask++) {
+    for (let mask = (1 << list.length) - 1; mask >= 0; mask--) {
       const fed = list.filter((_, i) => mask & (1 << i));
       const tot = sumCosts(fed.map(enclosureCost));
       if (!canPayFood(P, tot)) continue;
