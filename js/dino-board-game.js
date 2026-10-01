@@ -3649,21 +3649,43 @@
   function aiFeedPick(p, T) {
     const P = state.players[p];
     const list = feedables(analyze(P.board));
-    if (aiCfg().level === 'easy' || list.length > 8) return defaultFeed(p);
+    if (aiCfg().level === 'easy') return defaultFeed(p);
     const tl = aiTimeline(T.k);
-    let best = null;
-    for (let mask = (1 << list.length) - 1; mask >= 0; mask--) {
-      const fed = list.filter((_, i) => mask & (1 << i));
-      const tot = sumCosts(fed.map(enclosureCost));
-      if (!canPayFood(P, tot)) continue;
+    const score = (keys) => {
+      const tot = sumCosts(list.filter((cp) => keys.has(cp.key)).map(enclosureCost));
+      if (!canPayFood(P, tot)) return -Infinity;
       const m = aiModel(p, 0);
       payFoodM(m, tot);
-      const keys = new Set(fed.map((cp) => cp.key));
       simulateFeedB(m.board, list, keys);
-      const v = aiEval(m, tl) + noise(tune().noise * 0.3);
-      if (!best || v > best.v) best = { v, keys };
+      return aiEval(m, tl) + noise(tune().noise * 0.3);
+    };
+    if (list.length <= 8) {
+      let best = null;
+      for (let mask = (1 << list.length) - 1; mask >= 0; mask--) {
+        const keys = new Set(list.filter((_, i) => mask & (1 << i)).map((cp) => cp.key));
+        const v = score(keys);
+        if (v > -Infinity && (!best || v > best.v)) best = { v, keys };
+      }
+      return best ? best.keys : defaultFeed(p);
     }
-    return best ? best.keys : defaultFeed(p);
+    // Too many enclosures to try every mix: improve the default pick one swap at a time.
+    let keys = defaultFeed(p);
+    let v = score(keys);
+    for (let pass = 0; pass < 4; pass++) {
+      let improved = false;
+      list.forEach((cp) => {
+        const flip = new Set(keys);
+        if (flip.has(cp.key)) flip.delete(cp.key); else flip.add(cp.key);
+        const tries = [flip];
+        if (!keys.has(cp.key)) keys.forEach((k) => { const sw = new Set(flip); sw.delete(k); tries.push(sw); });
+        tries.forEach((t) => {
+          const tv = score(t);
+          if (tv > v + 1e-6) { v = tv; keys = t; improved = true; }
+        });
+      });
+      if (!improved) break;
+    }
+    return keys;
   }
 
   function aiRubbleCells(q, n) {
