@@ -2691,7 +2691,7 @@
   const AI_PACE_HELP = { fast: 'Quick turns', medium: 'Easy to follow', slow: 'Step by step' };
   const PACE_MULT = { fast: 0.4, medium: 1, slow: 2.1 };
   const LEVEL_TUNE = {
-    easy: { depth: 1, noise: 2.6, style: 1.2, foresight: 0.3, blunder: 0.2 },
+    easy: { depth: 1, noise: 1.4, style: 1.2, foresight: 0.7, blunder: 0.25 },
     medium: { depth: 1, noise: 0.8, style: 1, foresight: 0.85, blunder: 0 },
     hard: { depth: 2, noise: 0.15, style: 0.3, foresight: 1, blunder: 0 },
   };
@@ -3059,19 +3059,25 @@
       const fedSet = new Set(fed);
       const left = sm + sp + sf;
       const feedsAfter = tl.feeds - 1;
-      const steady = live.filter((cp) => fedSet.has(cp.key)).reduce((s, cp) => s + Math.max(0, cp.living.reduce((t, d) => t + SPECIES[d.species].food.n, 0) - cp.feederSquares), 0);
-      const incomePhases = Math.min(Math.max(0, tl.foods - tl.foodBeforeFeed), feedsAfter);
+      const bill = (cp) => Math.max(0, cp.living.reduce((t, d) => t + SPECIES[d.species].food.n, 0) - cp.feederSquares);
+      const markerOf = (cp) => Math.min(4, (cp.inactive || 0) + 1);
+      const steady = live.filter((cp) => fedSet.has(cp.key)).reduce((s, cp) => s + bill(cp), 0);
+      const income = left + Math.min(Math.max(0, tl.foods - tl.foodBeforeFeed), feedsAfter) * FOOD_PER_PHASE;
       const need = steady * feedsAfter;
-      const ratio = need > 0 ? clamp((left + incomePhases * FOOD_PER_PHASE) / need, 0, 1) : 1;
+      const ratio = need > 0 ? clamp(income / need, 0, 1) : 1;
       const r = 1 - (1 - ratio) * T.foresight;
+      // Reviving an unfed enclosure later costs its bill plus the inactive surcharge, on top of everything else.
+      const revive = live.filter((cp) => !fedSet.has(cp.key))
+        .reduce((s, cp) => s + bill(cp) * feedsAfter + markerOf(cp) * cp.living.length, 0);
+      const ratioAll = need + revive > 0 ? clamp(income / (need + revive), 0, 1) : 1;
+      const rAll = 1 - (1 - ratioAll) * T.foresight;
       live.forEach((cp) => {
         if (fedSet.has(cp.key)) {
           keep.set(cp.key, feedsAfter ? Math.pow(r, 1.3) : 1);
           prodW.set(cp.key, 0.4 + 0.6 * r);
         } else {
-          const marker = Math.min(4, (cp.inactive || 0) + 1);
-          const survive = [1, 0.8, 0.6, 0.4, 0.15][marker];
-          const w = feedsAfter ? r * (1 - T.foresight * (1 - survive)) : 0;
+          const survive = [1, 0.75, 0.55, 0.35, 0.12][markerOf(cp)];
+          const w = feedsAfter ? Math.pow(rAll, 1.3) * (1 - T.foresight * (1 - survive)) : 0;
           keep.set(cp.key, cp.inactive >= 4 ? 0 : w);
           prodW.set(cp.key, w * 0.6);
         }
@@ -3263,7 +3269,8 @@
   function pickBest(scored) {
     scored.sort((x, y) => y.v - x.v);
     const T = tune();
-    if (T.blunder && scored.length > 1 && Math.random() < T.blunder) return scored[1 + rand(Math.min(3, scored.length - 1))];
+    const close = scored.filter((x, i) => i > 0 && i <= 3 && scored[0].v - x.v < 4);
+    if (T.blunder && close.length && Math.random() < T.blunder) return close[rand(close.length)];
     return scored[0];
   }
 
