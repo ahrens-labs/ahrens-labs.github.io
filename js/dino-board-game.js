@@ -3253,7 +3253,14 @@
         const S = SPECIES[sp];
         const need = S.food.n * feedsLeft;
         const gainFood = EVENT_FOOD[sp] || 0;
-        if (need > 0 && !canFeed(S.food.t, need - gainFood)) return;
+        let feedNeed = need;
+        let cyc = false;
+        if (need > 0 && !canFeed(S.food.t, need - gainFood)) {
+          // Can't feed it every time: feed it every few Feedings instead (surcharge, less production).
+          feedNeed = (S.food.n + 2) * Math.ceil(feedsLeft / 3.5);
+          if (!canFeed(S.food.t, feedNeed - gainFood)) return;
+          cyc = true;
+        }
         const missing = Math.max(0, S.cost.d - dia);
         const acts = 1 + missing;
         if (acts > left + 1) return;
@@ -3265,8 +3272,8 @@
           let got = S.pts;
           if (sp === 'compy') got += COMPY_ADJ[Math.min(3, e.compy)];
           if (sp === 'microraptor') got += 2 * (micro + 1) * (microEncl + (e.micro ? 0 : 1)) - 2 * micro * microEncl;
-          got = got * e.w + (EVENT_PTS[sp] || 0);
-          const newBest = e.w >= 0.6 ? Math.max(best, e.prod + S.prod) : best;
+          got = got * e.w * (cyc ? 0.85 : 1) + (EVENT_PTS[sp] || 0);
+          const newBest = e.w >= 0.6 && !cyc ? Math.max(best, e.prod + S.prod) : best;
           const score = got + (newBest - best) * roundsLeft * 0.45 + (EVENT_COINS[sp] || 0) * lam + gainFood * 0.05 +
             (sp === 'pachy' ? 2 : 0) - coinCost * lam - (S.cost.d - missing) * 3;
           consider(score, acts, () => {
@@ -3275,7 +3282,7 @@
             dia += missing - S.cost.d;
             pts += got;
             ff += gainFood;
-            payFeed(S.food.t, need);
+            payFeed(S.food.t, feedNeed);
             e.empty -= S.space;
             e.species.add(sp);
             e.prod += S.prod;
