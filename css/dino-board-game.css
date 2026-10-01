@@ -741,7 +741,7 @@ button { font-family: inherit; }
 .setup-foot .tk { width: 1.5em; height: 1.5em; }
 .setup-actions { margin-top: 1rem; display: flex; gap: 0.6rem; justify-content: center; flex-wrap: wrap; }
 
-.mode-pick { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 1.1rem; }
+.mode-pick { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 1.1rem; }
 .mode-btn {
   display: grid; justify-items: center; gap: 2px;
   padding: 0.8rem 0.6rem;
@@ -757,8 +757,30 @@ button { font-family: inherit; }
 .mode-btn b { font-family: "Lilita One", sans-serif; font-weight: 400; font-size: 1.1rem; }
 .mode-btn small { color: var(--muted); }
 .mode-btn:hover { transform: translateY(-2px); }
-.setup:not(.vs-ai) .m-2p, .setup.vs-ai .m-ai { border-color: var(--amber); box-shadow: 0 0 0 3px rgba(255, 179, 0, 0.35); background: #fff8e1; }
+.setup:not(.vs-ai):not(.vs-online) .m-2p, .setup.vs-ai .m-ai, .setup.vs-online .m-online { border-color: var(--amber); box-shadow: 0 0 0 3px rgba(255, 179, 0, 0.35); background: #fff8e1; }
 .setup:not(.vs-ai) .only-ai, .setup.vs-ai .only-2p { display: none; }
+.setup:not(.vs-online) .only-online { display: none; }
+.setup.vs-online .name-row, .setup.vs-online .ai-opts, .setup.vs-online .first-q, .setup.vs-online .first-btns, .setup.vs-online .setup-foot { display: none; }
+.online-box { display: grid; gap: 1rem; }
+.ol-form { display: grid; gap: 0.55rem; }
+.ol-form label { font-weight: 700; }
+.ol-form input { width: 100%; padding: 0.7rem 0.8rem; border-radius: 12px; border: 2px solid var(--bone-dark); font: inherit; font-size: 1.05rem; background: #fff; color: var(--ink); }
+.ol-form input:focus { outline: none; border-color: var(--amber); }
+.ol-form .muted { margin: 0; font-size: 0.85rem; }
+.seg.ol-mode { grid-template-columns: 1fr 1fr; }
+.ol-h { margin: 0.6rem 0 0.35rem; font-size: 1rem; }
+.ol-game { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; padding: 0.55rem 0.7rem; margin-bottom: 0.4rem; border-radius: 12px; background: #fff; border: 2px solid var(--bone-dark); }
+.olg-main { display: grid; gap: 1px; min-width: 0; }
+.olg-main small { color: var(--muted); }
+.olg-mode { font-size: 0.8rem; color: var(--muted); }
+.olg-btns { display: flex; gap: 0.35rem; flex-shrink: 0; }
+.ol-refresh { margin-top: 0.3rem; }
+.ai-bar.ol-wait { background: linear-gradient(135deg, #fff8e1, #ffecb3); color: #8d5a00; }
+.b-clock { margin-top: 0.35rem; display: inline-block; padding: 0.15rem 0.6rem; border-radius: 999px; background: rgba(255, 255, 255, 0.85); color: var(--ink); font-weight: 700; font-variant-numeric: tabular-nums; }
+.b-clock.mine { box-shadow: 0 0 0 2px var(--amber); }
+.b-clock.low { background: #ffebee; color: #c62828; animation: pulseTag 1s ease-in-out infinite; }
+.setup.gate .setup-card { text-align: center; }
+.setup.gate .setup-card .btn { display: inline-block; margin-top: 0.6rem; text-decoration: none; }
 .ai-card { padding: 0.7rem 0.8rem; border-radius: 12px; border: 2px dashed var(--bone-dark); font-size: 1.05rem; font-weight: 600; background: #fffaf0; }
 
 .ai-opts { display: grid; gap: 0.7rem; margin: 0.4rem 0 0.8rem; }
@@ -958,6 +980,9 @@ button { font-family: inherit; }
   .boards { grid-template-columns: minmax(0, 1fr); }
   .layout { padding: 10px; gap: 12px; }
   .name-row, .first-btns { grid-template-columns: 1fr; }
+  .mode-pick, .seg.ol-mode { grid-template-columns: 1fr; }
+  .mode-pick .mode-btn { grid-template-columns: auto 1fr; justify-items: start; column-gap: 0.6rem; }
+  .mode-pick .mode-btn span { grid-row: span 2; }
   .piece-info { grid-template-columns: 1fr; }
   .piece-info .dcard { max-width: 260px; margin: 0 auto; }
   .pip { width: 19px; height: 19px; font-size: 0.6rem; }

@@ -136,6 +136,7 @@
   let pendingCard = null;
   let pendingConfirm = null;
   let setupVsAi = false;
+  let setupOnline = false;
   const PREFS_KEY = 'ahrensDinoBoardGame.prefs';
   const prefs = (() => {
     try {
@@ -674,6 +675,11 @@
   }
 
   function newGame(names, first, ai, level, pace) {
+    buildGame(names, first, ai, level, pace);
+    commit();
+  }
+
+  function buildGame(names, first, ai, level, pace) {
     resetFx();
     const deck = shuffle(DECK.slice());
     const faceUp = [deck.shift(), deck.shift()];
@@ -693,10 +699,13 @@
     };
     logMsg(`🥚 New game! ${pn(first)} goes first this round. First player switches every round.`);
     logMsg('Round 1 begins.');
-    commit();
   }
 
   function save() {
+    if (online) {
+      onlinePush();
+      return;
+    }
     try {
       if (state) localStorage.setItem(SAVE_KEY, JSON.stringify(state));
     } catch {
@@ -1070,7 +1079,8 @@
       key = `p${T.p}:${state.round}:${T.k}:${T.bonus ? 1 : 0}`;
       const P = state.players[T.p];
       const phase = PHASES[state.phaseOrder[T.k]];
-      html = `<div class="to-card pl-${P.color}"><img src="${IMG}${MASCOT[T.p]}.webp" alt=""><div><small>Round ${state.round} · ${phase.icon} ${phase.short}${T.bonus ? ' · bonus' : ''}</small><b>${esc(P.name)}’s turn</b></div></div>`;
+      const who = online && T.p === online.me ? 'Your turn!' : `${esc(P.name)}’s turn`;
+      html = `<div class="to-card pl-${P.color}"><img src="${IMG}${MASCOT[T.p]}.webp" alt=""><div><small>Round ${state.round} · ${phase.icon} ${phase.short}${T.bonus ? ' · bonus' : ''}</small><b>${who}</b></div></div>`;
     }
     if (!key || key === lastTurnKey) return;
     lastTurnKey = key;
@@ -1377,6 +1387,10 @@
   // ---------------------------------------------------------------- rendering: shell
   function render() {
     const app = document.getElementById('app');
+    if (!sessionId() || authFailed) {
+      renderGate(app);
+      return;
+    }
     if (!state) {
       renderSetup(app);
       animOn = true;
@@ -1455,9 +1469,11 @@
         <div class="phase-row${fresh}" data-round="${state.round}">${phases}</div>
       </div>
       <div class="top-actions">
-        ${state.aiCfg ? `<button class="btn sm ghost" data-act="aiSettings" title="Computer settings">🤖 ${AI_LEVELS[state.aiCfg.level]} · ${AI_PACES[state.aiCfg.pace]}</button>` : ''}
+        ${state.aiCfg && !online ? `<button class="btn sm ghost" data-act="aiSettings" title="Computer settings">🤖 ${AI_LEVELS[state.aiCfg.level]} · ${AI_PACES[state.aiCfg.pace]}</button>` : ''}
         <button class="btn sm ghost" data-act="rules">📜 Rules</button>
-        <button class="btn sm ghost" data-act="newGame">🥚 New game</button>
+        ${online
+    ? `<button class="btn sm ghost" data-act="onlineLeave">🏠 My games</button>${online.status === 'active' ? '<button class="btn sm ghost" data-act="onlineResign">🏳️ Resign</button>' : ''}`
+    : '<button class="btn sm ghost" data-act="newGame">🥚 New game</button>'}
       </div>`);
   }
 
@@ -1544,8 +1560,14 @@
     const scroll = el.querySelector('.panel-scroll');
     const top = scroll ? scroll.scrollTop : 0;
     const ai = isAiTask(T);
-    const aiBar = ai ? `<div class="ai-bar"><img src="${IMG}${MASCOT[state.ai]}.webp" alt=""><span>🤖 ${esc(ui.aiNote || 'Computer is thinking')}<i class="dots3"><b></b><b></b><b></b></i></span></div>` : '';
-    const changed = setHtml(el, `${bannerHtml(T)}<div class="panel-scroll">${aiBar}<div class="task${ai ? ' ai-run' : ''}">${taskHtml(T)}</div>${marketHtml(T)}${logHtml()}</div>`);
+    const waiting = !ai && online && online.status === 'active' && !onlineMyTurn();
+    const who = online ? onlineOwner() : state.ai;
+    const note = online && ai ? `Time’s up — computer finishing your turn: ${ui.aiNote || 'thinking'}` : ui.aiNote || 'Computer is thinking';
+    let aiBar = ai ? `<div class="ai-bar"><img src="${IMG}${MASCOT[who]}.webp" alt=""><span>🤖 ${esc(note)}<i class="dots3"><b></b><b></b><b></b></i></span></div>` : '';
+    if (waiting && who != null) aiBar = `<div class="ai-bar ol-wait"><img src="${IMG}${MASCOT[who]}.webp" alt=""><span>⏳ Waiting for ${esc(state.players[who].name)}<i class="dots3"><b></b><b></b><b></b></i></span></div>`;
+    const ended = online && online.status !== 'active' && !(T && T.t === 'gameOver');
+    const body = ended ? onlineEndHtml() : taskHtml(T);
+    const changed = setHtml(el, `${bannerHtml(T)}<div class="panel-scroll">${aiBar}<div class="task${ai || waiting ? ' ai-run' : ''}">${body}</div>${marketHtml(T)}${logHtml()}</div>`);
     const ns = el.querySelector('.panel-scroll');
     if (changed && ns && ui.keepScroll) ns.scrollTop = top;
     ui.keepScroll = false;
@@ -1553,6 +1575,14 @@
 
   function bannerHtml(T) {
     if (!T) return '';
+    if (online && online.mode === 'quick' && online.status === 'active' && online.deadline) {
+      const mine = onlineMyTurn();
+      return bannerCore(T).replace(/<\/div>$/, `<div class="b-clock${mine ? ' mine' : ''}">⏱ <span id="ol-clock">${clockText()}</span></div></div>`);
+    }
+    return bannerCore(T);
+  }
+
+  function bannerCore(T) {
     if (T.t === 'gameOver') return '<div class="banner"><div class="b-who">🏁 Final scores</div><div class="b-phase">18 rounds complete</div></div>';
     if (T.p === undefined) {
       return `<div class="banner"><div class="b-who">Round ${state.round} of ${ROUNDS}</div><div class="b-phase">${T.t === 'roll' ? '🎲 Gain Food / Draw Fences' : 'Shuffle the phase cards'}</div></div>`;
@@ -1635,10 +1665,15 @@
       .map((ph, i) => `<li><span class="po-n">${i + 1}</span><span class="po-i">${PHASES[ph].icon}</span><span class="po-t"><b>${PHASES[ph].name}</b><small>${PHASES[ph].desc}</small></span></li>`)
       .join('');
     let ready = true;
+    const T = cur();
     const bonus = state.players
       .map((P, p) => {
         if (!P.bonusPending) return '';
         const picks = ui.picks[p] || [];
+        if (online && p !== online.me) {
+          const done = ((T.picks || {})[p] || []).length >= P.bonusPending;
+          return `<div class="bonus-pick">⏩ ${pn(p)}’s Gigantoraptor: ${done ? 'bonus chosen ✅' : `${pn(p)} picks ${plural(P.bonusPending, 'phase')} to do twice.`}</div>`;
+        }
         if (picks.length < P.bonusPending) ready = false;
         if (p === state.ai) return `<div class="bonus-pick">⏩ ${pn(p)}’s Gigantoraptor: the computer will take <b>Actions</b> twice this round.</div>`;
         const btns = state.phaseOrder
@@ -1658,7 +1693,7 @@
       <p>${pn(state.first)} goes first this round. Here’s the order:</p>
       <ol class="phase-order">${list}</ol>
       ${bonus}
-      <button class="btn big" data-act="startRound" ${ready ? '' : 'disabled'}>Start round ▶</button>`;
+      ${online && !onlineMyTurn() ? '' : `<button class="btn big" data-act="startRound" ${ready ? '' : 'disabled'}>${onlineLockIn() ? 'Lock in bonus ▶' : 'Start round ▶'}</button>`}`;
   }
 
   function rollHtml() {
@@ -1968,7 +2003,9 @@
         <tfoot><tr><td>Total</td><td>${s[0].total}</td><td>${s[1].total}</td></tr></tfoot>
       </table>
       <p class="muted">Dinos in inactive or extinct enclosures score nothing. Leftover coins: ${esc(P[0].name)} 🪙${P[0].coins}, ${esc(P[1].name)} 🪙${P[1].coins}.</p>
-      <button class="btn big" data-act="newGame">🥚 Play again</button>`;
+      ${online
+    ? '<div class="btn-row"><button class="btn big" data-act="olRematch">🦖 Rematch</button><button class="btn big ghost" data-act="onlineLeave">🏠 My games</button></div>'
+    : '<button class="btn big" data-act="newGame">🥚 Play again</button>'}`;
   }
 
   // ---------------------------------------------------------------- selection validation
@@ -2064,7 +2101,9 @@
     const parade = BOOK.concat(DECK)
       .map((sp, i) => `<img src="${IMG}${sp}.webp" alt="${esc(SPECIES[sp].name)}" title="${esc(SPECIES[sp].name)}" style="--i:${i}">`)
       .join('');
-    app.innerHTML = tokify(`<div class="setup${setupVsAi ? ' vs-ai' : ''}">
+    const saved = load();
+    const canResume = saved && saved.queue[0] && saved.queue[0].t !== 'gameOver';
+    app.innerHTML = tokify(`<div class="setup${setupOnline ? ' vs-online' : setupVsAi ? ' vs-ai' : ''}">
       <div class="box-lid">
         <img class="cover" src="${IMG}cover.webp" alt="Dinosaurs in fenced enclosures in a jungle park">
         <div class="lid-title"><h1>Dino Board Game</h1><p class="tagline">Fence your land, feed your dinos, and build the best park in 18 rounds.</p></div>
@@ -2076,6 +2115,20 @@
         <div class="mode-pick" role="radiogroup">
           <button class="mode-btn m-2p" data-act="setupMode" data-mode="2p" role="radio"><span>👥</span><b>Two players</b><small>Share this device</small></button>
           <button class="mode-btn m-ai" data-act="setupMode" data-mode="ai" role="radio"><span>🤖</span><b>Vs computer</b><small>You play Red</small></button>
+          <button class="mode-btn m-online" data-act="setupMode" data-mode="online" role="radio"><span>🌐</span><b>Online</b><small id="ol-badge">Challenge a friend</small></button>
+        </div>
+        <div class="online-box only-online">
+          <div class="ol-form">
+            <label for="ol-opp">Challenge another Ahrens Labs player</label>
+            <input id="ol-opp" maxlength="80" placeholder="Their username or email" autocomplete="off">
+            <div class="seg ol-mode" role="radiogroup">
+              <button class="seg-btn${olMode === 'quick' ? ' on' : ''}" data-act="olMode" data-v="quick"><b>⚡ Quick game</b><small>1 minute per turn — play it now</small></button>
+              <button class="seg-btn${olMode === 'long' ? ' on' : ''}" data-act="olMode" data-v="long"><b>🐢 Long game</b><small>No time limit — move whenever it’s your turn, over days</small></button>
+            </div>
+            <button class="btn big" data-act="olChallenge">🦖 Send challenge</button>
+            <p class="muted">They get an email, and the challenge shows up here when they sign in.</p>
+          </div>
+          <div id="ol-list"></div>
         </div>
         <div class="name-row">
           <div class="name-field"><label for="name0"><img class="nf-dino" src="${IMG}${MASCOT[0]}.webp" alt=""><span class="dot-red"></span><span class="only-2p">Red player</span><span class="only-ai">Your name</span></label><input id="name0" maxlength="18" value="Red" autocomplete="off"></div>
@@ -2093,8 +2146,9 @@
         </div>
         <div class="setup-foot">Everyone starts with 🪙5, an empty park, and the same 8 dinos. The first player switches every round. Your game saves in this browser.</div>
       </div>
-      <div class="setup-actions"><button class="btn ghost" data-act="rules">📜 Read the rules</button></div>
+      <div class="setup-actions">${canResume ? '<button class="btn" data-act="resumeLocal">▶ Resume saved game</button>' : ''}<button class="btn ghost" data-act="rules">📜 Read the rules</button></div>
     </div>`);
+    renderLobby();
   }
 
   function segGroup(label, act, k, opts, help, val) {
@@ -2213,8 +2267,18 @@
     if (act === 'rules') { openRules(); return; }
     if (act === 'setupMode') {
       setupVsAi = ds.mode === 'ai';
+      setupOnline = ds.mode === 'online';
+      setupTouched = true;
       const box = document.querySelector('.setup');
-      if (box) box.classList.toggle('vs-ai', setupVsAi);
+      if (box) {
+        box.classList.toggle('vs-ai', setupVsAi);
+        box.classList.toggle('vs-online', setupOnline);
+      }
+      if (setupOnline) loadLobby();
+      return;
+    }
+    if (act.startsWith('ol') || act === 'resumeLocal' || act === 'onlineLeave' || act === 'onlineResign') {
+      onlineAct(act, ds, el);
       return;
     }
     if (act === 'setupStart') {
@@ -2277,6 +2341,20 @@
         renderPanel();
         break;
       case 'startRound': {
+        if (online) {
+          T.picks = T.picks || {};
+          const need = state.players[online.me].bonusPending;
+          if (need) {
+            const mine = ui.picks[online.me] || [];
+            if (mine.length < need) return;
+            T.picks[online.me] = mine.slice();
+          }
+          if (onlineLockIn()) {
+            commit();
+            break;
+          }
+          ui.picks = { 0: T.picks[0] || [], 1: T.picks[1] || [] };
+        }
         for (const q of [0, 1]) {
           const Q = state.players[q];
           const picks = ui.picks[q] || [];
@@ -2684,7 +2762,7 @@
   }
 
   // ---------------------------------------------------------------- computer player
-  const FREE_ACTS = new Set(['rules', 'book', 'closeModal', 'newGame', 'confirmYes', 'aiSettings', 'setAiOpt']);
+  const FREE_ACTS = new Set(['rules', 'book', 'closeModal', 'newGame', 'confirmYes', 'aiSettings', 'setAiOpt', 'onlineLeave', 'onlineResign', 'olRematch']);
   const AI_LEVELS = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
   const AI_PACES = { fast: 'Fast', medium: 'Medium', slow: 'Slow' };
   const AI_LEVEL_HELP = { easy: 'Plays for fun and makes mistakes', medium: 'Plans one move at a time', hard: 'Plays to win: plans fences, cards and the whole game' };
@@ -2755,6 +2833,7 @@
   }
 
   function aiCfg() {
+    if (online) return online.autoCfg || (online.autoCfg = aiProfile('easy', 'fast'));
     if (!state.aiCfg) state.aiCfg = aiProfile('medium', 'medium');
     return state.aiCfg;
   }
@@ -2779,6 +2858,7 @@
   }
 
   function isAiTask(T) {
+    if (online) return !!(state && T && T.t !== 'gameOver' && online.auto && onlineMyTurn());
     if (!state || state.ai == null || !T || T.t === 'gameOver') return false;
     if (T.p === state.ai) return true;
     return T.t === 'roll' && state.first === state.ai;
@@ -3861,6 +3941,10 @@
     const panel = document.getElementById('panel');
     lastClickRect = panel ? panel.getBoundingClientRect() : null;
     switch (T.t) {
+      case 'roundStart':
+        ui.picks[online.me] = new Array(state.players[online.me].bonusPending).fill('action');
+        aiShow('Starting the round…', () => handle('startRound', {}));
+        return;
       case 'roll': aiShow('Rolling the die…', () => handle('roll', {})); return;
       case 'carno': aiShow('Rolling for Carnotaurus…', () => handle('carnoRoll', {})); return;
       case 'gainFood': {
@@ -3972,6 +4056,536 @@
     }
   }
 
+  // ---------------------------------------------------------------- online play (Ahrens Labs accounts)
+  const API_BASE = window.AHRENS_LABS_API_BASE || 'https://chess-accounts.matthewahrens.workers.dev';
+  const MODE_LABEL = { quick: '⚡ Quick', long: '🐢 Long' };
+  const BASE_TITLE = document.title;
+  let online = null;
+  let lobby = { games: null, error: '', busy: false };
+  let olMode = 'quick';
+  let setupTouched = false;
+  let authFailed = false;
+  let sock = null;
+  let sockPing = null;
+  let sockRetry = null;
+  let pollTimer = null;
+  let clockSkew = 0;
+  let moveChain = Promise.resolve();
+
+  function sessionId() {
+    try {
+      return localStorage.getItem('ahrenslabs_sessionId') || '';
+    } catch {
+      return '';
+    }
+  }
+
+  function myUsername() {
+    try {
+      return localStorage.getItem('ahrenslabs_username') || 'You';
+    } catch {
+      return 'You';
+    }
+  }
+
+  async function api(path, body) {
+    let res;
+    try {
+      res = await fetch(API_BASE + path, {
+        method: body ? 'POST' : 'GET',
+        headers: { Authorization: `Bearer ${sessionId()}`, ...(body ? { 'Content-Type': 'application/json' } : {}) },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+    } catch {
+      return { ok: false, status: 0, data: { error: 'Couldn’t reach the server. Check your connection.' } };
+    }
+    const data = await res.json().catch(() => ({}));
+    if (res.status === 401) {
+      authFailed = true;
+      stopOnline();
+      online = null;
+      render();
+    }
+    return { ok: res.ok, status: res.status, data };
+  }
+
+  function renderGate(app) {
+    const back = encodeURIComponent(location.pathname.replace(/^\//, '') + location.search);
+    app.innerHTML = tokify(`<div class="setup gate">
+      <div class="box-lid">
+        <img class="cover" src="${IMG}cover.webp" alt="Dinosaurs in fenced enclosures in a jungle park">
+        <div class="lid-title"><h1>Dino Board Game</h1><p class="tagline">Fence your land, feed your dinos, and build the best park in 18 rounds.</p></div>
+      </div>
+      <div class="setup-card">
+        <h2>🔒 Sign in to play</h2>
+        <p>You need an Ahrens Labs account to play — against the computer, with a friend on this device, or online against other Ahrens Labs players.</p>
+        <a class="btn big" href="/account.html?return=${back}">Log in or sign up</a>
+      </div>
+    </div>`);
+  }
+
+  // Player index whose input the game is waiting for (the server computes the same thing).
+  function onlineOwner() {
+    const T = cur();
+    if (!T || T.t === 'gameOver') return null;
+    if (T.p === 0 || T.p === 1) return T.p;
+    if (T.t === 'roundStart') {
+      const picks = T.picks || {};
+      for (const q of order()) {
+        const need = state.players[q].bonusPending;
+        if (need && !((picks[q] || []).length >= need)) return q;
+      }
+    }
+    return state.first;
+  }
+
+  function onlineMyTurn() {
+    return !!online && online.status === 'active' && onlineOwner() === online.me;
+  }
+
+  function onlineBlocked() {
+    return !!online && (!onlineMyTurn() || online.auto);
+  }
+
+  // After my bonus pick, is the other player still choosing theirs?
+  function onlineLockIn() {
+    if (!online) return false;
+    const T = cur();
+    const o = other(online.me);
+    const need = state.players[o].bonusPending;
+    return !!need && !(((T.picks || {})[o] || []).length >= need);
+  }
+
+  function onlineWaitMsg() {
+    if (online.status !== 'active') return 'This game is over.';
+    if (online.auto) return '🤖 Time’s up — the computer is finishing your turn.';
+    const who = onlineOwner();
+    return `⏳ Waiting for ${who == null ? 'the other player' : state.players[who].name}…`;
+  }
+
+  function clockLeft() {
+    return online && online.deadline ? online.deadline - (Date.now() + clockSkew) : null;
+  }
+
+  function clockText() {
+    const left = clockLeft();
+    const sec = Math.max(0, Math.ceil((left || 0) / 1000));
+    return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
+  }
+
+  function tickClock() {
+    if (!online || online.status !== 'active' || online.mode !== 'quick' || !state) return;
+    const left = clockLeft();
+    if (left == null) return;
+    const el = document.getElementById('ol-clock');
+    if (el) {
+      el.textContent = clockText();
+      el.parentElement.classList.toggle('low', left <= 15000);
+    }
+    if (left <= 0 && onlineMyTurn() && !online.auto) {
+      online.auto = true;
+      closeModal();
+      toast('⏰ Time’s up — the computer is finishing your turn.');
+      render();
+    }
+  }
+
+  function setTurnTitle() {
+    document.title = onlineMyTurn() ? `🦖 Your turn — ${BASE_TITLE}` : BASE_TITLE;
+  }
+
+  function applyMeta(v) {
+    Object.assign(online, {
+      mode: v.mode,
+      status: v.status,
+      version: v.version,
+      turn: v.turn,
+      deadline: v.deadline,
+      result: v.result,
+      players: v.players,
+    });
+    if (v.serverNow) clockSkew = v.serverNow - Date.now();
+    if (online.turn !== online.me) online.auto = false;
+    setTurnTitle();
+  }
+
+  // Server snapshot is the source of truth for anything I didn't just send.
+  function applyView(v) {
+    if (!online || v.id !== online.id) return;
+    applyMeta(v);
+    if (v.state) {
+      state = v.state;
+      ui = freshUi();
+      prepareUi();
+    }
+    render();
+  }
+
+  function enterOnline(view) {
+    if (!view || !view.state) {
+      toast('That game hasn’t started yet.');
+      return;
+    }
+    stopOnline();
+    online = { id: view.id, me: view.me, auto: false };
+    state = view.state;
+    resetFx();
+    prevRes = null;
+    lastTurnKey = null;
+    applyMeta(view);
+    ui = freshUi();
+    prepareUi();
+    closeModal();
+    history.replaceState(null, '', `${location.pathname}?game=${encodeURIComponent(view.id)}`);
+    connectSock();
+    render();
+  }
+
+  function leaveOnline() {
+    stopOnline();
+    online = null;
+    state = null;
+    ui = freshUi();
+    setupOnline = true;
+    document.title = BASE_TITLE;
+    history.replaceState(null, '', location.pathname);
+    render();
+    loadLobby();
+  }
+
+  function stopOnline() {
+    const s = sock;
+    sock = null;
+    if (s) {
+      try {
+        s.close();
+      } catch {
+        /* already closed */
+      }
+    }
+    clearInterval(sockPing);
+    clearTimeout(sockRetry);
+    clearInterval(pollTimer);
+    pollTimer = null;
+  }
+
+  function onlinePush() {
+    if (!online || online.status !== 'active' || online.turn !== online.me || !state) return;
+    const base = online.version;
+    online.version = base + 1;
+    online.turn = onlineOwner();
+    const over = cur() && cur().t === 'gameOver';
+    if (over) online.status = 'over';
+    if (online.turn !== online.me) {
+      online.auto = false;
+      online.deadline = null;
+    }
+    setTurnTitle();
+    const msg = { type: 'move', id: online.id, base, state, scores: over ? [scorePlayer(0).total, scorePlayer(1).total] : null };
+    if (sock && sock.readyState === 1) {
+      try {
+        sock.send(JSON.stringify(msg));
+        return;
+      } catch {
+        /* fall back to HTTP */
+      }
+    }
+    const body = JSON.parse(JSON.stringify(msg));
+    const id = online.id;
+    moveChain = moveChain.then(async () => {
+      const r = await api('/api/dino/move', body);
+      if (!online || online.id !== id) return;
+      if (r.ok) {
+        if (r.data.version === online.version) applyMeta(r.data);
+      } else if (r.data && r.data.state) {
+        toast(r.data.error || 'The game moved on — showing the latest board.');
+        applyView(r.data);
+      } else if (r.status !== 401) {
+        toast('Couldn’t save that move — reloading the game.');
+        refreshOnline(true);
+      }
+    });
+  }
+
+  function connectSock() {
+    if (!online || sock || document.hidden) return;
+    const url = `${API_BASE.replace(/^http/, 'ws')}/api/dino/live?id=${encodeURIComponent(online.id)}&session=${encodeURIComponent(sessionId())}`;
+    let ws;
+    try {
+      ws = new WebSocket(url);
+    } catch {
+      startPoll();
+      return;
+    }
+    sock = ws;
+    ws.addEventListener('open', () => {
+      clearInterval(pollTimer);
+      pollTimer = null;
+      clearInterval(sockPing);
+      sockPing = setInterval(() => {
+        if (sock === ws && ws.readyState === 1) ws.send('ping');
+      }, 30000);
+    });
+    ws.addEventListener('message', (e) => {
+      if (sock !== ws || e.data === 'pong') return;
+      let m;
+      try {
+        m = JSON.parse(e.data);
+      } catch {
+        return;
+      }
+      if (!online || m.id !== online.id) return;
+      if (m.type === 'ack') {
+        if (m.version === online.version) applyMeta(m);
+      } else if (m.type === 'reject') {
+        toast(m.error || 'That move didn’t go through.');
+        if (m.state) applyView(m);
+        else refreshOnline(true);
+      } else if (m.type === 'state') {
+        if (m.by === online.me && m.version <= online.version) {
+          if (m.version === online.version) applyMeta(m);
+          return;
+        }
+        applyView(m);
+      }
+    });
+    ws.addEventListener('close', () => {
+      if (sock !== ws) return;
+      sock = null;
+      clearInterval(sockPing);
+      if (!online) return;
+      startPoll();
+      clearTimeout(sockRetry);
+      sockRetry = setTimeout(connectSock, 5000);
+    });
+    ws.addEventListener('error', () => {
+      try {
+        ws.close();
+      } catch {
+        /* ignore */
+      }
+    });
+  }
+
+  function startPoll() {
+    if (pollTimer || !online) return;
+    pollTimer = setInterval(() => refreshOnline(false), online.mode === 'quick' ? 4000 : 20000);
+  }
+
+  async function refreshOnline(force) {
+    if (!online || (!force && document.hidden)) return;
+    const id = online.id;
+    const r = await api(`/api/dino/game?id=${encodeURIComponent(id)}&v=${force ? 0 : online.version}`);
+    if (!r.ok || !online || online.id !== id) return;
+    if (!force && r.data.version < online.version) return;
+    if (r.data.unchanged) {
+      applyMeta(r.data);
+      renderTop();
+      return;
+    }
+    applyView(r.data);
+  }
+
+  async function openOnlineGame(id) {
+    const r = await api(`/api/dino/game?id=${encodeURIComponent(id)}`);
+    if (!r.ok) {
+      if (r.status !== 401) toast(r.data.error || 'Couldn’t open that game.');
+      history.replaceState(null, '', location.pathname);
+      loadLobby();
+      return;
+    }
+    if (r.data.state) {
+      enterOnline(r.data);
+      return;
+    }
+    if (r.data.status === 'pending' && r.data.me === 1) toast(`🦖 ${r.data.players[0]} challenged you — accept below!`);
+    loadLobby();
+  }
+
+  // ---- lobby
+  async function loadLobby() {
+    if (!sessionId() || lobby.busy) return;
+    lobby.busy = true;
+    const r = await api('/api/dino/games');
+    lobby.busy = false;
+    if (r.ok) {
+      lobby.games = r.data.games || [];
+      lobby.error = '';
+    } else if (r.status !== 401) {
+      lobby.error = r.data.error || 'Couldn’t load your games right now.';
+    }
+    const needsMe = (lobby.games || []).some((g) => (g.status === 'pending' && g.me === 1) || (g.status === 'active' && g.turn === g.me));
+    if (needsMe && !setupTouched && !state && !setupOnline) {
+      setupOnline = true;
+      setupVsAi = false;
+      const box = document.querySelector('.setup');
+      if (box) {
+        box.classList.remove('vs-ai');
+        box.classList.add('vs-online');
+      }
+    }
+    renderLobby();
+  }
+
+  function lobbyNote(g) {
+    if (g.status === 'pending') return g.me === 1 ? 'challenged you' : 'waiting for them to accept';
+    if (g.status === 'active') {
+      const mine = g.turn === g.me;
+      const clock = g.mode === 'quick' && g.deadline ? ` · ⏱ ${Math.max(0, Math.ceil((g.deadline - Date.now() - clockSkew) / 1000))}s` : '';
+      return `Round ${g.round} · ${mine ? '<b>your turn</b>' : 'their turn'}${clock}`;
+    }
+    if (g.status === 'over') {
+      const r = g.result || {};
+      const how = r.reason === 'resign' ? (r.winner === g.me ? ' — they resigned' : ' — you resigned') : r.reason === 'timeout' ? ' — on time' : '';
+      const score = r.scores ? ` ${r.scores[g.me]}–${r.scores[1 - g.me]}` : '';
+      if (r.winner == null) return `🤝 Tie${score}`;
+      return `${r.winner === g.me ? '🏆 You won' : 'You lost'}${score}${how}`;
+    }
+    return { declined: 'Declined', cancelled: 'Cancelled', expired: 'Expired' }[g.status] || g.status;
+  }
+
+  function lobbyRow(g, btns) {
+    return `<div class="ol-game"><div class="olg-main"><b>${esc(g.opp)}</b> <span class="olg-mode">${MODE_LABEL[g.mode] || ''}</span><small>${lobbyNote(g)}</small></div><div class="olg-btns">${btns}</div></div>`;
+  }
+
+  function renderLobby() {
+    const el = document.getElementById('ol-list');
+    if (!el) return;
+    const games = lobby.games;
+    const badge = document.getElementById('ol-badge');
+    if (!games) {
+      el.innerHTML = `<p class="muted">${lobby.error ? esc(lobby.error) : 'Loading your games…'}</p>`;
+      return;
+    }
+    const by = (f) => games.filter(f);
+    const incoming = by((g) => g.status === 'pending' && g.me === 1);
+    const yours = by((g) => g.status === 'active' && g.turn === g.me);
+    const theirs = by((g) => g.status === 'active' && g.turn !== g.me);
+    const sent = by((g) => g.status === 'pending' && g.me === 0);
+    const done = by((g) => g.status !== 'pending' && g.status !== 'active');
+    const need = incoming.length + yours.length;
+    if (badge) badge.textContent = need ? `${need} waiting for you` : 'Challenge a friend';
+    const id = (g) => `data-id="${esc(g.id)}"`;
+    const group = (title, list, btns) => (list.length ? `<h3 class="ol-h">${title}</h3>${list.map((g) => lobbyRow(g, btns(g))).join('')}` : '');
+    el.innerHTML = tokify([
+      lobby.error ? `<p class="muted">${esc(lobby.error)}</p>` : '',
+      group('🦖 Challenges for you', incoming, (g) => `<button class="btn sm" data-act="olAccept" ${id(g)}>Accept</button><button class="btn sm ghost" data-act="olDecline" ${id(g)}>Decline</button>`),
+      group('▶ Your turn', yours, (g) => `<button class="btn sm" data-act="olOpen" ${id(g)}>Play</button>`),
+      group('⏳ Their turn', theirs, (g) => `<button class="btn sm ghost" data-act="olOpen" ${id(g)}>Watch</button>`),
+      group('📨 Sent challenges', sent, (g) => `<button class="btn sm ghost" data-act="olCancel" ${id(g)}>Cancel</button>`),
+      group('🏁 Finished', done, (g) => (g.status === 'over' ? `<button class="btn sm ghost" data-act="olOpen" ${id(g)}>View</button>` : '')),
+      games.length ? '' : '<p class="muted">No online games yet. Challenge someone above!</p>',
+      `<button class="link ol-refresh" data-act="olRefresh">↻ Refresh</button>`,
+    ].join(''));
+  }
+
+  function updateLobbyGame(summary) {
+    if (!lobby.games || !summary) return;
+    lobby.games = [summary, ...lobby.games.filter((g) => g.id !== summary.id)];
+    renderLobby();
+  }
+
+  async function onlineAct(act, ds, el) {
+    if (act === 'olMode') {
+      olMode = ds.v;
+      el.parentElement.querySelectorAll('.seg-btn').forEach((b) => b.classList.toggle('on', b === el));
+      return;
+    }
+    if (act === 'olRefresh') { loadLobby(); return; }
+    if (act === 'resumeLocal') {
+      state = load();
+      if (!state) return;
+      autoResolve();
+      ui = freshUi();
+      prepareUi();
+      render();
+      return;
+    }
+    if (act === 'onlineLeave') { leaveOnline(); return; }
+    if (act === 'onlineResign') {
+      confirmModal('Resign this game?', 'Your opponent wins right away.', 'Yes, resign', async () => {
+        const r = await api('/api/dino/resign', { id: online.id });
+        if (r.ok) applyView(r.data);
+        else if (r.data.error) toast(r.data.error);
+      });
+      return;
+    }
+    if (act === 'olChallenge' || act === 'olRematch') {
+      const input = document.getElementById('ol-opp');
+      const opponent = act === 'olRematch' ? online && online.players[other(online.me)] : input && input.value.trim();
+      const mode = act === 'olRematch' ? online.mode : olMode;
+      if (!opponent) {
+        toast('Type their username or email first.');
+        return;
+      }
+      if (el) el.disabled = true;
+      const r = await api('/api/dino/challenge', { opponent, mode });
+      if (el) el.disabled = false;
+      if (!r.ok) {
+        if (r.status !== 401) toast(r.data.error || 'Couldn’t send the challenge.');
+        return;
+      }
+      toast(`📨 Challenge sent to ${r.data.game.opp}!`);
+      if (input) input.value = '';
+      updateLobbyGame(r.data.game);
+      if (act === 'olRematch') leaveOnline();
+      return;
+    }
+    const g = (lobby.games || []).find((x) => x.id === ds.id);
+    if (act === 'olOpen') { openOnlineGame(ds.id); return; }
+    if (!g) return;
+    if (act === 'olAccept') {
+      const names = g.me === 1 ? [g.opp, myUsername()] : [myUsername(), g.opp];
+      const keep = state;
+      buildGame(names, rand(2), null, 'medium', 'medium');
+      const start = state;
+      state = keep;
+      if (el) el.disabled = true;
+      const r = await api('/api/dino/respond', { id: g.id, accept: true, state: start });
+      if (el) el.disabled = false;
+      if (!r.ok) {
+        if (r.status !== 401) toast(r.data.error || 'Couldn’t start the game.');
+        loadLobby();
+        return;
+      }
+      enterOnline(r.data);
+      return;
+    }
+    if (act === 'olDecline' || act === 'olCancel') {
+      const r = act === 'olDecline'
+        ? await api('/api/dino/respond', { id: g.id, accept: false })
+        : await api('/api/dino/resign', { id: g.id });
+      if (!r.ok && r.status !== 401) toast(r.data.error || 'Something went wrong.');
+      loadLobby();
+    }
+  }
+
+  function onlineEndHtml() {
+    const r = online.result || {};
+    const opp = esc(online.players[other(online.me)]);
+    let head = 'Game over';
+    if (online.status === 'over') {
+      if (r.winner == null) head = '🤝 It’s a tie!';
+      else if (r.winner === online.me) head = r.reason === 'resign' ? `🏆 ${opp} resigned — you win!` : r.reason === 'timeout' ? `🏆 ${opp} ran out of time — you win!` : '🏆 You win!';
+      else head = r.reason === 'resign' ? 'You resigned.' : r.reason === 'timeout' ? 'You ran out of time.' : `${opp} wins!`;
+    } else head = { declined: 'Challenge declined.', cancelled: 'Challenge cancelled.', expired: 'Challenge expired.' }[online.status] || head;
+    return `<div class="winner">${head}</div>
+      <div class="btn-row"><button class="btn big" data-act="olRematch">🦖 Rematch</button><button class="btn big ghost" data-act="onlineLeave">🏠 My games</button></div>`;
+  }
+
+  setInterval(tickClock, 500);
+  setInterval(() => {
+    if (!state && setupOnline && !document.hidden && sessionId() && !authFailed) loadLobby();
+  }, 30000);
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) return;
+    if (online) {
+      connectSock();
+      if (!sock || sock.readyState !== 1) refreshOnline(false);
+    } else if (!state && setupOnline) loadLobby();
+  });
+
+
   // ---------------------------------------------------------------- events wiring
   document.addEventListener('click', (e) => {
     const el = e.target.closest('[data-act]');
@@ -3984,6 +4598,10 @@
       return;
     }
     if (el.disabled) return;
+    if (state && onlineBlocked() && !FREE_ACTS.has(el.dataset.act)) {
+      toast(onlineWaitMsg());
+      return;
+    }
     if (isAiTask(cur()) && !FREE_ACTS.has(el.dataset.act)) {
       toast('🤖 Hang on — it’s the computer’s turn.');
       return;
@@ -3994,7 +4612,7 @@
 
   document.addEventListener('pointerdown', (e) => {
     const cell = e.target.closest && e.target.closest('[data-cell]');
-    if (!cell || !ui.sel || ui.sel.type !== 'cells' || busy || isAiTask(cur())) return;
+    if (!cell || !ui.sel || ui.sel.type !== 'cells' || busy || isAiTask(cur()) || onlineBlocked()) return;
     const p = +cell.dataset.p;
     if (p !== ui.sel.board) return;
     const i = +cell.dataset.cell;
@@ -4023,10 +4641,16 @@
   });
 
   // ---------------------------------------------------------------- boot
-  state = load();
+  const linkedGame = new URLSearchParams(location.search).get('game');
+  state = linkedGame ? null : load();
   if (state) {
     autoResolve();
     prepareUi();
   }
+  if (linkedGame) setupOnline = true;
   render();
+  if (sessionId()) {
+    if (linkedGame) openOnlineGame(linkedGame);
+    else loadLobby();
+  }
 })();
