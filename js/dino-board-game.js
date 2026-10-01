@@ -1077,12 +1077,13 @@
     el.setAttribute('aria-label', 'Final results');
     el.innerHTML = tokify(`<div class="rv-bg"><div class="rv-rays"></div></div>
       <div class="rv-stage">
-        <div class="rv-title">🏁 Final tally</div>
+        <div class="rv-title">🏁 The results are in</div>
         <div class="rv-duel">${side(0)}<div class="rv-vs">VS</div>${side(1)}</div>
+        <div class="rv-verdict" aria-live="polite"></div>
         <div class="rv-rows">${rows.map(([label, k]) => `<div class="rv-row">
           <span class="${s[0][k] > s[1][k] ? 'lead' : ''}">${s[0][k]}</span><small>${label}</small><span class="${s[1][k] > s[0][k] ? 'lead' : ''}">${s[1][k]}</span>
         </div>`).join('')}</div>
-        <div class="rv-verdict" aria-live="polite"></div>
+        <div class="rv-sub">${verdict.sub}</div>
         <div class="rv-actions"><button class="btn big" data-rv="close">🏞️ See the final park</button></div>
       </div>
       <button class="rv-skip" data-rv="skip">Skip ▸</button>`);
@@ -1092,29 +1093,36 @@
     const totals = q('.rv-total');
     const sides = q('.rv-side');
     const verdictEl = el.querySelector('.rv-verdict');
-    const R = { el, timers: [], raf: 0, decided: false };
+    const R = { el, timers: [], raf: 0, announced: false, decided: false };
     reveal = R;
     const at = (ms, fn) => R.timers.push(setTimeout(fn, ms));
 
-    const decide = () => {
+    const announce = () => {
+      if (R.announced) return;
+      R.announced = true;
+      sides.forEach((x, i) => x.classList.add(w === null ? 'tie' : i === w ? 'win' : 'lose'));
+      el.classList.remove('suspense');
+      el.classList.add('announced');
+      verdictEl.innerHTML = tokify(`<div class="rv-head">${verdict.head}</div>`);
+      if (!reduceMotion.matches) confetti();
+    };
+
+    const finish = () => {
       if (R.decided) return;
       R.decided = true;
       R.timers.forEach(clearTimeout);
       cancelAnimationFrame(R.raf);
+      announce();
       q('.rv-row').forEach((r) => r.classList.add('in'));
       totals.forEach((t, i) => { t.textContent = tot[i]; t.classList.add('done'); });
-      sides.forEach((x, i) => x.classList.add(w === null ? 'tie' : i === w ? 'win' : 'lose'));
-      el.classList.remove('suspense');
       el.classList.add('decided');
-      verdictEl.innerHTML = tokify(`<div class="rv-head">${verdict.head}</div><div class="rv-sub">${verdict.sub}</div>`);
-      if (!reduceMotion.matches) confetti();
       const btn = el.querySelector('[data-rv="close"]');
       if (btn) btn.focus();
     };
 
     const countUp = () => {
       const top = Math.max(tot[0], tot[1]);
-      const ms = 2200;
+      const ms = 1800;
       const start = performance.now();
       const step = (now) => {
         const pts = top ? Math.min(top, ((now - start) / ms) * top) : 0;
@@ -1124,7 +1132,7 @@
           if (v === tot[i]) t.classList.add('done');
         });
         if (pts < top) R.raf = requestAnimationFrame(step);
-        else at(450, decide);
+        else at(300, finish);
       };
       R.raf = requestAnimationFrame(step);
     };
@@ -1132,30 +1140,32 @@
     el.addEventListener('click', (e) => {
       const b = e.target.closest('[data-rv]');
       if (b && b.dataset.rv === 'close') closeReveal();
-      else if (!R.decided) decide();
+      else if (!R.decided) finish();
     });
     R.onKey = (e) => {
       if (e.key !== 'Escape' && e.key !== 'Enter' && e.key !== ' ') return;
       if (e.key !== 'Escape' && e.target.closest && e.target.closest('[data-rv="close"]')) return;
       e.preventDefault();
       if (R.decided) closeReveal();
-      else decide();
+      else finish();
     };
     document.addEventListener('keydown', R.onKey);
 
     if (reduceMotion.matches) {
-      decide();
+      finish();
       return;
     }
-    const ROW_START = 1300;
-    const ROW_GAP = 750;
-    q('.rv-row').forEach((r, i) => at(ROW_START + i * ROW_GAP, () => r.classList.add('in')));
-    const drum = ROW_START + rows.length * ROW_GAP + 300;
-    at(drum, () => {
+    const DRUM = 1400;
+    const ANNOUNCE = DRUM + 2200;
+    const ROW_START = ANNOUNCE + 1900;
+    const ROW_GAP = 600;
+    at(DRUM, () => {
       el.classList.add('suspense');
       verdictEl.innerHTML = '<div class="rv-drum">And the winner is<i>.</i><i>.</i><i>.</i></div>';
     });
-    at(drum + 1900, countUp);
+    at(ANNOUNCE, announce);
+    q('.rv-row').forEach((r, i) => at(ROW_START + i * ROW_GAP, () => r.classList.add('in')));
+    at(ROW_START + rows.length * ROW_GAP + 200, countUp);
   }
 
   // ---------------------------------------------------------------- tabletop effects
