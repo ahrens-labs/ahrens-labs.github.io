@@ -1571,7 +1571,7 @@
   // The computer's turn, or the other online player's turn: you can watch but not act.
   function theirTurn(T) {
     if (!T || T.t === 'gameOver') return false;
-    return isAiTask(T) || (!!online && online.status === 'active' && !onlineMyTurn());
+    return isAiTask(T) || (!!online && online.status === 'active' && onlineBlocked());
   }
 
   function watchHtml(T) {
@@ -1580,11 +1580,11 @@
     const phase = T.k !== undefined ? PHASES[state.phaseOrder[T.k]] : null;
     const step = T.t === 'roundStart' ? 'Starting the round' : T.t === 'roll' ? '🎲 Rolling the die' : phase ? `${phase.icon} ${phase.name}${T.bonus ? ' · bonus turn' : ''}` : '';
     const dots = '<i class="dots3"><b></b><b></b><b></b></i>';
-    if (online && online.auto) {
+    if (online && online.timedOut) {
       return `<div class="watch pl-${P.color}"><img src="${IMG}${MASCOT[who]}.webp" alt=""><div>
         <h3>⏰ Time’s up</h3><p class="w-step">${step}</p>
-        <p class="w-doing">🤖 ${esc(ui.aiNote || 'Thinking')}${dots}</p>
-        <p class="w-help">The computer is finishing your turn. You’ll be back in control on your next turn.</p></div></div>`;
+        <p class="w-doing">Finishing your turn${dots}</p>
+        <p class="w-help">Remaining actions and food/fence gains are skipped; Feeding and Production happen automatically.</p></div></div>`;
     }
     const doing = online ? `Waiting for ${esc(P.name)} to move` : `🤖 ${esc(ui.aiNote || 'Thinking')}`;
     const help = online
@@ -2857,7 +2857,6 @@
   }
 
   function aiCfg() {
-    if (online) return online.autoCfg || (online.autoCfg = aiProfile('easy', 'fast'));
     if (!state.aiCfg) state.aiCfg = aiProfile('medium', 'medium');
     return state.aiCfg;
   }
@@ -2882,7 +2881,7 @@
   }
 
   function isAiTask(T) {
-    if (online) return !!(state && T && T.t !== 'gameOver' && online.auto && onlineMyTurn());
+    if (online) return false;
     if (!state || state.ai == null || !T || T.t === 'gameOver') return false;
     if (T.p === state.ai) return true;
     return T.t === 'roll' && state.first === state.ai;
@@ -3965,10 +3964,6 @@
     const panel = document.getElementById('panel');
     lastClickRect = panel ? panel.getBoundingClientRect() : null;
     switch (T.t) {
-      case 'roundStart':
-        ui.picks[online.me] = new Array(state.players[online.me].bonusPending).fill('action');
-        aiShow('Starting the round…', () => handle('startRound', {}));
-        return;
       case 'roll': aiShow('Rolling the die…', () => handle('roll', {})); return;
       case 'carno': aiShow('Rolling for Carnotaurus…', () => handle('carnoRoll', {})); return;
       case 'gainFood': {
@@ -4168,7 +4163,7 @@
   }
 
   function onlineBlocked() {
-    return !!online && (!onlineMyTurn() || online.auto);
+    return !!online && (!onlineMyTurn() || online.timedOut);
   }
 
   // After my bonus pick, is the other player still choosing theirs?
@@ -4182,7 +4177,7 @@
 
   function onlineWaitMsg() {
     if (online.status !== 'active') return 'This game is over.';
-    if (online.auto) return '🤖 Time’s up — the computer is finishing your turn.';
+    if (online.timedOut) return '⏰ Time’s up — finishing your turn automatically.';
     const who = onlineOwner();
     return `⏳ Waiting for ${who == null ? 'the other player' : state.players[who].name}…`;
   }
@@ -4206,12 +4201,54 @@
       el.textContent = clockText();
       el.parentElement.classList.toggle('low', left <= 15000);
     }
-    if (left <= 0 && onlineMyTurn() && !online.auto) {
-      online.auto = true;
+    if (left <= 0 && onlineMyTurn() && !online.timedOut) {
+      online.timedOut = true;
       closeModal();
-      toast('⏰ Time’s up — the computer is finishing your turn.');
-      render();
+      const t = cur().t;
+      toast(t === 'feed' ? '⏰ Time’s up — your dinos were fed automatically.'
+        : t === 'produce' ? '⏰ Time’s up — you collected from your best enclosure.'
+          : t === 'gainFood' ? '⏰ Time’s up — you skipped your food and fences.'
+            : t === 'roundStart' || t === 'roll' ? '⏰ Time’s up — continuing automatically.'
+              : '⏰ Time’s up — your remaining actions were skipped.');
+      timeoutStep();
     }
+  }
+
+  // Out of time: actions and food/fence gains are skipped; Feeding, Production and shared steps happen automatically.
+  function timeoutStep() {
+    if (!online || !online.timedOut || !onlineMyTurn()) return;
+    if (busy) {
+      setTimeout(timeoutStep, 200);
+      return;
+    }
+    const me = online.me;
+    const T = cur();
+    ui = freshUi();
+    if (T.t === 'roundStart') {
+      ui.picks[me] = new Array(state.players[me].bonusPending).fill('none');
+      handle('startRound', {});
+    } else if (T.t === 'roll') {
+      handle('roll', {});
+    } else if (T.t === 'feed') {
+      ui.feed = defaultFeed(me);
+      handle('confirmFeed', {});
+    } else if (T.t === 'produce') {
+      const best = producible(me).sort((a, b) => b.prod - a.prod)[0];
+      handle('produce', { key: best.key });
+    } else if (T.t === 'actions') {
+      logMsg(`⏰ ${pn(me)} ran out of time and skipped ${plural(T.remaining, 'action')}.`);
+      state.queue.shift();
+      commit();
+    } else if (T.t === 'gainFood') {
+      logMsg(`⏰ ${pn(me)} ran out of time and skipped their food and fences.`);
+      state.queue.shift();
+      commit();
+    } else {
+      logMsg(`⏰ ${pn(me)} ran out of time — the rest of that action was skipped.`);
+      state.queue.shift();
+      commit();
+    }
+    setTimeout(timeoutStep, 60);
   }
 
   function setTurnTitle() {
@@ -4229,7 +4266,7 @@
       players: v.players,
     });
     if (v.serverNow) clockSkew = v.serverNow - Date.now();
-    if (online.turn !== online.me) online.auto = false;
+    if (online.turn !== online.me) online.timedOut = false;
     setTurnTitle();
   }
 
@@ -4251,7 +4288,7 @@
       return;
     }
     stopOnline();
-    online = { id: view.id, me: view.me, auto: false };
+    online = { id: view.id, me: view.me, timedOut: false };
     state = view.state;
     resetFx();
     prevRes = null;
@@ -4301,7 +4338,7 @@
     const over = cur() && cur().t === 'gameOver';
     if (over) online.status = 'over';
     if (online.turn !== online.me) {
-      online.auto = false;
+      online.timedOut = false;
       online.deadline = null;
     }
     setTurnTitle();
