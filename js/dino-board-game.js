@@ -1517,6 +1517,7 @@
     }
     prevRes = snap;
     const over = cur() && cur().t === 'gameOver';
+    el.classList.toggle('watching', theirTurn(T));
     const changed = setHtml(el, [0, 1]
       .map((p) => {
         const P = state.players[p];
@@ -1559,18 +1560,40 @@
     const T = cur();
     const scroll = el.querySelector('.panel-scroll');
     const top = scroll ? scroll.scrollTop : 0;
-    const ai = isAiTask(T);
-    const waiting = !ai && online && online.status === 'active' && !onlineMyTurn();
-    const who = online ? onlineOwner() : state.ai;
-    const note = online && ai ? `Time’s up — computer finishing your turn: ${ui.aiNote || 'thinking'}` : ui.aiNote || 'Computer is thinking';
-    let aiBar = ai ? `<div class="ai-bar"><img src="${IMG}${MASCOT[who]}.webp" alt=""><span>🤖 ${esc(note)}<i class="dots3"><b></b><b></b><b></b></i></span></div>` : '';
-    if (waiting && who != null) aiBar = `<div class="ai-bar ol-wait"><img src="${IMG}${MASCOT[who]}.webp" alt=""><span>⏳ Waiting for ${esc(state.players[who].name)}<i class="dots3"><b></b><b></b><b></b></i></span></div>`;
     const ended = online && online.status !== 'active' && !(T && T.t === 'gameOver');
-    const body = ended ? onlineEndHtml() : taskHtml(T);
-    const changed = setHtml(el, `${bannerHtml(T)}<div class="panel-scroll">${aiBar}<div class="task${ai || waiting ? ' ai-run' : ''}">${body}</div>${marketHtml(T)}${logHtml()}</div>`);
+    const body = ended ? onlineEndHtml() : theirTurn(T) ? watchHtml(T) : taskHtml(T);
+    const changed = setHtml(el, `${bannerHtml(T)}<div class="panel-scroll"><div class="task">${body}</div>${marketHtml(T)}${logHtml()}</div>`);
     const ns = el.querySelector('.panel-scroll');
     if (changed && ns && ui.keepScroll) ns.scrollTop = top;
     ui.keepScroll = false;
+  }
+
+  // The computer's turn, or the other online player's turn: you can watch but not act.
+  function theirTurn(T) {
+    if (!T || T.t === 'gameOver') return false;
+    return isAiTask(T) || (!!online && online.status === 'active' && !onlineMyTurn());
+  }
+
+  function watchHtml(T) {
+    const who = online ? onlineOwner() : state.ai;
+    const P = state.players[who];
+    const phase = T.k !== undefined ? PHASES[state.phaseOrder[T.k]] : null;
+    const step = T.t === 'roundStart' ? 'Starting the round' : T.t === 'roll' ? '🎲 Rolling the die' : phase ? `${phase.icon} ${phase.name}${T.bonus ? ' · bonus turn' : ''}` : '';
+    const dots = '<i class="dots3"><b></b><b></b><b></b></i>';
+    if (online && online.auto) {
+      return `<div class="watch pl-${P.color}"><img src="${IMG}${MASCOT[who]}.webp" alt=""><div>
+        <h3>⏰ Time’s up</h3><p class="w-step">${step}</p>
+        <p class="w-doing">🤖 ${esc(ui.aiNote || 'Thinking')}${dots}</p>
+        <p class="w-help">The computer is finishing your turn. You’ll be back in control on your next turn.</p></div></div>`;
+    }
+    const doing = online ? `Waiting for ${esc(P.name)} to move` : `🤖 ${esc(ui.aiNote || 'Thinking')}`;
+    const help = online
+      ? `You can’t play ${esc(P.name)}’s turn. Their moves show up on the board as they make them, and you’ll get the controls back when it’s your turn.`
+      : 'You can’t play the computer’s turn. Watch its moves on the board — you’ll get the controls back when it’s your turn.';
+    return `<div class="watch pl-${P.color}"><img src="${IMG}${MASCOT[who]}.webp" alt=""><div>
+      <h3>🔒 ${esc(P.name)}’s turn</h3><p class="w-step">${step}</p>
+      <p class="w-doing">${doing}${dots}</p>
+      <p class="w-help">${help}</p></div></div>`;
   }
 
   function bannerHtml(T) {
@@ -1593,8 +1616,9 @@
   }
 
   function marketHtml(T) {
-    const pickAny = T && ((T.t === 'actions' && ui.mode === 'draw') || (T.t === 'drawCard' && T.source === 'any'));
-    const pickDeck = T && (pickAny || (T.t === 'drawCard' && T.source === 'deck'));
+    const mine = T && !theirTurn(T);
+    const pickAny = mine && ((T.t === 'actions' && ui.mode === 'draw') || (T.t === 'drawCard' && T.source === 'any'));
+    const pickDeck = mine && (pickAny || (T.t === 'drawCard' && T.source === 'deck'));
     const deckAttrs = pickDeck && state.deck.length ? 'data-act="take" data-from="deck"' : '';
     const faceUp = [0, 1]
       .map((i) => {

@@ -820,6 +820,17 @@ button { font-family: inherit; }
 .dots3 b:nth-child(2) { animation-delay: 0.15s; }
 .dots3 b:nth-child(3) { animation-delay: 0.3s; }
 .task.ai-run { pointer-events: none; opacity: 0.75; filter: saturate(0.8); }
+.watch { display: flex; gap: 0.8rem; align-items: flex-start; padding: 0.9rem 1rem; border-radius: 16px; background: #f4ecdb; border: 2px dashed #c9b48a; }
+.watch img { width: 52px; height: 52px; border-radius: 50%; object-fit: cover; box-shadow: 0 0 0 3px #fff; animation: stomp 1.6s ease-in-out infinite; flex-shrink: 0; }
+.watch.pl-red img { box-shadow: 0 0 0 3px var(--red); }
+.watch.pl-blue img { box-shadow: 0 0 0 3px var(--blue); }
+.watch h3 { margin: 0 0 0.2rem; }
+.watch p { margin: 0.25rem 0 0; }
+.w-step { font-weight: 700; color: var(--muted); }
+.w-doing { font-weight: 700; color: #0d47a1; }
+.w-help { font-size: 0.88rem; color: var(--muted); }
+.boards.watching .edge, .boards.watching .cell.can { pointer-events: none; cursor: default; animation: none; }
+.boards.watching .edge .ev { animation: none; }
 .cell.has { cursor: pointer; }
 
 .modal.small { width: min(440px, 100%); text-align: center; }
