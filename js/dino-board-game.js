@@ -1014,6 +1014,150 @@
     setTimeout(() => box.remove(), 6000);
   }
 
+  // ---------------------------------------------------------------- winner reveal
+  const REVEAL_ROWS = [
+    ['🦖 Dino points', 'dinoPts'], ['🦎 Compy adjacency', 'compy'], ['🦕 Pachy coins', 'pachy'],
+    ['🦖 Microraptor enclosures', 'micro'], ['🌿 Triceratops plants', 'tri'], ['💎 Diamonds (×3)', 'diamonds'],
+  ];
+  const REVEAL_SEEN_KEY = 'dinoRevealSeen';
+  let reveal = null;
+
+  function firstReveal(id) {
+    try {
+      const seen = JSON.parse(localStorage.getItem(REVEAL_SEEN_KEY) || '[]');
+      if (seen.includes(id)) return false;
+      localStorage.setItem(REVEAL_SEEN_KEY, JSON.stringify([id, ...seen].slice(0, 40)));
+    } catch {
+      /* storage blocked */
+    }
+    return true;
+  }
+
+  function revealVerdict(s, w) {
+    const P = state.players;
+    if (w === null) return { head: '🤝 It’s a tie!', sub: `Both parks scored ${s[0].total} points.` };
+    const margin = Math.abs(s[0].total - s[1].total);
+    const name = esc(P[w].name);
+    let head = `${name} wins!`;
+    if (online) head = w === online.me ? 'You win!' : `${name} wins!`;
+    else if (state.ai != null && w === state.ai) head = 'The Computer wins!';
+    const sub = margin === 1 ? 'By a single point — what a finish!'
+      : margin <= 5 ? `A nail-biter — by ${margin} points!`
+        : margin >= 25 ? `A total stampede — by ${margin} points!`
+          : `By ${margin} points.`;
+    return { head: `🏆 ${head}`, sub };
+  }
+
+  function closeReveal() {
+    if (!reveal) return;
+    reveal.timers.forEach(clearTimeout);
+    cancelAnimationFrame(reveal.raf);
+    document.removeEventListener('keydown', reveal.onKey);
+    reveal.el.remove();
+    reveal = null;
+  }
+
+  function revealWinner() {
+    closeReveal();
+    const s = [scorePlayer(0), scorePlayer(1)];
+    const tot = [s[0].total, s[1].total];
+    const w = tot[0] === tot[1] ? null : tot[0] > tot[1] ? 0 : 1;
+    const verdict = revealVerdict(s, w);
+    const rows = REVEAL_ROWS.filter(([, k]) => k === 'dinoPts' || s[0][k] || s[1][k]);
+    const side = (p) => `<div class="rv-side pl-${state.players[p].color}">
+        <span class="rv-crown">👑</span>
+        <img class="rv-mascot" src="${IMG}${MASCOT[p]}.webp" alt="">
+        <b class="rv-name">${esc(state.players[p].name)}</b>
+        <span class="rv-total">?</span>
+      </div>`;
+    const el = document.createElement('div');
+    el.className = 'reveal';
+    el.setAttribute('role', 'dialog');
+    el.setAttribute('aria-modal', 'true');
+    el.setAttribute('aria-label', 'Final results');
+    el.innerHTML = tokify(`<div class="rv-bg"><div class="rv-rays"></div></div>
+      <div class="rv-stage">
+        <div class="rv-title">🏁 Final tally</div>
+        <div class="rv-duel">${side(0)}<div class="rv-vs">VS</div>${side(1)}</div>
+        <div class="rv-rows">${rows.map(([label, k]) => `<div class="rv-row">
+          <span class="${s[0][k] > s[1][k] ? 'lead' : ''}">${s[0][k]}</span><small>${label}</small><span class="${s[1][k] > s[0][k] ? 'lead' : ''}">${s[1][k]}</span>
+        </div>`).join('')}</div>
+        <div class="rv-verdict" aria-live="polite"></div>
+        <div class="rv-actions"><button class="btn big" data-rv="close">🏞️ See the final park</button></div>
+      </div>
+      <button class="rv-skip" data-rv="skip">Skip ▸</button>`);
+    document.body.appendChild(el);
+
+    const q = (sel) => [...el.querySelectorAll(sel)];
+    const totals = q('.rv-total');
+    const sides = q('.rv-side');
+    const verdictEl = el.querySelector('.rv-verdict');
+    const R = { el, timers: [], raf: 0, decided: false };
+    reveal = R;
+    const at = (ms, fn) => R.timers.push(setTimeout(fn, ms));
+
+    const decide = () => {
+      if (R.decided) return;
+      R.decided = true;
+      R.timers.forEach(clearTimeout);
+      cancelAnimationFrame(R.raf);
+      q('.rv-row').forEach((r) => r.classList.add('in'));
+      totals.forEach((t, i) => { t.textContent = tot[i]; t.classList.add('done'); });
+      sides.forEach((x, i) => x.classList.add(w === null ? 'tie' : i === w ? 'win' : 'lose'));
+      el.classList.remove('suspense');
+      el.classList.add('decided');
+      verdictEl.innerHTML = tokify(`<div class="rv-head">${verdict.head}</div><div class="rv-sub">${verdict.sub}</div>`);
+      if (!reduceMotion.matches) confetti();
+      const btn = el.querySelector('[data-rv="close"]');
+      if (btn) btn.focus();
+    };
+
+    const countUp = () => {
+      const top = Math.max(tot[0], tot[1]);
+      const ms = 2200;
+      const start = performance.now();
+      const step = (now) => {
+        const pts = top ? Math.min(top, ((now - start) / ms) * top) : 0;
+        totals.forEach((t, i) => {
+          const v = Math.min(tot[i], Math.floor(pts));
+          t.textContent = v;
+          if (v === tot[i]) t.classList.add('done');
+        });
+        if (pts < top) R.raf = requestAnimationFrame(step);
+        else at(450, decide);
+      };
+      R.raf = requestAnimationFrame(step);
+    };
+
+    el.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-rv]');
+      if (b && b.dataset.rv === 'close') closeReveal();
+      else if (!R.decided) decide();
+    });
+    R.onKey = (e) => {
+      if (e.key !== 'Escape' && e.key !== 'Enter' && e.key !== ' ') return;
+      if (e.key !== 'Escape' && e.target.closest && e.target.closest('[data-rv="close"]')) return;
+      e.preventDefault();
+      if (R.decided) closeReveal();
+      else decide();
+    };
+    document.addEventListener('keydown', R.onKey);
+
+    if (reduceMotion.matches) {
+      decide();
+      return;
+    }
+    const ROW_START = 1300;
+    const ROW_GAP = 750;
+    q('.rv-row').forEach((r, i) => at(ROW_START + i * ROW_GAP, () => r.classList.add('in')));
+    const drum = ROW_START + rows.length * ROW_GAP + 300;
+    at(drum, () => {
+      el.classList.add('suspense');
+      verdictEl.innerHTML = '<div class="rv-drum">And the winner is<i>.</i><i>.</i><i>.</i></div>';
+    });
+    at(drum + 1900, countUp);
+  }
+
   // ---------------------------------------------------------------- tabletop effects
   const centerOf = (r) => ({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
 
@@ -1426,7 +1570,7 @@
     if (T && T.t === 'gameOver' && !state.celebrated) {
       state.celebrated = true;
       save();
-      confetti();
+      if (!online || firstReveal(online.id)) revealWinner();
       recordLocalGame();
     }
     aiSchedule();
@@ -2032,7 +2176,7 @@
       ${online
     ? '<div class="btn-row"><button class="btn big" data-act="olRematch">🦖 Rematch</button><button class="btn big ghost" data-act="onlineLeave">🏠 My games</button></div>'
     : '<button class="btn big" data-act="newGame">🥚 Play again</button>'}
-      <a class="btn big ghost hist-link" href="/dino-history.html">🏆 Game history</a>`;
+      <div class="btn-row"><button class="btn ghost" data-act="replayReveal">🎬 Replay the reveal</button><a class="btn ghost" href="/dino-history.html">🏆 Game history</a></div>`;
   }
 
   // ---------------------------------------------------------------- selection validation
@@ -2322,6 +2466,10 @@
       return;
     }
     if (!state) return;
+    if (act === 'replayReveal') {
+      if (cur() && cur().t === 'gameOver') revealWinner();
+      return;
+    }
     if (act === 'newGame') {
       const T = cur();
       const reset = () => {
@@ -2789,7 +2937,7 @@
   }
 
   // ---------------------------------------------------------------- computer player
-  const FREE_ACTS = new Set(['rules', 'book', 'closeModal', 'newGame', 'confirmYes', 'aiSettings', 'setAiOpt', 'onlineLeave', 'onlineResign', 'olRematch']);
+  const FREE_ACTS = new Set(['rules', 'book', 'closeModal', 'newGame', 'confirmYes', 'aiSettings', 'setAiOpt', 'onlineLeave', 'onlineResign', 'olRematch', 'replayReveal']);
   const AI_LEVELS = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
   const AI_PACES = { fast: 'Fast', medium: 'Medium', slow: 'Slow' };
   const AI_LEVEL_HELP = { easy: 'Plays for fun and makes mistakes', medium: 'Plans one move at a time', hard: 'Plays to win: plans fences, cards and the whole game' };
