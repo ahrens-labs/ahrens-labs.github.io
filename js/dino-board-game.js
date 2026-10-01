@@ -2729,6 +2729,10 @@
     },
   ];
   const FOOD_PER_PHASE = 3.2;
+  // Hard's forecast assumes part of each future die goes to fences, as it does in practice.
+  const FORECAST_FOOD = 2.4;
+  // Points already on the board count a little more than points the forecast hopes for.
+  const FORECAST_TRUST = 0.95;
   // Idle coins are worth less than the points they buy: spending them later costs an action.
   const COIN_VALUE = 0.38;
   const SURPLUS_COIN_VALUE = 0.22;
@@ -3027,7 +3031,7 @@
     const compVal = (cp) => cp.living.reduce((s, d) => s + SPECIES[d.species].pts, 0) + compyPairs(b, an, cp);
     const keep = new Map();
     const prodW = new Map();
-    let surplus = Infinity;
+    let food = { m: Infinity, p: Infinity, f: Infinity };
 
     if (!tl.feeds) {
       live.forEach((cp) => { keep.set(cp.key, cp.inactive ? 0 : 1); prodW.set(cp.key, cp.inactive ? 0 : 1); });
@@ -3072,7 +3076,21 @@
         .reduce((s, cp) => s + bill(cp) * feedsAfter + markerOf(cp) * cp.living.length, 0);
       const ratioAll = need + revive > 0 ? clamp(income / (need + revive), 0, 1) : 1;
       const rAll = 1 - (1 - ratioAll) * T.foresight;
-      surplus = income - need - revive;
+      const typed = { meat: 0, plant: 0, flex: 0 };
+      live.filter((cp) => fedSet.has(cp.key)).forEach((cp) => {
+        const c = enclosureCost(Object.assign({}, cp, { inactive: 0 }));
+        typed.meat += c.meat;
+        typed.plant += c.plant;
+        typed.flex += c.flex;
+      });
+      const meatBal = sm - typed.meat * feedsAfter;
+      const plantBal = sp - typed.plant * feedsAfter;
+      const flexIn = sf + Math.min(Math.max(0, tl.foods - tl.foodBeforeFeed), feedsAfter) * FORECAST_FOOD;
+      food = {
+        m: Math.max(0, meatBal),
+        p: Math.max(0, plantBal),
+        f: flexIn - Math.max(0, -meatBal) - Math.max(0, -plantBal) - typed.flex * feedsAfter - revive,
+      };
       live.forEach((cp) => {
         if (fedSet.has(cp.key)) {
           keep.set(cp.key, feedsAfter ? Math.pow(r, 1.3) : 1);
@@ -3110,14 +3128,14 @@
 
     if (T.proj) {
       if (tl.feeds) v += Math.min(m.foodLeft || 0, 6) * 0.05;
-      const fc = (extra) => aiForecast(m, an, tl, keep, surplus, { micro, microEncl, pachy }, extra);
-      let f = fc(null);
+      const fc = (extra) => aiForecast(m, an, tl, keep, food, { micro, microEncl, pachy }, extra);
+      let f = fc(null) * FORECAST_TRUST;
       if (m.pendingDeck) {
         const pool = [...new Set(state.deck)].filter((sp) => !m.book.includes(sp));
         if (pool.length) {
           const step = Math.max(1, Math.floor(pool.length / 4));
           const sample = pool.filter((_, i) => i % step === 0).slice(0, 4);
-          f = sample.reduce((sum, sp) => sum + fc(sp), 0) / sample.length;
+          f = (sample.reduce((sum, sp) => sum + fc(sp), 0) / sample.length) * FORECAST_TRUST;
         }
       }
       return v + f + aiTargetCredit(b) + m.extra;
@@ -3158,13 +3176,13 @@
   // playing a dino (buying missing diamonds first), dino powers, taking coins or buying diamonds,
   // limited by money, enclosure space, species rules and the food the park can sustain.
   // Returns the points it expects to add from here on.
-  function aiForecast(m, an, tl, keep, surplus, base, extraSp) {
+  function aiForecast(m, an, tl, keep, food0, base, extraSp) {
     const encl = [];
     an.comps.forEach((cp) => {
       if (!cp.valid || cp.dead) return;
       const w = cp.living.length ? keep.get(cp.key) : 1;
       if (w < 0.35) return;
-      const e = { empty: cp.empty, species: new Set(cp.species), slots: 1 + cp.waters.length, prod: cp.prod, w, compy: 0, micro: false, para: 0, tri: false, allo: false, raptor: 0 };
+      const e = { empty: cp.empty, species: new Set(cp.species), slots: 1 + cp.waters.length, prod: cp.prod, w, asleep: cp.inactive > 0, compy: 0, micro: false, para: 0, tri: false, allo: false, raptor: 0 };
       cp.living.forEach((d) => {
         if (d.species === 'compy') e.compy++;
         else if (d.species === 'microraptor') e.micro = true;
@@ -3184,16 +3202,35 @@
     let coins = m.coins;
     let dia = m.diamonds;
     let pts = 0;
-    let food = surplus;
+    let fm = food0.m;
+    let fp = food0.p;
+    let ff = food0.f;
+    const canFeed = (t, need) => need <= (t === 'meat' ? fm : t === 'plant' ? fp : fm + fp) + ff + 1e-9;
+    const payFeed = (t, need) => {
+      if (t === 'flex') {
+        const a = Math.min(need, Math.max(fm, fp) === fm ? fm : fp);
+        if (fm >= fp) fm -= a; else fp -= a;
+        ff -= need - a;
+        return;
+      }
+      const a = Math.min(need, t === 'meat' ? fm : fp);
+      if (t === 'meat') fm -= a; else fp -= a;
+      ff -= need - a;
+    };
     let micro = base.micro;
     let microEncl = base.microEncl;
     let pachy = base.pachy;
     let best = encl.reduce((mx, e) => Math.max(mx, e.w >= 0.6 ? e.prod : 0), 0);
+    // Inactive enclosures earn nothing until they are fed again at the next Feeding.
+    const awakeBest = () => encl.reduce((mx, e) => Math.max(mx, e.w >= 0.6 && !e.asleep ? e.prod : 0), 0);
     let lastR = 0;
     let skip = 0;
     for (let j = 0; j < slots.length; j++) {
       const r = slots[j];
-      if (r !== lastR) { coins += best; lastR = r; }
+      if (r !== lastR) {
+        coins += r === 1 && tl.prodsBeforeFeed >= 1 ? awakeBest() : best;
+        lastR = r;
+      }
       if (skip) { skip--; continue; }
       const left = slots.length - j - 1;
       const roundsLeft = Math.max(0, tl.acts - r);
@@ -3210,13 +3247,13 @@
         if (e.para) consider(2 * e.para * lam, 1, () => { coins += 2 * e.para; });
         if (e.tri) consider(1.5, 1, () => { pts += 1.5; });
         if (e.allo) consider(3 * lam + 0.7, 1, () => { coins += 3; });
-        if (e.raptor) consider(0.6 * e.raptor, 1, () => { food += 2 * e.raptor; });
+        if (e.raptor) consider(0.6 * e.raptor, 1, () => { ff += 2 * e.raptor; });
       });
       book.forEach((sp) => {
         const S = SPECIES[sp];
         const need = S.food.n * feedsLeft;
         const gainFood = EVENT_FOOD[sp] || 0;
-        if (need > 0 && need > food + gainFood + 1e-9) return;
+        if (need > 0 && !canFeed(S.food.t, need - gainFood)) return;
         const missing = Math.max(0, S.cost.d - dia);
         const acts = 1 + missing;
         if (acts > left + 1) return;
@@ -3237,7 +3274,8 @@
             coins += EVENT_COINS[sp] || 0;
             dia += missing - S.cost.d;
             pts += got;
-            food += gainFood - need;
+            ff += gainFood;
+            payFeed(S.food.t, need);
             e.empty -= S.space;
             e.species.add(sp);
             e.prod += S.prod;
@@ -3335,8 +3373,8 @@
       const m2 = copyModel(m0);
       applyEdges(m2.board, c.need);
       m2.actsPenalty = Math.ceil(c.need.length / 2);
-      const gain = aiEval(m2, tl) - base;
-      if (gain > 0.3) found.push({ need: c.need, gain });
+      const gain = (aiEval(m2, tl) - base) * 0.8 - 0.25 * c.need.length;
+      if (gain > 1) found.push({ need: c.need, gain });
     });
     found.sort((x, y) => y.gain - x.gain);
     aiCtx.targets = found.slice(0, 3);
@@ -3571,6 +3609,27 @@
     return pickBest(scored);
   }
 
+  // How much of `amount` new food to take as meat (the rest is plants), between lo and hi.
+  function aiMeatPick(p, amount, lo, hi) {
+    const P = state.players[p];
+    const guess = clamp(aiSplitFood(P.board, P.meat, P.plants, amount), lo, hi);
+    if (!tune().proj) return guess;
+    const next = state.queue.find((t) => t.k != null);
+    const tl = aiTimeline(next ? next.k : null);
+    const act = state.queue.find((t) => t.t === 'actions' && t.p === p);
+    const base = aiModel(p, act ? act.remaining : 0);
+    aiCtx.targets = [];
+    let best = { meat: guess, v: -Infinity };
+    new Set([guess, lo, hi, Math.floor((lo + hi) / 2), Math.ceil((lo + hi) / 2)]).forEach((meat) => {
+      const n = copyModel(base);
+      n.meat += meat;
+      n.plants += amount - meat;
+      const v = aiEval(n, tl);
+      if (v > best.v) best = { meat, v };
+    });
+    return best.meat;
+  }
+
   function aiFeedPick(p, T) {
     const P = state.players[p];
     const list = feedables(analyze(P.board));
@@ -3706,14 +3765,14 @@
       }
       case 'foodChoice': {
         const P = state.players[p];
-        ui.meat = clamp(aiSplitFood(P.board, P.meat, P.plants, T.amount), 0, T.amount);
+        ui.meat = aiMeatPick(p, T.amount, 0, T.amount);
         aiShow('Choosing food…', () => handle('confirmFood', {}));
         return;
       }
       case 'steal': {
         const P = state.players[p];
         const [lo, hi] = stealRange(T);
-        ui.meat = clamp(aiSplitFood(P.board, P.meat, P.plants, T.amount), lo, hi);
+        ui.meat = aiMeatPick(p, T.amount, lo, hi);
         aiShow('Stealing food…', () => handle('confirmSteal', {}));
         return;
       }
