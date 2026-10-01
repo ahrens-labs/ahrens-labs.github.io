@@ -11,8 +11,8 @@
   const TYPE_LABEL = { event: 'When played', action: 'Dino action', scoring: 'Scores at end', none: 'No power' };
   const TYPE_HELP = {
     event: 'Happens once, right when you place this dino.',
-    action: 'Use it with the “Use a dino power” action while its enclosure is awake.',
-    scoring: 'Adds points at the end of the game if its enclosure is awake.',
+    action: 'Use it with the “Use a dino power” action while its enclosure is active.',
+    scoring: 'Adds points at the end of the game if its enclosure is active.',
     none: 'Just big, strong, and worth lots of points.',
   };
 
@@ -104,7 +104,7 @@
 
   const PHASES = {
     food: { name: 'Food & Fences', short: 'Food & Fences', icon: '🎲', desc: 'Roll a die, then split it into food and fences.' },
-    feed: { name: 'Feeding', short: 'Feeding', icon: '🍖', desc: 'Feed your dinos or they fall asleep.' },
+    feed: { name: 'Feeding', short: 'Feeding', icon: '🍖', desc: 'Feed your dinos or they go inactive.' },
     produce: { name: 'Production', short: 'Production', icon: '🪙', desc: 'Collect coins from one enclosure.' },
     action: { name: 'Actions', short: 'Actions', icon: '⚡', desc: 'Do 2 things (the same one twice is fine).' },
   };
@@ -115,7 +115,7 @@
   const IMG = '/img/dino-game/';
   const MASCOT = ['trex', 'brachiosaurus'];
   const TOKEN_ALT = {
-    coin: 'coins', diamond: 'diamonds', meat: 'meat', plant: 'plants', fence: 'fence', sleep: 'asleep',
+    coin: 'coins', diamond: 'diamonds', meat: 'meat', plant: 'plants', fence: 'fence', sleep: 'inactive',
     feeder: 'feeder', water: 'watering hole', rubble: 'filled square', fossil: 'extinct',
   };
   const EMO = { '🪙': 'coin', '💎': 'diamond', '🍖': 'meat', '🌿': 'plant', '🪵': 'fence', '💤': 'sleep', '🌾': 'feeder', '💧': 'water', '💀': 'fossil', '🪨': 'rubble' };
@@ -1105,8 +1105,8 @@
     let status;
     if (cp.dead) status = '<span class="status-pill dead">💀 Extinct</span> These dinos died. Nothing new can live here.';
     else if (!cp.valid) status = '<span class="status-pill warn">Not fenced in</span>';
-    else if (cp.inactive) status = `<span class="status-pill ${cp.inactive >= 4 ? 'danger' : 'warn'}">💤 Asleep · marker ${cp.inactive}</span> No coins or points until every dino here is fed.${cp.inactive >= 4 ? ' <b>If not fed next Feeding, they die!</b>' : ''}`;
-    else status = '<span class="status-pill ok">Awake</span> Earning coins and points.';
+    else if (cp.inactive) status = `<span class="status-pill ${cp.inactive >= 4 ? 'danger' : 'warn'}">💤 Inactive · marker ${cp.inactive}/4</span> No coins or points until every dino here is fed.${cp.inactive >= 4 ? ' <b>If not fed next Feeding, they die!</b>' : ''}`;
+    else status = '<span class="status-pill ok">Active</span> Earning coins and points.';
     const facts = [`<li><b>${encl}</b> · ${status}</li>`];
     let card = '';
     if (it.kind === 'dino') {
@@ -1115,11 +1115,11 @@
       if (!it.dead) {
         const eats = Math.max(0, S.food.n + (cp.inactive || 0) - cp.feederSquares);
         const why = [];
-        if (cp.inactive) why.push(`+${cp.inactive} because it’s asleep`);
+        if (cp.inactive) why.push(`+${cp.inactive} because it’s inactive`);
         if (cp.feederSquares) why.push(`−${cp.feederSquares} from the feeder`);
         facts.push(`<li>Eats <b>${eats} ${foodText({ t: S.food.t, n: '' }).trim()}</b> each Feeding${why.length ? ` <span class="muted">(card says ${S.food.n}; ${why.join(', ')})</span>` : ''}.</li>`);
         facts.push(`<li>Adds <b>🪙${S.prod}</b> when you pick ${encl.replace('Enclosure', 'enclosure')} in Production (whole enclosure makes 🪙${cp.prod}).</li>`);
-        facts.push(`<li>Worth <b>${S.pts} point${S.pts === 1 ? '' : 's'}</b> at the end if awake.</li>`);
+        facts.push(`<li>Worth <b>${S.pts} point${S.pts === 1 ? '' : 's'}</b> at the end if active.</li>`);
         facts.push(`<li><b>${TYPE_LABEL[S.type]}:</b> ${TYPE_HELP[S.type]}</li>`);
       }
     } else if (it.kind === 'feeder') {
@@ -1233,7 +1233,7 @@
       const set = new Set(it.cells);
       const fresh = isFresh(`b${p}:i${it.id}${it.dead ? 'd' : ''}`, 900);
       const itComp = an.comps[an.compOf[it.cells[0]]];
-      const asleep = itComp && itComp.valid && !itComp.dead && itComp.inactive;
+      const inactive = itComp && itComp.valid && !itComp.dead && itComp.inactive;
       const g = [];
       it.cells.forEach((i) => {
         const r = Math.floor(i / N);
@@ -1260,7 +1260,7 @@
         const s = R * 2.3;
         g.push(`<image href="${IMG}${img}.webp" x="${spot.x - s / 2}" y="${spot.y - s / 2}" width="${s}" height="${s}"/>`);
       }
-      out.push(`<g class="piece${fresh ? ' drop' : ''}${asleep ? ' zz' : ''}">${g.join('')}</g>`);
+      out.push(`<g class="piece${fresh ? ' drop' : ''}${inactive ? ' zz' : ''}">${g.join('')}</g>`);
     });
     for (let i = 0; i < 100; i++) {
       if (b.cells[i] !== -1) continue;
@@ -1323,13 +1323,13 @@
         const botR = Math.max(...rows);
         const bot = cp.cells.filter((i) => Math.floor(i / N) === botR).map((i) => i % N);
         const midC = bot[Math.floor(bot.length / 2)];
-        const bw = danger ? 150 : 132;
+        const bw = 156;
         const cx = Math.min(Math.max(X(midC) + CS / 2, PAD + bw / 2 + 2), W - PAD - bw / 2 - 2);
         const cy = Y(botR) + CS - 17;
         out.push(`<g class="sleep-tok${danger ? ' danger' : ''}" pointer-events="none">`
           + `<rect x="${cx - bw / 2}" y="${cy - 14}" width="${bw}" height="28" rx="14" fill="${danger ? '#c62828' : '#22305a'}" stroke="#fff" stroke-width="2"/>`
           + `<image href="${IMG}sleep.webp" x="${cx - bw / 2 + 1}" y="${cy - 15}" width="30" height="30"/>`
-          + `<text x="${cx + 14}" y="${cy + 5.5}" text-anchor="middle" font-size="15" font-weight="800" fill="#fff">${danger ? 'LAST CHANCE!' : `ASLEEP ${cp.inactive}/4`}</text></g>`);
+          + `<text x="${cx + 14}" y="${cy + 5.5}" text-anchor="middle" font-size="15" font-weight="800" fill="#fff">${danger ? 'LAST CHANCE!' : `INACTIVE ${cp.inactive}/4`}</text></g>`);
       }
     });
     out.push('</g>');
@@ -1400,7 +1400,7 @@
       '<span>🌾 Feeder</span>',
       '<span>💧 Watering hole</span>',
       '<span>🪨 Blocked by opponent</span>',
-      '<span>💤 Asleep (hungry)</span>',
+      '<span>💤 Inactive (unfed)</span>',
       '<span>💀 Fossil</span>',
     ].join('');
   }
@@ -1683,9 +1683,9 @@
         const on = ui.feed.has(cp.key);
         const affordable = on || canPayFood(P, sumCosts(selCosts.concat([c])));
         let status;
-        if (!cp.inactive) status = '<span class="status-pill ok">awake</span>';
+        if (!cp.inactive) status = '<span class="status-pill ok">active</span>';
         else if (cp.inactive >= 4) status = `<span class="status-pill danger">💤 last chance!</span>`;
-        else status = `<span class="status-pill warn">💤 asleep ${cp.inactive}/4</span>`;
+        else status = `<span class="status-pill warn">💤 inactive ${cp.inactive}/4</span>`;
         const extra = cp.inactive ? ` · +${cp.inactive} each` : '';
         const feeder = cp.feederSquares ? ` · feeder −${cp.feederSquares}` : '';
         return `<div class="erow ${on ? 'on' : ''} ${affordable ? '' : 'dis'}" data-act="feedToggle" data-key="${cp.key}">
@@ -1703,13 +1703,13 @@
         return;
       }
       const placedNow = P.board.placedRound[cp.key] === state.round;
-      if (!cp.inactive) warns.push(`<div>💤 ${cp.name} will fall asleep.</div>`);
-      else if (placedNow) warns.push(`<div>💤 ${cp.name} stays asleep.</div>`);
+      if (!cp.inactive) warns.push(`<div>💤 ${cp.name} will go inactive.</div>`);
+      else if (placedNow) warns.push(`<div>💤 ${cp.name} stays inactive.</div>`);
       else if (cp.inactive >= 4) warns.push(`<div>💀 ${cp.name}’s dinos will <b>die</b>!</div>`);
-      else warns.push(`<div>💤 ${cp.name} gets hungrier (${cp.inactive + 1}/4).</div>`);
+      else warns.push(`<div>💤 ${cp.name} marker moves to ${cp.inactive + 1}/4.</div>`);
     });
     return `<h3>🍖 Feed your dinos</h3>
-      <p>Tap an enclosure to feed it. Hungry dinos fall asleep.</p>
+      <p>Tap an enclosure to feed it. Unfed dinos go inactive.</p>
       <div class="pay-line">You have <span class="fc meat">🍖${P.meat}</span><span class="fc plant">🌿${P.plants}</span></div>
       ${rows}
       <div class="pay-line">Paying: ${tot.total ? costChips(tot) : '<span class="muted">nothing</span>'}</div>
@@ -1726,7 +1726,7 @@
         <span class="o-t"><b>${dinoSummary(cp)}</b></span>
         <span class="fc flex" style="font-size:1rem">🪙 +${cp.prod}${cp.prod === best && list.length > 1 ? ' ⭐' : ''}</span></button>`)
       .join('');
-    return `<h3>🪙 Production</h3><p>Pick <b>one awake enclosure</b> and collect its coins.</p><div class="opt-list">${rows}</div>`;
+    return `<h3>🪙 Production</h3><p>Pick <b>one active enclosure</b> and collect its coins.</p><div class="opt-list">${rows}</div>`;
   }
 
   function actionsHtml(T) {
@@ -1754,7 +1754,7 @@
           return `<button class="opt" data-act="dinoAct" data-sp="${o.sp}" data-key="${o.key}"><span class="o-i">${dz(o.sp, 'big')}</span><span class="o-t"><b>${spName(o.sp)}${o.count > 1 ? ' ×' + o.count : ''} · enclosure ${o.name}</b><small>${desc}</small></span></button>`;
         })
         .join('');
-      return `${backHead()}<h3>⚡ Use a dino power</h3><p>Use a dino power from an <b>awake</b> enclosure.</p><div class="opt-list">${opts}</div>`;
+      return `${backHead()}<h3>⚡ Use a dino power</h3><p>Use a dino power from an <b>active</b> enclosure.</p><div class="opt-list">${opts}</div>`;
     }
     if (ui.mode === 'fences2') {
       const n = ui.sel ? ui.sel.edges.size : 0;
@@ -1770,7 +1770,7 @@
       { m: 'play', i: dz(MASCOT[T.p], 'big'), t: 'Play a dino', s: 'Pay & place one', ok: plays.some((o) => o.ok), why: plays.length ? playWhy : 'Your book is empty' },
       { m: 'draw', i: '<span class="mini-back"></span>', t: 'Draw a card', s: 'Add one to your book', ok: state.faceUp.length + state.deck.length > 0, why: 'No cards left' },
       { m: 'shop', i: '💎', t: 'Shop', s: 'Diamond, feeder, water', ok: canShop(P), why: 'Not enough coins' },
-      { m: 'dinoAction', i: '⚡', t: 'Dino power', s: `${actOpts.length} ready`, ok: actOpts.length > 0, why: 'No awake power dinos' },
+      { m: 'dinoAction', i: '⚡', t: 'Dino power', s: `${actOpts.length} ready`, ok: actOpts.length > 0, why: 'No active power dinos' },
       { m: 'gain3', i: '🪙', t: 'Take 3 coins', s: 'Always works', ok: true },
       { m: 'fences2', i: '🪵', t: 'Build 2 fences', s: 'Grow your land', ok: legalEdges(T.p).length > 0, why: 'No room for fences' },
     ]
