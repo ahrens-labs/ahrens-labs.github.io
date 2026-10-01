@@ -3184,7 +3184,8 @@
       if (!cp.valid || cp.dead) return;
       const w = cp.living.length ? keep.get(cp.key) : 1;
       if (w < 0.35) return;
-      const e = { empty: cp.empty, species: new Set(cp.species), slots: 1 + cp.waters.length, prod: cp.prod, w, asleep: cp.inactive > 0, compy: 0, micro: false, para: 0, tri: false, allo: false, raptor: 0 };
+      const e = { empty: cp.empty, species: new Set(cp.species), slots: 1 + cp.waters.length, prod: cp.prod, w, asleep: cp.inactive > 0, compy: 0, micro: false, para: 0, tri: false, allo: false, raptor: 0,
+        bill: cp.living.reduce((t, d) => t + SPECIES[d.species].food.n, 0), disc: cp.feederSquares };
       cp.living.forEach((d) => {
         if (d.species === 'compy') e.compy++;
         else if (d.species === 'microraptor') e.micro = true;
@@ -3201,7 +3202,10 @@
     for (let r = 1; r <= tl.acts; r++) slots.push(r, r);
     slots.splice(0, Math.min(slots.length, (m.actsPenalty || 0) + (pen ? pen.acts : 0)));
     // A planned enclosure is fenced first, using up the actions those fences take.
-    if (pen) encl.push({ empty: pen.size, species: new Set(), slots: 1, prod: 0, w: 1, asleep: false, compy: 0, micro: false, para: 0, tri: false, allo: false, raptor: 0 });
+    const newPen = (size) => ({ empty: size, species: new Set(), slots: 1, prod: 0, w: 1, asleep: false, compy: 0, micro: false, para: 0, tri: false, allo: false, raptor: 0, bill: 0, disc: 0 });
+    if (pen) encl.push(newPen(pen.size));
+    // Open land left for enclosures the forecast fences on demand later.
+    let open = an.comps.reduce((sum, cp) => sum + (cp.valid ? 0 : cp.empty), 0) - (pen ? pen.size : 0);
 
     let coins = m.coins;
     let dia = m.diamonds;
@@ -3252,6 +3256,19 @@
         if (e.tri) consider(1.5, 1, () => { pts += 1.5; });
         if (e.allo) consider(3 * lam + 0.7, 1, () => { coins += 3; });
         if (e.raptor) consider(0.6 * e.raptor, 1, () => { ff += 2 * e.raptor; });
+        // A feeder covering the part of this enclosure's bill not yet discounted.
+        const k = Math.min(5, e.empty, e.bill - e.disc);
+        const fMissing = dia >= 1 ? 0 : 1;
+        if (k > 0 && feedsLeft >= 1 && coins >= 3 + 6 * fMissing && 1 + fMissing <= left + 1) {
+          const saved = k * Math.floor(feedsLeft);
+          consider(saved * 0.25 - (3 + 6 * fMissing) * lam - (1 - fMissing) * 3, 1 + fMissing, () => {
+            coins -= 3 + 6 * fMissing;
+            dia += fMissing - 1;
+            ff += saved;
+            e.disc += k;
+            e.empty -= k;
+          });
+        }
       });
       book.forEach((sp) => {
         const S = SPECIES[sp];
@@ -3270,7 +3287,8 @@
         if (acts > left + 1) return;
         const coinCost = S.cost.c + 6 * missing;
         if (coins < coinCost) return;
-        encl.forEach((e) => {
+        const place = (e, fenceActs, size) => {
+          if (acts + fenceActs > left + 1) return;
           if (e.empty < S.space) return;
           if (!e.species.has(sp) && e.species.size >= e.slots) return;
           let got = S.pts;
@@ -3280,7 +3298,8 @@
           const newBest = e.w >= 0.6 && !cyc ? Math.max(best, e.prod + S.prod) : best;
           const score = got + (newBest - best) * roundsLeft * 0.45 + (EVENT_COINS[sp] || 0) * lam + gainFood * 0.05 +
             (sp === 'pachy' ? 2 : 0) - coinCost * lam - (S.cost.d - missing) * 3;
-          consider(score, acts, () => {
+          consider(score, acts + fenceActs, () => {
+            if (size) { encl.push(e); open -= size; }
             coins -= coinCost;
             coins += EVENT_COINS[sp] || 0;
             dia += missing - S.cost.d;
@@ -3290,6 +3309,7 @@
             e.empty -= S.space;
             e.species.add(sp);
             e.prod += S.prod;
+            e.bill += S.food.n;
             best = newBest;
             if (sp === 'compy') e.compy++;
             else if (sp === 'microraptor') {
@@ -3301,7 +3321,11 @@
             else if (sp === 'allosaurus') e.allo = true;
             else if (sp === 'velociraptor') e.raptor++;
           });
-        });
+        };
+        encl.forEach((e) => place(e, 0, 0));
+        // Or fence a fresh enclosure for it on open land (rough fence count for a pen against existing edges).
+        const size = Math.min(open, S.space * 2);
+        if (size >= S.space) place(newPen(size), Math.ceil(Math.round(1.5 * Math.sqrt(size) + 2) / 2), size);
       });
       if (pick && pick.score > 0) {
         pick.apply();
