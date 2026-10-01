@@ -647,7 +647,7 @@
     });
     const pachy = count('pachy') * Math.floor(P.coins / 5);
     const microEnclosures = active.filter((cp) => cp.living.some((d) => d.species === 'microraptor')).length;
-    const micro = count('microraptor') * 2 * microEnclosures;
+    const micro = 2 * microEnclosures;
     const tri = count('triceratops') > 0 ? Math.floor(P.triPlants / 2) * 3 : 0;
     const diamonds = P.diamonds * 3;
     const abilities = compy + pachy + micro + tri;
@@ -2231,7 +2231,7 @@
         <li>Your book dinos (and drawn cards) can be played any number of times unless T. Rex blocks them.</li>
         <li>Nothing new can be placed in an extinct (💀) enclosure.</li>
         <li>Triceratops page plants score only if you have a Triceratops in an active enclosure at the end.</li>
-        <li>Every active Microraptor scores 2 points per enclosure that has a Microraptor.</li>
+        <li>Microraptor scores 2 points per active enclosure that has a Microraptor (once per enclosure, no matter how many Microraptors you have).</li>
         <li>Gigantoraptor: at the start of next round you pick a phase; you take your part of it twice (the Gain Food bonus rolls its own die).</li>
       </ul>`);
   }
@@ -3246,7 +3246,7 @@
       pachy += cp.living.filter((d) => d.species === 'pachy').length * w;
       bestProd = Math.max(bestProd, cp.prod * prodW.get(cp.key));
     });
-    v += micro * 2 * microEncl;
+    v += 2 * microEncl;
     v += triAlive * m.triPlants * 1.5;
     v += m.diamonds * 3;
 
@@ -3421,7 +3421,7 @@
           if (!e.species.has(sp) && e.species.size >= e.slots) return;
           let got = S.pts;
           if (sp === 'compy') got += COMPY_ADJ[Math.min(3, e.compy)];
-          if (sp === 'microraptor') got += 2 * (micro + 1) * (microEncl + (e.micro ? 0 : 1)) - 2 * micro * microEncl;
+          if (sp === 'microraptor' && !e.micro) got += 2;
           got = got * e.w * (cyc ? 0.85 : 1) + (EVENT_PTS[sp] || 0);
           const newBest = e.w >= 0.6 && !cyc ? Math.max(best, e.prod + S.prod) : best;
           const score = got + (newBest - best) * roundsLeft * 0.45 + (EVENT_COINS[sp] || 0) * lam + gainFood * 0.05 +
