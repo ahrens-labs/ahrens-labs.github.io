@@ -8,7 +8,13 @@
   const PAD = 10;
   const W = N * CS + PAD * 2;
 
-  const TYPE_LABEL = { event: 'Event', action: 'Action', scoring: 'Scoring', none: 'No ability' };
+  const TYPE_LABEL = { event: 'When played', action: 'Dino action', scoring: 'Scores at end', none: 'No power' };
+  const TYPE_HELP = {
+    event: 'Happens once, right when you place this dino.',
+    action: 'Use it with the “Use a dino power” action while its enclosure is awake.',
+    scoring: 'Adds points at the end of the game if its enclosure is awake.',
+    none: 'Just big, strong, and worth lots of points.',
+  };
 
   const SPECIES = {
     compy: {
@@ -106,11 +112,29 @@
 
   const ENCLOSURE_TINTS = ['#f3e5ab', '#d8ecc2', '#f6d7b0', '#cfe6e3', '#ead9f0', '#f9dede', '#dfe7f7', '#fff0c2', '#e4f2d0', '#f2e0cc'];
 
+  const IMG = '/img/dino-game/';
+  const MASCOT = ['trex', 'brachiosaurus'];
+  const TOKEN_ALT = {
+    coin: 'coins', diamond: 'diamonds', meat: 'meat', plant: 'plants', fence: 'fence', sleep: 'inactive',
+    feeder: 'feeder', water: 'watering hole', rubble: 'filled square', fossil: 'extinct',
+  };
+  const EMO = { '🪙': 'coin', '💎': 'diamond', '🍖': 'meat', '🌿': 'plant', '🪵': 'fence', '💤': 'sleep', '🌾': 'feeder', '💧': 'water', '💀': 'fossil', '🪨': 'rubble' };
+  const EMO_RE = new RegExp(`${Object.keys(EMO).join('|')}|⬛`, 'gu');
+  const RES = [['coins', 'coin', 'Coins'], ['diamonds', 'diamond', 'Diamonds'], ['meat', 'meat', 'Meat'], ['plants', 'plant', 'Plants']];
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+
   let state = null;
   let ui = freshUi();
   let busy = false;
   let drag = null;
   let lastFocus = null;
+  let animOn = false;
+  let lastTurnKey = null;
+  let lastClickRect = null;
+  let prevRes = null;
+  let resFx = [{}, {}];
+  let pendingCard = null;
+  const fxSeen = new Map();
 
   // ---------------------------------------------------------------- utils
   const rand = (n) => Math.floor(Math.random() * n);
@@ -130,6 +154,36 @@
 
   function esc(s) {
     return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  function tok(n, cls) {
+    return `<img class="tk${cls ? ' ' + cls : ''}" src="${IMG}${n}.webp" alt="${TOKEN_ALT[n] || ''}" draggable="false">`;
+  }
+
+  function dz(sp, cls) {
+    return `<img class="tk dz${cls ? ' ' + cls : ''}" src="${IMG}${sp}.webp" alt="${esc(SPECIES[sp].name)}" draggable="false">`;
+  }
+
+  // Swap resource emoji for token art, touching text only (never tag attributes).
+  function tokify(html) {
+    return String(html)
+      .split(/(<[^>]*>)/)
+      .map((part) => (part[0] === '<' ? part : part.replace(EMO_RE, (m) => (m === '⬛' ? '<i class="sq"></i>' : tok(EMO[m])))))
+      .join('');
+  }
+
+  function isFresh(key, ms) {
+    const now = performance.now();
+    if (!fxSeen.has(key)) fxSeen.set(key, animOn ? now : -1e9);
+    return now - fxSeen.get(key) < (ms || 800);
+  }
+
+  function resetFx() {
+    fxSeen.clear();
+    prevRes = null;
+    resFx = [{}, {}];
+    lastTurnKey = null;
+    pendingCard = null;
   }
 
   function plural(n, word, many) {
@@ -467,7 +521,7 @@
       counts[d.species] = (counts[d.species] || 0) + 1;
     });
     return Object.keys(counts)
-      .map((sp) => `${SPECIES[sp].emoji} ${spName(sp)}${counts[sp] > 1 ? ' ×' + counts[sp] : ''}`)
+      .map((sp) => `<span class="dzn">${dz(sp)} ${spName(sp)}${counts[sp] > 1 ? ' ×' + counts[sp] : ''}</span>`)
       .join(', ');
   }
 
@@ -557,6 +611,7 @@
   }
 
   function newGame(names, first) {
+    resetFx();
     const deck = shuffle(DECK.slice());
     const faceUp = [deck.shift(), deck.shift()];
     state = {
@@ -667,9 +722,10 @@
       return;
     }
     state.round++;
+    state.first = other(state.first);
     state.phaseOrder = shuffle(PHASE_KEYS.slice());
     state.queue.push({ t: 'roundStart' });
-    logMsg(`Round ${state.round} begins.`);
+    logMsg(`Round ${state.round} begins — ${pn(state.first)} goes first.`);
   }
 
   function autoResolve() {
@@ -749,8 +805,9 @@
     if (!sp) return null;
     P.book.push(sp);
     P.cards.push(sp);
-    logMsg(`${pn(p)} drew ${SPECIES[sp].emoji} <b>${spName(sp)}</b>${from === 'deck' ? ' from the deck' : ''} into their dino book.`);
+    logMsg(`${pn(p)} drew ${dz(sp)} <b>${spName(sp)}</b>${from === 'deck' ? ' from the deck' : ''} into their dino book.`);
     toast(`🃏 ${state.players[p].name} drew ${spName(sp)}`, 'good');
+    pendingCard = { p, sp, from };
     return sp;
   }
 
@@ -817,16 +874,17 @@
     const iv = setInterval(() => {
       const face = 1 + rand(6);
       el.innerHTML = dieHtml(face).replace(/^<div[^>]*>|<\/div>$/g, '');
-      if (++n > 9) {
+      if (++n > 11) {
         clearInterval(iv);
         el.classList.remove('rolling');
+        el.classList.add('landed');
         el.innerHTML = dieHtml(v).replace(/^<div[^>]*>|<\/div>$/g, '');
         setTimeout(() => {
           busy = false;
           cb(v);
-        }, 380);
+        }, 650);
       }
-    }, 70);
+    }, 75);
   }
 
   // ---------------------------------------------------------------- toasts / modal / confetti
@@ -835,7 +893,7 @@
     if (!root) return;
     const el = document.createElement('div');
     el.className = `toast ${kind || ''}`;
-    el.textContent = msg;
+    el.innerHTML = tokify(esc(msg));
     root.appendChild(el);
     while (root.children.length > 3) root.removeChild(root.firstChild);
     setTimeout(() => {
@@ -845,7 +903,7 @@
   }
 
   function openModal(html) {
-    document.getElementById('modal-root').innerHTML = `<div class="modal-bg" data-act="closeModal"><div class="modal" role="dialog" aria-modal="true">${html}</div></div>`;
+    document.getElementById('modal-root').innerHTML = tokify(`<div class="modal-bg" data-act="closeModal"><div class="modal" role="dialog" aria-modal="true">${html}</div></div>`);
   }
 
   function closeModal() {
@@ -855,10 +913,13 @@
   function confetti() {
     const box = document.createElement('div');
     box.className = 'confetti';
-    const icons = ['🦖', '🦕', '🥚', '🌿', '🍖', '💎', '🪙', '⭐'];
+    const icons = ['coin', 'diamond', 'meat', 'plant', 'coin', 'diamond'].concat(BOOK, DECK);
     for (let i = 0; i < 46; i++) {
-      const s = document.createElement('span');
-      s.textContent = icons[rand(icons.length)];
+      const s = document.createElement('img');
+      const name = icons[rand(icons.length)];
+      s.src = `${IMG}${name}.webp`;
+      s.alt = '';
+      if (SPECIES[name]) s.className = 'cf-dino';
       s.style.left = `${rand(100)}%`;
       s.style.animationDuration = `${2.4 + Math.random() * 2.2}s`;
       s.style.animationDelay = `${Math.random() * 1.2}s`;
@@ -866,6 +927,85 @@
     }
     document.body.appendChild(box);
     setTimeout(() => box.remove(), 6000);
+  }
+
+  // ---------------------------------------------------------------- tabletop effects
+  const centerOf = (r) => ({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
+
+  function flyTokens(fromRect, toEl, img, n) {
+    if (reduceMotion.matches || !fromRect || !toEl) return;
+    const to = toEl.getBoundingClientRect();
+    if (!to.width) return;
+    const s = centerOf(fromRect);
+    const t = { x: to.left + 14, y: to.top + to.height / 2 };
+    for (let i = 0; i < n; i++) {
+      const el = document.createElement('img');
+      el.src = `${IMG}${img}.webp`;
+      el.alt = '';
+      el.className = 'fly-tok';
+      el.style.left = `${s.x}px`;
+      el.style.top = `${s.y}px`;
+      document.body.appendChild(el);
+      const dx = t.x - s.x;
+      const dy = t.y - s.y;
+      const j = rand(36) - 18;
+      const arc = -50 - rand(50);
+      const a = el.animate([
+        { transform: `translate(-50%,-50%) translate(${j}px,0) scale(.5) rotate(0deg)`, opacity: 0 },
+        { transform: `translate(-50%,-50%) translate(${dx * 0.5 + j}px,${dy * 0.5 + arc}px) scale(1.2) rotate(${180 + j * 4}deg)`, opacity: 1, offset: 0.5 },
+        { transform: `translate(-50%,-50%) translate(${dx}px,${dy}px) scale(.65) rotate(360deg)`, opacity: 0.95 },
+      ], { duration: 720, delay: i * 75, easing: 'cubic-bezier(.45,0,.4,1)', fill: 'both' });
+      a.onfinish = () => el.remove();
+    }
+  }
+
+  function flyCard(fromRect, toEl, sp) {
+    if (reduceMotion.matches || !fromRect || !toEl) return;
+    const to = toEl.getBoundingClientRect();
+    if (!to.width) return;
+    const s = centerOf(fromRect);
+    const t = centerOf(to);
+    const el = document.createElement('div');
+    el.className = `fly-card t-${SPECIES[sp].type}`;
+    el.innerHTML = `<img src="${IMG}${sp}.webp" alt=""><b>${esc(spName(sp))}</b>`;
+    el.style.left = `${s.x}px`;
+    el.style.top = `${s.y}px`;
+    document.body.appendChild(el);
+    const a = el.animate([
+      { transform: 'translate(-50%,-50%) scale(.8) rotateY(180deg)', opacity: 0 },
+      { transform: 'translate(-50%,-50%) translateY(-40px) scale(1.25) rotateY(0deg) rotate(-6deg)', opacity: 1, offset: 0.35 },
+      { transform: `translate(-50%,-50%) translate(${t.x - s.x}px,${t.y - s.y}px) scale(.35) rotate(8deg)`, opacity: 0.6 },
+    ], { duration: 1050, easing: 'cubic-bezier(.4,0,.3,1)', fill: 'both' });
+    a.onfinish = () => {
+      el.remove();
+      toEl.classList.remove('bump');
+      void toEl.offsetWidth;
+      toEl.classList.add('bump');
+    };
+  }
+
+  function turnOverlay(T) {
+    if (!T) return;
+    let key = null;
+    let html = '';
+    if (T.t === 'roundStart') {
+      key = `r${state.round}`;
+      html = `<div class="to-card to-round"><small>Round</small><b>${state.round}</b><span>of ${ROUNDS}</span></div>`;
+    } else if (T.p !== undefined && ['gainFood', 'feed', 'produce', 'actions'].includes(T.t)) {
+      key = `p${T.p}:${state.round}:${T.k}:${T.bonus ? 1 : 0}`;
+      const P = state.players[T.p];
+      const phase = PHASES[state.phaseOrder[T.k]];
+      html = `<div class="to-card pl-${P.color}"><img src="${IMG}${MASCOT[T.p]}.webp" alt=""><div><small>Round ${state.round} · ${phase.icon} ${phase.short}${T.bonus ? ' · bonus' : ''}</small><b>${esc(P.name)}’s turn</b></div></div>`;
+    }
+    if (!key || key === lastTurnKey) return;
+    lastTurnKey = key;
+    if (!animOn || reduceMotion.matches) return;
+    document.querySelectorAll('.turn-ov').forEach((x) => x.remove());
+    const ov = document.createElement('div');
+    ov.className = 'turn-ov';
+    ov.innerHTML = tokify(html);
+    document.body.appendChild(ov);
+    setTimeout(() => ov.remove(), 1500);
   }
 
   // ---------------------------------------------------------------- rendering: cards
@@ -879,26 +1019,55 @@
     return `<div class="dcard t-${S.type} ${o.cls || ''}" ${o.attrs || ''} title="${esc(S.name)}">
       ${o.tag ? `<span class="dc-tag">${o.tag}</span>` : ''}
       <div class="dc-head"><div class="dc-name">${esc(S.name)}</div><div class="dc-pts" title="Points">${S.pts}</div></div>
-      <div class="dc-art" style="--sc:${S.color}"><span>${S.emoji}</span></div>
+      <div class="dc-art" style="--sc:${S.color}"><img src="${IMG}${sp}.webp" alt="" draggable="false"></div>
       <div class="dc-stats">${statBox('Cost', costText(S.cost))}${statBox('Size', `⬛${S.space}`)}${statBox('Food', foodText(S.food))}${statBox('Prod', `🪙${S.prod}`)}</div>
       <div class="dc-ab"><span class="dc-type">${TYPE_LABEL[S.type]}</span>${esc(S.ability)}</div>
       ${o.foot || ''}
     </div>`;
   }
 
-  function miniCard(sp, attrs) {
-    if (!sp) return '<div class="mini empty">—</div>';
+  function miniCard(sp, attrs, cls) {
+    if (!sp) return '<div class="mini empty">empty</div>';
     const S = SPECIES[sp];
     const title = `${S.name} · ${TYPE_LABEL[S.type]}: ${S.ability}`;
-    return `<div class="mini t-${S.type} ${attrs ? 'pick' : ''}" ${attrs || ''} title="${esc(title)}">
-      <div class="mn"><span>${esc(spName(sp))}</span><span class="mp">${S.pts}</span></div>
-      <div class="ma">${S.emoji}</div>
-      <div>${costText(S.cost)} · ⬛${S.space}</div>
-      <div>${foodText(S.food)} · 🪙${S.prod}</div>
+    return `<div class="mini t-${S.type} ${attrs ? 'pick' : ''} ${cls || ''}" ${attrs || ''} title="${esc(title)}">
+      <div class="ma" style="--sc:${S.color}"><img src="${IMG}${sp}.webp" alt="" draggable="false"><span class="mp">${S.pts}</span></div>
+      <div class="mn">${esc(spName(sp))}</div>
+      <div class="ms">${costText(S.cost)} · ⬛${S.space}</div>
+      <div class="ms">${foodText(S.food)} · 🪙${S.prod}</div>
     </div>`;
   }
 
   // ---------------------------------------------------------------- rendering: board
+  function tokenSpot(it, X, Y) {
+    const set = new Set(it.cells);
+    const cx = it.cells.reduce((s, i) => s + (i % N), 0) / it.cells.length;
+    const cy = it.cells.reduce((s, i) => s + Math.floor(i / N), 0) / it.cells.length;
+    let best = null;
+    let bd = Infinity;
+    it.cells.forEach((i) => {
+      const r = Math.floor(i / N);
+      const c = i % N;
+      if (c < N - 1 && r < N - 1 && set.has(i + 1) && set.has(i + N) && set.has(i + N + 1)) {
+        const d = (c + 0.5 - cx) ** 2 + (r + 0.5 - cy) ** 2;
+        if (d < bd) {
+          bd = d;
+          best = { x: X(c) + CS, y: Y(r) + CS, r: 31 };
+        }
+      }
+    });
+    if (best) return best;
+    let anchor = it.cells[0];
+    it.cells.forEach((i) => {
+      const d = (i % N - cx) ** 2 + (Math.floor(i / N) - cy) ** 2;
+      if (d < bd) {
+        bd = d;
+        anchor = i;
+      }
+    });
+    return { x: X(anchor % N) + CS / 2, y: Y(Math.floor(anchor / N)) + CS / 2, r: 15 };
+  }
+
   function boardSvg(p) {
     const P = state.players[p];
     const b = P.board;
@@ -910,7 +1079,13 @@
     const X = (c) => PAD + c * CS;
     const Y = (r) => PAD + r * CS;
 
-    out.push(`<rect x="0" y="0" width="${W}" height="${W}" rx="12" class="b-bg"/>`);
+    out.push(`<defs>
+      <linearGradient id="wd${p}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9a6634"/><stop offset=".45" stop-color="#744521"/><stop offset="1" stop-color="#4e2c12"/></linearGradient>
+      <pattern id="gr${p}" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M7 31l2-7 2 7M25 15l2-6 2 6M31 37l1.5-5 1.5 5M15 9l1.2-4 1.2 4" stroke="rgba(28,70,18,.28)" stroke-width="1.3" fill="none" stroke-linecap="round"/></pattern>
+      <clipPath id="rc${p}" clipPathUnits="objectBoundingBox"><circle cx=".5" cy=".5" r=".5"/></clipPath>
+      <filter id="sh${p}" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="1.6" stdDeviation="1.1" flood-color="#1a0d02" flood-opacity=".45"/></filter>
+    </defs>`);
+    out.push(`<rect x="0" y="0" width="${W}" height="${W}" rx="12" fill="url(#wd${p})" class="b-bg"/>`);
 
     const firstSel = sel && sel.type === 'cells' && sel.purpose !== 'rubble' && sel.cells.size ? sel.cells.values().next().value : null;
     const selComp = firstSel !== null ? an.comps[an.compOf[firstSel]] : null;
@@ -942,75 +1117,59 @@
       grid += `M${X(k)} ${Y(0)}V${Y(N)}M${X(0)} ${Y(k)}H${X(N)}`;
     }
     out.push(`<path d="${grid}" stroke="rgba(0,0,0,0.1)" stroke-width="1" fill="none" pointer-events="none"/>`);
+    out.push(`<rect x="${PAD}" y="${PAD}" width="${N * CS}" height="${N * CS}" fill="url(#gr${p})" pointer-events="none"/>`);
 
-    // items
-    out.push('<g class="item">');
+    // pieces
+    out.push(`<g class="item" filter="url(#sh${p})">`);
     Object.values(b.items).forEach((it) => {
       let col;
-      if (it.kind === 'dino') col = it.dead ? '#8a8a8a' : SPECIES[it.species].color;
-      else if (it.kind === 'feeder') col = '#c8a165';
-      else col = '#4fc3f7';
+      if (it.kind === 'dino') col = it.dead ? '#9a9489' : SPECIES[it.species].color;
+      else if (it.kind === 'feeder') col = '#d9b066';
+      else col = '#5cc6ef';
       const set = new Set(it.cells);
+      const fresh = isFresh(`b${p}:i${it.id}${it.dead ? 'd' : ''}`, 900);
+      const g = [];
       it.cells.forEach((i) => {
         const r = Math.floor(i / N);
         const c = i % N;
-        out.push(`<rect x="${X(c) + 3}" y="${Y(r) + 3}" width="${CS - 6}" height="${CS - 6}" rx="7" fill="${col}"/>`);
-        if (c < N - 1 && set.has(i + 1)) out.push(`<rect x="${X(c) + CS - 4}" y="${Y(r) + 3}" width="8" height="${CS - 6}" fill="${col}"/>`);
-        if (r < N - 1 && set.has(i + N)) out.push(`<rect x="${X(c) + 3}" y="${Y(r) + CS - 4}" width="${CS - 6}" height="8" fill="${col}"/>`);
+        g.push(`<rect x="${X(c) + 3}" y="${Y(r) + 3}" width="${CS - 6}" height="${CS - 6}" rx="8" fill="${col}"/>`);
+        if (c < N - 1 && set.has(i + 1)) g.push(`<rect x="${X(c) + CS - 9}" y="${Y(r) + 3}" width="18" height="${CS - 6}" fill="${col}"/>`);
+        if (r < N - 1 && set.has(i + N)) g.push(`<rect x="${X(c) + 3}" y="${Y(r) + CS - 9}" width="${CS - 6}" height="18" fill="${col}"/>`);
+        if (c < N - 1 && r < N - 1 && set.has(i + 1) && set.has(i + N) && set.has(i + N + 1)) {
+          g.push(`<rect x="${X(c) + CS - 9}" y="${Y(r) + CS - 9}" width="18" height="18" fill="${col}"/>`);
+        }
         if (it.kind === 'water') {
-          out.push(`<path d="M${X(c) + 9} ${Y(r) + 24}q5 -5 10 0t10 0" stroke="rgba(255,255,255,0.7)" stroke-width="2" fill="none"/>`);
+          g.push(`<path d="M${X(c) + 9} ${Y(r) + 27}q5 -5 10 0t10 0" stroke="rgba(255,255,255,0.55)" stroke-width="2" fill="none"/>`);
+        } else if (it.kind === 'feeder') {
+          g.push(`<path d="M${X(c) + 10} ${Y(r) + 30}l4 -12M${X(c) + 19} ${Y(r) + 31}l1 -14M${X(c) + 28} ${Y(r) + 30}l-3 -11" stroke="rgba(120,80,20,0.45)" stroke-width="2" stroke-linecap="round"/>`);
         }
       });
+      const spot = tokenSpot(it, X, Y);
+      const R = spot.r;
+      if (it.kind === 'dino' && !it.dead) {
+        g.push(`<circle cx="${spot.x}" cy="${spot.y}" r="${R + 2.5}" fill="#fffaf0" stroke="rgba(0,0,0,.35)" stroke-width="1"/>`);
+        g.push(`<image href="${IMG}${it.species}.webp" x="${spot.x - R}" y="${spot.y - R}" width="${2 * R}" height="${2 * R}" clip-path="url(#rc${p})" preserveAspectRatio="xMidYMid slice"/>`);
+      } else {
+        const img = it.kind === 'dino' ? 'fossil' : it.kind;
+        const s = R * 2.3;
+        g.push(`<image href="${IMG}${img}.webp" x="${spot.x - s / 2}" y="${spot.y - s / 2}" width="${s}" height="${s}"/>`);
+      }
+      out.push(`<g class="piece${fresh ? ' drop' : ''}">${g.join('')}</g>`);
     });
     for (let i = 0; i < 100; i++) {
       if (b.cells[i] !== -1) continue;
       const r = Math.floor(i / N);
       const c = i % N;
-      out.push(`<rect x="${X(c) + 2}" y="${Y(r) + 2}" width="${CS - 4}" height="${CS - 4}" rx="6" fill="#7d7468"/>`);
-      out.push(`<path d="M${X(c) + 8} ${Y(r) + 30}l7 -12l6 7l4 -5l7 10z" fill="#5c554b"/>`);
+      const fresh = isFresh(`b${p}:r${i}`, 900);
+      out.push(`<g class="piece${fresh ? ' drop' : ''}"><rect x="${X(c) + 2}" y="${Y(r) + 2}" width="${CS - 4}" height="${CS - 4}" rx="6" fill="#857a69"/><image href="${IMG}rubble.webp" x="${X(c) + 3}" y="${Y(r) + 3}" width="${CS - 6}" height="${CS - 6}"/></g>`);
     }
     out.push('</g>');
 
-    // labels
-    out.push('<g class="labels">');
-    Object.values(b.items).forEach((it) => {
-      const cx = it.cells.reduce((s, i) => s + (i % N), 0) / it.cells.length;
-      const cy = it.cells.reduce((s, i) => s + Math.floor(i / N), 0) / it.cells.length;
-      let anchor = it.cells[0];
-      let best = Infinity;
-      it.cells.forEach((i) => {
-        const d = (i % N - cx) ** 2 + (Math.floor(i / N) - cy) ** 2;
-        if (d < best) {
-          best = d;
-          anchor = i;
-        }
-      });
-      const x = X(anchor % N) + CS / 2;
-      const y = Y(Math.floor(anchor / N)) + CS / 2;
-      let emoji;
-      let code;
-      if (it.kind === 'dino') {
-        emoji = it.dead ? '💀' : SPECIES[it.species].emoji;
-        code = SPECIES[it.species].code;
-      } else if (it.kind === 'feeder') {
-        emoji = '🌾';
-        code = 'FEED';
-      } else {
-        emoji = '💧';
-        code = 'H₂O';
-      }
-      out.push(`<text x="${x}" y="${y + 3}" text-anchor="middle" font-size="18">${emoji}</text>`);
-      out.push(`<text x="${x}" y="${y + 16}" text-anchor="middle" font-size="8.5" font-weight="700" fill="#fff" stroke="rgba(0,0,0,0.45)" stroke-width="2.2" paint-order="stroke">${code}</text>`);
-    });
-    out.push('</g>');
-
     // fences
-    const fence = (x1, y1, x2, y2, cls) => {
-      if (cls === 'pend') {
-        return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#ffd54f" stroke-width="5" stroke-linecap="round"/>`;
-      }
-      return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#4a2c12" stroke-width="6" stroke-linecap="round"/><line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#b07a3c" stroke-width="2" stroke-linecap="round"/>`;
-    };
+    const fence = (x1, y1, x2, y2, fresh) => `<g class="fence${fresh ? ' new' : ''}">`
+      + `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#3a210b" stroke-width="7" stroke-linecap="round"/>`
+      + `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#a8692f" stroke-width="4" stroke-linecap="round"/>`
+      + `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#e0a868" stroke-width="1.2" stroke-linecap="round"/></g>`;
     const edgeLine = (e) => {
       const k = e[0];
       const i = +e.slice(1);
@@ -1025,10 +1184,21 @@
     };
     out.push('<g class="fences">');
     out.push(`<rect x="${PAD}" y="${PAD}" width="${N * CS}" height="${N * CS}" rx="3" fill="none" stroke="#2e1a08" stroke-width="5"/>`);
+    const posts = new Set();
     for (let i = 0; i < 90; i++) {
-      if (b.h[i]) out.push(fence(...edgeLine('h' + i)));
-      if (b.v[i]) out.push(fence(...edgeLine('v' + i)));
+      ['h', 'v'].forEach((k) => {
+        if (!b[k][i]) return;
+        const e = k + i;
+        const [x1, y1, x2, y2] = edgeLine(e);
+        posts.add(`${x1},${y1}`);
+        posts.add(`${x2},${y2}`);
+        out.push(fence(x1, y1, x2, y2, isFresh(`b${p}:${e}`, 700)));
+      });
     }
+    posts.forEach((pt) => {
+      const [x, y] = pt.split(',');
+      out.push(`<circle cx="${x}" cy="${y}" r="4.2" fill="#6b3f19" stroke="#2e1a08" stroke-width="1.4"/>`);
+    });
     out.push('</g>');
 
     // badges
@@ -1037,13 +1207,15 @@
       if (!cp.name) return;
       const r = Math.floor(cp.key / N);
       const c = cp.key % N;
-      out.push(`<circle cx="${X(c) + 10}" cy="${Y(r) + 10}" r="8.5" fill="#2b1d0e" stroke="#fff6e2" stroke-width="1.5"/>`);
+      out.push(`<circle cx="${X(c) + 10}" cy="${Y(r) + 10}" r="8.5" fill="#4a2a10" stroke="#f3d9a4" stroke-width="1.6"/>`);
       out.push(`<text x="${X(c) + 10}" y="${Y(r) + 13.5}" text-anchor="middle" font-size="10" font-weight="700" fill="#fff">${cp.name}</text>`);
       if (cp.dead) {
-        out.push(`<rect x="${X(c) + 19}" y="${Y(r) + 2}" width="24" height="16" rx="8" fill="#37474f"/><text x="${X(c) + 31}" y="${Y(r) + 14}" text-anchor="middle" font-size="10">💀</text>`);
+        out.push(`<image href="${IMG}fossil.webp" x="${X(c) + 18}" y="${Y(r) + 0}" width="22" height="22"/>`);
       } else if (cp.inactive) {
         const danger = cp.inactive >= 4;
-        out.push(`<rect x="${X(c) + 19}" y="${Y(r) + 2}" width="32" height="16" rx="8" fill="${danger ? '#c62828' : '#ef6c00'}" stroke="#fff" stroke-width="1"/><text x="${X(c) + 35}" y="${Y(r) + 14}" text-anchor="middle" font-size="10" font-weight="700" fill="#fff">💤${cp.inactive}</text>`);
+        out.push(`<g class="sleep-tok${danger ? ' danger' : ''}"><image href="${IMG}sleep.webp" x="${X(c) + 17}" y="${Y(r) - 1}" width="24" height="24"/>`
+          + `<circle cx="${X(c) + 39}" cy="${Y(r) + 5}" r="6.5" fill="${danger ? '#c62828' : '#3a210b'}" stroke="#fff" stroke-width="1.2"/>`
+          + `<text x="${X(c) + 39}" y="${Y(r) + 8.4}" text-anchor="middle" font-size="9" font-weight="700" fill="#fff">${cp.inactive}</text></g>`);
       }
     });
     out.push('</g>');
@@ -1069,19 +1241,29 @@
     const app = document.getElementById('app');
     if (!state) {
       renderSetup(app);
+      animOn = true;
       return;
     }
     if (!document.getElementById('game-shell')) {
-      app.innerHTML = `<div id="game-shell">
+      app.innerHTML = tokify(`<div id="game-shell">
         <header class="topbar" id="top"></header>
         <main class="layout"><section class="boards" id="boards"></section><aside class="panel" id="panel"></aside></main>
         <footer class="legend">${legendHtml()}</footer>
-      </div>`;
+      </div>`);
     }
     renderTop();
     renderBoards();
     renderPanel();
     const T = cur();
+    turnOverlay(T);
+    if (pendingCard) {
+      const pc = pendingCard;
+      pendingCard = null;
+      const deck = document.querySelector('.deck-back');
+      const src = pc.from === 'deck' && deck ? deck.getBoundingClientRect() : lastClickRect;
+      flyCard(src, document.querySelector(`[data-act="book"][data-p="${pc.p}"]`), pc.sp);
+    }
+    animOn = true;
     const focusP = ui.sel ? ui.sel.board : T && T.p !== undefined ? T.p : null;
     if (focusP !== null && focusP !== lastFocus && window.matchMedia('(max-width: 820px)').matches) {
       const el = document.querySelector(`[data-player="${focusP}"]`);
@@ -1099,11 +1281,11 @@
     return [
       '<span><i class="sw" style="background:#67a846"></i>Open land (not enclosed)</span>',
       '<span><i class="sw" style="background:#f3e5ab"></i>Enclosure (touches ≤ 2 board sides)</span>',
-      '<span><i class="sw" style="background:#4a2c12"></i>Fence</span>',
+      '<span>🪵 Fence</span>',
       '<span>🌾 Feeder</span>',
       '<span>💧 Watering hole</span>',
-      '<span><i class="sw" style="background:#7d7468"></i>Filled by opponent</span>',
-      '<span>💤 Inactive (marker)</span>',
+      '<span>🪨 Filled by opponent</span>',
+      '<span>💤 Inactive marker</span>',
       '<span>💀 Extinct</span>',
     ].join('');
   }
@@ -1123,12 +1305,12 @@
       : state.phaseOrder
         .map((ph, i) => {
           const cls = T && T.t === 'roundStart' ? '' : i < k ? 'done' : i === k ? 'cur' : '';
-          return `<div class="pcard ${cls}"><span class="pc-n">${i + 1}</span><span>${PHASES[ph].icon}</span><span>${PHASES[ph].short}</span></div>`;
+          return `<div class="pcard ph-${ph} ${cls}"><span class="pc-n">${i + 1}</span><span class="pc-i">${PHASES[ph].icon}</span><span class="pc-t">${PHASES[ph].short}</span></div>`;
         })
         .join('');
     const fresh = T && T.t === 'roundStart' ? ' fresh' : '';
     setHtml(el, `
-      <div class="brand"><span class="brand-logo">🦖</span><div><h1>Dino Board Game</h1><small>Build the best dino park in 18 rounds</small></div></div>
+      <div class="brand"><img class="brand-logo" src="${IMG}trex.webp" alt=""><div><h1>Dino Board Game</h1><small>Build the best dino park in 18 rounds</small></div></div>
       <div class="top-mid">
         <div class="tracker"><span class="tracker-label">Round</span>${pips}</div>
         <div class="phase-row${fresh}" data-round="${state.round}">${phases}</div>
@@ -1142,12 +1324,15 @@
   function setHtml(el, html) {
     if (!el || el._html === html) return false;
     el._html = html;
-    el.innerHTML = html;
+    el.innerHTML = tokify(html);
     return true;
   }
 
-  function chip(icon, val, title) {
-    return `<span class="chip" title="${esc(title)}">${icon} <b>${val}</b></span>`;
+  function chip(icon, val, title, key, fx) {
+    const live = fx && performance.now() - fx.t < 1400;
+    const cls = live ? ` bump ${fx.d > 0 ? 'up' : 'down'}` : '';
+    const delta = live ? `<i class="delta">${fx.d > 0 ? '+' : ''}${fx.d}</i>` : '';
+    return `<span class="chip${cls}" title="${esc(title)}"${key ? ` data-r="${key}"` : ''}>${icon} <b>${val}</b>${delta}</span>`;
   }
 
   function renderBoards() {
@@ -1155,29 +1340,61 @@
     const T = cur();
     const activeP = T && T.p !== undefined ? T.p : -1;
     const target = ui.sel && ui.sel.board !== activeP ? ui.sel.board : -1;
-    setHtml(el, [0, 1]
+    const now = performance.now();
+    const snap = state.players.map((P) => {
+      const o = {};
+      RES.forEach(([k]) => { o[k] = P[k]; });
+      o.triPlants = P.triPlants;
+      return o;
+    });
+    const changes = [];
+    if (prevRes && animOn) {
+      snap.forEach((o, p) => {
+        Object.keys(o).forEach((k) => {
+          const d = o[k] - prevRes[p][k];
+          if (d) {
+            resFx[p][k] = { d, t: now };
+            changes.push({ p, k, d });
+          }
+        });
+      });
+    }
+    prevRes = snap;
+    const changed = setHtml(el, [0, 1]
       .map((p) => {
         const P = state.players[p];
         const sc = scorePlayer(p).total;
         const bonus = P.bonusNext + P.bonusPending;
+        const chips = RES.map(([k, img, label]) => chip(tok(img), P[k], label, k, resFx[p][k])).join('');
         return `<div class="player pl-${P.color}${p === activeP ? ' active' : ''}${p === target ? ' target' : ''}" data-player="${p}">
           <div class="p-head">
-            <div class="p-name"><span class="dot"></span>${esc(P.name)}${p === state.first ? ' <span class="tag">1st</span>' : ''}${p === activeP ? ' <span class="tag turn-tag">TURN</span>' : ''}${p === target ? ' <span class="tag" style="background:#ff6d2e">TARGET</span>' : ''}</div>
+            <div class="p-name"><img class="p-mascot" src="${IMG}${MASCOT[p]}.webp" alt="">${esc(P.name)}${p === state.first ? ' <span class="tag">1st</span>' : ''}${p === activeP ? ' <span class="tag turn-tag">TURN</span>' : ''}${p === target ? ' <span class="tag target-tag">TARGET</span>' : ''}</div>
             <div class="p-score" title="Score if the game ended right now">⭐ ${sc}</div>
           </div>
           <div class="res">
-            ${chip('🪙', P.coins, 'Coins')}${chip('💎', P.diamonds, 'Diamonds')}${chip('🍖', P.meat, 'Meat')}${chip('🌿', P.plants, 'Plants')}
-            ${P.triPlants ? chip('🦕🌿', P.triPlants, 'Plants on your Triceratops page') : ''}
+            ${chips}
+            ${P.triPlants ? chip(`${dz('triceratops')}🌿`, P.triPlants, 'Plants on your Triceratops page', 'triPlants', resFx[p].triPlants) : ''}
             ${bonus ? chip('⏩', bonus, 'Gigantoraptor: do a phase twice next round') : ''}
           </div>
           <div class="board-wrap">${boardSvg(p)}</div>
           <div class="p-foot">
-            <button class="btn sm ghost" data-act="book" data-p="${p}">📖 Dino book · ${P.book.length}</button>
+            <button class="btn sm ghost book-btn" data-act="book" data-p="${p}"><span class="book-ic"></span>Dino book · ${P.book.length}</button>
             ${P.blocked.length ? `<span class="blocked">🚫 Blocked: ${P.blocked.map((sp) => esc(spName(sp))).join(', ')}</span>` : ''}
           </div>
         </div>`;
       })
       .join(''));
+    if (!changed || !changes.length) return;
+    const chipEl = (p, k) => el.querySelector(`[data-player="${p}"] [data-r="${k}"]`);
+    const panel = document.getElementById('panel');
+    const fallback = panel ? panel.getBoundingClientRect() : null;
+    changes.filter((c) => c.d > 0).forEach((c) => {
+      const loser = changes.find((x) => x.p !== c.p && x.k === c.k && x.d < 0);
+      const lostEl = loser && chipEl(loser.p, loser.k);
+      const from = lostEl ? lostEl.getBoundingClientRect() : lastClickRect || fallback;
+      const img = c.k === 'triPlants' ? 'plant' : RES.find((r) => r[0] === c.k)[1];
+      flyTokens(from, chipEl(c.p, c.k), img, Math.min(c.d, 6));
+    });
   }
 
   function renderPanel() {
@@ -1207,11 +1424,20 @@
     const pickAny = T && ((T.t === 'actions' && ui.mode === 'draw') || (T.t === 'drawCard' && T.source === 'any'));
     const pickDeck = T && (pickAny || (T.t === 'drawCard' && T.source === 'deck'));
     const deckAttrs = pickDeck && state.deck.length ? 'data-act="take" data-from="deck"' : '';
-    const faceUp = [0, 1].map((i) => miniCard(state.faceUp[i], pickAny && state.faceUp[i] ? `data-act="take" data-from="${i}"` : '')).join('');
+    const faceUp = [0, 1]
+      .map((i) => {
+        const sp = state.faceUp[i];
+        const deal = sp && isFresh(`m${i}:${sp}:${state.deck.length}`, 900) ? 'deal' : '';
+        return miniCard(sp, pickAny && sp ? `data-act="take" data-from="${i}"` : '', deal);
+      })
+      .join('');
+    const stack = Math.min(state.deck.length, 4);
     return `<div class="market">
       <div class="m-title">🃏 Card market</div>
       <div class="m-row">
-        <div class="deck-back ${deckAttrs ? 'pick' : ''}" ${deckAttrs} title="Top of the deck (face down)"><span>🦴</span><b>${state.deck.length}</b><small>deck</small></div>
+        <div class="deck-back ${deckAttrs ? 'pick' : ''} ${state.deck.length ? '' : 'gone'}" ${deckAttrs} title="Top of the deck (face down)" style="--stack:${stack}">
+          <img src="${IMG}coin.webp" alt=""><b>${state.deck.length}</b><small>deck</small>
+        </div>
         ${faceUp}
       </div>
     </div>`;
@@ -1406,7 +1632,7 @@
             allosaurus: 'Steal up to 🪙3',
             parasaurolophus: `Gain 🪙${2 * o.count}`,
           }[o.sp];
-          return `<button class="opt" data-act="dinoAct" data-sp="${o.sp}" data-key="${o.key}"><span class="o-i">${SPECIES[o.sp].emoji}</span><span class="o-t"><b>${spName(o.sp)}${o.count > 1 ? ' ×' + o.count : ''} · enclosure ${o.name}</b><small>${desc}</small></span></button>`;
+          return `<button class="opt" data-act="dinoAct" data-sp="${o.sp}" data-key="${o.key}"><span class="o-i">${dz(o.sp, 'big')}</span><span class="o-t"><b>${spName(o.sp)}${o.count > 1 ? ' ×' + o.count : ''} · enclosure ${o.name}</b><small>${desc}</small></span></button>`;
         })
         .join('');
       return `${head}<h3>⚡ Use a dino action</h3><p>Activate a red-ability dino in an <b>active</b> enclosure.</p><div class="opt-list">${opts}</div><button class="btn ghost" data-act="back">← Back</button>`;
@@ -1421,14 +1647,14 @@
 
     const actOpts = dinoActionOptions(T.p);
     const tiles = [
-      { m: 'play', i: '🦖', t: 'Play a dino', s: 'Pay its cost and place it', ok: playOptions(T.p, false).some((o) => o.ok) },
-      { m: 'draw', i: '🃏', t: 'Draw a card', s: `Face-up or deck (${state.deck.length})`, ok: state.faceUp.length + state.deck.length > 0 },
-      { m: 'shop', i: '🛒', t: 'Buy from shop', s: 'Diamond · Feeder · Watering hole', ok: canShop(P) },
+      { m: 'play', i: dz(MASCOT[T.p], 'big'), t: 'Play a dino', s: 'Pay its cost and place it', ok: playOptions(T.p, false).some((o) => o.ok) },
+      { m: 'draw', i: '<span class="mini-back"></span>', t: 'Draw a card', s: `Face-up or deck (${state.deck.length})`, ok: state.faceUp.length + state.deck.length > 0 },
+      { m: 'shop', i: '💎', t: 'Buy from shop', s: 'Diamond · Feeder · Watering hole', ok: canShop(P) },
       { m: 'dinoAction', i: '⚡', t: 'Use a dino action', s: actOpts.length ? `${actOpts.length} available` : 'No active action dinos', ok: actOpts.length > 0 },
       { m: 'gain3', i: '🪙', t: 'Gain 3 coins', s: 'Straight from the supply', ok: true },
       { m: 'fences2', i: '🪵', t: 'Draw in 2 fences', s: 'Grow your enclosures', ok: legalEdges(T.p).length > 0 },
     ]
-      .map((x) => `<button class="tile" data-act="mode" data-m="${x.m}" ${x.ok ? '' : 'disabled'}><span class="t-i">${x.i}</span><span class="t-t">${x.t}</span><span class="t-s">${x.s}</span></button>`)
+      .map((x, n) => `<button class="tile" style="--n:${n}" data-act="mode" data-m="${x.m}" ${x.ok ? '' : 'disabled'}><span class="t-i">${x.i}</span><span class="t-t">${x.t}</span><span class="t-s">${x.s}</span></button>`)
       .join('');
     return `${head}<p class="muted" style="margin-top:0">You may pick the same action twice.</p>
       <div class="tiles">${tiles}</div>
@@ -1463,7 +1689,7 @@
     }
     const S = SPECIES[ui.species];
     const v = validateSel();
-    return `<h3>${S.emoji} Place ${esc(S.name)}${free ? ' (free!)' : ` · ${costText(S.cost)}`}</h3>
+    return `<div class="place-head">${dz(ui.species, 'big')}<h3>Place ${esc(S.name)}${free ? ' (free!)' : ` · ${costText(S.cost)}`}</h3></div>
       ${placementBox(`Select ${S.space} connected square${S.space > 1 ? 's' : ''} inside one enclosure`)}
       <button class="btn big" data-act="place" ${v.ok ? '' : 'disabled'}>Place ${esc(spName(ui.species))}</button>
       <button class="btn ghost" data-act="back" style="margin-top:.6rem">← Pick a different dino</button>`;
@@ -1541,7 +1767,7 @@
   function trexHtml(T) {
     const O = state.players[other(T.p)];
     const opts = trexOptions(T.p)
-      .map((sp) => `<button class="opt" data-act="trex" data-sp="${sp}"><span class="o-i">${SPECIES[sp].emoji}</span><span class="o-t"><b>${esc(SPECIES[sp].name)}</b><small>${costText(SPECIES[sp].cost)} · ⬛${SPECIES[sp].space} · ${SPECIES[sp].pts} pts${O.cards.includes(sp) ? ' · drawn card' : ''}</small></span></button>`)
+      .map((sp) => `<button class="opt" data-act="trex" data-sp="${sp}"><span class="o-i">${dz(sp, 'big')}</span><span class="o-t"><b>${esc(SPECIES[sp].name)}</b><small>${costText(SPECIES[sp].cost)} · ⬛${SPECIES[sp].space} · ${SPECIES[sp].pts} pts${O.cards.includes(sp) ? ' · drawn card' : ''}</small></span></button>`)
       .join('');
     return `<h3>🦖 T. Rex roars!</h3><p>Choose a dino from <b>${esc(O.name)}’s</b> book or cards. They can’t place any more of it.</p><div class="opt-list">${opts}</div>`;
   }
@@ -1575,7 +1801,7 @@
     if (s[0].total === s[1].total) winner = '<span class="big">🤝</span>It’s a tie!';
     else {
       const w = s[0].total > s[1].total ? 0 : 1;
-      winner = `<span class="big">${w === 0 ? '🦖' : '🦕'}</span>${pn(w)} wins!`;
+      winner = `<img class="big win-dino" src="${IMG}${MASCOT[w]}.webp" alt="">${pn(w)} wins!`;
     }
     return `<div class="winner">${winner}</div>
       <table class="scoreboard">
@@ -1681,15 +1907,24 @@
 
   // ---------------------------------------------------------------- setup screen
   function renderSetup(app) {
-    app.innerHTML = `<div class="setup">
-      <div class="setup-hero"><span>🦕</span><span>🥚</span><span>🦖</span></div>
-      <h1>Dino Board Game</h1>
-      <p class="tagline">Fence your land, feed your dinos, and build the best park in 18 rounds.</p>
+    const floaters = ['coin', 'diamond', 'meat', 'plant', 'coin', 'fence', 'water', 'diamond']
+      .map((t, i) => `<img class="floater f${i}" src="${IMG}${t}.webp" alt="">`)
+      .join('');
+    const parade = BOOK.concat(DECK)
+      .map((sp, i) => `<img src="${IMG}${sp}.webp" alt="${esc(SPECIES[sp].name)}" title="${esc(SPECIES[sp].name)}" style="--i:${i}">`)
+      .join('');
+    app.innerHTML = tokify(`<div class="setup">
+      <div class="box-lid">
+        <img class="cover" src="${IMG}cover.webp" alt="Dinosaurs in fenced enclosures in a jungle park">
+        <div class="lid-title"><h1>Dino Board Game</h1><p class="tagline">Fence your land, feed your dinos, and build the best park in 18 rounds.</p></div>
+        ${floaters}
+      </div>
+      <div class="parade">${parade}</div>
       <div class="setup-card">
         <h2>Who’s playing?</h2>
         <div class="name-row">
-          <div class="name-field"><label for="name0"><span class="dot-red"></span>Red book</label><input id="name0" maxlength="18" value="Red" autocomplete="off"></div>
-          <div class="name-field"><label for="name1"><span class="dot-blue"></span>Blue book</label><input id="name1" maxlength="18" value="Blue" autocomplete="off"></div>
+          <div class="name-field"><label for="name0"><img class="nf-dino" src="${IMG}${MASCOT[0]}.webp" alt=""><span class="dot-red"></span>Red book</label><input id="name0" maxlength="18" value="Red" autocomplete="off"></div>
+          <div class="name-field"><label for="name1"><img class="nf-dino" src="${IMG}${MASCOT[1]}.webp" alt=""><span class="dot-blue"></span>Blue book</label><input id="name1" maxlength="18" value="Blue" autocomplete="off"></div>
         </div>
         <div class="first-q">🎬 Who most recently watched a movie with a dino in it? They go first.</div>
         <div class="first-btns">
@@ -1699,7 +1934,7 @@
         <div class="setup-foot">Both players share this device and take turns. Each starts with 🪙5, an empty 10×10 park, and the same 8-dino book. The game saves automatically in this browser.</div>
       </div>
       <div class="setup-actions"><button class="btn ghost" data-act="rules">📜 Read the rules</button></div>
-    </div>`;
+    </div>`);
   }
 
   // ---------------------------------------------------------------- modals
@@ -1799,6 +2034,7 @@
       localStorage.removeItem(SAVE_KEY);
       state = null;
       ui = freshUi();
+      resetFx();
       closeModal();
       render();
       return;
@@ -2177,7 +2413,7 @@
         pay(P, SPECIES[sp].cost);
       }
       const encl = placeItem(p, 'dino', cells, sp);
-      logMsg(`${pn(p)} played ${SPECIES[sp].emoji} <b>${spName(sp)}</b> in enclosure ${encl}${free ? ' for free' : ` (${costText(SPECIES[sp].cost)})`}.`);
+      logMsg(`${pn(p)} played ${dz(sp)} <b>${spName(sp)}</b> in enclosure ${encl}${free ? ' for free' : ` (${costText(SPECIES[sp].cost)})`}.`);
       let tasks = [];
       if (SPECIES[sp].type === 'event') {
         toast(`⚡ ${spName(sp)} event!`, 'good');
@@ -2236,6 +2472,7 @@
   document.addEventListener('click', (e) => {
     const el = e.target.closest('[data-act]');
     if (!el || el.disabled) return;
+    lastClickRect = el.getBoundingClientRect();
     handle(el.dataset.act, el.dataset, el, e);
   });
 
