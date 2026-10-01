@@ -2741,6 +2741,8 @@
   const SURPLUS_COIN_VALUE = 0.22;
   const COIN_RESERVE = 12;
   const OPP_WEIGHT = 0.6;
+  // Hard's T. Rex block is measured with the opponent's own forecast, so it can be trusted more.
+  const TREX_WEIGHT = 0.8;
 
   function aiProfile(level, pace) {
     const plan = AI_PLANS[rand(AI_PLANS.length)];
@@ -2900,10 +2902,30 @@
     return (Math.min(n, free) * 0.3 + Math.max(0, n - free) * 0.04) * OPP_WEIGHT;
   }
 
+  // Points the opponent's own forecast loses if they can't place sp any more (Hard).
+  function oppSpeciesLoss(p, sp) {
+    const O = state.players[other(p)];
+    const key = [state.round, cur() && cur().k, O.book.join(), O.blocked.join(), O.coins, O.diamonds, sp].join('|');
+    const memo = aiCtx.oppLoss || (aiCtx.oppLoss = new Map());
+    if (memo.has(key)) return memo.get(key);
+    if (memo.size > 200) memo.clear();
+    const saved = aiCtx.targets;
+    aiCtx.targets = [];
+    const tl = aiTimeline(cur() ? cur().k : null);
+    const m = aiModel(other(p), 0);
+    const withIt = aiEval(m, tl);
+    m.book = m.book.filter((x) => x !== sp);
+    const loss = Math.max(0, withIt - aiEval(m, tl));
+    aiCtx.targets = saved;
+    memo.set(key, loss);
+    return loss;
+  }
+
   function trexHarm(p) {
     const O = state.players[other(p)];
     const opts = trexOptions(p);
     if (!opts.length) return 0;
+    if (tune().proj) return Math.max(...opts.map((sp) => oppSpeciesLoss(p, sp))) * TREX_WEIGHT;
     return Math.max(...opts.map((sp) => SPECIES[sp].pts * 0.25 + (canAfford(O, SPECIES[sp].cost) ? 1.5 : 0.5))) * OPP_WEIGHT;
   }
 
@@ -3871,7 +3893,7 @@
       case 'trex': {
         const O = state.players[other(p)];
         const onBoard = (sp) => Object.values(O.board.items).filter((it) => it.species === sp && !it.dead).length;
-        const score = (sp) => onBoard(sp) * 3 + SPECIES[sp].pts + (canAfford(O, SPECIES[sp].cost) ? 4 : 0) + noise(tune().noise);
+        const score = (sp) => (tune().proj ? oppSpeciesLoss(p, sp) : onBoard(sp) * 3 + SPECIES[sp].pts + (canAfford(O, SPECIES[sp].cost) ? 4 : 0)) + noise(tune().noise);
         const sp = trexOptions(p).map((x) => ({ x, s: score(x) })).sort((a, b) => b.s - a.s)[0].x;
         aiShow(`T. Rex: blocking your ${spName(sp)}…`, () => handle('trex', { sp }));
         return;
