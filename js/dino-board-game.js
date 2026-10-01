@@ -2741,7 +2741,7 @@
   const SURPLUS_COIN_VALUE = 0.22;
   const COIN_RESERVE = 12;
   const OPP_WEIGHT = 0.6;
-  // Hard's T. Rex block is measured with the opponent's own forecast, so it can be trusted more.
+  // Hard measures T. Rex blocks and filled squares with the opponent's own forecast, so it can trust them more.
   const TREX_WEIGHT = 0.8;
 
   function aiProfile(level, pace) {
@@ -2897,7 +2897,27 @@
     return an.comps.filter((cp) => cp.valid && !cp.dead).reduce((s, cp) => s + cp.empty, 0);
   }
 
+  // Points the opponent's own forecast loses if n of their squares get filled in (Hard).
+  function oppFillLoss(p, n) {
+    const q = other(p);
+    const key = ['fill', state.round, cur() && cur().k, n, state.players[q].board.cells.join(), state.players[q].coins].join('|');
+    const memo = aiCtx.oppLoss || (aiCtx.oppLoss = new Map());
+    if (memo.has(key)) return memo.get(key);
+    if (memo.size > 200) memo.clear();
+    const saved = aiCtx.targets;
+    aiCtx.targets = [];
+    const tl = aiTimeline(cur() ? cur().k : null);
+    const m = aiModel(q, 0);
+    const before = aiEval(m, tl);
+    aiRubbleCells(q, n).forEach((i) => { m.board.cells[i] = -1; });
+    const loss = Math.max(0, before - aiEval(m, tl));
+    aiCtx.targets = saved;
+    memo.set(key, loss);
+    return loss;
+  }
+
   function fillHarm(p, n) {
+    if (tune().proj) return oppFillLoss(p, n) * TREX_WEIGHT;
     const free = oppFreeValid(p);
     return (Math.min(n, free) * 0.3 + Math.max(0, n - free) * 0.04) * OPP_WEIGHT;
   }
