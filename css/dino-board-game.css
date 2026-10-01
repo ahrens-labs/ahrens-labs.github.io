@@ -780,6 +780,8 @@ button { font-family: inherit; }
 .b-clock.mine { box-shadow: 0 0 0 2px var(--amber); }
 .b-clock.low { background: #ffebee; color: #c62828; animation: pulseTag 1s ease-in-out infinite; }
 .setup.gate .setup-card { text-align: center; }
+a.btn { display: inline-block; text-align: center; text-decoration: none; }
+.hist-link { margin-top: 0.5rem; }
 .setup.gate .setup-card .btn { display: inline-block; margin-top: 0.6rem; text-decoration: none; }
 .ai-card { padding: 0.7rem 0.8rem; border-radius: 12px; border: 2px dashed var(--bone-dark); font-size: 1.05rem; font-weight: 600; background: #fffaf0; }
 
@@ -1025,4 +1027,40 @@ button { font-family: inherit; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+/* ---------- Game history page ---------- */
+.hist-top { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.8rem 1.2rem; background: linear-gradient(180deg, rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0.15)); }
+.hist-top .brand { color: inherit; text-decoration: none; }
+.hist { max-width: 900px; margin: 0 auto; padding: 1.2rem 1rem 3rem; display: grid; gap: 1rem; }
+.hcard { background: linear-gradient(180deg, var(--bone), var(--paper)); color: var(--ink); border-radius: 20px; padding: 1.2rem; box-shadow: 0 0 0 3px #2a170a, 0 16px 40px rgba(0, 0, 0, 0.4); }
+.hcard.gate-card { text-align: center; }
+.hcard h2 { margin: 0 0 0.6rem; }
+.hstats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.7rem; }
+.hstat { background: linear-gradient(180deg, var(--bone), var(--paper)); color: var(--ink); border-radius: 16px; padding: 0.8rem 0.9rem; box-shadow: 0 0 0 3px #2a170a; display: grid; gap: 0.1rem; }
+.hstat small { color: var(--muted); font-weight: 600; }
+.hstat b { font-family: "Lilita One", sans-serif; font-weight: 400; font-size: 1.8rem; line-height: 1.1; }
+.hstat span { font-size: 0.8rem; color: var(--muted); }
+.seg.hfilter { grid-template-columns: repeat(4, 1fr); margin-bottom: 0.8rem; }
+.seg.hfilter .seg-btn { text-align: center; }
+.hlist { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.45rem; }
+.hrow { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 0.7rem; padding: 0.6rem 0.8rem; background: #fff; border: 2px solid var(--bone-dark); border-radius: 14px; }
+.hi { font-size: 1.4rem; }
+.ht { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hm { font-weight: 500; font-size: 0.82rem; color: var(--muted); margin-left: 0.25rem; }
+.hmain small { color: var(--muted); }
+.hres { display: flex; align-items: center; gap: 0.5rem; }
+.hs { font-variant-numeric: tabular-nums; min-width: 3.4rem; text-align: right; }
+.hb { padding: 0.15rem 0.55rem; border-radius: 999px; font-size: 0.82rem; font-weight: 700; white-space: nowrap; }
+.hb.win { background: #e8f5e9; color: #2e7d32; }
+.hb.loss { background: #ffebee; color: #c62828; }
+.hb.tie, .hb.local { background: #fff8e1; color: #8d5a00; }
+.hcard .btn.ghost { background: transparent; color: var(--ink); box-shadow: inset 0 0 0 2px var(--bone-dark); }
+.hmore { width: 100%; margin-top: 0.8rem; }
+@media (max-width: 700px) {
+  .hstats { grid-template-columns: repeat(2, 1fr); }
+  .seg.hfilter { grid-template-columns: repeat(2, 1fr); }
+  .hrow { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .hact { grid-column: 2 / -1; }
+  .hact:empty { display: none; }
 }

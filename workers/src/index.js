@@ -9242,7 +9242,7 @@ async function sendDinoChallengeEmail(env, { to, recipientName, challengerName, 
   const recipient = String(recipientName || '').replace(/\s+/g, ' ').trim().slice(0, 40) || 'there';
   const quick = mode === 'quick';
   const modeLine = quick
-    ? 'Quick game: up to 1 minute per turn, so play it together in one sitting.'
+    ? 'Quick game: up to 2 minutes per move, so play it together in one sitting.'
     : 'Long game: no time limit. Take your turn whenever you see it’s your move — it can run over days.';
   const gameUrl = `${sitePublicBase(env)}/dino-board-game.html?game=${encodeURIComponent(gameId)}`;
   const challengerHtml = escapeHtmlEmail(challenger);

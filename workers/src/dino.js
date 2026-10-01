@@ -3,7 +3,7 @@
 // DinoLobby (one per user) holds small summaries so the game list is a single read.
 // The rules engine runs in the browser; the server enforces who may move, version order and the turn clock.
 
-const QUICK_TURN_MS = 60 * 1000;
+const QUICK_TURN_MS = 2 * 60 * 1000;
 // Extra time before a quick-game forfeit: the timed-out player's browser auto-finishes the turn first.
 const QUICK_FORFEIT_GRACE_MS = 30 * 1000;
 // The challenger may not be watching when a quick game is accepted, so the first turn is longer.
@@ -12,7 +12,10 @@ const PENDING_TTL_MS = { quick: 24 * 60 * 60 * 1000, long: 7 * 24 * 60 * 60 * 10
 const MAX_STATE_BYTES = 400 * 1024;
 const MAX_PENDING_OUT = 5;
 const MAX_OPEN_GAMES = 20;
-const LOBBY_KEEP_FINISHED = 20;
+const LOBBY_KEEP_FINISHED = 10;
+const HISTORY_MAX = 500;
+const HISTORY_PAGE_MAX = 50;
+const LEVELS = new Set(['easy', 'medium', 'hard']);
 const MODES = new Set(['quick', 'long']);
 
 function jsonResponse(body, corsHeaders, status = 200) {
@@ -168,6 +171,64 @@ function viewFor(record, me, extra) {
   };
 }
 
+// History rows are the same shape for online, vs-computer and same-device games.
+function onlineHistoryItem(s) {
+  const r = s.result || {};
+  const scores = Array.isArray(r.scores) ? r.scores : null;
+  return {
+    id: s.id,
+    kind: 'online',
+    mode: s.mode,
+    gameId: s.id,
+    opp: s.opp,
+    result: r.winner == null ? 'tie' : r.winner === s.me ? 'win' : 'loss',
+    reason: r.reason || 'finished',
+    myScore: scores ? scores[s.me] : null,
+    oppScore: scores ? scores[1 - s.me] : null,
+    finishedAt: s.updatedAt,
+  };
+}
+
+function cleanName(n, fallback) {
+  return String(n || '').replace(/\s+/g, ' ').trim().slice(0, 18) || fallback;
+}
+
+function localHistoryItem(body) {
+  const id = String(body.gid || '');
+  if (!/^g[0-9a-z]{6,30}$/.test(id)) return null;
+  const kind = body.kind === 'ai' ? 'ai' : body.kind === 'local' ? 'local' : null;
+  const scores = cleanScores(body.scores);
+  if (!kind || !scores) return null;
+  const names = Array.isArray(body.names) ? body.names : [];
+  const item = { id, kind, myScore: scores[0], oppScore: scores[1], reason: 'finished', finishedAt: Date.now() };
+  if (kind === 'ai') {
+    item.level = LEVELS.has(body.level) ? body.level : 'medium';
+    item.opp = 'Computer';
+    item.result = scores[0] === scores[1] ? 'tie' : scores[0] > scores[1] ? 'win' : 'loss';
+  } else {
+    item.names = [cleanName(names[0], 'Red'), cleanName(names[1], 'Blue')];
+    item.opp = item.names[1];
+    item.result = null;
+  }
+  return item;
+}
+
+function historyStats(items) {
+  const rated = items.filter((h) => h.result);
+  const scored = items.filter((h) => h.kind !== 'local' && typeof h.myScore === 'number');
+  const count = (f) => rated.filter(f).length;
+  return {
+    played: items.length,
+    wins: count((h) => h.result === 'win'),
+    losses: count((h) => h.result === 'loss'),
+    ties: count((h) => h.result === 'tie'),
+    online: { wins: count((h) => h.kind === 'online' && h.result === 'win'), played: count((h) => h.kind === 'online') },
+    ai: { wins: count((h) => h.kind === 'ai' && h.result === 'win'), played: count((h) => h.kind === 'ai') },
+    best: scored.length ? Math.max(...scored.map((h) => h.myScore)) : null,
+    avg: scored.length ? Math.round(scored.reduce((t, h) => t + h.myScore, 0) / scored.length) : null,
+  };
+}
+
 // ---------------------------------------------------------------- Worker routes
 
 export async function handleDinoRequest(request, env, corsHeaders, path, { executionCtx, notifyChallenge } = {}) {
@@ -192,6 +253,12 @@ export async function handleDinoRequest(request, env, corsHeaders, path, { execu
 
   if (path === '/api/dino/games' && request.method === 'GET') {
     const res = await lobbyStub(env, userId).fetch(new Request('http://do/list'));
+    return jsonResponse(await res.json(), corsHeaders);
+  }
+
+  if (path === '/api/dino/history' && request.method === 'GET') {
+    const q = new URLSearchParams({ offset: url.searchParams.get('offset') || '0', limit: url.searchParams.get('limit') || '30', kind: url.searchParams.get('kind') || '' });
+    const res = await lobbyStub(env, userId).fetch(new Request(`http://do/history?${q}`));
     return jsonResponse(await res.json(), corsHeaders);
   }
 
@@ -241,6 +308,13 @@ export async function handleDinoRequest(request, env, corsHeaders, path, { execu
       if (executionCtx && executionCtx.waitUntil) executionCtx.waitUntil(Promise.resolve(send).catch(() => {}));
     }
     return jsonResponse({ success: true, game: created.summary }, corsHeaders);
+  }
+
+  if (path === '/api/dino/history/record' && request.method === 'POST') {
+    const item = localHistoryItem(body);
+    if (!item) return jsonResponse({ error: 'Invalid game record' }, corsHeaders, 400);
+    const res = await lobbyStub(env, userId).fetch(new Request('http://do/record', { method: 'POST', body: JSON.stringify(item) }));
+    return jsonResponse(await res.json(), corsHeaders, res.status);
   }
 
   if (!/^dg[0-9a-f]{18}$/.test(id)) return jsonResponse({ error: 'Game not found' }, corsHeaders, 404);
@@ -501,8 +575,40 @@ export class DinoLobby {
     this.storage = state.storage;
   }
 
+  async loadHistory(games) {
+    let history = await this.storage.get('history');
+    if (!history) {
+      history = Object.values(games || (await this.storage.get('games')) || {})
+        .filter((g) => g.status === 'over')
+        .map(onlineHistoryItem)
+        .sort((a, b) => b.finishedAt - a.finishedAt);
+    }
+    return history;
+  }
+
+  async addHistory(item, games) {
+    const history = await this.loadHistory(games);
+    if (history.some((h) => h.id === item.id)) return false;
+    history.unshift(item);
+    await this.storage.put('history', history.slice(0, HISTORY_MAX));
+    return true;
+  }
+
   async fetch(request) {
-    const op = new URL(request.url).pathname;
+    const url = new URL(request.url);
+    const op = url.pathname;
+    if (op === '/history') {
+      const all = await this.loadHistory();
+      const kind = url.searchParams.get('kind');
+      const items = kind ? all.filter((h) => h.kind === kind) : all;
+      const offset = Math.max(0, Number(url.searchParams.get('offset')) || 0);
+      const limit = Math.min(HISTORY_PAGE_MAX, Math.max(1, Number(url.searchParams.get('limit')) || 30));
+      return Response.json({ items: items.slice(offset, offset + limit), total: items.length, stats: historyStats(all) });
+    }
+    if (op === '/record' && request.method === 'POST') {
+      const added = await this.addHistory(await request.json());
+      return Response.json({ ok: true, added });
+    }
     const games = (await this.storage.get('games')) || {};
     if (op === '/list') {
       const list = Object.values(games).sort((a, b) => b.updatedAt - a.updatedAt);
@@ -511,6 +617,7 @@ export class DinoLobby {
     if (op === '/upsert' && request.method === 'POST') {
       const s = await request.json();
       if (!s || !s.id) return Response.json({ error: 'bad summary' }, { status: 400 });
+      if (s.status === 'over' && !(games[s.id] && games[s.id].status === 'over')) await this.addHistory(onlineHistoryItem(s), games);
       games[s.id] = s;
       const done = Object.values(games)
         .filter((g) => g.status !== 'pending' && g.status !== 'active')

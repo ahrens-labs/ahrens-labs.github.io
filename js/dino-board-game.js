@@ -685,6 +685,7 @@
     const faceUp = [deck.shift(), deck.shift()];
     state = {
       v: 1,
+      gid: newGid(),
       ai: ai == null ? null : ai,
       aiCfg: ai == null ? null : aiProfile(level, pace),
       players: [newPlayer(0, names[0]), newPlayer(1, names[1])],
@@ -1426,6 +1427,7 @@
       state.celebrated = true;
       save();
       confetti();
+      recordLocalGame();
     }
     aiSchedule();
   }
@@ -2029,7 +2031,8 @@
       <p class="muted">Dinos in inactive or extinct enclosures score nothing. Leftover coins: ${esc(P[0].name)} 🪙${P[0].coins}, ${esc(P[1].name)} 🪙${P[1].coins}.</p>
       ${online
     ? '<div class="btn-row"><button class="btn big" data-act="olRematch">🦖 Rematch</button><button class="btn big ghost" data-act="onlineLeave">🏠 My games</button></div>'
-    : '<button class="btn big" data-act="newGame">🥚 Play again</button>'}`;
+    : '<button class="btn big" data-act="newGame">🥚 Play again</button>'}
+      <a class="btn big ghost hist-link" href="/dino-history.html">🏆 Game history</a>`;
   }
 
   // ---------------------------------------------------------------- selection validation
@@ -2146,7 +2149,7 @@
             <label for="ol-opp">Challenge another Ahrens Labs player</label>
             <input id="ol-opp" maxlength="80" placeholder="Their username or email" autocomplete="off">
             <div class="seg ol-mode" role="radiogroup">
-              <button class="seg-btn${olMode === 'quick' ? ' on' : ''}" data-act="olMode" data-v="quick"><b>⚡ Quick game</b><small>1 minute per turn — play it now</small></button>
+              <button class="seg-btn${olMode === 'quick' ? ' on' : ''}" data-act="olMode" data-v="quick"><b>⚡ Quick game</b><small>2 minutes per move — play it now</small></button>
               <button class="seg-btn${olMode === 'long' ? ' on' : ''}" data-act="olMode" data-v="long"><b>🐢 Long game</b><small>No time limit — move whenever it’s your turn, over days</small></button>
             </div>
             <button class="btn big" data-act="olChallenge">🦖 Send challenge</button>
@@ -2170,7 +2173,7 @@
         </div>
         <div class="setup-foot">Everyone starts with 🪙5, an empty park, and the same 8 dinos. The first player switches every round. Your game saves in this browser.</div>
       </div>
-      <div class="setup-actions">${canResume ? '<button class="btn" data-act="resumeLocal">▶ Resume saved game</button>' : ''}<button class="btn ghost" data-act="rules">📜 Read the rules</button></div>
+      <div class="setup-actions">${canResume ? '<button class="btn" data-act="resumeLocal">▶ Resume saved game</button>' : ''}<a class="btn ghost" href="/dino-history.html">🏆 Game history</a><button class="btn ghost" data-act="rules">📜 Read the rules</button></div>
     </div>`);
     renderLobby();
   }
@@ -4128,6 +4131,29 @@
     return { ok: res.ok, status: res.status, data };
   }
 
+  function newGid() {
+    return `g${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
+  }
+
+  // Vs-computer and same-device games go into the account's game history once they end.
+  async function recordLocalGame() {
+    if (online || !state || state.recorded || !sessionId()) return;
+    const s = state;
+    if (!s.gid) s.gid = newGid();
+    const me = s.ai === 0 ? 1 : 0;
+    const r = await api('/api/dino/history/record', {
+      gid: s.gid,
+      kind: s.ai != null ? 'ai' : 'local',
+      level: s.aiCfg ? s.aiCfg.level : null,
+      names: [s.players[me].name, s.players[1 - me].name],
+      scores: [scorePlayer(me).total, scorePlayer(1 - me).total],
+    });
+    if (r.ok && state === s) {
+      s.recorded = true;
+      save();
+    }
+  }
+
   function renderGate(app) {
     const back = encodeURIComponent(location.pathname.replace(/^\//, '') + location.search);
     app.innerHTML = tokify(`<div class="setup gate">
@@ -4713,5 +4739,6 @@
   if (sessionId()) {
     if (linkedGame) openOnlineGame(linkedGame);
     else loadLobby();
+    if (state && cur() && cur().t === 'gameOver') recordLocalGame();
   }
 })();
