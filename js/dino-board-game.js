@@ -115,7 +115,7 @@
   const IMG = '/img/dino-game/';
   const MASCOT = ['trex', 'brachiosaurus'];
   const TOKEN_ALT = {
-    coin: 'coins', diamond: 'diamonds', meat: 'meat', plant: 'plants', fence: 'fence', sleep: 'inactive',
+    coin: 'coins', diamond: 'diamonds', meat: 'meat', plant: 'plants', fence: 'fence', sleep: 'asleep',
     feeder: 'feeder', water: 'watering hole', rubble: 'filled square', fossil: 'extinct',
   };
   const EMO = { '🪙': 'coin', '💎': 'diamond', '🍖': 'meat', '🌿': 'plant', '🪵': 'fence', '💤': 'sleep', '🌾': 'feeder', '💧': 'water', '💀': 'fossil', '🪨': 'rubble' };
@@ -1033,9 +1033,9 @@
     const S = SPECIES[sp];
     return `<div class="dcard t-${S.type} ${o.cls || ''}" ${o.attrs || ''} title="${esc(S.name)}">
       ${o.tag ? `<span class="dc-tag">${o.tag}</span>` : ''}
-      <div class="dc-head"><div class="dc-name">${esc(S.name)}</div><div class="dc-pts" title="Points">${S.pts}</div></div>
+      <div class="dc-head"><div class="dc-name ${S.name.length > 11 && S.name.length <= 15 ? 'long' : ''}">${esc(S.name.length > 15 ? spName(sp) : S.name)}</div><div class="dc-pts" title="Points">${S.pts}</div></div>
       <div class="dc-art" style="--sc:${S.color}"><img src="${IMG}${sp}.webp" alt="" draggable="false"></div>
-      <div class="dc-stats">${statBox('Cost', costText(S.cost))}${statBox('Size', `⬛${S.space}`)}${statBox('Food', foodText(S.food))}${statBox('Prod', `🪙${S.prod}`)}</div>
+      <div class="dc-stats">${statBox('Cost', costText(S.cost).replace(' + ', '<br>'))}${statBox('Space', `⬛${S.space}`)}${statBox('Eats', foodText(S.food))}${statBox('Earns', `🪙${S.prod}`)}</div>
       <div class="dc-ab"><span class="dc-type">${TYPE_LABEL[S.type]}</span>${esc(S.ability)}</div>
       ${o.foot || ''}
     </div>`;
@@ -1048,8 +1048,7 @@
     return `<div class="mini t-${S.type} ${attrs ? 'pick' : ''} ${cls || ''}" ${attrs || ''} title="${esc(title)}">
       <div class="ma" style="--sc:${S.color}"><img src="${IMG}${sp}.webp" alt="" draggable="false"><span class="mp">${S.pts}</span></div>
       <div class="mn">${esc(spName(sp))}</div>
-      <div class="ms">${costText(S.cost)} · ⬛${S.space}</div>
-      <div class="ms">${foodText(S.food)} · 🪙${S.prod}</div>
+      <div class="ms">${costText(S.cost)}</div>
     </div>`;
   }
 
@@ -1311,7 +1310,7 @@
       app.innerHTML = tokify(`<div id="game-shell">
         <header class="topbar" id="top"></header>
         <main class="layout"><section class="boards" id="boards"></section><aside class="panel" id="panel"></aside></main>
-        <footer class="legend">${legendHtml()}</footer>
+        <footer class="legend"><details><summary>🗺️ Board key <span>· tap any dino to see its card</span></summary><div class="lg">${legendHtml()}</div></details></footer>
       </div>`);
     }
     renderTop();
@@ -1343,14 +1342,14 @@
 
   function legendHtml() {
     return [
-      '<span><i class="sw" style="background:#67a846"></i>Open land (not enclosed)</span>',
-      '<span><i class="sw" style="background:#f3e5ab"></i>Enclosure (touches ≤ 2 board sides)</span>',
+      '<span><i class="sw" style="background:#67a846"></i>Open land</span>',
+      '<span><i class="sw" style="background:#f3e5ab"></i>Enclosure</span>',
       '<span>🪵 Fence</span>',
       '<span>🌾 Feeder</span>',
       '<span>💧 Watering hole</span>',
-      '<span>🪨 Filled by opponent</span>',
-      '<span>💤 Inactive marker</span>',
-      '<span>💀 Extinct</span>',
+      '<span>🪨 Blocked by opponent</span>',
+      '<span>💤 Asleep (hungry)</span>',
+      '<span>💀 Fossil</span>',
     ].join('');
   }
 
@@ -1510,7 +1509,7 @@
   }
 
   function logHtml() {
-    const items = state.log.slice(-10).reverse().map((l) => `<li><span class="lr">R${l.r}</span>${l.m}</li>`).join('');
+    const items = state.log.slice(-6).reverse().map((l) => `<li><span class="lr">R${l.r}</span>${l.m}</li>`).join('');
     return `<div class="log"><h4>📜 What happened</h4><ul>${items}</ul></div>`;
   }
 
@@ -1587,7 +1586,7 @@
 
   function rollHtml() {
     return `<h3>🎲 Gain Food / Draw Fences</h3>
-      <p>Roll one die. <b>Both players</b> get that many points to split between food and fences.</p>
+      <p><b>Both players</b> split the number rolled between food and fences.</p>
       <div class="die-wrap">${dieHtml(state.lastRoll || 6)}</div>
       <button class="btn big" data-act="roll">Roll the die</button>`;
   }
@@ -1616,7 +1615,7 @@
       ${stepper('meat', '🍖 Meat', ui.meat, ui.meat > 0, left > 0)}
       ${stepper('plant', '🌿 Plants', ui.plant, ui.plant > 0, left > 0)}
       <div class="fence-line">🪵 Fences: <b>${fences}</b> <span class="muted">— ${canFence ? 'tap the dotted edges on your board' : 'no legal edges left'}</span></div>
-      <div class="hint">An enclosure is any area fully closed off by fences. It can use <b>at most 2 sides</b> of the board edge as walls.</div>
+      <div class="hint">Close off an area with fences to make an enclosure. The board edge can count for <b>up to 2 sides</b>.</div>
       <button class="btn big" data-act="confirmGain">${left > 0 ? `Confirm (${left} unused)` : 'Confirm'}</button>`;
   }
 
@@ -1632,10 +1631,10 @@
         const on = ui.feed.has(cp.key);
         const affordable = on || canPayFood(P, sumCosts(selCosts.concat([c])));
         let status;
-        if (!cp.inactive) status = '<span class="status-pill ok">active</span>';
-        else if (cp.inactive >= 4) status = `<span class="status-pill danger">💤 ${cp.inactive} — last chance!</span>`;
-        else status = `<span class="status-pill warn">💤 inactive ${cp.inactive}</span>`;
-        const extra = cp.inactive ? ` · +${cp.inactive} per dino` : '';
+        if (!cp.inactive) status = '<span class="status-pill ok">awake</span>';
+        else if (cp.inactive >= 4) status = `<span class="status-pill danger">💤 last chance!</span>`;
+        else status = `<span class="status-pill warn">💤 asleep ${cp.inactive}/4</span>`;
+        const extra = cp.inactive ? ` · +${cp.inactive} each` : '';
         const feeder = cp.feederSquares ? ` · feeder −${cp.feederSquares}` : '';
         return `<div class="erow ${on ? 'on' : ''} ${affordable ? '' : 'dis'}" data-act="feedToggle" data-key="${cp.key}">
           <span class="ebadge">${cp.name}</span>
@@ -1652,13 +1651,13 @@
         return;
       }
       const placedNow = P.board.placedRound[cp.key] === state.round;
-      if (!cp.inactive) warns.push(`<div>💤 ${cp.name} will go inactive (marker on 1).</div>`);
-      else if (placedNow) warns.push(`<div>💤 ${cp.name} stays inactive.</div>`);
+      if (!cp.inactive) warns.push(`<div>💤 ${cp.name} will fall asleep.</div>`);
+      else if (placedNow) warns.push(`<div>💤 ${cp.name} stays asleep.</div>`);
       else if (cp.inactive >= 4) warns.push(`<div>💀 ${cp.name}’s dinos will <b>die</b>!</div>`);
-      else warns.push(`<div>💤 ${cp.name}’s marker moves to ${cp.inactive + 1}.</div>`);
+      else warns.push(`<div>💤 ${cp.name} gets hungrier (${cp.inactive + 1}/4).</div>`);
     });
     return `<h3>🍖 Feed your dinos</h3>
-      <p>Tap enclosures to feed them. Each dino eats the food shown on its card.</p>
+      <p>Tap an enclosure to feed it. Hungry dinos fall asleep.</p>
       <div class="pay-line">You have <span class="fc meat">🍖${P.meat}</span><span class="fc plant">🌿${P.plants}</span></div>
       ${rows}
       <div class="pay-line">Paying: ${tot.total ? costChips(tot) : '<span class="muted">nothing</span>'}</div>
@@ -1672,10 +1671,10 @@
     const rows = list
       .map((cp) => `<button class="opt" data-act="produce" data-key="${cp.key}">
         <span class="ebadge">${cp.name}</span>
-        <span class="o-t"><b>${dinoSummary(cp)}</b><small>Production of every dino in this enclosure</small></span>
+        <span class="o-t"><b>${dinoSummary(cp)}</b></span>
         <span class="fc flex" style="font-size:1rem">🪙 +${cp.prod}${cp.prod === best && list.length > 1 ? ' ⭐' : ''}</span></button>`)
       .join('');
-    return `<h3>🪙 Production</h3><p>Pick <b>one active enclosure</b>. You gain coins equal to the production of all its dinos.</p><div class="opt-list">${rows}</div>`;
+    return `<h3>🪙 Production</h3><p>Pick <b>one awake enclosure</b> and collect its coins.</p><div class="opt-list">${rows}</div>`;
   }
 
   function actionsHtml(T) {
@@ -1686,7 +1685,7 @@
 
     if (ui.mode === 'play') return head + playModeHtml(T, false);
     if (ui.mode === 'draw') {
-      return `${head}<h3>🃏 Draw a card</h3><p>Tap a face-up card or the deck in the <b>card market</b> below. It joins your dino book.</p>
+      return `${head}<h3>🃏 Draw a card</h3><p>Tap a card or the deck in the <b>card market</b> below.</p>
         <button class="btn ghost" data-act="back">← Back</button>`;
     }
     if (ui.mode === 'shop') return head + shopHtml(P);
@@ -1702,11 +1701,11 @@
           return `<button class="opt" data-act="dinoAct" data-sp="${o.sp}" data-key="${o.key}"><span class="o-i">${dz(o.sp, 'big')}</span><span class="o-t"><b>${spName(o.sp)}${o.count > 1 ? ' ×' + o.count : ''} · enclosure ${o.name}</b><small>${desc}</small></span></button>`;
         })
         .join('');
-      return `${head}<h3>⚡ Use a dino action</h3><p>Activate a red-ability dino in an <b>active</b> enclosure.</p><div class="opt-list">${opts}</div><button class="btn ghost" data-act="back">← Back</button>`;
+      return `${head}<h3>⚡ Use a dino power</h3><p>Use a dino power from an <b>awake</b> enclosure.</p><div class="opt-list">${opts}</div><button class="btn ghost" data-act="back">← Back</button>`;
     }
     if (ui.mode === 'fences2') {
       const n = ui.sel ? ui.sel.edges.size : 0;
-      return `${head}<h3>🪵 Draw in 2 fences</h3><p>Tap dotted edges on your board. Tap again to undo.</p>
+      return `${head}<h3>🪵 Build 2 fences</h3><p>Tap the dotted lines on your board.</p>
         <div class="fence-line">Fences selected: <b>${n}</b> / 2</div>
         <button class="btn big" data-act="confirmFences" ${n ? '' : 'disabled'}>Build fences</button>
         <button class="btn ghost" data-act="back" style="margin-top:.6rem">← Back</button>`;
@@ -1714,16 +1713,16 @@
 
     const actOpts = dinoActionOptions(T.p);
     const tiles = [
-      { m: 'play', i: dz(MASCOT[T.p], 'big'), t: 'Play a dino', s: 'Pay its cost and place it', ok: playOptions(T.p, false).some((o) => o.ok) },
-      { m: 'draw', i: '<span class="mini-back"></span>', t: 'Draw a card', s: `Face-up or deck (${state.deck.length})`, ok: state.faceUp.length + state.deck.length > 0 },
-      { m: 'shop', i: '💎', t: 'Buy from shop', s: 'Diamond · Feeder · Watering hole', ok: canShop(P) },
-      { m: 'dinoAction', i: '⚡', t: 'Use a dino action', s: actOpts.length ? `${actOpts.length} available` : 'No active action dinos', ok: actOpts.length > 0 },
-      { m: 'gain3', i: '🪙', t: 'Gain 3 coins', s: 'Straight from the supply', ok: true },
-      { m: 'fences2', i: '🪵', t: 'Draw in 2 fences', s: 'Grow your enclosures', ok: legalEdges(T.p).length > 0 },
+      { m: 'play', i: dz(MASCOT[T.p], 'big'), t: 'Play a dino', s: 'Pay & place one', ok: playOptions(T.p, false).some((o) => o.ok) },
+      { m: 'draw', i: '<span class="mini-back"></span>', t: 'Draw a card', s: 'Add one to your book', ok: state.faceUp.length + state.deck.length > 0 },
+      { m: 'shop', i: '💎', t: 'Shop', s: 'Diamond, feeder, water', ok: canShop(P) },
+      { m: 'dinoAction', i: '⚡', t: 'Dino power', s: actOpts.length ? `${actOpts.length} ready` : 'None ready', ok: actOpts.length > 0 },
+      { m: 'gain3', i: '🪙', t: 'Take 3 coins', s: 'Always works', ok: true },
+      { m: 'fences2', i: '🪵', t: 'Build 2 fences', s: 'Grow your land', ok: legalEdges(T.p).length > 0 },
     ]
       .map((x, n) => `<button class="tile" style="--n:${n}" data-act="mode" data-m="${x.m}" ${x.ok ? '' : 'disabled'}><span class="t-i">${x.i}</span><span class="t-t">${x.t}</span><span class="t-s">${x.s}</span></button>`)
       .join('');
-    return `${head}<p class="muted" style="margin-top:0">You may pick the same action twice.</p>
+    return `${head}<p class="muted" style="margin-top:0">Pick two. The same one twice is fine.</p>
       <div class="tiles">${tiles}</div>
       <button class="btn ghost big" data-act="endTurn">Skip remaining action${T.remaining > 1 ? 's' : ''}</button>`;
   }
@@ -1736,7 +1735,7 @@
       <div class="pb-title">${title}</div>
       <div class="pb-count">Selected <b>${n}</b>${s.need ? ` / ${s.need}` : ''} square${n === 1 && !s.need ? '' : 's'}</div>
       <div class="pb-msg ${v.ok ? 'ok' : 'bad'}">${v.msg}</div>
-      <div class="muted" style="margin-top:.4rem">Drag across squares to paint them. Tap a selected square to remove it.</div>
+      <div class="muted" style="margin-top:.4rem">Drag across squares to select. Tap one again to remove it.</div>
     </div>`;
   }
 
@@ -1770,15 +1769,15 @@
       const v = validateSel();
       return `<h3>${isFeeder ? '🌾 Place a feeder' : '💧 Place a watering hole'} · ${costText(cost)}</h3>
         ${placementBox(isFeeder ? 'Select any number of connected squares in one enclosure' : 'Select 6 connected squares in one enclosure')}
-        ${isFeeder ? '<p class="muted">Each feeder square lowers the food cost of every dino in its enclosure by 1. Up to 5 squares costs 💎1 + 🪙3; each square beyond 5 costs +🪙2.</p>' : '<p class="muted">Lets one additional dino species share this enclosure.</p>'}
+        ${isFeeder ? '<p class="muted">Each square makes every dino there eat 1 less. Over 5 squares costs +🪙2 each.</p>' : '<p class="muted">Lets one additional dino species share this enclosure.</p>'}
         <button class="btn big" data-act="place" ${v.ok ? '' : 'disabled'}>Buy &amp; place</button>
         <button class="btn ghost" data-act="shopBack" style="margin-top:.6rem">← Back to shop</button>`;
     }
     return `<h3>🛒 Shop</h3>
       <div class="opt-list">
-        <button class="opt" data-act="buyDiamond" ${canAfford(P, DIAMOND_COST) ? '' : 'disabled'}><span class="o-i">💎</span><span class="o-t"><b>Diamond · 🪙6</b><small>Used to buy dinos and shop items. Worth 3 points at the end.</small></span></button>
-        <button class="opt" data-act="shopItem" data-item="feeder" ${canAfford(P, feederCost(1)) ? '' : 'disabled'}><span class="o-i">🌾</span><span class="o-t"><b>Feeder · 💎1 + 🪙3</b><small>Any number of connected squares; +🪙2 per square beyond 5. Each square = 1 less food per dino in that enclosure.</small></span></button>
-        <button class="opt" data-act="shopItem" data-item="water" ${canAfford(P, WATER_COST) ? '' : 'disabled'}><span class="o-i">💧</span><span class="o-t"><b>Watering hole · 💎2 + 🪙4</b><small>Takes 6 squares. Allows one more dino species in that enclosure.</small></span></button>
+        <button class="opt" data-act="buyDiamond" ${canAfford(P, DIAMOND_COST) ? '' : 'disabled'}><span class="o-i">💎</span><span class="o-t"><b>Diamond · 🪙6</b><small>Worth 3 points at the end. Some dinos cost diamonds.</small></span></button>
+        <button class="opt" data-act="shopItem" data-item="feeder" ${canAfford(P, feederCost(1)) ? '' : 'disabled'}><span class="o-i">🌾</span><span class="o-t"><b>Feeder · 💎1 + 🪙3</b><small>Each square makes dinos there eat 1 less.</small></span></button>
+        <button class="opt" data-act="shopItem" data-item="water" ${canAfford(P, WATER_COST) ? '' : 'disabled'}><span class="o-i">💧</span><span class="o-t"><b>Watering hole · 💎2 + 🪙4</b><small>Takes 6 squares. One more kind of dino can live there.</small></span></button>
       </div>
       <button class="btn ghost" data-act="back">← Back</button>`;
   }

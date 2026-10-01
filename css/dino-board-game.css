@@ -518,7 +518,8 @@ button { font-family: inherit; }
 .dcard.nope { opacity: 0.55; }
 .dcard.blockedc { filter: grayscale(0.85); }
 .dc-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
-.dc-name { font-family: "Lilita One", sans-serif; font-size: 1.02rem; line-height: 1.1; }
+.dc-name { font-family: "Lilita One", sans-serif; font-size: 1.02rem; line-height: 1.1; min-width: 0; overflow-wrap: break-word; }
+.dc-name.long { font-size: 0.84rem; }
 .dc-pts {
   flex: 0 0 auto;
   width: 34px; height: 34px;
@@ -541,10 +542,10 @@ button { font-family: inherit; }
 .dc-art img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 45%; display: block; transition: transform 0.35s ease; }
 .dc-art::after { content: ""; position: absolute; inset: 0; background: linear-gradient(115deg, transparent 35%, rgba(255, 255, 255, 0.35) 50%, transparent 65%); transform: translateX(-100%); pointer-events: none; }
 .dcard.pick:hover .dc-art::after { animation: shine 0.8s ease; }
-.dc-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
-.dc-stat { background: #f6ecd4; border-radius: 8px; padding: 3px 2px; text-align: center; font-size: 0.82rem; font-weight: 700; line-height: 1.25; }
-.dc-stat .tk { width: 1.35em; height: 1.35em; vertical-align: -0.35em; }
-.dc-stat small { display: block; font-size: 0.62rem; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+.dc-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 3px; }
+.dc-stat { background: #f6ecd4; border-radius: 8px; padding: 3px 1px; text-align: center; font-size: 0.82rem; font-weight: 700; line-height: 1.25; white-space: nowrap; overflow: hidden; }
+.dc-stat .tk { width: 1.2em; height: 1.2em; margin: 0; vertical-align: -0.3em; }
+.dc-stat small { display: block; font-size: 0.56rem; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0; }
 .dc-ab { font-size: 0.8rem; line-height: 1.3; }
 .dc-type { display: inline-block; font-size: 0.66rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #fff; background: var(--tc); padding: 0.05rem 0.4rem; border-radius: 6px; margin-right: 3px; }
 .dc-why { font-size: 0.78rem; font-weight: 700; color: #a83a18; }
@@ -651,8 +652,12 @@ button { font-family: inherit; }
 .winner .win-dino { width: 110px; height: 110px; border-radius: 50%; object-fit: cover; margin: 0 auto 0.4rem; box-shadow: 0 0 0 5px #ffd24d, 0 10px 20px rgba(0, 0, 0, 0.3); }
 
 /* ---------- Legend ---------- */
-.legend { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; justify-content: center; padding: 0 18px 24px; font-size: 0.85rem; color: rgba(255, 246, 226, 0.85); }
-.legend span { display: inline-flex; align-items: center; gap: 0.35rem; background: rgba(0, 0, 0, 0.22); padding: 0.2rem 0.6rem 0.2rem 0.3rem; border-radius: 999px; }
+.legend { padding: 0 18px 24px; font-size: 0.85rem; color: rgba(255, 246, 226, 0.85); text-align: center; }
+.legend summary { display: inline-block; cursor: pointer; font-weight: 700; padding: 0.3rem 0.8rem; border-radius: 999px; background: rgba(0, 0, 0, 0.22); list-style: none; }
+.legend summary::-webkit-details-marker { display: none; }
+.legend summary span { font-weight: 400; opacity: 0.8; }
+.legend .lg { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; justify-content: center; margin-top: 0.6rem; }
+.legend .lg span { display: inline-flex; align-items: center; gap: 0.35rem; background: rgba(0, 0, 0, 0.22); padding: 0.2rem 0.6rem 0.2rem 0.3rem; border-radius: 999px; }
 .legend .tk { width: 1.6em; height: 1.6em; }
 .sw { width: 16px; height: 16px; border-radius: 4px; display: inline-block; border: 1px solid rgba(0, 0, 0, 0.3); margin-left: 0.2rem; }
 
