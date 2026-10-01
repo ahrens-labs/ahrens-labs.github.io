@@ -2733,6 +2733,9 @@
   const FORECAST_FOOD = 3.2;
   // Points already on the board count a little more than points the forecast hopes for.
   const FORECAST_TRUST = 0.95;
+  // Early cards keep options open (later draws, switching plans) that the forecast's fixed book can't see.
+  const DRAW_OPTION = 1.5;
+  const DRAW_OPTION_ROUNDS = 6;
   // Idle coins are worth less than the points they buy: spending them later costs an action.
   const COIN_VALUE = 0.38;
   const SURPLUS_COIN_VALUE = 0.22;
@@ -3132,13 +3135,17 @@
       const fc = (extra) => pens.reduce((mx, pen) => Math.max(mx, aiForecast(m, an, tl, keep, food, { micro, microEncl, pachy }, extra, pen)),
         aiForecast(m, an, tl, keep, food, { micro, microEncl, pachy }, extra, null));
       let f = fc(null) * FORECAST_TRUST;
-      if (m.pendingDeck) {
-        const pool = [...new Set(state.deck)].filter((sp) => !m.book.includes(sp));
-        if (pool.length) {
-          const step = Math.max(1, Math.floor(pool.length / 4));
-          const sample = pool.filter((_, i) => i % step === 0).slice(0, 4);
-          f = (sample.reduce((sum, sp) => sum + fc(sp), 0) / sample.length) * FORECAST_TRUST;
-        }
+      if (m.pendingDeck && state.deck.length) {
+        // Expected forecast over what the draw could be, weighted by the copies left in the deck.
+        const counts = {};
+        state.deck.forEach((sp) => { counts[sp] = (counts[sp] || 0) + 1; });
+        let sum = 0;
+        let dup = 0;
+        Object.keys(counts).forEach((sp) => {
+          if (m.book.includes(sp)) dup += counts[sp];
+          else sum += counts[sp] * fc(sp);
+        });
+        f = ((sum + dup * f / FORECAST_TRUST) / state.deck.length) * FORECAST_TRUST;
       }
       return v + f + m.extra;
     }
@@ -3581,6 +3588,7 @@
         }
         break;
       case 'draw':
+        if (tune().proj && state.round <= DRAW_OPTION_ROUNDS) n.extra += DRAW_OPTION;
         if (a.from === 'deck') {
           if (tune().proj) n.pendingDeck = (n.pendingDeck || 0) + 1;
           else n.extra += deckValue(n, tl);
