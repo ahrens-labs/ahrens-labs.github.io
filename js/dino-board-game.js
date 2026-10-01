@@ -2729,8 +2729,8 @@
     },
   ];
   const FOOD_PER_PHASE = 3.2;
-  // Hard's forecast assumes part of each future die goes to fences, as it does in practice.
-  const FORECAST_FOOD = 2.4;
+  // Food Hard's forecast expects per future Gain Food phase (die, after some fences).
+  const FORECAST_FOOD = 3.2;
   // Points already on the board count a little more than points the forecast hopes for.
   const FORECAST_TRUST = 0.95;
   // Idle coins are worth less than the points they buy: spending them later costs an action.
