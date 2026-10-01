@@ -2687,13 +2687,13 @@
   const FREE_ACTS = new Set(['rules', 'book', 'closeModal', 'newGame', 'confirmYes', 'aiSettings', 'setAiOpt']);
   const AI_LEVELS = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
   const AI_PACES = { fast: 'Fast', medium: 'Medium', slow: 'Slow' };
-  const AI_LEVEL_HELP = { easy: 'Plays for fun and makes mistakes', medium: 'Plans one move at a time', hard: 'Plans whole turns and the rounds ahead' };
+  const AI_LEVEL_HELP = { easy: 'Plays for fun and makes mistakes', medium: 'Plans one move at a time', hard: 'Plays to win: plans fences, cards and the whole game' };
   const AI_PACE_HELP = { fast: 'Quick turns', medium: 'Easy to follow', slow: 'Step by step' };
   const PACE_MULT = { fast: 0.4, medium: 1, slow: 2.1 };
   const LEVEL_TUNE = {
     easy: { depth: 1, noise: 1.4, style: 1.2, foresight: 0.7, blunder: 0.25 },
     medium: { depth: 1, noise: 0.8, style: 1, foresight: 0.85, blunder: 0 },
-    hard: { depth: 2, noise: 0.15, style: 0.3, foresight: 1, blunder: 0 },
+    hard: { depth: 2, noise: 0.03, style: 0, foresight: 1, blunder: 0, proj: true },
   };
   const AI_STYLES = {
     builder: { sp: { trex: 3, mosasaurus: 3, spinosaurus: 1.5, brachiosaurus: 1.5, allosaurus: 1 }, act: { fences: 0.8, diamond: 0.4 } },
@@ -3027,6 +3027,7 @@
     const compVal = (cp) => cp.living.reduce((s, d) => s + SPECIES[d.species].pts, 0) + compyPairs(b, an, cp);
     const keep = new Map();
     const prodW = new Map();
+    let surplus = Infinity;
 
     if (!tl.feeds) {
       live.forEach((cp) => { keep.set(cp.key, cp.inactive ? 0 : 1); prodW.set(cp.key, cp.inactive ? 0 : 1); });
@@ -3071,6 +3072,7 @@
         .reduce((s, cp) => s + bill(cp) * feedsAfter + markerOf(cp) * cp.living.length, 0);
       const ratioAll = need + revive > 0 ? clamp(income / (need + revive), 0, 1) : 1;
       const rAll = 1 - (1 - ratioAll) * T.foresight;
+      surplus = income - need - revive;
       live.forEach((cp) => {
         if (fedSet.has(cp.key)) {
           keep.set(cp.key, feedsAfter ? Math.pow(r, 1.3) : 1);
@@ -3106,6 +3108,21 @@
     v += triAlive * m.triPlants * 1.5;
     v += m.diamonds * 3;
 
+    if (T.proj) {
+      if (tl.feeds) v += Math.min(m.foodLeft || 0, 6) * 0.05;
+      const fc = (extra) => aiForecast(m, an, tl, keep, surplus, { micro, microEncl, pachy }, extra);
+      let f = fc(null);
+      if (m.pendingDeck) {
+        const pool = [...new Set(state.deck)].filter((sp) => !m.book.includes(sp));
+        if (pool.length) {
+          const step = Math.max(1, Math.floor(pool.length / 4));
+          const sample = pool.filter((_, i) => i % step === 0).slice(0, 4);
+          f = sample.reduce((sum, sp) => sum + fc(sp), 0) / sample.length;
+        }
+      }
+      return v + f + aiTargetCredit(b) + m.extra;
+    }
+
     const spendable = futureActs > 0;
     const prodCoins = bestProd * tl.prods;
     if (futureActs <= 2) v += Math.min(Math.floor(m.coins / 6), futureActs) * 3 + (spendable ? (m.coins % 6) * 0.05 : 0);
@@ -3132,6 +3149,227 @@
     return v + m.extra;
   }
 
+  const COMPY_ADJ = [0, 2, 2.5, 3];
+  const EVENT_PTS = { gigantoraptor: 2.5, brachiosaurus: 1, trex: 1.5, ankylosaurus: 4, spinosaurus: 3, dilophosaurus: 1 };
+  const EVENT_FOOD = { stegosaurus: 10, carnotaurus: 14, dilophosaurus: 5 };
+  const EVENT_COINS = { dilophosaurus: 5 };
+
+  // Hard: greedy play-out of the rest of the game. Spends each remaining action on the best of
+  // playing a dino (buying missing diamonds first), dino powers, taking coins or buying diamonds,
+  // limited by money, enclosure space, species rules and the food the park can sustain.
+  // Returns the points it expects to add from here on.
+  function aiForecast(m, an, tl, keep, surplus, base, extraSp) {
+    const encl = [];
+    an.comps.forEach((cp) => {
+      if (!cp.valid || cp.dead) return;
+      const w = cp.living.length ? keep.get(cp.key) : 1;
+      if (w < 0.35) return;
+      const e = { empty: cp.empty, species: new Set(cp.species), slots: 1 + cp.waters.length, prod: cp.prod, w, compy: 0, micro: false, para: 0, tri: false, allo: false, raptor: 0 };
+      cp.living.forEach((d) => {
+        if (d.species === 'compy') e.compy++;
+        else if (d.species === 'microraptor') e.micro = true;
+        else if (d.species === 'parasaurolophus') e.para++;
+        else if (d.species === 'triceratops') e.tri = true;
+        else if (d.species === 'allosaurus') e.allo = true;
+        else if (d.species === 'velociraptor') e.raptor++;
+      });
+      encl.push(e);
+    });
+    const book = [...new Set(extraSp ? m.book.concat([extraSp]) : m.book)];
+    const slots = [];
+    for (let i = 0; i < m.actsLeft; i++) slots.push(0);
+    for (let r = 1; r <= tl.acts; r++) slots.push(r, r);
+    slots.splice(0, Math.min(slots.length, m.actsPenalty || 0));
+
+    let coins = m.coins;
+    let dia = m.diamonds;
+    let pts = 0;
+    let food = surplus;
+    let micro = base.micro;
+    let microEncl = base.microEncl;
+    let pachy = base.pachy;
+    let best = encl.reduce((mx, e) => Math.max(mx, e.w >= 0.6 ? e.prod : 0), 0);
+    let lastR = 0;
+    let skip = 0;
+    for (let j = 0; j < slots.length; j++) {
+      const r = slots[j];
+      if (r !== lastR) { coins += best; lastR = r; }
+      if (skip) { skip--; continue; }
+      const left = slots.length - j - 1;
+      const roundsLeft = Math.max(0, tl.acts - r);
+      const feedsLeft = r === 0 ? tl.feeds : Math.max(0, tl.feeds - r + 0.5);
+      const lam = left > 0 && coins < 6 * (left + 1) ? 0.5 : 0;
+      let pick = null;
+      const consider = (score, acts, apply) => {
+        if (!pick || score / acts > pick.score / pick.acts) pick = { score, acts, apply };
+      };
+      if (left > 0) consider(3 * lam, 1, () => { coins += 3; });
+      if (coins >= 6) consider(3 - 6 * lam, 1, () => { coins -= 6; dia++; pts += 3; });
+      encl.forEach((e) => {
+        if (e.w < 0.6) return;
+        if (e.para) consider(2 * e.para * lam, 1, () => { coins += 2 * e.para; });
+        if (e.tri) consider(1.5, 1, () => { pts += 1.5; });
+        if (e.allo) consider(3 * lam + 0.7, 1, () => { coins += 3; });
+        if (e.raptor) consider(0.6 * e.raptor, 1, () => { food += 2 * e.raptor; });
+      });
+      book.forEach((sp) => {
+        const S = SPECIES[sp];
+        const need = S.food.n * feedsLeft;
+        const gainFood = EVENT_FOOD[sp] || 0;
+        if (need > 0 && need > food + gainFood + 1e-9) return;
+        const missing = Math.max(0, S.cost.d - dia);
+        const acts = 1 + missing;
+        if (acts > left + 1) return;
+        const coinCost = S.cost.c + 6 * missing;
+        if (coins < coinCost) return;
+        encl.forEach((e) => {
+          if (e.empty < S.space) return;
+          if (!e.species.has(sp) && e.species.size >= e.slots) return;
+          let got = S.pts;
+          if (sp === 'compy') got += COMPY_ADJ[Math.min(3, e.compy)];
+          if (sp === 'microraptor') got += 2 * (micro + 1) * (microEncl + (e.micro ? 0 : 1)) - 2 * micro * microEncl;
+          got = got * e.w + (EVENT_PTS[sp] || 0);
+          const newBest = e.w >= 0.6 ? Math.max(best, e.prod + S.prod) : best;
+          const score = got + (newBest - best) * roundsLeft * 0.45 + (EVENT_COINS[sp] || 0) * lam + gainFood * 0.05 +
+            (sp === 'pachy' ? 2 : 0) - coinCost * lam - (S.cost.d - missing) * 3;
+          consider(score, acts, () => {
+            coins -= coinCost;
+            coins += EVENT_COINS[sp] || 0;
+            dia += missing - S.cost.d;
+            pts += got;
+            food += gainFood - need;
+            e.empty -= S.space;
+            e.species.add(sp);
+            e.prod += S.prod;
+            best = newBest;
+            if (sp === 'compy') e.compy++;
+            else if (sp === 'microraptor') {
+              micro += e.w;
+              if (!e.micro) { microEncl += e.w; e.micro = true; }
+            } else if (sp === 'pachy') pachy += e.w;
+            else if (sp === 'parasaurolophus') e.para++;
+            else if (sp === 'triceratops') e.tri = true;
+            else if (sp === 'allosaurus') e.allo = true;
+            else if (sp === 'velociraptor') e.raptor++;
+          });
+        });
+      });
+      if (pick && pick.score > 0) {
+        pick.apply();
+        skip = pick.acts - 1;
+      }
+    }
+    return pts + pachy * Math.floor(Math.max(0, coins) / 5);
+  }
+
+  // Hard plans its own fences: try rectangles of every size and place, value the finished
+  // enclosure with the forecast (minus the actions the fences cost) and keep the best few.
+  const aiCtx = { targets: [] };
+
+  function rectNeed(b, r0, c0, h, w) {
+    for (let r = r0; r < r0 + h; r++) {
+      for (let c = c0; c < c0 + w; c++) {
+        if (b.cells[r * N + c] !== 0) return null;
+        if (c < c0 + w - 1 && b.v[r * 9 + c]) return null;
+        if (r < r0 + h - 1 && b.h[r * N + c]) return null;
+      }
+    }
+    const need = [];
+    for (let c = c0; c < c0 + w; c++) {
+      if (r0 > 0 && !b.h[(r0 - 1) * N + c]) need.push('h' + ((r0 - 1) * N + c));
+      if (r0 + h < N && !b.h[(r0 + h - 1) * N + c]) need.push('h' + ((r0 + h - 1) * N + c));
+    }
+    for (let r = r0; r < r0 + h; r++) {
+      if (c0 > 0 && !b.v[r * 9 + c0 - 1]) need.push('v' + (r * 9 + c0 - 1));
+      if (c0 + w < N && !b.v[r * 9 + c0 + w - 1]) need.push('v' + (r * 9 + c0 + w - 1));
+    }
+    return need;
+  }
+
+  function aiTargetCands(b, book) {
+    const spaces = [...new Set(book.map((sp) => SPECIES[sp].space))];
+    if (!spaces.length) return [];
+    const minSpace = Math.min(...spaces);
+    const buckets = [[], [], [], [], []];
+    const bucketOf = (n) => (n <= 3 ? 0 : n <= 6 ? 1 : n <= 10 ? 2 : n <= 16 ? 3 : 4);
+    for (let r0 = 0; r0 < N; r0++) {
+      for (let c0 = 0; c0 < N; c0++) {
+        for (let h = 1; r0 + h <= N; h++) {
+          for (let w = 1; c0 + w <= N; w++) {
+            const size = h * w;
+            if (size > 30) break;
+            const need = rectNeed(b, r0, c0, h, w);
+            if (!need) break;
+            if (size < minSpace || !need.length || need.length > 14) continue;
+            if ((r0 === 0) + (r0 + h === N) + (c0 === 0) + (c0 + w === N) > 2) continue;
+            let fit = 0;
+            spaces.forEach((sz) => { if (sz <= size) fit = Math.max(fit, (Math.floor(size / sz) * sz) / size); });
+            buckets[bucketOf(size)].push({ need, size, h: (fit * size) / (need.length + 1.5) });
+          }
+        }
+      }
+    }
+    const out = [];
+    buckets.forEach((list) => {
+      list.sort((x, y) => y.h - x.h);
+      const seen = new Set();
+      for (const c of list) {
+        const key = c.need.slice().sort().join();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push(c);
+        if (seen.size >= 7) break;
+      }
+    });
+    return out;
+  }
+
+  function aiPrepTargets(m0, tl) {
+    aiCtx.targets = [];
+    if (!tune().proj || tl.acts + m0.actsLeft === 0) return;
+    const b = m0.board;
+    const base = aiEval(m0, tl);
+    const found = [];
+    aiTargetCands(b, m0.book).forEach((c) => {
+      if (fenceProblem(b, c.need)) return;
+      const m2 = copyModel(m0);
+      applyEdges(m2.board, c.need);
+      m2.actsPenalty = Math.ceil(c.need.length / 2);
+      const gain = aiEval(m2, tl) - base;
+      if (gain > 0.3) found.push({ need: c.need, gain });
+    });
+    found.sort((x, y) => y.gain - x.gain);
+    aiCtx.targets = found.slice(0, 3);
+  }
+
+  function aiTargetCredit(b) {
+    let credit = 0;
+    aiCtx.targets.forEach((t) => {
+      const built = t.need.filter((e) => b[e[0]][+e.slice(1)]).length;
+      if (built && built < t.need.length) credit = Math.max(credit, (t.gain * 0.85 * built) / t.need.length);
+    });
+    return credit;
+  }
+
+  function aiTargetEdges(b, t, max) {
+    const legal = new Set(legalEdgesB(b));
+    const todo = t.need.filter((e) => !b[e[0]][+e.slice(1)] && legal.has(e)).slice(0, max);
+    return todo.length && !fenceProblem(b, todo) ? todo : [];
+  }
+
+  function aiFenceEdges(b, max) {
+    if (tune().proj) {
+      const out = [];
+      for (const t of aiCtx.targets) {
+        if (out.length >= max) break;
+        const more = aiTargetEdges(withEdges(b, out), t, max - out.length);
+        if (more.length && !fenceProblem(b, out.concat(more))) out.push(...more);
+      }
+      return out;
+    }
+    return aiPlanEdgesB(b, max);
+  }
+
   function aiEvent(m, sp, tl) {
     switch (sp) {
       case 'stegosaurus': addFood(m, 10); break;
@@ -3142,15 +3380,17 @@
       case 'dilophosaurus': {
         m.coins += 5;
         addFood(m, 5);
-        const edges = aiPlanEdgesB(m.board, 5);
+        const edges = aiFenceEdges(m.board, 5);
         if (edges.length) applyEdges(m.board, edges);
-        m.extra += m.faceUp.some(Boolean) ? Math.max(...m.faceUp.filter(Boolean).map((x) => cardValue(x, tl))) : deckValue(m, tl);
+        if (tune().proj) m.pendingDeck = (m.pendingDeck || 0) + 1;
+        else m.extra += m.faceUp.some(Boolean) ? Math.max(...m.faceUp.filter(Boolean).map((x) => cardValue(x, tl))) : deckValue(m, tl);
         break;
       }
       case 'spinosaurus': {
         const opt = aiSpinoPick(m, tl);
         aiSpinoApply(m, opt);
-        m.extra += deckValue(m, tl);
+        if (tune().proj) m.pendingDeck = (m.pendingDeck || 0) + 1;
+        else m.extra += deckValue(m, tl);
         break;
       }
       case 'ankylosaurus': {
@@ -3195,13 +3435,30 @@
       seen.add(sp);
       const S = SPECIES[sp];
       if (freeOnly ? S.pts > 5 : !affordM(m, S.cost)) return;
+      if (tune().proj) {
+        analyze(b).comps.forEach((cp) => {
+          if (!cp.valid || cp.dead || cp.empty < S.space) return;
+          const cells = aiFindCellsB(b, S.space, sp, cp.key);
+          if (cells) out.push({ kind: freeOnly ? 'free' : 'play', sp, cells });
+        });
+        return;
+      }
       const cells = aiFindCellsB(b, S.space, sp);
       if (cells) out.push({ kind: freeOnly ? 'free' : 'play', sp, cells });
     });
     if (freeOnly) return out;
     out.push({ kind: 'gain3' });
-    const edges = aiPlanEdgesB(b, 2);
-    if (edges.length) out.push({ kind: 'fences', edges });
+    if (tune().proj) {
+      const seenE = new Set();
+      aiCtx.targets.forEach((t) => {
+        const edges = aiTargetEdges(b, t, 2);
+        const key = edges.slice().sort().join();
+        if (edges.length && !seenE.has(key)) { seenE.add(key); out.push({ kind: 'fences', edges }); }
+      });
+    } else {
+      const edges = aiPlanEdgesB(b, 2);
+      if (edges.length) out.push({ kind: 'fences', edges });
+    }
     if (m.coins >= 6) out.push({ kind: 'diamond' });
     const feeder = aiFeederB(m);
     if (feeder) out.push(feeder);
@@ -3247,10 +3504,11 @@
         break;
       case 'draw':
         if (a.from === 'deck') {
-          n.extra += deckValue(n, tl);
+          if (tune().proj) n.pendingDeck = (n.pendingDeck || 0) + 1;
+          else n.extra += deckValue(n, tl);
           n.deck--;
         } else {
-          n.extra += cardValue(a.sp, tl) + 0.3;
+          if (!tune().proj) n.extra += cardValue(a.sp, tl) + 0.3;
           n.book.push(a.sp);
           n.faceUp[a.from] = null;
         }
@@ -3277,6 +3535,7 @@
   function aiChooseAction(p, T) {
     const tl = aiTimeline(T.k);
     const m0 = aiModel(p, T.remaining);
+    aiPrepTargets(m0, tl);
     const depth = tune().depth;
     const scored = aiActions(m0, tl).map((a) => {
       const m1 = aiApply(m0, a, tl);
@@ -3294,7 +3553,8 @@
   function aiFoodPick(p, T) {
     const tl = aiTimeline(T.k);
     const P = state.players[p];
-    const plan = aiPlanEdgesB(P.board, T.amount);
+    aiPrepTargets(aiModel(p, 0), tl);
+    const plan = aiFenceEdges(P.board, T.amount);
     const scored = [];
     for (let f = 0; f <= plan.length; f++) {
       const food = T.amount - f;
@@ -3348,6 +3608,21 @@
   function aiDrawPick(p, deckOnly) {
     const tl = aiTimeline(cur().k);
     const m = aiModel(p, 0);
+    if (tune().proj) {
+      aiCtx.targets = [];
+      let pick = { from: 'deck', v: -Infinity };
+      if (state.deck.length) pick.v = aiEval(Object.assign(copyModel(m), { pendingDeck: 1 }), tl);
+      if (!deckOnly) {
+        state.faceUp.forEach((sp, i) => {
+          if (!sp) return;
+          const n = copyModel(m);
+          n.book.push(sp);
+          const v = aiEval(n, tl);
+          if (v > pick.v) pick = { from: i, v };
+        });
+      }
+      return pick.from;
+    }
     let best = { from: 'deck', v: state.deck.length ? deckValue(m, tl) : -1 };
     if (!deckOnly) {
       state.faceUp.forEach((sp, i) => {
@@ -3443,7 +3718,8 @@
         return;
       }
       case 'drawFences':
-        ui.sel.edges = new Set(aiPlanEdgesB(state.players[p].board, T.count));
+        aiPrepTargets(aiModel(p, 0), aiTimeline(T.k));
+        ui.sel.edges = new Set(aiFenceEdges(state.players[p].board, T.count));
         document.getElementById('boards')._html = null;
         aiShow('Building fences…', () => handle('confirmFences', {}));
         return;
