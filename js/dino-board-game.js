@@ -542,15 +542,50 @@
     return out;
   }
 
+  function roomFor(p, sp, an) {
+    const b = state.players[p].board;
+    const need = SPECIES[sp].space;
+    return an.comps.some((cp) => {
+      if (!cp.valid || cp.dead || cp.empty < need) return false;
+      const kinds = new Set(cp.species);
+      kinds.add(sp);
+      if (kinds.size > 1 + cp.waters.length) return false;
+      const free = new Set(cp.cells.filter((i) => b.cells[i] === 0));
+      const seen = new Set();
+      for (const start of free) {
+        if (seen.has(start)) continue;
+        const reach = bfsRegion(start, free);
+        reach.forEach((i) => seen.add(i));
+        if (reach.length >= need) return true;
+      }
+      return false;
+    });
+  }
+
+  function bfsRegion(start, free) {
+    const out = [start];
+    const seen = new Set(out);
+    for (let q = 0; q < out.length; q++) {
+      for (const j of orthNbrs(out[q])) {
+        if (free.has(j) && !seen.has(j)) {
+          seen.add(j);
+          out.push(j);
+        }
+      }
+    }
+    return out;
+  }
+
   function playOptions(p, free) {
     const P = state.players[p];
+    const an = analyze(P.board);
     return P.book.map((sp) => {
       const blocked = P.blocked.includes(sp);
-      const ok = !blocked && (free ? SPECIES[sp].pts <= 5 : canAfford(P, SPECIES[sp].cost));
       let why = '';
       if (blocked) why = 'Blocked by T. Rex';
-      else if (!ok) why = free ? 'Worth more than 5 points' : 'Can’t afford yet';
-      return { sp, ok, why };
+      else if (free ? SPECIES[sp].pts > 5 : !canAfford(P, SPECIES[sp].cost)) why = free ? 'Worth more than 5 points' : 'Can’t afford yet';
+      else if (!roomFor(p, sp, an)) why = 'No room in your park';
+      return { sp, ok: !why, why };
     });
   }
 
@@ -1024,8 +1059,8 @@
   }
 
   // ---------------------------------------------------------------- rendering: cards
-  function statBox(label, value) {
-    return `<div class="dc-stat"><small>${label}</small>${value}</div>`;
+  function statBox(label, value, help) {
+    return `<div class="dc-stat" title="${help}"><b>${value}</b><small>${label}</small></div>`;
   }
 
   function cardHtml(sp, opts) {
@@ -1034,8 +1069,9 @@
     return `<div class="dcard t-${S.type} ${o.cls || ''}" ${o.attrs || ''} title="${esc(S.name)}">
       ${o.tag ? `<span class="dc-tag">${o.tag}</span>` : ''}
       <div class="dc-head"><div class="dc-name ${S.name.length > 11 && S.name.length <= 15 ? 'long' : ''}">${esc(S.name.length > 15 ? spName(sp) : S.name)}</div><div class="dc-pts" title="Points">${S.pts}</div></div>
-      <div class="dc-art" style="--sc:${S.color}"><img src="${IMG}${sp}.webp" alt="" draggable="false"></div>
-      <div class="dc-stats">${statBox('Cost', costText(S.cost).replace(' + ', '<br>'))}${statBox('Space', `⬛${S.space}`)}${statBox('Eats', foodText(S.food))}${statBox('Earns', `🪙${S.prod}`)}</div>
+      <div class="dc-art" style="--sc:${S.color}"><img src="${IMG}${sp}.webp" alt="" draggable="false">${o.lock ? `<span class="dc-lock">🔒 ${o.lock}</span>` : ''}</div>
+      <div class="dc-price"><small>Cost</small><b>${costText(S.cost)}</b></div>
+      <div class="dc-facts">${statBox('space', `⬛${S.space}`, 'Squares it takes up')}${statBox('eats', foodText(S.food).replace(' ', ''), 'Food it eats every Feeding')}${statBox('earns', `🪙${S.prod}`, 'Coins it adds in Production')}</div>
       <div class="dc-ab"><span class="dc-type">${TYPE_LABEL[S.type]}</span>${esc(S.ability)}</div>
       ${o.foot || ''}
     </div>`;
@@ -1142,6 +1178,7 @@
       <linearGradient id="wd${p}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9a6634"/><stop offset=".45" stop-color="#744521"/><stop offset="1" stop-color="#4e2c12"/></linearGradient>
       <pattern id="gr${p}" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M7 31l2-7 2 7M25 15l2-6 2 6M31 37l1.5-5 1.5 5M15 9l1.2-4 1.2 4" stroke="rgba(28,70,18,.28)" stroke-width="1.3" fill="none" stroke-linecap="round"/></pattern>
       <clipPath id="rc${p}" clipPathUnits="objectBoundingBox"><circle cx=".5" cy=".5" r=".5"/></clipPath>
+      <pattern id="zz${p}" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="4" height="10" fill="rgba(20,30,70,.18)"/></pattern>
       <filter id="sh${p}" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="1.6" stdDeviation="1.1" flood-color="#1a0d02" flood-opacity=".45"/></filter>
     </defs>`);
     out.push(`<rect x="0" y="0" width="${W}" height="${W}" rx="12" fill="url(#wd${p})" class="b-bg"/>`);
@@ -1160,6 +1197,7 @@
         const nameIdx = cp.name ? cp.name.charCodeAt(0) - 65 : an.compOf[i] + 3;
         fill = ENCLOSURE_TINTS[((nameIdx % ENCLOSURE_TINTS.length) + ENCLOSURE_TINTS.length) % ENCLOSURE_TINTS.length];
         if (cp.dead) fill = '#b9b3a6';
+        else if (cp.inactive) fill = cp.inactive >= 4 ? '#c98a80' : '#8f9dbd';
       } else {
         fill = (r + c) % 2 ? '#5f9e3f' : '#67a846';
       }
@@ -1180,6 +1218,10 @@
     }
     out.push(`<path d="${grid}" stroke="rgba(0,0,0,0.1)" stroke-width="1" fill="none" pointer-events="none"/>`);
     out.push(`<rect x="${PAD}" y="${PAD}" width="${N * CS}" height="${N * CS}" fill="url(#gr${p})" pointer-events="none"/>`);
+    an.comps.forEach((cp) => {
+      if (!cp.valid || cp.dead || !cp.inactive) return;
+      out.push(cp.cells.map((i) => `<rect x="${X(i % N)}" y="${Y(Math.floor(i / N))}" width="${CS}" height="${CS}" fill="url(#zz${p})" pointer-events="none"/>`).join(''));
+    });
 
     // pieces
     out.push(`<g class="item" filter="url(#sh${p})">`);
@@ -1190,6 +1232,8 @@
       else col = '#5cc6ef';
       const set = new Set(it.cells);
       const fresh = isFresh(`b${p}:i${it.id}${it.dead ? 'd' : ''}`, 900);
+      const itComp = an.comps[an.compOf[it.cells[0]]];
+      const asleep = itComp && itComp.valid && !itComp.dead && itComp.inactive;
       const g = [];
       it.cells.forEach((i) => {
         const r = Math.floor(i / N);
@@ -1216,7 +1260,7 @@
         const s = R * 2.3;
         g.push(`<image href="${IMG}${img}.webp" x="${spot.x - s / 2}" y="${spot.y - s / 2}" width="${s}" height="${s}"/>`);
       }
-      out.push(`<g class="piece${fresh ? ' drop' : ''}">${g.join('')}</g>`);
+      out.push(`<g class="piece${fresh ? ' drop' : ''}${asleep ? ' zz' : ''}">${g.join('')}</g>`);
     });
     for (let i = 0; i < 100; i++) {
       if (b.cells[i] !== -1) continue;
@@ -1275,9 +1319,17 @@
         out.push(`<image href="${IMG}fossil.webp" x="${X(c) + 18}" y="${Y(r) + 0}" width="22" height="22"/>`);
       } else if (cp.inactive) {
         const danger = cp.inactive >= 4;
-        out.push(`<g class="sleep-tok${danger ? ' danger' : ''}"><image href="${IMG}sleep.webp" x="${X(c) + 17}" y="${Y(r) - 1}" width="24" height="24"/>`
-          + `<circle cx="${X(c) + 39}" cy="${Y(r) + 5}" r="6.5" fill="${danger ? '#c62828' : '#3a210b'}" stroke="#fff" stroke-width="1.2"/>`
-          + `<text x="${X(c) + 39}" y="${Y(r) + 8.4}" text-anchor="middle" font-size="9" font-weight="700" fill="#fff">${cp.inactive}</text></g>`);
+        const rows = cp.cells.map((i) => Math.floor(i / N));
+        const botR = Math.max(...rows);
+        const bot = cp.cells.filter((i) => Math.floor(i / N) === botR).map((i) => i % N);
+        const midC = bot[Math.floor(bot.length / 2)];
+        const bw = danger ? 150 : 132;
+        const cx = Math.min(Math.max(X(midC) + CS / 2, PAD + bw / 2 + 2), W - PAD - bw / 2 - 2);
+        const cy = Y(botR) + CS - 17;
+        out.push(`<g class="sleep-tok${danger ? ' danger' : ''}" pointer-events="none">`
+          + `<rect x="${cx - bw / 2}" y="${cy - 14}" width="${bw}" height="28" rx="14" fill="${danger ? '#c62828' : '#22305a'}" stroke="#fff" stroke-width="2"/>`
+          + `<image href="${IMG}sleep.webp" x="${cx - bw / 2 + 1}" y="${cy - 15}" width="30" height="30"/>`
+          + `<text x="${cx + 14}" y="${cy + 5.5}" text-anchor="middle" font-size="15" font-weight="800" fill="#fff">${danger ? 'LAST CHANCE!' : `ASLEEP ${cp.inactive}/4`}</text></g>`);
       }
     });
     out.push('</g>');
@@ -1681,14 +1733,15 @@
     const P = state.players[T.p];
     const doneN = 2 - T.remaining;
     const dots = `<span class="dots"><i class="${doneN > 0 ? 'used' : ''}"></i><i class="${doneN > 1 ? 'used' : ''}"></i></span>`;
-    const head = `<div class="act-count">Action ${doneN + 1} of 2 ${dots}</div>`;
+    const count = `<div class="act-count">Action ${doneN + 1} of 2 ${dots}</div>`;
+    const head = `<div class="act-top">${count}</div>`;
+    const backHead = (label) => `<div class="act-top">${backBtn('back', label)}${count}</div>`;
 
-    if (ui.mode === 'play') return head + playModeHtml(T, false);
+    if (ui.mode === 'play') return backHead(ui.species ? 'Other dinos' : 'Back') + playModeHtml(T, false);
     if (ui.mode === 'draw') {
-      return `${head}<h3>🃏 Draw a card</h3><p>Tap a card or the deck in the <b>card market</b> below.</p>
-        <button class="btn ghost" data-act="back">← Back</button>`;
+      return `${backHead()}<h3>🃏 Draw a card</h3><p>Tap a card or the deck in the <b>card market</b> below.</p>`;
     }
-    if (ui.mode === 'shop') return head + shopHtml(P);
+    if (ui.mode === 'shop') return (ui.shopItem ? `<div class="act-top">${backBtn('shopBack', 'Shop')}${count}</div>` : backHead()) + shopHtml(P);
     if (ui.mode === 'dinoAction') {
       const opts = dinoActionOptions(T.p)
         .map((o) => {
@@ -1701,26 +1754,27 @@
           return `<button class="opt" data-act="dinoAct" data-sp="${o.sp}" data-key="${o.key}"><span class="o-i">${dz(o.sp, 'big')}</span><span class="o-t"><b>${spName(o.sp)}${o.count > 1 ? ' ×' + o.count : ''} · enclosure ${o.name}</b><small>${desc}</small></span></button>`;
         })
         .join('');
-      return `${head}<h3>⚡ Use a dino power</h3><p>Use a dino power from an <b>awake</b> enclosure.</p><div class="opt-list">${opts}</div><button class="btn ghost" data-act="back">← Back</button>`;
+      return `${backHead()}<h3>⚡ Use a dino power</h3><p>Use a dino power from an <b>awake</b> enclosure.</p><div class="opt-list">${opts}</div>`;
     }
     if (ui.mode === 'fences2') {
       const n = ui.sel ? ui.sel.edges.size : 0;
-      return `${head}<h3>🪵 Build 2 fences</h3><p>Tap the dotted lines on your board.</p>
+      return `${backHead()}<h3>🪵 Build 2 fences</h3><p>Tap the dotted lines on your board.</p>
         <div class="fence-line">Fences selected: <b>${n}</b> / 2</div>
-        <button class="btn big" data-act="confirmFences" ${n ? '' : 'disabled'}>Build fences</button>
-        <button class="btn ghost" data-act="back" style="margin-top:.6rem">← Back</button>`;
+        <button class="btn big" data-act="confirmFences" ${n ? '' : 'disabled'}>Build fences</button>`;
     }
 
     const actOpts = dinoActionOptions(T.p);
+    const plays = playOptions(T.p, false);
+    const playWhy = plays.length && plays.every((o) => o.why === plays[0].why) ? plays[0].why : 'None you can play';
     const tiles = [
-      { m: 'play', i: dz(MASCOT[T.p], 'big'), t: 'Play a dino', s: 'Pay & place one', ok: playOptions(T.p, false).some((o) => o.ok) },
-      { m: 'draw', i: '<span class="mini-back"></span>', t: 'Draw a card', s: 'Add one to your book', ok: state.faceUp.length + state.deck.length > 0 },
-      { m: 'shop', i: '💎', t: 'Shop', s: 'Diamond, feeder, water', ok: canShop(P) },
-      { m: 'dinoAction', i: '⚡', t: 'Dino power', s: actOpts.length ? `${actOpts.length} ready` : 'None ready', ok: actOpts.length > 0 },
+      { m: 'play', i: dz(MASCOT[T.p], 'big'), t: 'Play a dino', s: 'Pay & place one', ok: plays.some((o) => o.ok), why: plays.length ? playWhy : 'Your book is empty' },
+      { m: 'draw', i: '<span class="mini-back"></span>', t: 'Draw a card', s: 'Add one to your book', ok: state.faceUp.length + state.deck.length > 0, why: 'No cards left' },
+      { m: 'shop', i: '💎', t: 'Shop', s: 'Diamond, feeder, water', ok: canShop(P), why: 'Not enough coins' },
+      { m: 'dinoAction', i: '⚡', t: 'Dino power', s: `${actOpts.length} ready`, ok: actOpts.length > 0, why: 'No awake power dinos' },
       { m: 'gain3', i: '🪙', t: 'Take 3 coins', s: 'Always works', ok: true },
-      { m: 'fences2', i: '🪵', t: 'Build 2 fences', s: 'Grow your land', ok: legalEdges(T.p).length > 0 },
+      { m: 'fences2', i: '🪵', t: 'Build 2 fences', s: 'Grow your land', ok: legalEdges(T.p).length > 0, why: 'No room for fences' },
     ]
-      .map((x, n) => `<button class="tile" style="--n:${n}" data-act="mode" data-m="${x.m}" ${x.ok ? '' : 'disabled'}><span class="t-i">${x.i}</span><span class="t-t">${x.t}</span><span class="t-s">${x.s}</span></button>`)
+      .map((x, n) => `<button class="tile" style="--n:${n}" data-act="mode" data-m="${x.m}" ${x.ok ? '' : 'disabled'}><span class="t-i">${x.i}</span><span class="t-t">${x.t}</span><span class="t-s">${x.ok ? x.s : `🔒 ${x.why}`}</span></button>`)
       .join('');
     return `${head}<p class="muted" style="margin-top:0">Pick two. The same one twice is fine.</p>
       <div class="tiles">${tiles}</div>
@@ -1741,24 +1795,27 @@
 
   function playModeHtml(T, free) {
     if (!ui.species) {
-      const cards = playOptions(T.p, free)
-        .map((o) => cardHtml(o.sp, {
-          cls: `${o.ok ? 'pick' : 'nope'} ${o.why === 'Blocked by T. Rex' ? 'blockedc' : ''}`,
-          attrs: o.ok ? `data-act="pickSpecies" data-sp="${o.sp}"` : '',
-          tag: state.players[T.p].cards.includes(o.sp) ? 'card' : '',
-          foot: o.ok ? '' : `<div class="dc-why">${o.why}</div>`,
-        }))
-        .join('');
+      const opts = playOptions(T.p, free);
+      const card = (o) => cardHtml(o.sp, {
+        cls: `${o.ok ? 'pick' : 'nope'} ${o.why === 'Blocked by T. Rex' ? 'blockedc' : ''}`,
+        attrs: o.ok ? `data-act="pickSpecies" data-sp="${o.sp}"` : '',
+        tag: state.players[T.p].cards.includes(o.sp) ? 'card' : '',
+        lock: o.ok ? '' : o.why,
+      });
+      const can = opts.filter((o) => o.ok);
+      const cant = opts.filter((o) => !o.ok);
+      const cards = (can.length ? can.map(card).join('') : '<p class="grid-note">Nothing you can play right now.</p>')
+        + (cant.length ? `<div class="grid-split">🔒 Not right now</div>${cant.map(card).join('')}` : '');
       return `<h3>${free ? '🎁 Pick a free dino (≤ 5 points)' : '🦖 Choose a dino to play'}</h3>
         <div class="card-grid">${cards}</div>
-        ${free ? '<button class="btn ghost" data-act="skip">Skip free dino</button>' : '<button class="btn ghost" data-act="back">← Back</button>'}`;
+        ${free ? '<button class="btn ghost" data-act="skip">Skip free dino</button>' : ''}`;
     }
     const S = SPECIES[ui.species];
     const v = validateSel();
     return `<div class="place-head">${dz(ui.species, 'big')}<h3>Place ${esc(S.name)}${free ? ' (free!)' : ` · ${costText(S.cost)}`}</h3></div>
       ${placementBox(`Select ${S.space} connected square${S.space > 1 ? 's' : ''} inside one enclosure`)}
       <button class="btn big" data-act="place" ${v.ok ? '' : 'disabled'}>Place ${esc(spName(ui.species))}</button>
-      <button class="btn ghost" data-act="back" style="margin-top:.6rem">← Pick a different dino</button>`;
+`;
   }
 
   function shopHtml(P) {
@@ -1771,15 +1828,14 @@
         ${placementBox(isFeeder ? 'Select any number of connected squares in one enclosure' : 'Select 6 connected squares in one enclosure')}
         ${isFeeder ? '<p class="muted">Each square makes every dino there eat 1 less. Over 5 squares costs +🪙2 each.</p>' : '<p class="muted">Lets one additional dino species share this enclosure.</p>'}
         <button class="btn big" data-act="place" ${v.ok ? '' : 'disabled'}>Buy &amp; place</button>
-        <button class="btn ghost" data-act="shopBack" style="margin-top:.6rem">← Back to shop</button>`;
+`;
     }
     return `<h3>🛒 Shop</h3>
       <div class="opt-list">
         <button class="opt" data-act="buyDiamond" ${canAfford(P, DIAMOND_COST) ? '' : 'disabled'}><span class="o-i">💎</span><span class="o-t"><b>Diamond · 🪙6</b><small>Worth 3 points at the end. Some dinos cost diamonds.</small></span></button>
         <button class="opt" data-act="shopItem" data-item="feeder" ${canAfford(P, feederCost(1)) ? '' : 'disabled'}><span class="o-i">🌾</span><span class="o-t"><b>Feeder · 💎1 + 🪙3</b><small>Each square makes dinos there eat 1 less.</small></span></button>
         <button class="opt" data-act="shopItem" data-item="water" ${canAfford(P, WATER_COST) ? '' : 'disabled'}><span class="o-i">💧</span><span class="o-t"><b>Watering hole · 💎2 + 🪙4</b><small>Takes 6 squares. One more kind of dino can live there.</small></span></button>
-      </div>
-      <button class="btn ghost" data-act="back">← Back</button>`;
+      </div>`;
   }
 
   function foodChoiceHtml(T) {
@@ -1845,7 +1901,11 @@
   }
 
   function freePlayHtml(T) {
-    return playModeHtml(T, true);
+    return (ui.species ? `<div class="act-top">${backBtn('back', 'Other dinos')}</div>` : '') + playModeHtml(T, true);
+  }
+
+  function backBtn(act, label) {
+    return `<button class="btn ghost sm back-btn" data-act="${act}">← ${label || 'Back'}</button>`;
   }
 
   function stealHtml(T) {
