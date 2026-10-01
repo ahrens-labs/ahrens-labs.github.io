@@ -237,7 +237,7 @@
   function feederCost(n) {
     return { d: 1, c: 3 + 2 * Math.max(0, n - 5) };
   }
-  const WATER_COST = { d: 2, c: 4 };
+  const WATER_COST = { d: 1, c: 2 };
   const DIAMOND_COST = { d: 0, c: 6 };
 
   // ---------------------------------------------------------------- board model
@@ -1554,13 +1554,14 @@
     if (!document.getElementById('game-shell')) {
       app.innerHTML = tokify(`<div id="game-shell">
         <header class="topbar" id="top"></header>
-        <main class="layout"><section class="boards" id="boards"></section><aside class="panel" id="panel"></aside></main>
+        <main class="layout"><div class="main-col"><section class="boards" id="boards"></section><section class="log-card" id="log"></section></div><aside class="panel" id="panel"></aside></main>
         <footer class="legend"><details><summary>🗺️ Board key <span>· tap any dino to see its card</span></summary><div class="lg">${legendHtml()}</div></details></footer>
       </div>`);
     }
     renderTop();
     renderBoards();
     renderPanel();
+    setHtml(document.getElementById('log'), logHtml());
     const T = cur();
     turnOverlay(T);
     if (pendingCard) {
@@ -1572,7 +1573,7 @@
     }
     animOn = true;
     const focusP = ui.sel ? ui.sel.board : T && T.p !== undefined ? T.p : null;
-    if (focusP !== null && focusP !== lastFocus && window.matchMedia('(max-width: 820px)').matches) {
+    if (focusP !== null && lastFocus !== null && focusP !== lastFocus && boardsStacked()) {
       const el = document.querySelector(`[data-player="${focusP}"]`);
       if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
@@ -1584,6 +1585,11 @@
       recordLocalGame();
     }
     aiSchedule();
+  }
+
+  function boardsStacked() {
+    const els = document.querySelectorAll('#boards [data-player]');
+    return els.length === 2 && els[1].offsetTop > els[0].offsetTop + 20;
   }
 
   function legendHtml() {
@@ -1718,7 +1724,7 @@
     const top = scroll ? scroll.scrollTop : 0;
     const ended = online && online.status !== 'active' && !(T && T.t === 'gameOver');
     const body = ended ? onlineEndHtml() : theirTurn(T) ? watchHtml(T) : taskHtml(T);
-    const changed = setHtml(el, `${bannerHtml(T)}<div class="panel-scroll"><div class="task">${body}</div>${marketHtml(T)}${logHtml()}</div>`);
+    const changed = setHtml(el, `${bannerHtml(T)}<div class="panel-scroll"><div class="task">${body}</div></div>${marketHtml(T)}`);
     const ns = el.querySelector('.panel-scroll');
     if (changed && ns && ui.keepScroll) ns.scrollTop = top;
     ui.keepScroll = false;
@@ -1784,20 +1790,24 @@
       })
       .join('');
     const stack = Math.min(state.deck.length, 4);
-    return `<div class="market">
-      <div class="m-title">🃏 Card market</div>
+    return `<div class="market${pickAny || pickDeck ? ' picking' : ''}">
+      <div class="m-title">🃏 Card market${pickAny || pickDeck ? ' <span class="m-hint">tap one to draw</span>' : ''}</div>
       <div class="m-row">
         <div class="deck-back ${deckAttrs ? 'pick' : ''} ${state.deck.length ? '' : 'gone'}" ${deckAttrs} title="Top of the deck (face down)" style="--stack:${stack}">
-          <img src="${IMG}coin.webp" alt=""><b>${state.deck.length}</b><small>deck</small>
+          <b>${state.deck.length}</b><small>deck</small>
         </div>
         ${faceUp}
       </div>
     </div>`;
   }
 
+  function logItems(list) {
+    return list.slice().reverse().map((l) => `<li><span class="lr">R${l.r}</span>${l.m}</li>`).join('');
+  }
+
   function logHtml() {
-    const items = state.log.slice(-6).reverse().map((l) => `<li><span class="lr">R${l.r}</span>${l.m}</li>`).join('');
-    return `<div class="log"><h4>📜 What happened</h4><ul>${items}</ul></div>`;
+    return `<div class="log-head"><h4>📜 What happened</h4>${state.log.length > 8 ? '<button class="btn sm ghost" data-act="fullLog">Full history</button>' : ''}</div>
+      <ul class="log-list">${logItems(state.log.slice(-8))}</ul>`;
   }
 
   function stepper(k, label, val, canDec, canInc) {
@@ -1974,12 +1984,11 @@
     const doneN = 2 - T.remaining;
     const dots = `<span class="dots"><i class="${doneN > 0 ? 'used' : ''}"></i><i class="${doneN > 1 ? 'used' : ''}"></i></span>`;
     const count = `<div class="act-count">Action ${doneN + 1} of 2 ${dots}</div>`;
-    const head = `<div class="act-top">${count}</div>`;
     const backHead = (label) => `<div class="act-top">${backBtn('back', label)}${count}</div>`;
 
     if (ui.mode === 'play') return backHead(ui.species ? 'Other dinos' : 'Back') + playModeHtml(T, false);
     if (ui.mode === 'draw') {
-      return `${backHead()}<h3>🃏 Draw a card</h3><p>Tap a card or the deck in the <b>card market</b> below.</p>`;
+      return `${backHead()}<h3>🃏 Draw a card</h3><p>Tap a face-up card or the deck in the <b>card market</b> at the bottom of this panel.</p>`;
     }
     if (ui.mode === 'shop') return (ui.shopItem ? `<div class="act-top">${backBtn('shopBack', 'Shop')}${count}</div>` : backHead()) + shopHtml(P);
     if (ui.mode === 'dinoAction') {
@@ -2016,9 +2025,9 @@
     ]
       .map((x, n) => `<button class="tile" style="--n:${n}" data-act="mode" data-m="${x.m}" ${x.ok ? '' : 'disabled'}><span class="t-i">${x.i}</span><span class="t-t">${x.t}</span><span class="t-s">${x.ok ? x.s : `🔒 ${x.why}`}</span></button>`)
       .join('');
-    return `${head}<p class="muted" style="margin-top:0">Pick two. The same one twice is fine.</p>
-      <div class="tiles">${tiles}</div>
-      <button class="btn ghost big" data-act="endTurn">Skip remaining action${T.remaining > 1 ? 's' : ''}</button>`;
+    return `<div class="act-top">${count}<button class="btn sm ghost" data-act="endTurn">Skip ${T.remaining > 1 ? 'both' : 'last'} ▸</button></div>
+      <p class="act-help">Pick two. The same one twice is fine.</p>
+      <div class="tiles">${tiles}</div>`;
   }
 
   function placementBox(title) {
@@ -2074,7 +2083,7 @@
       <div class="opt-list">
         <button class="opt" data-act="buyDiamond" ${canAfford(P, DIAMOND_COST) ? '' : 'disabled'}><span class="o-i">💎</span><span class="o-t"><b>Diamond · 🪙6</b><small>Worth 3 points at the end. Some dinos cost diamonds.</small></span></button>
         <button class="opt" data-act="shopItem" data-item="feeder" ${canAfford(P, feederCost(1)) ? '' : 'disabled'}><span class="o-i">🌾</span><span class="o-t"><b>Feeder · 💎1 + 🪙3</b><small>Each square = 1 less food for that enclosure.</small></span></button>
-        <button class="opt" data-act="shopItem" data-item="water" ${canAfford(P, WATER_COST) ? '' : 'disabled'}><span class="o-i">💧</span><span class="o-t"><b>Watering hole · 💎2 + 🪙4</b><small>Takes 6 squares. One more kind of dino can live there.</small></span></button>
+        <button class="opt" data-act="shopItem" data-item="water" ${canAfford(P, WATER_COST) ? '' : 'disabled'}><span class="o-i">💧</span><span class="o-t"><b>Watering hole · ${costText(WATER_COST)}</b><small>Takes 6 squares. One more kind of dino can live there.</small></span></button>
       </div>`;
   }
 
@@ -2159,6 +2168,12 @@
       <button class="btn big" data-act="confirmSteal">Steal ${ui.meat} 🍖 + ${plant} 🌿</button>`;
   }
 
+  function aiPlanNote() {
+    const cfg = state.aiCfg;
+    const st = cfg && !online && cfg.level === 'hard' && HARD_STRATS[cfg.strat];
+    return st ? `<p class="ai-plan">🤖 The computer’s game plan: <b>${st.name}</b> — ${st.desc}.</p>` : '';
+  }
+
   function gameOverHtml() {
     const s = [scorePlayer(0), scorePlayer(1)];
     const P = state.players;
@@ -2183,6 +2198,7 @@
         <tfoot><tr><td>Total</td><td>${s[0].total}</td><td>${s[1].total}</td></tr></tfoot>
       </table>
       <p class="muted">Dinos in inactive or extinct enclosures score nothing. Leftover coins: ${esc(P[0].name)} 🪙${P[0].coins}, ${esc(P[1].name)} 🪙${P[1].coins}.</p>
+      ${aiPlanNote()}
       ${online
     ? '<div class="btn-row"><button class="btn big" data-act="olRematch">🦖 Rematch</button><button class="btn big ghost" data-act="onlineLeave">🏠 My games</button></div>'
     : '<button class="btn big" data-act="newGame">🥚 Play again</button>'}
@@ -2387,7 +2403,7 @@
       <ul>
         <li><b>Play a dino</b> — pay its cost and fill its squares in one enclosure.</li>
         <li><b>Draw a card</b> — face-up or top of the deck. It joins your dino book.</li>
-        <li><b>Buy from the shop</b> — 💎 Diamond (🪙6), 🌾 Feeder (💎1 + 🪙3, +🪙2 per square over 5; each square = 1 less food in total for that enclosure each Feeding), 💧 Watering hole (💎2 + 🪙4, 6 squares; allows one more species in that enclosure).</li>
+        <li><b>Buy from the shop</b> — 💎 Diamond (🪙6), 🌾 Feeder (💎1 + 🪙3, +🪙2 per square over 5; each square = 1 less food in total for that enclosure each Feeding), 💧 Watering hole (${costText(WATER_COST)}, 6 squares; allows one more species in that enclosure).</li>
         <li><b>Use a dino action</b> — a red ability of a dino in an active enclosure.</li>
         <li><b>Gain 3 coins.</b></li>
         <li><b>Draw in 2 fences.</b></li>
@@ -2476,6 +2492,11 @@
       return;
     }
     if (!state) return;
+    if (act === 'fullLog') {
+      openModal(`<div class="modal-head"><h2>📜 Full history</h2><button class="btn sm ghost" data-act="closeModal">Close</button></div>
+        <ul class="log-list full">${logItems(state.log)}</ul>`);
+      return;
+    }
     if (act === 'replayReveal') {
       if (cur() && cur().t === 'gameOver') revealWinner();
       return;
@@ -2947,7 +2968,7 @@
   }
 
   // ---------------------------------------------------------------- computer player
-  const FREE_ACTS = new Set(['rules', 'book', 'closeModal', 'newGame', 'confirmYes', 'aiSettings', 'setAiOpt', 'onlineLeave', 'onlineResign', 'olRematch', 'replayReveal']);
+  const FREE_ACTS = new Set(['fullLog', 'rules', 'book', 'closeModal', 'newGame', 'confirmYes', 'aiSettings', 'setAiOpt', 'onlineLeave', 'onlineResign', 'olRematch', 'replayReveal']);
   const AI_LEVELS = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
   const AI_PACES = { fast: 'Fast', medium: 'Medium', slow: 'Slow' };
   const AI_LEVEL_HELP = { easy: 'Plays for fun and makes mistakes', medium: 'Plans one move at a time', hard: 'Plays to win: plans fences, cards and the whole game' };
@@ -2956,7 +2977,7 @@
   const LEVEL_TUNE = {
     easy: { depth: 1, noise: 1.4, style: 1.2, foresight: 0.7, blunder: 0.25 },
     medium: { depth: 1, noise: 0.8, style: 1, foresight: 0.85, blunder: 0 },
-    hard: { depth: 2, noise: 0.03, style: 0, foresight: 1, blunder: 0, proj: true },
+    hard: { depth: 2, noise: 0.03, style: 0, foresight: 1, blunder: 0, proj: true, water: true, deep: true, strat: true },
   };
   const AI_STYLES = {
     builder: { sp: { trex: 3, mosasaurus: 3, spinosaurus: 1.5, brachiosaurus: 1.5, allosaurus: 1 }, act: { fences: 0.8, diamond: 0.4 } },
@@ -2964,6 +2985,17 @@
     raider: { sp: { velociraptor: 2.5, allosaurus: 2.5, brachiosaurus: 1.5, dilophosaurus: 1.5, carnotaurus: 1 }, act: { dinoAct: 1, draw: 0.3 } },
     banker: { sp: { pachy: 3, triceratops: 2, ankylosaurus: 1, gigantoraptor: 1 }, act: { diamond: 1, gain3: 0.4 } },
   };
+  // Hard picks one of these game plans per game: it values its favourite dinos a little higher, so it
+  // sizes enclosures and spends actions differently from game to game.
+  const HARD_STRATS = {
+    giants: { name: 'Big game', desc: 'huge dinos in big enclosures', sp: { trex: 1.15, mosasaurus: 1.2, spinosaurus: 1.12, brachiosaurus: 1.1, allosaurus: 1.08 } },
+    herds: { name: 'Herds', desc: 'lots of small dinos', sp: { compy: 1.25, microraptor: 1.2, stegosaurus: 1.12, parasaurolophus: 1.15, velociraptor: 1.1 } },
+    mixed: { name: 'Mixed park', desc: 'species sharing enclosures around watering holes', water: 0.8, sp: { triceratops: 1.1, ankylosaurus: 1.1, carnotaurus: 1.1, stegosaurus: 1.05 } },
+    economy: { name: 'Economy', desc: 'coins, Pachys and Parasaurs', sp: { pachy: 1.25, parasaurolophus: 1.15, triceratops: 1.12, allosaurus: 1.1 } },
+    raiders: { name: 'Raiders', desc: 'stealing and filling in your park', sp: { velociraptor: 1.2, allosaurus: 1.15, brachiosaurus: 1.12, dilophosaurus: 1.12, carnotaurus: 1.08 } },
+  };
+  // Forced first picks Hard tries in its deep play-outs (index into the ranked options at each step).
+  const DEEP_FORCES = [[1], [2], [0, 1], [0, 2], [1, 0], [1, 1], [2, 0]];
   // Fence layouts (the first segments build the outer pens, the rest split them). Each game picks
   // one, applies a random rotation/mirror, and shuffles the order of the splits.
   const AI_PLANS = [
@@ -3013,6 +3045,8 @@
       level: AI_LEVELS[level] ? level : 'medium',
       pace: AI_PACES[pace] ? pace : 'medium',
       style: Object.keys(AI_STYLES)[rand(4)],
+      strat: Object.keys(HARD_STRATS)[rand(5)],
+      anchor: rand(4),
       plan: { i: AI_PLANS.indexOf(plan), t: rand(8), order: plan.segs.slice(0, plan.head).map((_, i) => i).concat(tail) },
     };
   }
@@ -3264,6 +3298,41 @@
     return best ? best.cells : null;
   }
 
+  // Six squares for a watering hole that leave the biggest connected space for the next dino.
+  function aiWaterCells(b, cp) {
+    const free = new Set(cp.cells.filter((i) => b.cells[i] === 0));
+    let best = null;
+    const tried = new Set();
+    free.forEach((start) => {
+      const cells = growFrom(start, free, 6);
+      if (!cells) return;
+      const key = cells.slice().sort((x, y) => x - y).join();
+      if (tried.has(key)) return;
+      tried.add(key);
+      const rest = new Set([...free].filter((i) => !cells.includes(i)));
+      let biggest = 0;
+      const seen = new Set();
+      rest.forEach((i) => {
+        if (seen.has(i)) return;
+        let n = 0;
+        const stack = [i];
+        seen.add(i);
+        while (stack.length) {
+          const x = stack.pop();
+          n++;
+          orthNbrs(x).forEach((j) => { if (rest.has(j) && !seen.has(j)) { seen.add(j); stack.push(j); } });
+        }
+        biggest = Math.max(biggest, n);
+      });
+      const rs = cells.map((i) => Math.floor(i / N));
+      const cs = cells.map((i) => i % N);
+      const box = (Math.max(...rs) - Math.min(...rs) + 1) * (Math.max(...cs) - Math.min(...cs) + 1);
+      const score = biggest * 2 - (box - 6);
+      if (!best || score > best.score) best = { cells, score, biggest };
+    });
+    return best;
+  }
+
   function aiPlanEdgesB(b, max) {
     const legal = new Set(legalEdgesB(b));
     const out = [];
@@ -3437,8 +3506,24 @@
     if (T.proj) {
       if (tl.feeds) v += Math.min(m.foodLeft || 0, 6) * 0.05;
       const pens = aiVirtualPens(b);
-      const fc = (extra) => pens.reduce((mx, pen) => Math.max(mx, aiForecast(m, an, tl, keep, food, { micro, microEncl, pachy }, extra, pen)),
-        aiForecast(m, an, tl, keep, food, { micro, microEncl, pachy }, extra, null));
+      const run = (extra, pen, force) => aiForecast(m, an, tl, keep, food, { micro, microEncl, pachy }, extra, pen, force);
+      let lift = 0;
+      const fc = (extra) => {
+        let bestPen = null;
+        let bv = run(extra, null);
+        pens.forEach((pen) => {
+          const v = run(extra, pen);
+          if (v > bv) { bv = v; bestPen = pen; }
+        });
+        if (!aiCtx.deep) return bv;
+        // Deep: also try the runner-up first moves of the play-out instead of only the greedy one.
+        // Possible draws reuse the no-draw gain so a draw costs one play-out per species, not eight.
+        if (extra) return bv + lift;
+        const greedy = bv;
+        DEEP_FORCES.forEach((fz) => { bv = Math.max(bv, run(extra, bestPen, fz)); });
+        lift = bv - greedy;
+        return bv;
+      };
       let f = fc(null) * FORECAST_TRUST;
       if (m.pendingDeck && state.deck.length) {
         // Expected forecast over what the draw could be, weighted by the copies left in the deck.
@@ -3490,7 +3575,10 @@
   // playing a dino (buying missing diamonds first), dino powers, taking coins or buying diamonds,
   // limited by money, enclosure space, species rules and the food the park can sustain.
   // Returns the points it expects to add from here on.
-  function aiForecast(m, an, tl, keep, food0, base, extraSp, pen) {
+  function aiForecast(m, an, tl, keep, food0, base, extraSp, pen, force) {
+    const T = tune();
+    const strat = T.strat ? HARD_STRATS[aiCfg().strat] : null;
+    const smul = (sp) => (strat && strat.sp[sp]) || 1;
     const encl = [];
     an.comps.forEach((cp) => {
       if (!cp.valid || cp.dead) return;
@@ -3545,6 +3633,7 @@
     const awakeBest = () => encl.reduce((mx, e) => Math.max(mx, e.w >= 0.6 && !e.asleep ? e.prod : 0), 0);
     let lastR = 0;
     let skip = 0;
+    let dk = 0;
     for (let j = 0; j < slots.length; j++) {
       const r = slots[j];
       if (r !== lastR) {
@@ -3557,8 +3646,11 @@
       const feedsLeft = r === 0 ? tl.feeds : Math.max(0, tl.feeds - r + 0.5);
       const lam = left > 0 && coins < 6 * (left + 1) ? 0.5 : 0;
       let pick = null;
+      const cands = force && dk < force.length ? [] : null;
       const consider = (score, acts, apply) => {
-        if (!pick || score / acts > pick.score / pick.acts) pick = { score, acts, apply };
+        if (cands) {
+          if (score > 0) cands.push({ score, acts, apply, tag });
+        } else if (!pick || score / acts > pick.score / pick.acts) pick = { score, acts, apply };
       };
       if (left > 0) consider(3 * lam, 1, () => { coins += 3; });
       if (coins >= 6) consider(3 - 6 * lam, 1, () => { coins -= 6; dia++; pts += 3; });
@@ -3608,7 +3700,7 @@
           if (sp === 'microraptor' && !e.micro) got += 2;
           got = got * e.w * (cyc ? 0.85 : 1) + (EVENT_PTS[sp] || 0);
           const newBest = e.w >= 0.6 && !cyc ? Math.max(best, e.prod + S.prod) : best;
-          const score = got + (newBest - best) * roundsLeft * 0.45 + (EVENT_COINS[sp] || 0) * lam + gainFood * 0.05 +
+          const score = got * smul(sp) + (newBest - best) * roundsLeft * 0.45 + (EVENT_COINS[sp] || 0) * lam + gainFood * 0.05 +
             (sp === 'pachy' ? 2 : 0) - coinCost * lam - (S.cost.d - missing) * 3;
           consider(score, acts + fenceActs, () => {
             if (aiCtx.planLog) aiCtx.planLog.push(sp);
@@ -3640,6 +3732,12 @@
         const size = Math.min(open, S.space * 2);
         if (size >= S.space) place(newPen(size), Math.ceil(Math.round(1.5 * Math.sqrt(size) + 2) / 2), size);
       });
+      if (cands) {
+        cands.sort((x, y) => y.score / y.acts - x.score / x.acts);
+        pick = cands[force[dk]];
+        if (!pick) return -Infinity;
+      }
+      dk++;
       if (pick && pick.score > 0) {
         pick.apply();
         skip = pick.acts - 1;
@@ -3719,13 +3817,22 @@
     const base = aiEval(m0, tl);
     const wanted = [...new Set(aiCtx.planLog)].slice(0, 2);
     aiCtx.planLog = null;
+    // Each game leans toward building in a different corner of the park.
+    const anchor = tune().strat ? aiCfg().anchor : null;
+    const lean = (c) => {
+      if (anchor == null) return 0;
+      const ar = anchor & 1 ? N - 1 : 0;
+      const ac = anchor & 2 ? N - 1 : 0;
+      const d = Math.abs(c.r0 + (c.h - 1) / 2 - ar) + Math.abs(c.c0 + (c.w - 1) / 2 - ac);
+      return 0.4 * (1 - d / 18);
+    };
     const found = [];
     aiTargetCands(b, wanted.length ? wanted : m0.book).forEach((c) => {
       if (fenceProblem(b, c.need)) return;
       const m2 = copyModel(m0);
       applyEdges(m2.board, c.need);
       m2.actsPenalty = Math.ceil(c.need.length / 2);
-      const gain = (aiEval(m2, tl) - base) * 0.8 - 0.25 * c.need.length;
+      const gain = (aiEval(m2, tl) - base) * 0.8 - 0.25 * c.need.length + lean(c);
       if (gain > 1) found.push(Object.assign({}, c, { gain }));
     });
     found.sort((x, y) => y.gain - x.gain);
@@ -3855,6 +3962,14 @@
       if (edges.length) out.push({ kind: 'fences', edges });
     }
     if (m.coins >= 6) out.push({ kind: 'diamond' });
+    if (tune().water && affordM(m, WATER_COST) && m.book.length) {
+      const minSpace = Math.min(...m.book.map((sp) => SPECIES[sp].space));
+      analyze(b).comps.forEach((cp) => {
+        if (!cp.valid || cp.dead || !cp.living.length || cp.species.size < 1 + cp.waters.length || cp.empty < 6 + minSpace) return;
+        const w = aiWaterCells(b, cp);
+        if (w && w.biggest >= minSpace) out.push({ kind: 'water', cells: w.cells });
+      });
+    }
     const feeder = aiFeederB(m);
     if (feeder) out.push(feeder);
     const an = analyze(b);
@@ -3876,6 +3991,7 @@
       case 'diamond': n.coins -= 6; n.diamonds++; break;
       case 'fences': applyEdges(n.board, a.edges); break;
       case 'feeder': payM(n, feederCost(a.cells.length)); placeItemB(n.board, 'feeder', a.cells); break;
+      case 'water': payM(n, WATER_COST); placeItemB(n.board, 'water', a.cells); break;
       case 'play':
       case 'free':
         if (a.kind === 'play') payM(n, SPECIES[a.sp].cost);
@@ -3932,16 +4048,33 @@
     const m0 = aiModel(p, T.remaining);
     aiPrepTargets(m0, tl);
     const depth = tune().depth;
+    const strat = tune().strat ? HARD_STRATS[aiCfg().strat] : null;
+    const bonus = (a) => styleBias(a) + noise(tune().noise) + (tune().proj && a.kind === 'play' ? PLAY_PRIORITY : 0) +
+      (a.kind === 'water' && strat && strat.water ? strat.water : 0);
     const scored = aiActions(m0, tl).map((a) => {
       const m1 = aiApply(m0, a, tl);
       let v = aiEval(m1, tl);
+      let end = m1;
       if (depth > 1 && m1.actsLeft > 0) {
         aiActions(m1, tl).forEach((a2) => {
-          v = Math.max(v, aiEval(aiApply(m1, a2, tl), tl));
+          const m2 = aiApply(m1, a2, tl);
+          const v2 = aiEval(m2, tl);
+          if (v2 > v) { v = v2; end = m2; }
         });
       }
-      return { a, v: v + styleBias(a) + noise(tune().noise) + (tune().proj && a.kind === 'play' ? PLAY_PRIORITY : 0) };
+      return { a, v: v + bonus(a), end };
     });
+    if (tune().deep && scored.length > 1) {
+      // Look further ahead on the most promising few before committing.
+      const top = scored.sort((x, y) => y.v - x.v).slice(0, 5);
+      aiCtx.deep = true;
+      try {
+        top.forEach((x) => { x.v = aiEval(x.end, tl) + bonus(x.a); });
+      } finally {
+        aiCtx.deep = false;
+      }
+      return pickBest(top).a;
+    }
     return pickBest(scored).a;
   }
 
@@ -4218,6 +4351,14 @@
           ui.sel.cells = new Set(c.cells);
           document.getElementById('boards')._html = null;
           aiShow('Building a feeder…', () => handle('place', {}));
+          return;
+        }
+        if (c.kind === 'water') {
+          handle('mode', { m: 'shop' });
+          handle('shopItem', { item: 'water' });
+          ui.sel.cells = new Set(c.cells);
+          document.getElementById('boards')._html = null;
+          aiShow('Digging a watering hole…', () => handle('place', {}));
           return;
         }
         if (c.kind === 'dinoAct') { aiShow(`Using ${spName(c.sp)}’s power…`, () => handle('dinoAct', { sp: c.sp, key: String(c.key) })); return; }
