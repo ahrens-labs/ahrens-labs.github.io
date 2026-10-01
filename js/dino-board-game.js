@@ -3128,7 +3128,9 @@
 
     if (T.proj) {
       if (tl.feeds) v += Math.min(m.foodLeft || 0, 6) * 0.05;
-      const fc = (extra) => aiForecast(m, an, tl, keep, food, { micro, microEncl, pachy }, extra);
+      const pens = aiVirtualPens(b);
+      const fc = (extra) => pens.reduce((mx, pen) => Math.max(mx, aiForecast(m, an, tl, keep, food, { micro, microEncl, pachy }, extra, pen)),
+        aiForecast(m, an, tl, keep, food, { micro, microEncl, pachy }, extra, null));
       let f = fc(null) * FORECAST_TRUST;
       if (m.pendingDeck) {
         const pool = [...new Set(state.deck)].filter((sp) => !m.book.includes(sp));
@@ -3138,7 +3140,7 @@
           f = (sample.reduce((sum, sp) => sum + fc(sp), 0) / sample.length) * FORECAST_TRUST;
         }
       }
-      return v + f + aiTargetCredit(b) + m.extra;
+      return v + f + m.extra;
     }
 
     const spendable = futureActs > 0;
@@ -3176,7 +3178,7 @@
   // playing a dino (buying missing diamonds first), dino powers, taking coins or buying diamonds,
   // limited by money, enclosure space, species rules and the food the park can sustain.
   // Returns the points it expects to add from here on.
-  function aiForecast(m, an, tl, keep, food0, base, extraSp) {
+  function aiForecast(m, an, tl, keep, food0, base, extraSp, pen) {
     const encl = [];
     an.comps.forEach((cp) => {
       if (!cp.valid || cp.dead) return;
@@ -3197,7 +3199,9 @@
     const slots = [];
     for (let i = 0; i < m.actsLeft; i++) slots.push(0);
     for (let r = 1; r <= tl.acts; r++) slots.push(r, r);
-    slots.splice(0, Math.min(slots.length, m.actsPenalty || 0));
+    slots.splice(0, Math.min(slots.length, (m.actsPenalty || 0) + (pen ? pen.acts : 0)));
+    // A planned enclosure is fenced first, using up the actions those fences take.
+    if (pen) encl.push({ empty: pen.size, species: new Set(), slots: 1, prod: 0, w: 1, asleep: false, compy: 0, micro: false, para: 0, tri: false, allo: false, raptor: 0 });
 
     let coins = m.coins;
     let dia = m.diamonds;
@@ -3349,14 +3353,14 @@
             if ((r0 === 0) + (r0 + h === N) + (c0 === 0) + (c0 + w === N) > 2) continue;
             let fit = 0;
             spaces.forEach((sz) => { if (sz <= size) fit = Math.max(fit, (Math.floor(size / sz) * sz) / size); });
-            buckets[bucketOf(size)].push({ need, size, h: (fit * size) / (need.length + 1.5) });
+            buckets[bucketOf(size)].push({ need, size, r0, c0, h, w, score: (fit * size) / (need.length + 1.5) });
           }
         }
       }
     }
     const out = [];
     buckets.forEach((list) => {
-      list.sort((x, y) => y.h - x.h);
+      list.sort((x, y) => y.score - x.score);
       const seen = new Set();
       for (const c of list) {
         const key = c.need.slice().sort().join();
@@ -3381,19 +3385,24 @@
       applyEdges(m2.board, c.need);
       m2.actsPenalty = Math.ceil(c.need.length / 2);
       const gain = (aiEval(m2, tl) - base) * 0.8 - 0.25 * c.need.length;
-      if (gain > 1) found.push({ need: c.need, gain });
+      if (gain > 1) found.push(Object.assign({}, c, { gain }));
     });
     found.sort((x, y) => y.gain - x.gain);
     aiCtx.targets = found.slice(0, 3);
   }
 
-  function aiTargetCredit(b) {
-    let credit = 0;
+  // Planned enclosures not finished yet on board b, with the fence actions they still need.
+  function aiVirtualPens(b) {
+    const out = [];
     aiCtx.targets.forEach((t) => {
-      const built = t.need.filter((e) => b[e[0]][+e.slice(1)]).length;
-      if (built && built < t.need.length) credit = Math.max(credit, (t.gain * 0.85 * built) / t.need.length);
+      const left = t.need.filter((e) => !b[e[0]][+e.slice(1)]).length;
+      if (!left) return;
+      for (let r = t.r0; r < t.r0 + t.h; r++) {
+        for (let c = t.c0; c < t.c0 + t.w; c++) if (b.cells[r * N + c] !== 0) return;
+      }
+      out.push({ size: t.size, acts: Math.ceil(left / 2), edges: left });
     });
-    return credit;
+    return out;
   }
 
   function aiTargetEdges(b, t, max) {
