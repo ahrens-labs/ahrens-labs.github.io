@@ -717,6 +717,58 @@ button { font-family: inherit; }
 .setup-foot .tk { width: 1.5em; height: 1.5em; }
 .setup-actions { margin-top: 1rem; display: flex; gap: 0.6rem; justify-content: center; flex-wrap: wrap; }
 
+.mode-pick { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 1.1rem; }
+.mode-btn {
+  display: grid; justify-items: center; gap: 2px;
+  padding: 0.8rem 0.6rem;
+  border-radius: 16px;
+  border: 3px solid var(--bone-dark);
+  background: #fff;
+  color: var(--ink);
+  cursor: pointer;
+  font: inherit;
+  transition: transform 0.15s var(--pop), border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.mode-btn span { font-size: 1.8rem; line-height: 1.1; }
+.mode-btn b { font-family: "Lilita One", sans-serif; font-weight: 400; font-size: 1.1rem; }
+.mode-btn small { color: var(--muted); }
+.mode-btn:hover { transform: translateY(-2px); }
+.setup:not(.vs-ai) .m-2p, .setup.vs-ai .m-ai { border-color: var(--amber); box-shadow: 0 0 0 3px rgba(255, 179, 0, 0.35); background: #fff8e1; }
+.setup:not(.vs-ai) .only-ai, .setup.vs-ai .only-2p { display: none; }
+.ai-card { padding: 0.7rem 0.8rem; border-radius: 12px; border: 2px dashed var(--bone-dark); font-size: 1.05rem; font-weight: 600; background: #fffaf0; }
+
+.ai-bar {
+  display: flex; align-items: center; gap: 0.6rem;
+  margin-top: 12px;
+  padding: 0.5rem 0.7rem;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #e3f2fd, #bbdefb);
+  color: #0d47a1;
+  font-weight: 700;
+  animation: dealIn 0.3s ease both;
+}
+.ai-bar img { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; box-shadow: 0 0 0 2px #fff; animation: stomp 1.6s ease-in-out infinite; }
+.dots3 { display: inline-flex; gap: 3px; margin-left: 4px; vertical-align: middle; }
+.dots3 b { width: 5px; height: 5px; border-radius: 50%; background: currentColor; animation: dot 1s ease-in-out infinite; }
+.dots3 b:nth-child(2) { animation-delay: 0.15s; }
+.dots3 b:nth-child(3) { animation-delay: 0.3s; }
+.task.ai-run { pointer-events: none; opacity: 0.75; filter: saturate(0.8); }
+.cell.has { cursor: pointer; }
+
+.modal.small { width: min(440px, 100%); text-align: center; }
+.modal.medium { width: min(620px, 100%); }
+.confirm-box h2 { margin: 0.3rem 0 0.2rem; font-size: 1.5rem; }
+.confirm-box p { margin: 0 0 0.6rem; color: #5d4a2c; }
+.confirm-box .btn-row { justify-content: center; }
+.confirm-box .btn { min-width: 130px; }
+.confirm-dino { width: 84px; height: 84px; border-radius: 50%; object-fit: cover; box-shadow: 0 0 0 4px #ffd24d, 0 6px 14px rgba(0, 0, 0, 0.25); animation: stomp 2s ease-in-out infinite; }
+.piece-info { display: grid; grid-template-columns: 220px 1fr; gap: 16px; align-items: start; }
+.piece-info .dcard { animation: dealCard 0.5s var(--pop) both; }
+.piece-art { display: grid; place-items: center; height: 160px; border-radius: 16px; background: #fff; box-shadow: 0 3px 0 var(--bone-dark); }
+.piece-art .tk { width: 110px; height: 110px; }
+.facts { list-style: none; padding: 0 !important; margin: 0 !important; display: grid; gap: 8px; }
+.facts li { background: #fff; border-radius: 12px; padding: 0.55rem 0.7rem; box-shadow: 0 2px 0 var(--bone-dark); line-height: 1.45 !important; }
+
 /* ---------- Modal ---------- */
 .modal-bg { position: fixed; inset: 0; background: rgba(20, 10, 2, 0.72); backdrop-filter: blur(3px); display: grid; place-items: center; padding: 18px; z-index: 50; animation: fade 0.18s ease; }
 .modal { background: linear-gradient(180deg, var(--bone), var(--paper)); color: var(--ink); border-radius: 20px; width: min(900px, 100%); max-height: calc(100vh - 36px); overflow: auto; padding: 1.3rem 1.4rem; box-shadow: 0 0 0 3px #2a170a, 0 30px 60px rgba(0, 0, 0, 0.5); animation: rise 0.3s var(--pop); }
@@ -817,6 +869,7 @@ button { font-family: inherit; }
 @keyframes taskIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @keyframes logIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: none; } }
 @keyframes shine { to { transform: translateX(100%); } }
+@keyframes dot { 0%, 100% { opacity: 0.3; transform: translateY(0); } 50% { opacity: 1; transform: translateY(-3px); } }
 @keyframes bob { 0%, 100% { transform: translateY(0) rotate(-6deg); } 50% { transform: translateY(-12px) rotate(6deg); } }
 @keyframes kenBurns { from { transform: scale(1); } to { transform: scale(1.08) translate(-1%, 1%); } }
 @keyframes lidDrop { from { opacity: 0; transform: translateY(-40px) rotate(-4deg) scale(0.95); } to { opacity: 1; transform: rotate(-1.2deg); } }
@@ -860,6 +913,8 @@ button { font-family: inherit; }
   .boards { grid-template-columns: minmax(0, 1fr); }
   .layout { padding: 10px; gap: 12px; }
   .name-row, .first-btns { grid-template-columns: 1fr; }
+  .piece-info { grid-template-columns: 1fr; }
+  .piece-info .dcard { max-width: 260px; margin: 0 auto; }
   .pip { width: 19px; height: 19px; font-size: 0.6rem; }
   .player.active { transform: none; }
 }
