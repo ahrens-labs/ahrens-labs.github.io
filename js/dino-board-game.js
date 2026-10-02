@@ -707,6 +707,7 @@
       onlinePush();
       return;
     }
+    if (state && state.sim) return;
     try {
       if (state) localStorage.setItem(SAVE_KEY, JSON.stringify(state));
     } catch {
@@ -942,7 +943,7 @@
     document.querySelectorAll('[data-act="roll"],[data-act="rollBonus"],[data-act="carnoRoll"]').forEach((b) => {
       b.disabled = true;
     });
-    if (!el) {
+    if (!el || (state && state.sim && state.sim.speed !== 'watch')) {
       busy = false;
       cb(v);
       return;
@@ -968,7 +969,7 @@
   // ---------------------------------------------------------------- toasts / modal / confetti
   function toast(msg, kind) {
     const root = document.getElementById('toasts');
-    if (!root) return;
+    if (!root || (state && state.sim && state.sim.speed !== 'watch')) return;
     const el = document.createElement('div');
     el.className = `toast ${kind || ''}`;
     el.innerHTML = tokify(esc(msg));
@@ -1224,7 +1225,7 @@
   }
 
   function turnOverlay(T) {
-    if (!T) return;
+    if (!T || state.sim) return;
     let key = null;
     let html = '';
     if (T.t === 'roundStart') {
@@ -1575,6 +1576,16 @@
       animOn = true;
       return;
     }
+    if (state.sim && state.sim.speed === 'turbo' && document.getElementById('game-shell')) {
+      const T0 = cur();
+      const now = performance.now();
+      if (T0 && T0.t !== 'gameOver' && now - simPaintAt < SIM_PAINT_MS) {
+        pendingCard = null;
+        aiSchedule();
+        return;
+      }
+      simPaintAt = now;
+    }
     if (!document.getElementById('game-shell')) {
       app.innerHTML = tokify(`<div id="game-shell">
         <header class="topbar" id="top"></header>
@@ -1596,7 +1607,7 @@
     }
     animOn = true;
     const focusP = ui.sel ? ui.sel.board : T && T.p !== undefined ? T.p : null;
-    if (focusP !== null && lastFocus !== null && focusP !== lastFocus && boardsStacked()) {
+    if (!state.sim && focusP !== null && lastFocus !== null && focusP !== lastFocus && boardsStacked()) {
       const el = document.querySelector(`[data-player="${focusP}"]`);
       if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
@@ -1604,7 +1615,7 @@
     if (T && T.t === 'gameOver' && !state.celebrated) {
       state.celebrated = true;
       save();
-      if (!online || firstReveal(online.id)) revealWinner();
+      if (!state.sim && (!online || firstReveal(online.id))) revealWinner();
       recordLocalGame();
     }
     aiSchedule();
@@ -1656,10 +1667,11 @@
       <div class="top-actions">
         <button class="btn sm ghost log-btn" data-act="fullLog" title="What happened" aria-label="What happened">🗒️<span class="lb-t"> What happened</span></button>
         ${state.aiCfg && !online ? `<button class="btn sm ghost" data-act="aiSettings" title="Computer settings">🤖 ${AI_LEVELS[state.aiCfg.level]} · ${AI_PACES[state.aiCfg.pace]}</button>` : ''}
-        <button class="btn sm ghost" data-act="rules">📜 Rules</button>
+        ${!online && !state.sim && isAdmin() ? '<button class="btn sm ghost" data-act="simOpen" title="Computer vs computer (admin)" aria-label="Computer vs computer (admin)">🧪</button>' : ''}
+        ${state.sim ? `<button class="btn sm ghost" data-act="simSpeed" title="Change simulation speed">${SIM_SPEEDS[state.sim.speed].icon} ${SIM_SPEEDS[state.sim.speed].name}</button>` : '<button class="btn sm ghost" data-act="rules">📜 Rules</button>'}
         ${online
     ? `<button class="btn sm ghost" data-act="onlineLeave">🏠 My games</button>${online.status === 'active' ? '<button class="btn sm ghost" data-act="onlineResign">🏳️ Resign</button>' : ''}`
-    : '<button class="btn sm ghost" data-act="newGame">🥚 New game</button>'}
+    : state.sim ? '<button class="btn sm ghost" data-act="simStop">⏹ Exit simulation</button>' : '<button class="btn sm ghost" data-act="newGame">🥚 New game</button>'}
       </div>`);
   }
 
@@ -1761,7 +1773,7 @@
   }
 
   function watchHtml(T) {
-    const who = online ? onlineOwner() : state.ai;
+    const who = online ? onlineOwner() : state.sim ? (T.p != null ? T.p : state.first) : state.ai;
     const P = state.players[who];
     const phase = T.k !== undefined ? PHASES[state.phaseOrder[T.k]] : null;
     const step = T.t === 'roundStart' ? 'Starting the round' : T.t === 'roll' ? '🎲 Rolling the die' : phase ? `${phase.icon} ${phase.name}${T.bonus ? ' · bonus turn' : ''}` : '';
@@ -1775,9 +1787,10 @@
     const doing = online ? `Waiting for ${esc(P.name)} to move` : `🤖 ${esc(ui.aiNote || 'Thinking')}`;
     const help = online
       ? `You can’t play ${esc(P.name)}’s turn. Their moves show up on the board as they make them, and you’ll get the controls back when it’s your turn.`
-      : 'You can’t play the computer’s turn. Watch its moves on the board — you’ll get the controls back when it’s your turn.';
+      : state.sim ? `🧪 Simulation · round ${state.round} of ${ROUNDS}. Both players are computers; nothing here is saved.`
+        : 'You can’t play the computer’s turn. Watch its moves on the board — you’ll get the controls back when it’s your turn.';
     return `<div class="watch pl-${P.color}"><img src="${IMG}${MASCOT[who]}.webp" alt=""><div>
-      <h3>🔒 ${esc(P.name)}’s turn</h3><p class="w-step">${step}</p>
+      <h3>${state.sim ? '🤖' : '🔒'} ${esc(P.name)}’s turn</h3><p class="w-step">${step}</p>
       <p class="w-doing">${doing}${dots}</p>
       <p class="w-help">${help}</p></div></div>`;
   }
@@ -2193,6 +2206,14 @@
     return st ? `<p class="ai-plan">🤖 The computer’s game plan: <b>${st.name}</b> — ${st.desc}.</p>` : '';
   }
 
+  function simPlanNote() {
+    const notes = state.sim.cfgs.map((c, p) => {
+      const st = c.level === 'hard' && HARD_STRATS[c.strat];
+      return st ? `${pn(p)}: <b>${st.name}</b> — ${st.desc}` : '';
+    }).filter(Boolean);
+    return notes.length ? `<p class="ai-plan">🤖 Game plans: ${notes.join('<br>')}</p>` : '';
+  }
+
   function gameOverHtml() {
     const s = [scorePlayer(0), scorePlayer(1)];
     const P = state.players;
@@ -2217,11 +2238,13 @@
         <tfoot><tr><td>Total</td><td>${s[0].total}</td><td>${s[1].total}</td></tr></tfoot>
       </table>
       <p class="muted">Dinos in inactive or extinct enclosures score nothing. Leftover coins: ${esc(P[0].name)} 🪙${P[0].coins}, ${esc(P[1].name)} 🪙${P[1].coins}.</p>
-      ${aiPlanNote()}
-      ${online
+      ${state.sim ? simPlanNote() : aiPlanNote()}
+      ${state.sim
+    ? '<div class="btn-row"><button class="btn big" data-act="simAgain">🔁 Run again</button><button class="btn big ghost" data-act="simStop">⏹ Exit simulation</button></div>'
+    : online
     ? '<div class="btn-row"><button class="btn big" data-act="olRematch">🦖 Rematch</button><button class="btn big ghost" data-act="onlineLeave">🏠 My games</button></div>'
     : '<button class="btn big" data-act="newGame">🥚 Play again</button>'}
-      <div class="btn-row"><button class="btn ghost" data-act="replayReveal">🎬 Replay the reveal</button><a class="btn ghost" href="/dino-history.html">🏆 Game history</a></div>`;
+      ${state.sim ? '' : '<div class="btn-row"><button class="btn ghost" data-act="replayReveal">🎬 Replay the reveal</button><a class="btn ghost" href="/dino-history.html">🏆 Game history</a></div>'}`;
   }
 
   // ---------------------------------------------------------------- selection validation
@@ -2362,7 +2385,7 @@
         </div>
         <div class="setup-foot">Everyone starts with 🪙5, an empty park, and the same 8 dinos. The first player switches every round. Your game saves in this browser.</div>
       </div>
-      <div class="setup-actions">${canResume ? '<button class="btn" data-act="resumeLocal">▶ Resume saved game</button>' : ''}<a class="btn ghost" href="/dino-history.html">🏆 Game history</a><button class="btn ghost" data-act="rules">📜 Read the rules</button></div>
+      <div class="setup-actions">${canResume ? '<button class="btn" data-act="resumeLocal">▶ Resume saved game</button>' : ''}<a class="btn ghost" href="/dino-history.html">🏆 Game history</a><button class="btn ghost" data-act="rules">📜 Read the rules</button>${isAdmin() ? '<button class="btn ghost" data-act="simOpen">🧪 Computer vs computer</button>' : ''}</div>
     </div>`);
     renderLobby();
   }
@@ -2504,6 +2527,14 @@
       newGame([n0, n1], +ds.first, setupVsAi ? 1 : null, setupLevel, setupPace);
       return;
     }
+    if (act === 'simOpen') { if (isAdmin()) openSimSetup(); return; }
+    if (act === 'simOpt') {
+      simSetup[ds.k] = ds.v;
+      el.parentElement.querySelectorAll('.seg-btn').forEach((b) => b.classList.toggle('on', b === el));
+      return;
+    }
+    if (act === 'simStart') { if (isAdmin()) startSim([simSetup.l0, simSetup.l1], simSetup.speed); return; }
+    if (act === 'simStop') { stopSim(); return; }
     if (act === 'setupOpt') {
       if (ds.k === 'level') setupLevel = ds.v;
       else setupPace = ds.v;
@@ -2537,6 +2568,14 @@
       };
       if (T && T.t !== 'gameOver') confirmModal('Start a new game?', 'This park and everything in it will be lost.', 'Yes, start over', reset);
       else reset();
+      return;
+    }
+    if (act === 'simAgain' && state.sim) { startSim(state.sim.levels, state.sim.speed); return; }
+    if (act === 'simSpeed' && state.sim) {
+      const keys = Object.keys(SIM_SPEEDS);
+      state.sim.speed = keys[(keys.indexOf(state.sim.speed) + 1) % keys.length];
+      simSetup.speed = state.sim.speed;
+      renderTop();
       return;
     }
     if (act === 'book') { openBook(+ds.p); return; }
@@ -2992,12 +3031,68 @@
   }
 
   // ---------------------------------------------------------------- computer player
-  const FREE_ACTS = new Set(['fullLog', 'viewCard', 'rules', 'book', 'closeModal', 'newGame', 'confirmYes', 'aiSettings', 'setAiOpt', 'onlineLeave', 'onlineResign', 'olRematch', 'replayReveal']);
+  const FREE_ACTS = new Set(['simOpen', 'simOpt', 'simStart', 'simSpeed', 'simStop', 'simAgain', 'fullLog', 'viewCard', 'rules', 'book', 'closeModal', 'newGame', 'confirmYes', 'aiSettings', 'setAiOpt', 'onlineLeave', 'onlineResign', 'olRematch', 'replayReveal']);
   const AI_LEVELS = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
   const AI_PACES = { fast: 'Fast', medium: 'Medium', slow: 'Slow' };
   const AI_LEVEL_HELP = { easy: 'Plays for fun and makes mistakes', medium: 'Plans one move at a time', hard: 'Plays to win: plans fences, cards and the whole game' };
   const AI_PACE_HELP = { fast: 'Quick turns', medium: 'Easy to follow', slow: 'Step by step' };
   const PACE_MULT = { fast: 0.35, medium: 0.7, slow: 2.1 };
+  // Admin computer-vs-computer simulations. Turbo skips the pauses and repaints a few times a second.
+  const SIM_SPEEDS = {
+    turbo: { name: 'Turbo', icon: '⚡', help: 'As fast as it can go', mult: 0 },
+    fast: { name: 'Fast', icon: '⏩', help: 'Quick but watchable', mult: 0.15 },
+    watch: { name: 'Watch', icon: '👀', help: 'Follow each move', mult: 0.5 },
+  };
+  const SIM_PAINT_MS = 120;
+  const ADMIN_EMAIL = 'calebahrens2011@gmail.com';
+  let simPaintAt = 0;
+  const simSetup = { l0: 'hard', l1: 'medium', speed: 'turbo' };
+
+  function isAdmin() {
+    try {
+      return (localStorage.getItem('ahrenslabs_email') || '').trim().toLowerCase() === ADMIN_EMAIL;
+    } catch {
+      return false;
+    }
+  }
+
+  function openSimSetup() {
+    const speeds = {};
+    const speedHelp = {};
+    Object.keys(SIM_SPEEDS).forEach((k) => { speeds[k] = `${SIM_SPEEDS[k].icon} ${SIM_SPEEDS[k].name}`; speedHelp[k] = SIM_SPEEDS[k].help; });
+    openModal(`<div class="modal-head"><h2>🧪 Computer vs computer</h2><button class="x" data-act="closeModal" aria-label="Close">✕</button></div>
+      <p class="muted">Admin only. Two computers play a full game while you watch both parks. Nothing is saved or added to game history.</p>
+      ${segGroup('🔴 Red computer', 'simOpt', 'l0', AI_LEVELS, AI_LEVEL_HELP, simSetup.l0)}
+      ${segGroup('🔵 Blue computer', 'simOpt', 'l1', AI_LEVELS, AI_LEVEL_HELP, simSetup.l1)}
+      ${segGroup('Speed', 'simOpt', 'speed', speeds, speedHelp, simSetup.speed)}
+      <button class="btn big" data-act="simStart">▶ Start simulation</button>`, 'small');
+  }
+
+  function startSim(levels, speed) {
+    closeModal();
+    closeReveal();
+    clearTimeout(aiTimer);
+    aiTimer = null;
+    aiPending = false;
+    buildGame([`Red · ${AI_LEVELS[levels[0]]}`, `Blue · ${AI_LEVELS[levels[1]]}`], rand(2), null);
+    state.sim = { levels: levels.slice(), speed, cfgs: levels.map((l) => aiProfile(l, 'fast')) };
+    lastFocus = null;
+    simPaintAt = 0;
+    commit();
+  }
+
+  function stopSim() {
+    clearTimeout(aiTimer);
+    aiTimer = null;
+    aiPending = false;
+    closeModal();
+    closeReveal();
+    state = null;
+    ui = freshUi();
+    resetFx();
+    lastFocus = null;
+    render();
+  }
   const LEVEL_TUNE = {
     easy: { depth: 1, noise: 1.4, style: 1.2, foresight: 0.7, blunder: 0.25 },
     medium: { depth: 1, noise: 0.8, style: 1, foresight: 0.85, blunder: 0 },
@@ -3076,6 +3171,10 @@
   }
 
   function aiCfg() {
+    if (state.sim) {
+      const T = cur();
+      return state.sim.cfgs[T && T.p != null ? T.p : state.first];
+    }
     if (!state.aiCfg) state.aiCfg = aiProfile('medium', 'medium');
     return state.aiCfg;
   }
@@ -3101,6 +3200,7 @@
 
   function isAiTask(T) {
     if (online) return false;
+    if (state && state.sim) return !!T && T.t !== 'gameOver' && T.t !== 'roundEnd';
     if (!state || state.ai == null || !T || T.t === 'gameOver') return false;
     if (T.p === state.ai) return true;
     return T.t === 'roll' && state.first === state.ai;
@@ -4241,6 +4341,7 @@
   }
 
   function aiDelay(ms) {
+    if (state.sim) return ms * SIM_SPEEDS[state.sim.speed].mult;
     return ms * PACE_MULT[aiCfg().pace];
   }
 
@@ -4313,6 +4414,10 @@
     const panel = document.getElementById('panel');
     lastClickRect = panel ? panel.getBoundingClientRect() : null;
     switch (T.t) {
+      case 'roundStart':
+        [0, 1].forEach((q) => { ui.picks[q] = new Array(state.players[q].bonusPending).fill('action'); });
+        handle('startRound', {});
+        return;
       case 'roll': aiShow('Rolling the die…', () => handle('roll', {})); return;
       case 'carno': aiShow('Rolling for Carnotaurus…', () => handle('carnoRoll', {})); return;
       case 'gainFood': {
@@ -4491,7 +4596,7 @@
 
   // Vs-computer and same-device games go into the account's game history once they end.
   async function recordLocalGame() {
-    if (online || !state || state.recorded || !sessionId()) return;
+    if (online || !state || state.sim || state.recorded || !sessionId()) return;
     const s = state;
     if (!s.gid) s.gid = newGid();
     const me = s.ai === 0 ? 1 : 0;
