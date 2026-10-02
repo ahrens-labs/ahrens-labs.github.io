@@ -108,20 +108,20 @@
   // ---------------------------------------------------------------- prototype rules (admin test setting)
   // Shared dino market, worker spaces, park scoring, 12 rounds, round events and free powers.
   const PROTO_ROUNDS = 12;
-  const PROTO_WORKERS = 4;
+  const PROTO_WORKERS = 3;
   const PROTO_HAND_MAX = 3;
   const PROTO_MARKET = 5;
   const PROTO_COPIES = { compy: 4, microraptor: 4, trex: 2, mosasaurus: 2 };
   const PROTO_VARIETY = [0, 1, 3, 6, 10, 15];
-  const PROTO_DIAMOND_COINS = 4;
+  const PROTO_GEM_COST = { diamond: 5, diamond2: 6 };
   const PROTO_BUY = ['buy1', 'buy2', 'buy3'];
   const PROTO_SPACES = {
     buy1: { name: 'Buy & play', icon: '🦖', desc: 'Buy a market card or one you reserved, and place it' },
     buy2: { name: 'Buy & play', icon: '🦕', desc: 'Buy a market card or one you reserved, and place it' },
     buy3: { name: 'Buy & play', icon: '🐊', desc: 'Buy a market card or one you reserved, and place it' },
     coins: { name: 'Coins', icon: '🪙', desc: 'Take 3 coins' },
-    mine: { name: 'Diamond mine', icon: '⛏️', desc: 'Take a 💎 diamond' },
-    diamond: { name: 'Gem trader', icon: '💎', desc: `Buy a diamond for 🪙${PROTO_DIAMOND_COINS}` },
+    diamond: { name: 'Gem trader', icon: '💎', desc: `Buy a diamond for 🪙${PROTO_GEM_COST.diamond}` },
+    diamond2: { name: 'Gem dealer', icon: '💍', desc: `Buy a diamond for 🪙${PROTO_GEM_COST.diamond2}` },
     fences: { name: 'Fences', icon: '🪵', desc: 'Draw 3 fences' },
     builder: { name: 'Builder', icon: '🌾', desc: 'Build a feeder or a watering hole' },
     forage: { name: 'Forage', icon: '🍖', desc: 'Take 6 food' },
@@ -143,7 +143,7 @@
     calm: { name: 'Calm', icon: '🌤️', desc: 'Nothing happens this round.' },
   };
   const PROTO_SP = {
-    trex: { ability: 'Take any market card worth 5 points or fewer and place it for free.' },
+    trex: { ability: 'Choose a dino. Your opponent can’t place any more of that dino.' },
     gigantoraptor: { ability: 'Place one extra worker next round.' },
     pachy: { ability: '+1 point for each different species in its enclosure (counting Pachy).' },
     parasaurolophus: { ability: 'Every round: +1 coin for each Parasaurolophus in this enclosure.' },
@@ -485,15 +485,17 @@
     return legalEdgesB(state.players[p].board);
   }
 
+  // A fence between two squares of the same dino, feeder or watering hole would cut it in half.
+  function splitsItemB(b, e) {
+    const [x, y] = edgeCells(e);
+    return b.cells[x] > 0 && b.cells[x] === b.cells[y];
+  }
+
   function legalEdgesB(b) {
     const out = [];
-    const splitsItem = (e) => {
-      const [x, y] = edgeCells(e);
-      return b.cells[x] > 0 && b.cells[x] === b.cells[y];
-    };
     for (let i = 0; i < 90; i++) {
-      if (!b.h[i] && !splitsItem('h' + i)) out.push('h' + i);
-      if (!b.v[i] && !splitsItem('v' + i)) out.push('v' + i);
+      if (!b.h[i] && !splitsItemB(b, 'h' + i)) out.push('h' + i);
+      if (!b.v[i] && !splitsItemB(b, 'v' + i)) out.push('v' + i);
     }
     return out;
   }
@@ -505,7 +507,8 @@
     return bad ? 'Those fences would leave different species together without a watering hole.' : '';
   }
 
-  function applyEdges(b, edges) {
+  function applyEdges(b, list) {
+    const edges = list.filter((e) => !splitsItemB(b, e));
     if (!edges.length) return;
     const before = analyze(b);
     edges.forEach((e) => {
@@ -592,6 +595,9 @@
     if (!contiguous(cells)) return { ok: false, msg: 'Squares must connect side to side (diagonals don’t count).' };
     const ci = an.compOf[cells[0]];
     if (cells.some((i) => an.compOf[i] !== ci)) return { ok: false, msg: 'All squares must be inside one enclosure.' };
+    const set = new Set(cells);
+    const fenced = cells.some((i) => (i % N < N - 1 && set.has(i + 1) && b.v[Math.floor(i / N) * 9 + (i % N)]) || (set.has(i + N) && b.h[i]));
+    if (fenced) return { ok: false, msg: 'A piece can’t sit across a fence.' };
     const cp = an.comps[ci];
     if (!cp.valid) {
       return {
@@ -752,9 +758,11 @@
     });
   }
 
+  // Prototype games have no dino books, so T. Rex can block any dino the opponent could still get.
   function trexOptions(p) {
     const O = state.players[other(p)];
-    return O.book.filter((sp) => !O.blocked.includes(sp));
+    const pool = state.proto ? [...new Set(O.hand.concat(state.faceUp, state.deck).filter(Boolean))] : O.book;
+    return pool.filter((sp) => !O.blocked.includes(sp));
   }
 
   function canShop(P) {
@@ -924,10 +932,23 @@
       const raw = localStorage.getItem(SAVE_KEY);
       if (!raw) return null;
       const s = JSON.parse(raw);
-      return s && s.v === 1 && Array.isArray(s.queue) ? s : null;
+      return s && s.v === 1 && Array.isArray(s.queue) ? repairFences(s) : null;
     } catch {
       return null;
     }
+  }
+
+  // Older versions could draw a fence through a placed piece; lift those fences so every piece is whole.
+  function repairFences(s) {
+    (s.players || []).forEach((P) => {
+      const b = P.board;
+      if (!b || !b.h || !b.v) return;
+      for (let i = 0; i < 90; i++) {
+        if (b.h[i] && splitsItemB(b, 'h' + i)) b.h[i] = 0;
+        if (b.v[i] && splitsItemB(b, 'v' + i)) b.v[i] = 0;
+      }
+    });
+    return s;
   }
 
   // ---------------------------------------------------------------- task engine
@@ -1111,7 +1132,6 @@
   function eventTasks(p, sp) {
     const P = state.players[p];
     if (state.proto) {
-      if (sp === 'trex') return [{ t: 'freePlay', p, limit: 5, marketOnly: true, title: 'T. Rex: place a market card worth 5 or fewer for free' }];
       if (sp === 'gigantoraptor') {
         if (state.round < rounds()) {
           P.bonusNext++;
@@ -1272,7 +1292,8 @@
     if (!free || !freeTask.marketOnly) P.hand.forEach((sp, i) => src.push({ sp, src: 'h', i }));
     return src.map((o) => {
       let why = '';
-      if (free ? spec(o.sp).pts > limit : !canAfford(P, protoCost(o.sp))) why = free ? `Worth more than ${limit} points` : 'Can’t afford yet';
+      if (P.blocked.includes(o.sp)) why = 'Blocked by T. Rex';
+      else if (free ? spec(o.sp).pts > limit : !canAfford(P, protoCost(o.sp))) why = free ? `Worth more than ${limit} points` : 'Can’t afford yet';
       else if (!roomFor(p, o.sp, an)) why = 'No room in your park';
       return Object.assign(o, { ok: !why, why });
     });
@@ -1315,7 +1336,8 @@
         return { ok: false, why: opts.length && opts.every((o) => o.why === opts[0].why) ? opts[0].why : 'Nothing you can play' };
       }
       case 'diamond':
-        return P.coins >= PROTO_DIAMOND_COINS ? { ok: true } : { ok: false, why: 'Not enough coins' };
+      case 'diamond2':
+        return P.coins >= PROTO_GEM_COST[k] ? { ok: true } : { ok: false, why: 'Not enough coins' };
       case 'fences':
         return legalEdges(p).length ? { ok: true } : { ok: false, why: 'No room for fences' };
       case 'builder':
@@ -1347,14 +1369,10 @@
         completeAction();
         break;
       case 'diamond':
-        P.coins -= PROTO_DIAMOND_COINS;
+      case 'diamond2':
+        P.coins -= PROTO_GEM_COST[k];
         P.diamonds++;
-        logMsg(`${pn(p)} bought a 💎 diamond.`);
-        completeAction();
-        break;
-      case 'mine':
-        P.diamonds++;
-        logMsg(`${pn(p)} mined a 💎 diamond.`);
+        logMsg(`${pn(p)} bought a 💎 diamond for 🪙${PROTO_GEM_COST[k]}.`);
         completeAction();
         break;
       case 'forage':
@@ -2804,10 +2822,16 @@
 
   function trexHtml(T) {
     const O = state.players[other(T.p)];
+    const where = (sp) => {
+      if (!state.proto) return O.cards.includes(sp) ? ' · drawn card' : '';
+      if (O.hand.includes(sp)) return ' · in their hand';
+      return state.faceUp.includes(sp) ? ' · in the market' : '';
+    };
     const opts = trexOptions(T.p)
-      .map((sp) => `<button class="opt" data-act="trex" data-sp="${sp}"><span class="o-i">${dz(sp, 'big')}</span><span class="o-t"><b>${esc(SPECIES[sp].name)}</b><small>${costText(SPECIES[sp].cost)} · ⬛${SPECIES[sp].space} · ${SPECIES[sp].pts} pts${O.cards.includes(sp) ? ' · drawn card' : ''}</small></span></button>`)
+      .map((sp) => `<button class="opt" data-act="trex" data-sp="${sp}"><span class="o-i">${dz(sp, 'big')}</span><span class="o-t"><b>${esc(SPECIES[sp].name)}</b><small>${costText(cardCost(sp))} · ⬛${SPECIES[sp].space} · ${spec(sp).pts} pts${where(sp)}</small></span></button>`)
       .join('');
-    return `<h3>🦖 T. Rex roars!</h3><p>Choose a dino from <b>${esc(O.name)}’s</b> book or cards. They can’t place any more of it.</p><div class="opt-list">${opts}</div>`;
+    const from = state.proto ? 'Choose a dino' : `Choose a dino from <b>${esc(O.name)}’s</b> book or cards`;
+    return `<h3>🦖 T. Rex roars!</h3><p>${from}. ${state.proto ? `<b>${esc(O.name)}</b> can’t` : 'They can’t'} place any more of it.</p><div class="opt-list">${opts}</div>`;
   }
 
   function carnoHtml() {
@@ -3064,7 +3088,7 @@
         <li><b>Free dino powers.</b> Power dinos trigger on their own every round instead of costing an action.</li>
         <li><b>Round events</b> shake up each round.</li>
         <li><b>Park scoring.</b> Dino points are ⅔ of the card value. Variety pays 1/3/6/10/15 for 1–5 species, full enclosures +3, mixed enclosures +2, diamonds 1 point each, and leftover coins 1 point per 10 (max 3).</li>
-        <li>Feeders cost 💎1 + 🪙1 per square. The Diamond mine gives a free diamond and the Gem trader sells one for 🪙${PROTO_DIAMOND_COINS}.</li>
+        <li>Feeders cost 💎1 + 🪙1 per square. Diamonds cost 🪙${PROTO_GEM_COST.diamond} at the Gem trader or 🪙${PROTO_GEM_COST.diamond2} at the Gem dealer.</li>
       </ul>
       <h3>Worker spaces</h3><ul>${spaces}</ul>
       <h3>Changed dinos</h3><ul>${powers}</ul>
@@ -3370,7 +3394,8 @@
         break;
       }
       case 'confirmGain': {
-        const edges = ui.sel ? [...ui.sel.edges] : [];
+        const legal = new Set(legalEdges(p));
+        const edges = ui.sel ? [...ui.sel.edges].filter((e) => legal.has(e)) : [];
         const problem = fenceProblem(P.board, edges);
         if (problem) { toast(problem, 'bad'); break; }
         P.meat += ui.meat;
@@ -4116,12 +4141,17 @@
     return (pool.reduce((s, sp) => s + cardValue(sp, tl), 0) / pool.length) * 0.85;
   }
 
-  function growFrom(start, free, size) {
+  function fenceBetween(b, i, j) {
+    const lo = Math.min(i, j);
+    return Math.abs(i - j) === N ? !!b.h[lo] : !!b.v[Math.floor(lo / N) * 9 + (lo % N)];
+  }
+
+  function growFrom(start, free, size, b) {
     const out = [start];
     const seen = new Set([start]);
     for (let q = 0; q < out.length && out.length < size; q++) {
       for (const j of orthNbrs(out[q])) {
-        if (free.has(j) && !seen.has(j)) {
+        if (free.has(j) && !seen.has(j) && !fenceBetween(b, out[q], j)) {
           seen.add(j);
           out.push(j);
           if (out.length >= size) break;
@@ -4144,7 +4174,7 @@
       }
       const free = new Set(cp.cells.filter((i) => b.cells[i] === 0));
       free.forEach((start) => {
-        const cells = growFrom(start, free, size);
+        const cells = growFrom(start, free, size, b);
         if (!cells) return;
         const rs = cells.map((i) => Math.floor(i / N));
         const cs = cells.map((i) => i % N);
@@ -4163,7 +4193,7 @@
     let best = null;
     const tried = new Set();
     free.forEach((start) => {
-      const cells = growFrom(start, free, 6);
+      const cells = growFrom(start, free, 6, b);
       if (!cells) return;
       const key = cells.slice().sort((x, y) => x - y).join();
       if (tried.has(key)) return;
@@ -4785,7 +4815,8 @@
         const more = aiTargetEdges(withEdges(b, out), t, max - out.length);
         if (more.length && !fenceProblem(b, out.concat(more))) out.push(...more);
       }
-      return out;
+      const legal = new Set(legalEdgesB(b));
+      return out.filter((e) => legal.has(e));
     }
     return aiPlanEdgesB(b, max);
   }
@@ -5302,8 +5333,8 @@
     const O = other(p);
     state.faceUp.forEach((sp, i) => {
       if (!sp) return;
-      const denial = aiCfg().level === 'hard' && canAfford(state.players[O], protoCost(sp)) ? protoDinoValue(O, sp) * 0.3 : 0;
-      const v = protoDinoValue(p, sp) * 0.5 + denial;
+      const denial = aiCfg().level === 'hard' && canAfford(state.players[O], protoCost(sp)) && !state.players[O].blocked.includes(sp) ? protoDinoValue(O, sp) * 0.3 : 0;
+      const v = (state.players[p].blocked.includes(sp) ? 0 : protoDinoValue(p, sp) * 0.5) + denial;
       if (!best || v > best.v) best = { from: i, v };
     });
     return best;
@@ -5324,8 +5355,7 @@
         if (buy) plan = { v: buy.v + 1, buy };
       } else if (k === 'coins') plan = { v: 3 * cv + 0.4 };
       else if (k === 'first') plan = { v: cv + 0.3 + (left > 1 ? 0.3 : 0) };
-      else if (k === 'mine') plan = { v: 1.5 + (wantGem ? 2 : 0) };
-      else if (k === 'diamond') plan = { v: 1 + (wantGem ? 2 : 0) - PROTO_DIAMOND_COINS * cv * 0.7 };
+      else if (PROTO_GEM_COST[k]) plan = { v: 1 + (wantGem ? 2 : 0) - PROTO_GEM_COST[k] * cv * 0.7 };
       else if (k === 'forage') {
         const n = protoSpaceAmount(k);
         // Unfed enclosures score nothing at the end, so the last Feeding matters most.
@@ -5408,6 +5438,15 @@
         const buy = protoBestBuy(p, T);
         if (!buy) { handle('skip', {}); return true; }
         protoAiPlaceBuy(buy, true);
+        return true;
+      }
+      case 'trex': {
+        // Block what the opponent is most likely to place: cards they hold or can afford now.
+        const o = other(p);
+        const O = state.players[o];
+        const score = (sp) => protoDinoValue(o, sp) + (O.hand.includes(sp) ? 4 : 0) + (state.faceUp.includes(sp) && canAfford(O, protoCost(sp)) ? 3 : 0) + protoNoise();
+        const sp = trexOptions(p).map((x) => ({ x, s: score(x) })).sort((a, b) => b.s - a.s)[0].x;
+        aiShow(`T. Rex: blocking your ${spName(sp)}…`, () => handle('trex', { sp }), AI_FOLLOW_MS);
         return true;
       }
       case 'actions': {
@@ -5822,7 +5861,7 @@
     if (!online || v.id !== online.id) return;
     applyMeta(v);
     if (v.state) {
-      state = v.state;
+      state = repairFences(v.state);
       ui = freshUi();
       prepareUi();
     }
@@ -5836,7 +5875,7 @@
     }
     stopOnline();
     online = { id: view.id, me: view.me, timedOut: false };
-    state = view.state;
+    state = repairFences(view.state);
     resetFx();
     prevRes = null;
     lastTurnKey = null;
