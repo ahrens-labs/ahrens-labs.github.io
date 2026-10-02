@@ -655,6 +655,24 @@
     return c.meat <= P.meat && c.plant <= P.plants && c.total <= P.meat + P.plants;
   }
 
+  // How much of a "meat or plant" food bill can come from meat: [fewest, most].
+  function flexMeatRange(P, c) {
+    return [Math.max(0, c.flex - (P.plants - c.plant)), Math.max(0, Math.min(c.flex, P.meat - c.meat))];
+  }
+
+  // Meat spent on the flexible part of a food bill: the player's choice if given, else from the bigger pile.
+  function flexMeatPick(P, c, want) {
+    const [lo, hi] = flexMeatRange(P, c);
+    if (want != null) return clamp(want, lo, hi);
+    let m = P.meat - c.meat;
+    let pl = P.plants - c.plant;
+    let fm = 0;
+    for (let i = 0; i < c.flex; i++) {
+      if (m >= pl && m > 0) { m--; fm++; } else pl--;
+    }
+    return clamp(fm, lo, hi);
+  }
+
   function producible(p) {
     const an = analyze(state.players[p].board);
     return an.comps.filter((cp) => cp.active && cp.living.length);
@@ -2304,7 +2322,8 @@
         lock = o ? o.why : 'Market cards only';
       }
       const deal = src === 'm' && isFresh(`bm${i}:${sp}:${state.deck.length}`, 900) ? ' deal' : '';
-      return cardHtml(sp, { cls: cls + deal, attrs, lock });
+      const where = src === 'h' ? ' held' : ' shop';
+      return cardHtml(sp, { cls: cls + deal + where, attrs, lock, tag: src === 'h' ? '✋ Reserved' : '' });
     };
     const hint = picking ? 'Tap a card or the deck to reserve it'
       : buying ? 'Tap a dino to buy it, then place it in your park'
@@ -2312,10 +2331,11 @@
     const viewer = buying || picking ? T.p : state.ai != null ? other(state.ai) : T.p != null ? T.p : state.first;
     const P = state.players[viewer];
     const hand = P.hand.length
-      ? `<div class="bm-sub">✋ ${esc(P.name)}’s reserved cards</div><div class="bm-row">${P.hand.map((sp, i) => card(sp, 'h', i)).join('')}</div>`
+      ? `<div class="bm-hand pl-${P.color}"><div class="bm-sub">✋ ${esc(P.name)}’s hand <small>reserved cards only ${esc(P.name)} can buy · ${P.hand.length}/${PROTO_HAND_MAX}</small></div><div class="bm-row">${P.hand.map((sp, i) => card(sp, 'h', i)).join('')}</div></div>`
       : '';
     const stack = Math.min(state.deck.length, 4);
     setHtml(el, `<div class="bm-head"><h2>🃏 Dino market</h2><span class="bm-hint${picking || buying ? ' live' : ''}">${hint}</span></div>
+      <div class="bm-sub bm-shop-sub">🏪 Market <small>face-up cards anyone can buy</small></div>
       <div class="bm-row">
         <div class="deck-back bm-deck ${deckOk ? 'pick' : ''} ${state.deck.length ? '' : 'gone'}" ${deckOk ? 'data-act="take" data-from="deck"' : ''} title="Top of the deck (face down)" style="--stack:${stack}"><b>${state.deck.length}</b><small>deck</small></div>
         ${state.faceUp.map((sp, i) => card(sp, 'm', i)).join('')}
@@ -2457,6 +2477,21 @@
     const list = feedables(an);
     const selCosts = list.filter((cp) => ui.feed.has(cp.key)).map(enclosureCost);
     const tot = sumCosts(selCosts);
+    let flexHtml = '';
+    let paying = '<span class="muted">nothing</span>';
+    if (tot.total && canPayFood(P, tot)) {
+      const fm = flexMeatPick(P, tot, ui.flexMeat);
+      const [lo, hi] = flexMeatRange(P, tot);
+      const pm = tot.meat + fm;
+      const pp = tot.plant + tot.flex - fm;
+      paying = [pm ? `<span class="fc meat">🍖${pm}</span>` : '', pp ? `<span class="fc plant">🌿${pp}</span>` : ''].join('');
+      if (tot.flex && hi > lo) {
+        const who = [...new Set(list.filter((cp) => ui.feed.has(cp.key)).flatMap((cp) => cp.living.filter((d) => SPECIES[d.species].food.t === 'flex').map((d) => spName(d.species))))].join(', ');
+        flexHtml = `<div class="flex-pick"><p><b>${who}</b> can eat meat or plants (${tot.flex} food). Choose what to pay with:</p>
+          ${stepper('flex', '🍖 Meat', fm, fm > lo, fm < hi)}
+          <div class="stepper"><span class="st-l">🌿 Plants</span><b>${tot.flex - fm}</b></div></div>`;
+      }
+    }
     const rows = list
       .map((cp) => {
         const c = enclosureCost(cp);
@@ -2492,7 +2527,8 @@
       <p>Tap an enclosure to feed it. Unfed dinos go inactive.</p>
       <div class="pay-line">You have <span class="fc meat">🍖${P.meat}</span><span class="fc plant">🌿${P.plants}</span></div>
       ${rows}
-      <div class="pay-line">Paying: ${tot.total ? costChips(tot) : '<span class="muted">nothing</span>'}</div>
+      ${flexHtml}
+      <div class="pay-line">Paying: ${paying}</div>
       ${warns.length ? `<div class="warn-box">${warns.join('')}</div>` : ''}
       <button class="btn big" data-act="confirmFeed">Feed &amp; continue</button>`;
   }
@@ -3101,7 +3137,7 @@
     if (state.proto) {
       openModal(`<div class="modal-head"><h2>✋ ${esc(P.name)}’s reserved cards</h2><button class="x" data-act="closeModal" aria-label="Close">✕</button></div>
         <p class="muted">Reserved with Scout (or Spinosaurus / Dilophosaurus). Buy them with a Buy &amp; play worker. Hand limit ${PROTO_HAND_MAX}.</p>
-        <div class="card-grid">${P.hand.map((sp) => cardHtml(sp, { tag: 'reserved' })).join('') || '<p class="grid-note">No reserved cards.</p>'}</div>`);
+        <div class="card-grid hand-grid pl-${P.color}">${P.hand.map((sp) => cardHtml(sp, { cls: 'held', tag: '✋ Reserved' })).join('') || '<p class="grid-note">No reserved cards.</p>'}</div>`);
       return;
     }
     const cards = P.book
@@ -3307,6 +3343,9 @@
         } else if (T.t === 'steal') {
           const [lo, hi] = stealRange(T);
           ui.meat = clamp(ui.meat + d, lo, hi);
+        } else if (T.t === 'feed') {
+          const tot = sumCosts(feedables(analyze(P.board)).filter((cp) => ui.feed.has(cp.key)).map(enclosureCost));
+          ui.flexMeat = flexMeatPick(P, tot, flexMeatPick(P, tot, ui.flexMeat) + d);
         }
         ui.keepScroll = true;
         renderPanel();
@@ -3363,7 +3402,7 @@
         break;
       }
       case 'confirmFeed':
-        doFeed(p, ui.feed);
+        doFeed(p, ui.feed, ui.flexMeat);
         resolveCurrent();
         break;
       case 'produce': {
@@ -3557,7 +3596,7 @@
     }
   }
 
-  function doFeed(p, keys) {
+  function doFeed(p, keys, flexMeat) {
     const P = state.players[p];
     const b = P.board;
     const an = analyze(b);
@@ -3566,14 +3605,13 @@
     const unfed = list.filter((cp) => !keys.has(cp.key));
     const tot = sumCosts(fed.map(enclosureCost));
     if (!canPayFood(P, tot)) return;
-    P.meat -= tot.meat;
-    P.plants -= tot.plant;
-    for (let i = 0; i < tot.flex; i++) {
-      if (P.meat >= P.plants && P.meat > 0) P.meat--;
-      else P.plants--;
-    }
+    const fm = flexMeatPick(P, tot, flexMeat);
+    P.meat -= tot.meat + fm;
+    P.plants -= tot.plant + tot.flex - fm;
     const msgs = [];
-    if (fed.length) msgs.push(`fed ${fed.map((cp) => cp.name).join(', ')}${tot.total ? ` (paid ${[tot.meat ? '🍖' + tot.meat : '', tot.plant ? '🌿' + tot.plant : '', tot.flex ? '🍖/🌿' + tot.flex : ''].filter(Boolean).join(' ')})` : ''}`);
+    const paidM = tot.meat + fm;
+    const paidP = tot.plant + tot.flex - fm;
+    if (fed.length) msgs.push(`fed ${fed.map((cp) => cp.name).join(', ')}${tot.total ? ` (paid ${[paidM ? '🍖' + paidM : '', paidP ? '🌿' + paidP : ''].filter(Boolean).join(' ')})` : ''}`);
     fed.forEach((cp) => {
       if (b.inactive[cp.key]) {
         delete b.inactive[cp.key];

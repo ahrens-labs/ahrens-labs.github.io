@@ -415,6 +415,8 @@ button { font-family: inherit; }
 .warn-box { background: #fff1ee; border: 2px solid #ffc4b4; color: #8f2d12; border-radius: 12px; padding: 0.55rem 0.7rem; font-size: 0.9rem; margin: 0.5rem 0; }
 .warn-box div + div { margin-top: 0.2rem; }
 .pay-line { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; font-weight: 600; margin: 0.5rem 0; }
+.flex-pick { margin: 0.6rem 0; padding: 0.5rem 0.6rem; border-radius: 12px; background: #fde9f1; border: 2px dashed #ec407a; }
+.flex-pick p { margin: 0 0 0.2rem; font-size: 0.88rem; }
 
 .act-count { font-family: "Lilita One", sans-serif; font-size: 1.25rem; margin-bottom: 0.5rem; }
 .act-count .dots { display: inline-flex; gap: 5px; margin-left: 0.4rem; vertical-align: middle; }
@@ -1215,7 +1217,19 @@ a.btn { display: inline-block; text-align: center; text-decoration: none; }
 .big-market .dcard.deal { animation: dealCard 0.5s var(--pop) both; }
 .big-market .dcard.view { cursor: pointer; }
 .big-market .dcard.view:not(.nope):hover { transform: translateY(-3px); }
-.big-market .dc-art { aspect-ratio: 16 / 10; }
+.big-market .dc-art { aspect-ratio: 1 / 1; max-width: none; }
+.big-market .dcard.pick:hover .dc-art img { transform: none; }
+.bm-sub small { margin-left: 0.4rem; font-weight: 400; font-size: 0.78rem; color: var(--muted); }
+.bm-shop-sub { margin: 0 0 0.1rem; padding-top: 0; border-top: 0; }
+.bm-hand { --hc: var(--red); margin-top: 1rem; padding: 0 12px 12px; border-radius: 14px; border: 3px solid var(--hc); background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--hc) 14%, #fff8e6) 0 14px, color-mix(in srgb, var(--hc) 8%, #fff8e6) 14px 28px); }
+.bm-hand.pl-blue { --hc: var(--blue); }
+.bm-hand .bm-sub { margin: 0; padding-top: 0.55rem; border-top: 0; color: color-mix(in srgb, var(--hc) 70%, #3d2a12); }
+.hand-grid { --hc: var(--red); padding: 12px; border-radius: 14px; background: color-mix(in srgb, var(--hc) 10%, #fff8e6); }
+.hand-grid.pl-blue { --hc: var(--blue); }
+.hand-grid .dcard.held .dc-tag { background: var(--hc); }
+.hand-grid .dcard.held { box-shadow: 0 0 0 3px var(--hc), 0 6px 14px rgba(0, 0, 0, 0.18); }
+.big-market .dcard.held { background: linear-gradient(180deg, #fff, color-mix(in srgb, var(--hc, #e53935) 10%, #fffaf0)); box-shadow: 0 0 0 3px var(--hc, #e53935), 0 6px 14px rgba(0, 0, 0, 0.18); }
+.big-market .dcard.held .dc-tag { background: var(--hc, #e53935); font-size: 0.72rem; }
 .big-market .dc-ab { font-size: 0.76rem; }
 .bm-deck { min-height: 150px; align-self: stretch; }
 .bm-deck b { font-size: 1.8rem; }
