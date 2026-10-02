@@ -4253,13 +4253,16 @@
       const now = cur();
       aiThinkAt = performance.now();
       if (isAiTask(now)) aiStep(now);
-    }, aiDelay(T.t === 'roll' || T.t === 'gainFood' ? 1100 : 850));
+    }, aiDelay(T.t === 'roll' || T.t === 'gainFood' ? 600 : 300));
   }
 
   // Time spent deciding counts toward the pause, so harder levels don't take longer turns.
   let aiThinkAt = 0;
 
-  function aiShow(note, then) {
+  // Follow-up choices inside an action (a dino's event, picking food) get a shorter pause.
+  const AI_FOLLOW_MS = 550;
+
+  function aiShow(note, then, ms = 900) {
     const token = state;
     const spent = aiThinkAt ? performance.now() - aiThinkAt : 0;
     aiThinkAt = 0;
@@ -4270,7 +4273,7 @@
       aiPending = false;
       if (state !== token) return;
       then();
-    }, Math.max(aiDelay(300), aiDelay(900) - spent));
+    }, Math.max(aiDelay(250), aiDelay(ms) - spent));
   }
 
   function aiPlace(sp, cells, free) {
@@ -4318,36 +4321,36 @@
       case 'foodChoice': {
         const P = state.players[p];
         ui.meat = aiMeatPick(p, T.amount, 0, T.amount);
-        aiShow('Choosing food…', () => handle('confirmFood', {}));
+        aiShow('Choosing food…', () => handle('confirmFood', {}), AI_FOLLOW_MS);
         return;
       }
       case 'steal': {
         const P = state.players[p];
         const [lo, hi] = stealRange(T);
         ui.meat = aiMeatPick(p, T.amount, lo, hi);
-        aiShow('Stealing food…', () => handle('confirmSteal', {}));
+        aiShow('Stealing food…', () => handle('confirmSteal', {}), AI_FOLLOW_MS);
         return;
       }
       case 'drawFences':
         aiPrepTargets(aiModel(p, 0), aiTimeline(T.k));
         ui.sel.edges = new Set(aiFenceEdges(state.players[p].board, T.count));
         document.getElementById('boards')._html = null;
-        aiShow('Building fences…', () => handle('confirmFences', {}));
+        aiShow('Building fences…', () => handle('confirmFences', {}), AI_FOLLOW_MS);
         return;
       case 'fillOpp':
         ui.sel.cells = new Set(aiRubbleCells(other(p), ui.sel.need));
         document.getElementById('boards')._html = null;
-        aiShow('Filling in your squares…', () => handle('place', {}));
+        aiShow('Filling in your squares…', () => handle('place', {}), AI_FOLLOW_MS);
         return;
       case 'drawCard': {
         const from = aiDrawPick(p, T.source === 'deck');
-        aiShow(from === 'deck' ? 'Drawing from the deck…' : `Taking ${spName(state.faceUp[from])}…`, () => handle('take', { from: String(from) }));
+        aiShow(from === 'deck' ? 'Drawing from the deck…' : `Taking ${spName(state.faceUp[from])}…`, () => handle('take', { from: String(from) }), AI_FOLLOW_MS);
         return;
       }
       case 'spino': {
         const o = aiSpinoPick(aiModel(p, 0), aiTimeline(T.k));
         const label = { dia: 'a diamond', coins: '5 coins', food: '15 food', fill: 'to fill your squares' }[o];
-        aiShow(`Spinosaurus: choosing ${label}…`, () => handle('spino', { o }));
+        aiShow(`Spinosaurus: choosing ${label}…`, () => handle('spino', { o }), AI_FOLLOW_MS);
         return;
       }
       case 'trex': {
@@ -4355,7 +4358,7 @@
         const onBoard = (sp) => Object.values(O.board.items).filter((it) => it.species === sp && !it.dead).length;
         const score = (sp) => (tune().proj ? oppSpeciesLoss(p, sp) : onBoard(sp) * 3 + SPECIES[sp].pts + (canAfford(O, SPECIES[sp].cost) ? 4 : 0)) + noise(tune().noise);
         const sp = trexOptions(p).map((x) => ({ x, s: score(x) })).sort((a, b) => b.s - a.s)[0].x;
-        aiShow(`T. Rex: blocking your ${spName(sp)}…`, () => handle('trex', { sp }));
+        aiShow(`T. Rex: blocking your ${spName(sp)}…`, () => handle('trex', { sp }), AI_FOLLOW_MS);
         return;
       }
       case 'freePlay': {
