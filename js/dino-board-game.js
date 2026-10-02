@@ -28,7 +28,7 @@
       ability: 'Put a plant from the supply on this page. At game end, 3 points for every 2 plants here.',
     },
     spinosaurus: {
-      name: 'Spinosaurus', type: 'event', cost: { d: 2, c: 5 }, space: 5, food: { t: 'meat', n: 2 }, prod: 4, pts: 8,
+      name: 'Spinosaurus', type: 'event', cost: { d: 2, c: 5 }, space: 5, food: { t: 'meat', n: 2 }, prod: 3, pts: 8,
       color: '#e64a19', emoji: '🦖', code: 'SPI',
       ability: 'Gain 1 diamond, 5 coins, 15 food, or fill in 10 squares in your opponent’s park. Then draw the top card of the deck.',
     },
@@ -48,7 +48,7 @@
       ability: 'Fill in 5 of your opponent’s squares.',
     },
     trex: {
-      name: 'Tyrannosaurus Rex', short: 'T. Rex', type: 'event', cost: { d: 2, c: 1 }, space: 10, food: { t: 'meat', n: 3 }, prod: 4, pts: 10,
+      name: 'Tyrannosaurus Rex', short: 'T. Rex', type: 'event', cost: { d: 2, c: 1 }, space: 10, food: { t: 'meat', n: 3 }, prod: 3, pts: 10,
       color: '#c62828', emoji: '🦖', code: 'REX',
       ability: 'Choose a dino from your opponent’s book or cards. They can’t place any more of that dino.',
     },
@@ -100,7 +100,7 @@
   };
 
   // Bump with RULES_VERSION in workers/src/dino.js when costs or rules change, so open tabs on old rules must reload.
-  const RULES_VERSION = 2;
+  const RULES_VERSION = 3;
 
   const BOOK = ['compy', 'triceratops', 'spinosaurus', 'stegosaurus', 'velociraptor', 'brachiosaurus', 'trex', 'pachy'];
   const DECK = ['allosaurus', 'mosasaurus', 'carnotaurus', 'microraptor', 'ankylosaurus', 'dilophosaurus', 'parasaurolophus', 'gigantoraptor'];
