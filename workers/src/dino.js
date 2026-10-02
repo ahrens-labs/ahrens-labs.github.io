@@ -17,6 +17,8 @@ const HISTORY_MAX = 500;
 const HISTORY_PAGE_MAX = 50;
 const MAX_BOARD_BYTES = 64 * 1024;
 const LOCAL_ID_RE = /^g[0-9a-z]{6,30}$/;
+// Bump with RULES_VERSION in js/dino-board-game.js so tabs still running old rules can't move in online games.
+const RULES_VERSION = 2;
 const LEVELS = new Set(['easy', 'medium', 'hard']);
 const MODES = new Set(['quick', 'long']);
 
@@ -348,7 +350,7 @@ export async function handleDinoRequest(request, env, corsHeaders, path, { execu
 
   if (path === '/api/dino/game' && request.method === 'GET') return forward('get', { since: Number(url.searchParams.get('v')) || 0 });
   if (path === '/api/dino/respond' && request.method === 'POST') return forward('respond', { accept: body.accept === true, state: body.state });
-  if (path === '/api/dino/move' && request.method === 'POST') return forward('move', { base: body.base, state: body.state, scores: body.scores });
+  if (path === '/api/dino/move' && request.method === 'POST') return forward('move', { base: body.base, rules: body.rules, state: body.state, scores: body.scores });
   if (path === '/api/dino/resign' && request.method === 'POST') return forward('resign', {});
 
   return jsonResponse({ error: 'Not found' }, corsHeaders, 404);
@@ -513,6 +515,9 @@ export class DinoGame {
   async applyMove(record, me, body, socket) {
     if (record.status !== 'active') return { status: 409, body: { error: 'This game is not in progress', ...viewFor(record, me, { state: record.state }) } };
     if (record.turn !== me) return { status: 409, body: { error: 'It’s not your turn', ...viewFor(record, me, { state: record.state }) } };
+    if ((Number(body.rules) || 1) < RULES_VERSION) {
+      return { status: 409, body: { error: 'The game rules were updated. Reload the page to keep playing.', ...viewFor(record, me, { state: record.state }) } };
+    }
     if (Number(body.base) !== record.version) return { status: 409, body: { error: 'Out of date', ...viewFor(record, me, { state: record.state }) } };
     if (!validState(body.state)) return { status: 400, body: { error: 'Invalid game' } };
     const state = body.state;
