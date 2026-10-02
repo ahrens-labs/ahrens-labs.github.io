@@ -106,9 +106,8 @@
   const DECK = ['allosaurus', 'mosasaurus', 'carnotaurus', 'microraptor', 'ankylosaurus', 'dilophosaurus', 'parasaurolophus', 'gigantoraptor'];
 
   // ---------------------------------------------------------------- prototype rules (admin test setting)
-  // Shared dino market, worker spaces, park scoring, Feeding checkpoints, 12 rounds, events and free powers.
+  // Shared dino market, worker spaces, park scoring, 12 rounds, round events and free powers.
   const PROTO_ROUNDS = 12;
-  const PROTO_CHECKPOINTS = [4, 8, 12];
   const PROTO_WORKERS = 3;
   const PROTO_PROD_CAP = 5;
   const PROTO_HAND_MAX = 3;
@@ -123,12 +122,12 @@
     diamond: { name: 'Diamond', icon: '💎', desc: `Buy a diamond for 🪙${PROTO_DIAMOND_COINS}` },
     fences: { name: 'Fences', icon: '🪵', desc: 'Draw 3 fences' },
     builder: { name: 'Builder', icon: '🌾', desc: 'Build a feeder or a watering hole' },
-    forage: { name: 'Forage', icon: '🍖', desc: 'Take 4 food' },
+    forage: { name: 'Forage', icon: '🍖', desc: 'Take 6 food' },
     scout: { name: 'Scout', icon: '🔭', desc: `Reserve a market card or the top of the deck (hand of ${PROTO_HAND_MAX})` },
     first: { name: 'First player', icon: '🥇', desc: 'Take 1 coin and go first next round' },
   };
   const PROTO_EVENTS = {
-    drought: { name: 'Drought', icon: '🏜️', desc: 'Forage gives only 2 food this round.' },
+    drought: { name: 'Drought', icon: '🏜️', desc: 'Forage gives only 3 food this round.' },
     goldrush: { name: 'Gold rush', icon: '💰', desc: 'Production is capped at 7 per enclosure this round.' },
     stampede: { name: 'Stampede', icon: '🐾', desc: 'The Fences space draws 5 fences this round.' },
     migration: { name: 'Migration', icon: '🦤', desc: 'The whole market is replaced at the start of the round.' },
@@ -177,18 +176,13 @@
     return state && state.proto ? protoCost(sp) : SPECIES[sp].cost;
   }
 
-  function cardFood(S) {
-    return state && state.proto ? { t: S.food.t, n: S.food.n * 2 } : S.food;
-  }
-
-  function protoPhases(r) {
-    return PROTO_CHECKPOINTS.includes(r) ? ['food', 'action', 'produce', 'feed'] : ['food', 'action', 'produce'];
+  function protoPhases() {
+    return ['food', 'action', 'produce', 'feed'];
   }
 
   const PROTO_PHASES = {
     action: { name: 'Workers', short: 'Workers', icon: '👷', desc: 'Take turns placing workers on shared action spaces.' },
     produce: { name: 'Production & powers', short: 'Production', icon: '🪙', desc: `Every active enclosure pays (max ${PROTO_PROD_CAP}) and dino powers trigger.` },
-    feed: { name: 'Checkpoint Feeding', short: 'Feeding', icon: '🍖', desc: 'Each dino eats double. Unfed enclosures go inactive.' },
   };
 
   function phaseInfo(ph) {
@@ -625,11 +619,9 @@
   function enclosureCost(cp) {
     const c = { meat: 0, plant: 0, flex: 0 };
     const extra = cp.inactive || 0;
-    // Prototype Feedings come every 4 rounds, so each dino eats double.
-    const mult = state && state.proto ? 2 : 1;
     cp.living.forEach((d) => {
       const f = SPECIES[d.species].food;
-      c[f.t] += f.n * mult + extra;
+      c[f.t] += f.n + extra;
     });
     let off = cp.feederSquares;
     for (const k of ['meat', 'plant', 'flex']) {
@@ -886,7 +878,7 @@
       state.nextFirst = null;
       state.phaseOrder = protoPhases(1);
       protoNextEvent();
-      logMsg(`🧪 New prototype game! ${pn(first)} goes first. ${PROTO_ROUNDS} rounds, Feeding after rounds ${PROTO_CHECKPOINTS.join(', ')}.`);
+      logMsg(`🧪 New prototype game! ${pn(first)} goes first. ${PROTO_ROUNDS} rounds, with an event every round.`);
       logMsg(`Round 1 begins. Event: ${PROTO_EVENTS[state.event].icon} <b>${PROTO_EVENTS[state.event].name}</b>.`);
       return;
     }
@@ -1284,7 +1276,7 @@
   }
 
   function protoSpaceAmount(k) {
-    if (k === 'forage') return state.event === 'drought' ? 2 : 4;
+    if (k === 'forage') return state.event === 'drought' ? 3 : 6;
     if (k === 'fences') return state.event === 'stampede' ? 5 : 3;
     return 0;
   }
@@ -1644,6 +1636,12 @@
     if (!T || state.sim) return;
     let key = null;
     let html = '';
+    if (T.t === 'roundStart' && state.proto) {
+      if (lastTurnKey === `r${state.round}` || !animOn) return;
+      lastTurnKey = `r${state.round}`;
+      revealEvent();
+      return;
+    }
     if (T.t === 'roundStart') {
       key = `r${state.round}`;
       html = `<div class="to-card to-round"><small>Round</small><b>${state.round}</b><span>of ${rounds()}</span></div>`;
@@ -1678,7 +1676,7 @@
       <div class="dc-head"><div class="dc-name ${S.name.length > 11 && S.name.length <= 15 ? 'long' : ''}">${esc(S.name.length > 15 ? spName(sp) : S.name)}</div><div class="dc-pts" title="Points">${S.pts}</div></div>
       <div class="dc-art" style="--sc:${S.color}"><img src="${IMG}${sp}.webp" alt="" draggable="false">${o.lock ? `<span class="dc-lock">🔒 ${o.lock}</span>` : ''}</div>
       <div class="dc-price"><small>Cost</small><b>${costText(cardCost(sp))}</b></div>
-      <div class="dc-facts">${statBox('space', `⬛${S.space}`, 'Squares it takes up')}${statBox('eats', foodText(cardFood(S)).replace(' ', ''), 'Food it eats every Feeding')}${statBox('earns', `🪙${S.prod}`, 'Coins it adds in Production')}</div>
+      <div class="dc-facts">${statBox('space', `⬛${S.space}`, 'Squares it takes up')}${statBox('eats', foodText(S.food).replace(' ', ''), 'Food it eats every Feeding')}${statBox('earns', `🪙${S.prod}`, 'Coins it adds in Production')}</div>
       <div class="dc-ab"><span class="dc-type">${typeLabel(S)}</span>${esc(S.ability)}</div>
       ${o.foot || ''}
     </div>`;
@@ -1706,7 +1704,7 @@
     const owned = state.players[viewer] && state.players[viewer].book.includes(sp);
     const facts = [
       `<li>Costs <b>${costText(cardCost(sp))}</b> to play and fills <b>${plural(S.space, 'square')}</b> in one enclosure.</li>`,
-      `<li>Eats <b>${foodText(cardFood(S))}</b> every Feeding.</li>`,
+      `<li>Eats <b>${foodText(S.food)}</b> every Feeding.</li>`,
       state.proto ? `<li>Adds <b>🪙${S.prod}</b> to its enclosure’s Production every round.</li>` : `<li>Adds <b>🪙${S.prod}</b> when its enclosure is picked in Production.</li>`,
       `<li>Worth <b>${plural(S.pts, 'point')}</b> at the end if its enclosure is active.</li>`,
       S.type === 'none'
@@ -1736,7 +1734,7 @@
     let status;
     if (cp.dead) status = '<span class="status-pill dead">💀 Extinct</span> These dinos died. Nothing new can live here.';
     else if (!cp.valid) status = '<span class="status-pill warn">Not fenced in</span>';
-    else if (cp.inactive) status = `<span class="status-pill ${cp.inactive >= (state.proto ? 2 : 4) ? 'danger' : 'warn'}">💤 Inactive · marker ${cp.inactive}/${state.proto ? 2 : 4}</span> No coins or points until every dino here is fed.${cp.inactive >= (state.proto ? 2 : 4) ? ' <b>If not fed next Feeding, they die!</b>' : ''}`;
+    else if (cp.inactive) status = `<span class="status-pill ${cp.inactive >= 4 ? 'danger' : 'warn'}">💤 Inactive · marker ${cp.inactive}/4</span> No coins or points until every dino here is fed.${cp.inactive >= 4 ? ' <b>If not fed next Feeding, they die!</b>' : ''}`;
     else status = '<span class="status-pill ok">Active</span> Earning coins and points.';
     const facts = [`<li><b>${encl}</b> · ${status}</li>`];
     let card = '';
@@ -1744,8 +1742,8 @@
       const S = spec(it.species);
       card = cardHtml(it.species, { cls: 'solo' });
       if (!it.dead) {
-        const eats = cardFood(S).n + (cp.inactive || 0);
-        const why = cp.inactive ? ` <span class="muted">(card says ${cardFood(S).n}; +${cp.inactive} because it’s inactive)</span>` : '';
+        const eats = S.food.n + (cp.inactive || 0);
+        const why = cp.inactive ? ` <span class="muted">(card says ${S.food.n}; +${cp.inactive} because it’s inactive)</span>` : '';
         facts.push(`<li>Eats <b>${eats} ${foodText({ t: S.food.t, n: '' }).trim()}</b> each Feeding${why}.</li>`);
         if (cp.feederSquares) facts.push(`<li>The feeder here takes <b>${cp.feederSquares} food</b> off the whole enclosure’s bill.</li>`);
         facts.push(`<li>Adds <b>🪙${S.prod}</b> ${state.proto ? `each round (whole enclosure makes 🪙${Math.min(PROTO_PROD_CAP, cp.prod)}, max ${PROTO_PROD_CAP})` : `when you pick ${encl.replace('Enclosure', 'enclosure')} in Production (whole enclosure makes 🪙${cp.prod})`}.</li>`);
@@ -2068,8 +2066,7 @@
     let pips = '';
     for (let r = 1; r <= rounds(); r++) {
       const cls = over || r < state.round ? 'done' : r === state.round ? 'cur' : '';
-      const chk = state.proto && PROTO_CHECKPOINTS.includes(r);
-      pips += `<span class="pip ${cls}${chk ? ' chk' : ''}"${chk ? ' title="Feeding checkpoint"' : ''}>${r}</span>`;
+      pips += `<span class="pip ${cls}">${r}</span>`;
     }
     const phases = over
       ? ''
@@ -2079,12 +2076,14 @@
           return `<div class="pcard ph-${ph} ${cls}"><span class="pc-n">${i + 1}</span><span class="pc-i">${phaseInfo(ph).icon}</span><span class="pc-t">${phaseInfo(ph).short}</span></div>`;
         })
         .join('');
+    const E = state.proto && !over && PROTO_EVENTS[state.event];
+    const evChip = E ? `<div class="pcard ev-chip" title="${esc(E.desc)}"><span class="pc-i">${E.icon}</span><span class="pc-t">${E.name}</span></div>` : '';
     const fresh = T && T.t === 'roundStart' ? ' fresh' : '';
     setHtml(el, `
       <div class="brand"><img class="brand-logo" src="${IMG}trex.webp" alt=""><div><h1>Dino Board Game</h1><small>${state.proto ? `🧪 Prototype rules · ${rounds()} rounds` : 'Build the best dino park in 18 rounds'}</small></div></div>
       <div class="top-mid">
         <div class="tracker"><span class="tracker-label">Round</span>${pips}</div>
-        <div class="phase-row${fresh}" data-round="${state.round}">${phases}</div>
+        <div class="phase-row${fresh}" data-round="${state.round}">${evChip}${phases}</div>
       </div>
       <div class="top-actions">
         ${state.past ? '' : '<button class="btn sm ghost log-btn" data-act="fullLog" title="What happened" aria-label="What happened">🗒️<span class="lb-t"> What happened</span></button>'}
@@ -2398,14 +2397,11 @@
 
   function protoRoundStartHtml(list) {
     const workers = state.players.map((P) => `<span class="rs-pool">${esc(P.name)} ${Array.from({ length: PROTO_WORKERS + P.bonusPending }, () => meeple(P.color, 'mini')).join('')}</span>`).join(' ');
-    const chk = PROTO_CHECKPOINTS.includes(state.round);
-    const next = PROTO_CHECKPOINTS.find((r) => r >= state.round);
     return `<h2>Round ${state.round} of ${rounds()}</h2>
-      ${eventNote()}
+      ${eventCardHtml()}
       <p>${pn(state.first)} goes first this round.</p>
       <div class="rs-pools">${workers}</div>
       <ol class="phase-order">${list}</ol>
-      <p class="muted">${chk ? '🍖 <b>Feeding checkpoint this round</b> — each dino eats double.' : `Next Feeding checkpoint: round ${next}.`}</p>
       ${online ? '' : '<button class="btn big" data-act="startRound">Start round ▶</button>'}`;
   }
 
@@ -2500,6 +2496,30 @@
         <span class="fc flex" style="font-size:1rem">🪙 +${cp.prod}${cp.prod === best && list.length > 1 ? ' ⭐' : ''}</span></button>`)
       .join('');
     return `<h3>🪙 Production</h3><p>Pick <b>one active enclosure</b> and collect its coins.</p><div class="opt-list">${rows}</div>`;
+  }
+
+  function eventCardHtml() {
+    const E = PROTO_EVENTS[state.event];
+    return E ? `<div class="ev-card"><span class="evc-ic">${E.icon}</span><div><small>Round ${state.round} event</small><b>${E.name}</b><p>${E.desc}</p></div></div>` : '';
+  }
+
+  // Flips this round's event card face up in the middle of the screen. Tap anywhere to dismiss.
+  function revealEvent() {
+    const E = PROTO_EVENTS[state.event];
+    if (!E) return;
+    document.querySelectorAll('.ev-reveal').forEach((x) => x.remove());
+    const ov = document.createElement('div');
+    ov.className = 'ev-reveal';
+    ov.setAttribute('role', 'dialog');
+    ov.setAttribute('aria-label', `Round ${state.round} event: ${E.name}`);
+    ov.innerHTML = tokify(`<div class="evr-card"><div class="evr-inner">
+      <div class="evr-back"><span>🦖</span><b>Event</b></div>
+      <div class="evr-front"><small>Round ${state.round} event</small><span class="evr-ic">${E.icon}</span><b>${E.name}</b><p>${E.desc}</p><em>Tap to continue</em></div>
+    </div></div>`);
+    const close = () => ov.remove();
+    ov.addEventListener('click', close);
+    document.body.appendChild(ov);
+    setTimeout(close, 5000);
   }
 
   function eventNote() {
@@ -2989,7 +3009,7 @@
         <li><b>Shared dino market.</b> No dino books. ${PROTO_MARKET} cards are face up; buy one and it’s gone for your opponent. You can reserve up to ${PROTO_HAND_MAX} cards.</li>
         <li><b>Worker spaces.</b> Each player has ${PROTO_WORKERS} workers. Players alternate placing them, and each space takes only one worker per round, so you can block your opponent.</li>
         <li><b>Production every round</b> from every active enclosure, capped at 🪙${PROTO_PROD_CAP} per enclosure. Big single-species pens stop being the only plan.</li>
-        <li><b>Feeding checkpoints</b> after rounds ${PROTO_CHECKPOINTS.join(', ')}. Each dino eats double. An enclosure that misses two checkpoints in a row goes extinct.</li>
+        <li><b>Feeding every round</b>, right after Production, with the usual inactive and extinction rules.</li>
         <li><b>Free dino powers.</b> Power dinos trigger on their own every round instead of costing an action.</li>
         <li><b>Round events</b> shake up each round.</li>
         <li><b>Park scoring.</b> Dino points are ⅔ of the card value. Variety pays 1/3/6/10/15 for 1–5 species, full enclosures +3, mixed enclosures +2, diamonds 1 point each, and leftover coins 1 point per 10 (max 3).</li>
@@ -3548,7 +3568,7 @@
     Object.keys(b.inactive).forEach((key) => {
       if (b.placedRound[key] === state.round) return;
       const cp = an.comps.find((c) => String(c.key) === key);
-      if (b.inactive[key] >= (state.proto ? 2 : 4)) {
+      if (b.inactive[key] >= 4) {
         delete b.inactive[key];
         delete b.placedRound[key];
         b.dead[key] = true;
@@ -4152,7 +4172,7 @@
     });
     Object.keys(b.inactive).forEach((key) => {
       if (b.placedRound[key] === state.round) return;
-      if (b.inactive[key] >= (state.proto ? 2 : 4)) {
+      if (b.inactive[key] >= 4) {
         delete b.inactive[key];
         delete b.placedRound[key];
         b.dead[key] = true;
@@ -5137,16 +5157,12 @@
     return rounds() - state.round + 1;
   }
 
-  function protoChecksLeft() {
-    return PROTO_CHECKPOINTS.filter((r) => r >= state.round).length;
-  }
-
   function protoCoinValue() {
     const left = protoRoundsLeft();
     return left <= 1 ? 0.1 : left <= 3 ? 0.3 : 0.5;
   }
 
-  // Food still missing for the next checkpoint.
+  // Food still missing for this round's Feeding.
   function protoFoodShort(p) {
     const P = state.players[p];
     return Math.max(0, demandOf(P.board).total - P.meat - P.plants);
@@ -5168,17 +5184,24 @@
     if (sp === 'pachy') power = 2;
     if (sp === 'microraptor') power = 1.5;
     const coins = Math.min(PROTO_PROD_CAP, S.prod) * left * protoCoinValue() * 0.6;
-    const food = S.food.n * 2 * protoChecksLeft() * 0.35;
+    const food = S.food.n * left * 0.2;
     return S.pts + variety + power + coins - food;
   }
 
+  const PROTO_FOOD_INCOME = 7;
+
   function protoBestBuy(p, freeTask) {
-    const b = state.players[p].board;
+    const P = state.players[p];
+    const b = P.board;
+    const spare = P.meat + P.plants - demandOf(b).total;
     let best = null;
     protoPlayOptions(p, freeTask).filter((o) => o.ok).forEach((o) => {
       const cells = aiFindCellsB(b, SPECIES[o.sp].space, o.sp);
       if (!cells) return;
-      const v = protoDinoValue(p, o.sp) + protoNoise();
+      // Feeding is every round, so weigh the new dino's bill against roughly what one player gathers per round.
+      const deficit = Math.max(0, demandOf(b).total + SPECIES[o.sp].food.n - PROTO_FOOD_INCOME);
+      const hungry = Math.max(0, SPECIES[o.sp].food.n - Math.max(0, spare)) * 0.8 + Math.min(deficit, SPECIES[o.sp].food.n) * protoRoundsLeft() * 0.35;
+      const v = protoDinoValue(p, o.sp) - hungry + protoNoise();
       if (!best || v > best.v) best = Object.assign({}, o, { cells, v });
     });
     return best;
@@ -5195,13 +5218,14 @@
       if (size <= 0 || !canAfford(P, feederCost(size))) return;
       const cells = aiFindCellsB(b, size, null, cp.key);
       if (!cells) return;
-      const v = size * protoChecksLeft() * 0.45 - size * protoCoinValue() - 1;
+      const v = size * protoRoundsLeft() * 0.2 - size * protoCoinValue() - 1;
       if (!best || v > best.v) best = { item: 'feeder', cells, v };
     });
     if (canAfford(P, waterCost())) {
       an.comps.filter((cp) => cp.valid && !cp.dead && cp.species.size >= 1 + cp.waters.length && cp.empty >= 9).forEach((cp) => {
         const w = aiWaterCells(b, cp);
         if (!w || w.biggest < 3) return;
+        if (protoRoundsLeft() <= 1) return;
         const v = 2.5 + (protoRoundsLeft() > 3 ? 1 : 0) - 2 * protoCoinValue();
         if (!best || v > best.v) best = { item: 'water', cells: w.cells, v };
       });
@@ -5240,7 +5264,8 @@
         plan = { v: 1 + (want && left > 1 ? 2 : 0) - PROTO_DIAMOND_COINS * cv * 0.7 };
       } else if (k === 'forage') {
         const n = protoSpaceAmount(k);
-        plan = { v: Math.min(n, protoFoodShort(p)) * 0.9 + 0.3 };
+        // Unfed enclosures score nothing at the end, so the last Feeding matters most.
+        plan = { v: Math.min(n, protoFoodShort(p)) * (left <= 1 ? 3 : 1.3) + 0.3 };
       } else if (k === 'fences') {
         const n = protoSpaceAmount(k);
         const edges = aiPlanEdgesB(b, n);
