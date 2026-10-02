@@ -3096,7 +3096,7 @@
   const LEVEL_TUNE = {
     easy: { depth: 1, noise: 1.4, style: 1.2, foresight: 0.7, blunder: 0.25 },
     medium: { depth: 1, noise: 0.8, style: 1, foresight: 0.85, blunder: 0 },
-    hard: { depth: 2, noise: 0.03, style: 0, foresight: 1, blunder: 0, proj: true, water: true, deep: true, strat: true, prune: 6, big: true, giga: true },
+    hard: { depth: 2, noise: 0.03, style: 0, foresight: 1, blunder: 0, proj: true, water: true, deep: true, strat: true, prune: 6, big: true, giga: true, bank: true, feed2: true },
   };
   const AI_STYLES = {
     builder: { sp: { trex: 3, mosasaurus: 3, spinosaurus: 1.5, brachiosaurus: 1.5, allosaurus: 1 }, act: { fences: 0.8, diamond: 0.4 } },
@@ -3159,8 +3159,10 @@
   // Production pays out from one enclosure, so each coin added to the best one repays every round.
   const PROD_GROWTH = 0.6;
   // What Hard thinks a bonus Production coin is worth, and how much of its remaining actions can go to spending coins.
-  const BONUS_COIN_VALUE = 0.4;
+  const BONUS_COIN_VALUE = 0.55;
   const BONUS_SPEND_SHARE = 0.6;
+  // Points per food a feeder saves beyond what the dino placed with it eats.
+  const FEEDER_FOOD = 0.25;
 
   function aiProfile(level, pace) {
     const plan = AI_PLANS[rand(AI_PLANS.length)];
@@ -3198,7 +3200,7 @@
     const cap = (ROUNDS - state.round + 1) * 2 * 6 * BONUS_SPEND_SHARE;
     let coins = P.coins;
     return picks.map(() => {
-      const acts = (coins >= 6 ? 3 : 0.8) + (coins >= 12 ? 3 : 0.8);
+      const acts = (coins >= 6 ? 2 : 0.8) + (coins >= 12 ? 2 : 0.8);
       if (Math.min(prod, Math.max(0, cap - coins)) * BONUS_COIN_VALUE <= acts) return 'action';
       coins += prod;
       return 'produce';
@@ -3505,7 +3507,7 @@
     let best = null;
     an.comps.filter((cp) => cp.valid && !cp.dead && cp.living.length && cp.empty > 0).forEach((cp) => {
       const bill = cp.living.reduce((s, d) => s + SPECIES[d.species].food.n, 0) - cp.feederSquares;
-      const size = Math.min(5, cp.empty, bill);
+      const size = bill <= 0 ? 0 : Math.min(5, cp.empty, tune().feed2 ? 5 : bill);
       if (size <= 0 || !affordM(m, feederCost(size))) return;
       const cells = aiFindCellsB(b, size, null, cp.key);
       if (cells && (!best || size > best.n)) best = { kind: 'feeder', cells, n: size };
@@ -3795,7 +3797,9 @@
       const left = slots.length - j - 1;
       const roundsLeft = Math.max(0, tl.acts - r);
       const feedsLeft = r === 0 ? tl.feeds : Math.max(0, tl.feeds - r + 0.5);
-      const lam = left > 0 && coins < 6 * (left + 1) ? 0.5 : 0;
+      const spendV = left > 0 && coins < 6 * (left + 1) ? 0.5 : 0;
+      // Coins kept to the end are worth 1/5 point per Pachy, so with enough Pachys they beat buying diamonds.
+      const lam = T.bank ? Math.max(spendV, pachy / 5) : spendV;
       let pick = null;
       const cands = force && dk < force.length ? [] : null;
       const consider = (score, acts, apply) => {
@@ -3812,10 +3816,10 @@
         if (e.allo) consider(3 * lam + 0.7, 1, () => { coins += 3; });
         if (e.raptor) consider(0.6 * e.raptor, 1, () => { ff += 2 * e.raptor; });
         // A feeder covering the part of this enclosure's bill not yet discounted.
-        const k = Math.min(5, e.empty, e.bill - e.disc);
+        const k = e.bill - e.disc > 0 ? Math.min(5, e.empty, T.feed2 ? 5 : e.bill - e.disc) : 0;
         const fMissing = dia >= 1 ? 0 : 1;
         if (k > 0 && feedsLeft >= 1 && coins >= 3 + 6 * fMissing && 1 + fMissing <= left + 1) {
-          const saved = k * Math.floor(feedsLeft);
+          const saved = Math.min(k, e.bill - e.disc) * Math.floor(feedsLeft);
           consider(saved * 0.25 - (3 + 6 * fMissing) * lam - (1 - fMissing) * 3, 1 + fMissing, () => {
             coins -= 3 + 6 * fMissing;
             dia += fMissing - 1;
@@ -3831,11 +3835,13 @@
         const gainFood = EVENT_FOOD[sp] || 0;
         let feedNeed = need;
         let cyc = false;
+        let starving = false;
         if (need > 0 && !canFeed(S.food.t, need - gainFood)) {
           // Can't feed it every time: feed it every few Feedings instead (surcharge, less production).
           feedNeed = (S.food.n + 2) * Math.ceil(feedsLeft / 3.5);
-          if (!canFeed(S.food.t, feedNeed - gainFood)) return;
-          cyc = true;
+          if (canFeed(S.food.t, feedNeed - gainFood)) cyc = true;
+          else if (T.feed2) starving = true;
+          else return;
         }
         const missing = Math.max(0, S.cost.d - dia);
         const acts = 1 + missing;
@@ -3857,17 +3863,45 @@
             wDia = WATER_COST.d - wMissing;
             if (acts + wActs + fenceActs > left + 1 || coins < coinCost + wCoins) return;
           }
+          // When the park can't feed it, a feeder in the same enclosure can: it takes food off every Feeding.
+          const spare = T.feed2 ? Math.max(0, e.disc - e.bill) : 0;
+          const needHere = Math.max(0, S.food.n - spare) * feedsLeft;
+          const coveredHere = spare > 0 && canFeed(S.food.t, needHere - gainFood);
+          let fK = 0;
+          let fSaved = 0;
+          let fActs = 0;
+          let fCoins = 0;
+          let fDia = 0;
+          if (T.feed2 && (starving || cyc) && !coveredHere && feedsLeft >= 1) {
+            // Feeders cost the same up to 5 squares, so build the full 5 when there's room for later dinos too.
+            const k = Math.min(5, e.empty - S.space - (wActs ? WATER_SQUARES : 0));
+            const saved = Math.min(k, e.bill + S.food.n - e.disc) * Math.floor(feedsLeft);
+            if (k > 0 && canFeed(S.food.t, need - gainFood - saved)) {
+              const fMissing = dia - (S.cost.d - missing) - wDia >= 1 ? 0 : 1;
+              fK = k;
+              fSaved = saved;
+              fActs = 1 + fMissing;
+              fCoins = 3 + 6 * fMissing;
+              fDia = 1 - fMissing;
+            }
+          }
+          if (starving && !fK && !coveredHere) return;
+          if (fK && (acts + wActs + fActs + fenceActs > left + 1 || coins < coinCost + wCoins + fCoins)) return;
+          const cycHere = cyc && !fK && !coveredHere;
           let got = S.pts;
           if (sp === 'compy') got += COMPY_ADJ[Math.min(3, e.compy)];
           if (sp === 'microraptor' && !e.micro) got += 2;
-          const newBest = e.w >= 0.6 && !cyc ? Math.max(best, e.prod + S.prod) : best;
+          const newBest = e.w >= 0.6 && !cycHere ? Math.max(best, e.prod + S.prod) : best;
           // Gigantoraptor's bonus is worth an extra Production from the best enclosure next round.
           const eventPts = sp === 'gigantoraptor' && T.giga
             ? (roundsLeft > 0 ? Math.max(EVENT_PTS.gigantoraptor, newBest * BONUS_COIN_VALUE) : 0) : EVENT_PTS[sp] || 0;
-          got = got * e.w * (cyc ? 0.85 : 1) + eventPts;
-          const score = got * smul(sp) + (newBest - best) * roundsLeft * (T.big ? PROD_GROWTH : 0.45) + (EVENT_COINS[sp] || 0) * lam + gainFood * 0.05 +
-            (sp === 'pachy' ? 2 : 0) - (coinCost + wCoins) * lam - (S.cost.d - missing + wDia) * 3;
-          consider(score, acts + wActs + fenceActs, () => {
+          got = got * e.w * (cycHere ? 0.85 : 1) + eventPts;
+          // After the last Feeding a Pachy eats nothing and scores the coins Hard will end with.
+          const pachyPts = sp !== 'pachy' ? 0 : T.bank && feedsLeft < 1
+            ? e.w * Math.max(0, coins - coinCost - wCoins - fCoins + best * roundsLeft) / 5 : 2;
+          const score = got * smul(sp) + (newBest - best) * roundsLeft * (T.big ? Math.max(PROD_GROWTH, lam) : 0.45) + (EVENT_COINS[sp] || 0) * lam + gainFood * 0.05 +
+            pachyPts + Math.max(0, fSaved - need) * FEEDER_FOOD - (coinCost + wCoins + fCoins) * lam - (S.cost.d - missing + wDia + fDia) * 3;
+          consider(score, acts + wActs + fActs + fenceActs, () => {
             if (aiCtx.planLog) aiCtx.planLog.push(sp);
             if (size) { encl.push(e); open -= size; }
             if (wActs) {
@@ -3876,12 +3910,19 @@
               coins -= wCoins;
               dia -= wDia;
             }
+            if (fK) {
+              e.disc += fK;
+              e.empty -= fK;
+              ff += fSaved;
+              coins -= fCoins;
+              dia -= fDia;
+            }
             coins -= coinCost;
             coins += EVENT_COINS[sp] || 0;
             dia += missing - S.cost.d;
             pts += got;
             ff += gainFood;
-            payFeed(S.food.t, feedNeed);
+            payFeed(S.food.t, fK ? need : coveredHere ? needHere : feedNeed);
             e.empty -= S.space;
             e.species.add(sp);
             e.prod += S.prod;
