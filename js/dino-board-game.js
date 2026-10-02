@@ -1267,15 +1267,39 @@
     </div>`;
   }
 
-  function miniCard(sp, attrs, cls) {
+  function miniCard(sp, attrs, cls, from) {
     if (!sp) return '<div class="mini empty">empty</div>';
     const S = SPECIES[sp];
     const title = `${S.name} · ${TYPE_LABEL[S.type]}: ${S.ability}`;
-    return `<div class="mini t-${S.type} ${attrs ? 'pick' : ''} ${cls || ''}" ${attrs || ''} title="${esc(title)}">
+    const view = `data-act="viewCard" data-sp="${sp}" data-from="${from}"`;
+    return `<div class="mini t-${S.type} ${attrs ? 'pick' : 'view'} ${cls || ''}" ${attrs || view} title="${esc(title)}">
       <div class="ma" style="--sc:${S.color}"><img src="${IMG}${sp}.webp" alt="" draggable="false"><span class="mp">${S.pts}</span></div>
       <div class="mn">${esc(spName(sp))}</div>
       <div class="ms">${costText(S.cost)}</div>
+      ${attrs ? `<button class="m-info" ${view} aria-label="See what ${esc(S.name)} does">i</button>` : ''}
     </div>`;
+  }
+
+  function openMarketCard(sp, from) {
+    const S = SPECIES[sp];
+    const T = cur();
+    const mine = T && !theirTurn(T);
+    const canTake = mine && state.faceUp[from] === sp && ((T.t === 'actions' && ui.mode === 'draw') || (T.t === 'drawCard' && T.source === 'any'));
+    const viewer = online ? online.me : state.aiCfg ? 0 : T && T.p != null ? T.p : 0;
+    const owned = state.players[viewer] && state.players[viewer].book.includes(sp);
+    const facts = [
+      `<li>Costs <b>${costText(S.cost)}</b> to play and fills <b>${plural(S.space, 'square')}</b> in one enclosure.</li>`,
+      `<li>Eats <b>${foodText(S.food)}</b> every Feeding.</li>`,
+      `<li>Adds <b>🪙${S.prod}</b> when its enclosure is picked in Production.</li>`,
+      `<li>Worth <b>${plural(S.pts, 'point')}</b> at the end if its enclosure is active.</li>`,
+      S.type === 'none'
+        ? `<li>${TYPE_HELP.none}</li>`
+        : `<li><b>${TYPE_LABEL[S.type]}:</b> ${esc(S.ability)} <span class="muted">${TYPE_HELP[S.type]}</span></li>`,
+    ];
+    if (owned) facts.push(`<li class="muted">${online || state.aiCfg ? 'You already have' : `${esc(state.players[viewer].name)} already has`} this dino in ${online || state.aiCfg ? 'your' : 'their'} book.</li>`);
+    openModal(`<div class="modal-head"><h2>🃏 ${esc(S.name)}</h2><button class="x" data-act="closeModal" aria-label="Close">✕</button></div>
+      <div class="piece-info">${cardHtml(sp, { cls: 'solo' })}<div><ul class="facts">${facts.join('')}</ul>
+      ${canTake ? `<button class="btn" data-act="take" data-from="${from}">🃏 Draw this card</button>` : ''}</div></div>`, 'medium');
   }
 
   // ---------------------------------------------------------------- rendering: board
@@ -1788,7 +1812,7 @@
       .map((i) => {
         const sp = state.faceUp[i];
         const deal = sp && isFresh(`m${i}:${sp}:${state.deck.length}`, 900) ? 'deal' : '';
-        return miniCard(sp, pickAny && sp ? `data-act="take" data-from="${i}"` : '', deal);
+        return miniCard(sp, pickAny && sp ? `data-act="take" data-from="${i}"` : '', deal, i);
       })
       .join('');
     const stack = Math.min(state.deck.length, 4);
@@ -2454,6 +2478,7 @@
       closeModal();
       return;
     }
+    if (act === 'take' && el && el.closest('.modal')) closeModal();
     if (act === 'confirmYes') {
       const fn = pendingConfirm;
       closeModal();
@@ -2491,6 +2516,10 @@
       return;
     }
     if (!state) return;
+    if (act === 'viewCard') {
+      if (SPECIES[ds.sp]) openMarketCard(ds.sp, +ds.from);
+      return;
+    }
     if (act === 'fullLog') {
       logSeen = state.log.length;
       openModal(`<div class="modal-head"><h2>🗒️ What happened</h2><button class="btn sm ghost" data-act="closeModal">Close</button></div>
@@ -2969,7 +2998,7 @@
   }
 
   // ---------------------------------------------------------------- computer player
-  const FREE_ACTS = new Set(['fullLog', 'rules', 'book', 'closeModal', 'newGame', 'confirmYes', 'aiSettings', 'setAiOpt', 'onlineLeave', 'onlineResign', 'olRematch', 'replayReveal']);
+  const FREE_ACTS = new Set(['fullLog', 'viewCard', 'rules', 'book', 'closeModal', 'newGame', 'confirmYes', 'aiSettings', 'setAiOpt', 'onlineLeave', 'onlineResign', 'olRematch', 'replayReveal']);
   const AI_LEVELS = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
   const AI_PACES = { fast: 'Fast', medium: 'Medium', slow: 'Slow' };
   const AI_LEVEL_HELP = { easy: 'Plays for fun and makes mistakes', medium: 'Plans one move at a time', hard: 'Plays to win: plans fences, cards and the whole game' };

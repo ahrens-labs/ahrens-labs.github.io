@@ -621,6 +621,11 @@ button { font-family: inherit; }
   transition: transform 0.2s var(--pop);
 }
 .mini.deal { animation: dealFlip 0.7s var(--pop) both; }
+.mini.view { cursor: pointer; }
+.mini.view:hover { transform: translateY(-2px); }
+.mini .m-info { position: absolute; bottom: -7px; right: -7px; width: 22px; height: 22px; padding: 0; border-radius: 50%; border: 2px solid #2a170a; background: #fffdf6; color: #2a170a; font: italic 700 0.8rem Georgia, serif; line-height: 1; cursor: pointer; box-shadow: 0 2px 0 rgba(0, 0, 0, 0.25); }
+.mini .m-info:hover { background: var(--amber); }
+.piece-info .btn { margin-top: 0.8rem; }
 .mini.t-event { --tc: var(--event); }
 .mini.t-action { --tc: var(--action); }
 .mini.t-scoring { --tc: var(--scoring); }
