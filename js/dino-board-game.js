@@ -2197,6 +2197,9 @@
   function watchHtml(T) {
     const who = online ? onlineOwner() : state.sim ? (T.p != null ? T.p : state.first) : state.ai;
     const P = state.players[who];
+    if (state.proto && T.t === 'actions' && T.work && !online && !ui.mode) {
+      return `<div class="watch-mini pl-${P.color}">${meeple(P.color, 'mini')} <b>${esc(P.name)}</b> · ${esc(ui.aiNote || 'Thinking')}<i class="dots3"><b></b><b></b><b></b></i></div>${eventNote()}${protoBoardHtml(T, false)}`;
+    }
     const phase = T.k !== undefined ? phaseInfo(state.phaseOrder[T.k]) : null;
     const step = T.t === 'roundStart' ? 'Starting the round' : T.t === 'roll' ? '🎲 Rolling the die' : phase ? `${phase.icon} ${phase.name}${T.bonus ? ' · bonus turn' : ''}` : '';
     const dots = '<i class="dots3"><b></b><b></b><b></b></i>';
@@ -2345,12 +2348,13 @@
   }
 
   function protoRoundStartHtml(list) {
-    const workers = state.players.map((P, p) => `${pn(p)}: <b>${PROTO_WORKERS + P.bonusPending}</b>`).join(' · ');
+    const workers = state.players.map((P) => `<span class="rs-pool">${esc(P.name)} ${Array.from({ length: PROTO_WORKERS + P.bonusPending }, () => meeple(P.color, 'mini')).join('')}</span>`).join(' ');
     const chk = PROTO_CHECKPOINTS.includes(state.round);
     const next = PROTO_CHECKPOINTS.find((r) => r >= state.round);
     return `<h2>Round ${state.round} of ${rounds()}</h2>
       ${eventNote()}
-      <p>${pn(state.first)} goes first this round. Workers: ${workers}.</p>
+      <p>${pn(state.first)} goes first this round.</p>
+      <div class="rs-pools">${workers}</div>
       <ol class="phase-order">${list}</ol>
       <p class="muted">${chk ? '🍖 <b>Feeding checkpoint this round</b> — each dino eats double.' : `Next Feeding checkpoint: round ${next}.`}</p>
       ${online ? '' : '<button class="btn big" data-act="startRound">Start round ▶</button>'}`;
@@ -2454,31 +2458,64 @@
     return E ? `<div class="ev-note">${E.icon} <b>${E.name}</b> · ${E.desc}</div>` : '';
   }
 
-  function protoActionsHtml(T) {
-    const P = state.players[T.p];
-    const placed = Object.values(state.spaces).filter((x) => x === T.p).length;
-    const count = `<div class="act-count">Worker ${Math.min(placed + 1, state.workers[T.p])} of ${state.workers[T.p]}</div>`;
-    const backHead = (label) => `<div class="act-top">${backBtn('back', label)}${count}</div>`;
-    if (ui.mode === 'play') return backHead(ui.species ? 'Other dinos' : 'Back') + playModeHtml(T, false);
-    if (ui.mode === 'draw') {
-      return `${backHead()}<h3>🔭 Scout</h3><p>Tap a market card or the deck below to reserve it. Hand: <b>${P.hand.length}/${PROTO_HAND_MAX}</b>.</p>`;
-    }
-    if (ui.mode === 'shop') return (ui.shopItem ? `<div class="act-top">${backBtn('shopBack', 'Builder')}${count}</div>` : backHead()) + shopHtml(P);
-    const tiles = Object.keys(PROTO_SPACES)
-      .map((k, n) => {
+  const MEEPLE_PATH = 'M16 3c2.8 0 5 2.2 5 5 0 1.7-.8 3.1-2 4l7.6 2.6c1.6.6 2.6 1.6 2.3 3-.3 1.3-1.6 1.7-3.1 1.4L21 17.6l3.4 9.6c.4 1.3-.4 2.3-1.7 2.3h-4.4L16 24.3l-2.3 5.2H9.3c-1.3 0-2.1-1-1.7-2.3l3.4-9.6-4.8 1.4c-1.5.3-2.8-.1-3.1-1.4-.3-1.4.7-2.4 2.3-3L13 12c-1.2-.9-2-2.3-2-4 0-2.8 2.2-5 5-5z';
+
+  function meeple(color, cls) {
+    return `<svg class="meeple m-${color} ${cls || ''}" viewBox="0 0 32 32" aria-hidden="true"><path d="${MEEPLE_PATH}"/></svg>`;
+  }
+
+  // Workers still to place this round (the one being placed right now counts as placed).
+  function protoWorkersLeft(p, pending) {
+    const n = state.queue.filter((t) => t.t === 'actions' && t.work && t.p === p && t.remaining > 0).length;
+    return Math.max(0, n - (pending && cur() && cur().p === p ? 1 : 0));
+  }
+
+  // The shared worker board: each player's supply on top, the nine action spaces below.
+  function protoBoardHtml(T, live) {
+    const me = T.p;
+    const pending = ui.space || ui.aiTarget || null;
+    const pool = (p) => {
+      const P = state.players[p];
+      const n = protoWorkersLeft(p, pending);
+      const ms = Array.from({ length: n }, (_, i) => meeple(P.color, live && p === me && i === 0 && !pending ? 'grab' : '')).join('');
+      return `<div class="wb-pool pl-${P.color}${p === me ? ' turn' : ''}"><span class="wb-name">${esc(P.name)}</span><span class="wb-meeples">${ms || '<small>all placed</small>'}</span></div>`;
+    };
+    const spaces = Object.keys(PROTO_SPACES)
+      .map((k) => {
         const X = PROTO_SPACES[k];
-        const st = protoSpaceStatus(T.p, k);
+        const owner = state.spaces[k];
+        const st = protoSpaceStatus(me, k);
         const amt = protoSpaceAmount(k);
         const desc = k === 'forage' ? `Take ${amt} food` : k === 'fences' ? `Draw ${amt} fences` : X.desc;
-        const owner = state.spaces[k];
-        const cls = owner != null ? ` taken pl-${state.players[owner].color}` : '';
-        return `<button class="tile${cls}" style="--n:${n}" data-act="space" data-s="${k}" ${st.ok ? '' : 'disabled'}><span class="t-i">${X.icon}</span><span class="t-t">${X.name}</span><span class="t-s">${st.ok ? desc : `🔒 ${st.why}`}</span></button>`;
+        let slot = '<i class="ws-ring"></i>';
+        if (owner != null) slot = meeple(state.players[owner].color, `placed${isFresh(`ws:${state.round}:${k}:${owner}`, 900) ? ' drop' : ''}`);
+        else if (pending === k) slot = meeple(state.players[me].color, 'placed hover');
+        const can = live && st.ok && !pending;
+        const note = owner != null ? `${esc(state.players[owner].name)}’s worker` : pending === k ? 'Placing…' : live && !st.ok ? `🔒 ${st.why}` : desc;
+        const cls = `${owner != null ? ` occ o-${state.players[owner].color}` : ''}${can ? ' open' : ''}${pending === k ? ' pend' : ''}`;
+        return `<button class="wspace${cls}" data-act="space" data-s="${k}" ${can ? '' : 'disabled'} title="${esc(X.desc)}">
+          <span class="ws-slot">${slot}</span><span class="ws-ic">${X.icon}</span><b class="ws-name">${X.name}</b><small class="ws-desc">${note}</small></button>`;
       })
       .join('');
+    return `<div class="wboard"><div class="wb-pools">${pool(0)}${pool(1)}</div><div class="wb-grid">${spaces}</div></div>`;
+  }
+
+  function protoActionsHtml(T) {
+    const P = state.players[T.p];
+    const total = state.workers[T.p];
+    const count = `<div class="act-count">Worker ${Math.min(total - protoWorkersLeft(T.p, false) + 1, total)} of ${total}</div>`;
+    const X = ui.space && PROTO_SPACES[ui.space];
+    const onSpace = X ? `<div class="pend-chip">${meeple(P.color, 'mini')} Your worker is on <b>${X.icon} ${X.name}</b></div>` : '';
+    const backHead = (label) => `<div class="act-top">${backBtn('back', label)}${count}</div>${onSpace}`;
+    if (ui.mode === 'play') return backHead(ui.species ? 'Other dinos' : 'Pick up worker') + playModeHtml(T, false);
+    if (ui.mode === 'draw') {
+      return `${backHead('Pick up worker')}<h3>🔭 Scout</h3><p>Tap a market card or the deck below to reserve it. Hand: <b>${P.hand.length}/${PROTO_HAND_MAX}</b>.</p>`;
+    }
+    if (ui.mode === 'shop') return (ui.shopItem ? `<div class="act-top">${backBtn('shopBack', 'Builder')}${count}</div>${onSpace}` : backHead('Pick up worker')) + shopHtml(P);
     return `<div class="act-top">${count}<button class="btn sm ghost" data-act="endTurn">Pass ▸</button></div>
       ${eventNote()}
-      <p class="act-help">Place a worker on an open space. Each space holds one worker per round.</p>
-      <div class="tiles">${tiles}</div>`;
+      <p class="act-help">Drag a worker from your supply onto an open space, or tap the space. Each space holds one worker per round.</p>
+      ${protoBoardHtml(T, true)}`;
   }
 
   function actionsHtml(T) {
@@ -5238,7 +5275,7 @@
       case 'actions': {
         if (!T.work) return false;
         const plan = protoSpacePlans(p)[0];
-        if (!plan) { aiShow('Passing…', () => handle('endTurn', {})); return true; }
+        if (!plan) { aiShow('Passing', () => handle('endTurn', {})); return true; }
         const X = PROTO_SPACES[plan.k];
         if (plan.buy) { protoAiPlaceBuy(plan.buy, false, plan.k); return true; }
         if (plan.build) {
@@ -5250,13 +5287,15 @@
           return true;
         }
         if (plan.scout) {
-          aiShow(`${X.icon} Scouting…`, () => {
+          ui.aiTarget = plan.k;
+          aiShow(`Placing a worker on ${X.icon} ${X.name}`, () => {
             handle('space', { s: plan.k });
             handle('take', { from: String(plan.scout.from) });
           });
           return true;
         }
-        aiShow(`${X.icon} ${X.name}…`, () => handle('space', { s: plan.k }));
+        ui.aiTarget = plan.k;
+        aiShow(`Placing a worker on ${X.icon} ${X.name}`, () => handle('space', { s: plan.k }));
         return true;
       }
       default:
@@ -6062,6 +6101,47 @@
     if (!cell || +cell.dataset.p !== drag.p) return;
     applyCell(+cell.dataset.cell, drag.adding, false);
   });
+
+  // Drag a worker from your supply onto a worker-board space (prototype rules).
+  let meepleDrag = null;
+  document.addEventListener('pointerdown', (e) => {
+    const m = e.target.closest && e.target.closest('.meeple.grab');
+    if (!m || busy || isAiTask(cur()) || onlineBlocked()) return;
+    e.preventDefault();
+    const ghost = m.cloneNode(true);
+    ghost.classList.remove('grab');
+    ghost.classList.add('meeple-ghost');
+    ghost.style.left = `${e.clientX}px`;
+    ghost.style.top = `${e.clientY}px`;
+    document.body.appendChild(ghost);
+    m.classList.add('lifted');
+    meepleDrag = { ghost, src: m, over: null };
+  });
+
+  document.addEventListener('pointermove', (e) => {
+    if (!meepleDrag) return;
+    meepleDrag.ghost.style.left = `${e.clientX}px`;
+    meepleDrag.ghost.style.top = `${e.clientY}px`;
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    const sp = el && el.closest && el.closest('.wspace.open');
+    if (sp !== meepleDrag.over) {
+      if (meepleDrag.over) meepleDrag.over.classList.remove('drop-hover');
+      if (sp) sp.classList.add('drop-hover');
+      meepleDrag.over = sp;
+    }
+  });
+
+  const endMeepleDrag = (e) => {
+    if (!meepleDrag) return;
+    const { ghost, src, over } = meepleDrag;
+    meepleDrag = null;
+    ghost.remove();
+    src.classList.remove('lifted');
+    if (over) over.classList.remove('drop-hover');
+    if (e.type === 'pointerup' && over && !over.disabled) over.click();
+  };
+  document.addEventListener('pointerup', endMeepleDrag);
+  document.addEventListener('pointercancel', endMeepleDrag);
 
   const endDrag = () => { drag = null; };
   document.addEventListener('pointerup', endDrag);
