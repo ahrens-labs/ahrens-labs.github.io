@@ -105,6 +105,114 @@
   const BOOK = ['compy', 'triceratops', 'spinosaurus', 'stegosaurus', 'velociraptor', 'brachiosaurus', 'trex', 'pachy'];
   const DECK = ['allosaurus', 'mosasaurus', 'carnotaurus', 'microraptor', 'ankylosaurus', 'dilophosaurus', 'parasaurolophus', 'gigantoraptor'];
 
+  // ---------------------------------------------------------------- prototype rules (admin test setting)
+  // Shared dino market, worker spaces, park scoring, Feeding checkpoints, 12 rounds, events and free powers.
+  const PROTO_ROUNDS = 12;
+  const PROTO_CHECKPOINTS = [4, 8, 12];
+  const PROTO_WORKERS = 3;
+  const PROTO_PROD_CAP = 5;
+  const PROTO_HAND_MAX = 3;
+  const PROTO_MARKET = 5;
+  const PROTO_COPIES = { compy: 4, microraptor: 4, trex: 2, mosasaurus: 2 };
+  const PROTO_VARIETY = [0, 1, 3, 6, 10, 15];
+  const PROTO_DIAMOND_COINS = 5;
+  const PROTO_SPACES = {
+    buy1: { name: 'Buy & play', icon: '🦖', desc: 'Buy a market card or one you reserved, and place it' },
+    buy2: { name: 'Buy & play', icon: '🦕', desc: 'Buy a market card or one you reserved, and place it' },
+    coins: { name: 'Coins', icon: '🪙', desc: 'Take 3 coins' },
+    diamond: { name: 'Diamond', icon: '💎', desc: `Buy a diamond for 🪙${PROTO_DIAMOND_COINS}` },
+    fences: { name: 'Fences', icon: '🪵', desc: 'Draw 3 fences' },
+    builder: { name: 'Builder', icon: '🌾', desc: 'Build a feeder or a watering hole' },
+    forage: { name: 'Forage', icon: '🍖', desc: 'Take 4 food' },
+    scout: { name: 'Scout', icon: '🔭', desc: `Reserve a market card or the top of the deck (hand of ${PROTO_HAND_MAX})` },
+    first: { name: 'First player', icon: '🥇', desc: 'Take 1 coin and go first next round' },
+  };
+  const PROTO_EVENTS = {
+    drought: { name: 'Drought', icon: '🏜️', desc: 'Forage gives only 2 food this round.' },
+    goldrush: { name: 'Gold rush', icon: '💰', desc: 'Production is capped at 7 per enclosure this round.' },
+    stampede: { name: 'Stampede', icon: '🐾', desc: 'The Fences space draws 5 fences this round.' },
+    migration: { name: 'Migration', icon: '🦤', desc: 'The whole market is replaced at the start of the round.' },
+    breeding: { name: 'Breeding season', icon: '🥚', desc: 'Dinos cost 1 coin less this round.' },
+    tax: { name: 'Tax day', icon: '🧾', desc: 'Everyone loses coins above 15.' },
+    fossil: { name: 'Fossil find', icon: '🦴', desc: 'Whoever has the most enclosures with dinos gains a diamond.' },
+    flood: { name: 'Flood', icon: '🌊', desc: 'Watering holes cost no diamond this round.' },
+    feast: { name: 'Feast', icon: '🍗', desc: 'Everyone gains 1 meat and 1 plant.' },
+    tourists: { name: 'Tourists', icon: '📸', desc: 'Everyone gains 1 coin per species in their park.' },
+    storm: { name: 'Storm', icon: '⛈️', desc: 'Each park loses 2 squares of open land (outside enclosures).' },
+    calm: { name: 'Calm', icon: '🌤️', desc: 'Nothing happens this round.' },
+  };
+  const PROTO_SP = {
+    trex: { ability: 'Take any market card worth 5 points or fewer and place it for free.' },
+    gigantoraptor: { ability: 'Place one extra worker next round.' },
+    pachy: { ability: '+1 point for each different species in its enclosure (counting Pachy).' },
+    parasaurolophus: { ability: 'Every round: +1 coin for each Parasaurolophus in this enclosure.' },
+    allosaurus: { ability: 'Every round: steal 1 coin from your opponent.' },
+    velociraptor: { ability: 'Every round: steal 1 food from your opponent.' },
+    triceratops: { ability: 'Every round: put a plant on your Triceratops page. At game end, 3 points for every 2 plants.' },
+    spinosaurus: { ability: 'Gain 1 diamond, 5 coins, 15 food, or fill in 10 squares in your opponent’s park. Then reserve the top card of the deck if your hand has room.' },
+    dilophosaurus: { ability: 'Take 5 food, draw in 5 fences, reserve a market card, and gain 5 coins.' },
+  };
+  const protoSpCache = {};
+
+  // A species as the current game's rules define it (prototype games change points and some powers).
+  function spec(sp) {
+    if (!state || !state.proto) return SPECIES[sp];
+    if (!protoSpCache[sp]) {
+      protoSpCache[sp] = Object.assign({}, SPECIES[sp], { pts: Math.max(1, Math.round((SPECIES[sp].pts * 2) / 3)) }, PROTO_SP[sp]);
+    }
+    return protoSpCache[sp];
+  }
+
+  function typeLabel(S) {
+    return state && state.proto && S.type === 'action' ? 'Every round' : TYPE_LABEL[S.type];
+  }
+
+  function typeHelp(S) {
+    return state && state.proto && S.type === 'action' ? 'Triggers by itself each round in an active enclosure.' : TYPE_HELP[S.type];
+  }
+
+  const rounds = () => (state && state.proto ? PROTO_ROUNDS : ROUNDS);
+
+  function cardCost(sp) {
+    return state && state.proto ? protoCost(sp) : SPECIES[sp].cost;
+  }
+
+  function cardFood(S) {
+    return state && state.proto ? { t: S.food.t, n: S.food.n * 2 } : S.food;
+  }
+
+  function protoPhases(r) {
+    return PROTO_CHECKPOINTS.includes(r) ? ['food', 'action', 'produce', 'feed'] : ['food', 'action', 'produce'];
+  }
+
+  const PROTO_PHASES = {
+    action: { name: 'Workers', short: 'Workers', icon: '👷', desc: 'Take turns placing workers on shared action spaces.' },
+    produce: { name: 'Production & powers', short: 'Production', icon: '🪙', desc: `Every active enclosure pays (max ${PROTO_PROD_CAP}) and dino powers trigger.` },
+    feed: { name: 'Checkpoint Feeding', short: 'Feeding', icon: '🍖', desc: 'Each dino eats double. Unfed enclosures go inactive.' },
+  };
+
+  function phaseInfo(ph) {
+    return (state && state.proto && PROTO_PHASES[ph]) || PHASES[ph];
+  }
+
+  function protoDeck() {
+    const out = [];
+    BOOK.concat(DECK).forEach((sp) => {
+      for (let i = 0; i < (PROTO_COPIES[sp] || 3); i++) out.push(sp);
+    });
+    return shuffle(out);
+  }
+
+  function protoCost(sp) {
+    const c = SPECIES[sp].cost;
+    return state.event === 'breeding' ? { d: c.d, c: Math.max(0, c.c - 1) } : c;
+  }
+
+  function protoNextEvent() {
+    if (!state.events.length) state.events = shuffle(Object.keys(PROTO_EVENTS));
+    state.event = state.events.shift();
+  }
+
   const PHASES = {
     food: { name: 'Food & Fences', short: 'Food & Fences', icon: '🎲', desc: 'Roll a die, then split it into food and fences.' },
     feed: { name: 'Feeding', short: 'Feeding', icon: '🍖', desc: 'Feed your dinos or they go inactive.' },
@@ -150,6 +258,9 @@
   })();
   let setupLevel = prefs.level || 'medium';
   let setupPace = prefs.pace || 'medium';
+  let setupRules = prefs.rules === 'proto' ? 'proto' : 'current';
+  const RULES_OPTS = { current: 'Current rules', proto: '🧪 Prototype' };
+  const RULES_HELP = { current: 'The normal 18-round game', proto: 'Shared market, worker spaces, park scoring, 12 rounds, events' };
   let aiTimer = null;
   let aiPending = false;
   const fxSeen = new Map();
@@ -238,9 +349,14 @@
   }
 
   function feederCost(n) {
+    if (state && state.proto) return { d: 1, c: n };
     return { d: 1, c: 3 + 2 * Math.max(0, n - 5) };
   }
   const WATER_COST = { d: 1, c: 2 };
+
+  function waterCost() {
+    return state && state.proto && state.event === 'flood' ? { d: 0, c: WATER_COST.c } : WATER_COST;
+  }
   const WATER_SQUARES = 6;
   const DIAMOND_COST = { d: 0, c: 6 };
 
@@ -509,9 +625,11 @@
   function enclosureCost(cp) {
     const c = { meat: 0, plant: 0, flex: 0 };
     const extra = cp.inactive || 0;
+    // Prototype Feedings come every 4 rounds, so each dino eats double.
+    const mult = state && state.proto ? 2 : 1;
     cp.living.forEach((d) => {
       const f = SPECIES[d.species].food;
-      c[f.t] += f.n + extra;
+      c[f.t] += f.n * mult + extra;
     });
     let off = cp.feederSquares;
     for (const k of ['meat', 'plant', 'flex']) {
@@ -628,10 +746,11 @@
   }
 
   function canShop(P) {
-    return canAfford(P, DIAMOND_COST) || canAfford(P, feederCost(1)) || canAfford(P, WATER_COST);
+    return canAfford(P, DIAMOND_COST) || canAfford(P, feederCost(1)) || canAfford(P, waterCost());
   }
 
   function scorePlayer(p) {
+    if (state.proto) return protoScore(p);
     const P = state.players[p];
     const b = P.board;
     const an = analyze(b);
@@ -662,6 +781,55 @@
     return { dinoPts, compy, pachy, micro, tri, abilities, diamonds, total: dinoPts + abilities + diamonds };
   }
 
+  function compyAdjacency(b, an, dinos) {
+    let n = 0;
+    dinos.filter((x) => x.d.species === 'compy').forEach(({ d }) => {
+      const i = d.cells[0];
+      orthNbrs(i).forEach((j) => {
+        const v = b.cells[j];
+        if (v > 0 && an.compOf[j] === an.compOf[i]) {
+          const it = b.items[v];
+          if (it && it.species === 'compy' && !it.dead) n++;
+        }
+      });
+    });
+    return n;
+  }
+
+  // Prototype scoring rewards the park: variety, full and mixed enclosures. Leftover money barely scores.
+  function protoScore(p) {
+    const P = state.players[p];
+    const b = P.board;
+    const an = analyze(b);
+    const active = an.comps.filter((cp) => cp.active && cp.living.length);
+    const dinos = [];
+    active.forEach((cp) => cp.living.forEach((d) => dinos.push({ d, cp })));
+    const count = (sp) => dinos.filter((x) => x.d.species === sp).length;
+    const dinoPts = dinos.reduce((s, x) => s + spec(x.d.species).pts, 0);
+    const compy = compyAdjacency(b, an, dinos);
+    const pachy = dinos.filter((x) => x.d.species === 'pachy').reduce((s, x) => s + x.cp.species.size, 0);
+    const micro = 2 * active.filter((cp) => cp.living.some((d) => d.species === 'microraptor')).length;
+    const tri = count('triceratops') > 0 ? Math.floor(P.triPlants / 2) * 3 : 0;
+    const variety = PROTO_VARIETY[Math.min(5, new Set(dinos.map((x) => x.d.species)).size)];
+    const full = 3 * active.filter((cp) => cp.empty === 0).length;
+    const mixed = 2 * active.filter((cp) => cp.species.size >= 2).length;
+    const diamonds = P.diamonds;
+    const coins = Math.min(3, Math.floor(P.coins / 10));
+    const abilities = compy + pachy + micro + tri;
+    return { dinoPts, compy, pachy, micro, tri, variety, full, mixed, abilities, diamonds, coins, total: dinoPts + abilities + variety + full + mixed + diamonds + coins };
+  }
+
+  function scoreRows() {
+    if (state && state.proto) {
+      return [
+        ['🦖 Dino points', 'dinoPts'], ['🌈 Variety', 'variety'], ['🧱 Full enclosures', 'full'], ['🤝 Mixed enclosures', 'mixed'],
+        ['🦎 Compy adjacency', 'compy'], ['🦕 Pachy variety', 'pachy'], ['🦖 Microraptor enclosures', 'micro'],
+        ['🌿 Triceratops plants', 'tri'], ['💎 Diamonds (×1)', 'diamonds'], ['🪙 Leftover coins', 'coins'],
+      ];
+    }
+    return REVEAL_ROWS;
+  }
+
   // ---------------------------------------------------------------- game setup
   function newPlayer(i, name) {
     return {
@@ -679,15 +847,16 @@
       bonusNext: 0,
       bonusPending: 0,
       doubles: [],
+      hand: [],
     };
   }
 
-  function newGame(names, first, ai, level, pace) {
-    buildGame(names, first, ai, level, pace);
+  function newGame(names, first, ai, level, pace, proto) {
+    buildGame(names, first, ai, level, pace, proto);
     commit();
   }
 
-  function buildGame(names, first, ai, level, pace) {
+  function buildGame(names, first, ai, level, pace, proto) {
     resetFx();
     const deck = shuffle(DECK.slice());
     const faceUp = [deck.shift(), deck.shift()];
@@ -706,6 +875,21 @@
       log: [],
       celebrated: false,
     };
+    if (proto) {
+      state.proto = true;
+      state.deck = protoDeck();
+      state.faceUp = state.deck.splice(0, PROTO_MARKET);
+      state.players.forEach((P) => { P.book = []; });
+      state.events = shuffle(Object.keys(PROTO_EVENTS));
+      state.spaces = {};
+      state.workers = [0, 0];
+      state.nextFirst = null;
+      state.phaseOrder = protoPhases(1);
+      protoNextEvent();
+      logMsg(`🧪 New prototype game! ${pn(first)} goes first. ${PROTO_ROUNDS} rounds, Feeding after rounds ${PROTO_CHECKPOINTS.join(', ')}.`);
+      logMsg(`Round 1 begins. Event: ${PROTO_EVENTS[state.event].icon} <b>${PROTO_EVENTS[state.event].name}</b>.`);
+      return;
+    }
     logMsg(`🥚 New game! ${pn(first)} goes first this round. First player switches every round.`);
     logMsg('Round 1 begins.');
   }
@@ -754,6 +938,7 @@
 
   function completeAction(newTasks) {
     const T = cur();
+    if (T.work && ui.space) state.spaces[ui.space] = T.p;
     T.remaining--;
     pushFront(newTasks || [], T.k);
     commit();
@@ -775,6 +960,7 @@
   }
 
   function buildRoundTasks() {
+    if (state.proto) return protoRoundTasks();
     const q = [];
     state.phaseOrder.forEach((ph, k) => {
       if (ph === 'food') q.push({ t: 'roll', k });
@@ -800,12 +986,21 @@
       P.bonusNext = 0;
       P.doubles = [];
     });
-    if (state.round >= ROUNDS) {
+    if (state.round >= rounds()) {
       state.queue = [{ t: 'gameOver' }];
-      logMsg('🏁 Round 18 is over — final scoring!');
+      logMsg(`🏁 Round ${rounds()} is over — final scoring!`);
       return;
     }
     state.round++;
+    if (state.proto) {
+      state.first = state.nextFirst != null ? state.nextFirst : other(state.first);
+      state.nextFirst = null;
+      state.phaseOrder = protoPhases(state.round);
+      protoNextEvent();
+      state.queue.push({ t: 'roundStart' });
+      logMsg(`Round ${state.round} begins — ${pn(state.first)} goes first. Event: ${PROTO_EVENTS[state.event].icon} <b>${PROTO_EVENTS[state.event].name}</b>.`);
+      return;
+    }
     state.first = other(state.first);
     state.phaseOrder = shuffle(PHASE_KEYS.slice());
     state.queue.push({ t: 'roundStart' });
@@ -822,6 +1017,8 @@
       };
       if (T.t === 'roundEnd') { endRound(); continue; }
       if (T.t === 'actions' && T.remaining <= 0) { skip(); continue; }
+      if (T.t === 'actions' && T.work && !protoOpenSpaces().length) { skip(`${pn(T.p)} had no action space left for a worker.`); continue; }
+      if (T.t === 'produce' && state.proto) { state.queue.shift(); protoProduce(T.p); continue; }
       if (T.t === 'feed' && !feedables(analyze(state.players[T.p].board)).length) {
         skip(`${pn(T.p)} had no dinos to feed.`);
         continue;
@@ -831,12 +1028,13 @@
         continue;
       }
       if (T.t === 'drawCard' && !state.faceUp.length && !state.deck.length) { skip('No cards left to draw.'); continue; }
+      if (T.t === 'drawCard' && state.proto && state.players[T.p].hand.length >= PROTO_HAND_MAX) { skip(`${pn(T.p)}’s hand is full, so no card was reserved.`); continue; }
       if (T.t === 'trex' && !trexOptions(T.p).length) { skip('No dinos left to block.'); continue; }
       if (T.t === 'fillOpp' && emptyCount(other(T.p)) === 0) { skip('Opponent has no empty squares left.'); continue; }
       if (T.t === 'drawFences' && !legalEdges(T.p).length) { skip(`${pn(T.p)} has nowhere left to draw fences.`); continue; }
       if (T.t === 'steal' && T.amount <= 0) { skip(); continue; }
-      if (T.t === 'freePlay' && !playOptions(T.p, true).some((o) => o.ok)) {
-        skip(`${pn(T.p)} has no dino worth 5 or fewer points to play for free.`);
+      if (T.t === 'freePlay' && !(state.proto ? protoPlayOptions(T.p, T) : playOptions(T.p, true)).some((o) => o.ok)) {
+        skip(`${pn(T.p)} has no dino worth ${T.limit || 5} or fewer points to play for free.`);
         continue;
       }
       return;
@@ -881,6 +1079,7 @@
   }
 
   function takeCard(p, from) {
+    if (state.proto) return protoReserve(p, from);
     const P = state.players[p];
     let sp;
     if (from === 'deck') {
@@ -900,6 +1099,16 @@
 
   function eventTasks(p, sp) {
     const P = state.players[p];
+    if (state.proto) {
+      if (sp === 'trex') return [{ t: 'freePlay', p, limit: 5, marketOnly: true, title: 'T. Rex: place a market card worth 5 or fewer for free' }];
+      if (sp === 'gigantoraptor') {
+        if (state.round < rounds()) {
+          P.bonusNext++;
+          logMsg(`${pn(p)} will place an extra worker next round (Gigantoraptor).`);
+        } else logMsg('Gigantoraptor’s bonus has no next round to use.');
+        return [];
+      }
+    }
     switch (sp) {
       case 'spinosaurus':
         return [{ t: 'spino', p }];
@@ -922,7 +1131,7 @@
           { t: 'drawCard', p, source: 'any', title: 'Dilophosaurus: draw a card' },
         ];
       case 'gigantoraptor':
-        if (state.round < ROUNDS) {
+        if (state.round < rounds()) {
           P.bonusNext++;
           logMsg(`${pn(p)} may do one phase twice next round (Gigantoraptor).`);
         } else {
@@ -931,6 +1140,224 @@
         return [];
       default:
         return [];
+    }
+  }
+
+  // ---------------------------------------------------------------- prototype round engine
+  function protoOpenSpaces() {
+    return Object.keys(PROTO_SPACES).filter((k) => state.spaces[k] == null);
+  }
+
+  // Workers alternate, starting with the first player; whoever has more workers places the rest at the end.
+  function protoRoundTasks() {
+    const q = [];
+    state.phaseOrder.forEach((ph, k) => {
+      if (ph === 'food') {
+        q.push({ t: 'roll', k });
+        order().forEach((p) => q.push({ t: 'gainFood', p, k, amount: null }));
+      } else if (ph === 'action') {
+        const left = state.workers.slice();
+        let p = state.first;
+        while (left[0] + left[1] > 0) {
+          if (left[p] > 0) {
+            q.push({ t: 'actions', p, k, remaining: 1, work: true });
+            left[p]--;
+          }
+          p = other(p);
+        }
+      } else if (ph === 'produce') order().forEach((p) => q.push({ t: 'produce', p, k }));
+      else if (ph === 'feed') order().forEach((p) => q.push({ t: 'feed', p, k }));
+    });
+    q.push({ t: 'roundEnd' });
+    return q;
+  }
+
+  function protoStartRound() {
+    state.spaces = {};
+    state.workers = state.players.map((P) => PROTO_WORKERS + P.bonusPending);
+    state.players.forEach((P, p) => {
+      if (P.bonusPending) logMsg(`${pn(p)} has ${plural(state.workers[p], 'worker')} this round (Gigantoraptor).`);
+      P.bonusPending = 0;
+    });
+    const ev = state.event;
+    if (ev === 'migration') {
+      state.deck.push(...state.faceUp);
+      state.faceUp = state.deck.splice(0, PROTO_MARKET);
+      logMsg('🦤 Migration: the market was replaced.');
+    } else if (ev === 'tax') {
+      state.players.forEach((P, p) => {
+        if (P.coins > 15) {
+          logMsg(`🧾 ${pn(p)} lost 🪙${P.coins - 15} to tax.`);
+          P.coins = 15;
+        }
+      });
+    } else if (ev === 'fossil') {
+      const n = state.players.map((P) => analyze(P.board).comps.filter((cp) => cp.valid && !cp.dead && cp.living.length).length);
+      if (n[0] !== n[1]) {
+        const w = n[0] > n[1] ? 0 : 1;
+        state.players[w].diamonds++;
+        logMsg(`🦴 ${pn(w)} has the most enclosures and found a 💎 diamond.`);
+      } else logMsg('🦴 Fossil find: tied for most enclosures, so nobody gets the diamond.');
+    } else if (ev === 'feast') {
+      state.players.forEach((P) => { P.meat++; P.plants++; });
+      logMsg('🍗 Feast: everyone gained 🍖1 🌿1.');
+    } else if (ev === 'tourists') {
+      state.players.forEach((P, p) => {
+        const n = new Set(analyze(P.board).comps.filter((cp) => cp.active).flatMap((cp) => [...cp.species])).size;
+        P.coins += n;
+        if (n) logMsg(`📸 Tourists paid ${pn(p)} 🪙${n}.`);
+      });
+    } else if (ev === 'storm') {
+      state.players.forEach((P, p) => {
+        const an = analyze(P.board);
+        const open = [];
+        for (let i = 0; i < 100; i++) if (P.board.cells[i] === 0 && !an.comps[an.compOf[i]].valid) open.push(i);
+        const hit = shuffle(open).slice(0, 2);
+        hit.forEach((i) => { P.board.cells[i] = -1; });
+        if (hit.length) logMsg(`⛈️ The storm filled in ${plural(hit.length, 'square')} of ${pn(p)}’s open land.`);
+      });
+    }
+  }
+
+  // Production from every active enclosure (capped), then each enclosure's free dino powers.
+  function protoProduce(p) {
+    const P = state.players[p];
+    const O = state.players[other(p)];
+    const cap = state.event === 'goldrush' ? 7 : PROTO_PROD_CAP;
+    const comps = producible(p);
+    let coins = 0;
+    const notes = [];
+    comps.forEach((cp) => { coins += Math.min(cap, cp.prod); });
+    const n = (sp) => comps.reduce((s, cp) => s + cp.living.filter((d) => d.species === sp).length, 0);
+    const para = n('parasaurolophus');
+    if (para) { coins += para; notes.push(`Parasaurolophus +🪙${para}`); }
+    const allo = Math.min(n('allosaurus'), O.coins);
+    if (allo) { O.coins -= allo; coins += allo; notes.push(`Allosaurus stole 🪙${allo}`); }
+    let raid = n('velociraptor');
+    let took = 0;
+    while (raid > 0 && O.meat + O.plants > 0) {
+      if (O.meat >= O.plants) { O.meat--; P.meat++; } else { O.plants--; P.plants++; }
+      raid--;
+      took++;
+    }
+    if (took) notes.push(`Velociraptors stole ${took} food`);
+    const tri = n('triceratops');
+    if (tri) { P.triPlants += tri; notes.push(`Triceratops page +🌿${tri}`); }
+    P.coins += coins;
+    if (!comps.length && !notes.length) logMsg(`${pn(p)} had no active enclosures to produce from.`);
+    else logMsg(`${pn(p)} collected 🪙${coins} from ${plural(comps.length, 'enclosure')}${notes.length ? ` (${notes.join(', ')})` : ''}.`);
+  }
+
+  // Market cards and reserved cards a player could place now (or for free with T. Rex / Ankylosaurus).
+  function protoPlayOptions(p, freeTask) {
+    const P = state.players[p];
+    const an = analyze(P.board);
+    const free = !!freeTask;
+    const limit = free ? freeTask.limit || 5 : 0;
+    const src = state.faceUp.map((sp, i) => ({ sp, src: 'm', i })).filter((o) => o.sp);
+    if (!free || !freeTask.marketOnly) P.hand.forEach((sp, i) => src.push({ sp, src: 'h', i }));
+    return src.map((o) => {
+      let why = '';
+      if (free ? spec(o.sp).pts > limit : !canAfford(P, protoCost(o.sp))) why = free ? `Worth more than ${limit} points` : 'Can’t afford yet';
+      else if (!roomFor(p, o.sp, an)) why = 'No room in your park';
+      return Object.assign(o, { ok: !why, why });
+    });
+  }
+
+  function protoTakeFromMarket(i) {
+    const sp = state.faceUp[i];
+    const nx = state.deck.shift();
+    if (nx) state.faceUp[i] = nx;
+    else state.faceUp.splice(i, 1);
+    return sp;
+  }
+
+  function protoReserve(p, from) {
+    const P = state.players[p];
+    if (P.hand.length >= PROTO_HAND_MAX) return null;
+    const sp = from === 'deck' ? state.deck.shift() : protoTakeFromMarket(from);
+    if (!sp) return null;
+    P.hand.push(sp);
+    logMsg(`${pn(p)} reserved ${from === 'deck' ? 'the top card of the deck' : `${dz(sp)} <b>${spName(sp)}</b>`}.`);
+    pendingCard = { p, sp, from };
+    return sp;
+  }
+
+  function protoSpaceAmount(k) {
+    if (k === 'forage') return state.event === 'drought' ? 2 : 4;
+    if (k === 'fences') return state.event === 'stampede' ? 5 : 3;
+    return 0;
+  }
+
+  function protoSpaceStatus(p, k) {
+    const P = state.players[p];
+    if (state.spaces[k] != null) return { ok: false, why: `Taken by ${state.players[state.spaces[k]].name}` };
+    switch (k) {
+      case 'buy1':
+      case 'buy2': {
+        const opts = protoPlayOptions(p);
+        if (opts.some((o) => o.ok)) return { ok: true };
+        return { ok: false, why: opts.length && opts.every((o) => o.why === opts[0].why) ? opts[0].why : 'Nothing you can play' };
+      }
+      case 'diamond':
+        return P.coins >= PROTO_DIAMOND_COINS ? { ok: true } : { ok: false, why: 'Not enough coins' };
+      case 'fences':
+        return legalEdges(p).length ? { ok: true } : { ok: false, why: 'No room for fences' };
+      case 'builder':
+        return canAfford(P, feederCost(1)) || canAfford(P, waterCost()) ? { ok: true } : { ok: false, why: 'Can’t afford' };
+      case 'scout':
+        if (P.hand.length >= PROTO_HAND_MAX) return { ok: false, why: 'Hand is full' };
+        return state.faceUp.length + state.deck.length ? { ok: true } : { ok: false, why: 'No cards left' };
+      default:
+        return { ok: true };
+    }
+  }
+
+  function protoSpace(T, k) {
+    const p = T.p;
+    const P = state.players[p];
+    if (!PROTO_SPACES[k] || !protoSpaceStatus(p, k).ok) return;
+    ui.space = k;
+    const n = protoSpaceAmount(k);
+    switch (k) {
+      case 'coins':
+        P.coins += 3;
+        logMsg(`${pn(p)} took 🪙3.`);
+        completeAction();
+        break;
+      case 'first':
+        P.coins += 1;
+        state.nextFirst = p;
+        logMsg(`${pn(p)} took 🪙1 and will go first next round.`);
+        completeAction();
+        break;
+      case 'diamond':
+        P.coins -= PROTO_DIAMOND_COINS;
+        P.diamonds++;
+        logMsg(`${pn(p)} bought a 💎 diamond.`);
+        completeAction();
+        break;
+      case 'forage':
+        completeAction([{ t: 'foodChoice', p, amount: n, title: `Forage: take ${n} food` }]);
+        break;
+      case 'fences':
+        completeAction([{ t: 'drawFences', p, count: n, title: `Fences: draw in ${n} fences` }]);
+        break;
+      case 'buy1':
+      case 'buy2':
+        ui.mode = 'play';
+        render();
+        break;
+      case 'builder':
+        ui.mode = 'shop';
+        render();
+        break;
+      case 'scout':
+        ui.mode = 'draw';
+        render();
+        break;
+      default:
+        break;
     }
   }
 
@@ -1071,7 +1498,7 @@
     const tot = [s[0].total, s[1].total];
     const w = tot[0] === tot[1] ? null : tot[0] > tot[1] ? 0 : 1;
     const verdict = revealVerdict(s, w);
-    const rows = REVEAL_ROWS.filter(([, k]) => k === 'dinoPts' || s[0][k] || s[1][k]);
+    const rows = scoreRows().filter(([, k]) => k === 'dinoPts' || s[0][k] || s[1][k]);
     const side = (p) => `<div class="rv-side pl-${state.players[p].color}">
         <span class="rv-crown">👑</span>
         <img class="rv-mascot" src="${IMG}${MASCOT[p]}.webp" alt="">
@@ -1219,11 +1646,11 @@
     let html = '';
     if (T.t === 'roundStart') {
       key = `r${state.round}`;
-      html = `<div class="to-card to-round"><small>Round</small><b>${state.round}</b><span>of ${ROUNDS}</span></div>`;
+      html = `<div class="to-card to-round"><small>Round</small><b>${state.round}</b><span>of ${rounds()}</span></div>`;
     } else if (T.p !== undefined && ['gainFood', 'feed', 'produce', 'actions'].includes(T.t)) {
       key = `p${T.p}:${state.round}:${T.k}:${T.bonus ? 1 : 0}`;
       const P = state.players[T.p];
-      const phase = PHASES[state.phaseOrder[T.k]];
+      const phase = phaseInfo(state.phaseOrder[T.k]);
       const who = online && T.p === online.me ? 'Your turn!' : `${esc(P.name)}’s turn`;
       html = `<div class="to-card pl-${P.color}"><img src="${IMG}${MASCOT[T.p]}.webp" alt=""><div><small>Round ${state.round} · ${phase.icon} ${phase.short}${T.bonus ? ' · bonus' : ''}</small><b>${who}</b></div></div>`;
     }
@@ -1245,51 +1672,51 @@
 
   function cardHtml(sp, opts) {
     const o = opts || {};
-    const S = SPECIES[sp];
+    const S = spec(sp);
     return `<div class="dcard t-${S.type} ${o.cls || ''}" ${o.attrs || ''} title="${esc(S.name)}">
       ${o.tag ? `<span class="dc-tag">${o.tag}</span>` : ''}
       <div class="dc-head"><div class="dc-name ${S.name.length > 11 && S.name.length <= 15 ? 'long' : ''}">${esc(S.name.length > 15 ? spName(sp) : S.name)}</div><div class="dc-pts" title="Points">${S.pts}</div></div>
       <div class="dc-art" style="--sc:${S.color}"><img src="${IMG}${sp}.webp" alt="" draggable="false">${o.lock ? `<span class="dc-lock">🔒 ${o.lock}</span>` : ''}</div>
-      <div class="dc-price"><small>Cost</small><b>${costText(S.cost)}</b></div>
-      <div class="dc-facts">${statBox('space', `⬛${S.space}`, 'Squares it takes up')}${statBox('eats', foodText(S.food).replace(' ', ''), 'Food it eats every Feeding')}${statBox('earns', `🪙${S.prod}`, 'Coins it adds in Production')}</div>
-      <div class="dc-ab"><span class="dc-type">${TYPE_LABEL[S.type]}</span>${esc(S.ability)}</div>
+      <div class="dc-price"><small>Cost</small><b>${costText(cardCost(sp))}</b></div>
+      <div class="dc-facts">${statBox('space', `⬛${S.space}`, 'Squares it takes up')}${statBox('eats', foodText(cardFood(S)).replace(' ', ''), 'Food it eats every Feeding')}${statBox('earns', `🪙${S.prod}`, 'Coins it adds in Production')}</div>
+      <div class="dc-ab"><span class="dc-type">${typeLabel(S)}</span>${esc(S.ability)}</div>
       ${o.foot || ''}
     </div>`;
   }
 
   function miniCard(sp, attrs, cls, from) {
     if (!sp) return '<div class="mini empty">empty</div>';
-    const S = SPECIES[sp];
-    const title = `${S.name} · ${TYPE_LABEL[S.type]}: ${S.ability}`;
+    const S = spec(sp);
+    const title = `${S.name} · ${typeLabel(S)}: ${S.ability}`;
     const view = `data-act="viewCard" data-sp="${sp}" data-from="${from}"`;
     return `<div class="mini t-${S.type} ${attrs ? 'pick' : 'view'} ${cls || ''}" ${attrs || view} title="${esc(title)}">
       <div class="ma" style="--sc:${S.color}"><img src="${IMG}${sp}.webp" alt="" draggable="false"><span class="mp">${S.pts}</span></div>
       <div class="mn">${esc(spName(sp))}</div>
-      <div class="ms">${costText(S.cost)}</div>
+      <div class="ms">${costText(cardCost(sp))}</div>
       ${attrs ? `<button class="m-info" ${view} aria-label="See what ${esc(S.name)} does">i</button>` : ''}
     </div>`;
   }
 
   function openMarketCard(sp, from) {
-    const S = SPECIES[sp];
+    const S = spec(sp);
     const T = cur();
     const mine = T && !theirTurn(T);
     const canTake = mine && state.faceUp[from] === sp && ((T.t === 'actions' && ui.mode === 'draw') || (T.t === 'drawCard' && T.source === 'any'));
     const viewer = online ? online.me : state.aiCfg ? 0 : T && T.p != null ? T.p : 0;
     const owned = state.players[viewer] && state.players[viewer].book.includes(sp);
     const facts = [
-      `<li>Costs <b>${costText(S.cost)}</b> to play and fills <b>${plural(S.space, 'square')}</b> in one enclosure.</li>`,
-      `<li>Eats <b>${foodText(S.food)}</b> every Feeding.</li>`,
-      `<li>Adds <b>🪙${S.prod}</b> when its enclosure is picked in Production.</li>`,
+      `<li>Costs <b>${costText(cardCost(sp))}</b> to play and fills <b>${plural(S.space, 'square')}</b> in one enclosure.</li>`,
+      `<li>Eats <b>${foodText(cardFood(S))}</b> every Feeding.</li>`,
+      state.proto ? `<li>Adds <b>🪙${S.prod}</b> to its enclosure’s Production every round.</li>` : `<li>Adds <b>🪙${S.prod}</b> when its enclosure is picked in Production.</li>`,
       `<li>Worth <b>${plural(S.pts, 'point')}</b> at the end if its enclosure is active.</li>`,
       S.type === 'none'
         ? `<li>${TYPE_HELP.none}</li>`
-        : `<li><b>${TYPE_LABEL[S.type]}:</b> ${esc(S.ability)} <span class="muted">${TYPE_HELP[S.type]}</span></li>`,
+        : `<li><b>${typeLabel(S)}:</b> ${esc(S.ability)} <span class="muted">${typeHelp(S)}</span></li>`,
     ];
     if (owned) facts.push(`<li class="muted">${online || state.aiCfg ? 'You already have' : `${esc(state.players[viewer].name)} already has`} this dino in ${online || state.aiCfg ? 'your' : 'their'} book.</li>`);
     openModal(`<div class="modal-head"><h2>🃏 ${esc(S.name)}</h2><button class="x" data-act="closeModal" aria-label="Close">✕</button></div>
       <div class="piece-info">${cardHtml(sp, { cls: 'solo' })}<div><ul class="facts">${facts.join('')}</ul>
-      ${canTake ? `<button class="btn" data-act="take" data-from="${from}">🃏 Draw this card</button>` : ''}</div></div>`, 'medium');
+      ${canTake ? `<button class="btn" data-act="take" data-from="${from}">🃏 ${state.proto ? 'Reserve' : 'Draw'} this card</button>` : ''}</div></div>`, 'medium');
   }
 
   // ---------------------------------------------------------------- rendering: board
@@ -1309,21 +1736,21 @@
     let status;
     if (cp.dead) status = '<span class="status-pill dead">💀 Extinct</span> These dinos died. Nothing new can live here.';
     else if (!cp.valid) status = '<span class="status-pill warn">Not fenced in</span>';
-    else if (cp.inactive) status = `<span class="status-pill ${cp.inactive >= 4 ? 'danger' : 'warn'}">💤 Inactive · marker ${cp.inactive}/4</span> No coins or points until every dino here is fed.${cp.inactive >= 4 ? ' <b>If not fed next Feeding, they die!</b>' : ''}`;
+    else if (cp.inactive) status = `<span class="status-pill ${cp.inactive >= (state.proto ? 2 : 4) ? 'danger' : 'warn'}">💤 Inactive · marker ${cp.inactive}/${state.proto ? 2 : 4}</span> No coins or points until every dino here is fed.${cp.inactive >= (state.proto ? 2 : 4) ? ' <b>If not fed next Feeding, they die!</b>' : ''}`;
     else status = '<span class="status-pill ok">Active</span> Earning coins and points.';
     const facts = [`<li><b>${encl}</b> · ${status}</li>`];
     let card = '';
     if (it.kind === 'dino') {
-      const S = SPECIES[it.species];
+      const S = spec(it.species);
       card = cardHtml(it.species, { cls: 'solo' });
       if (!it.dead) {
-        const eats = S.food.n + (cp.inactive || 0);
-        const why = cp.inactive ? ` <span class="muted">(card says ${S.food.n}; +${cp.inactive} because it’s inactive)</span>` : '';
+        const eats = cardFood(S).n + (cp.inactive || 0);
+        const why = cp.inactive ? ` <span class="muted">(card says ${cardFood(S).n}; +${cp.inactive} because it’s inactive)</span>` : '';
         facts.push(`<li>Eats <b>${eats} ${foodText({ t: S.food.t, n: '' }).trim()}</b> each Feeding${why}.</li>`);
         if (cp.feederSquares) facts.push(`<li>The feeder here takes <b>${cp.feederSquares} food</b> off the whole enclosure’s bill.</li>`);
-        facts.push(`<li>Adds <b>🪙${S.prod}</b> when you pick ${encl.replace('Enclosure', 'enclosure')} in Production (whole enclosure makes 🪙${cp.prod}).</li>`);
+        facts.push(`<li>Adds <b>🪙${S.prod}</b> ${state.proto ? `each round (whole enclosure makes 🪙${Math.min(PROTO_PROD_CAP, cp.prod)}, max ${PROTO_PROD_CAP})` : `when you pick ${encl.replace('Enclosure', 'enclosure')} in Production (whole enclosure makes 🪙${cp.prod})`}.</li>`);
         facts.push(`<li>Worth <b>${S.pts} point${S.pts === 1 ? '' : 's'}</b> at the end if active.</li>`);
-        facts.push(`<li><b>${TYPE_LABEL[S.type]}:</b> ${TYPE_HELP[S.type]}</li>`);
+        facts.push(`<li><b>${typeLabel(S)}:</b> ${typeHelp(S)}</li>`);
       }
     } else if (it.kind === 'feeder') {
       card = `<div class="piece-art">🌾</div>`;
@@ -1638,21 +2065,22 @@
     const k = T && T.k !== undefined ? T.k : -1;
     const over = T && T.t === 'gameOver';
     let pips = '';
-    for (let r = 1; r <= ROUNDS; r++) {
+    for (let r = 1; r <= rounds(); r++) {
       const cls = over || r < state.round ? 'done' : r === state.round ? 'cur' : '';
-      pips += `<span class="pip ${cls}">${r}</span>`;
+      const chk = state.proto && PROTO_CHECKPOINTS.includes(r);
+      pips += `<span class="pip ${cls}${chk ? ' chk' : ''}"${chk ? ' title="Feeding checkpoint"' : ''}>${r}</span>`;
     }
     const phases = over
       ? ''
       : state.phaseOrder
         .map((ph, i) => {
           const cls = T && T.t === 'roundStart' ? '' : i < k ? 'done' : i === k ? 'cur' : '';
-          return `<div class="pcard ph-${ph} ${cls}"><span class="pc-n">${i + 1}</span><span class="pc-i">${PHASES[ph].icon}</span><span class="pc-t">${PHASES[ph].short}</span></div>`;
+          return `<div class="pcard ph-${ph} ${cls}"><span class="pc-n">${i + 1}</span><span class="pc-i">${phaseInfo(ph).icon}</span><span class="pc-t">${phaseInfo(ph).short}</span></div>`;
         })
         .join('');
     const fresh = T && T.t === 'roundStart' ? ' fresh' : '';
     setHtml(el, `
-      <div class="brand"><img class="brand-logo" src="${IMG}trex.webp" alt=""><div><h1>Dino Board Game</h1><small>Build the best dino park in 18 rounds</small></div></div>
+      <div class="brand"><img class="brand-logo" src="${IMG}trex.webp" alt=""><div><h1>Dino Board Game</h1><small>${state.proto ? `🧪 Prototype rules · ${rounds()} rounds` : 'Build the best dino park in 18 rounds'}</small></div></div>
       <div class="top-mid">
         <div class="tracker"><span class="tracker-label">Round</span>${pips}</div>
         <div class="phase-row${fresh}" data-round="${state.round}">${phases}</div>
@@ -1723,11 +2151,11 @@
           <div class="res">
             ${chips}
             ${P.triPlants ? chip(`${dz('triceratops')}🌿`, P.triPlants, 'Plants on your Triceratops page', 'triPlants', resFx[p].triPlants) : ''}
-            ${bonus ? chip('⏩', bonus, 'Gigantoraptor: do a phase twice next round') : ''}
+            ${bonus ? chip('⏩', bonus, state.proto ? 'Gigantoraptor: extra worker next round' : 'Gigantoraptor: do a phase twice next round') : ''}
           </div>
           <div class="board-wrap">${boardSvg(p)}</div>
           <div class="p-foot">
-            <button class="btn sm ghost book-btn" data-act="book" data-p="${p}"><span class="book-ic"></span>Dino book · ${P.book.length}</button>
+            <button class="btn sm ghost book-btn" data-act="book" data-p="${p}">${state.proto ? `✋ Reserved · ${P.hand.length}/${PROTO_HAND_MAX}` : `<span class="book-ic"></span>Dino book · ${P.book.length}`}</button>
             ${P.blocked.length ? `<span class="blocked">🚫 Blocked: ${P.blocked.map((sp) => esc(spName(sp))).join(', ')}</span>` : ''}
           </div>
         </div>`;
@@ -1769,7 +2197,7 @@
   function watchHtml(T) {
     const who = online ? onlineOwner() : state.sim ? (T.p != null ? T.p : state.first) : state.ai;
     const P = state.players[who];
-    const phase = T.k !== undefined ? PHASES[state.phaseOrder[T.k]] : null;
+    const phase = T.k !== undefined ? phaseInfo(state.phaseOrder[T.k]) : null;
     const step = T.t === 'roundStart' ? 'Starting the round' : T.t === 'roll' ? '🎲 Rolling the die' : phase ? `${phase.icon} ${phase.name}${T.bonus ? ' · bonus turn' : ''}` : '';
     const dots = '<i class="dots3"><b></b><b></b><b></b></i>';
     if (online && online.timedOut) {
@@ -1781,7 +2209,7 @@
     const doing = online ? `Waiting for ${esc(P.name)} to move` : `🤖 ${esc(ui.aiNote || 'Thinking')}`;
     const help = online
       ? `You can’t play ${esc(P.name)}’s turn. Their moves show up on the board as they make them, and you’ll get the controls back when it’s your turn.`
-      : state.sim ? `🧪 Simulation · round ${state.round} of ${ROUNDS}. Both players are computers; nothing here is saved.`
+      : state.sim ? `🧪 Simulation · round ${state.round} of ${rounds()}. Both players are computers; nothing here is saved.`
         : 'You can’t play the computer’s turn. Watch its moves on the board — you’ll get the controls back when it’s your turn.';
     return `<div class="watch pl-${P.color}"><img src="${IMG}${MASCOT[who]}.webp" alt=""><div>
       <h3>${state.sim ? '🤖' : '🔒'} ${esc(P.name)}’s turn</h3><p class="w-step">${step}</p>
@@ -1799,12 +2227,12 @@
   }
 
   function bannerCore(T) {
-    if (T.t === 'gameOver') return '<div class="banner"><div class="b-who">🏁 Final scores</div><div class="b-phase">18 rounds complete</div></div>';
+    if (T.t === 'gameOver') return '<div class="banner"><div class="b-who">🏁 Final scores</div><div class="b-phase">${rounds()} rounds complete</div></div>';
     if (T.p === undefined) {
-      return `<div class="banner"><div class="b-who">Round ${state.round} of ${ROUNDS}</div><div class="b-phase">${T.t === 'roll' ? '🎲 Gain Food / Draw Fences' : 'Shuffle the phase cards'}</div></div>`;
+      return `<div class="banner"><div class="b-who">Round ${state.round} of ${rounds()}</div><div class="b-phase">${T.t === 'roll' ? '🎲 Gain Food / Draw Fences' : 'Shuffle the phase cards'}</div></div>`;
     }
     const P = state.players[T.p];
-    const phase = T.k !== undefined ? PHASES[state.phaseOrder[T.k]] : null;
+    const phase = T.k !== undefined ? phaseInfo(state.phaseOrder[T.k]) : null;
     return `<div class="banner b-${P.color}"><div class="b-who">${esc(P.name)}’s turn</div><div class="b-phase">Round ${state.round} · ${phase ? `${phase.icon} ${phase.name}` : ''}${T.bonus ? ' · ⏩ bonus turn' : ''}</div></div>`;
   }
 
@@ -1813,7 +2241,7 @@
     const pickAny = mine && ((T.t === 'actions' && ui.mode === 'draw') || (T.t === 'drawCard' && T.source === 'any'));
     const pickDeck = mine && (pickAny || (T.t === 'drawCard' && T.source === 'deck'));
     const deckAttrs = pickDeck && state.deck.length ? 'data-act="take" data-from="deck"' : '';
-    const faceUp = [0, 1]
+    const faceUp = (state.proto ? [...Array(PROTO_MARKET).keys()] : [0, 1])
       .map((i) => {
         const sp = state.faceUp[i];
         const deal = sp && isFresh(`m${i}:${sp}:${state.deck.length}`, 900) ? 'deal' : '';
@@ -1821,8 +2249,8 @@
       })
       .join('');
     const stack = Math.min(state.deck.length, 4);
-    return `<div class="market${pickAny || pickDeck ? ' picking' : ''}">
-      <div class="m-title">🃏 Card market${pickAny || pickDeck ? ' <span class="m-hint">tap one to draw</span>' : ''}</div>
+    return `<div class="market${pickAny || pickDeck ? ' picking' : ''}${state.proto ? ' proto' : ''}">
+      <div class="m-title">🃏 ${state.proto ? 'Dino market' : 'Card market'}${pickAny || pickDeck ? ` <span class="m-hint">tap one to ${state.proto ? 'reserve' : 'draw'}</span>` : ''}</div>
       <div class="m-row">
         <div class="deck-back ${deckAttrs ? 'pick' : ''} ${state.deck.length ? '' : 'gone'}" ${deckAttrs} title="Top of the deck (face down)" style="--stack:${stack}">
           <b>${state.deck.length}</b><small>deck</small>
@@ -1878,8 +2306,9 @@
 
   function roundStartHtml() {
     const list = state.phaseOrder
-      .map((ph, i) => `<li><span class="po-n">${i + 1}</span><span class="po-i">${PHASES[ph].icon}</span><span class="po-t"><b>${PHASES[ph].name}</b><small>${PHASES[ph].desc}</small></span></li>`)
+      .map((ph, i) => `<li><span class="po-n">${i + 1}</span><span class="po-i">${phaseInfo(ph).icon}</span><span class="po-t"><b>${phaseInfo(ph).name}</b><small>${phaseInfo(ph).desc}</small></span></li>`)
       .join('');
+    if (state.proto) return protoRoundStartHtml(list);
     let ready = true;
     const T = cur();
     const bonus = state.players
@@ -1908,11 +2337,23 @@
           <div class="muted" style="margin-top:.4rem">${picks.length}/${P.bonusPending} chosen ${picks.length ? '<button class="link" data-act="clearDouble" data-p="' + p + '">reset</button>' : ''}</div></div>`;
       })
       .join('');
-    return `<h2>Round ${state.round} of ${ROUNDS}</h2>
+    return `<h2>Round ${state.round} of ${rounds()}</h2>
       <p>${pn(state.first)} goes first this round. Here’s the order:</p>
       <ol class="phase-order">${list}</ol>
       ${bonus}
       ${online && !onlineMyTurn() ? '' : `<button class="btn big" data-act="startRound" ${ready ? '' : 'disabled'}>${onlineLockIn() ? 'Lock in bonus ▶' : 'Start round ▶'}</button>`}`;
+  }
+
+  function protoRoundStartHtml(list) {
+    const workers = state.players.map((P, p) => `${pn(p)}: <b>${PROTO_WORKERS + P.bonusPending}</b>`).join(' · ');
+    const chk = PROTO_CHECKPOINTS.includes(state.round);
+    const next = PROTO_CHECKPOINTS.find((r) => r >= state.round);
+    return `<h2>Round ${state.round} of ${rounds()}</h2>
+      ${eventNote()}
+      <p>${pn(state.first)} goes first this round. Workers: ${workers}.</p>
+      <ol class="phase-order">${list}</ol>
+      <p class="muted">${chk ? '🍖 <b>Feeding checkpoint this round</b> — each dino eats double.' : `Next Feeding checkpoint: round ${next}.`}</p>
+      ${online ? '' : '<button class="btn big" data-act="startRound">Start round ▶</button>'}`;
   }
 
   function rollHtml() {
@@ -2008,7 +2449,40 @@
     return `<h3>🪙 Production</h3><p>Pick <b>one active enclosure</b> and collect its coins.</p><div class="opt-list">${rows}</div>`;
   }
 
+  function eventNote() {
+    const E = state.proto && PROTO_EVENTS[state.event];
+    return E ? `<div class="ev-note">${E.icon} <b>${E.name}</b> · ${E.desc}</div>` : '';
+  }
+
+  function protoActionsHtml(T) {
+    const P = state.players[T.p];
+    const placed = Object.values(state.spaces).filter((x) => x === T.p).length;
+    const count = `<div class="act-count">Worker ${Math.min(placed + 1, state.workers[T.p])} of ${state.workers[T.p]}</div>`;
+    const backHead = (label) => `<div class="act-top">${backBtn('back', label)}${count}</div>`;
+    if (ui.mode === 'play') return backHead(ui.species ? 'Other dinos' : 'Back') + playModeHtml(T, false);
+    if (ui.mode === 'draw') {
+      return `${backHead()}<h3>🔭 Scout</h3><p>Tap a market card or the deck below to reserve it. Hand: <b>${P.hand.length}/${PROTO_HAND_MAX}</b>.</p>`;
+    }
+    if (ui.mode === 'shop') return (ui.shopItem ? `<div class="act-top">${backBtn('shopBack', 'Builder')}${count}</div>` : backHead()) + shopHtml(P);
+    const tiles = Object.keys(PROTO_SPACES)
+      .map((k, n) => {
+        const X = PROTO_SPACES[k];
+        const st = protoSpaceStatus(T.p, k);
+        const amt = protoSpaceAmount(k);
+        const desc = k === 'forage' ? `Take ${amt} food` : k === 'fences' ? `Draw ${amt} fences` : X.desc;
+        const owner = state.spaces[k];
+        const cls = owner != null ? ` taken pl-${state.players[owner].color}` : '';
+        return `<button class="tile${cls}" style="--n:${n}" data-act="space" data-s="${k}" ${st.ok ? '' : 'disabled'}><span class="t-i">${X.icon}</span><span class="t-t">${X.name}</span><span class="t-s">${st.ok ? desc : `🔒 ${st.why}`}</span></button>`;
+      })
+      .join('');
+    return `<div class="act-top">${count}<button class="btn sm ghost" data-act="endTurn">Pass ▸</button></div>
+      ${eventNote()}
+      <p class="act-help">Place a worker on an open space. Each space holds one worker per round.</p>
+      <div class="tiles">${tiles}</div>`;
+  }
+
   function actionsHtml(T) {
+    if (T.work) return protoActionsHtml(T);
     const P = state.players[T.p];
     const doneN = 2 - T.remaining;
     const dots = `<span class="dots"><i class="${doneN > 0 ? 'used' : ''}"></i><i class="${doneN > 1 ? 'used' : ''}"></i></span>`;
@@ -2073,24 +2547,24 @@
 
   function playModeHtml(T, free) {
     if (!ui.species) {
-      const opts = playOptions(T.p, free);
+      const opts = state.proto ? protoPlayOptions(T.p, free ? T : null) : playOptions(T.p, free);
       const card = (o) => cardHtml(o.sp, {
         cls: `${o.ok ? 'pick' : 'nope'} ${o.why === 'Blocked by T. Rex' ? 'blockedc' : ''}`,
-        attrs: o.ok ? `data-act="pickSpecies" data-sp="${o.sp}"` : '',
-        tag: state.players[T.p].cards.includes(o.sp) ? 'card' : '',
+        attrs: o.ok ? `data-act="pickSpecies" data-sp="${o.sp}"${state.proto ? ` data-src="${o.src}" data-i="${o.i}"` : ''}` : '',
+        tag: state.proto ? (o.src === 'h' ? 'reserved' : 'market') : state.players[T.p].cards.includes(o.sp) ? 'card' : '',
         lock: o.ok ? '' : o.why,
       });
       const can = opts.filter((o) => o.ok);
       const cant = opts.filter((o) => !o.ok);
       const cards = (can.length ? can.map(card).join('') : '<p class="grid-note">Nothing you can play right now.</p>')
         + (cant.length ? `<div class="grid-split">🔒 Not right now</div>${cant.map(card).join('')}` : '');
-      return `<h3>${free ? '🎁 Pick a free dino (≤ 5 points)' : '🦖 Choose a dino to play'}</h3>
+      return `<h3>${free ? `🎁 Pick a free dino (≤ ${T.limit || 5} points)` : state.proto ? '🦖 Buy a dino from the market or your hand' : '🦖 Choose a dino to play'}</h3>
         <div class="card-grid">${cards}</div>
         ${free ? '<button class="btn ghost" data-act="skip">Skip free dino</button>' : ''}`;
     }
-    const S = SPECIES[ui.species];
+    const S = spec(ui.species);
     const v = validateSel();
-    return `<div class="place-head">${dz(ui.species, 'big')}<h3>Place ${esc(S.name)}${free ? ' (free!)' : ` · ${costText(S.cost)}`}</h3></div>
+    return `<div class="place-head">${dz(ui.species, 'big')}<h3>Place ${esc(S.name)}${free ? ' (free!)' : ` · ${costText(cardCost(ui.species))}`}</h3></div>
       ${placementBox(`Select ${S.space} connected square${S.space > 1 ? 's' : ''} inside one enclosure`)}
       <button class="btn big" data-act="place" ${v.ok ? '' : 'disabled'}>Place ${esc(spName(ui.species))}</button>
 `;
@@ -2100,19 +2574,26 @@
     if (ui.shopItem) {
       const isFeeder = ui.shopItem === 'feeder';
       const n = ui.sel.cells.size;
-      const cost = isFeeder ? feederCost(Math.max(1, n)) : WATER_COST;
+      const cost = isFeeder ? feederCost(Math.max(1, n)) : waterCost();
       const v = validateSel();
       return `<h3>${isFeeder ? '🌾 Place a feeder' : '💧 Place a watering hole'} · ${costText(cost)}</h3>
         ${placementBox(isFeeder ? 'Select any number of connected squares in one enclosure' : 'Select 6 connected squares in one enclosure')}
-        ${isFeeder ? '<p class="muted">Each square takes 1 food off that enclosure’s total each Feeding. Over 5 squares costs +🪙2 each.</p>' : '<p class="muted">Lets one additional dino species share this enclosure.</p>'}
+        ${isFeeder ? `<p class="muted">Each square takes 1 food off that enclosure’s total each Feeding. ${state.proto ? 'Costs 💎1 + 🪙1 per square.' : 'Over 5 squares costs +🪙2 each.'}</p>` : '<p class="muted">Lets one additional dino species share this enclosure.</p>'}
         <button class="btn big" data-act="place" ${v.ok ? '' : 'disabled'}>Buy &amp; place</button>
 `;
+    }
+    if (state.proto) {
+      return `<h3>🌾 Builder</h3>
+      <div class="opt-list">
+        <button class="opt" data-act="shopItem" data-item="feeder" ${canAfford(P, feederCost(1)) ? '' : 'disabled'}><span class="o-i">🌾</span><span class="o-t"><b>Feeder · 💎1 + 🪙1 per square</b><small>Each square = 1 less food for that enclosure.</small></span></button>
+        <button class="opt" data-act="shopItem" data-item="water" ${canAfford(P, waterCost()) ? '' : 'disabled'}><span class="o-i">💧</span><span class="o-t"><b>Watering hole · ${costText(waterCost())}</b><small>Takes 6 squares. One more kind of dino can live there.</small></span></button>
+      </div>`;
     }
     return `<h3>🛒 Shop</h3>
       <div class="opt-list">
         <button class="opt" data-act="buyDiamond" ${canAfford(P, DIAMOND_COST) ? '' : 'disabled'}><span class="o-i">💎</span><span class="o-t"><b>Diamond · 🪙6</b><small>Worth 3 points at the end. Some dinos cost diamonds.</small></span></button>
         <button class="opt" data-act="shopItem" data-item="feeder" ${canAfford(P, feederCost(1)) ? '' : 'disabled'}><span class="o-i">🌾</span><span class="o-t"><b>Feeder · 💎1 + 🪙3</b><small>Each square = 1 less food for that enclosure.</small></span></button>
-        <button class="opt" data-act="shopItem" data-item="water" ${canAfford(P, WATER_COST) ? '' : 'disabled'}><span class="o-i">💧</span><span class="o-t"><b>Watering hole · ${costText(WATER_COST)}</b><small>Takes 6 squares. One more kind of dino can live there.</small></span></button>
+        <button class="opt" data-act="shopItem" data-item="water" ${canAfford(P, waterCost()) ? '' : 'disabled'}><span class="o-i">💧</span><span class="o-t"><b>Watering hole · ${costText(waterCost())}</b><small>Takes 6 squares. One more kind of dino can live there.</small></span></button>
       </div>`;
   }
 
@@ -2150,12 +2631,12 @@
 
   function drawCardHtml(T) {
     return `<h3>${esc(T.title || 'Draw a card')}</h3>
-      <p>${T.source === 'deck' ? 'Draw the top card of the deck.' : 'Tap a face-up card or the deck in the card market below.'}</p>`;
+      <p>${T.source === 'deck' ? 'Draw the top card of the deck.' : `Tap a face-up card or the deck in the card market below${state.proto ? ' to reserve it' : ''}.`}</p>`;
   }
 
   function spinoHtml() {
     return `<h3>🦖 Spinosaurus event</h3>
-      <p>Choose one reward. Afterwards you draw the top card of the deck${state.deck.length ? '' : ' (the deck is empty)'}.</p>
+      <p>Choose one reward. Afterwards you ${state.proto ? 'reserve' : 'draw'} the top card of the deck${state.deck.length ? '' : ' (the deck is empty)'}${state.proto && state.players[cur().p].hand.length >= PROTO_HAND_MAX ? ' (your hand is full)' : ''}.</p>
       <div class="opt-list">
         <button class="opt" data-act="spino" data-o="dia"><span class="o-i">💎</span><span class="o-t"><b>Gain 1 diamond</b></span></button>
         <button class="opt" data-act="spino" data-o="coins"><span class="o-i">🪙</span><span class="o-t"><b>Gain 5 coins</b></span></button>
@@ -2225,15 +2706,11 @@
       <table class="scoreboard">
         <thead><tr><th></th><th>${pn(0)}</th><th>${pn(1)}</th></tr></thead>
         <tbody>
-          ${row('🦖 Dino points', 'dinoPts')}
-          ${row('🦎 Compy adjacency', 'compy')}
-          ${row('🦕 Pachy coins', 'pachy')}
-          ${row('🦖 Microraptor enclosures', 'micro')}
-          ${row('🌿 Triceratops plants', 'tri')}
-          ${row('💎 Diamonds (×3)', 'diamonds')}
+          ${scoreRows().map(([label, k]) => row(label, k)).join('')}
         </tbody>
         <tfoot><tr><td>Total</td><td>${s[0].total}</td><td>${s[1].total}</td></tr></tfoot>
       </table>
+      ${state.proto ? '<p class="muted">🧪 Prototype rules. Variety: 1/3/6/10/15 for 1–5 species. Full enclosure +3, mixed enclosure +2, 1 point per 10 leftover coins (max 3).</p>' : ''}
       <p class="muted">Dinos in inactive or extinct enclosures score nothing. Leftover coins: ${esc(P[0].name)} 🪙${P[0].coins}, ${esc(P[1].name)} 🪙${P[1].coins}.</p>
       ${state.sim ? simPlanNote() : aiPlanNote()}
       ${state.sim
@@ -2269,7 +2746,7 @@
     if (s.purpose === 'water') {
       const v = validatePlacement(s.board, cells, { kind: 'water', size: 6 });
       if (!v.ok) return v;
-      if (!canAfford(P, WATER_COST)) return { ok: false, msg: 'You can’t afford a watering hole.' };
+      if (!canAfford(P, waterCost())) return { ok: false, msg: 'You can’t afford a watering hole.' };
       return v;
     }
     return { ok: false, msg: '' };
@@ -2377,6 +2854,7 @@
           ${segGroup('Difficulty', 'setupOpt', 'level', AI_LEVELS, AI_LEVEL_HELP, setupLevel)}
           ${segGroup('Computer speed', 'setupOpt', 'pace', AI_PACES, AI_PACE_HELP, setupPace)}
         </div>
+        ${isAdmin() ? `<div class="proto-opts">${segGroup('🧪 Rules (admin test)', 'setupOpt', 'rules', RULES_OPTS, RULES_HELP, setupRules)}<button class="link" data-act="rules" data-proto="1">What changes?</button></div>` : ''}
         <div class="first-q">🎬 Who watched a dino movie most recently? They go first.</div>
         <div class="first-btns">
           <button class="btn fr" data-act="setupStart" data-first="0"><span class="only-2p">🔴 Red did!</span><span class="only-ai">🔴 I did!</span></button>
@@ -2398,7 +2876,7 @@
 
   function savePrefs(level, pace) {
     try {
-      localStorage.setItem(PREFS_KEY, JSON.stringify({ level, pace }));
+      localStorage.setItem(PREFS_KEY, JSON.stringify({ level, pace, rules: setupRules }));
     } catch {
       /* storage blocked */
     }
@@ -2411,6 +2889,29 @@
       ${segGroup('Difficulty', 'setAiOpt', 'level', AI_LEVELS, AI_LEVEL_HELP, c.level)}
       ${segGroup('Speed', 'setAiOpt', 'pace', AI_PACES, AI_PACE_HELP, c.pace)}
       <p class="muted">Changes apply right away. Pick Slow to watch each of the computer’s moves.</p>`, 'small');
+  }
+
+  function openProtoRules() {
+    const spaces = Object.values(PROTO_SPACES).map((X) => `<li>${X.icon} <b>${X.name}</b> — ${X.desc}</li>`).join('');
+    const events = Object.values(PROTO_EVENTS).map((E) => `<li>${E.icon} <b>${E.name}</b> — ${E.desc}</li>`).join('');
+    const powers = Object.keys(PROTO_SP).map((sp) => `<li>${dz(sp)} <b>${esc(SPECIES[sp].name)}</b> — ${esc(PROTO_SP[sp].ability)}</li>`).join('');
+    openModal(`<div class="modal-head"><h2>🧪 Prototype rules</h2><button class="x" data-act="closeModal" aria-label="Close">✕</button></div>
+      <p class="muted">An admin-only test of a redesigned game. It only affects games started with the Prototype setting. Normal and online games are unchanged, and prototype games aren’t saved to history.</p>
+      <h3>What changes</h3>
+      <ul>
+        <li><b>${PROTO_ROUNDS} rounds.</b> Each round: Gain Food / Draw Fences (die roll), Workers, then Production.</li>
+        <li><b>Shared dino market.</b> No dino books. ${PROTO_MARKET} cards are face up; buy one and it’s gone for your opponent. You can reserve up to ${PROTO_HAND_MAX} cards.</li>
+        <li><b>Worker spaces.</b> Each player has ${PROTO_WORKERS} workers. Players alternate placing them, and each space takes only one worker per round, so you can block your opponent.</li>
+        <li><b>Production every round</b> from every active enclosure, capped at 🪙${PROTO_PROD_CAP} per enclosure. Big single-species pens stop being the only plan.</li>
+        <li><b>Feeding checkpoints</b> after rounds ${PROTO_CHECKPOINTS.join(', ')}. Each dino eats double. An enclosure that misses two checkpoints in a row goes extinct.</li>
+        <li><b>Free dino powers.</b> Power dinos trigger on their own every round instead of costing an action.</li>
+        <li><b>Round events</b> shake up each round.</li>
+        <li><b>Park scoring.</b> Dino points are ⅔ of the card value. Variety pays 1/3/6/10/15 for 1–5 species, full enclosures +3, mixed enclosures +2, diamonds 1 point each, and leftover coins 1 point per 10 (max 3).</li>
+        <li>Feeders cost 💎1 + 🪙1 per square. Diamonds cost 🪙${PROTO_DIAMOND_COINS}.</li>
+      </ul>
+      <h3>Worker spaces</h3><ul>${spaces}</ul>
+      <h3>Changed dinos</h3><ul>${powers}</ul>
+      <h3>Events</h3><ul>${events}</ul>`);
   }
 
   function openRules() {
@@ -2476,6 +2977,12 @@
 
   function openBook(p) {
     const P = state.players[p];
+    if (state.proto) {
+      openModal(`<div class="modal-head"><h2>✋ ${esc(P.name)}’s reserved cards</h2><button class="x" data-act="closeModal" aria-label="Close">✕</button></div>
+        <p class="muted">Reserved with Scout (or Spinosaurus / Dilophosaurus). Buy them with a Buy &amp; play worker. Hand limit ${PROTO_HAND_MAX}.</p>
+        <div class="card-grid">${P.hand.map((sp) => cardHtml(sp, { tag: 'reserved' })).join('') || '<p class="grid-note">No reserved cards.</p>'}</div>`);
+      return;
+    }
     const cards = P.book
       .map((sp) => cardHtml(sp, {
         cls: P.blocked.includes(sp) ? 'blockedc' : '',
@@ -2503,7 +3010,11 @@
       if (fn) fn();
       return;
     }
-    if (act === 'rules') { openRules(); return; }
+    if (act === 'rules') {
+      if (ds.proto || (state && state.proto)) openProtoRules();
+      else openRules();
+      return;
+    }
     if (act === 'setupMode') {
       setupVsAi = ds.mode === 'ai';
       setupOnline = ds.mode === 'online';
@@ -2523,7 +3034,7 @@
     if (act === 'setupStart') {
       const n0 = (document.getElementById('name0').value || '').trim() || 'Red';
       const n1 = setupVsAi ? 'Computer' : (document.getElementById('name1').value || '').trim() || 'Blue';
-      newGame([n0, n1], +ds.first, setupVsAi ? 1 : null, setupLevel, setupPace);
+      newGame([n0, n1], +ds.first, setupVsAi ? 1 : null, setupLevel, setupPace, setupRules === 'proto' && isAdmin());
       return;
     }
     if (act === 'simOpen') { if (isAdmin()) openSimSetup(); return; }
@@ -2532,10 +3043,11 @@
       el.parentElement.querySelectorAll('.seg-btn').forEach((b) => b.classList.toggle('on', b === el));
       return;
     }
-    if (act === 'simStart') { if (isAdmin()) startSim([simSetup.l0, simSetup.l1], simSetup.speed); return; }
+    if (act === 'simStart') { if (isAdmin()) startSim([simSetup.l0, simSetup.l1], simSetup.speed, simSetup.rules === 'proto'); return; }
     if (act === 'simStop') { stopSim(); return; }
     if (act === 'setupOpt') {
       if (ds.k === 'level') setupLevel = ds.v;
+      else if (ds.k === 'rules') setupRules = ds.v;
       else setupPace = ds.v;
       savePrefs(setupLevel, setupPace);
       el.parentElement.querySelectorAll('.seg-btn').forEach((b) => b.classList.toggle('on', b === el));
@@ -2573,7 +3085,7 @@
       else reset();
       return;
     }
-    if (act === 'simAgain' && state.sim) { startSim(state.sim.levels, state.sim.speed); return; }
+    if (act === 'simAgain' && state.sim) { startSim(state.sim.levels, state.sim.speed, state.sim.proto); return; }
     if (act === 'simSpeed' && state.sim) {
       const keys = Object.keys(SIM_SPEEDS);
       state.sim.speed = keys[(keys.indexOf(state.sim.speed) + 1) % keys.length];
@@ -2613,6 +3125,12 @@
         renderPanel();
         break;
       case 'startRound': {
+        if (state.proto) {
+          protoStartRound();
+          state.queue = buildRoundTasks();
+          commit();
+          break;
+        }
         if (online) {
           T.picks = T.picks || {};
           const need = state.players[online.me].bonusPending;
@@ -2736,6 +3254,9 @@
         resolveCurrent();
         break;
       }
+      case 'space':
+        if (T.t === 'actions' && T.work) protoSpace(T, ds.s);
+        break;
       case 'mode': {
         if (T.t !== 'actions') break;
         const m = ds.m;
@@ -2759,6 +3280,7 @@
           ui.sel = null;
           ui.species = null;
           ui.shopItem = null;
+          ui.space = null;
         }
         render();
         break;
@@ -2776,8 +3298,11 @@
       case 'pickSpecies': {
         const sp = ds.sp;
         const free = T.t === 'freePlay';
-        const opt = playOptions(p, free).find((o) => o.sp === sp);
+        const opt = state.proto
+          ? protoPlayOptions(p, free ? T : null).find((o) => o.src === ds.src && o.i === +ds.i && o.sp === sp)
+          : playOptions(p, free).find((o) => o.sp === sp);
         if (!opt || !opt.ok) break;
+        if (state.proto) ui.pick = { src: opt.src, i: opt.i };
         ui.species = sp;
         ui.sel = { type: 'cells', board: p, cells: new Set(), need: SPECIES[sp].space, purpose: 'dino', species: sp };
         render();
@@ -2789,7 +3314,7 @@
         render();
         break;
       case 'buyDiamond':
-        if (!canAfford(P, DIAMOND_COST)) break;
+        if (state.proto || !canAfford(P, DIAMOND_COST)) break;
         pay(P, DIAMOND_COST);
         P.diamonds++;
         logMsg(`${pn(p)} bought a 💎 diamond.`);
@@ -2937,7 +3462,7 @@
     Object.keys(b.inactive).forEach((key) => {
       if (b.placedRound[key] === state.round) return;
       const cp = an.comps.find((c) => String(c.key) === key);
-      if (b.inactive[key] >= 4) {
+      if (b.inactive[key] >= (state.proto ? 2 : 4)) {
         delete b.inactive[key];
         delete b.placedRound[key];
         b.dead[key] = true;
@@ -2973,12 +3498,22 @@
     if (s.purpose === 'dino') {
       const sp = s.species;
       const free = T.t === 'freePlay';
-      if (!free) {
-        if (!canAfford(P, SPECIES[sp].cost)) return;
-        pay(P, SPECIES[sp].cost);
+      const cost = state.proto ? protoCost(sp) : SPECIES[sp].cost;
+      if (state.proto) {
+        const pk = ui.pick;
+        const list = pk && pk.src === 'h' ? P.hand : state.faceUp;
+        if (!pk || list[pk.i] !== sp) return;
+        if (!free && !canAfford(P, cost)) return;
+        if (pk.src === 'h') P.hand.splice(pk.i, 1);
+        else protoTakeFromMarket(pk.i);
+        P.cards.push(sp);
+        if (!free) pay(P, cost);
+      } else if (!free) {
+        if (!canAfford(P, cost)) return;
+        pay(P, cost);
       }
       const encl = placeItem(p, 'dino', cells, sp);
-      logMsg(`${pn(p)} played ${dz(sp)} <b>${spName(sp)}</b> in enclosure ${encl}${free ? ' for free' : ` (${costText(SPECIES[sp].cost)})`}.`);
+      logMsg(`${pn(p)} played ${dz(sp)} <b>${spName(sp)}</b> in enclosure ${encl}${free ? ' for free' : ` (${costText(cost)})`}.`);
       let tasks = [];
       if (SPECIES[sp].type === 'event') {
         toast(`⚡ ${spName(sp)} event!`, 'good');
@@ -2997,7 +3532,7 @@
       return;
     }
     if (s.purpose === 'water') {
-      pay(P, WATER_COST);
+      pay(P, waterCost());
       const encl = placeItem(p, 'water', cells);
       logMsg(`${pn(p)} dug a 💧 watering hole in enclosure ${encl}.`);
       completeAction();
@@ -3049,7 +3584,7 @@
   const SIM_PAINT_MS = 120;
   const ADMIN_EMAIL = 'calebahrens2011@gmail.com';
   let simPaintAt = 0;
-  const simSetup = { l0: 'hard', l1: 'medium', speed: 'turbo' };
+  const simSetup = { l0: 'hard', l1: 'medium', speed: 'turbo', rules: 'current' };
 
   function isAdmin() {
     try {
@@ -3068,17 +3603,18 @@
       ${segGroup('🔴 Red computer', 'simOpt', 'l0', AI_LEVELS, AI_LEVEL_HELP, simSetup.l0)}
       ${segGroup('🔵 Blue computer', 'simOpt', 'l1', AI_LEVELS, AI_LEVEL_HELP, simSetup.l1)}
       ${segGroup('Speed', 'simOpt', 'speed', speeds, speedHelp, simSetup.speed)}
+      ${segGroup('Rules', 'simOpt', 'rules', RULES_OPTS, RULES_HELP, simSetup.rules)}
       <button class="btn big" data-act="simStart">▶ Start simulation</button>`, 'small');
   }
 
-  function startSim(levels, speed) {
+  function startSim(levels, speed, proto) {
     closeModal();
     closeReveal();
     clearTimeout(aiTimer);
     aiTimer = null;
     aiPending = false;
-    buildGame([`Red · ${AI_LEVELS[levels[0]]}`, `Blue · ${AI_LEVELS[levels[1]]}`], rand(2), null);
-    state.sim = { levels: levels.slice(), speed, cfgs: levels.map((l) => aiProfile(l, 'fast')) };
+    buildGame([`Red · ${AI_LEVELS[levels[0]]}`, `Blue · ${AI_LEVELS[levels[1]]}`], rand(2), null, undefined, undefined, proto);
+    state.sim = { levels: levels.slice(), speed, cfgs: levels.map((l) => aiProfile(l, 'fast')), proto: !!proto };
     lastFocus = null;
     simPaintAt = 0;
     commit();
@@ -3530,7 +4066,7 @@
     });
     Object.keys(b.inactive).forEach((key) => {
       if (b.placedRound[key] === state.round) return;
-      if (b.inactive[key] >= 4) {
+      if (b.inactive[key] >= (state.proto ? 2 : 4)) {
         delete b.inactive[key];
         delete b.placedRound[key];
         b.dead[key] = true;
@@ -4501,10 +5037,238 @@
     aiShow(`Playing ${spName(sp)}${free ? ' for free' : ''}…`, () => handle('place', {}));
   }
 
+  // ---------------------------------------------------------------- prototype computer player
+  // A one-step greedy player for the prototype rules: it scores each open worker space by rough point
+  // value and takes the best. Lower levels add more random noise.
+  const PROTO_POWER = { trex: 3, gigantoraptor: 2, spinosaurus: 4, dilophosaurus: 4, stegosaurus: 2.5, brachiosaurus: 2, carnotaurus: 2.5, ankylosaurus: 3 };
+
+  function protoNoise() {
+    const lv = aiCfg().level;
+    return noise(lv === 'easy' ? 2.5 : lv === 'medium' ? 1 : 0.2);
+  }
+
+  function protoRoundsLeft() {
+    return rounds() - state.round + 1;
+  }
+
+  function protoChecksLeft() {
+    return PROTO_CHECKPOINTS.filter((r) => r >= state.round).length;
+  }
+
+  function protoCoinValue() {
+    const left = protoRoundsLeft();
+    return left <= 1 ? 0.1 : left <= 3 ? 0.3 : 0.5;
+  }
+
+  // Food still missing for the next checkpoint.
+  function protoFoodShort(p) {
+    const P = state.players[p];
+    return Math.max(0, demandOf(P.board).total - P.meat - P.plants);
+  }
+
+  function protoDinoValue(p, sp) {
+    const P = state.players[p];
+    const S = spec(sp);
+    const an = analyze(P.board);
+    const kinds = new Set(an.comps.filter((cp) => cp.active).flatMap((cp) => [...cp.species]));
+    const n = Math.min(5, kinds.size);
+    const variety = kinds.has(sp) ? 0 : PROTO_VARIETY[Math.min(5, n + 1)] - PROTO_VARIETY[n];
+    const left = protoRoundsLeft();
+    let power = PROTO_POWER[sp] || 0;
+    if (sp === 'gigantoraptor' && left <= 1) power = 0;
+    if (sp === 'parasaurolophus' || sp === 'allosaurus') power = left * 0.4;
+    if (sp === 'velociraptor') power = left * 0.3;
+    if (sp === 'triceratops') power = left * 0.7;
+    if (sp === 'pachy') power = 2;
+    if (sp === 'microraptor') power = 1.5;
+    const coins = Math.min(PROTO_PROD_CAP, S.prod) * left * protoCoinValue() * 0.6;
+    const food = S.food.n * 2 * protoChecksLeft() * 0.35;
+    return S.pts + variety + power + coins - food;
+  }
+
+  function protoBestBuy(p, freeTask) {
+    const b = state.players[p].board;
+    let best = null;
+    protoPlayOptions(p, freeTask).filter((o) => o.ok).forEach((o) => {
+      const cells = aiFindCellsB(b, SPECIES[o.sp].space, o.sp);
+      if (!cells) return;
+      const v = protoDinoValue(p, o.sp) + protoNoise();
+      if (!best || v > best.v) best = Object.assign({}, o, { cells, v });
+    });
+    return best;
+  }
+
+  function protoBuilderPick(p) {
+    const P = state.players[p];
+    const b = P.board;
+    const an = analyze(b);
+    let best = null;
+    an.comps.filter((cp) => cp.valid && !cp.dead && cp.living.length && cp.empty > 0).forEach((cp) => {
+      const bill = enclosureCost(cp).total;
+      const size = Math.min(cp.empty, bill, Math.max(0, P.coins));
+      if (size <= 0 || !canAfford(P, feederCost(size))) return;
+      const cells = aiFindCellsB(b, size, null, cp.key);
+      if (!cells) return;
+      const v = size * protoChecksLeft() * 0.45 - size * protoCoinValue() - 1;
+      if (!best || v > best.v) best = { item: 'feeder', cells, v };
+    });
+    if (canAfford(P, waterCost())) {
+      an.comps.filter((cp) => cp.valid && !cp.dead && cp.species.size >= 1 + cp.waters.length && cp.empty >= 9).forEach((cp) => {
+        const w = aiWaterCells(b, cp);
+        if (!w || w.biggest < 3) return;
+        const v = 2.5 + (protoRoundsLeft() > 3 ? 1 : 0) - 2 * protoCoinValue();
+        if (!best || v > best.v) best = { item: 'water', cells: w.cells, v };
+      });
+    }
+    return best;
+  }
+
+  function protoScoutPick(p) {
+    let best = state.deck.length ? { from: 'deck', v: 2 } : null;
+    const O = other(p);
+    state.faceUp.forEach((sp, i) => {
+      if (!sp) return;
+      const denial = aiCfg().level === 'hard' && canAfford(state.players[O], protoCost(sp)) ? protoDinoValue(O, sp) * 0.3 : 0;
+      const v = protoDinoValue(p, sp) * 0.5 + denial;
+      if (!best || v > best.v) best = { from: i, v };
+    });
+    return best;
+  }
+
+  function protoSpacePlans(p) {
+    const P = state.players[p];
+    const b = P.board;
+    const cv = protoCoinValue();
+    const left = protoRoundsLeft();
+    const out = [];
+    Object.keys(PROTO_SPACES).forEach((k) => {
+      if (!protoSpaceStatus(p, k).ok) return;
+      let plan = null;
+      if (k === 'buy1' || k === 'buy2') {
+        const buy = protoBestBuy(p);
+        if (buy) plan = { v: buy.v + 1, buy };
+      } else if (k === 'coins') plan = { v: 3 * cv + 0.4 };
+      else if (k === 'first') plan = { v: cv + 0.3 + (left > 1 ? 0.3 : 0) };
+      else if (k === 'diamond') {
+        const want = state.faceUp.concat(P.hand).some((sp) => SPECIES[sp].cost.d > P.diamonds);
+        plan = { v: 1 + (want && left > 1 ? 2 : 0) - PROTO_DIAMOND_COINS * cv * 0.7 };
+      } else if (k === 'forage') {
+        const n = protoSpaceAmount(k);
+        plan = { v: Math.min(n, protoFoodShort(p)) * 0.9 + 0.3 };
+      } else if (k === 'fences') {
+        const n = protoSpaceAmount(k);
+        const edges = aiPlanEdgesB(b, n);
+        const room = analyze(b).comps.filter((cp) => cp.valid && !cp.dead).reduce((s, cp) => s + cp.empty, 0);
+        if (edges.length) plan = { v: left <= 2 ? 0.3 : room < 8 ? 3 : 1.2 };
+      } else if (k === 'builder') {
+        const bp = protoBuilderPick(p);
+        if (bp) plan = { v: bp.v, build: bp };
+      } else if (k === 'scout') {
+        const sc = protoScoutPick(p);
+        if (sc) plan = { v: left <= 1 ? 0 : sc.v * 0.6, scout: sc };
+      }
+      if (plan) out.push(Object.assign(plan, { k, v: plan.v + protoNoise() * 0.5 }));
+    });
+    return out.sort((a, b) => b.v - a.v);
+  }
+
+  function protoAiPlaceBuy(buy, free, space) {
+    if (space) handle('space', { s: space });
+    handle('pickSpecies', { sp: buy.sp, src: buy.src, i: String(buy.i) });
+    if (!ui.sel) {
+      if (free) handle('skip', {});
+      else handle('endTurn', {});
+      return;
+    }
+    ui.sel.cells = new Set(buy.cells);
+    document.getElementById('boards')._html = null;
+    aiShow(`Playing ${spName(buy.sp)}${free ? ' for free' : ''}…`, () => handle('place', {}));
+  }
+
+  function protoAiStep(T) {
+    const p = T.p;
+    const P = p != null ? state.players[p] : null;
+    switch (T.t) {
+      case 'roundStart': handle('startRound', {}); return true;
+      case 'feed':
+        ui.feed = defaultFeed(p);
+        aiShow('Feeding…', () => handle('confirmFeed', {}));
+        return true;
+      case 'gainFood': {
+        if (T.amount == null) return false;
+        const n = T.amount;
+        const short = protoFoodShort(p);
+        const want = protoRoundsLeft() <= 2 ? n : Math.min(n, short + 1);
+        const edges = aiPlanEdgesB(P.board, n - want);
+        const food = n - edges.length;
+        ui.meat = clamp(aiSplitFood(P.board, P.meat, P.plants, food), 0, food);
+        ui.plant = food - ui.meat;
+        ui.sel.edges = new Set(edges);
+        document.getElementById('boards')._html = null;
+        aiShow(`Taking ${food} food${edges.length ? ` and ${plural(edges.length, 'fence')}` : ''}…`, () => handle('confirmGain', {}));
+        return true;
+      }
+      case 'foodChoice':
+        ui.meat = clamp(aiSplitFood(P.board, P.meat, P.plants, T.amount), 0, T.amount);
+        aiShow('Choosing food…', () => handle('confirmFood', {}), AI_FOLLOW_MS);
+        return true;
+      case 'drawFences':
+        ui.sel.edges = new Set(aiPlanEdgesB(P.board, T.count));
+        document.getElementById('boards')._html = null;
+        aiShow('Building fences…', () => handle('confirmFences', {}), AI_FOLLOW_MS);
+        return true;
+      case 'drawCard': {
+        const sc = protoScoutPick(p);
+        if (!sc) { handle('skip', {}); return true; }
+        aiShow('Reserving a card…', () => handle('take', { from: String(sc.from) }), AI_FOLLOW_MS);
+        return true;
+      }
+      case 'spino': {
+        const want = state.faceUp.concat(P.hand).some((sp) => SPECIES[sp].cost.d > P.diamonds);
+        const o = protoFoodShort(p) >= 8 ? 'food' : want ? 'dia' : protoRoundsLeft() > 2 ? 'coins' : 'dia';
+        aiShow('Spinosaurus: choosing a reward…', () => handle('spino', { o }), AI_FOLLOW_MS);
+        return true;
+      }
+      case 'freePlay': {
+        const buy = protoBestBuy(p, T);
+        if (!buy) { handle('skip', {}); return true; }
+        protoAiPlaceBuy(buy, true);
+        return true;
+      }
+      case 'actions': {
+        if (!T.work) return false;
+        const plan = protoSpacePlans(p)[0];
+        if (!plan) { aiShow('Passing…', () => handle('endTurn', {})); return true; }
+        const X = PROTO_SPACES[plan.k];
+        if (plan.buy) { protoAiPlaceBuy(plan.buy, false, plan.k); return true; }
+        if (plan.build) {
+          handle('space', { s: plan.k });
+          handle('shopItem', { item: plan.build.item });
+          ui.sel.cells = new Set(plan.build.cells);
+          document.getElementById('boards')._html = null;
+          aiShow(plan.build.item === 'feeder' ? 'Building a feeder…' : 'Digging a watering hole…', () => handle('place', {}));
+          return true;
+        }
+        if (plan.scout) {
+          aiShow(`${X.icon} Scouting…`, () => {
+            handle('space', { s: plan.k });
+            handle('take', { from: String(plan.scout.from) });
+          });
+          return true;
+        }
+        aiShow(`${X.icon} ${X.name}…`, () => handle('space', { s: plan.k }));
+        return true;
+      }
+      default:
+        return false;
+    }
+  }
+
   function aiStep(T) {
     const p = T.p;
     const panel = document.getElementById('panel');
     lastClickRect = panel ? panel.getBoundingClientRect() : null;
+    if (state.proto && protoAiStep(T)) return;
     switch (T.t) {
       case 'roundStart':
         [0, 1].forEach((q) => { ui.picks[q] = aiBonusPicks(q); });
@@ -4688,7 +5452,7 @@
 
   // Vs-computer and same-device games go into the account's game history once they end.
   async function recordLocalGame() {
-    if (online || !state || state.sim || state.past || (state.recorded && state.boardSaved) || !sessionId()) return;
+    if (online || !state || state.sim || state.past || state.proto || (state.recorded && state.boardSaved) || !sessionId()) return;
     const s = state;
     if (!s.gid) s.gid = newGid();
     const me = s.ai === 0 ? 1 : 0;
