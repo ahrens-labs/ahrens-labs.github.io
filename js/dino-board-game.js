@@ -2039,7 +2039,7 @@
       { m: 'draw', i: '<span class="mini-back"></span>', t: 'Draw a card', s: 'Add one to your book', ok: state.faceUp.length + state.deck.length > 0, why: 'No cards left' },
       { m: 'shop', i: '💎', t: 'Shop', s: 'Diamond, feeder, water', ok: canShop(P), why: 'Not enough coins' },
       { m: 'dinoAction', i: '⚡', t: 'Dino power', s: `${actOpts.length} ready`, ok: actOpts.length > 0, why: 'No active power dinos' },
-      { m: 'gain3', i: '🪙', t: 'Take 3 coins', s: 'Always works', ok: true },
+      { m: 'gain3', i: '🪙', t: 'Take 2 coins', s: 'Always works', ok: true },
       { m: 'fences2', i: '🪵', t: 'Build 2 fences', s: 'Grow your land', ok: legalEdges(T.p).length > 0, why: 'No room for fences' },
     ]
       .map((x, n) => `<button class="tile" style="--n:${n}" data-act="mode" data-m="${x.m}" ${x.ok ? '' : 'disabled'}><span class="t-i">${x.i}</span><span class="t-t">${x.t}</span><span class="t-s">${x.ok ? x.s : `🔒 ${x.why}`}</span></button>`)
@@ -2424,7 +2424,7 @@
         <li><b>Draw a card</b> — face-up or top of the deck. It joins your dino book.</li>
         <li><b>Buy from the shop</b> — 💎 Diamond (🪙6), 🌾 Feeder (💎1 + 🪙3, +🪙2 per square over 5; each square = 1 less food in total for that enclosure each Feeding), 💧 Watering hole (${costText(WATER_COST)}, 6 squares; allows one more species in that enclosure).</li>
         <li><b>Use a dino action</b> — a red ability of a dino in an active enclosure.</li>
-        <li><b>Gain 3 coins.</b></li>
+        <li><b>Gain 2 coins.</b></li>
         <li><b>Draw in 2 fences.</b></li>
       </ul>
       <h3>Enclosures</h3>
@@ -2698,8 +2698,8 @@
         if (T.t !== 'actions') break;
         const m = ds.m;
         if (m === 'gain3') {
-          P.coins += 3;
-          logMsg(`${pn(p)} gained 🪙3.`);
+          P.coins += 2;
+          logMsg(`${pn(p)} gained 🪙2.`);
           completeAction();
           break;
         }
@@ -3676,7 +3676,7 @@
           if (score > 0) cands.push({ score, acts, apply, tag });
         } else if (!pick || score / acts > pick.score / pick.acts) pick = { score, acts, apply };
       };
-      if (left > 0) consider(3 * lam, 1, () => { coins += 3; });
+      if (left > 0) consider(2 * lam, 1, () => { coins += 2; });
       if (coins >= 6) consider(3 - 6 * lam, 1, () => { coins -= 6; dia++; pts += 3; });
       encl.forEach((e) => {
         if (e.w < 0.6) return;
@@ -4011,7 +4011,7 @@
     const n = copyModel(m);
     if (!keepActs) n.actsLeft = Math.max(0, m.actsLeft - 1);
     switch (a.kind) {
-      case 'gain3': n.coins += 3; break;
+      case 'gain3': n.coins += 2; break;
       case 'diamond': n.coins -= 6; n.diamonds++; break;
       case 'fences': applyEdges(n.board, a.edges); break;
       case 'feeder': payM(n, feederCost(a.cells.length)); placeItemB(n.board, 'feeder', a.cells); break;
@@ -4402,7 +4402,7 @@
           });
           return;
         }
-        aiShow('Taking 3 coins…', () => handle('mode', { m: 'gain3' }));
+        aiShow('Taking 2 coins…', () => handle('mode', { m: 'gain3' }));
         return;
       }
       default:
