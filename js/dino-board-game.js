@@ -108,18 +108,20 @@
   // ---------------------------------------------------------------- prototype rules (admin test setting)
   // Shared dino market, worker spaces, park scoring, 12 rounds, round events and free powers.
   const PROTO_ROUNDS = 12;
-  const PROTO_WORKERS = 3;
-  const PROTO_PROD_CAP = 5;
+  const PROTO_WORKERS = 4;
   const PROTO_HAND_MAX = 3;
   const PROTO_MARKET = 5;
   const PROTO_COPIES = { compy: 4, microraptor: 4, trex: 2, mosasaurus: 2 };
   const PROTO_VARIETY = [0, 1, 3, 6, 10, 15];
-  const PROTO_DIAMOND_COINS = 5;
+  const PROTO_DIAMOND_COINS = 4;
+  const PROTO_BUY = ['buy1', 'buy2', 'buy3'];
   const PROTO_SPACES = {
     buy1: { name: 'Buy & play', icon: '🦖', desc: 'Buy a market card or one you reserved, and place it' },
     buy2: { name: 'Buy & play', icon: '🦕', desc: 'Buy a market card or one you reserved, and place it' },
+    buy3: { name: 'Buy & play', icon: '🐊', desc: 'Buy a market card or one you reserved, and place it' },
     coins: { name: 'Coins', icon: '🪙', desc: 'Take 3 coins' },
-    diamond: { name: 'Diamond', icon: '💎', desc: `Buy a diamond for 🪙${PROTO_DIAMOND_COINS}` },
+    mine: { name: 'Diamond mine', icon: '⛏️', desc: 'Take a 💎 diamond' },
+    diamond: { name: 'Gem trader', icon: '💎', desc: `Buy a diamond for 🪙${PROTO_DIAMOND_COINS}` },
     fences: { name: 'Fences', icon: '🪵', desc: 'Draw 3 fences' },
     builder: { name: 'Builder', icon: '🌾', desc: 'Build a feeder or a watering hole' },
     forage: { name: 'Forage', icon: '🍖', desc: 'Take 6 food' },
@@ -128,7 +130,7 @@
   };
   const PROTO_EVENTS = {
     drought: { name: 'Drought', icon: '🏜️', desc: 'Forage gives only 3 food this round.' },
-    goldrush: { name: 'Gold rush', icon: '💰', desc: 'Production is capped at 7 per enclosure this round.' },
+    goldrush: { name: 'Gold rush', icon: '💰', desc: 'Collect from two enclosures in Production this round.' },
     stampede: { name: 'Stampede', icon: '🐾', desc: 'The Fences space draws 5 fences this round.' },
     migration: { name: 'Migration', icon: '🦤', desc: 'The whole market is replaced at the start of the round.' },
     breeding: { name: 'Breeding season', icon: '🥚', desc: 'Dinos cost 1 coin less this round.' },
@@ -182,7 +184,7 @@
 
   const PROTO_PHASES = {
     action: { name: 'Workers', short: 'Workers', icon: '👷', desc: 'Take turns placing workers on shared action spaces.' },
-    produce: { name: 'Production & powers', short: 'Production', icon: '🪙', desc: `Every active enclosure pays (max ${PROTO_PROD_CAP}) and dino powers trigger.` },
+    produce: { name: 'Production & powers', short: 'Production', icon: '🪙', desc: 'Collect from one active enclosure, and every dino power triggers.' },
   };
 
   function phaseInfo(ph) {
@@ -1010,7 +1012,6 @@
       if (T.t === 'roundEnd') { endRound(); continue; }
       if (T.t === 'actions' && T.remaining <= 0) { skip(); continue; }
       if (T.t === 'actions' && T.work && !protoOpenSpaces().length) { skip(`${pn(T.p)} had no action space left for a worker.`); continue; }
-      if (T.t === 'produce' && state.proto) { state.queue.shift(); protoProduce(T.p); continue; }
       if (T.t === 'feed' && !feedables(analyze(state.players[T.p].board)).length) {
         skip(`${pn(T.p)} had no dinos to feed.`);
         continue;
@@ -1211,15 +1212,19 @@
     }
   }
 
-  // Production from every active enclosure (capped), then each enclosure's free dino powers.
-  function protoProduce(p) {
+  // Enclosures still on offer in this Production task (Gold rush lets a player collect from two).
+  function produceChoices(T) {
+    const got = T.got || [];
+    return producible(T.p).filter((cp) => !got.includes(cp.key));
+  }
+
+  // Free dino powers from every active enclosure, applied once the player has collected.
+  function protoPowers(p) {
     const P = state.players[p];
     const O = state.players[other(p)];
-    const cap = state.event === 'goldrush' ? 7 : PROTO_PROD_CAP;
     const comps = producible(p);
     let coins = 0;
     const notes = [];
-    comps.forEach((cp) => { coins += Math.min(cap, cp.prod); });
     const n = (sp) => comps.reduce((s, cp) => s + cp.living.filter((d) => d.species === sp).length, 0);
     const para = n('parasaurolophus');
     if (para) { coins += para; notes.push(`Parasaurolophus +🪙${para}`); }
@@ -1236,8 +1241,7 @@
     const tri = n('triceratops');
     if (tri) { P.triPlants += tri; notes.push(`Triceratops page +🌿${tri}`); }
     P.coins += coins;
-    if (!comps.length && !notes.length) logMsg(`${pn(p)} had no active enclosures to produce from.`);
-    else logMsg(`${pn(p)} collected 🪙${coins} from ${plural(comps.length, 'enclosure')}${notes.length ? ` (${notes.join(', ')})` : ''}.`);
+    if (notes.length) logMsg(`${pn(p)}’s dino powers: ${notes.join(', ')}.`);
   }
 
   // Market cards and reserved cards a player could place now (or for free with T. Rex / Ankylosaurus).
@@ -1286,7 +1290,8 @@
     if (state.spaces[k] != null) return { ok: false, why: `Taken by ${state.players[state.spaces[k]].name}` };
     switch (k) {
       case 'buy1':
-      case 'buy2': {
+      case 'buy2':
+      case 'buy3': {
         const opts = protoPlayOptions(p);
         if (opts.some((o) => o.ok)) return { ok: true };
         return { ok: false, why: opts.length && opts.every((o) => o.why === opts[0].why) ? opts[0].why : 'Nothing you can play' };
@@ -1329,6 +1334,11 @@
         logMsg(`${pn(p)} bought a 💎 diamond.`);
         completeAction();
         break;
+      case 'mine':
+        P.diamonds++;
+        logMsg(`${pn(p)} mined a 💎 diamond.`);
+        completeAction();
+        break;
       case 'forage':
         completeAction([{ t: 'foodChoice', p, amount: n, title: `Forage: take ${n} food` }]);
         break;
@@ -1337,6 +1347,7 @@
         break;
       case 'buy1':
       case 'buy2':
+      case 'buy3':
         ui.mode = 'play';
         render();
         break;
@@ -1705,7 +1716,7 @@
     const facts = [
       `<li>Costs <b>${costText(cardCost(sp))}</b> to play and fills <b>${plural(S.space, 'square')}</b> in one enclosure.</li>`,
       `<li>Eats <b>${foodText(S.food)}</b> every Feeding.</li>`,
-      state.proto ? `<li>Adds <b>🪙${S.prod}</b> to its enclosure’s Production every round.</li>` : `<li>Adds <b>🪙${S.prod}</b> when its enclosure is picked in Production.</li>`,
+      state.proto ? `<li>Adds <b>🪙${S.prod}</b> to its enclosure when you collect from it in Production.</li>` : `<li>Adds <b>🪙${S.prod}</b> when its enclosure is picked in Production.</li>`,
       `<li>Worth <b>${plural(S.pts, 'point')}</b> at the end if its enclosure is active.</li>`,
       S.type === 'none'
         ? `<li>${TYPE_HELP.none}</li>`
@@ -1746,7 +1757,7 @@
         const why = cp.inactive ? ` <span class="muted">(card says ${S.food.n}; +${cp.inactive} because it’s inactive)</span>` : '';
         facts.push(`<li>Eats <b>${eats} ${foodText({ t: S.food.t, n: '' }).trim()}</b> each Feeding${why}.</li>`);
         if (cp.feederSquares) facts.push(`<li>The feeder here takes <b>${cp.feederSquares} food</b> off the whole enclosure’s bill.</li>`);
-        facts.push(`<li>Adds <b>🪙${S.prod}</b> ${state.proto ? `each round (whole enclosure makes 🪙${Math.min(PROTO_PROD_CAP, cp.prod)}, max ${PROTO_PROD_CAP})` : `when you pick ${encl.replace('Enclosure', 'enclosure')} in Production (whole enclosure makes 🪙${cp.prod})`}.</li>`);
+        facts.push(`<li>Adds <b>🪙${S.prod}</b> ${state.proto ? `when you collect from ${encl.replace('Enclosure', 'enclosure')} in Production (whole enclosure makes 🪙${cp.prod})` : `when you pick ${encl.replace('Enclosure', 'enclosure')} in Production (whole enclosure makes 🪙${cp.prod})`}.</li>`);
         facts.push(`<li>Worth <b>${S.pts} point${S.pts === 1 ? '' : 's'}</b> at the end if active.</li>`);
         facts.push(`<li><b>${typeLabel(S)}:</b> ${typeHelp(S)}</li>`);
       }
@@ -2487,15 +2498,19 @@
   }
 
   function produceHtml(T) {
-    const list = producible(T.p);
+    const list = produceChoices(T);
     const best = Math.max(...list.map((cp) => cp.prod));
+    const again = !!(T.got && T.got.length);
+    let lead = 'Pick <b>one active enclosure</b> and collect its coins.';
+    if (state.proto && state.event === 'goldrush') lead = `💰 Gold rush: collect from <b>${again ? 'one more active enclosure' : 'two active enclosures'}</b>.`;
+    if (state.proto) lead += ' Dino powers in every active enclosure trigger afterwards.';
     const rows = list
       .map((cp) => `<button class="opt" data-act="produce" data-key="${cp.key}">
         <span class="ebadge">${cp.name}</span>
         <span class="o-t"><b>${dinoSummary(cp)}</b></span>
         <span class="fc flex" style="font-size:1rem">🪙 +${cp.prod}${cp.prod === best && list.length > 1 ? ' ⭐' : ''}</span></button>`)
       .join('');
-    return `<h3>🪙 Production</h3><p>Pick <b>one active enclosure</b> and collect its coins.</p><div class="opt-list">${rows}</div>`;
+    return `<h3>🪙 Production</h3><p>${lead}</p><div class="opt-list">${rows}</div>`;
   }
 
   function eventCardHtml() {
@@ -2539,7 +2554,7 @@
     return Math.max(0, n - (pending && cur() && cur().p === p ? 1 : 0));
   }
 
-  // The shared worker board: each player's supply on top, the nine action spaces below.
+  // The shared worker board: each player's supply on top, the action spaces below.
   function protoBoardHtml(T, live) {
     const me = T.p;
     const pending = ui.space || ui.aiTarget || null;
@@ -3005,15 +3020,15 @@
       <p class="muted">An admin-only test of a redesigned game. It only affects games started with the Prototype setting. Normal and online games are unchanged, and prototype games aren’t saved to history.</p>
       <h3>What changes</h3>
       <ul>
-        <li><b>${PROTO_ROUNDS} rounds.</b> Each round: Gain Food / Draw Fences (die roll), Workers, then Production.</li>
+        <li><b>${PROTO_ROUNDS} rounds.</b> Each round: Gain Food / Draw Fences (die roll), Workers, Production, then Feeding.</li>
         <li><b>Shared dino market.</b> No dino books. ${PROTO_MARKET} cards are face up; buy one and it’s gone for your opponent. You can reserve up to ${PROTO_HAND_MAX} cards.</li>
         <li><b>Worker spaces.</b> Each player has ${PROTO_WORKERS} workers. Players alternate placing them, and each space takes only one worker per round, so you can block your opponent.</li>
-        <li><b>Production every round</b> from every active enclosure, capped at 🪙${PROTO_PROD_CAP} per enclosure. Big single-species pens stop being the only plan.</li>
+        <li><b>Production every round:</b> collect from one active enclosure, as in the normal game.</li>
         <li><b>Feeding every round</b>, right after Production, with the usual inactive and extinction rules.</li>
         <li><b>Free dino powers.</b> Power dinos trigger on their own every round instead of costing an action.</li>
         <li><b>Round events</b> shake up each round.</li>
         <li><b>Park scoring.</b> Dino points are ⅔ of the card value. Variety pays 1/3/6/10/15 for 1–5 species, full enclosures +3, mixed enclosures +2, diamonds 1 point each, and leftover coins 1 point per 10 (max 3).</li>
-        <li>Feeders cost 💎1 + 🪙1 per square. Diamonds cost 🪙${PROTO_DIAMOND_COINS}.</li>
+        <li>Feeders cost 💎1 + 🪙1 per square. The Diamond mine gives a free diamond and the Gem trader sells one for 🪙${PROTO_DIAMOND_COINS}.</li>
       </ul>
       <h3>Worker spaces</h3><ul>${spaces}</ul>
       <h3>Changed dinos</h3><ul>${powers}</ul>
@@ -3352,11 +3367,19 @@
         resolveCurrent();
         break;
       case 'produce': {
-        const cp = producible(p).find((c) => c.key === +ds.key);
+        const cp = produceChoices(T).find((c) => c.key === +ds.key);
         if (!cp) break;
         P.coins += cp.prod;
         logMsg(`${pn(p)} collected 🪙${cp.prod} from enclosure ${cp.name}.`);
         toast(`🪙 +${cp.prod} for ${P.name}`, 'good');
+        if (state.proto) {
+          T.got = (T.got || []).concat(cp.key);
+          if (state.event === 'goldrush' && T.got.length < 2 && produceChoices(T).length) {
+            commit();
+            break;
+          }
+          protoPowers(p);
+        }
         resolveCurrent();
         break;
       }
@@ -5183,7 +5206,10 @@
     if (sp === 'triceratops') power = left * 0.7;
     if (sp === 'pachy') power = 2;
     if (sp === 'microraptor') power = 1.5;
-    const coins = Math.min(PROTO_PROD_CAP, S.prod) * left * protoCoinValue() * 0.6;
+    // Only one enclosure pays each round, so production counts by how much it lifts the best one.
+    const top = bestProdB(P.board);
+    const home = an.comps.filter((cp) => cp.valid && !cp.dead && cp.species.has(sp)).reduce((m, cp) => Math.max(m, cp.prod), 0);
+    const coins = Math.max(S.prod * 0.35, home + S.prod - top) * left * protoCoinValue() * 0.6;
     const food = S.food.n * left * 0.2;
     return S.pts + variety + power + coins - food;
   }
@@ -5254,15 +5280,15 @@
     Object.keys(PROTO_SPACES).forEach((k) => {
       if (!protoSpaceStatus(p, k).ok) return;
       let plan = null;
-      if (k === 'buy1' || k === 'buy2') {
+      const wantGem = state.faceUp.concat(P.hand).some((sp) => SPECIES[sp].cost.d > P.diamonds) && left > 1;
+      if (PROTO_BUY.includes(k)) {
         const buy = protoBestBuy(p);
         if (buy) plan = { v: buy.v + 1, buy };
       } else if (k === 'coins') plan = { v: 3 * cv + 0.4 };
       else if (k === 'first') plan = { v: cv + 0.3 + (left > 1 ? 0.3 : 0) };
-      else if (k === 'diamond') {
-        const want = state.faceUp.concat(P.hand).some((sp) => SPECIES[sp].cost.d > P.diamonds);
-        plan = { v: 1 + (want && left > 1 ? 2 : 0) - PROTO_DIAMOND_COINS * cv * 0.7 };
-      } else if (k === 'forage') {
+      else if (k === 'mine') plan = { v: 1.5 + (wantGem ? 2 : 0) };
+      else if (k === 'diamond') plan = { v: 1 + (wantGem ? 2 : 0) - PROTO_DIAMOND_COINS * cv * 0.7 };
+      else if (k === 'forage') {
         const n = protoSpaceAmount(k);
         // Unfed enclosures score nothing at the end, so the last Feeding matters most.
         plan = { v: Math.min(n, protoFoodShort(p)) * (left <= 1 ? 3 : 1.3) + 0.3 };
@@ -5407,7 +5433,7 @@
         return;
       }
       case 'produce': {
-        const best = producible(p).sort((a, b) => b.prod - a.prod)[0];
+        const best = produceChoices(T).sort((a, b) => b.prod - a.prod)[0];
         aiShow(`Collecting 🪙${best.prod} from enclosure ${best.name}…`, () => handle('produce', { key: best.key }));
         return;
       }
@@ -5716,7 +5742,7 @@
       ui.feed = defaultFeed(me);
       handle('confirmFeed', {});
     } else if (T.t === 'produce') {
-      const best = producible(me).sort((a, b) => b.prod - a.prod)[0];
+      const best = produceChoices(T).sort((a, b) => b.prod - a.prod)[0];
       handle('produce', { key: best.key });
     } else if (T.t === 'actions') {
       logMsg(`⏰ ${pn(me)} ran out of time and skipped ${plural(T.remaining, 'action')}.`);
