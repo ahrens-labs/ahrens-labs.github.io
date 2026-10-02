@@ -1202,3 +1202,25 @@ a.btn { display: inline-block; text-align: center; text-decoration: none; }
 .watch-mini { display: flex; align-items: center; gap: 6px; margin-bottom: 0.5rem; padding: 6px 10px; border-radius: 10px; background: rgba(255, 255, 255, 0.6); font-size: 0.85rem; }
 .rs-pools { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 0 0 0.6rem; }
 .rs-pool { display: inline-flex; align-items: center; gap: 3px; font-weight: 700; font-size: 0.85rem; }
+
+/* Prototype: full-size dino market under the parks */
+.big-market:empty { display: none; }
+.big-market { margin-top: 14px; padding: 12px 14px 16px; border-radius: var(--radius); background: linear-gradient(180deg, var(--bone), var(--paper)); box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4), 0 0 0 3px #2a170a; color: var(--ink); }
+.bm-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.3rem 0.8rem; margin-bottom: 0.6rem; }
+.bm-head h2 { margin: 0; font-family: "Lilita One", sans-serif; font-size: 1.2rem; }
+.bm-hint { font-size: 0.82rem; color: var(--muted); }
+.bm-hint.live { font-weight: 700; color: #9c5b00; animation: pulseTag 1.6s ease-in-out infinite; }
+.bm-row { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; align-items: start; padding-top: 8px; }
+.bm-sub { margin: 0.9rem 0 0; padding-top: 0.6rem; border-top: 2px dashed var(--bone-dark); font-weight: 700; font-size: 0.9rem; color: #6b4e24; }
+.big-market .dcard { animation: none; padding: 6px; gap: 5px; }
+.big-market .dcard.deal { animation: dealCard 0.5s var(--pop) both; }
+.big-market .dcard.view { cursor: pointer; }
+.big-market .dcard.view:not(.nope):hover { transform: translateY(-3px); }
+.big-market .dc-art { aspect-ratio: 16 / 10; }
+.big-market .dc-ab { font-size: 0.76rem; }
+.bm-deck { min-height: 150px; align-self: stretch; }
+.bm-deck b { font-size: 1.8rem; }
+.bm-deck.pick { cursor: pointer; animation: glow 1.4s ease-in-out infinite; }
+@media (min-width: 861px) { .market.proto { display: none; } }
+@media (max-width: 1180px) { .bm-row { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 520px) { .bm-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } .bm-deck { min-height: 90px; } }

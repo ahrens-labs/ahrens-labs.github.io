@@ -2009,13 +2009,14 @@
     if (!document.getElementById('game-shell')) {
       app.innerHTML = tokify(`<div id="game-shell">
         <header class="topbar" id="top"></header>
-        <main class="layout"><div class="main-col"><section class="boards" id="boards"></section></div><aside class="panel" id="panel"></aside></main>
+        <main class="layout"><div class="main-col"><section class="boards" id="boards"></section><section class="big-market" id="bigmarket"></section></div><aside class="panel" id="panel"></aside></main>
         <footer class="legend"><details><summary>🗺️ Board key <span>· tap any dino to see its card</span></summary><div class="lg">${legendHtml()}</div></details></footer>
       </div>`);
     }
     renderTop();
     renderBoards();
     renderPanel();
+    renderBigMarket();
     const T = cur();
     turnOverlay(T);
     if (pendingCard) {
@@ -2261,6 +2262,54 @@
         ${faceUp}
       </div>
     </div>`;
+  }
+
+  // Prototype games buy straight from a shared market, so it gets full-size cards under the parks.
+  function renderBigMarket() {
+    const el = document.getElementById('bigmarket');
+    if (!el) return;
+    const T = cur();
+    if (!state.proto || !T || T.t === 'gameOver') {
+      setHtml(el, '');
+      return;
+    }
+    const mine = !theirTurn(T);
+    const picking = mine && ((T.t === 'actions' && ui.mode === 'draw') || (T.t === 'drawCard' && T.source === 'any'));
+    const deckOk = mine && state.deck.length > 0 && (picking || (T.t === 'drawCard' && T.source === 'deck'));
+    const buying = mine && !ui.species && ((T.t === 'actions' && ui.mode === 'play') || T.t === 'freePlay');
+    const opts = buying ? protoPlayOptions(T.p, T.t === 'freePlay' ? T : null) : [];
+    const card = (sp, src, i) => {
+      let attrs = `data-act="viewCard" data-sp="${sp}" data-from="${src === 'm' ? i : -1}"`;
+      let cls = 'view';
+      let lock = '';
+      const o = opts.find((x) => x.src === src && x.i === i);
+      if (picking && src === 'm') {
+        attrs = `data-act="take" data-from="${i}"`;
+        cls = 'pick';
+      } else if (buying && o && o.ok) {
+        attrs = `data-act="pickSpecies" data-sp="${sp}" data-src="${src}" data-i="${i}"`;
+        cls = 'pick';
+      } else if (buying) {
+        cls = 'view nope';
+        lock = o ? o.why : 'Market cards only';
+      }
+      const deal = src === 'm' && isFresh(`bm${i}:${sp}:${state.deck.length}`, 900) ? ' deal' : '';
+      return cardHtml(sp, { cls: cls + deal, attrs, lock });
+    };
+    const hint = picking ? 'Tap a card or the deck to reserve it'
+      : buying ? 'Tap a dino to buy it, then place it in your park'
+        : 'Tap any card for details. Buy with a 🦖 Buy &amp; play worker.';
+    const viewer = buying || picking ? T.p : state.ai != null ? other(state.ai) : T.p != null ? T.p : state.first;
+    const P = state.players[viewer];
+    const hand = P.hand.length
+      ? `<div class="bm-sub">✋ ${esc(P.name)}’s reserved cards</div><div class="bm-row">${P.hand.map((sp, i) => card(sp, 'h', i)).join('')}</div>`
+      : '';
+    const stack = Math.min(state.deck.length, 4);
+    setHtml(el, `<div class="bm-head"><h2>🃏 Dino market</h2><span class="bm-hint${picking || buying ? ' live' : ''}">${hint}</span></div>
+      <div class="bm-row">
+        <div class="deck-back bm-deck ${deckOk ? 'pick' : ''} ${state.deck.length ? '' : 'gone'}" ${deckOk ? 'data-act="take" data-from="deck"' : ''} title="Top of the deck (face down)" style="--stack:${stack}"><b>${state.deck.length}</b><small>deck</small></div>
+        ${state.faceUp.map((sp, i) => card(sp, 'm', i)).join('')}
+      </div>${hand}`);
   }
 
   function logItems(list) {
@@ -2509,7 +2558,7 @@
     const backHead = (label) => `<div class="act-top">${backBtn('back', label)}${count}</div>${onSpace}`;
     if (ui.mode === 'play') return backHead(ui.species ? 'Other dinos' : 'Pick up worker') + playModeHtml(T, false);
     if (ui.mode === 'draw') {
-      return `${backHead('Pick up worker')}<h3>🔭 Scout</h3><p>Tap a market card or the deck below to reserve it. Hand: <b>${P.hand.length}/${PROTO_HAND_MAX}</b>.</p>`;
+      return `${backHead('Pick up worker')}<h3>🔭 Scout</h3><p>Tap a card or the deck in the <b>Dino market</b> to reserve it. Hand: <b>${P.hand.length}/${PROTO_HAND_MAX}</b>.</p>`;
     }
     if (ui.mode === 'shop') return (ui.shopItem ? `<div class="act-top">${backBtn('shopBack', 'Builder')}${count}</div>${onSpace}` : backHead('Pick up worker')) + shopHtml(P);
     return `<div class="act-top">${count}<button class="btn sm ghost" data-act="endTurn">Pass ▸</button></div>
