@@ -1647,8 +1647,6 @@
         })
         .join('');
     const fresh = T && T.t === 'roundStart' ? ' fresh' : '';
-    if (logSeen === null || logSeen > state.log.length) logSeen = state.log.length;
-    const unseen = state.log.length - logSeen;
     setHtml(el, `
       <div class="brand"><img class="brand-logo" src="${IMG}trex.webp" alt=""><div><h1>Dino Board Game</h1><small>Build the best dino park in 18 rounds</small></div></div>
       <div class="top-mid">
@@ -1656,7 +1654,7 @@
         <div class="phase-row${fresh}" data-round="${state.round}">${phases}</div>
       </div>
       <div class="top-actions">
-        <button class="btn sm ghost log-btn" data-act="fullLog" title="What happened" aria-label="What happened${unseen ? ` (${unseen} new)` : ''}">🗒️<span class="lb-t"> What happened</span>${unseen ? `<span class="log-new">${unseen > 9 ? '9+' : unseen}</span>` : ''}</button>
+        <button class="btn sm ghost log-btn" data-act="fullLog" title="What happened" aria-label="What happened">🗒️<span class="lb-t"> What happened</span></button>
         ${state.aiCfg && !online ? `<button class="btn sm ghost" data-act="aiSettings" title="Computer settings">🤖 ${AI_LEVELS[state.aiCfg.level]} · ${AI_PACES[state.aiCfg.pace]}</button>` : ''}
         <button class="btn sm ghost" data-act="rules">📜 Rules</button>
         ${online
@@ -1826,8 +1824,6 @@
       </div>
     </div>`;
   }
-
-  let logSeen = null;
 
   function logItems(list) {
     return list.slice().reverse().map((l) => `<li><span class="lr">R${l.r}</span>${l.m}</li>`).join('');
@@ -2521,10 +2517,8 @@
       return;
     }
     if (act === 'fullLog') {
-      logSeen = state.log.length;
       openModal(`<div class="modal-head"><h2>🗒️ What happened</h2><button class="btn sm ghost" data-act="closeModal">Close</button></div>
         ${state.log.length ? `<ul class="log-list full">${logItems(state.log)}</ul>` : '<p class="muted">Nothing yet.</p>'}`);
-      renderTop();
       return;
     }
     if (act === 'replayReveal') {
@@ -3003,11 +2997,11 @@
   const AI_PACES = { fast: 'Fast', medium: 'Medium', slow: 'Slow' };
   const AI_LEVEL_HELP = { easy: 'Plays for fun and makes mistakes', medium: 'Plans one move at a time', hard: 'Plays to win: plans fences, cards and the whole game' };
   const AI_PACE_HELP = { fast: 'Quick turns', medium: 'Easy to follow', slow: 'Step by step' };
-  const PACE_MULT = { fast: 0.4, medium: 1, slow: 2.1 };
+  const PACE_MULT = { fast: 0.35, medium: 0.7, slow: 2.1 };
   const LEVEL_TUNE = {
     easy: { depth: 1, noise: 1.4, style: 1.2, foresight: 0.7, blunder: 0.25 },
     medium: { depth: 1, noise: 0.8, style: 1, foresight: 0.85, blunder: 0 },
-    hard: { depth: 2, noise: 0.03, style: 0, foresight: 1, blunder: 0, proj: true, water: true, deep: true, strat: true },
+    hard: { depth: 2, noise: 0.03, style: 0, foresight: 1, blunder: 0, proj: true, water: true, deep: true, strat: true, prune: 6 },
   };
   const AI_STYLES = {
     builder: { sp: { trex: 3, mosasaurus: 3, spinosaurus: 1.5, brachiosaurus: 1.5, allosaurus: 1 }, act: { fences: 0.8, diamond: 0.4 } },
@@ -4083,17 +4077,20 @@
       (a.kind === 'water' && strat && strat.water ? strat.water : 0);
     const scored = aiActions(m0, tl).map((a) => {
       const m1 = aiApply(m0, a, tl);
-      let v = aiEval(m1, tl);
-      let end = m1;
-      if (depth > 1 && m1.actsLeft > 0) {
-        aiActions(m1, tl).forEach((a2) => {
-          const m2 = aiApply(m1, a2, tl);
-          const v2 = aiEval(m2, tl);
-          if (v2 > v) { v = v2; end = m2; }
-        });
-      }
-      return { a, v: v + bonus(a), end };
+      return { a, m1, v: aiEval(m1, tl), b: bonus(a) };
     });
+    // Only the most promising first actions get a second-action search.
+    const wide = tune().prune ? scored.slice().sort((x, y) => y.v + y.b - x.v - x.b).slice(0, tune().prune) : scored;
+    scored.forEach((x) => { x.end = x.m1; });
+    wide.forEach((x) => {
+      if (depth < 2 || x.m1.actsLeft <= 0) return;
+      aiActions(x.m1, tl).forEach((a2) => {
+        const m2 = aiApply(x.m1, a2, tl);
+        const v2 = aiEval(m2, tl);
+        if (v2 > x.v) { x.v = v2; x.end = m2; }
+      });
+    });
+    scored.forEach((x) => { x.v += x.b; });
     if (tune().deep && scored.length > 1) {
       // Look further ahead on the most promising few before committing.
       const top = scored.sort((x, y) => y.v - x.v).slice(0, 5);
@@ -4254,12 +4251,18 @@
       aiTimer = null;
       if (busy || aiPending) { aiSchedule(); return; }
       const now = cur();
+      aiThinkAt = performance.now();
       if (isAiTask(now)) aiStep(now);
     }, aiDelay(T.t === 'roll' || T.t === 'gainFood' ? 1100 : 850));
   }
 
+  // Time spent deciding counts toward the pause, so harder levels don't take longer turns.
+  let aiThinkAt = 0;
+
   function aiShow(note, then) {
     const token = state;
+    const spent = aiThinkAt ? performance.now() - aiThinkAt : 0;
+    aiThinkAt = 0;
     ui.aiNote = note;
     aiPending = true;
     render();
@@ -4267,7 +4270,7 @@
       aiPending = false;
       if (state !== token) return;
       then();
-    }, aiDelay(900));
+    }, Math.max(aiDelay(300), aiDelay(900) - spent));
   }
 
   function aiPlace(sp, cells, free) {
