@@ -1554,14 +1554,13 @@
     if (!document.getElementById('game-shell')) {
       app.innerHTML = tokify(`<div id="game-shell">
         <header class="topbar" id="top"></header>
-        <main class="layout"><div class="main-col"><section class="boards" id="boards"></section><section class="log-card" id="log"></section></div><aside class="panel" id="panel"></aside></main>
+        <main class="layout"><div class="main-col"><section class="boards" id="boards"></section></div><aside class="panel" id="panel"></aside></main>
         <footer class="legend"><details><summary>🗺️ Board key <span>· tap any dino to see its card</span></summary><div class="lg">${legendHtml()}</div></details></footer>
       </div>`);
     }
     renderTop();
     renderBoards();
     renderPanel();
-    setHtml(document.getElementById('log'), logHtml());
     const T = cur();
     turnOverlay(T);
     if (pendingCard) {
@@ -1624,6 +1623,8 @@
         })
         .join('');
     const fresh = T && T.t === 'roundStart' ? ' fresh' : '';
+    if (logSeen === null || logSeen > state.log.length) logSeen = state.log.length;
+    const unseen = state.log.length - logSeen;
     setHtml(el, `
       <div class="brand"><img class="brand-logo" src="${IMG}trex.webp" alt=""><div><h1>Dino Board Game</h1><small>Build the best dino park in 18 rounds</small></div></div>
       <div class="top-mid">
@@ -1631,6 +1632,7 @@
         <div class="phase-row${fresh}" data-round="${state.round}">${phases}</div>
       </div>
       <div class="top-actions">
+        <button class="btn sm ghost log-btn" data-act="fullLog" title="What happened" aria-label="What happened${unseen ? ` (${unseen} new)` : ''}">🗒️<span class="lb-t"> What happened</span>${unseen ? `<span class="log-new">${unseen > 9 ? '9+' : unseen}</span>` : ''}</button>
         ${state.aiCfg && !online ? `<button class="btn sm ghost" data-act="aiSettings" title="Computer settings">🤖 ${AI_LEVELS[state.aiCfg.level]} · ${AI_PACES[state.aiCfg.pace]}</button>` : ''}
         <button class="btn sm ghost" data-act="rules">📜 Rules</button>
         ${online
@@ -1801,13 +1803,10 @@
     </div>`;
   }
 
+  let logSeen = null;
+
   function logItems(list) {
     return list.slice().reverse().map((l) => `<li><span class="lr">R${l.r}</span>${l.m}</li>`).join('');
-  }
-
-  function logHtml() {
-    return `<div class="log-head"><h4>📜 What happened</h4>${state.log.length > 8 ? '<button class="btn sm ghost" data-act="fullLog">Full history</button>' : ''}</div>
-      <ul class="log-list">${logItems(state.log.slice(-8))}</ul>`;
   }
 
   function stepper(k, label, val, canDec, canInc) {
@@ -2493,8 +2492,10 @@
     }
     if (!state) return;
     if (act === 'fullLog') {
-      openModal(`<div class="modal-head"><h2>📜 Full history</h2><button class="btn sm ghost" data-act="closeModal">Close</button></div>
-        <ul class="log-list full">${logItems(state.log)}</ul>`);
+      logSeen = state.log.length;
+      openModal(`<div class="modal-head"><h2>🗒️ What happened</h2><button class="btn sm ghost" data-act="closeModal">Close</button></div>
+        ${state.log.length ? `<ul class="log-list full">${logItems(state.log)}</ul>` : '<p class="muted">Nothing yet.</p>'}`);
+      renderTop();
       return;
     }
     if (act === 'replayReveal') {
