@@ -3107,6 +3107,7 @@
   }
 
   function tune() {
+    if (aiSafe) return LEVEL_TUNE.medium;
     return LEVEL_TUNE[aiCfg().level];
   }
 
@@ -3673,7 +3674,7 @@
       const cands = force && dk < force.length ? [] : null;
       const consider = (score, acts, apply) => {
         if (cands) {
-          if (score > 0) cands.push({ score, acts, apply, tag });
+          if (score > 0) cands.push({ score, acts, apply });
         } else if (!pick || score / acts > pick.score / pick.acts) pick = { score, acts, apply };
       };
       if (left > 0) consider(2 * lam, 1, () => { coins += 2; });
@@ -4243,6 +4244,24 @@
     return ms * PACE_MULT[aiCfg().pace];
   }
 
+  // If Hard's planning throws, play this step like Medium instead of freezing the game.
+  let aiSafe = false;
+
+  function aiRun(T) {
+    try {
+      aiStep(T);
+    } catch (e) {
+      console.error('Computer move failed; retrying with simpler play.', e);
+      if (aiPending || aiSafe) return;
+      aiSafe = true;
+      try {
+        aiStep(T);
+      } finally {
+        aiSafe = false;
+      }
+    }
+  }
+
   function aiSchedule() {
     if (aiTimer || aiPending || busy) return;
     const T = cur();
@@ -4252,7 +4271,7 @@
       if (busy || aiPending) { aiSchedule(); return; }
       const now = cur();
       aiThinkAt = performance.now();
-      if (isAiTask(now)) aiStep(now);
+      if (isAiTask(now)) aiRun(now);
     }, aiDelay(T.t === 'roll' || T.t === 'gainFood' ? 600 : 300));
   }
 
