@@ -238,6 +238,7 @@
     return { d: 1, c: 3 + 2 * Math.max(0, n - 5) };
   }
   const WATER_COST = { d: 1, c: 2 };
+  const WATER_SQUARES = 6;
   const DIAMOND_COST = { d: 0, c: 6 };
 
   // ---------------------------------------------------------------- board model
@@ -707,7 +708,7 @@
       onlinePush();
       return;
     }
-    if (state && state.sim) return;
+    if (state && (state.sim || state.past)) return;
     try {
       if (state) localStorage.setItem(SAVE_KEY, JSON.stringify(state));
     } catch {
@@ -1552,6 +1553,10 @@
       renderGate(app);
       return;
     }
+    if (!state && pastLoading) {
+      app.innerHTML = '<div class="setup gate"><div class="setup-card"><h2>🏆 Opening that game…</h2><p class="muted">Loading the final boards from your history.</p></div></div>';
+      return;
+    }
     if (!state) {
       renderSetup(app);
       animOn = true;
@@ -1646,13 +1651,14 @@
         <div class="phase-row${fresh}" data-round="${state.round}">${phases}</div>
       </div>
       <div class="top-actions">
-        <button class="btn sm ghost log-btn" data-act="fullLog" title="What happened" aria-label="What happened">🗒️<span class="lb-t"> What happened</span></button>
-        ${state.aiCfg && !online ? `<button class="btn sm ghost" data-act="aiSettings" title="Computer settings">🤖 ${AI_LEVELS[state.aiCfg.level]} · ${AI_PACES[state.aiCfg.pace]}</button>` : ''}
-        ${!online && !state.sim && isAdmin() ? '<button class="btn sm ghost" data-act="simOpen" title="Computer vs computer (admin)" aria-label="Computer vs computer (admin)">🧪</button>' : ''}
+        ${state.past ? '' : '<button class="btn sm ghost log-btn" data-act="fullLog" title="What happened" aria-label="What happened">🗒️<span class="lb-t"> What happened</span></button>'}
+        ${state.aiCfg && !online && !state.past ? `<button class="btn sm ghost" data-act="aiSettings" title="Computer settings">🤖 ${AI_LEVELS[state.aiCfg.level]} · ${AI_PACES[state.aiCfg.pace]}</button>` : ''}
+        ${!online && !state.sim && !state.past && isAdmin() ? '<button class="btn sm ghost" data-act="simOpen" title="Computer vs computer (admin)" aria-label="Computer vs computer (admin)">🧪</button>' : ''}
         ${state.sim ? `<button class="btn sm ghost" data-act="simSpeed" title="Change simulation speed">${SIM_SPEEDS[state.sim.speed].icon} ${SIM_SPEEDS[state.sim.speed].name}</button>` : '<button class="btn sm ghost" data-act="rules">📜 Rules</button>'}
         ${online
     ? `<button class="btn sm ghost" data-act="onlineLeave">🏠 My games</button>${online.status === 'active' ? '<button class="btn sm ghost" data-act="onlineResign">🏳️ Resign</button>' : ''}`
-    : state.sim ? '<button class="btn sm ghost" data-act="simStop">⏹ Exit simulation</button>' : '<button class="btn sm ghost" data-act="newGame">🥚 New game</button>'}
+    : state.sim ? '<button class="btn sm ghost" data-act="simStop">⏹ Exit simulation</button>'
+      : state.past ? '<a class="btn sm ghost" href="/dino-history.html">🏆 Back to history</a>' : '<button class="btn sm ghost" data-act="newGame">🥚 New game</button>'}
       </div>`);
   }
 
@@ -2224,8 +2230,10 @@
     ? '<div class="btn-row"><button class="btn big" data-act="simAgain">🔁 Run again</button><button class="btn big ghost" data-act="simStop">⏹ Exit simulation</button></div>'
     : online
     ? '<div class="btn-row"><button class="btn big" data-act="olRematch">🦖 Rematch</button><button class="btn big ghost" data-act="onlineLeave">🏠 My games</button></div>'
+    : state.past
+    ? '<div class="btn-row"><a class="btn big" href="/dino-history.html">🏆 Back to history</a><a class="btn big ghost" href="/dino-board-game.html">🦖 Play</a></div>'
     : '<button class="btn big" data-act="newGame">🥚 Play again</button>'}
-      ${state.sim ? '' : '<div class="btn-row"><button class="btn ghost" data-act="replayReveal">🎬 Replay the reveal</button><a class="btn ghost" href="/dino-history.html">🏆 Game history</a></div>'}`;
+      ${state.sim ? '' : `<div class="btn-row"><button class="btn ghost" data-act="replayReveal">🎬 Replay the reveal</button>${state.past ? '' : '<a class="btn ghost" href="/dino-history.html">🏆 Game history</a>'}</div>`}`;
   }
 
   // ---------------------------------------------------------------- selection validation
@@ -2538,6 +2546,10 @@
       return;
     }
     if (act === 'newGame') {
+      if (state && state.past) {
+        location.href = '/dino-board-game.html';
+        return;
+      }
       const T = cur();
       const reset = () => {
         localStorage.removeItem(SAVE_KEY);
@@ -3077,7 +3089,7 @@
   const LEVEL_TUNE = {
     easy: { depth: 1, noise: 1.4, style: 1.2, foresight: 0.7, blunder: 0.25 },
     medium: { depth: 1, noise: 0.8, style: 1, foresight: 0.85, blunder: 0 },
-    hard: { depth: 2, noise: 0.03, style: 0, foresight: 1, blunder: 0, proj: true, water: true, deep: true, strat: true, prune: 6 },
+    hard: { depth: 2, noise: 0.03, style: 0, foresight: 1, blunder: 0, proj: true, water: true, deep: true, strat: true, prune: 6, big: true },
   };
   const AI_STYLES = {
     builder: { sp: { trex: 3, mosasaurus: 3, spinosaurus: 1.5, brachiosaurus: 1.5, allosaurus: 1 }, act: { fences: 0.8, diamond: 0.4 } },
@@ -3137,6 +3149,8 @@
   const TREX_WEIGHT = 0.8;
   // Dinos are where the points are: Hard breaks near-ties toward playing one.
   const PLAY_PRIORITY = 0.5;
+  // Production pays out from one enclosure, so each coin added to the best one repays every round.
+  const PROD_GROWTH = 0.6;
 
   function aiProfile(level, pace) {
     const plan = AI_PLANS[rand(AI_PLANS.length)];
@@ -3800,17 +3814,34 @@
         const place = (e, fenceActs, size) => {
           if (acts + fenceActs > left + 1) return;
           if (e.empty < S.space) return;
-          if (!e.species.has(sp) && e.species.size >= e.slots) return;
+          // A full enclosure can still take a new species by adding a watering hole first.
+          let wActs = 0;
+          let wCoins = 0;
+          let wDia = 0;
+          if (!e.species.has(sp) && e.species.size >= e.slots) {
+            if (!T.big || e.empty < S.space + WATER_SQUARES) return;
+            const wMissing = Math.max(0, S.cost.d + WATER_COST.d - dia) - missing;
+            wActs = 1 + wMissing;
+            wCoins = WATER_COST.c + 6 * wMissing;
+            wDia = WATER_COST.d - wMissing;
+            if (acts + wActs + fenceActs > left + 1 || coins < coinCost + wCoins) return;
+          }
           let got = S.pts;
           if (sp === 'compy') got += COMPY_ADJ[Math.min(3, e.compy)];
           if (sp === 'microraptor' && !e.micro) got += 2;
           got = got * e.w * (cyc ? 0.85 : 1) + (EVENT_PTS[sp] || 0);
           const newBest = e.w >= 0.6 && !cyc ? Math.max(best, e.prod + S.prod) : best;
-          const score = got * smul(sp) + (newBest - best) * roundsLeft * 0.45 + (EVENT_COINS[sp] || 0) * lam + gainFood * 0.05 +
-            (sp === 'pachy' ? 2 : 0) - coinCost * lam - (S.cost.d - missing) * 3;
-          consider(score, acts + fenceActs, () => {
+          const score = got * smul(sp) + (newBest - best) * roundsLeft * (T.big ? PROD_GROWTH : 0.45) + (EVENT_COINS[sp] || 0) * lam + gainFood * 0.05 +
+            (sp === 'pachy' ? 2 : 0) - (coinCost + wCoins) * lam - (S.cost.d - missing + wDia) * 3;
+          consider(score, acts + wActs + fenceActs, () => {
             if (aiCtx.planLog) aiCtx.planLog.push(sp);
             if (size) { encl.push(e); open -= size; }
+            if (wActs) {
+              e.slots++;
+              e.empty -= WATER_SQUARES;
+              coins -= wCoins;
+              dia -= wDia;
+            }
             coins -= coinCost;
             coins += EVENT_COINS[sp] || 0;
             dia += missing - S.cost.d;
@@ -4577,21 +4608,50 @@
 
   // Vs-computer and same-device games go into the account's game history once they end.
   async function recordLocalGame() {
-    if (online || !state || state.sim || state.recorded || !sessionId()) return;
+    if (online || !state || state.sim || state.past || (state.recorded && state.boardSaved) || !sessionId()) return;
     const s = state;
     if (!s.gid) s.gid = newGid();
     const me = s.ai === 0 ? 1 : 0;
+    const { log, recorded, boardSaved, celebrated, ...board } = s;
     const r = await api('/api/dino/history/record', {
       gid: s.gid,
       kind: s.ai != null ? 'ai' : 'local',
       level: s.aiCfg ? s.aiCfg.level : null,
       names: [s.players[me].name, s.players[1 - me].name],
       scores: [scorePlayer(me).total, scorePlayer(1 - me).total],
+      board,
     });
     if (r.ok && state === s) {
       s.recorded = true;
+      s.boardSaved = true;
       save();
     }
+  }
+
+  // Read-only view of a finished local game from the account's history (never saved over the current game).
+  let pastLoading = false;
+
+  async function openPastGame(id) {
+    pastLoading = true;
+    render();
+    const r = await api(`/api/dino/history/board?id=${encodeURIComponent(id)}`);
+    pastLoading = false;
+    if (!r.ok || !r.data.state) {
+      if (r.status !== 401) toast(r.data.error || 'Couldn’t open that game.');
+      history.replaceState(null, '', location.pathname);
+      state = load();
+      if (state) {
+        autoResolve();
+        prepareUi();
+      }
+      render();
+      return;
+    }
+    state = Object.assign(r.data.state, { past: true, celebrated: true, log: [] });
+    ui = freshUi();
+    resetFx();
+    prepareUi();
+    render();
   }
 
   function renderGate(app) {
@@ -5168,16 +5228,20 @@
   });
 
   // ---------------------------------------------------------------- boot
-  const linkedGame = new URLSearchParams(location.search).get('game');
-  state = linkedGame ? null : load();
+  const params = new URLSearchParams(location.search);
+  const linkedGame = params.get('game');
+  const pastGame = linkedGame ? null : params.get('past');
+  state = linkedGame || pastGame ? null : load();
   if (state) {
     autoResolve();
     prepareUi();
   }
   if (linkedGame) setupOnline = true;
+  if (pastGame && sessionId()) pastLoading = true;
   render();
   if (sessionId()) {
     if (linkedGame) openOnlineGame(linkedGame);
+    else if (pastGame) openPastGame(pastGame);
     else loadLobby();
     if (state && cur() && cur().t === 'gameOver') recordLocalGame();
   }

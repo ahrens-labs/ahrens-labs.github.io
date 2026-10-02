@@ -88,7 +88,9 @@
     }
     const score = typeof h.myScore === 'number' ? `<b class="hs">${h.myScore}–${h.oppScore}</b>` : '<b class="hs">—</b>';
     const why = reasonText(h);
-    const view = h.kind === 'online' && h.gameId ? `<a class="btn sm ghost" href="/dino-board-game.html?game=${encodeURIComponent(h.gameId)}">View board</a>` : '';
+    let view = '<small class="muted">Board not saved</small>';
+    if (h.kind === 'online' && h.gameId) view = `<a class="btn sm ghost" href="/dino-board-game.html?game=${encodeURIComponent(h.gameId)}">View board</a>`;
+    else if (h.board) view = `<a class="btn sm ghost" href="/dino-board-game.html?past=${encodeURIComponent(h.id)}">View board</a>`;
     return `<li class="hrow">
       <span class="hi">${icon}</span>
       <div class="hmain"><div class="ht">${title}</div><small>${when(h.finishedAt)}${why ? ` · ${why}` : ''}</small></div>

@@ -15,6 +15,8 @@ const MAX_OPEN_GAMES = 20;
 const LOBBY_KEEP_FINISHED = 10;
 const HISTORY_MAX = 500;
 const HISTORY_PAGE_MAX = 50;
+const MAX_BOARD_BYTES = 64 * 1024;
+const LOCAL_ID_RE = /^g[0-9a-z]{6,30}$/;
 const LEVELS = new Set(['easy', 'medium', 'hard']);
 const MODES = new Set(['quick', 'long']);
 
@@ -193,9 +195,18 @@ function cleanName(n, fallback) {
   return String(n || '').replace(/\s+/g, ' ').trim().slice(0, 18) || fallback;
 }
 
+// Finished vs-computer / same-device game, kept so history can show the final boards.
+function cleanBoard(board) {
+  if (!board || typeof board !== 'object' || board.v !== 1) return null;
+  if (!Array.isArray(board.players) || board.players.length !== 2 || !Array.isArray(board.queue)) return null;
+  if (!board.queue[0] || board.queue[0].t !== 'gameOver') return null;
+  const snap = { ...board, log: [] };
+  return JSON.stringify(snap).length <= MAX_BOARD_BYTES ? snap : null;
+}
+
 function localHistoryItem(body) {
   const id = String(body.gid || '');
-  if (!/^g[0-9a-z]{6,30}$/.test(id)) return null;
+  if (!LOCAL_ID_RE.test(id)) return null;
   const kind = body.kind === 'ai' ? 'ai' : body.kind === 'local' ? 'local' : null;
   const scores = cleanScores(body.scores);
   if (!kind || !scores) return null;
@@ -262,6 +273,13 @@ export async function handleDinoRequest(request, env, corsHeaders, path, { execu
     return jsonResponse(await res.json(), corsHeaders);
   }
 
+  if (path === '/api/dino/history/board' && request.method === 'GET') {
+    const gid = String(url.searchParams.get('id') || '');
+    if (!LOCAL_ID_RE.test(gid)) return jsonResponse({ error: 'Game not found' }, corsHeaders, 404);
+    const res = await lobbyStub(env, userId).fetch(new Request(`http://do/board?id=${gid}`));
+    return jsonResponse(await res.json(), corsHeaders, res.status);
+  }
+
   let body = {};
   if (request.method === 'POST') {
     try {
@@ -313,7 +331,8 @@ export async function handleDinoRequest(request, env, corsHeaders, path, { execu
   if (path === '/api/dino/history/record' && request.method === 'POST') {
     const item = localHistoryItem(body);
     if (!item) return jsonResponse({ error: 'Invalid game record' }, corsHeaders, 400);
-    const res = await lobbyStub(env, userId).fetch(new Request('http://do/record', { method: 'POST', body: JSON.stringify(item) }));
+    const board = cleanBoard(body.board);
+    const res = await lobbyStub(env, userId).fetch(new Request('http://do/record', { method: 'POST', body: JSON.stringify({ item, board }) }));
     return jsonResponse(await res.json(), corsHeaders, res.status);
   }
 
@@ -586,11 +605,21 @@ export class DinoLobby {
     return history;
   }
 
-  async addHistory(item, games) {
+  // Local games keep their final boards under board:<id>, dropped together with the history row.
+  async addHistory(item, games, board) {
     const history = await this.loadHistory(games);
-    if (history.some((h) => h.id === item.id)) return false;
+    const known = history.find((h) => h.id === item.id);
+    if (known) {
+      if (!board || known.board) return false;
+      known.board = true;
+      await this.storage.put({ history, [`board:${item.id}`]: board });
+      return true;
+    }
+    if (board) item.board = true;
     history.unshift(item);
-    await this.storage.put('history', history.slice(0, HISTORY_MAX));
+    const dropped = history.slice(HISTORY_MAX).filter((h) => h.board).map((h) => `board:${h.id}`);
+    await this.storage.put({ history: history.slice(0, HISTORY_MAX), ...(board ? { [`board:${item.id}`]: board } : {}) });
+    if (dropped.length) await this.storage.delete(dropped);
     return true;
   }
 
@@ -606,8 +635,14 @@ export class DinoLobby {
       return Response.json({ items: items.slice(offset, offset + limit), total: items.length, stats: historyStats(all) });
     }
     if (op === '/record' && request.method === 'POST') {
-      const added = await this.addHistory(await request.json());
+      const { item, board } = await request.json();
+      const added = await this.addHistory(item, null, board || null);
       return Response.json({ ok: true, added });
+    }
+    if (op === '/board') {
+      const board = await this.storage.get(`board:${url.searchParams.get('id')}`);
+      if (!board) return Response.json({ error: 'This game’s board wasn’t saved.' }, { status: 404 });
+      return Response.json({ state: board });
     }
     const games = (await this.storage.get('games')) || {};
     if (op === '/list') {
