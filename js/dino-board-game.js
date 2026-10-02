@@ -545,6 +545,10 @@
     return an.comps.filter((cp) => cp.active && cp.living.length);
   }
 
+  function bestProdB(b) {
+    return analyze(b).comps.reduce((mx, cp) => (cp.active && cp.living.length ? Math.max(mx, cp.prod) : mx), 0);
+  }
+
   function dinoSummary(cp, includeDead) {
     const counts = {};
     (includeDead ? cp.dinos : cp.living).forEach((d) => {
@@ -848,7 +852,7 @@
     else if (T.t === 'foodChoice') ui.meat = Math.floor(T.amount / 2);
     else if (T.t === 'steal') ui.meat = stealRange(T)[1];
     else if (T.t === 'roundStart' && state.ai != null && state.players[state.ai].bonusPending) {
-      ui.picks[state.ai] = new Array(state.players[state.ai].bonusPending).fill('action');
+      ui.picks[state.ai] = aiBonusPicks(state.ai);
     }
   }
 
@@ -1884,7 +1888,10 @@
           return `<div class="bonus-pick">⏩ ${pn(p)}’s Gigantoraptor: ${done ? 'bonus chosen ✅' : `${pn(p)} picks ${plural(P.bonusPending, 'phase')} to do twice.`}</div>`;
         }
         if (picks.length < P.bonusPending) ready = false;
-        if (p === state.ai) return `<div class="bonus-pick">⏩ ${pn(p)}’s Gigantoraptor: the computer will take <b>Actions</b> twice this round.</div>`;
+        if (p === state.ai) {
+          const names = [...new Set(picks)].map((ph) => `<b>${PHASES[ph].short}</b>${picks.filter((x) => x === ph).length > 1 ? ' ×' + picks.filter((x) => x === ph).length : ''}`);
+          return `<div class="bonus-pick">⏩ ${pn(p)}’s Gigantoraptor: the computer will do ${names.join(' and ') || '<b>Actions</b>'} twice this round.</div>`;
+        }
         const btns = state.phaseOrder
           .map((ph) => {
             const n = picks.filter((x) => x === ph).length;
@@ -3089,7 +3096,7 @@
   const LEVEL_TUNE = {
     easy: { depth: 1, noise: 1.4, style: 1.2, foresight: 0.7, blunder: 0.25 },
     medium: { depth: 1, noise: 0.8, style: 1, foresight: 0.85, blunder: 0 },
-    hard: { depth: 2, noise: 0.03, style: 0, foresight: 1, blunder: 0, proj: true, water: true, deep: true, strat: true, prune: 6, big: true },
+    hard: { depth: 2, noise: 0.03, style: 0, foresight: 1, blunder: 0, proj: true, water: true, deep: true, strat: true, prune: 6, big: true, giga: true },
   };
   const AI_STYLES = {
     builder: { sp: { trex: 3, mosasaurus: 3, spinosaurus: 1.5, brachiosaurus: 1.5, allosaurus: 1 }, act: { fences: 0.8, diamond: 0.4 } },
@@ -3151,6 +3158,9 @@
   const PLAY_PRIORITY = 0.5;
   // Production pays out from one enclosure, so each coin added to the best one repays every round.
   const PROD_GROWTH = 0.6;
+  // What Hard thinks a bonus Production coin is worth, and how much of its remaining actions can go to spending coins.
+  const BONUS_COIN_VALUE = 0.4;
+  const BONUS_SPEND_SHARE = 0.6;
 
   function aiProfile(level, pace) {
     const plan = AI_PLANS[rand(AI_PLANS.length)];
@@ -3172,6 +3182,27 @@
     }
     if (!state.aiCfg) state.aiCfg = aiProfile('medium', 'medium');
     return state.aiCfg;
+  }
+
+  function playerTune(p) {
+    return LEVEL_TUNE[(state.sim ? state.sim.cfgs[p] : aiCfg()).level];
+  }
+
+  // Gigantoraptor bonuses stack, so Hard doubles Production while its best enclosure pays more than
+  // two extra actions would, and while it still has actions left in the game to spend the coins.
+  function aiBonusPicks(p) {
+    const P = state.players[p];
+    const picks = new Array(P.bonusPending).fill('action');
+    if (!playerTune(p).giga) return picks;
+    const prod = producible(p).reduce((mx, cp) => Math.max(mx, cp.prod), 0);
+    const cap = (ROUNDS - state.round + 1) * 2 * 6 * BONUS_SPEND_SHARE;
+    let coins = P.coins;
+    return picks.map(() => {
+      const acts = (coins >= 6 ? 3 : 0.8) + (coins >= 12 ? 3 : 0.8);
+      if (Math.min(prod, Math.max(0, cap - coins)) * BONUS_COIN_VALUE <= acts) return 'action';
+      coins += prod;
+      return 'produce';
+    });
   }
 
   function edgeRC(e) {
@@ -3829,8 +3860,11 @@
           let got = S.pts;
           if (sp === 'compy') got += COMPY_ADJ[Math.min(3, e.compy)];
           if (sp === 'microraptor' && !e.micro) got += 2;
-          got = got * e.w * (cyc ? 0.85 : 1) + (EVENT_PTS[sp] || 0);
           const newBest = e.w >= 0.6 && !cyc ? Math.max(best, e.prod + S.prod) : best;
+          // Gigantoraptor's bonus is worth an extra Production from the best enclosure next round.
+          const eventPts = sp === 'gigantoraptor' && T.giga
+            ? (roundsLeft > 0 ? Math.max(EVENT_PTS.gigantoraptor, newBest * BONUS_COIN_VALUE) : 0) : EVENT_PTS[sp] || 0;
+          got = got * e.w * (cyc ? 0.85 : 1) + eventPts;
           const score = got * smul(sp) + (newBest - best) * roundsLeft * (T.big ? PROD_GROWTH : 0.45) + (EVENT_COINS[sp] || 0) * lam + gainFood * 0.05 +
             (sp === 'pachy' ? 2 : 0) - (coinCost + wCoins) * lam - (S.cost.d - missing + wDia) * 3;
           consider(score, acts + wActs + fenceActs, () => {
@@ -4015,7 +4049,9 @@
       case 'carnotaurus': addFood(m, 14); break;
       case 'brachiosaurus': m.extra += fillHarm(m.p, 5); break;
       case 'trex': m.extra += trexHarm(m.p); break;
-      case 'gigantoraptor': if (tl.future > 0) m.extra += 3; break;
+      case 'gigantoraptor':
+        if (tl.future > 0) m.extra += tune().giga ? Math.max(3, bestProdB(m.board) * BONUS_COIN_VALUE) : 3;
+        break;
       case 'dilophosaurus': {
         m.coins += 5;
         addFood(m, 5);
@@ -4427,7 +4463,7 @@
     lastClickRect = panel ? panel.getBoundingClientRect() : null;
     switch (T.t) {
       case 'roundStart':
-        [0, 1].forEach((q) => { ui.picks[q] = new Array(state.players[q].bonusPending).fill('action'); });
+        [0, 1].forEach((q) => { ui.picks[q] = aiBonusPicks(q); });
         handle('startRound', {});
         return;
       case 'roll': aiShow('Rolling the die…', () => handle('roll', {})); return;
