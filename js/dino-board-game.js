@@ -5801,6 +5801,22 @@
 
   const PROTO_FOOD_INCOME = 7;
 
+  // Feeding is every round, so weigh a new dino's bill against roughly what one player gathers per round.
+  function protoHunger(p, sp, spare) {
+    const b = state.players[p].board;
+    const n = SPECIES[sp].food.n;
+    const deficit = Math.max(0, demandOf(b).total + n - PROTO_FOOD_INCOME);
+    return Math.max(0, n - Math.max(0, spare)) * 0.8 + Math.min(deficit, n) * protoRoundsLeft() * 0.35;
+  }
+
+  // A card's price in points: coins at their current worth, and each missing diamond costs a Gems turn.
+  function protoPricePts(p, sp) {
+    const c = protoCost(sp);
+    const cv = protoCoinValue(p);
+    const needD = Math.max(0, c.d - state.players[p].diamonds);
+    return c.c * cv + needD * (5 * cv + 1.5);
+  }
+
   function protoBestBuy(p, freeTask, extra, breed) {
     const P = state.players[p];
     const b = P.board;
@@ -5809,9 +5825,7 @@
     (breed ? protoBreedOptions(p, extra) : protoPlayOptions(p, freeTask, extra)).filter((o) => o.ok).forEach((o) => {
       const cells = breed ? protoBreedCells(p, o.sp, true) : aiFindCellsB(b, spec(o.sp).space, o.sp);
       if (!cells) return;
-      // Feeding is every round, so weigh the new dino's bill against roughly what one player gathers per round.
-      const deficit = Math.max(0, demandOf(b).total + SPECIES[o.sp].food.n - PROTO_FOOD_INCOME);
-      const hungry = Math.max(0, SPECIES[o.sp].food.n - Math.max(0, spare)) * 0.8 + Math.min(deficit, SPECIES[o.sp].food.n) * protoRoundsLeft() * 0.35;
+      const hungry = protoHunger(p, o.sp, spare);
       // An egg takes a round to hatch and two Feedings to grow up, so it's worth less, and little near the end.
       const left = protoRoundsLeft();
       const value = breed ? protoDinoValue(p, o.sp) * (left >= 4 ? 0.6 : left >= 3 ? 0.35 : left >= 2 ? 0.15 : 0) : protoDinoValue(p, o.sp, cells);
@@ -5850,16 +5864,32 @@
     return best;
   }
 
-  function protoScoutPick(p) {
-    let best = state.deck.length ? { from: 'deck', v: 2 } : null;
-    const O = other(p);
+  // A reserved card only scores if it gets played. Most plays come straight from the market, so only a
+  // few held cards are useful, and fewer as rounds run out.
+  function protoHandRoom(p, more) {
+    const held = state.players[p].hand.length + (more || 0);
+    return Math.max(0, 1 - held / Math.max(1, (protoRoundsLeft() - 1) * 0.4));
+  }
+
+  // Reserve choices, best first: what playing the card would be worth after its food bill and price
+  // (missing diamonds included), and only part of that since it could be bought from the market anyway.
+  // An unknown deck card is a small gamble.
+  function protoScoutPicks(p) {
+    const P = state.players[p];
+    const O = state.players[other(p)];
+    const spare = P.meat + P.plants - demandOf(P.board).total;
+    const out = state.deck.length ? [{ from: 'deck', v: 0.5 }] : [];
     state.faceUp.forEach((sp, i) => {
       if (!sp) return;
-      const denial = aiCfg().level === 'hard' && canAfford(state.players[O], protoCost(sp)) && !state.players[O].blocked.includes(sp) ? protoDinoValue(O, sp) * 0.3 : 0;
-      const v = (state.players[p].blocked.includes(sp) ? 0 : protoDinoValue(p, sp) * 0.5) + denial;
-      if (!best || v > best.v) best = { from: i, v };
+      const mine = P.blocked.includes(sp) ? 0 : Math.max(0, protoDinoValue(p, sp) - protoHunger(p, sp, spare) - protoPricePts(p, sp)) * 0.4;
+      const denial = aiCfg().level === 'hard' && canAfford(O, protoCost(sp)) && !O.blocked.includes(sp) ? Math.max(0, protoDinoValue(other(p), sp) - protoPricePts(other(p), sp)) * 0.1 : 0;
+      out.push({ from: i, v: mine + denial });
     });
-    return best;
+    return out.sort((a, b) => b.v - a.v);
+  }
+
+  function protoScoutPick(p) {
+    return protoScoutPicks(p)[0] || null;
   }
 
   // Fences chosen fresh every turn: enclose the best rectangle of open land for a dino the computer
@@ -5968,10 +5998,13 @@
         const bp = protoBuilderPick(p, X.extra);
         if (bp) plan = { v: bp.v, build: bp };
       } else if (X.type === 'scout') {
-        const sc = protoScoutPick(p);
-        const room = handMax(P) - P.hand.length;
-        const cards = sc && left > 1 ? Math.min(X.cards, room) * sc.v * 0.6 : 0;
-        const first = X.first && left > 1 ? 0.6 : 0;
+        // Scouting forces the reserve, and cards it won't get to play just clog the hand.
+        const picks = protoScoutPicks(p).slice(0, Math.min(X.cards, handMax(P) - P.hand.length));
+        const cards = picks.reduce((s, pk, n) => {
+          const room = left > 1 ? protoHandRoom(p, n) : 0;
+          return s + pk.v * 0.6 * room - 0.2 * (1 - room);
+        }, 0);
+        const first = X.first && left > 1 ? 0.45 : 0;
         const v = cards + (X.coin || 0) * cv + first;
         if (v > 0) plan = { v };
       }
