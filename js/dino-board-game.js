@@ -3183,9 +3183,12 @@
     }
     const S = spec(ui.species);
     const v = validateSel();
-    return `<div class="place-head">${dz(ui.species, 'big')}<h3>Place ${esc(S.name)}${free ? ' (free!)' : ` · ${costText(state.proto ? withExtra(cardCost(ui.species), spaceExtra()) : cardCost(ui.species))}`}</h3></div>
-      ${placementBox(`Select ${S.space} connected square${S.space > 1 ? 's' : ''} inside one enclosure`)}
-      <button class="btn big" data-act="place" ${v.ok ? '' : 'disabled'}>Place ${esc(spName(ui.species))}</button>
+    const egg = !!(ui.sel && ui.sel.breed);
+    const need = ui.sel && ui.sel.need ? ui.sel.need : S.space;
+    const price = free ? ' (free!)' : ` · ${costText(state.proto ? withExtra(cardCost(ui.species), spaceExtra()) : cardCost(ui.species))}`;
+    return `<div class="place-head">${dz(ui.species, 'big')}<h3>${egg ? `Lay a ${esc(S.name)} egg` : `Place ${esc(S.name)}`}${price}</h3></div>
+      ${placementBox(`Select ${plural(need, 'connected square')} ${egg ? 'in the enclosure with the pair' : 'inside one enclosure'}`)}
+      <button class="btn big" data-act="place" ${v.ok ? '' : 'disabled'}>${egg ? 'Lay egg' : `Place ${esc(spName(ui.species))}`}</button>
 `;
   }
 
