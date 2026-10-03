@@ -115,7 +115,7 @@
   const PROTO_COPIES = { compy: 6, microraptor: 5, parasaurolophus: 5, pachy: 5, trex: 2, mosasaurus: 2, spinosaurus: 2, dilophosaurus: 2, ankylosaurus: 2 };
   const PROTO_TREX_ROUNDS = 3;
   // A bred dino starts as an egg, hatches into a baby next round, and grows up after this many Feedings.
-  const PROTO_BABY_FEEDS = 3;
+  const PROTO_BABY_FEEDS = 2;
   // 15 end-game goal cards; each game uses 3, revealed at the start of these rounds.
   // "Enclosure" here means an active enclosure with at least one living dino.
   const PROTO_GOAL_ROUNDS = [1, 6, 11];
