@@ -109,10 +109,9 @@
   // Shared dino market, worker spaces, park scoring, 12 rounds, round events and free powers.
   const PROTO_ROUNDS = 12;
   const PROTO_WORKERS = 3;
-  const PROTO_HAND_MAX = 3;
+  const PROTO_HAND_MAX = 5;
   const PROTO_MARKET = 5;
   const PROTO_COPIES = { compy: 4, microraptor: 4, trex: 2, mosasaurus: 2 };
-  const PROTO_HAND_BIG = 5;
   // 15 end-game goal cards; each game uses 3, revealed at the start of these rounds.
   // "Enclosure" here means an active enclosure with at least one living dino.
   const PROTO_GOAL_ROUNDS = [1, 5, 9];
@@ -158,7 +157,7 @@
     build3: { type: 'build', name: 'Builder', icon: '🌾', extra: 2, open: true, desc: 'Build for 🪙2 extra' },
     scout1: { type: 'scout', name: 'Scout', icon: '🔭', cards: 2, coin: 1, first: true, desc: 'Reserve 2 cards, take 🪙1, and go first next round' },
     scout2: { type: 'scout', name: 'Scout', icon: '🔭', cards: 1, coin: 1, desc: 'Reserve 1 card and take 🪙1' },
-    scout3: { type: 'scout', name: 'Scout', icon: '🔭', cards: 1, hand: PROTO_HAND_BIG, open: true, desc: `Reserve 1 card; your hand limit becomes ${PROTO_HAND_BIG}` },
+    scout3: { type: 'scout', name: 'Scout', icon: '🔭', cards: 1, open: true, desc: 'Reserve 1 card' },
   };
   const PROTO_EVENTS = {
     drought: { name: 'Drought', icon: '🏜️', desc: 'Forage spaces give 2 less food this round.' },
@@ -384,7 +383,7 @@
     return (X && X.extra) || 0;
   }
 
-  const handMax = (P) => P.handMax || PROTO_HAND_MAX;
+  const handMax = () => PROTO_HAND_MAX;
 
   // Workers on a space this round (older saves stored a single player index).
   const spaceWorkers = (k) => [].concat(state.spaces[k] == null ? [] : state.spaces[k]);
@@ -1471,7 +1470,7 @@
       case 'scout': {
         const cards = state.faceUp.filter(Boolean).length + state.deck.length;
         if (X.coin) return { ok: true };
-        if (P.hand.length >= Math.max(handMax(P), X.hand || 0)) return { ok: false, why: 'Hand is full' };
+        if (P.hand.length >= handMax(P)) return { ok: false, why: 'Hand is full' };
         return cards ? { ok: true } : { ok: false, why: 'No cards left' };
       }
       default:
@@ -1516,7 +1515,6 @@
         const notes = [];
         if (X.coin) { P.coins += X.coin; notes.push(`took 🪙${X.coin}`); }
         if (X.first) { state.nextFirst = p; notes.push('will go first next round'); }
-        if (X.hand && handMax(P) < X.hand) { P.handMax = X.hand; notes.push(`can now hold ${X.hand} reserved cards`); }
         if (notes.length) logMsg(`${pn(p)} scouted: ${notes.join(', ')}.`);
         const draws = Array.from({ length: X.cards }, (_, i) => ({ t: 'drawCard', p, source: 'any', title: `Scout: reserve a card${X.cards > 1 ? ` (${i + 1} of ${X.cards})` : ''}` }));
         completeAction(draws);
@@ -3277,7 +3275,7 @@
       <h3>What changes</h3>
       <ul>
         <li><b>${PROTO_ROUNDS} rounds.</b> Each round: Gain Food / Draw Fences (die roll), Workers, Production, then Feeding.</li>
-        <li><b>Shared dino market.</b> No dino books. ${PROTO_MARKET} cards are face up; buy one and it’s gone for your opponent. You can reserve up to ${PROTO_HAND_MAX} cards (${PROTO_HAND_BIG} after using the bottom Scout space). From round 2, ${PROTO_REFRESH} random market cards are replaced at the start of each round.</li>
+        <li><b>Shared dino market.</b> No dino books. ${PROTO_MARKET} cards are face up; buy one and it’s gone for your opponent. You can reserve up to ${PROTO_HAND_MAX} cards. From round 2, ${PROTO_REFRESH} random market cards are replaced at the start of each round.</li>
         <li><b>Worker spaces.</b> Each player has ${PROTO_WORKERS} workers. Players alternate placing them. Every kind of space comes in three tiers: the top two hold one worker per round (so you can block your opponent), and the weaker bottom tier takes any number of workers.</li>
         <li><b>Production every round:</b> collect from one active enclosure, as in the normal game.</li>
         <li><b>Feeding every round</b>, right after Production, with the usual inactive and extinction rules.</li>
@@ -5696,11 +5694,10 @@
         if (bp) plan = { v: bp.v, build: bp };
       } else if (X.type === 'scout') {
         const sc = protoScoutPick(p);
-        const room = Math.max(handMax(P), X.hand || 0) - P.hand.length;
+        const room = handMax(P) - P.hand.length;
         const cards = sc && left > 1 ? Math.min(X.cards, room) * sc.v * 0.6 : 0;
         const first = X.first && left > 1 ? 0.6 : 0;
-        const hand = X.hand && handMax(P) < X.hand && left > 2 ? 0.8 : 0;
-        const v = cards + (X.coin || 0) * cv + first + hand;
+        const v = cards + (X.coin || 0) * cv + first;
         if (v > 0) plan = { v };
       }
       if (plan) out.push(Object.assign(plan, { k, v: plan.v + protoNoise() * 0.5 }));
