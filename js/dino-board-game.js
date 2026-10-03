@@ -136,7 +136,7 @@
     gems: { icon: '💎', name: 'Gem collector', desc: '4 points per diamond you have left', pts: (c) => 4 * c.P.diamonds },
     earners: { icon: '💰', name: 'Big earners', desc: '3 points for every 2 coins your best enclosure produces', pts: (c) => Math.floor(1.5 * c.pens.reduce((m, x) => Math.max(m, x.prod), 0)) },
   };
-  const PROTO_PACHY_COINS = 8;
+  const PROTO_PACHY_COINS = 5;
   const PROTO_REFRESH = 2;
   const PROTO_GOLDRUSH = 2;
   // Seven kinds of worker space in three tiers. A top or middle tier holds one worker per round;
