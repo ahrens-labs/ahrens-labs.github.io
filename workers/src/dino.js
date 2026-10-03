@@ -18,7 +18,7 @@ const HISTORY_PAGE_MAX = 50;
 const MAX_BOARD_BYTES = 64 * 1024;
 const LOCAL_ID_RE = /^g[0-9a-z]{6,30}$/;
 // Bump with RULES_VERSION in js/dino-board-game.js so tabs still running old rules can't move in online games.
-const RULES_VERSION = 3;
+const RULES_VERSION = 4;
 const LEVELS = new Set(['easy', 'medium', 'hard']);
 const MODES = new Set(['quick', 'long']);
 
@@ -118,7 +118,7 @@ export function dinoTurnOwner(state) {
   if (!T || T.t === 'gameOver') return null;
   if (T.p === 0 || T.p === 1) return T.p;
   const first = state.first === 1 ? 1 : 0;
-  if (T.t === 'roundStart') {
+  if (T.t === 'roundStart' && !state.proto) {
     const picks = T.picks || {};
     for (const q of [first, 1 - first]) {
       const need = (state.players[q] && state.players[q].bonusPending) || 0;

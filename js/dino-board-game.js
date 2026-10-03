@@ -100,12 +100,12 @@
   };
 
   // Bump with RULES_VERSION in workers/src/dino.js when costs or rules change, so open tabs on old rules must reload.
-  const RULES_VERSION = 3;
+  const RULES_VERSION = 4;
 
   const BOOK = ['compy', 'triceratops', 'spinosaurus', 'stegosaurus', 'velociraptor', 'brachiosaurus', 'trex', 'pachy'];
   const DECK = ['allosaurus', 'mosasaurus', 'carnotaurus', 'microraptor', 'ankylosaurus', 'dilophosaurus', 'parasaurolophus', 'gigantoraptor'];
 
-  // ---------------------------------------------------------------- prototype rules (admin test setting)
+  // ---------------------------------------------------------------- the 15-round rules ("proto" games; older saves may use the classic 18-round rules)
   // Shared dino market, worker spaces, park scoring, 12 rounds, round events and free powers.
   const PROTO_ROUNDS = 15;
   const PROTO_WORKERS = 3;
@@ -312,9 +312,6 @@
   })();
   let setupLevel = prefs.level || 'medium';
   let setupPace = prefs.pace || 'medium';
-  let setupRules = prefs.rules === 'proto' ? 'proto' : 'current';
-  const RULES_OPTS = { current: 'Current rules', proto: '🧪 Prototype' };
-  const RULES_HELP = { current: 'The normal 18-round game', proto: `Shared market, worker spaces, park scoring, ${PROTO_ROUNDS} rounds, events` };
   let aiTimer = null;
   let aiPending = false;
   const fxSeen = new Map();
@@ -1068,7 +1065,7 @@
       state.nextFirst = null;
       state.phaseOrder = protoPhases(1);
       protoNextEvent();
-      logMsg(`🧪 New prototype game! ${pn(first)} goes first. ${PROTO_ROUNDS} rounds, with an event every round.`);
+      logMsg(`🦖 New game! ${pn(first)} goes first. ${PROTO_ROUNDS} rounds, with an event every round.`);
       state.goals = shuffle(Object.keys(PROTO_GOALS)).slice(0, PROTO_GOAL_ROUNDS.length);
       logMsg(`Round 1 begins. Event: ${PROTO_EVENTS[state.event].icon} <b>${PROTO_EVENTS[state.event].name}</b>.`);
       logNewGoal();
@@ -2549,7 +2546,7 @@
     const evChip = E ? `<div class="pcard ev-chip" title="${esc(E.desc)}"><span class="pc-i">${E.icon}</span><span class="pc-t">${E.name}</span></div>` : '';
     const fresh = T && T.t === 'roundStart' ? ' fresh' : '';
     setHtml(el, `
-      <div class="brand"><img class="brand-logo" src="${IMG}trex.webp" alt=""><div><h1>Dino Board Game</h1><small>${state.proto ? `🧪 Prototype rules · ${rounds()} rounds` : 'Build the best dino park in 18 rounds'}</small></div></div>
+      <div class="brand"><img class="brand-logo" src="${IMG}trex.webp" alt=""><div><h1>Dino Board Game</h1><small>Build the best dino park in ${rounds()} rounds</small></div></div>
       <div class="top-mid">
         <div class="tracker"><span class="tracker-label">Round</span>${pips}</div>
         <div class="phase-row${fresh}" data-round="${state.round}">${evChip}${phases}</div>
@@ -2666,8 +2663,8 @@
   function watchHtml(T) {
     const who = online ? onlineOwner() : state.sim ? (T.p != null ? T.p : state.first) : state.ai;
     const P = state.players[who];
-    if (state.proto && T.t === 'actions' && T.work && !online && !ui.mode) {
-      return `<div class="watch-mini pl-${P.color}">${meeple(P.color, 'mini')} <b>${esc(P.name)}</b> · ${esc(ui.aiNote || 'Thinking')}<i class="dots3"><b></b><b></b><b></b></i></div>${eventNote()}${protoBoardHtml(T, false)}`;
+    if (state.proto && T.t === 'actions' && T.work && !ui.mode) {
+      return `<div class="watch-mini pl-${P.color}">${meeple(P.color, 'mini')} <b>${esc(P.name)}</b> · ${esc(online ? 'Placing a worker' : ui.aiNote || 'Thinking')}<i class="dots3"><b></b><b></b><b></b></i></div>${eventNote()}${protoBoardHtml(T, false)}`;
     }
     const phase = T.k !== undefined ? phaseInfo(state.phaseOrder[T.k]) : null;
     const step = T.t === 'roundStart' ? 'Starting the round' : T.t === 'roll' ? '🎲 Rolling the die' : phase ? `${phase.icon} ${phase.name}${T.bonus ? ' · bonus turn' : ''}` : '';
@@ -2878,7 +2875,7 @@
       <p>${pn(state.first)} goes first this round.${extra ? ` ${extra}` : ''}</p>
       ${protoNewGoal() ? `<div class="ev-card goal"><span class="evc-ic">${protoNewGoal().icon}</span><div><small>New goal revealed</small><b>${protoNewGoal().name}</b><p>${protoNewGoal().desc} at the end of the game.</p></div></div>` : ''}
       <ol class="phase-order">${list}</ol>
-      ${online ? '' : '<button class="btn big" data-act="startRound">Start round ▶</button>'}`;
+      ${online && !onlineMyTurn() ? '' : '<button class="btn big" data-act="startRound">Start round ▶</button>'}`;
   }
 
   function rollHtml() {
@@ -3413,7 +3410,7 @@
         </tbody>
         <tfoot><tr><td>Total</td><td>${s[0].total}</td><td>${s[1].total}</td></tr></tfoot>
       </table>
-      ${state.proto ? `<p class="muted">🧪 Prototype rules. Goals: ${(state.goals || []).map((id) => `${PROTO_GOALS[id].icon} ${PROTO_GOALS[id].name} (${PROTO_GOALS[id].desc})`).join('; ')}. Diamonds 1 point each, 1 point per 10 leftover coins (max 3).</p>` : ''}
+      ${state.proto ? `<p class="muted">Goals: ${(state.goals || []).map((id) => `${PROTO_GOALS[id].icon} ${PROTO_GOALS[id].name} (${PROTO_GOALS[id].desc})`).join('; ')}. Diamonds 1 point each, 1 point per 10 leftover coins (max 3).</p>` : ''}
       <p class="muted">Dinos in inactive or extinct enclosures score nothing. Leftover coins: ${esc(P[0].name)} 🪙${P[0].coins}, ${esc(P[1].name)} 🪙${P[1].coins}.</p>
       ${state.sim ? simPlanNote() : aiPlanNote()}
       ${state.sim
@@ -3527,7 +3524,7 @@
     app.innerHTML = tokify(`<div class="setup${setupOnline ? ' vs-online' : setupVsAi ? ' vs-ai' : ''}">
       <div class="box-lid">
         <img class="cover" src="${IMG}cover.webp" alt="Dinosaurs in fenced enclosures in a jungle park">
-        <div class="lid-title"><h1>Dino Board Game</h1><p class="tagline">Fence your land, feed your dinos, and build the best park in 18 rounds.</p></div>
+        <div class="lid-title"><h1>Dino Board Game</h1><p class="tagline">Fence your land, feed your dinos, and build the best park in ${PROTO_ROUNDS} rounds.</p></div>
         ${floaters}
       </div>
       <div class="parade">${parade}</div>
@@ -3560,13 +3557,12 @@
           ${segGroup('Difficulty', 'setupOpt', 'level', AI_LEVELS, AI_LEVEL_HELP, setupLevel)}
           ${segGroup('Computer speed', 'setupOpt', 'pace', AI_PACES, AI_PACE_HELP, setupPace)}
         </div>
-        ${isAdmin() ? `<div class="proto-opts">${segGroup('🧪 Rules (admin test)', 'setupOpt', 'rules', RULES_OPTS, RULES_HELP, setupRules)}<button class="link" data-act="rules" data-proto="1">What changes?</button></div>` : ''}
         <div class="first-q">🎬 Who watched a dino movie most recently? They go first.</div>
         <div class="first-btns">
           <button class="btn fr" data-act="setupStart" data-first="0"><span class="only-2p">🔴 Red did!</span><span class="only-ai">🔴 I did!</span></button>
           <button class="btn fb" data-act="setupStart" data-first="1"><span class="only-2p">🔵 Blue did!</span><span class="only-ai">🤖 Computer starts</span></button>
         </div>
-        <div class="setup-foot">Everyone starts with 🪙5, an empty park, and the same 8 dinos. The first player switches every round. Your game saves in this browser.</div>
+        <div class="setup-foot">Everyone starts with 🪙5 and an empty park, buying dinos from a shared market. Your game saves in this browser.</div>
       </div>
       <div class="setup-actions">${canResume ? '<button class="btn" data-act="resumeLocal">▶ Resume saved game</button>' : ''}<a class="btn ghost" href="/dino-history.html">🏆 Game history</a><button class="btn ghost" data-act="rules">📜 Read the rules</button>${isAdmin() ? '<button class="btn ghost" data-act="simOpen">🧪 Computer vs computer</button>' : ''}</div>
     </div>`);
@@ -3582,7 +3578,7 @@
 
   function savePrefs(level, pace) {
     try {
-      localStorage.setItem(PREFS_KEY, JSON.stringify({ level, pace, rules: setupRules }));
+      localStorage.setItem(PREFS_KEY, JSON.stringify({ level, pace }));
     } catch {
       /* storage blocked */
     }
@@ -3600,32 +3596,52 @@
   function openProtoRules() {
     const spaces = Object.values(PROTO_SPACES).map((X) => `<li>${X.icon} <b>${X.name}</b> — ${X.desc}${X.open ? ' <i>(any number of workers)</i>' : ''}</li>`).join('');
     const events = Object.values(PROTO_EVENTS).map((E) => `<li>${E.icon} <b>${E.name}</b> — ${E.desc}</li>`).join('');
-    const powers = Object.keys(PROTO_SP).map((sp) => {
-      const X = PROTO_SP[sp];
-      const notes = [X.cost ? `costs ${costText(X.cost)}` : '', X.space ? `takes ${X.space} squares` : ''].filter(Boolean).join(', ');
-      return `<li>${dz(sp)} <b>${esc(SPECIES[sp].name)}</b>${notes ? ` (${notes})` : ''}${X.ability ? ` — ${esc(X.ability)}` : ''}</li>`;
-    }).join('');
-    openModal(`<div class="modal-head"><h2>🧪 Prototype rules</h2><button class="x" data-act="closeModal" aria-label="Close">✕</button></div>
-      <p class="muted">An admin-only test of a redesigned game. It only affects games started with the Prototype setting. Normal and online games are unchanged, and prototype games aren’t saved to history.</p>
-      <h3>What changes</h3>
+    openModal(`<div class="modal-head"><h2>📜 How to play</h2><button class="x" data-act="closeModal" aria-label="Close">✕</button></div>
+      <p>Two players each build a dino park on a 10×10 grid over <b>${PROTO_ROUNDS} rounds</b>. Most points wins.</p>
+      <h3>Setup</h3>
       <ul>
-        <li><b>${PROTO_ROUNDS} rounds.</b> Each round: Gain Food / Draw Fences (die roll), Workers, Production, then Feeding.</li>
-        <li><b>Shared dino market.</b> No dino books. ${PROTO_MARKET} cards are face up; buy one and it’s gone for your opponent. You can reserve up to ${PROTO_HAND_MAX} cards. From round 2, ${PROTO_REFRESH} random market cards are replaced at the start of each round.</li>
-        <li><b>Worker spaces.</b> Each player has ${PROTO_WORKERS} workers. Players alternate placing them. Every kind of space comes in three tiers: the top two hold one worker per round (so you can block your opponent), and the weaker bottom tier takes any number of workers.</li>
-        <li><b>Production every round:</b> collect from one active enclosure, as in the normal game.</li>
-        <li><b>Feeding every round</b>, right after Production, with the usual inactive and extinction rules.</li>
-        <li><b>Production powers.</b> After collecting, each power dino (Parasaurolophus, Allosaurus, Velociraptor, Triceratops) triggers in turn: tap to use it, and choose the food a Velociraptor steals.</li>
-        <li><b>Round events</b> shake up each round.</li>
-        <li><b>Park scoring.</b> Dino points are ⅔ of the card value, diamonds are 1 point each, and leftover coins 1 point per 10 (max 3).</li>
-        <li><b>Breeding.</b> A 🥚 Breed space lays an egg of a species you have an adult pair of in one enclosure; the egg goes in that enclosure and costs half the dino’s coins (rounded up, never diamonds) plus the space’s extra coins. Eggs take half the squares (rounded down) and hatch next round. Babies eat half (rounded up) and have half the production, points and scoring powers (rounded down), with no when-played or every-round powers. After being fed in ${PROTO_BABY_FEEDS} Feedings a baby grows up: you add squares for its full size (or it dies if there’s no room), and its when-played power triggers.</li>
-        <li><b>Goal cards.</b> ${PROTO_GOAL_ROUNDS.length} of ${Object.keys(PROTO_GOALS).length} goals are picked at random each game: ${protoGoalSchedule()}. Tap 🎯 Goals to see the ones revealed so far and how many points they’re worth right now.</li>
-        <li>Feeders cost 💎1 + 🪙1 per square. Diamonds cost 🪙5, 🪙6 or 🪙7 depending on the Gems tier.</li>
+        <li>Each player gets an empty park and 🪙5.</li>
+        <li>The dino deck is shuffled and ${PROTO_MARKET} cards are dealt face up as a shared market.</li>
+        <li>Whoever most recently watched a dino movie goes first in round 1. After that the first player switches every round, unless someone takes the top 🔭 Scout space.</li>
+        <li>${PROTO_GOAL_ROUNDS.length} of ${Object.keys(PROTO_GOALS).length} goal cards are picked at random: ${protoGoalSchedule()}. Tap 🎯 Goals to see the revealed ones and what they’re worth right now.</li>
       </ul>
-      <h3>Worker spaces</h3><ul>${spaces}</ul>
+      <h3>Each round</h3>
+      <ol>
+        <li><b>Event</b> — a new event card changes something for this round.</li>
+        <li><b>🎲 Food &amp; Fences</b> — roll a die. Each player splits that number between food (🍖 meat / 🌿 plants) and fences. A fence fills one edge of one square.</li>
+        <li><b>👷 Workers</b> — each player has ${PROTO_WORKERS} workers. Starting with the first player, take turns placing one at a time on the worker spaces below.</li>
+        <li><b>🪙 Production &amp; powers</b> — collect coins from one active enclosure (the production of every dino in it), then use your dinos’ every-round powers.</li>
+        <li><b>🍖 Feeding</b> — feed your dinos. An enclosure with an unfed dino goes inactive: its dinos cost extra food equal to its marker, which rises each round it stays unfed. If the marker was already on 4, those dinos die and the enclosure is extinct (💀).</li>
+      </ol>
+      <h3>Worker spaces</h3>
+      <p>Every kind of space comes in three tiers. The top two hold one worker per round, so you can block your opponent; the weaker bottom tier takes any number of workers.</p>
+      <ul>${spaces}</ul>
+      <h3>Buying dinos</h3>
+      <ul>
+        <li>Buy a face-up market card, or one you reserved, with a 🦖 Play a dino worker. Pay its cost and fill its squares in one enclosure. Bought cards are gone for your opponent.</li>
+        <li>Reserve cards with 🔭 Scout (up to ${PROTO_HAND_MAX} in your hand). Only you can buy your reserved cards.</li>
+        <li>From round 2, ${PROTO_REFRESH} random market cards are replaced at the start of each round.</li>
+      </ul>
+      <h3>Enclosures</h3>
+      <ul>
+        <li>An enclosure is an area completely closed off by fences. It may use at most <b>two sides</b> of the board edge as walls.</li>
+        <li>Dinos, feeders and watering holes fill <b>connected</b> squares inside one enclosure, and fences can’t cut through them.</li>
+        <li>Each enclosure holds one species, plus one more for each 💧 watering hole in it (${costText(WATER_COST)}, ${WATER_SQUARES} squares).</li>
+        <li>🌾 Feeders cost 💎1 + 🪙1 per square. Each feeder square takes 1 food off that enclosure’s bill every Feeding.</li>
+      </ul>
+      <h3>Breeding</h3>
+      <p>A 🥚 Breed space lays an egg of a species you have an adult pair of in one enclosure; the egg goes in that enclosure and costs half the dino’s coins (rounded up, never diamonds) plus the space’s extra coins. Eggs take half the squares (rounded down) and hatch next round. Babies eat half (rounded up) and have half the production, points and scoring powers (rounded down), with no when-played or every-round powers. After being fed in ${PROTO_BABY_FEEDS} Feedings a baby grows up: you add squares for its full size (or it dies if there’s no room), and its when-played power triggers.</p>
+      <h3>Scoring</h3>
+      <ul>
+        <li>Each dino’s points (the yellow circle).</li>
+        <li>Scoring powers (Compy, Microraptor, Pachy, the Triceratops page).</li>
+        <li>The ${PROTO_GOAL_ROUNDS.length} goal cards.</li>
+        <li>💎 Each leftover diamond = 1 point. 🪙 1 point per 10 leftover coins (max 3).</li>
+      </ul>
+      <p>Dinos in inactive or extinct enclosures score nothing.</p>
       <h3>Goal cards</h3><ul>${Object.values(PROTO_GOALS).map((G) => `<li>${G.icon} <b>${G.name}</b> — ${G.desc}</li>`).join('')}</ul>
-      <h3>Changed dinos</h3><ul>${powers}</ul>
-      <p class="muted">Herd dinos have more copies in the deck (Compy ${PROTO_COPIES.compy}, Microraptor ${PROTO_COPIES.microraptor}, Parasaurolophus ${PROTO_COPIES.parasaurolophus}, Pachy ${PROTO_COPIES.pachy}); Spinosaurus, Dilophosaurus, Ankylosaurus, T. Rex and Mosasaurus have 2. Everything else has 3.</p>
-      <h3>Events</h3><ul>${events}</ul>`);
+      <h3>Events</h3><ul>${events}</ul>
+      <p class="muted">The deck has more copies of herd dinos (Compy ${PROTO_COPIES.compy}, Microraptor ${PROTO_COPIES.microraptor}, Parasaurolophus ${PROTO_COPIES.parasaurolophus}, Pachy ${PROTO_COPIES.pachy}); Spinosaurus, Dilophosaurus, Ankylosaurus, T. Rex and Mosasaurus have 2. Everything else has 3.</p>`);
   }
 
   function openRules() {
@@ -3729,8 +3745,8 @@
       return;
     }
     if (act === 'rules') {
-      if (ds.proto || (state && state.proto)) openProtoRules();
-      else openRules();
+      if (state && !state.proto && !state.sim) openRules();
+      else openProtoRules();
       return;
     }
     if (act === 'setupMode') {
@@ -3752,7 +3768,7 @@
     if (act === 'setupStart') {
       const n0 = (document.getElementById('name0').value || '').trim() || 'Red';
       const n1 = setupVsAi ? 'Computer' : (document.getElementById('name1').value || '').trim() || 'Blue';
-      newGame([n0, n1], +ds.first, setupVsAi ? 1 : null, setupLevel, setupPace, setupRules === 'proto' && isAdmin());
+      newGame([n0, n1], +ds.first, setupVsAi ? 1 : null, setupLevel, setupPace, true);
       return;
     }
     if (act === 'simOpen') { if (isAdmin()) openSimSetup(); return; }
@@ -3761,11 +3777,10 @@
       el.parentElement.querySelectorAll('.seg-btn').forEach((b) => b.classList.toggle('on', b === el));
       return;
     }
-    if (act === 'simStart') { if (isAdmin()) startSim([simSetup.l0, simSetup.l1], simSetup.speed, simSetup.rules === 'proto'); return; }
+    if (act === 'simStart') { if (isAdmin()) startSim([simSetup.l0, simSetup.l1], simSetup.speed, true); return; }
     if (act === 'simStop') { stopSim(); return; }
     if (act === 'setupOpt') {
       if (ds.k === 'level') setupLevel = ds.v;
-      else if (ds.k === 'rules') setupRules = ds.v;
       else setupPace = ds.v;
       savePrefs(setupLevel, setupPace);
       el.parentElement.querySelectorAll('.seg-btn').forEach((b) => b.classList.toggle('on', b === el));
@@ -4366,7 +4381,7 @@
   const SIM_PAINT_MS = 120;
   const ADMIN_EMAIL = 'calebahrens2011@gmail.com';
   let simPaintAt = 0;
-  const simSetup = { l0: 'hard', l1: 'medium', speed: 'turbo', rules: 'current' };
+  const simSetup = { l0: 'hard', l1: 'medium', speed: 'turbo' };
 
   function isAdmin() {
     try {
@@ -4385,7 +4400,6 @@
       ${segGroup('🔴 Red computer', 'simOpt', 'l0', AI_LEVELS, AI_LEVEL_HELP, simSetup.l0)}
       ${segGroup('🔵 Blue computer', 'simOpt', 'l1', AI_LEVELS, AI_LEVEL_HELP, simSetup.l1)}
       ${segGroup('Speed', 'simOpt', 'speed', speeds, speedHelp, simSetup.speed)}
-      ${segGroup('Rules', 'simOpt', 'rules', RULES_OPTS, RULES_HELP, simSetup.rules)}
       <button class="btn big" data-act="simStart">▶ Start simulation</button>`, 'small');
   }
 
@@ -6444,7 +6458,7 @@
 
   // Vs-computer and same-device games go into the account's game history once they end.
   async function recordLocalGame() {
-    if (online || !state || state.sim || state.past || state.proto || (state.recorded && state.boardSaved) || !sessionId()) return;
+    if (online || !state || state.sim || state.past || (state.recorded && state.boardSaved) || !sessionId()) return;
     const s = state;
     if (!s.gid) s.gid = newGid();
     const me = s.ai === 0 ? 1 : 0;
@@ -6495,7 +6509,7 @@
     app.innerHTML = tokify(`<div class="setup gate">
       <div class="box-lid">
         <img class="cover" src="${IMG}cover.webp" alt="Dinosaurs in fenced enclosures in a jungle park">
-        <div class="lid-title"><h1>Dino Board Game</h1><p class="tagline">Fence your land, feed your dinos, and build the best park in 18 rounds.</p></div>
+        <div class="lid-title"><h1>Dino Board Game</h1><p class="tagline">Fence your land, feed your dinos, and build the best park in ${PROTO_ROUNDS} rounds.</p></div>
       </div>
       <div class="setup-card">
         <h2>🔒 Sign in to play</h2>
@@ -6510,7 +6524,7 @@
     const T = cur();
     if (!T || T.t === 'gameOver') return null;
     if (T.p === 0 || T.p === 1) return T.p;
-    if (T.t === 'roundStart') {
+    if (T.t === 'roundStart' && !state.proto) {
       const picks = T.picks || {};
       for (const q of order()) {
         const need = state.players[q].bonusPending;
@@ -6597,8 +6611,21 @@
     } else if (T.t === 'produce') {
       const best = produceChoices(T).sort((a, b) => b.prod - a.prod)[0];
       handle('produce', { key: best.key });
+    } else if (T.t === 'power') {
+      handle('usePower', {});
+    } else if (T.t === 'grow') {
+      prepareUi();
+      const b = state.players[me].board;
+      const it = b.items[T.id];
+      if (it && ui.sel && growMore(b, it, growExtra(it))) {
+        handle('growAuto', {});
+        handle('place', {});
+      } else {
+        state.queue.shift();
+        commit();
+      }
     } else if (T.t === 'actions') {
-      logMsg(`⏰ ${pn(me)} ran out of time and skipped ${plural(T.remaining, 'action')}.`);
+      logMsg(`⏰ ${pn(me)} ran out of time and skipped ${T.work ? 'a worker' : plural(T.remaining, 'action')}.`);
       state.queue.shift();
       commit();
     } else if (T.t === 'gainFood') {
@@ -6960,7 +6987,7 @@
     if (act === 'olAccept') {
       const names = g.me === 1 ? [g.opp, myUsername()] : [myUsername(), g.opp];
       const keep = state;
-      buildGame(names, rand(2), null, 'medium', 'medium');
+      buildGame(names, rand(2), null, 'medium', 'medium', true);
       const start = state;
       state = keep;
       if (el) el.disabled = true;
