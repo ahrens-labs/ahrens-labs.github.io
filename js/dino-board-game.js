@@ -107,7 +107,7 @@
 
   // ---------------------------------------------------------------- prototype rules (admin test setting)
   // Shared dino market, worker spaces, park scoring, 12 rounds, round events and free powers.
-  const PROTO_ROUNDS = 12;
+  const PROTO_ROUNDS = 16;
   const PROTO_WORKERS = 3;
   const PROTO_HAND_MAX = 5;
   const PROTO_MARKET = 5;
@@ -115,10 +115,10 @@
   const PROTO_COPIES = { compy: 6, microraptor: 5, parasaurolophus: 5, pachy: 5, trex: 2, mosasaurus: 2, spinosaurus: 2, dilophosaurus: 2, ankylosaurus: 2 };
   const PROTO_TREX_ROUNDS = 3;
   // A bred dino starts as an egg, hatches into a baby next round, and grows up after this many Feedings.
-  const PROTO_BABY_FEEDS = 2;
-  // 15 end-game goal cards; each game uses 3, revealed at the start of these rounds.
+  const PROTO_BABY_FEEDS = 3;
+  // 15 end-game goal cards; each game uses 4, revealed at the start of these rounds.
   // "Enclosure" here means an active enclosure with at least one living dino.
-  const PROTO_GOAL_ROUNDS = [1, 5, 9];
+  const PROTO_GOAL_ROUNDS = [1, 5, 9, 13];
   const PROTO_GOALS = {
     full: { icon: '🧱', name: 'Full house', desc: '3 points per enclosure with no empty squares', pts: (c) => 3 * c.pens.filter((x) => x.empty === 0).length },
     mixed: { icon: '🤝', name: 'Mixed company', desc: '2 points per enclosure with 2 or more species', pts: (c) => 2 * c.pens.filter((x) => x.kinds.size >= 2).length },
@@ -296,7 +296,7 @@
   let setupPace = prefs.pace || 'medium';
   let setupRules = prefs.rules === 'proto' ? 'proto' : 'current';
   const RULES_OPTS = { current: 'Current rules', proto: '🧪 Prototype' };
-  const RULES_HELP = { current: 'The normal 18-round game', proto: 'Shared market, worker spaces, park scoring, 12 rounds, events' };
+  const RULES_HELP = { current: 'The normal 18-round game', proto: `Shared market, worker spaces, park scoring, ${PROTO_ROUNDS} rounds, events` };
   let aiTimer = null;
   let aiPending = false;
   const fxSeen = new Map();
@@ -919,6 +919,12 @@
     return { P, pens, dinos: extra ? dinos.concat(extra) : dinos };
   }
 
+  // "one is revealed at the start, one after round 4, ..."
+  function protoGoalSchedule() {
+    const after = PROTO_GOAL_ROUNDS.slice(1).map((r) => `one after round ${r - 1}`);
+    return ['one is revealed at the start'].concat(after.slice(0, -1)).join(', ') + ` and ${after[after.length - 1]}`;
+  }
+
   function protoGoalsShown() {
     if (!state.goals) return 0;
     if (state.queue[0] && state.queue[0].t === 'gameOver') return state.goals.length;
@@ -935,7 +941,7 @@
     if (G) logMsg(`🎯 New goal revealed: ${G.icon} <b>${G.name}</b> — ${G.desc}.`);
   }
 
-  // Prototype scoring: dino points, dino abilities, the 3 goal cards, diamonds and a little for leftover coins.
+  // Prototype scoring: dino points, dino abilities, the goal cards, diamonds and a little for leftover coins.
   function protoScore(p) {
     const P = state.players[p];
     const b = P.board;
@@ -1071,6 +1077,7 @@
   // Prototype games saved before goal cards existed get a fresh set.
   function repairFences(s) {
     if (s.proto && !Array.isArray(s.goals)) s.goals = shuffle(Object.keys(PROTO_GOALS)).slice(0, PROTO_GOAL_ROUNDS.length);
+    if (s.proto && s.goals.length < PROTO_GOAL_ROUNDS.length) s.goals = s.goals.concat(shuffle(Object.keys(PROTO_GOALS).filter((id) => !s.goals.includes(id))).slice(0, PROTO_GOAL_ROUNDS.length - s.goals.length));
     (s.players || []).forEach((P) => {
       const b = P.board;
       if (!b || !b.h || !b.v) return;
@@ -2977,7 +2984,7 @@
     }).join('');
     const all = Object.values(PROTO_GOALS).map((G) => `<li>${G.icon} <b>${G.name}</b> — ${G.desc}</li>`).join('');
     openModal(`<div class="modal-head"><h2>🎯 Goals</h2><button class="x" data-act="closeModal" aria-label="Close">✕</button></div>
-      <p class="muted">${PROTO_GOAL_ROUNDS.length} of ${Object.keys(PROTO_GOALS).length} goal cards score at the end of this game. One is revealed at the start, one after round 4 and one after round 8. Enclosures only count if they’re active and have a living dino.</p>
+      <p class="muted">${PROTO_GOAL_ROUNDS.length} of ${Object.keys(PROTO_GOALS).length} goal cards score at the end of this game. ${protoGoalSchedule()}. Enclosures only count if they’re active and have a living dino.</p>
       <ul class="goal-list">${known}</ul>
       <details><summary>All ${Object.keys(PROTO_GOALS).length} possible goals</summary><ul class="goal-list all">${all}</ul></details>`, 'small');
   }
@@ -3516,7 +3523,7 @@
         <li><b>Round events</b> shake up each round.</li>
         <li><b>Park scoring.</b> Dino points are ⅔ of the card value, diamonds are 1 point each, and leftover coins 1 point per 10 (max 3).</li>
         <li><b>Breeding.</b> A 🥚 Breed space lays an egg of a species you have an adult pair of in one enclosure; the egg goes in that enclosure and costs the dino’s price plus the space’s extra coins. Eggs take half the squares (rounded down) and hatch next round. Babies eat half (rounded up) and have half the production, points and scoring powers (rounded down), with no when-played or every-round powers. After being fed in ${PROTO_BABY_FEEDS} Feedings a baby grows up: you add squares for its full size (or it dies if there’s no room), and its when-played power triggers.</li>
-        <li><b>Goal cards.</b> ${PROTO_GOAL_ROUNDS.length} of ${Object.keys(PROTO_GOALS).length} goals are picked at random each game: one is revealed at the start, one after round 4 and one after round 8. Tap 🎯 Goals to see the ones revealed so far and how many points they’re worth right now.</li>
+        <li><b>Goal cards.</b> ${PROTO_GOAL_ROUNDS.length} of ${Object.keys(PROTO_GOALS).length} goals are picked at random each game: ${protoGoalSchedule()}. Tap 🎯 Goals to see the ones revealed so far and how many points they’re worth right now.</li>
         <li>Feeders cost 💎1 + 🪙1 per square. Diamonds cost 🪙5, 🪙6 or 🪙7 depending on the Gems tier.</li>
       </ul>
       <h3>Worker spaces</h3><ul>${spaces}</ul>
@@ -5835,9 +5842,10 @@
       const cells = breed ? protoBreedCells(p, o.sp, true) : aiFindCellsB(b, spec(o.sp).space, o.sp);
       if (!cells) return;
       const hungry = protoHunger(p, o.sp, spare);
-      // An egg takes a round to hatch and two Feedings to grow up, so it's worth less, and little near the end.
+      // An egg takes a round to hatch and PROTO_BABY_FEEDS Feedings to grow up, so it's worth less, and little near the end.
       const left = protoRoundsLeft();
-      const value = breed ? protoDinoValue(p, o.sp) * (left >= 4 ? 0.6 : left >= 3 ? 0.35 : left >= 2 ? 0.15 : 0) : protoDinoValue(p, o.sp, cells);
+      const grown = left - 1 - PROTO_BABY_FEEDS;
+      const value = breed ? protoDinoValue(p, o.sp) * (grown >= 1 ? 0.6 : grown >= 0 ? 0.35 : left >= 2 ? 0.15 : 0) : protoDinoValue(p, o.sp, cells);
       const v = value - hungry * (breed ? 0.5 : 1) - (extra || 0) * protoCoinValue(p) + protoNoise();
       if (!best || v > best.v) best = Object.assign({}, o, { cells, v });
     });
