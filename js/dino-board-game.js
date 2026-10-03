@@ -120,16 +120,16 @@
   // "Enclosure" here means an active enclosure with at least one living dino.
   const PROTO_GOAL_ROUNDS = [1, 5, 9, 13];
   const PROTO_GOALS = {
-    full: { icon: '🧱', name: 'Full house', desc: '3 points per enclosure with no empty squares', pts: (c) => 3 * c.pens.filter((x) => x.empty === 0).length },
+    full: { icon: '🧱', name: 'Full house', desc: '2 points per enclosure with no empty squares', pts: (c) => 2 * c.pens.filter((x) => x.empty === 0).length },
     mixed: { icon: '🤝', name: 'Mixed company', desc: '2 points per enclosure with 2 or more species', pts: (c) => 2 * c.pens.filter((x) => x.kinds.size >= 2).length },
-    variety: { icon: '🌈', name: 'Variety show', desc: '2 points per different species in your park', pts: (c) => 2 * new Set(c.dinos).size },
+    variety: { icon: '🌈', name: 'Variety show', desc: '1 point per different species in your park', pts: (c) => new Set(c.dinos).size },
     meat: { icon: '🍖', name: 'Meat lovers', desc: '1 point per meat-eating dino', pts: (c) => c.dinos.filter((sp) => SPECIES[sp].food.t !== 'plant').length },
     plant: { icon: '🌿', name: 'Leaf eaters', desc: '2 points per plant-eating dino', pts: (c) => 2 * c.dinos.filter((sp) => SPECIES[sp].food.t !== 'meat').length },
     giants: { icon: '🦕', name: 'Giants', desc: '3 points per dino that takes 8 or more squares', pts: (c) => 3 * c.dinos.filter((sp) => spec(sp).space >= 8).length },
-    little: { icon: '🐣', name: 'Little ones', desc: '2 points per dino that takes 4 or fewer squares', pts: (c) => 2 * c.dinos.filter((sp) => spec(sp).space <= 4).length },
+    little: { icon: '🐣', name: 'Little ones', desc: '1 point per dino that takes 4 or fewer squares', pts: (c) => c.dinos.filter((sp) => spec(sp).space <= 4).length },
     water: { icon: '💧', name: 'Oasis', desc: '3 points per watering hole in an enclosure', pts: (c) => 3 * c.pens.reduce((s, x) => s + x.waters, 0) },
     feeders: { icon: '🌾', name: 'Well stocked', desc: '1 point per feeder square in an enclosure', pts: (c) => c.pens.reduce((s, x) => s + x.feeders, 0) },
-    pens: { icon: '🏰', name: 'Many pens', desc: '2 points per enclosure', pts: (c) => 2 * c.pens.length },
+    pens: { icon: '🏰', name: 'Many pens', desc: '1 point per enclosure', pts: (c) => c.pens.length },
     herds: { icon: '🦖', name: 'Big herds', desc: '3 points per enclosure with 3 or more dinos', pts: (c) => 3 * c.pens.filter((x) => x.n >= 3).length },
     roomy: { icon: '🗺️', name: 'Wide open', desc: '2 points per enclosure of 12 or more squares', pts: (c) => 2 * c.pens.filter((x) => x.size >= 12).length },
     coins: { icon: '🪙', name: 'Treasury', desc: '1 point per 4 coins you have left', pts: (c) => Math.floor(c.P.coins / 4) },
@@ -138,6 +138,7 @@
   };
   const PROTO_PACHY_COINS = 8;
   const PROTO_REFRESH = 2;
+  const PROTO_GOLDRUSH = 3;
   // Seven kinds of worker space in three tiers. A top or middle tier holds one worker per round;
   // the bottom tier ("open") takes any number of workers from either player.
   const PROTO_SPACES = {
@@ -167,18 +168,18 @@
     scout3: { type: 'scout', name: 'Scout', icon: '🔭', cards: 1, open: true, desc: 'Reserve 1 card' },
   };
   const PROTO_EVENTS = {
-    drought: { name: 'Drought', icon: '🏜️', desc: 'Forage spaces give 2 less food this round.' },
-    goldrush: { name: 'Gold rush', icon: '💰', desc: 'Collect from two enclosures in Production this round.' },
-    stampede: { name: 'Stampede', icon: '🐾', desc: 'Fences spaces draw 2 more fences this round.' },
-    migration: { name: 'Migration', icon: '🦤', desc: 'The whole market is replaced at the start of the round.' },
-    breeding: { name: 'Breeding season', icon: '🥚', desc: 'Dinos cost 1 coin less this round.' },
-    tax: { name: 'Tax day', icon: '🧾', desc: 'Everyone loses coins above 15.' },
-    fossil: { name: 'Fossil find', icon: '🦴', desc: 'Whoever has the most enclosures with dinos gains a diamond.' },
-    flood: { name: 'Flood', icon: '🌊', desc: 'Watering holes cost no diamond this round.' },
-    feast: { name: 'Feast', icon: '🍗', desc: 'Everyone gains 1 meat and 1 plant.' },
-    tourists: { name: 'Tourists', icon: '📸', desc: 'Everyone gains 1 coin per species in their park.' },
-    storm: { name: 'Storm', icon: '⛈️', desc: 'Each park loses 2 squares of open land (outside enclosures).' },
-    calm: { name: 'Calm', icon: '🌤️', desc: 'Nothing happens this round.' },
+    drought: { name: 'Drought', icon: '🏜️', desc: 'Forage spaces give half their food (rounded down) this round.' },
+    goldrush: { name: 'Gold rush', icon: '💰', desc: `Collect from ${PROTO_GOLDRUSH} enclosures in Production this round.` },
+    stampede: { name: 'Stampede', icon: '🐾', desc: 'Fences spaces draw 3 more fences this round.' },
+    migration: { name: 'Migration', icon: '🦤', desc: 'The whole market is replaced, and everyone reserves the top card of the deck (if their hand has room).' },
+    breeding: { name: 'Breeding season', icon: '🥚', desc: 'Dinos cost 2 coins less, and Breed spaces charge no extra coins this round.' },
+    tax: { name: 'Tax day', icon: '🧾', desc: 'Everyone loses half their coins above 10 (rounded up).' },
+    fossil: { name: 'Fossil find', icon: '🦴', desc: 'Whoever has the most enclosures with dinos gains 2 diamonds (a tie gives each 1).' },
+    flood: { name: 'Flood', icon: '🌊', desc: 'Watering holes are free this round, and each one in an enclosure gives you 🌿2.' },
+    feast: { name: 'Feast', icon: '🍗', desc: 'Everyone gains 3 meat and 3 plants.' },
+    tourists: { name: 'Tourists', icon: '📸', desc: 'Everyone gains 2 coins per species in their park.' },
+    storm: { name: 'Storm', icon: '⛈️', desc: 'Each park loses 4 squares of open land (outside enclosures).' },
+    heatwave: { name: 'Heatwave', icon: '🔥', desc: 'Every enclosure with dinos eats 1 more food at Feeding this round.' },
   };
   const PROTO_SP = {
     compy: { space: 2 },
@@ -241,7 +242,7 @@
 
   function protoCost(sp) {
     const c = spec(sp).cost;
-    return state.event === 'breeding' ? { d: c.d, c: Math.max(0, c.c - 1) } : c;
+    return state.event === 'breeding' ? { d: c.d, c: Math.max(0, c.c - 2) } : c;
   }
 
   function protoNextEvent() {
@@ -389,8 +390,11 @@
   // Extra coins charged by the worker space being used right now (middle and bottom tiers).
   function spaceExtra() {
     const X = state && state.proto && ui && ui.space ? PROTO_SPACES[ui.space] : null;
-    return (X && X.extra) || 0;
+    return X ? protoExtra(X) : 0;
   }
+
+  // A space's surcharge (Breeding season waives it on Breed spaces).
+  const protoExtra = (X) => (X.type === 'breed' && state.event === 'breeding' ? 0 : X.extra || 0);
 
   const handMax = () => PROTO_HAND_MAX;
 
@@ -404,7 +408,7 @@
   const WATER_COST = { d: 1, c: 2 };
 
   function waterCost() {
-    return state && state.proto && state.event === 'flood' ? { d: 0, c: WATER_COST.c } : WATER_COST;
+    return state && state.proto && state.event === 'flood' ? { d: 0, c: 0 } : WATER_COST;
   }
   const WATER_SQUARES = 6;
   const DIAMOND_COST = { d: 0, c: 6 };
@@ -712,6 +716,8 @@
       off -= t;
     }
     c.discount = cp.feederSquares - off;
+    const eaters = cp.living.filter((d) => d.stage !== 'egg');
+    if (state && state.proto && state.event === 'heatwave' && eaters.length) c[SPECIES[eaters[0].species].food.t]++;
     c.total = c.meat + c.plant + c.flex;
     return c;
   }
@@ -1076,6 +1082,10 @@
   // Older versions could draw a fence through a placed piece; lift those fences so every piece is whole.
   // Prototype games saved before goal cards existed get a fresh set.
   function repairFences(s) {
+    if (s.proto) {
+      s.events = (s.events || []).filter((k) => PROTO_EVENTS[k]);
+      if (!PROTO_EVENTS[s.event]) s.event = 'heatwave';
+    }
     if (s.proto && !Array.isArray(s.goals)) s.goals = shuffle(Object.keys(PROTO_GOALS)).slice(0, PROTO_GOAL_ROUNDS.length);
     if (s.proto && s.goals.length < PROTO_GOAL_ROUNDS.length) s.goals = s.goals.concat(shuffle(Object.keys(PROTO_GOALS).filter((id) => !s.goals.includes(id))).slice(0, PROTO_GOAL_ROUNDS.length - s.goals.length));
     (s.players || []).forEach((P) => {
@@ -1383,42 +1393,59 @@
       state.deck.push(...state.faceUp);
       state.faceUp = state.deck.splice(0, PROTO_MARKET);
       logMsg('🦤 Migration: the market was replaced.');
+      [state.first, other(state.first)].forEach((p) => {
+        const P = state.players[p];
+        if (P.hand.length < handMax(P) && state.deck.length) {
+          P.hand.push(state.deck.shift());
+          logMsg(`🦤 ${pn(p)} reserved the top card of the deck.`);
+        }
+      });
     } else if (ev === 'tax') {
       state.players.forEach((P, p) => {
-        if (P.coins > 15) {
-          logMsg(`🧾 ${pn(p)} lost 🪙${P.coins - 15} to tax.`);
-          P.coins = 15;
+        if (P.coins > 10) {
+          const lose = Math.ceil((P.coins - 10) / 2);
+          P.coins -= lose;
+          logMsg(`🧾 ${pn(p)} lost 🪙${lose} to tax.`);
         }
       });
     } else if (ev === 'fossil') {
       const n = state.players.map((P) => analyze(P.board).comps.filter((cp) => cp.valid && !cp.dead && cp.living.length).length);
       if (n[0] !== n[1]) {
         const w = n[0] > n[1] ? 0 : 1;
-        state.players[w].diamonds++;
-        logMsg(`🦴 ${pn(w)} has the most enclosures and found a 💎 diamond.`);
-      } else logMsg('🦴 Fossil find: tied for most enclosures, so nobody gets the diamond.');
+        state.players[w].diamonds += 2;
+        logMsg(`🦴 ${pn(w)} has the most enclosures and found 💎2.`);
+      } else {
+        state.players.forEach((P) => { P.diamonds++; });
+        logMsg('🦴 Fossil find: tied for most enclosures, so everyone found 💎1.');
+      }
     } else if (ev === 'feast') {
-      state.players.forEach((P) => { P.meat++; P.plants++; });
-      logMsg('🍗 Feast: everyone gained 🍖1 🌿1.');
+      state.players.forEach((P) => { P.meat += 3; P.plants += 3; });
+      logMsg('🍗 Feast: everyone gained 🍖3 🌿3.');
+    } else if (ev === 'flood') {
+      state.players.forEach((P, p) => {
+        const n = analyze(P.board).comps.filter((cp) => cp.valid && !cp.dead).reduce((t, cp) => t + cp.waters.length, 0);
+        P.plants += 2 * n;
+        if (n) logMsg(`🌊 ${pn(p)}’s watering holes grew 🌿${2 * n}.`);
+      });
     } else if (ev === 'tourists') {
       state.players.forEach((P, p) => {
         const n = new Set(analyze(P.board).comps.filter((cp) => cp.active).flatMap((cp) => [...cp.species])).size;
-        P.coins += n;
-        if (n) logMsg(`📸 Tourists paid ${pn(p)} 🪙${n}.`);
+        P.coins += 2 * n;
+        if (n) logMsg(`📸 Tourists paid ${pn(p)} 🪙${2 * n}.`);
       });
     } else if (ev === 'storm') {
       state.players.forEach((P, p) => {
         const an = analyze(P.board);
         const open = [];
         for (let i = 0; i < 100; i++) if (P.board.cells[i] === 0 && !an.comps[an.compOf[i]].valid) open.push(i);
-        const hit = shuffle(open).slice(0, 2);
+        const hit = shuffle(open).slice(0, 4);
         hit.forEach((i) => { P.board.cells[i] = -1; });
         if (hit.length) logMsg(`⛈️ The storm filled in ${plural(hit.length, 'square')} of ${pn(p)}’s open land.`);
       });
     }
   }
 
-  // Enclosures still on offer in this Production task (Gold rush lets a player collect from two).
+  // Enclosures still on offer in this Production task (Gold rush lets a player collect from several).
   function produceChoices(T) {
     const got = T.got || [];
     return producible(T.p).filter((cp) => !got.includes(cp.key));
@@ -1649,8 +1676,8 @@
   function protoSpaceAmount(k) {
     const X = PROTO_SPACES[k];
     if (!X) return 0;
-    if (X.type === 'forage') return Math.max(1, X.n - (state.event === 'drought' ? 2 : 0));
-    if (X.type === 'fences') return X.n + (state.event === 'stampede' ? 2 : 0);
+    if (X.type === 'forage') return state.event === 'drought' ? Math.max(1, Math.floor(X.n / 2)) : X.n;
+    if (X.type === 'fences') return X.n + (state.event === 'stampede' ? 3 : 0);
     return X.n || 0;
   }
 
@@ -1669,13 +1696,13 @@
     if (!X.open && on.length) return { ok: false, why: `Taken by ${state.players[on[0]].name}` };
     switch (X.type) {
       case 'buy': {
-        const opts = protoPlayOptions(p, null, X.extra);
+        const opts = protoPlayOptions(p, null, protoExtra(X));
         if (opts.some((o) => o.ok)) return { ok: true };
         return { ok: false, why: opts.length && opts.every((o) => o.why === opts[0].why) ? opts[0].why : 'Nothing you can play' };
       }
       case 'breed': {
         if (protoRoundsLeft() <= 1) return { ok: false, why: 'Too late: eggs won’t hatch' };
-        const opts = protoBreedOptions(p, X.extra);
+        const opts = protoBreedOptions(p, protoExtra(X));
         if (opts.some((o) => o.ok)) return { ok: true };
         return { ok: false, why: !opts.length ? 'Needs a pair in one enclosure' : opts.every((o) => o.why === opts[0].why) ? opts[0].why : 'Nothing you can breed' };
       }
@@ -1684,7 +1711,7 @@
       case 'fences':
         return legalEdges(p).length ? { ok: true } : { ok: false, why: 'No room for fences' };
       case 'build':
-        return canAfford(P, withExtra(feederCost(1), X.extra)) || canAfford(P, withExtra(waterCost(), X.extra)) ? { ok: true } : { ok: false, why: 'Can’t afford' };
+        return canAfford(P, withExtra(feederCost(1), protoExtra(X))) || canAfford(P, withExtra(waterCost(), protoExtra(X))) ? { ok: true } : { ok: false, why: 'Can’t afford' };
       case 'scout': {
         const cards = state.faceUp.filter(Boolean).length + state.deck.length;
         if (X.coin) return { ok: true };
@@ -2918,7 +2945,7 @@
     const best = Math.max(...list.map((cp) => cp.prod));
     const again = !!(T.got && T.got.length);
     let lead = 'Pick <b>one active enclosure</b> and collect its coins.';
-    if (state.proto && state.event === 'goldrush') lead = `💰 Gold rush: collect from <b>${again ? 'one more active enclosure' : 'two active enclosures'}</b>.`;
+    if (state.proto && state.event === 'goldrush') lead = `💰 Gold rush: collect from <b>${again ? `up to ${plural(PROTO_GOLDRUSH - T.got.length, 'more active enclosure')}` : `${PROTO_GOLDRUSH} active enclosures`}</b>.`;
     if (state.proto) lead += ' Dino powers in every active enclosure trigger afterwards.';
     const rows = list
       .map((cp) => `<button class="opt" data-act="produce" data-key="${cp.key}">
@@ -3908,7 +3935,7 @@
         toast(`🪙 +${cp.prod} for ${P.name}`, 'good');
         if (state.proto) {
           T.got = (T.got || []).concat(cp.key);
-          if (state.event === 'goldrush' && T.got.length < 2 && produceChoices(T).length) {
+          if (state.event === 'goldrush' && T.got.length < PROTO_GOLDRUSH && produceChoices(T).length) {
             commit();
             break;
           }
@@ -6028,7 +6055,7 @@
       let plan = null;
       const wantGem = state.faceUp.concat(P.hand).some((sp) => protoCost(sp).d > P.diamonds) && left > 1;
       if (X.type === 'buy' || X.type === 'breed') {
-        const buy = protoBestBuy(p, null, X.extra, X.type === 'breed');
+        const buy = protoBestBuy(p, null, protoExtra(X), X.type === 'breed');
         if (buy) plan = { v: buy.v + 1, buy };
       } else if (X.type === 'coins') plan = { v: X.n * cv + 0.4 };
       else if (X.type === 'gem') plan = { v: 1 + (wantGem ? 2 : 0) + (known.includes('gems') ? 3 : 0) - X.cost * cv * 0.7 };
@@ -6040,7 +6067,7 @@
         const fp = protoFencePlan(p, protoSpaceAmount(k));
         if (fp.edges.length) plan = { v: fp.v * (left <= 1 ? 0.1 : 0.4) + fp.edges.length * 0.05 };
       } else if (X.type === 'build') {
-        const bp = protoBuilderPick(p, X.extra);
+        const bp = protoBuilderPick(p, protoExtra(X));
         if (bp) plan = { v: bp.v, build: bp };
       } else if (X.type === 'scout') {
         // Scouting forces the reserve, and cards it won't get to play just clog the hand.
