@@ -1250,6 +1250,24 @@ a.btn { display: inline-block; text-align: center; text-decoration: none; }
 .ev-card small { display: block; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #9c5b00; }
 .ev-card b { display: block; font-family: "Lilita One", sans-serif; font-size: 1.35rem; line-height: 1.1; }
 .ev-card p { margin: 0.2rem 0 0; font-size: 0.88rem; line-height: 1.3; }
+.ev-card.goal { border-color: #2e7d6b; background: radial-gradient(circle at 15% 30%, #effff8, #bfe8d8); box-shadow: 0 4px 0 #1f5c4e, 0 8px 18px rgba(0, 0, 0, 0.15); }
+.ev-card.goal small { color: #1f5c4e; }
+
+.goal-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; padding-top: 8px; }
+.goal-card { display: grid; grid-template-columns: auto 1fr; column-gap: 10px; align-items: center; padding: 8px 10px; border-radius: 12px; border: 2px solid #2e7d6b; background: linear-gradient(180deg, #f4fffa, #d6f1e6); color: var(--ink); font: inherit; text-align: left; cursor: pointer; box-shadow: 0 3px 0 #1f5c4e; }
+.goal-card:hover { transform: translateY(-2px); }
+.goal-card .gc-ic { grid-row: span 3; font-size: 1.9rem; line-height: 1; }
+.goal-card b { font-family: "Lilita One", sans-serif; font-size: 1.05rem; line-height: 1.1; }
+.goal-card small { font-size: 0.78rem; line-height: 1.25; color: #35554b; }
+.goal-card .gc-pts { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.gc-p { padding: 1px 7px; border-radius: 999px; font-size: 0.72rem; font-weight: 700; color: #fff; background: var(--red); }
+.gc-p.pl-blue { background: var(--blue); }
+.goal-card.hidden { border-style: dashed; border-color: #8a9a92; background: repeating-linear-gradient(135deg, #eef1ee 0 10px, #e3e8e4 10px 20px); box-shadow: none; color: var(--muted); }
+.goal-list { padding-left: 1.1rem; text-align: left; }
+.goal-list li { margin: 0.35rem 0; }
+.goal-list .gm-hidden { color: var(--muted); }
+.goal-list.all { font-size: 0.9rem; }
+@media (max-width: 720px) { .goal-row { grid-template-columns: 1fr; } }
 .pcard.ev-chip { border-left-color: #e0a100; background: #fff3c4; }
 
 .ev-reveal { position: fixed; inset: 0; z-index: 9000; display: grid; place-items: center; background: rgba(25, 12, 2, 0.6); cursor: pointer; animation: evrFade 0.3s ease both; }
@@ -1265,6 +1283,9 @@ a.btn { display: inline-block; text-align: center; text-decoration: none; }
 .evr-ic .tk { width: 5.5rem; height: 5.5rem; }
 .evr-front b { font-family: "Lilita One", sans-serif; font-size: 2rem; line-height: 1.1; }
 .evr-front p { margin: 0; font-size: 1.05rem; line-height: 1.35; }
+.evr-card.goal .evr-back { background: radial-gradient(circle at 50% 45%, rgba(191, 232, 216, 0.3), transparent 50%), repeating-linear-gradient(45deg, #1f4d42 0 12px, #275e51 12px 24px); color: #bfe8d8; border-color: #12342c; }
+.evr-card.goal .evr-front { border-color: #2e7d6b; background: radial-gradient(circle at 50% 30%, #f4fffa, #bfe8d8); }
+.evr-card.goal .evr-front small { color: #1f5c4e; }
 .evr-front em { margin-top: auto; font-size: 0.75rem; font-style: normal; color: var(--muted); }
 @keyframes evrFade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes evrIn { from { transform: translateY(-60px) scale(0.6) rotate(-8deg); opacity: 0; } to { transform: none; opacity: 1; } }

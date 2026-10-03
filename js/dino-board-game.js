@@ -112,8 +112,27 @@
   const PROTO_HAND_MAX = 3;
   const PROTO_MARKET = 5;
   const PROTO_COPIES = { compy: 4, microraptor: 4, trex: 2, mosasaurus: 2 };
-  const PROTO_VARIETY = [0, 1, 3, 6, 10, 15];
   const PROTO_HAND_BIG = 5;
+  // 15 end-game goal cards; each game uses 3, revealed at the start of these rounds.
+  // "Enclosure" here means an active enclosure with at least one living dino.
+  const PROTO_GOAL_ROUNDS = [1, 5, 9];
+  const PROTO_GOALS = {
+    full: { icon: '🧱', name: 'Full house', desc: '3 points per enclosure with no empty squares', pts: (c) => 3 * c.pens.filter((x) => x.empty === 0).length },
+    mixed: { icon: '🤝', name: 'Mixed company', desc: '2 points per enclosure with 2 or more species', pts: (c) => 2 * c.pens.filter((x) => x.kinds.size >= 2).length },
+    variety: { icon: '🌈', name: 'Variety show', desc: '2 points per different species in your park', pts: (c) => 2 * new Set(c.dinos).size },
+    meat: { icon: '🍖', name: 'Meat lovers', desc: '2 points per meat-eating dino', pts: (c) => 2 * c.dinos.filter((sp) => SPECIES[sp].food.t !== 'plant').length },
+    plant: { icon: '🌿', name: 'Leaf eaters', desc: '2 points per plant-eating dino', pts: (c) => 2 * c.dinos.filter((sp) => SPECIES[sp].food.t !== 'meat').length },
+    giants: { icon: '🦕', name: 'Giants', desc: '3 points per dino that takes 8 or more squares', pts: (c) => 3 * c.dinos.filter((sp) => SPECIES[sp].space >= 8).length },
+    little: { icon: '🐣', name: 'Little ones', desc: '2 points per dino that takes 4 or fewer squares', pts: (c) => 2 * c.dinos.filter((sp) => SPECIES[sp].space <= 4).length },
+    water: { icon: '💧', name: 'Oasis', desc: '3 points per watering hole in an enclosure', pts: (c) => 3 * c.pens.reduce((s, x) => s + x.waters, 0) },
+    feeders: { icon: '🌾', name: 'Well stocked', desc: '1 point per feeder square in an enclosure', pts: (c) => c.pens.reduce((s, x) => s + x.feeders, 0) },
+    pens: { icon: '🏰', name: 'Many pens', desc: '2 points per enclosure', pts: (c) => 2 * c.pens.length },
+    herds: { icon: '🦖', name: 'Big herds', desc: '3 points per enclosure with 3 or more dinos', pts: (c) => 3 * c.pens.filter((x) => x.n >= 3).length },
+    roomy: { icon: '🗺️', name: 'Wide open', desc: '2 points per enclosure of 12 or more squares', pts: (c) => 2 * c.pens.filter((x) => x.size >= 12).length },
+    coins: { icon: '🪙', name: 'Treasury', desc: '1 point per 4 coins you have left', pts: (c) => Math.floor(c.P.coins / 4) },
+    gems: { icon: '💎', name: 'Gem collector', desc: '3 points per diamond you have left', pts: (c) => 3 * c.P.diamonds },
+    earners: { icon: '💰', name: 'Big earners', desc: '2 points per coin your best enclosure produces', pts: (c) => 2 * c.pens.reduce((m, x) => Math.max(m, x.prod), 0) },
+  };
   const PROTO_PACHY_COINS = 8;
   const PROTO_REFRESH = 2;
   // Seven kinds of worker space in three tiers. A top or middle tier holds one worker per round;
@@ -842,7 +861,33 @@
     return n;
   }
 
-  // Prototype scoring rewards the park: variety, full and mixed enclosures. Leftover money barely scores.
+  // What the goal cards look at: active enclosures that hold living dinos, plus leftovers.
+  function protoGoalCtx(P, b, extra) {
+    const live = analyze(b).comps.filter((cp) => cp.active && cp.living.length);
+    const pens = live.map((cp) => ({
+      empty: cp.empty, kinds: cp.species, n: cp.living.length, size: cp.cells.length, waters: cp.waters.length, feeders: cp.feederSquares, prod: cp.prod,
+    }));
+    const dinos = live.flatMap((cp) => cp.living.map((d) => d.species));
+    return { P, pens, dinos: extra ? dinos.concat(extra) : dinos };
+  }
+
+  function protoGoalsShown() {
+    if (!state.goals) return 0;
+    if (state.queue[0] && state.queue[0].t === 'gameOver') return state.goals.length;
+    return PROTO_GOAL_ROUNDS.filter((r) => state.round >= r).length;
+  }
+
+  function protoNewGoal() {
+    const i = PROTO_GOAL_ROUNDS.indexOf(state.round);
+    return i >= 0 && state.goals ? PROTO_GOALS[state.goals[i]] : null;
+  }
+
+  function logNewGoal() {
+    const G = protoNewGoal();
+    if (G) logMsg(`🎯 New goal revealed: ${G.icon} <b>${G.name}</b> — ${G.desc}.`);
+  }
+
+  // Prototype scoring: dino points, dino abilities, the 3 goal cards, diamonds and a little for leftover coins.
   function protoScore(p) {
     const P = state.players[p];
     const b = P.board;
@@ -856,19 +901,23 @@
     const pachy = count('pachy') * Math.floor(P.coins / PROTO_PACHY_COINS);
     const micro = 2 * active.filter((cp) => cp.living.some((d) => d.species === 'microraptor')).length;
     const tri = count('triceratops') > 0 ? Math.floor(P.triPlants / 2) * 3 : 0;
-    const variety = PROTO_VARIETY[Math.min(5, new Set(dinos.map((x) => x.d.species)).size)];
-    const full = 3 * active.filter((cp) => cp.empty === 0).length;
-    const mixed = 2 * active.filter((cp) => cp.species.size >= 2).length;
+    const ctx = protoGoalCtx(P, b);
+    const out = { dinoPts, compy, pachy, micro, tri };
+    let goals = 0;
+    (state.goals || []).forEach((id, i) => {
+      out[`g${i}`] = PROTO_GOALS[id].pts(ctx);
+      goals += out[`g${i}`];
+    });
     const diamonds = P.diamonds;
     const coins = Math.min(3, Math.floor(P.coins / 10));
     const abilities = compy + pachy + micro + tri;
-    return { dinoPts, compy, pachy, micro, tri, variety, full, mixed, abilities, diamonds, coins, total: dinoPts + abilities + variety + full + mixed + diamonds + coins };
+    return Object.assign(out, { goals, abilities, diamonds, coins, total: dinoPts + abilities + goals + diamonds + coins });
   }
 
   function scoreRows() {
     if (state && state.proto) {
       return [
-        ['🦖 Dino points', 'dinoPts'], ['🌈 Variety', 'variety'], ['🧱 Full enclosures', 'full'], ['🤝 Mixed enclosures', 'mixed'],
+        ['🦖 Dino points', 'dinoPts'], ...(state.goals || []).map((id, i) => [`🎯 ${PROTO_GOALS[id].icon} ${PROTO_GOALS[id].name}`, `g${i}`]),
         ['🦎 Compy adjacency', 'compy'], ['🦕 Pachy coins', 'pachy'], ['🦖 Microraptor enclosures', 'micro'],
         ['🌿 Triceratops plants', 'tri'], ['💎 Diamonds (×1)', 'diamonds'], ['🪙 Leftover coins', 'coins'],
       ];
@@ -933,7 +982,9 @@
       state.phaseOrder = protoPhases(1);
       protoNextEvent();
       logMsg(`🧪 New prototype game! ${pn(first)} goes first. ${PROTO_ROUNDS} rounds, with an event every round.`);
+      state.goals = shuffle(Object.keys(PROTO_GOALS)).slice(0, PROTO_GOAL_ROUNDS.length);
       logMsg(`Round 1 begins. Event: ${PROTO_EVENTS[state.event].icon} <b>${PROTO_EVENTS[state.event].name}</b>.`);
+      logNewGoal();
       return;
     }
     logMsg(`🥚 New game! ${pn(first)} goes first this round. First player switches every round.`);
@@ -965,7 +1016,9 @@
   }
 
   // Older versions could draw a fence through a placed piece; lift those fences so every piece is whole.
+  // Prototype games saved before goal cards existed get a fresh set.
   function repairFences(s) {
+    if (s.proto && !Array.isArray(s.goals)) s.goals = shuffle(Object.keys(PROTO_GOALS)).slice(0, PROTO_GOAL_ROUNDS.length);
     (s.players || []).forEach((P) => {
       const b = P.board;
       if (!b || !b.h || !b.v) return;
@@ -1058,6 +1111,7 @@
       protoNextEvent();
       state.queue.push({ t: 'roundStart' });
       logMsg(`Round ${state.round} begins — ${pn(state.first)} goes first. Event: ${PROTO_EVENTS[state.event].icon} <b>${PROTO_EVENTS[state.event].name}</b>.`);
+      logNewGoal();
       return;
     }
     state.first = other(state.first);
@@ -2209,7 +2263,7 @@
         ${state.past ? '' : '<button class="btn sm ghost log-btn" data-act="fullLog" title="What happened" aria-label="What happened">🗒️<span class="lb-t"> What happened</span></button>'}
         ${state.aiCfg && !online && !state.past ? `<button class="btn sm ghost" data-act="aiSettings" title="Computer settings">🤖 ${AI_LEVELS[state.aiCfg.level]} · ${AI_PACES[state.aiCfg.pace]}</button>` : ''}
         ${!online && !state.sim && !state.past && isAdmin() ? '<button class="btn sm ghost" data-act="simOpen" title="Computer vs computer (admin)" aria-label="Computer vs computer (admin)">🧪</button>' : ''}
-        ${state.sim ? `<button class="btn sm ghost" data-act="simSpeed" title="Change simulation speed">${SIM_SPEEDS[state.sim.speed].icon} ${SIM_SPEEDS[state.sim.speed].name}</button>` : '<button class="btn sm ghost" data-act="rules">📜 Rules</button>'}
+        ${state.sim ? `<button class="btn sm ghost" data-act="simSpeed" title="Change simulation speed">${SIM_SPEEDS[state.sim.speed].icon} ${SIM_SPEEDS[state.sim.speed].name}</button>` : `${state.goals ? '<button class="btn sm ghost" data-act="goals" title="Goal cards">🎯 Goals</button>' : ''}<button class="btn sm ghost" data-act="rules">📜 Rules</button>`}
         ${online
     ? `<button class="btn sm ghost" data-act="onlineLeave">🏠 My games</button>${online.status === 'active' ? '<button class="btn sm ghost" data-act="onlineResign">🏳️ Resign</button>' : ''}`
     : state.sim ? '<button class="btn sm ghost" data-act="simStop">⏹ Exit simulation</button>'
@@ -2426,6 +2480,7 @@
       : '';
     const stack = Math.min(state.deck.length, 4);
     setHtml(el, `<div class="bm-head"><h2>🃏 Dino market</h2><span class="bm-hint${picking || buying ? ' live' : ''}">${hint}</span></div>
+      ${goalStripHtml()}
       <div class="bm-sub bm-shop-sub">🏪 Market <small>face-up cards anyone can buy</small></div>
       <div class="bm-row">
         <div class="deck-back bm-deck ${deckOk ? 'pick' : ''} ${state.deck.length ? '' : 'gone'}" ${deckOk ? 'data-act="take" data-from="deck"' : ''} title="Top of the deck (face down)" style="--stack:${stack}"><b>${state.deck.length}</b><small>deck</small></div>
@@ -2523,6 +2578,7 @@
     return `<h2>Round ${state.round} of ${rounds()}</h2>
       ${eventCardHtml()}
       <p>${pn(state.first)} goes first this round.${extra ? ` ${extra}` : ''}</p>
+      ${protoNewGoal() ? `<div class="ev-card goal"><span class="evc-ic">${protoNewGoal().icon}</span><div><small>New goal revealed</small><b>${protoNewGoal().name}</b><p>${protoNewGoal().desc} at the end of the game.</p></div></div>` : ''}
       <ol class="phase-order">${list}</ol>
       ${online ? '' : '<button class="btn big" data-act="startRound">Start round ▶</button>'}`;
   }
@@ -2645,23 +2701,76 @@
     return E ? `<div class="ev-card"><span class="evc-ic">${E.icon}</span><div><small>Round ${state.round} event</small><b>${E.name}</b><p>${E.desc}</p></div></div>` : '';
   }
 
-  // Flips this round's event card face up in the middle of the screen. Tap anywhere to dismiss.
+  // Flips this round's event card (and a newly revealed goal card) face up in the middle of the screen.
+  // Tap anywhere to dismiss each one.
   function revealEvent() {
+    const cards = [];
     const E = PROTO_EVENTS[state.event];
-    if (!E) return;
+    if (E) cards.push({ cls: '', back: ['🦖', 'Event'], small: `Round ${state.round} event`, icon: E.icon, name: E.name, desc: E.desc });
+    const G = protoNewGoal();
+    if (G) cards.push({ cls: ' goal', back: ['🎯', 'Goal'], small: `New goal · ${PROTO_GOAL_ROUNDS.indexOf(state.round) + 1} of ${PROTO_GOAL_ROUNDS.length}`, icon: G.icon, name: G.name, desc: `${G.desc} at the end of the game.` });
+    revealCards(cards);
+  }
+
+  function revealCards(cards) {
+    if (!cards.length) return;
+    const [c, ...rest] = cards;
     document.querySelectorAll('.ev-reveal').forEach((x) => x.remove());
     const ov = document.createElement('div');
     ov.className = 'ev-reveal';
     ov.setAttribute('role', 'dialog');
-    ov.setAttribute('aria-label', `Round ${state.round} event: ${E.name}`);
-    ov.innerHTML = tokify(`<div class="evr-card"><div class="evr-inner">
-      <div class="evr-back"><span>🦖</span><b>Event</b></div>
-      <div class="evr-front"><small>Round ${state.round} event</small><span class="evr-ic">${E.icon}</span><b>${E.name}</b><p>${E.desc}</p><em>Tap to continue</em></div>
+    ov.setAttribute('aria-label', `${c.small}: ${c.name}`);
+    ov.innerHTML = tokify(`<div class="evr-card${c.cls}"><div class="evr-inner">
+      <div class="evr-back"><span>${c.back[0]}</span><b>${c.back[1]}</b></div>
+      <div class="evr-front"><small>${c.small}</small><span class="evr-ic">${c.icon}</span><b>${c.name}</b><p>${c.desc}</p><em>Tap to continue</em></div>
     </div></div>`);
-    const close = () => ov.remove();
+    let done = false;
+    const close = () => {
+      if (done) return;
+      done = true;
+      ov.remove();
+      revealCards(rest);
+    };
     ov.addEventListener('click', close);
     document.body.appendChild(ov);
     setTimeout(close, 5000);
+  }
+
+  // Goal points each player would score if the game ended now.
+  function protoGoalNow(id) {
+    return state.players.map((P) => PROTO_GOALS[id].pts(protoGoalCtx(P, P.board)));
+  }
+
+  function goalCardHtml(id, i, shown) {
+    if (i >= shown) {
+      return `<button class="goal-card hidden" data-act="goals"><span class="gc-ic">❔</span><b>Goal ${i + 1}</b><small>Revealed at the start of round ${PROTO_GOAL_ROUNDS[i]}</small></button>`;
+    }
+    const G = PROTO_GOALS[id];
+    const now = protoGoalNow(id);
+    const pts = state.players.map((P, p) => `<span class="gc-p pl-${P.color}">${esc(P.name)} ${now[p]}</span>`).join('');
+    return `<button class="goal-card" data-act="goals"><span class="gc-ic">${G.icon}</span><b>${G.name}</b><small>${G.desc}</small><span class="gc-pts">${pts}</span></button>`;
+  }
+
+  function goalStripHtml() {
+    if (!state.proto || !state.goals) return '';
+    const shown = protoGoalsShown();
+    return `<div class="goal-strip"><div class="bm-sub">🎯 Goals <small>score at the end · ${shown} of ${state.goals.length} revealed · tap for details</small></div>
+      <div class="goal-row">${state.goals.map((id, i) => goalCardHtml(id, i, shown)).join('')}</div></div>`;
+  }
+
+  function openGoals() {
+    const shown = protoGoalsShown();
+    const known = state.goals.map((id, i) => {
+      if (i >= shown) return `<li class="gm-hidden">❔ <b>Goal ${i + 1}</b> — revealed at the start of round ${PROTO_GOAL_ROUNDS[i]}.</li>`;
+      const G = PROTO_GOALS[id];
+      const now = protoGoalNow(id);
+      return `<li>${G.icon} <b>${G.name}</b> — ${G.desc}.<br><span class="muted">Right now: ${state.players.map((P, p) => `${esc(P.name)} ${now[p]}`).join(' · ')}</span></li>`;
+    }).join('');
+    const all = Object.values(PROTO_GOALS).map((G) => `<li>${G.icon} <b>${G.name}</b> — ${G.desc}</li>`).join('');
+    openModal(`<div class="modal-head"><h2>🎯 Goals</h2><button class="x" data-act="closeModal" aria-label="Close">✕</button></div>
+      <p class="muted">${PROTO_GOAL_ROUNDS.length} of ${Object.keys(PROTO_GOALS).length} goal cards score at the end of this game. One is revealed at the start, one after round 4 and one after round 8. Enclosures only count if they’re active and have a living dino.</p>
+      <ul class="goal-list">${known}</ul>
+      <details><summary>All ${Object.keys(PROTO_GOALS).length} possible goals</summary><ul class="goal-list all">${all}</ul></details>`, 'small');
   }
 
   function eventNote() {
@@ -2945,12 +3054,14 @@
   }
 
   function aiPlanNote() {
+    if (state.proto) return '';
     const cfg = state.aiCfg;
     const st = cfg && !online && cfg.level === 'hard' && HARD_STRATS[cfg.strat];
     return st ? `<p class="ai-plan">🤖 The computer’s game plan: <b>${st.name}</b> — ${st.desc}.</p>` : '';
   }
 
   function simPlanNote() {
+    if (state.proto) return '';
     const notes = state.sim.cfgs.map((c, p) => {
       const st = c.level === 'hard' && HARD_STRATS[c.strat];
       return st ? `${pn(p)}: <b>${st.name}</b> — ${st.desc}` : '';
@@ -2976,7 +3087,7 @@
         </tbody>
         <tfoot><tr><td>Total</td><td>${s[0].total}</td><td>${s[1].total}</td></tr></tfoot>
       </table>
-      ${state.proto ? '<p class="muted">🧪 Prototype rules. Variety: 1/3/6/10/15 for 1–5 species. Full enclosure +3, mixed enclosure +2, 1 point per 10 leftover coins (max 3).</p>' : ''}
+      ${state.proto ? `<p class="muted">🧪 Prototype rules. Goals: ${(state.goals || []).map((id) => `${PROTO_GOALS[id].icon} ${PROTO_GOALS[id].name} (${PROTO_GOALS[id].desc})`).join('; ')}. Diamonds 1 point each, 1 point per 10 leftover coins (max 3).</p>` : ''}
       <p class="muted">Dinos in inactive or extinct enclosures score nothing. Leftover coins: ${esc(P[0].name)} 🪙${P[0].coins}, ${esc(P[1].name)} 🪙${P[1].coins}.</p>
       ${state.sim ? simPlanNote() : aiPlanNote()}
       ${state.sim
@@ -3172,10 +3283,12 @@
         <li><b>Feeding every round</b>, right after Production, with the usual inactive and extinction rules.</li>
         <li><b>Production powers.</b> After collecting, each power dino (Parasaurolophus, Allosaurus, Velociraptor, Triceratops) triggers in turn: tap to use it, and choose the food a Velociraptor steals.</li>
         <li><b>Round events</b> shake up each round.</li>
-        <li><b>Park scoring.</b> Dino points are ⅔ of the card value. Variety pays 1/3/6/10/15 for 1–5 species, full enclosures +3, mixed enclosures +2, diamonds 1 point each, and leftover coins 1 point per 10 (max 3).</li>
+        <li><b>Park scoring.</b> Dino points are ⅔ of the card value, diamonds are 1 point each, and leftover coins 1 point per 10 (max 3).</li>
+        <li><b>Goal cards.</b> ${PROTO_GOAL_ROUNDS.length} of ${Object.keys(PROTO_GOALS).length} goals are picked at random each game: one is revealed at the start, one after round 4 and one after round 8. Tap 🎯 Goals to see the ones revealed so far and how many points they’re worth right now.</li>
         <li>Feeders cost 💎1 + 🪙1 per square. Diamonds cost 🪙5, 🪙6 or 🪙7 depending on the Gems tier.</li>
       </ul>
       <h3>Worker spaces</h3><ul>${spaces}</ul>
+      <h3>Goal cards</h3><ul>${Object.values(PROTO_GOALS).map((G) => `<li>${G.icon} <b>${G.name}</b> — ${G.desc}</li>`).join('')}</ul>
       <h3>Changed dinos</h3><ul>${powers}</ul>
       <h3>Events</h3><ul>${events}</ul>`);
   }
@@ -3274,6 +3387,10 @@
       const fn = pendingConfirm;
       closeModal();
       if (fn) fn();
+      return;
+    }
+    if (act === 'goals') {
+      if (state && state.goals) openGoals();
       return;
     }
     if (act === 'rules') {
@@ -3851,7 +3968,7 @@
   }
 
   // ---------------------------------------------------------------- computer player
-  const FREE_ACTS = new Set(['simOpen', 'simOpt', 'simStart', 'simSpeed', 'simStop', 'simAgain', 'fullLog', 'viewCard', 'rules', 'book', 'closeModal', 'newGame', 'confirmYes', 'aiSettings', 'setAiOpt', 'onlineLeave', 'onlineResign', 'olRematch', 'replayReveal']);
+  const FREE_ACTS = new Set(['simOpen', 'simOpt', 'simStart', 'simSpeed', 'simStop', 'simAgain', 'fullLog', 'viewCard', 'rules', 'goals', 'book', 'closeModal', 'newGame', 'confirmYes', 'aiSettings', 'setAiOpt', 'onlineLeave', 'onlineResign', 'olRematch', 'replayReveal']);
   const AI_LEVELS = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
   const AI_PACES = { fast: 'Fast', medium: 'Medium', slow: 'Slow' };
   const AI_LEVEL_HELP = { easy: 'Plays for fun and makes mistakes', medium: 'Plans one move at a time', hard: 'Plays to win: plans fences, cards and the whole game' };
@@ -5358,7 +5475,7 @@
   // Each coin kept to the end is worth a share of a point per Pachy, so Pachy owners value coins more.
   function protoCoinValue(p) {
     const left = protoRoundsLeft();
-    const base = left <= 1 ? 0.1 : left <= 3 ? 0.3 : 0.5;
+    const base = (left <= 1 ? 0.1 : left <= 3 ? 0.3 : 0.5) + (protoKnownGoals().includes('coins') ? 0.25 : 0);
     if (p == null) return base;
     const pachys = Object.values(state.players[p].board.items).filter((it) => it.species === 'pachy' && !it.dead).length;
     return base + pachys / PROTO_PACHY_COINS;
@@ -5370,13 +5487,32 @@
     return Math.max(0, demandOf(P.board).total - P.meat - P.plants);
   }
 
-  function protoDinoValue(p, sp) {
+  // The computer only knows the goals revealed so far, and plays for them as they stand right now.
+  function protoKnownGoals() {
+    return (state.goals || []).slice(0, protoGoalsShown());
+  }
+
+  function protoGoalScore(p, b, extra) {
+    const ids = protoKnownGoals();
+    if (!ids.length) return 0;
+    const ctx = protoGoalCtx(state.players[p], b, extra);
+    return ids.reduce((s, id) => s + PROTO_GOALS[id].pts(ctx), 0);
+  }
+
+  // Goal points gained by changing a copy of the player's board (placing a dino, feeder, ...).
+  function protoGoalGain(p, change) {
+    const b = state.players[p].board;
+    if (!protoKnownGoals().length) return 0;
+    const b2 = cloneBoard(b);
+    change(b2);
+    return protoGoalScore(p, b2) - protoGoalScore(p, b);
+  }
+
+  function protoDinoValue(p, sp, cells) {
     const P = state.players[p];
     const S = spec(sp);
     const an = analyze(P.board);
-    const kinds = new Set(an.comps.filter((cp) => cp.active).flatMap((cp) => [...cp.species]));
-    const n = Math.min(5, kinds.size);
-    const variety = kinds.has(sp) ? 0 : PROTO_VARIETY[Math.min(5, n + 1)] - PROTO_VARIETY[n];
+    const goals = cells ? protoGoalGain(p, (b2) => placeItemB(b2, 'dino', cells, sp)) : protoGoalScore(p, P.board, [sp]) - protoGoalScore(p, P.board);
     const left = protoRoundsLeft();
     let power = PROTO_POWER[sp] || 0;
     if (sp === 'gigantoraptor' && left <= 1) power = 0;
@@ -5390,7 +5526,7 @@
     const home = an.comps.filter((cp) => cp.valid && !cp.dead && cp.species.has(sp)).reduce((m, cp) => Math.max(m, cp.prod), 0);
     const coins = Math.max(S.prod * 0.35, home + S.prod - top) * left * protoCoinValue(p) * 0.6;
     const food = S.food.n * left * 0.2;
-    return S.pts + variety + power + coins - food;
+    return S.pts + goals + power + coins - food;
   }
 
   const PROTO_FOOD_INCOME = 7;
@@ -5406,7 +5542,7 @@
       // Feeding is every round, so weigh the new dino's bill against roughly what one player gathers per round.
       const deficit = Math.max(0, demandOf(b).total + SPECIES[o.sp].food.n - PROTO_FOOD_INCOME);
       const hungry = Math.max(0, SPECIES[o.sp].food.n - Math.max(0, spare)) * 0.8 + Math.min(deficit, SPECIES[o.sp].food.n) * protoRoundsLeft() * 0.35;
-      const v = protoDinoValue(p, o.sp) - hungry - (extra || 0) * protoCoinValue(p) + protoNoise();
+      const v = protoDinoValue(p, o.sp, cells) - hungry - (extra || 0) * protoCoinValue(p) + protoNoise();
       if (!best || v > best.v) best = Object.assign({}, o, { cells, v });
     });
     return best;
@@ -5424,15 +5560,17 @@
       if (size <= 0 || !canAfford(P, withExtra(feederCost(size), x))) return;
       const cells = aiFindCellsB(b, size, null, cp.key);
       if (!cells) return;
-      const v = size * protoRoundsLeft() * 0.2 - (size + x) * protoCoinValue(p) - 1;
+      const v = size * protoRoundsLeft() * 0.2 - (size + x) * protoCoinValue(p) - 1 + protoGoalGain(p, (b2) => placeItemB(b2, 'feeder', cells));
       if (!best || v > best.v) best = { item: 'feeder', cells, v };
     });
     if (canAfford(P, withExtra(waterCost(), x))) {
-      an.comps.filter((cp) => cp.valid && !cp.dead && cp.species.size >= 1 + cp.waters.length && cp.empty >= 9).forEach((cp) => {
+      // With a watering-hole goal revealed, any enclosure with dinos and room is worth digging in.
+      const forGoal = protoKnownGoals().some((id) => id === 'water' || id === 'mixed');
+      an.comps.filter((cp) => cp.valid && !cp.dead && (forGoal ? cp.living.length && cp.empty >= WATER_SQUARES : cp.species.size >= 1 + cp.waters.length && cp.empty >= 9)).forEach((cp) => {
         const w = aiWaterCells(b, cp);
-        if (!w || w.biggest < 3) return;
-        if (protoRoundsLeft() <= 1) return;
-        const v = 2.5 + (protoRoundsLeft() > 3 ? 1 : 0) - (2 + x) * protoCoinValue(p);
+        if (!w || (!forGoal && w.biggest < 3)) return;
+        if (!forGoal && protoRoundsLeft() <= 1) return;
+        const v = 2.5 + (protoRoundsLeft() > 3 ? 1 : 0) - (2 + x) * protoCoinValue(p) + protoGoalGain(p, (b2) => placeItemB(b2, 'water', w.cells));
         if (!best || v > best.v) best = { item: 'water', cells: w.cells, v };
       });
     }
@@ -5451,12 +5589,91 @@
     return best;
   }
 
+  // Fences chosen fresh every turn: enclose the best rectangle of open land for a dino the computer
+  // could buy now (market or hand), finishing it this turn if the fences allow.
+  function protoFencePlan(p, max) {
+    const P = state.players[p];
+    const b = P.board;
+    if (max <= 0) return { edges: [], v: 0 };
+    const known = protoKnownGoals();
+    const spare = analyze(b).comps.filter((cp) => cp.valid && !cp.dead && !cp.inactive).map((cp) => cp.empty);
+    const wants = [...new Set(state.faceUp.concat(P.hand).filter(Boolean))].filter((sp) => !P.blocked.includes(sp)).map((sp) => {
+      const space = SPECIES[sp].space;
+      let v = Math.max(0.5, protoDinoValue(p, sp)) * (canAfford(P, protoCost(sp)) ? 1 : 0.6);
+      if (spare.some((n) => n >= space)) v *= 0.35;
+      return { space, v };
+    });
+    if (!wants.length) wants.push({ space: 4, v: 2 });
+    const waste = known.includes('full') ? 0.35 : 0.2;
+    const fit = (area) => {
+      let best = -Infinity;
+      wants.forEach((w) => { if (w.space <= area) best = Math.max(best, w.v - (area - w.space) * waste); });
+      return best + (known.includes('roomy') && area >= 12 ? 1 : 0);
+    };
+    let edges = [];
+    let v = 0;
+    for (let pass = 0; pass < 3 && edges.length < max; pass++) {
+      const pen = protoBestPen(withEdges(b, edges), max - edges.length, fit);
+      if (!pen || pen.v <= 0) break;
+      const add = pen.need.slice(0, max - edges.length);
+      if (fenceProblem(b, edges.concat(add))) break;
+      edges = edges.concat(add);
+      v += pen.v;
+      if (pen.partial) break;
+    }
+    return { edges, v };
+  }
+
+  function protoBestPen(b, budget, fit) {
+    const an = analyze(b);
+    const legal = new Set(legalEdgesB(b));
+    let best = null;
+    for (let r0 = 0; r0 < N; r0++) {
+      for (let c0 = 0; c0 < N; c0++) {
+        const home = an.compOf[r0 * N + c0];
+        if (b.cells[r0 * N + c0] !== 0 || an.comps[home].valid) continue;
+        for (let r1 = r0; r1 < N; r1++) {
+          for (let c1 = c0; c1 < N; c1++) {
+            const area = (r1 - r0 + 1) * (c1 - c0 + 1);
+            if (area > 20) break;
+            if ((r0 === 0) + (r1 === N - 1) + (c0 === 0) + (c1 === N - 1) > 2) continue;
+            let ok = true;
+            for (let r = r0; r <= r1 && ok; r++) {
+              for (let c = c0; c <= c1 && ok; c++) {
+                const i = r * N + c;
+                if (b.cells[i] !== 0 || an.compOf[i] !== home || (c < c1 && b.v[r * 9 + c]) || (r < r1 && b.h[i])) ok = false;
+              }
+            }
+            if (!ok) continue;
+            const need = [];
+            for (let c = c0; c <= c1; c++) {
+              if (r0 > 0 && !b.h[(r0 - 1) * N + c]) need.push(`h${(r0 - 1) * N + c}`);
+              if (r1 < N - 1 && !b.h[r1 * N + c]) need.push(`h${r1 * N + c}`);
+            }
+            for (let r = r0; r <= r1; r++) {
+              if (c0 > 0 && !b.v[r * 9 + c0 - 1]) need.push(`v${r * 9 + c0 - 1}`);
+              if (c1 < N - 1 && !b.v[r * 9 + c1]) need.push(`v${r * 9 + c1}`);
+            }
+            if (!need.length || need.some((e) => !legal.has(e))) continue;
+            const f = fit(area);
+            if (f <= 0) continue;
+            const partial = need.length > budget;
+            const v = partial ? f * 0.5 * (budget / need.length) - 0.2 : f - need.length * 0.1;
+            if (!best || v > best.v) best = { need, v, partial };
+          }
+        }
+      }
+    }
+    return best;
+  }
+
   function protoSpacePlans(p) {
     const P = state.players[p];
     const b = P.board;
     const cv = protoCoinValue(p);
     const left = protoRoundsLeft();
     const out = [];
+    const known = protoKnownGoals();
     Object.keys(PROTO_SPACES).forEach((k) => {
       if (!protoSpaceStatus(p, k).ok) return;
       const X = PROTO_SPACES[k];
@@ -5466,16 +5683,14 @@
         const buy = protoBestBuy(p, null, X.extra);
         if (buy) plan = { v: buy.v + 1, buy };
       } else if (X.type === 'coins') plan = { v: X.n * cv + 0.4 };
-      else if (X.type === 'gem') plan = { v: 1 + (wantGem ? 2 : 0) - X.cost * cv * 0.7 };
+      else if (X.type === 'gem') plan = { v: 1 + (wantGem ? 2 : 0) + (known.includes('gems') ? 3 : 0) - X.cost * cv * 0.7 };
       else if (X.type === 'forage') {
         const n = protoSpaceAmount(k);
         // Unfed enclosures score nothing at the end, so the last Feeding matters most.
         plan = { v: Math.min(n, protoFoodShort(p)) * (left <= 1 ? 3 : 1.3) + 0.3 + n * 0.05 };
       } else if (X.type === 'fences') {
-        const n = protoSpaceAmount(k);
-        const edges = aiPlanEdgesB(b, n);
-        const room = analyze(b).comps.filter((cp) => cp.valid && !cp.dead).reduce((s, cp) => s + cp.empty, 0);
-        if (edges.length) plan = { v: (left <= 2 ? 0.3 : room < 8 ? 3 : 1.2) * Math.min(1, edges.length / 3) + edges.length * 0.05 };
+        const fp = protoFencePlan(p, protoSpaceAmount(k));
+        if (fp.edges.length) plan = { v: fp.v * (left <= 1 ? 0.1 : 0.4) + fp.edges.length * 0.05 };
       } else if (X.type === 'build') {
         const bp = protoBuilderPick(p, X.extra);
         if (bp) plan = { v: bp.v, build: bp };
@@ -5527,7 +5742,7 @@
         const n = T.amount;
         const short = protoFoodShort(p);
         const want = protoRoundsLeft() <= 2 ? n : Math.min(n, short + 1);
-        const edges = aiPlanEdgesB(P.board, n - want);
+        const edges = protoFencePlan(p, n - want).edges;
         const food = n - edges.length;
         ui.meat = clamp(aiSplitFood(P.board, P.meat, P.plants, food), 0, food);
         ui.plant = food - ui.meat;
@@ -5541,7 +5756,7 @@
         aiShow('Choosing food…', () => handle('confirmFood', {}), AI_FOLLOW_MS);
         return true;
       case 'drawFences':
-        ui.sel.edges = new Set(aiPlanEdgesB(P.board, T.count));
+        ui.sel.edges = new Set(protoFencePlan(p, T.count).edges);
         document.getElementById('boards')._html = null;
         aiShow('Building fences…', () => handle('confirmFences', {}), AI_FOLLOW_MS);
         return true;
