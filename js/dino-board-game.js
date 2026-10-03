@@ -107,7 +107,7 @@
 
   // ---------------------------------------------------------------- prototype rules (admin test setting)
   // Shared dino market, worker spaces, park scoring, 12 rounds, round events and free powers.
-  const PROTO_ROUNDS = 16;
+  const PROTO_ROUNDS = 15;
   const PROTO_WORKERS = 3;
   const PROTO_HAND_MAX = 5;
   const PROTO_MARKET = 5;
@@ -116,9 +116,9 @@
   const PROTO_TREX_ROUNDS = 3;
   // A bred dino starts as an egg, hatches into a baby next round, and grows up after this many Feedings.
   const PROTO_BABY_FEEDS = 3;
-  // 15 end-game goal cards; each game uses 4, revealed at the start of these rounds.
+  // 15 end-game goal cards; each game uses 3, revealed at the start of these rounds.
   // "Enclosure" here means an active enclosure with at least one living dino.
-  const PROTO_GOAL_ROUNDS = [1, 5, 9, 13];
+  const PROTO_GOAL_ROUNDS = [1, 6, 11];
   const PROTO_GOALS = {
     full: { icon: '🧱', name: 'Full house', desc: '2 points per enclosure with no empty squares', pts: (c) => 2 * c.pens.filter((x) => x.empty === 0).length },
     mixed: { icon: '🤝', name: 'Mixed company', desc: '2 points per enclosure with 2 or more species', pts: (c) => 2 * c.pens.filter((x) => x.kinds.size >= 2).length },
@@ -1087,6 +1087,7 @@
       if (!PROTO_EVENTS[s.event]) s.event = 'heatwave';
     }
     if (s.proto && !Array.isArray(s.goals)) s.goals = shuffle(Object.keys(PROTO_GOALS)).slice(0, PROTO_GOAL_ROUNDS.length);
+    if (s.proto && s.goals.length > PROTO_GOAL_ROUNDS.length) s.goals = s.goals.slice(0, PROTO_GOAL_ROUNDS.length);
     if (s.proto && s.goals.length < PROTO_GOAL_ROUNDS.length) s.goals = s.goals.concat(shuffle(Object.keys(PROTO_GOALS).filter((id) => !s.goals.includes(id))).slice(0, PROTO_GOAL_ROUNDS.length - s.goals.length));
     (s.players || []).forEach((P) => {
       const b = P.board;
