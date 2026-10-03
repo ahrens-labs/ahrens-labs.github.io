@@ -114,6 +114,7 @@
   const PROTO_COPIES = { compy: 4, microraptor: 4, trex: 2, mosasaurus: 2 };
   const PROTO_VARIETY = [0, 1, 3, 6, 10, 15];
   const PROTO_GEM_COST = { diamond: 5, diamond2: 6 };
+  const PROTO_PACHY_COINS = 8;
   const PROTO_BUY = ['buy1', 'buy2', 'buy3'];
   const PROTO_SPACES = {
     buy1: { name: 'Buy & play', icon: '🦖', desc: 'Buy a market card or one you reserved, and place it' },
@@ -145,7 +146,7 @@
   const PROTO_SP = {
     trex: { ability: 'Choose a dino. Your opponent can’t place any more of that dino.' },
     gigantoraptor: { ability: 'Place one extra worker next round.' },
-    pachy: { ability: '+1 point for each different species in its enclosure (counting Pachy).' },
+    pachy: { ability: `1 point for every ${PROTO_PACHY_COINS} coins you have at game end, for every Pachy you have.` },
     parasaurolophus: { ability: 'Every round: +1 coin for each Parasaurolophus in this enclosure.' },
     allosaurus: { ability: 'Every round: steal 1 coin from your opponent.' },
     velociraptor: { ability: 'Every round: steal 1 food from your opponent.' },
@@ -827,7 +828,7 @@
     const count = (sp) => dinos.filter((x) => x.d.species === sp).length;
     const dinoPts = dinos.reduce((s, x) => s + spec(x.d.species).pts, 0);
     const compy = compyAdjacency(b, an, dinos);
-    const pachy = dinos.filter((x) => x.d.species === 'pachy').reduce((s, x) => s + x.cp.species.size, 0);
+    const pachy = count('pachy') * Math.floor(P.coins / PROTO_PACHY_COINS);
     const micro = 2 * active.filter((cp) => cp.living.some((d) => d.species === 'microraptor')).length;
     const tri = count('triceratops') > 0 ? Math.floor(P.triPlants / 2) * 3 : 0;
     const variety = PROTO_VARIETY[Math.min(5, new Set(dinos.map((x) => x.d.species)).size)];
@@ -843,7 +844,7 @@
     if (state && state.proto) {
       return [
         ['🦖 Dino points', 'dinoPts'], ['🌈 Variety', 'variety'], ['🧱 Full enclosures', 'full'], ['🤝 Mixed enclosures', 'mixed'],
-        ['🦎 Compy adjacency', 'compy'], ['🦕 Pachy variety', 'pachy'], ['🦖 Microraptor enclosures', 'micro'],
+        ['🦎 Compy adjacency', 'compy'], ['🦕 Pachy coins', 'pachy'], ['🦖 Microraptor enclosures', 'micro'],
         ['🌿 Triceratops plants', 'tri'], ['💎 Diamonds (×1)', 'diamonds'], ['🪙 Leftover coins', 'coins'],
       ];
     }
@@ -4151,7 +4152,7 @@
     const seen = new Set([start]);
     for (let q = 0; q < out.length && out.length < size; q++) {
       for (const j of orthNbrs(out[q])) {
-        if (free.has(j) && !seen.has(j) && !fenceBetween(b, out[q], j)) {
+        if (free.has(j) && !seen.has(j) && !orthNbrs(j).some((x) => seen.has(x) && fenceBetween(b, x, j))) {
           seen.add(j);
           out.push(j);
           if (out.length >= size) break;
@@ -5222,6 +5223,15 @@
     }, Math.max(aiDelay(250), aiDelay(ms) - spent));
   }
 
+  // Recheck planned squares on the real board; a plan that can't be placed must not stall the turn.
+  function aiFixCells(sp) {
+    if (validateSel().ok) return true;
+    const alt = aiFindCellsB(state.players[ui.sel.board].board, SPECIES[sp].space, sp);
+    if (!alt) return false;
+    ui.sel.cells = new Set(alt);
+    return validateSel().ok;
+  }
+
   function aiPlace(sp, cells, free) {
     if (!free) handle('mode', { m: 'play' });
     handle('pickSpecies', { sp });
@@ -5231,6 +5241,13 @@
       return;
     }
     ui.sel.cells = new Set(cells);
+    if (!aiFixCells(sp)) {
+      handle('back', {});
+      if (free) { handle('skip', {}); return; }
+      handle('back', {});
+      handle('mode', { m: 'gain3' });
+      return;
+    }
     document.getElementById('boards')._html = null;
     aiShow(`Playing ${spName(sp)}${free ? ' for free' : ''}…`, () => handle('place', {}));
   }
@@ -5249,9 +5266,13 @@
     return rounds() - state.round + 1;
   }
 
-  function protoCoinValue() {
+  // Each coin kept to the end is worth a share of a point per Pachy, so Pachy owners value coins more.
+  function protoCoinValue(p) {
     const left = protoRoundsLeft();
-    return left <= 1 ? 0.1 : left <= 3 ? 0.3 : 0.5;
+    const base = left <= 1 ? 0.1 : left <= 3 ? 0.3 : 0.5;
+    if (p == null) return base;
+    const pachys = Object.values(state.players[p].board.items).filter((it) => it.species === 'pachy' && !it.dead).length;
+    return base + pachys / PROTO_PACHY_COINS;
   }
 
   // Food still missing for this round's Feeding.
@@ -5273,12 +5294,12 @@
     if (sp === 'parasaurolophus' || sp === 'allosaurus') power = left * 0.4;
     if (sp === 'velociraptor') power = left * 0.3;
     if (sp === 'triceratops') power = left * 0.7;
-    if (sp === 'pachy') power = 2;
+    if (sp === 'pachy') power = (P.coins + left * 3) / PROTO_PACHY_COINS;
     if (sp === 'microraptor') power = 1.5;
     // Only one enclosure pays each round, so production counts by how much it lifts the best one.
     const top = bestProdB(P.board);
     const home = an.comps.filter((cp) => cp.valid && !cp.dead && cp.species.has(sp)).reduce((m, cp) => Math.max(m, cp.prod), 0);
-    const coins = Math.max(S.prod * 0.35, home + S.prod - top) * left * protoCoinValue() * 0.6;
+    const coins = Math.max(S.prod * 0.35, home + S.prod - top) * left * protoCoinValue(p) * 0.6;
     const food = S.food.n * left * 0.2;
     return S.pts + variety + power + coins - food;
   }
@@ -5313,7 +5334,7 @@
       if (size <= 0 || !canAfford(P, feederCost(size))) return;
       const cells = aiFindCellsB(b, size, null, cp.key);
       if (!cells) return;
-      const v = size * protoRoundsLeft() * 0.2 - size * protoCoinValue() - 1;
+      const v = size * protoRoundsLeft() * 0.2 - size * protoCoinValue(p) - 1;
       if (!best || v > best.v) best = { item: 'feeder', cells, v };
     });
     if (canAfford(P, waterCost())) {
@@ -5321,7 +5342,7 @@
         const w = aiWaterCells(b, cp);
         if (!w || w.biggest < 3) return;
         if (protoRoundsLeft() <= 1) return;
-        const v = 2.5 + (protoRoundsLeft() > 3 ? 1 : 0) - 2 * protoCoinValue();
+        const v = 2.5 + (protoRoundsLeft() > 3 ? 1 : 0) - 2 * protoCoinValue(p);
         if (!best || v > best.v) best = { item: 'water', cells: w.cells, v };
       });
     }
@@ -5343,7 +5364,7 @@
   function protoSpacePlans(p) {
     const P = state.players[p];
     const b = P.board;
-    const cv = protoCoinValue();
+    const cv = protoCoinValue(p);
     const left = protoRoundsLeft();
     const out = [];
     Object.keys(PROTO_SPACES).forEach((k) => {
@@ -5386,6 +5407,13 @@
       return;
     }
     ui.sel.cells = new Set(buy.cells);
+    if (!aiFixCells(buy.sp)) {
+      handle('back', {});
+      if (free) { handle('skip', {}); return; }
+      handle('back', {});
+      handle('endTurn', {});
+      return;
+    }
     document.getElementById('boards')._html = null;
     aiShow(`Playing ${spName(buy.sp)}${free ? ' for free' : ''}…`, () => handle('place', {}));
   }
