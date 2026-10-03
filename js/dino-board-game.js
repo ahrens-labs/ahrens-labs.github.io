@@ -765,10 +765,15 @@
   function dinoSummary(cp, includeDead) {
     const counts = {};
     (includeDead ? cp.dinos : cp.living).forEach((d) => {
-      counts[d.species] = (counts[d.species] || 0) + 1;
+      const k = `${d.species}|${d.stage || ''}`;
+      counts[k] = (counts[k] || 0) + 1;
     });
+    const label = { egg: ' egg', baby: ' baby' };
     return Object.keys(counts)
-      .map((sp) => `<span class="dzn">${dz(sp)} ${spName(sp)}${counts[sp] > 1 ? ' ×' + counts[sp] : ''}</span>`)
+      .map((k) => {
+        const [sp, stage] = k.split('|');
+        return `<span class="dzn">${dz(sp)} ${spName(sp)}${label[stage] || ''}${counts[k] > 1 ? ' ×' + counts[k] : ''}</span>`;
+      })
       .join(', ');
   }
 
@@ -1645,9 +1650,10 @@
         return { ok: false, why: opts.length && opts.every((o) => o.why === opts[0].why) ? opts[0].why : 'Nothing you can play' };
       }
       case 'breed': {
+        if (protoRoundsLeft() <= 1) return { ok: false, why: 'Too late: eggs won’t hatch' };
         const opts = protoBreedOptions(p, X.extra);
         if (opts.some((o) => o.ok)) return { ok: true };
-        return { ok: false, why: !opts.length ? 'No dinos to breed yet' : opts.every((o) => o.why === opts[0].why) ? opts[0].why : 'Nothing you can breed' };
+        return { ok: false, why: !opts.length ? 'Needs a pair in one enclosure' : opts.every((o) => o.why === opts[0].why) ? opts[0].why : 'Nothing you can breed' };
       }
       case 'gem':
         return P.coins >= X.cost ? { ok: true } : { ok: false, why: 'Not enough coins' };
@@ -2426,7 +2432,10 @@
       '<span>🪨 Blocked by opponent</span>',
       '<span>💤 Inactive (unfed)</span>',
       '<span>💀 Fossil</span>',
-    ].join('');
+    ].concat(state && state.proto ? [
+      '<span>🥚 Egg (hatches next round)</span>',
+      `<span>🍼 Baby (small token, grows up after ${PROTO_BABY_FEEDS} Feedings)</span>`,
+    ] : []).join('');
   }
 
   function renderTop() {
@@ -2666,10 +2675,10 @@
       }
       const deal = src === 'm' && isFresh(`bm${i}:${sp}:${state.deck.length}`, 900) ? ' deal' : '';
       const where = src === 'h' ? ' held' : src === 'b' ? ' bred' : ' shop';
-      return cardHtml(sp, { cls: cls + deal + where, attrs, lock, tag: src === 'h' ? '✋ Reserved' : src === 'b' ? '🥚 Breed' : '' });
+      return cardHtml(sp, { cls: cls + deal + where, attrs, lock, tag: src === 'h' ? '✋ Reserved' : src === 'b' ? `🥚 Egg · ⬛${babySize(sp)}` : '' });
     };
     const hint = picking ? 'Tap a card or the deck to reserve it'
-      : breeding ? `Tap a 🥚 dino to breed another, then place it in your park (its cost +🪙${spaceExtra()})`
+      : breeding ? `Tap a 🥚 dino, then place its egg in the enclosure with the pair (its cost +🪙${spaceExtra()})`
       : buying ? `Tap a dino to buy it, then place it in your park${T.t !== 'freePlay' && spaceExtra() ? ` (costs 🪙${spaceExtra()} extra on this space)` : ''}`
         : 'Tap any card for details. Buy with a 🦖 Play a dino worker, or 🥚 Breed dinos you already have.';
     const viewer = buying || picking ? T.p : state.ai != null ? other(state.ai) : T.p != null ? T.p : state.first;
@@ -2684,7 +2693,7 @@
       <div class="bm-row">
         <div class="deck-back bm-deck ${deckOk ? 'pick' : ''} ${state.deck.length ? '' : 'gone'}" ${deckOk ? 'data-act="take" data-from="deck"' : ''} title="Top of the deck (face down)" style="--stack:${stack}"><b>${state.deck.length}</b><small>deck</small></div>
         ${state.faceUp.map((sp, i) => card(sp, 'm', i)).join('')}
-      </div>${breeding ? `<div class="bm-hand bm-breed pl-${P.color}"><div class="bm-sub">🥚 Breed <small>species already in ${esc(P.name)}’s park · its cost +🪙${spaceExtra()}</small></div><div class="bm-row">${opts.map((o) => card(o.sp, 'b', o.i)).join('')}</div></div>` : ''}${hand}`);
+      </div>${breeding ? `<div class="bm-hand bm-breed pl-${P.color}"><div class="bm-sub">🥚 Breed <small>species with an adult pair in one of ${esc(P.name)}’s enclosures · eggs take half the squares · its cost +🪙${spaceExtra()}</small></div><div class="bm-row">${opts.map((o) => card(o.sp, 'b', o.i)).join('')}</div></div>` : ''}${hand}`);
   }
 
   function logItems(list) {
