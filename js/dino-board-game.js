@@ -100,7 +100,7 @@
   };
 
   // Bump with RULES_VERSION in workers/src/dino.js when costs or rules change, so open tabs on old rules must reload.
-  const RULES_VERSION = 4;
+  const RULES_VERSION = 5;
 
   const BOOK = ['compy', 'triceratops', 'spinosaurus', 'stegosaurus', 'velociraptor', 'brachiosaurus', 'trex', 'pachy'];
   const DECK = ['allosaurus', 'mosasaurus', 'carnotaurus', 'microraptor', 'ankylosaurus', 'dilophosaurus', 'parasaurolophus', 'gigantoraptor'];
@@ -145,9 +145,9 @@
     buy1: { type: 'buy', name: 'Play a dino', icon: '🦖', extra: 0, desc: 'Buy a market or reserved card and place it' },
     buy2: { type: 'buy', name: 'Play a dino', icon: '🦕', extra: 1, desc: 'Play a dino for 🪙1 extra' },
     buy3: { type: 'buy', name: 'Play a dino', icon: '🐊', extra: 2, open: true, desc: 'Play a dino for 🪙2 extra' },
-    breed1: { type: 'breed', name: 'Breed', icon: '🥚', extra: 0, desc: 'Lay an egg next to a pair of your dinos: half its coins, no diamonds' },
-    breed2: { type: 'breed', name: 'Breed', icon: '🥚', extra: 1, desc: 'Lay an egg next to a pair of your dinos: half its coins +🪙1, no diamonds' },
-    breed3: { type: 'breed', name: 'Breed', icon: '🥚', extra: 2, open: true, desc: 'Lay an egg next to a pair of your dinos: half its coins +🪙2, no diamonds' },
+    breed1: { type: 'breed', name: 'Breed', icon: '🥚', extra: 0, desc: 'Lay an egg next to a pair of your dinos: half its coins, 💎1 less' },
+    breed2: { type: 'breed', name: 'Breed', icon: '🥚', extra: 1, desc: 'Lay an egg next to a pair of your dinos: half its coins +🪙1, 💎1 less' },
+    breed3: { type: 'breed', name: 'Breed', icon: '🥚', extra: 2, open: true, desc: 'Lay an egg next to a pair of your dinos: half its coins +🪙2, 💎1 less' },
     coins1: { type: 'coins', name: 'Coins', icon: '🪙', n: 3, desc: 'Take 3 coins' },
     coins2: { type: 'coins', name: 'Coins', icon: '🪙', n: 2, desc: 'Take 2 coins' },
     coins3: { type: 'coins', name: 'Coins', icon: '🪙', n: 1, open: true, desc: 'Take 1 coin' },
@@ -257,9 +257,10 @@
     return state.event === 'inflation' ? { d: c.d, c: c.c + 2 } : c;
   }
 
-  // An egg costs half the card's coins (rounded up) and never diamonds.
+  // An egg costs half the card's coins (rounded up) and 1 diamond less than the card.
   function breedCost(sp) {
-    return { d: 0, c: Math.ceil(protoCost(sp).c / 2) };
+    const c = protoCost(sp);
+    return { d: Math.max(0, c.d - 1), c: Math.ceil(c.c / 2) };
   }
 
   function protoNextEvent() {
@@ -2764,7 +2765,7 @@
       return cardHtml(sp, { cls: cls + deal + where, attrs, lock, cost: src === 'b' ? breedCost(sp) : null, tag: src === 'h' ? '✋ Reserved' : src === 'b' ? `🥚 Egg · ⬛${babySize(sp)}` : '' });
     };
     const hint = picking ? 'Tap a card or the deck to reserve it'
-      : breeding ? `Tap a 🥚 dino, then place its egg in the enclosure with the pair (half its coins${spaceExtra() ? ` +🪙${spaceExtra()}` : ''}, no diamonds)`
+      : breeding ? `Tap a 🥚 dino, then place its egg in the enclosure with the pair (half its coins${spaceExtra() ? ` +🪙${spaceExtra()}` : ''}, 💎1 less)`
       : buying ? `Tap a dino to buy it, then place it in your park${T.t !== 'freePlay' && spaceExtra() ? ` (costs 🪙${spaceExtra()} extra on this space)` : ''}`
         : 'Tap any card for details. Buy with a 🦖 Play a dino worker, or 🥚 Breed dinos you already have.';
     const viewer = buying || picking ? T.p : state.ai != null ? other(state.ai) : T.p != null ? T.p : state.first;
@@ -2779,7 +2780,7 @@
       <div class="bm-row">
         <div class="deck-back bm-deck ${deckOk ? 'pick' : ''} ${state.deck.length ? '' : 'gone'}" ${deckOk ? 'data-act="take" data-from="deck"' : ''} title="Top of the deck (face down)" style="--stack:${stack}"><b>${state.deck.length}</b><small>deck</small></div>
         ${state.faceUp.map((sp, i) => card(sp, 'm', i)).join('')}
-      </div>${breeding ? `<div class="bm-hand bm-breed pl-${P.color}"><div class="bm-sub">🥚 Breed <small>species with an adult pair in one of ${esc(P.name)}’s enclosures · eggs take half the squares · half the coins${spaceExtra() ? ` +🪙${spaceExtra()}` : ''}, no diamonds</small></div><div class="bm-row">${opts.map((o) => card(o.sp, 'b', o.i)).join('')}</div></div>` : ''}${hand}`);
+      </div>${breeding ? `<div class="bm-hand bm-breed pl-${P.color}"><div class="bm-sub">🥚 Breed <small>species with an adult pair in one of ${esc(P.name)}’s enclosures · eggs take half the squares · half the coins${spaceExtra() ? ` +🪙${spaceExtra()}` : ''}, 💎1 less</small></div><div class="bm-row">${opts.map((o) => card(o.sp, 'b', o.i)).join('')}</div></div>` : ''}${hand}`);
   }
 
   function logItems(list) {
@@ -3212,7 +3213,7 @@
       const cant = opts.filter((o) => !o.ok);
       const cards = (can.length ? can.map(card).join('') : '<p class="grid-note">Nothing you can play right now.</p>')
         + (cant.length ? `<div class="grid-split">🔒 Not right now</div>${cant.map(card).join('')}` : '');
-      const title = free ? `🎁 Pick a free dino (≤ ${T.limit || 5} points)` : state.proto ? (protoBreeding() ? `🥚 Breed a dino you already have (half its coins${spaceExtra() ? ` +🪙${spaceExtra()}` : ''}, no diamonds)` : '🦖 Buy a dino from the market or your hand') : '🦖 Choose a dino to play';
+      const title = free ? `🎁 Pick a free dino (≤ ${T.limit || 5} points)` : state.proto ? (protoBreeding() ? `🥚 Breed a dino you already have (half its coins${spaceExtra() ? ` +🪙${spaceExtra()}` : ''}, 💎1 less)` : '🦖 Buy a dino from the market or your hand') : '🦖 Choose a dino to play';
       return `<h3>${title}</h3>
         <div class="card-grid">${cards}</div>
         ${free ? '<button class="btn ghost" data-act="skip">Skip free dino</button>' : ''}`;
@@ -3630,7 +3631,7 @@
         <li>🌾 Feeders cost 💎1 + 🪙1 per square. Each feeder square takes 1 food off that enclosure’s bill every Feeding.</li>
       </ul>
       <h3>Breeding</h3>
-      <p>A 🥚 Breed space lays an egg of a species you have an adult pair of in one enclosure; the egg goes in that enclosure and costs half the dino’s coins (rounded up, never diamonds) plus the space’s extra coins. Eggs take half the squares (rounded down) and hatch next round. Babies eat half (rounded up) and have half the production, points and scoring powers (rounded down), with no when-played or every-round powers. After being fed in ${PROTO_BABY_FEEDS} Feedings a baby grows up: you add squares for its full size (or it dies if there’s no room), and its when-played power triggers.</p>
+      <p>A 🥚 Breed space lays an egg of a species you have an adult pair of in one enclosure; the egg goes in that enclosure and costs half the dino’s coins (rounded up) plus the space’s extra coins, and 1 diamond less than the card. Eggs take half the squares (rounded down) and hatch next round. Babies eat half (rounded up) and have half the production, points and scoring powers (rounded down), with no when-played or every-round powers. After being fed in ${PROTO_BABY_FEEDS} Feedings a baby grows up: you add squares for its full size (or it dies if there’s no room), and its when-played power triggers.</p>
       <h3>Scoring</h3>
       <ul>
         <li>Each dino’s points (the yellow circle).</li>
@@ -5874,16 +5875,48 @@
   // Each coin kept to the end is worth a share of a point per Pachy, so Pachy owners value coins more.
   function protoCoinValue(p) {
     const left = protoRoundsLeft();
-    const base = (left <= 1 ? 0.1 : left <= 3 ? 0.3 : 0.5) + (protoKnownGoals().includes('coins') ? 0.25 : 0);
-    if (p == null) return base;
-    const pachys = Object.values(state.players[p].board.items).filter((it) => it.species === 'pachy' && !it.dead).length;
-    return base + pachys / PROTO_PACHY_COINS;
+    const goal = protoKnownGoals().includes('coins') ? 1 / 6 : 0;
+    if (p == null) return (left <= 1 ? 0.1 : left <= 3 ? 0.3 : 0.5) + goal;
+    const P = state.players[p];
+    // Leftover coins stop scoring at 30, so a pile bigger than that is worth less unless it's spent.
+    const spare = clamp((P.coins - 30) / 10, 0, 1);
+    const base = (left <= 1 ? 0.1 : left <= 3 ? 0.3 : 0.5) * (1 - 0.75 * spare);
+    const pachys = Object.values(P.board.items).filter((it) => it.species === 'pachy' && !it.dead).length;
+    return base + goal + pachys / PROTO_PACHY_COINS;
+  }
+
+  // What spending one diamond costs in points: buying it back (a Gems turn) if a wanted card still needs it,
+  // otherwise just what it scores at the end.
+  function protoDiamondPts(p) {
+    const P = state.players[p];
+    const cv = protoCoinValue(p);
+    const end = 1 + (protoKnownGoals().includes('gems') ? 4 : 0);
+    const want = protoRoundsLeft() > 1 && state.faceUp.concat(P.hand).some((sp) => sp && !P.blocked.includes(sp) && protoCost(sp).d >= P.diamonds);
+    return Math.max(end, want ? 5 * cv + 1 : 0);
   }
 
   // Food still missing for this round's Feeding.
   function protoFoodShort(p) {
     const P = state.players[p];
-    return Math.max(0, demandOf(P.board).total - P.meat - P.plants);
+    const d = demandOf(P.board);
+    // Meat can't feed plant eaters (or the reverse), so count each kind's shortfall on its own.
+    const needM = Math.max(0, d.meat - P.meat);
+    const needP = Math.max(0, d.plant - P.plants);
+    const left = Math.max(0, P.meat - d.meat) + Math.max(0, P.plants - d.plant);
+    return needM + needP + Math.max(0, d.flex - left);
+  }
+
+  // Food of the kind `sp` eats that's left after this round's Feeding.
+  function protoFoodSpare(p, sp) {
+    const P = state.players[p];
+    const d = demandOf(P.board);
+    const t = SPECIES[sp].food.t;
+    const m = P.meat - d.meat;
+    const pl = P.plants - d.plant;
+    const both = Math.max(0, m) + Math.max(0, pl) - d.flex;
+    if (t === 'meat') return Math.min(m, both);
+    if (t === 'plant') return Math.min(pl, both);
+    return both;
   }
 
   // The computer only knows the goals revealed so far, and plays for them as they stand right now.
@@ -5939,8 +5972,8 @@
   }
 
   // A card's price in points: coins at their current worth, and each missing diamond costs a Gems turn.
-  function protoPricePts(p, sp) {
-    const c = protoCost(sp);
+  function protoPricePts(p, sp, cost) {
+    const c = cost || protoCost(sp);
     const cv = protoCoinValue(p);
     const needD = Math.max(0, c.d - state.players[p].diamonds);
     return c.c * cv + needD * (5 * cv + 1.5);
@@ -5949,7 +5982,6 @@
   function protoBestBuy(p, freeTask, extra, breed) {
     const P = state.players[p];
     const b = P.board;
-    const spare = P.meat + P.plants - demandOf(b).total;
     const an = analyze(b);
     const left = protoRoundsLeft();
     const grown = left - 1 - PROTO_BABY_FEEDS;
@@ -5957,12 +5989,12 @@
     (breed ? protoBreedOptions(p, extra) : protoPlayOptions(p, freeTask, extra)).filter((o) => o.ok).forEach((o) => {
       const cells = breed ? protoBreedCells(p, o.sp, true) : aiFindCellsB(b, spec(o.sp).space, o.sp);
       if (!cells) return;
-      const hungry = protoHunger(p, o.sp, spare);
+      const hungry = protoHunger(p, o.sp, protoFoodSpare(p, o.sp));
       let value;
       if (breed) {
         // An egg takes a round to hatch and PROTO_BABY_FEEDS Feedings to grow up, so it's worth less, and little
         // near the end, but it's much cheaper than buying the card.
-        const saved = Math.max(0, protoPricePts(p, o.sp) - breedCost(o.sp).c * protoCoinValue(p));
+        const saved = Math.max(0, protoPricePts(p, o.sp) - protoPricePts(p, o.sp, breedCost(o.sp)));
         value = (protoDinoValue(p, o.sp) * 0.7 + saved * 0.4) * (grown >= 1 ? 1 : grown >= 0 ? 0.5 : left >= 2 ? 0.2 : 0);
       } else {
         // Completing an adult pair opens up cheap eggs while there's still time for them to grow up.
@@ -5988,7 +6020,8 @@
       if (size <= 0 || !canAfford(P, withExtra(feederCost(size), x))) return;
       const cells = aiFindCellsB(b, size, null, cp.key);
       if (!cells) return;
-      const v = size * protoRoundsLeft() * 0.35 - (size + x) * protoCoinValue(p) - 1 + protoGoalGain(p, (b2) => placeItemB(b2, 'feeder', cells));
+      const dia = feederCost(size).d * protoDiamondPts(p);
+      const v = size * protoRoundsLeft() * 0.35 - (size + x) * protoCoinValue(p) - dia + protoGoalGain(p, (b2) => placeItemB(b2, 'feeder', cells));
       if (!best || v > best.v) best = { item: 'feeder', cells, v };
     });
     if (canAfford(P, withExtra(waterCost(), x))) {
@@ -6000,7 +6033,8 @@
         if (!w || (!forGoal && w.biggest < 3)) return;
         if (!forGoal && protoRoundsLeft() <= 1) return;
         const mixing = known.includes('mixed') && cp.species.size === 1 && !cp.waters.length && w.biggest >= 2 ? 2 : 0;
-        const v = 2.5 + mixing + (protoRoundsLeft() > 3 ? 1 : 0) - (2 + x) * protoCoinValue(p) + protoGoalGain(p, (b2) => placeItemB(b2, 'water', w.cells));
+        const dia = waterCost().d * protoDiamondPts(p) - 1;
+        const v = 2.5 + mixing + (protoRoundsLeft() > 3 ? 1 : 0) - (2 + x) * protoCoinValue(p) - dia + protoGoalGain(p, (b2) => placeItemB(b2, 'water', w.cells));
         if (!best || v > best.v) best = { item: 'water', cells: w.cells, v };
       });
     }
@@ -6020,11 +6054,10 @@
   function protoScoutPicks(p) {
     const P = state.players[p];
     const O = state.players[other(p)];
-    const spare = P.meat + P.plants - demandOf(P.board).total;
     const out = state.deck.length ? [{ from: 'deck', v: 0.5 }] : [];
     state.faceUp.forEach((sp, i) => {
       if (!sp) return;
-      const mine = P.blocked.includes(sp) ? 0 : Math.max(0, protoDinoValue(p, sp) - protoHunger(p, sp, spare) - protoPricePts(p, sp)) * 0.4;
+      const mine = P.blocked.includes(sp) ? 0 : Math.max(0, protoDinoValue(p, sp) - protoHunger(p, sp, protoFoodSpare(p, sp)) - protoPricePts(p, sp)) * 0.4;
       const denial = aiCfg().level === 'hard' && canAfford(O, protoCost(sp)) && !O.blocked.includes(sp) ? Math.max(0, protoDinoValue(other(p), sp) - protoPricePts(other(p), sp)) * 0.1 : 0;
       out.push({ from: i, v: mine + denial });
     });
@@ -6133,7 +6166,16 @@
       else if (X.type === 'forage') {
         const n = protoSpaceAmount(k);
         // Unfed enclosures score nothing at the end, so the last Feeding matters most.
-        plan = { v: Math.min(n, protoFoodShort(p)) * (left <= 1 ? 3 : 1.3) + 0.3 + n * 0.05 };
+        const short = protoFoodShort(p);
+        let v = Math.min(n, short) * (left <= 1 ? 3 : 1.3) + 0.3 + n * 0.05;
+        if (left > 1) {
+          // Next round starts with only the die (about 3), so food carried over keeps enclosures fed.
+          const d = demandOf(b).total;
+          const over = Math.max(0, P.meat + P.plants - d);
+          const next = Math.max(0, d - 3 - over);
+          v += Math.min(Math.max(0, n - short), next) * 0.6;
+        }
+        plan = { v };
       } else if (X.type === 'fences') {
         const fp = protoFencePlan(p, protoSpaceAmount(k));
         if (fp.edges.length) plan = { v: fp.v * (left <= 1 ? 0.1 : 0.4) + fp.edges.length * 0.05 };
@@ -6154,6 +6196,28 @@
       if (plan) out.push(Object.assign(plan, { k, v: plan.v + protoNoise() * 0.5 }));
     });
     return out.sort((a, b) => b.v - a.v);
+  }
+
+  // The last Feeding decides the score, and an unfed enclosure scores nothing whether it dies or not, so
+  // feed whichever enclosures keep the most points (every combination, when there aren't too many).
+  function protoLastFeed(p) {
+    const P = state.players[p];
+    const b = P.board;
+    const list = feedables(analyze(b));
+    if (list.length > 10) return defaultFeed(p);
+    const costs = list.map(enclosureCost);
+    const saved = b.inactive;
+    let best = null;
+    for (let mask = 0; mask < 1 << list.length; mask++) {
+      const pick = list.filter((cp, i) => mask & (1 << i));
+      if (!canPayFood(P, sumCosts(pick.map((cp) => costs[list.indexOf(cp)])))) continue;
+      b.inactive = Object.assign({}, saved);
+      list.forEach((cp, i) => { if (mask & (1 << i)) delete b.inactive[cp.key]; else b.inactive[cp.key] = (saved[cp.key] || 0) + 1; });
+      const v = protoScore(p).total;
+      if (!best || v > best.v) best = { v, keys: pick.map((cp) => cp.key) };
+    }
+    b.inactive = saved;
+    return best ? new Set(best.keys) : defaultFeed(p);
   }
 
   function protoAiPlaceBuy(buy, free, space) {
@@ -6182,7 +6246,7 @@
     switch (T.t) {
       case 'roundStart': handle('startRound', {}); return true;
       case 'feed':
-        ui.feed = defaultFeed(p);
+        ui.feed = protoRoundsLeft() <= 1 ? protoLastFeed(p) : defaultFeed(p);
         aiShow('Feeding…', () => handle('confirmFeed', {}));
         return true;
       case 'gainFood': {
