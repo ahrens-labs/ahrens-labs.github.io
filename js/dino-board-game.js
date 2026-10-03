@@ -121,7 +121,7 @@
     full: { icon: '🧱', name: 'Full house', desc: '3 points per enclosure with no empty squares', pts: (c) => 3 * c.pens.filter((x) => x.empty === 0).length },
     mixed: { icon: '🤝', name: 'Mixed company', desc: '2 points per enclosure with 2 or more species', pts: (c) => 2 * c.pens.filter((x) => x.kinds.size >= 2).length },
     variety: { icon: '🌈', name: 'Variety show', desc: '2 points per different species in your park', pts: (c) => 2 * new Set(c.dinos).size },
-    meat: { icon: '🍖', name: 'Meat lovers', desc: '2 points per meat-eating dino', pts: (c) => 2 * c.dinos.filter((sp) => SPECIES[sp].food.t !== 'plant').length },
+    meat: { icon: '🍖', name: 'Meat lovers', desc: '1 point per meat-eating dino', pts: (c) => c.dinos.filter((sp) => SPECIES[sp].food.t !== 'plant').length },
     plant: { icon: '🌿', name: 'Leaf eaters', desc: '2 points per plant-eating dino', pts: (c) => 2 * c.dinos.filter((sp) => SPECIES[sp].food.t !== 'meat').length },
     giants: { icon: '🦕', name: 'Giants', desc: '3 points per dino that takes 8 or more squares', pts: (c) => 3 * c.dinos.filter((sp) => SPECIES[sp].space >= 8).length },
     little: { icon: '🐣', name: 'Little ones', desc: '2 points per dino that takes 4 or fewer squares', pts: (c) => 2 * c.dinos.filter((sp) => SPECIES[sp].space <= 4).length },
