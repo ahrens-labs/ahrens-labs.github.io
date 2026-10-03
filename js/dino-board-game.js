@@ -189,7 +189,7 @@
     parasaurolophus: { ability: 'Every round: +1 coin for each Parasaurolophus in this enclosure.' },
     allosaurus: { ability: 'Every round: steal 1 coin from your opponent.' },
     velociraptor: { ability: 'Every round: steal 1 food from your opponent.' },
-    triceratops: { cost: { d: 1, c: 0 }, ability: 'Every round: put a plant on your Triceratops page. At game end, 3 points for every 2 plants.' },
+    triceratops: { cost: { d: 1, c: 3 }, ability: 'Every round: pay a plant from your supply to put it on your Triceratops page. At game end, 3 points for every 2 plants.' },
     spinosaurus: { ability: 'Gain 1 diamond, 5 coins, 15 food, or fill in 10 squares in your opponent’s park. Then reserve the top card of the deck if your hand has room.' },
     dilophosaurus: { ability: 'Take 5 food, draw in 5 fences, reserve a market card, and gain 5 coins.' },
   };
@@ -1237,6 +1237,7 @@
     } else if (T.t === 'feed') ui.feed = defaultFeed(p);
     else if (T.t === 'foodChoice') ui.meat = Math.floor(T.amount / 2);
     else if (T.t === 'steal') ui.meat = stealRange(T)[1];
+    else if (T.t === 'power' && T.sp === 'triceratops') ui.triPay = triDefault(T);
     else if (T.t === 'roundStart' && state.ai != null && state.players[state.ai].bonusPending) {
       ui.picks[state.ai] = aiBonusPicks(state.ai);
     }
@@ -1434,7 +1435,8 @@
     const raid = Math.min(n('velociraptor'), O.meat + O.plants);
     if (raid) tasks.push({ t: 'steal', p, amount: raid });
     else if (n('velociraptor')) logMsg(`${pn(p)}’s Velociraptors found no food to steal.`);
-    if (n('triceratops')) tasks.push({ t: 'power', p, sp: 'triceratops', n: n('triceratops') });
+    if (n('triceratops') && state.players[p].plants) tasks.push({ t: 'power', p, sp: 'triceratops', n: n('triceratops') });
+    else if (n('triceratops')) logMsg(`${pn(p)} had no 🌿 to put on their Triceratops page.`);
     return tasks;
   }
 
@@ -1446,7 +1448,19 @@
       const n = Math.min(T.n, O.coins);
       return [`Steal 🪙${n} from ${O.name}`, n];
     }
-    return [`Put 🌿${T.n} on your Triceratops page`, T.n];
+    const n = triPay(T);
+    return [n ? `Pay 🌿${n}: put ${n} on your Triceratops page` : 'Pay nothing this round', n];
+  }
+
+  // Triceratops: at most one plant per adult, from the player's own supply.
+  const triMax = (T) => Math.min(T.n, state.players[T.p].plants);
+  const triPay = (T) => clamp(ui.triPay == null ? triMax(T) : ui.triPay, 0, triMax(T));
+
+  // Plants the coming Feeding needs, so the default payment doesn't starve plant eaters.
+  function triDefault(T) {
+    const P = state.players[T.p];
+    const need = sumCosts(feedables(analyze(P.board)).map(enclosureCost)).plant;
+    return clamp(P.plants - need, 0, triMax(T));
   }
 
   function usePower(T) {
@@ -1463,10 +1477,13 @@
       P.coins += n;
       logMsg(`${pn(p)}’s Allosaurus stole 🪙${n} from ${pn(other(p))}.`);
       toast(`🦖 ${P.name} stole 🪙${n}`, 'good');
-    } else {
+    } else if (n) {
+      P.plants -= n;
       P.triPlants += n;
-      logMsg(`${pn(p)} put 🌿${n} on their Triceratops page (${P.triPlants} now).`);
+      logMsg(`${pn(p)} paid 🌿${n} onto their Triceratops page (${P.triPlants} now).`);
       toast(`🌿 Triceratops page +${n}`, 'good');
+    } else {
+      logMsg(`${pn(p)} kept their plants instead of feeding the Triceratops page.`);
     }
     resolveCurrent();
   }
@@ -3269,7 +3286,16 @@
     const S = spec(T.sp);
     return `<h3>⚡ Production power</h3>
       <div class="power-card"><img src="${IMG}${T.sp}.webp" alt=""><div><b>${esc(S.name)}${T.n > 1 ? ` ×${T.n}` : ''}</b><p>${esc(S.ability)}</p></div></div>
+      ${T.sp === 'triceratops' ? triPayHtml(T) : ''}
       <button class="btn big" data-act="usePower">${label}</button>`;
+  }
+
+  function triPayHtml(T) {
+    const P = state.players[T.p];
+    const need = sumCosts(feedables(analyze(P.board)).map(enclosureCost)).plant;
+    const n = triPay(T);
+    return `<p>You have 🌿${P.plants}; this round’s Feeding needs 🌿${need}. Each plant on the page is worth 1½ points at the end.</p>
+      ${triMax(T) > 0 ? stepper('triPay', '🌿 Plants to pay', n, n > 0, n < triMax(T)) : ''}`;
   }
 
   function stealHtml(T) {
@@ -3809,6 +3835,8 @@
         } else if (T.t === 'steal') {
           const [lo, hi] = stealRange(T);
           ui.meat = clamp(ui.meat + d, lo, hi);
+        } else if (T.t === 'power' && T.sp === 'triceratops') {
+          ui.triPay = clamp(triPay(T) + d, 0, triMax(T));
         } else if (T.t === 'feed') {
           const tot = sumCosts(feedables(analyze(P.board)).filter((cp) => ui.feed.has(cp.key)).map(enclosureCost));
           ui.flexMeat = flexMeatPick(P, tot, flexMeatPick(P, tot, ui.flexMeat) + d);
@@ -5804,7 +5832,7 @@
     if (sp === 'gigantoraptor' && left <= 1) power = 0;
     if (sp === 'parasaurolophus' || sp === 'allosaurus') power = left * 0.4;
     if (sp === 'velociraptor') power = left * 0.3;
-    if (sp === 'triceratops') power = left * 0.7;
+    if (sp === 'triceratops') power = left * 0.45;
     if (sp === 'pachy') power = (P.coins + left * 3) / PROTO_PACHY_COINS;
     if (sp === 'microraptor') power = 1.5;
     // Only one enclosure pays each round, so production counts by how much it lifts the best one.
