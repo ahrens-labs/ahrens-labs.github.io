@@ -100,7 +100,7 @@
   };
 
   // Bump with RULES_VERSION in workers/src/dino.js when costs or rules change, so open tabs on old rules must reload.
-  const RULES_VERSION = 5;
+  const RULES_VERSION = 6;
 
   const BOOK = ['compy', 'triceratops', 'spinosaurus', 'stegosaurus', 'velociraptor', 'brachiosaurus', 'trex', 'pachy'];
   const DECK = ['allosaurus', 'mosasaurus', 'carnotaurus', 'microraptor', 'ankylosaurus', 'dilophosaurus', 'parasaurolophus', 'gigantoraptor'];
@@ -119,6 +119,7 @@
   // 15 end-game goal cards; each game uses 3, revealed at the start of these rounds.
   // "Enclosure" here means an active enclosure with at least one living dino.
   const PROTO_GOAL_ROUNDS = [1, 6, 11];
+  const PROTO_GEM_PTS = 2;
   const PROTO_GOALS = {
     full: { icon: '🧱', name: 'Full house', desc: '3 points for every 2 enclosures with no empty squares, after your first', pts: (c) => Math.floor(1.5 * Math.max(0, c.pens.filter((x) => x.empty === 0).length - 1)) },
     mixed: { icon: '🤝', name: 'Mixed company', desc: '4 points per species in each enclosure with a watering hole', pts: (c) => 4 * c.pens.reduce((s, x) => s + (x.waters ? x.kinds.size : 0), 0) },
@@ -133,7 +134,7 @@
     herds: { icon: '🦖', name: 'Big herds', desc: '5 points per enclosure with 2 or more dinos', pts: (c) => 5 * c.pens.filter((x) => x.n >= 2).length },
     roomy: { icon: '🗺️', name: 'Wide open', desc: '3 points per enclosure of 9 or more squares', pts: (c) => 3 * c.pens.filter((x) => x.size >= 9).length },
     coins: { icon: '🪙', name: 'Treasury', desc: '1 point per 6 coins you have left', pts: (c) => Math.floor(c.P.coins / 6) },
-    gems: { icon: '💎', name: 'Gem collector', desc: '4 points per diamond you have left', pts: (c) => 4 * c.P.diamonds },
+    gems: { icon: '💎', name: 'Gem collector', desc: `${PROTO_GEM_PTS} points per diamond you have left`, pts: (c) => PROTO_GEM_PTS * c.P.diamonds },
     earners: { icon: '💰', name: 'Big earners', desc: '3 points for every 2 coins your best enclosure produces', pts: (c) => Math.floor(1.5 * c.pens.reduce((m, x) => Math.max(m, x.prod), 0)) },
   };
   const PROTO_PACHY_COINS = 5;
@@ -201,7 +202,7 @@
     allosaurus: { ability: 'Every round: steal 1 coin from your opponent.' },
     velociraptor: { ability: 'Every round: steal 1 food from your opponent.' },
     ankylosaurus: { cost: { d: 1, c: 7 } },
-    triceratops: { cost: { d: 1, c: 3 }, ability: 'Every round: pay a plant from your supply to put it on your Triceratops page. At game end, 3 points for every 2 plants.' },
+    triceratops: { cost: { d: 1, c: 3 }, ability: 'Every round: pay a plant from your supply to put it on your Triceratops page. At game end, 1 point per plant.' },
     spinosaurus: { ability: 'Gain 1 diamond, 5 coins, 15 food, or fill in 10 squares in your opponent’s park. Then reserve the top card of the deck if your hand has room.' },
     dilophosaurus: { ability: 'Take 5 food, draw in 5 fences, reserve a market card, and gain 5 coins.' },
   };
@@ -984,7 +985,7 @@
     const perPachy = Math.floor(P.coins / PROTO_PACHY_COINS);
     const pachy = count('pachy', true) * perPachy + count('pachy', false) * half(perPachy, false);
     const micro = active.reduce((s, cp) => s + (cp.living.some((d) => d.species === 'microraptor' && isAdult(d)) ? 2 : cp.living.some((d) => d.species === 'microraptor' && d.stage === 'baby') ? 1 : 0), 0);
-    const triFull = Math.floor(P.triPlants / 2) * 3;
+    const triFull = P.triPlants;
     const tri = count('triceratops', true) ? triFull : count('triceratops', false) ? half(triFull, false) : 0;
     const ctx = protoGoalCtx(P, b);
     const out = { dinoPts, compy, pachy, micro, tri };
@@ -5890,7 +5891,7 @@
   function protoDiamondPts(p) {
     const P = state.players[p];
     const cv = protoCoinValue(p);
-    const end = 1 + (protoKnownGoals().includes('gems') ? 4 : 0);
+    const end = 1 + (protoKnownGoals().includes('gems') ? PROTO_GEM_PTS : 0);
     const want = protoRoundsLeft() > 1 && state.faceUp.concat(P.hand).some((sp) => sp && !P.blocked.includes(sp) && protoCost(sp).d >= P.diamonds);
     return Math.max(end, want ? 5 * cv + 1 : 0);
   }
@@ -5950,7 +5951,7 @@
     if (sp === 'gigantoraptor' && left <= 1) power = 0;
     if (sp === 'parasaurolophus' || sp === 'allosaurus') power = left * 0.4;
     if (sp === 'velociraptor') power = left * 0.3;
-    if (sp === 'triceratops') power = left * 0.45;
+    if (sp === 'triceratops') power = left * 0.3;
     if (sp === 'pachy') power = (P.coins + left * 3) / PROTO_PACHY_COINS;
     if (sp === 'microraptor') power = 1.5;
     // Only one enclosure pays each round, so production counts by how much it lifts the best one.
@@ -6162,7 +6163,7 @@
         const buy = protoBestBuy(p, null, protoExtra(X), X.type === 'breed');
         if (buy) plan = { v: buy.v + 1, buy };
       } else if (X.type === 'coins') plan = { v: protoSpaceAmount(k) * cv + 0.4 };
-      else if (X.type === 'gem') plan = { v: 1 + (wantGem ? 2 : 0) + (known.includes('gems') ? 3 : 0) - gemCost(X) * cv * 0.7 };
+      else if (X.type === 'gem') plan = { v: 1 + (wantGem ? 2 : 0) + (known.includes('gems') ? 0.75 * PROTO_GEM_PTS : 0) - gemCost(X) * cv * 0.7 };
       else if (X.type === 'forage') {
         const n = protoSpaceAmount(k);
         // Unfed enclosures score nothing at the end, so the last Feeding matters most.
