@@ -100,7 +100,7 @@
   };
 
   // Bump with RULES_VERSION in workers/src/dino.js when costs or rules change, so open tabs on old rules must reload.
-  const RULES_VERSION = 7;
+  const RULES_VERSION = 8;
 
   const BOOK = ['compy', 'triceratops', 'spinosaurus', 'stegosaurus', 'velociraptor', 'brachiosaurus', 'trex', 'pachy'];
   const DECK = ['allosaurus', 'mosasaurus', 'carnotaurus', 'microraptor', 'ankylosaurus', 'dilophosaurus', 'parasaurolophus', 'gigantoraptor'];
@@ -706,8 +706,8 @@
   }
 
   // ---------------------------------------------------------------- feeding / production / scoring helpers
-  // Eggs and babies (prototype breeding): eggs do nothing; babies take half the squares, production and
-  // points (rounded down) and eat half the food (rounded up). Pieces without a stage are adults.
+  // Eggs and babies (prototype breeding): eggs do nothing; babies take half the squares (rounded down) and
+  // have half the production and points and eat half the food (all rounded up). Pieces without a stage are adults.
   const babySize = (sp) => Math.max(1, Math.floor(spec(sp).space / 2));
   const isAdult = (d) => !d.stage;
   const hatched = (d) => d.stage !== 'egg';
@@ -719,12 +719,12 @@
 
   function dinoProd(d) {
     const n = SPECIES[d.species].prod;
-    return d.stage === 'egg' ? 0 : d.stage === 'baby' ? Math.floor(n / 2) : n;
+    return d.stage === 'egg' ? 0 : d.stage === 'baby' ? Math.ceil(n / 2) : n;
   }
 
   function dinoPoints(d) {
     const n = spec(d.species).pts;
-    return d.stage === 'egg' ? 0 : d.stage === 'baby' ? Math.floor(n / 2) : n;
+    return d.stage === 'egg' ? 0 : d.stage === 'baby' ? Math.ceil(n / 2) : n;
   }
 
   // Feeders take 1 food per feeder square off the enclosure's whole bill (not off each dino).
@@ -940,7 +940,7 @@
         const it = b.items[b.cells[j]];
         if (it && it !== d && it.species === 'compy' && !it.dead && hatched(it) && an.compOf[j] === an.compOf[i]) near.add(it.id);
       }));
-      n += isAdult(d) ? near.size : Math.floor(near.size / 2);
+      n += isAdult(d) ? near.size : Math.ceil(near.size / 2);
     });
     return n;
   }
@@ -986,8 +986,8 @@
     const dinos = [];
     active.forEach((cp) => cp.living.filter(hatched).forEach((d) => dinos.push({ d, cp })));
     const count = (sp, adult) => dinos.filter((x) => x.d.species === sp && isAdult(x.d) === adult).length;
-    // Babies score half (rounded down) of their card points and of each scoring ability.
-    const half = (n, adult) => (adult ? n : Math.floor(n / 2));
+    // Babies score half (rounded up) of their card points and of each scoring ability.
+    const half = (n, adult) => (adult ? n : Math.ceil(n / 2));
     const dinoPts = dinos.reduce((s, x) => s + dinoPoints(x.d), 0);
     const compy = protoCompyAdjacency(b, an, dinos);
     const perPachy = Math.floor(P.coins / PROTO_PACHY_COINS);
@@ -3639,7 +3639,7 @@
         <li>🌾 Feeders cost 💎1 + 🪙1 per square. Each feeder square takes 1 food off that enclosure’s bill every Feeding.</li>
       </ul>
       <h3>Breeding</h3>
-      <p>A 🥚 Breed space adds a baby of a species you have an adult pair of in one enclosure; the baby goes in that enclosure and costs half the dino’s coins (rounded up) plus the space’s extra coins, and 1 diamond less than the card. Babies take half the squares (rounded down), eat half (rounded up) and have half the production, points and scoring powers (rounded down), with no when-played or every-round powers. After being fed in ${PROTO_BABY_FEEDS} Feedings a baby grows up: you add squares for its full size (or it dies if there’s no room), and its when-played power triggers.</p>
+      <p>A 🥚 Breed space adds a baby of a species you have an adult pair of in one enclosure; the baby goes in that enclosure and costs half the dino’s coins (rounded up) plus the space’s extra coins, and 1 diamond less than the card. Babies take half the squares (rounded down), eat half and have half the production, points and scoring powers (all rounded up), with no when-played or every-round powers. After being fed in ${PROTO_BABY_FEEDS} Feedings a baby grows up: you add squares for its full size (or it dies if there’s no room), and its when-played power triggers.</p>
       <h3>Scoring</h3>
       <ul>
         <li>Each dino’s points (the yellow circle).</li>
