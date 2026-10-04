@@ -100,7 +100,7 @@
   };
 
   // Bump with RULES_VERSION in workers/src/dino.js when costs or rules change, so open tabs on old rules must reload.
-  const RULES_VERSION = 6;
+  const RULES_VERSION = 7;
 
   const BOOK = ['compy', 'triceratops', 'spinosaurus', 'stegosaurus', 'velociraptor', 'brachiosaurus', 'trex', 'pachy'];
   const DECK = ['allosaurus', 'mosasaurus', 'carnotaurus', 'microraptor', 'ankylosaurus', 'dilophosaurus', 'parasaurolophus', 'gigantoraptor'];
@@ -120,6 +120,7 @@
   // "Enclosure" here means an active enclosure with at least one living dino.
   const PROTO_GOAL_ROUNDS = [1, 6, 11];
   const PROTO_GEM_PTS = 2;
+  const PROTO_RESERVE_OFF = 1;
   const PROTO_GOALS = {
     full: { icon: '🧱', name: 'Full house', desc: '3 points for every 2 enclosures with no empty squares, after your first', pts: (c) => Math.floor(1.5 * Math.max(0, c.pens.filter((x) => x.empty === 0).length - 1)) },
     mixed: { icon: '🤝', name: 'Mixed company', desc: '4 points per species in each enclosure with a watering hole', pts: (c) => 4 * c.pens.reduce((s, x) => s + (x.waters ? x.kinds.size : 0), 0) },
@@ -146,9 +147,9 @@
     buy1: { type: 'buy', name: 'Play a dino', icon: '🦖', extra: 0, desc: 'Buy a market or reserved card and place it' },
     buy2: { type: 'buy', name: 'Play a dino', icon: '🦕', extra: 1, desc: 'Play a dino for 🪙1 extra' },
     buy3: { type: 'buy', name: 'Play a dino', icon: '🐊', extra: 2, open: true, desc: 'Play a dino for 🪙2 extra' },
-    breed1: { type: 'breed', name: 'Breed', icon: '🥚', extra: 0, desc: 'Lay an egg next to a pair of your dinos: half its coins, 💎1 less' },
-    breed2: { type: 'breed', name: 'Breed', icon: '🥚', extra: 1, desc: 'Lay an egg next to a pair of your dinos: half its coins +🪙1, 💎1 less' },
-    breed3: { type: 'breed', name: 'Breed', icon: '🥚', extra: 2, open: true, desc: 'Lay an egg next to a pair of your dinos: half its coins +🪙2, 💎1 less' },
+    breed1: { type: 'breed', name: 'Breed', icon: '🥚', extra: 0, desc: 'Add a baby next to a pair of your dinos: half its coins, 💎1 less' },
+    breed2: { type: 'breed', name: 'Breed', icon: '🥚', extra: 1, desc: 'Add a baby next to a pair of your dinos: half its coins +🪙1, 💎1 less' },
+    breed3: { type: 'breed', name: 'Breed', icon: '🥚', extra: 2, open: true, desc: 'Add a baby next to a pair of your dinos: half its coins +🪙2, 💎1 less' },
     coins1: { type: 'coins', name: 'Coins', icon: '🪙', n: 3, desc: 'Take 3 coins' },
     coins2: { type: 'coins', name: 'Coins', icon: '🪙', n: 2, desc: 'Take 2 coins' },
     coins3: { type: 'coins', name: 'Coins', icon: '🪙', n: 1, open: true, desc: 'Take 1 coin' },
@@ -187,7 +188,7 @@
     gemsale: { name: 'Gem sale', icon: '💎', desc: 'Gems spaces cost 2 coins less this round.' },
     payday: { name: 'Payday', icon: '💵', desc: 'Coins spaces give 2 more coins this round.' },
     boom: { name: 'Building boom', icon: '🏗️', desc: 'Feeders cost no diamonds, and Builder spaces charge no extra coins this round.' },
-    inflation: { name: 'Inflation', icon: '📈', desc: 'Dinos cost 2 coins more this round (eggs 1 more).' },
+    inflation: { name: 'Inflation', icon: '📈', desc: 'Dinos cost 2 coins more this round (babies 1 more).' },
     nursery: { name: 'Nursery', icon: '🍼', desc: 'Babies fed at Feeding this round count as fed twice.' },
     scouting: { name: 'Scouting party', icon: '🧭', desc: 'Scout spaces reserve 1 more card this round (if your hand has room).' },
     spoilage: { name: 'Spoilage', icon: '🦠', desc: 'Everyone’s food above 6 spoils (from the bigger pile first).' },
@@ -199,9 +200,10 @@
     gigantoraptor: { ability: 'Place one extra worker next round.' },
     pachy: { ability: `1 point for every ${PROTO_PACHY_COINS} coins you have at game end, for every Pachy you have.` },
     parasaurolophus: { ability: 'Every round: +1 coin for each Parasaurolophus in this enclosure.' },
-    allosaurus: { ability: 'Every round: steal 1 coin from your opponent.' },
+    allosaurus: { pts: 5, ability: 'Every round: steal 1 coin from your opponent.' },
     velociraptor: { ability: 'Every round: steal 1 food from your opponent.' },
     ankylosaurus: { cost: { d: 1, c: 7 } },
+    mosasaurus: { cost: { d: 3, c: 6 }, space: 16 },
     triceratops: { cost: { d: 1, c: 3 }, ability: 'Every round: pay a plant from your supply to put it on your Triceratops page. At game end, 1 point per plant.' },
     spinosaurus: { ability: 'Gain 1 diamond, 5 coins, 15 food, or fill in 10 squares in your opponent’s park. Then reserve the top card of the deck if your hand has room.' },
     dilophosaurus: { ability: 'Take 5 food, draw in 5 fences, reserve a market card, and gain 5 coins.' },
@@ -258,7 +260,13 @@
     return state.event === 'inflation' ? { d: c.d, c: c.c + 2 } : c;
   }
 
-  // An egg costs half the card's coins (rounded up) and 1 diamond less than the card.
+  // What playing a card costs from where it sits: reserved cards (src 'h') cost 1 coin less.
+  function playCost(sp, src) {
+    const c = protoCost(sp);
+    return src === 'h' ? { d: c.d, c: Math.max(0, c.c - PROTO_RESERVE_OFF) } : c;
+  }
+
+  // A baby costs half the card's coins (rounded up) and 1 diamond less than the card.
   function breedCost(sp) {
     const c = protoCost(sp);
     return { d: Math.max(0, c.d - 1), c: Math.ceil(c.c / 2) };
@@ -1558,7 +1566,7 @@
     return src.map((o) => {
       let why = '';
       if (P.blocked.includes(o.sp)) why = 'Blocked by T. Rex';
-      else if (free ? spec(o.sp).pts > limit : !canAfford(P, withExtra(protoCost(o.sp), extra || 0))) why = free ? `Worth more than ${limit} points` : 'Can’t afford yet';
+      else if (free ? spec(o.sp).pts > limit : !canAfford(P, withExtra(playCost(o.sp, o.src), extra || 0))) why = free ? `Worth more than ${limit} points` : 'Can’t afford yet';
       else if (!roomFor(p, o.sp, an)) why = 'No room in your park';
       return Object.assign(o, { ok: !why, why });
     });
@@ -1737,7 +1745,6 @@
         return { ok: false, why: opts.length && opts.every((o) => o.why === opts[0].why) ? opts[0].why : 'Nothing you can play' };
       }
       case 'breed': {
-        if (protoRoundsLeft() <= 1) return { ok: false, why: 'Too late: eggs won’t hatch' };
         const opts = protoBreedOptions(p, protoExtra(X));
         if (opts.some((o) => o.ok)) return { ok: true };
         return { ok: false, why: !opts.length ? 'Needs a pair in one enclosure' : opts.every((o) => o.why === opts[0].why) ? opts[0].why : 'Nothing you can breed' };
@@ -2130,7 +2137,7 @@
       ${o.tag ? `<span class="dc-tag">${o.tag}</span>` : ''}
       <div class="dc-head"><div class="dc-name ${S.name.length > 11 && S.name.length <= 15 ? 'long' : ''}">${esc(S.name.length > 15 ? spName(sp) : S.name)}</div><div class="dc-pts" title="Points">${S.pts}</div></div>
       <div class="dc-art" style="--sc:${S.color}"><img src="${IMG}${sp}.webp" alt="" draggable="false">${o.lock ? `<span class="dc-lock">🔒 ${o.lock}</span>` : ''}</div>
-      <div class="dc-price"><small>${o.cost ? 'Egg' : 'Cost'}</small><b>${costText(o.cost || cardCost(sp))}</b></div>
+      <div class="dc-price"><small>${o.costLabel || 'Cost'}</small><b>${costText(o.cost || cardCost(sp))}</b></div>
       <div class="dc-facts">${statBox('space', `⬛${S.space}`, 'Squares it takes up')}${statBox('eats', foodText(S.food).replace(' ', ''), 'Food it eats every Feeding')}${statBox('earns', `🪙${S.prod}`, 'Coins it adds in Production')}</div>
       <div class="dc-ab"><span class="dc-type">${typeLabel(S)}</span>${esc(S.ability)}</div>
       ${o.foot || ''}
@@ -2521,7 +2528,6 @@
       '<span>💤 Inactive (unfed)</span>',
       '<span>💀 Fossil</span>',
     ].concat(state && state.proto ? [
-      '<span>🥚 Egg (hatches next round)</span>',
       `<span>🍼 Baby (small token, grows up after ${PROTO_BABY_FEEDS} Feedings)</span>`,
     ] : []).join('');
   }
@@ -2763,10 +2769,10 @@
       }
       const deal = src === 'm' && isFresh(`bm${i}:${sp}:${state.deck.length}`, 900) ? ' deal' : '';
       const where = src === 'h' ? ' held' : src === 'b' ? ' bred' : ' shop';
-      return cardHtml(sp, { cls: cls + deal + where, attrs, lock, cost: src === 'b' ? breedCost(sp) : null, tag: src === 'h' ? '✋ Reserved' : src === 'b' ? `🥚 Egg · ⬛${babySize(sp)}` : '' });
+      return cardHtml(sp, { cls: cls + deal + where, attrs, lock, cost: src === 'b' ? breedCost(sp) : src === 'h' ? playCost(sp, 'h') : null, costLabel: src === 'b' ? 'Baby' : '', tag: src === 'h' ? '✋ Reserved' : src === 'b' ? `🐣 Baby · ⬛${babySize(sp)}` : '' });
     };
     const hint = picking ? 'Tap a card or the deck to reserve it'
-      : breeding ? `Tap a 🥚 dino, then place its egg in the enclosure with the pair (half its coins${spaceExtra() ? ` +🪙${spaceExtra()}` : ''}, 💎1 less)`
+      : breeding ? `Tap a 🥚 dino, then place its baby in the enclosure with the pair (half its coins${spaceExtra() ? ` +🪙${spaceExtra()}` : ''}, 💎1 less)`
       : buying ? `Tap a dino to buy it, then place it in your park${T.t !== 'freePlay' && spaceExtra() ? ` (costs 🪙${spaceExtra()} extra on this space)` : ''}`
         : 'Tap any card for details. Buy with a 🦖 Play a dino worker, or 🥚 Breed dinos you already have.';
     const viewer = buying || picking ? T.p : state.ai != null ? other(state.ai) : T.p != null ? T.p : state.first;
@@ -2781,7 +2787,7 @@
       <div class="bm-row">
         <div class="deck-back bm-deck ${deckOk ? 'pick' : ''} ${state.deck.length ? '' : 'gone'}" ${deckOk ? 'data-act="take" data-from="deck"' : ''} title="Top of the deck (face down)" style="--stack:${stack}"><b>${state.deck.length}</b><small>deck</small></div>
         ${state.faceUp.map((sp, i) => card(sp, 'm', i)).join('')}
-      </div>${breeding ? `<div class="bm-hand bm-breed pl-${P.color}"><div class="bm-sub">🥚 Breed <small>species with an adult pair in one of ${esc(P.name)}’s enclosures · eggs take half the squares · half the coins${spaceExtra() ? ` +🪙${spaceExtra()}` : ''}, 💎1 less</small></div><div class="bm-row">${opts.map((o) => card(o.sp, 'b', o.i)).join('')}</div></div>` : ''}${hand}`);
+      </div>${breeding ? `<div class="bm-hand bm-breed pl-${P.color}"><div class="bm-sub">🥚 Breed <small>species with an adult pair in one of ${esc(P.name)}’s enclosures · babies take half the squares · half the coins${spaceExtra() ? ` +🪙${spaceExtra()}` : ''}, 💎1 less</small></div><div class="bm-row">${opts.map((o) => card(o.sp, 'b', o.i)).join('')}</div></div>` : ''}${hand}`);
   }
 
   function logItems(list) {
@@ -3208,7 +3214,8 @@
         attrs: o.ok ? `data-act="pickSpecies" data-sp="${o.sp}"${state.proto ? ` data-src="${o.src}" data-i="${o.i}"` : ''}` : '',
         tag: state.proto ? ({ h: 'reserved', b: 'breed' }[o.src] || 'market') : state.players[T.p].cards.includes(o.sp) ? 'card' : '',
         lock: o.ok ? '' : o.why,
-        cost: o.src === 'b' ? breedCost(o.sp) : null,
+        cost: o.src === 'b' ? breedCost(o.sp) : o.src === 'h' ? playCost(o.sp, 'h') : null,
+        costLabel: o.src === 'b' ? 'Baby' : '',
       });
       const can = opts.filter((o) => o.ok);
       const cant = opts.filter((o) => !o.ok);
@@ -3223,10 +3230,10 @@
     const v = validateSel();
     const egg = !!(ui.sel && ui.sel.breed);
     const need = ui.sel && ui.sel.need ? ui.sel.need : S.space;
-    const price = free ? ' (free!)' : ` · ${costText(state.proto ? withExtra(egg ? breedCost(ui.species) : cardCost(ui.species), spaceExtra()) : cardCost(ui.species))}`;
-    return `<div class="place-head">${dz(ui.species, 'big')}<h3>${egg ? `Lay a ${esc(S.name)} egg` : `Place ${esc(S.name)}`}${price}</h3></div>
+    const price = free ? ' (free!)' : ` · ${costText(state.proto ? withExtra(egg ? breedCost(ui.species) : playCost(ui.species, ui.pick && ui.pick.src), spaceExtra()) : cardCost(ui.species))}`;
+    return `<div class="place-head">${dz(ui.species, 'big')}<h3>${egg ? `Breed a baby ${esc(S.name)}` : `Place ${esc(S.name)}`}${price}</h3></div>
       ${placementBox(`Select ${plural(need, 'connected square')} ${egg ? 'in the enclosure with the pair' : 'inside one enclosure'}`)}
-      <button class="btn big" data-act="place" ${v.ok ? '' : 'disabled'}>${egg ? 'Lay egg' : `Place ${esc(spName(ui.species))}`}</button>
+      <button class="btn big" data-act="place" ${v.ok ? '' : 'disabled'}>${egg ? 'Place baby' : `Place ${esc(spName(ui.species))}`}</button>
 `;
   }
 
@@ -3437,8 +3444,8 @@
     }
     if (s.purpose === 'dino') {
       const v = validatePlacement(s.board, cells, { kind: 'dino', species: s.species, size: s.breed ? babySize(s.species) : spec(s.species).space });
-      if (v.ok && s.breed && v.comp.living.filter((d) => d.species === s.species && isAdult(d)).length < 2) return { ok: false, msg: `The egg must go in an enclosure with a pair of adult ${spName(s.species)}.` };
-      return v.ok && s.breed ? Object.assign({}, v, { msg: `Egg fits in enclosure ${v.comp.name} ✔` }) : v;
+      if (v.ok && s.breed && v.comp.living.filter((d) => d.species === s.species && isAdult(d)).length < 2) return { ok: false, msg: `The baby must go in an enclosure with a pair of adult ${spName(s.species)}.` };
+      return v.ok && s.breed ? Object.assign({}, v, { msg: `Baby fits in enclosure ${v.comp.name} ✔` }) : v;
     }
     if (s.purpose === 'grow') return validateGrow(s.board, s.id, cells);
     if (s.purpose === 'feeder') {
@@ -3621,7 +3628,7 @@
       <h3>Buying dinos</h3>
       <ul>
         <li>Buy a face-up market card, or one you reserved, with a 🦖 Play a dino worker. Pay its cost and fill its squares in one enclosure. Bought cards are gone for your opponent.</li>
-        <li>Reserve cards with 🔭 Scout (up to ${PROTO_HAND_MAX} in your hand). Only you can buy your reserved cards.</li>
+        <li>Reserve cards with 🔭 Scout (up to ${PROTO_HAND_MAX} in your hand). Only you can buy your reserved cards, and they cost 🪙${PROTO_RESERVE_OFF} less to play.</li>
         <li>From round 2, ${PROTO_REFRESH} random market cards are replaced at the start of each round.</li>
       </ul>
       <h3>Enclosures</h3>
@@ -3632,7 +3639,7 @@
         <li>🌾 Feeders cost 💎1 + 🪙1 per square. Each feeder square takes 1 food off that enclosure’s bill every Feeding.</li>
       </ul>
       <h3>Breeding</h3>
-      <p>A 🥚 Breed space lays an egg of a species you have an adult pair of in one enclosure; the egg goes in that enclosure and costs half the dino’s coins (rounded up) plus the space’s extra coins, and 1 diamond less than the card. Eggs take half the squares (rounded down) and hatch next round. Babies eat half (rounded up) and have half the production, points and scoring powers (rounded down), with no when-played or every-round powers. After being fed in ${PROTO_BABY_FEEDS} Feedings a baby grows up: you add squares for its full size (or it dies if there’s no room), and its when-played power triggers.</p>
+      <p>A 🥚 Breed space adds a baby of a species you have an adult pair of in one enclosure; the baby goes in that enclosure and costs half the dino’s coins (rounded up) plus the space’s extra coins, and 1 diamond less than the card. Babies take half the squares (rounded down), eat half (rounded up) and have half the production, points and scoring powers (rounded down), with no when-played or every-round powers. After being fed in ${PROTO_BABY_FEEDS} Feedings a baby grows up: you add squares for its full size (or it dies if there’s no room), and its when-played power triggers.</p>
       <h3>Scoring</h3>
       <ul>
         <li>Each dino’s points (the yellow circle).</li>
@@ -4266,7 +4273,7 @@
     if (s.purpose === 'dino') {
       const sp = s.species;
       const free = T.t === 'freePlay';
-      const cost = state.proto ? withExtra(s.breed ? breedCost(sp) : protoCost(sp), spaceExtra()) : SPECIES[sp].cost;
+      const cost = state.proto ? withExtra(s.breed ? breedCost(sp) : playCost(sp, ui.pick && ui.pick.src), spaceExtra()) : SPECIES[sp].cost;
       if (state.proto) {
         const pk = ui.pick;
         if (!pk) return;
@@ -4287,10 +4294,11 @@
       }
       const encl = placeItem(p, 'dino', cells, sp);
       if (s.breed) {
-        const egg = P.board.items[P.board.nextId - 1];
-        egg.stage = 'egg';
-        egg.born = state.round;
-        logMsg(`🥚 ${pn(p)} bred ${dz(sp)} <b>${spName(sp)}</b>: an egg in enclosure ${encl} (${costText(cost)}). It hatches next round.`);
+        const baby = P.board.items[P.board.nextId - 1];
+        baby.stage = 'baby';
+        baby.fed = 0;
+        baby.born = state.round;
+        logMsg(`🐣 ${pn(p)} bred ${dz(sp)} <b>${spName(sp)}</b>: a baby in enclosure ${encl} (${costText(cost)}).`);
         completeAction();
         return;
       }
@@ -5985,7 +5993,7 @@
     const b = P.board;
     const an = analyze(b);
     const left = protoRoundsLeft();
-    const grown = left - 1 - PROTO_BABY_FEEDS;
+    const grown = left - PROTO_BABY_FEEDS;
     let best = null;
     (breed ? protoBreedOptions(p, extra) : protoPlayOptions(p, freeTask, extra)).filter((o) => o.ok).forEach((o) => {
       const cells = breed ? protoBreedCells(p, o.sp, true) : aiFindCellsB(b, spec(o.sp).space, o.sp);
@@ -5993,10 +6001,10 @@
       const hungry = protoHunger(p, o.sp, protoFoodSpare(p, o.sp));
       let value;
       if (breed) {
-        // An egg takes a round to hatch and PROTO_BABY_FEEDS Feedings to grow up, so it's worth less, and little
+        // A baby takes PROTO_BABY_FEEDS Feedings to grow up and scores half until then, so it's worth less
         // near the end, but it's much cheaper than buying the card.
         const saved = Math.max(0, protoPricePts(p, o.sp) - protoPricePts(p, o.sp, breedCost(o.sp)));
-        value = (protoDinoValue(p, o.sp) * 0.7 + saved * 0.4) * (grown >= 1 ? 1 : grown >= 0 ? 0.5 : left >= 2 ? 0.2 : 0);
+        value = (protoDinoValue(p, o.sp) * 0.7 + saved * 0.4) * (grown >= 1 ? 1 : grown >= 0 ? 0.6 : 0.35);
       } else {
         // Completing an adult pair opens up cheap eggs while there's still time for them to grow up.
         const home = an.comps[an.compOf[cells[0]]];
@@ -6058,7 +6066,7 @@
     const out = state.deck.length ? [{ from: 'deck', v: 0.5 }] : [];
     state.faceUp.forEach((sp, i) => {
       if (!sp) return;
-      const mine = P.blocked.includes(sp) ? 0 : Math.max(0, protoDinoValue(p, sp) - protoHunger(p, sp, protoFoodSpare(p, sp)) - protoPricePts(p, sp)) * 0.4;
+      const mine = P.blocked.includes(sp) ? 0 : Math.max(0, protoDinoValue(p, sp) - protoHunger(p, sp, protoFoodSpare(p, sp)) - protoPricePts(p, sp, playCost(sp, 'h'))) * 0.4;
       const denial = aiCfg().level === 'hard' && canAfford(O, protoCost(sp)) && !O.blocked.includes(sp) ? Math.max(0, protoDinoValue(other(p), sp) - protoPricePts(other(p), sp)) * 0.1 : 0;
       out.push({ from: i, v: mine + denial });
     });
