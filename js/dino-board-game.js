@@ -2697,7 +2697,7 @@
   }
 
   function bannerCore(T) {
-    if (T.t === 'gameOver') return '<div class="banner"><div class="b-who">🏁 Final scores</div><div class="b-phase">${rounds()} rounds complete</div></div>';
+    if (T.t === 'gameOver') return `<div class="banner"><div class="b-who">🏁 Final scores</div><div class="b-phase">${rounds()} rounds complete</div></div>`;
     if (T.p === undefined) {
       return `<div class="banner"><div class="b-who">Round ${state.round} of ${rounds()}</div><div class="b-phase">${T.t === 'roll' ? '🎲 Gain Food / Draw Fences' : 'Shuffle the phase cards'}</div></div>`;
     }
