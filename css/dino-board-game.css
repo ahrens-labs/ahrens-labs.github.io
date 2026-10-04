@@ -1235,9 +1235,6 @@ a.btn { display: inline-block; text-align: center; text-decoration: none; }
 .hand-grid .dcard.held { box-shadow: 0 0 0 3px var(--hc), 0 6px 14px rgba(0, 0, 0, 0.18); }
 .big-market .dcard.held { background: linear-gradient(180deg, #fff, color-mix(in srgb, var(--hc, #e53935) 10%, #fffaf0)); box-shadow: 0 0 0 3px var(--hc, #e53935), 0 6px 14px rgba(0, 0, 0, 0.18); }
 .big-market .dcard.held .dc-tag { background: var(--hc, #e53935); font-size: 0.72rem; }
-.bm-breed { border-style: dashed; background: repeating-linear-gradient(135deg, #fffaf0 0 14px, #fff3dc 14px 28px); }
-.big-market .dcard.bred { background: linear-gradient(180deg, #fff, #fff6e0); box-shadow: 0 0 0 3px #d9a441, 0 6px 14px rgba(0, 0, 0, 0.18); }
-.big-market .dcard.bred .dc-tag { background: #b7791f; font-size: 0.72rem; }
 .big-market .dc-ab { font-size: 0.76rem; }
 .bm-deck { min-height: 150px; align-self: stretch; }
 .bm-deck b { font-size: 1.8rem; }
