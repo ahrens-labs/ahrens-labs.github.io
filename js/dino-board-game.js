@@ -5929,6 +5929,9 @@
   // value and takes the best. Lower levels add more random noise.
   const PROTO_POWER = { trex: 3, gigantoraptor: 2, spinosaurus: 4, dilophosaurus: 4, stegosaurus: 2.5, brachiosaurus: 2, carnotaurus: 2.5, ankylosaurus: 3 };
 
+  // Goal points are certain and the human opponent chases them hard, so the computer weighs them up a bit.
+  const PROTO_GOAL_W = 1.6;
+
   function protoNoise() {
     const lv = aiCfg().level;
     return noise(lv === 'easy' ? 2.5 : lv === 'medium' ? 1 : 0.2);
@@ -5961,7 +5964,12 @@
     return Math.max(end, want ? 5 * cv + 1 : 0);
   }
 
-  // Food still missing for this round's Feeding.
+  // Food the opponent's Velociraptors will steal in Production, before Feeding.
+  function protoRaid(p) {
+    return producible(other(p)).reduce((s, cp) => s + cp.living.filter((d) => d.species === 'velociraptor' && isAdult(d)).length, 0);
+  }
+
+  // Food still missing for this round's Feeding, after the opponent's Velociraptors eat into any spare.
   function protoFoodShort(p) {
     const P = state.players[p];
     const d = demandOf(P.board);
@@ -5969,7 +5977,7 @@
     const needM = Math.max(0, d.meat - P.meat);
     const needP = Math.max(0, d.plant - P.plants);
     const left = Math.max(0, P.meat - d.meat) + Math.max(0, P.plants - d.plant);
-    return needM + needP + Math.max(0, d.flex - left);
+    return needM + needP + Math.max(0, d.flex - left) + Math.max(0, protoRaid(p) - Math.max(0, left - d.flex));
   }
 
   // Food of the kind `sp` eats that's left after this round's Feeding.
@@ -6024,7 +6032,7 @@
     const home = an.comps.filter((cp) => cp.valid && !cp.dead && cp.species.has(sp)).reduce((m, cp) => Math.max(m, cp.prod), 0);
     const coins = Math.max(S.prod * 0.35, home + S.prod - top) * left * protoCoinValue(p) * 0.6;
     const food = S.food.n * left * 0.35;
-    return S.pts + goals + power + coins - food;
+    return S.pts + goals * PROTO_GOAL_W + power + coins - food;
   }
 
   const PROTO_FOOD_INCOME = 5;
@@ -6107,12 +6115,13 @@
     let best = null;
     an.comps.filter((cp) => cp.valid && !cp.dead && cp.living.length && cp.empty > 0).forEach((cp) => {
       const bill = enclosureCost(cp).total;
-      const size = Math.min(cp.empty, bill, Math.max(0, P.coins - x));
+      // Feeder squares beyond the bill save no food, but Well stocked still pays for them.
+      const size = Math.min(cp.empty, protoKnownGoals().includes('feeders') ? cp.empty : bill, Math.max(0, P.coins - x));
       if (size <= 0 || !canAfford(P, withExtra(feederCost(size), x))) return;
       const cells = aiFindCellsB(b, size, null, cp.key);
       if (!cells) return;
       const dia = feederCost(size).d * protoDiamondPts(p);
-      const v = size * protoRoundsLeft() * 0.35 - (size + x) * protoCoinValue(p) - dia + protoGoalGain(p, (b2) => placeItemB(b2, 'feeder', cells));
+      const v = Math.min(size, bill) * protoRoundsLeft() * 0.35 - (size + x) * protoCoinValue(p) - dia + protoGoalGain(p, (b2) => placeItemB(b2, 'feeder', cells)) * PROTO_GOAL_W;
       if (!best || v > best.v) best = { item: 'feeder', cells, v };
     });
     if (canAfford(P, withExtra(waterCost(), x))) {
@@ -6125,7 +6134,7 @@
         if (!forGoal && protoRoundsLeft() <= 1) return;
         const mixing = known.includes('mixed') && cp.species.size === 1 && !cp.waters.length && w.biggest >= 2 ? 2 : 0;
         const dia = waterCost().d * protoDiamondPts(p) - 1;
-        const v = 2.5 + mixing + (protoRoundsLeft() > 3 ? 1 : 0) - (2 + x) * protoCoinValue(p) - dia + protoGoalGain(p, (b2) => placeItemB(b2, 'water', w.cells));
+        const v = 2.5 + mixing + (protoRoundsLeft() > 3 ? 1 : 0) - (2 + x) * protoCoinValue(p) - dia + protoGoalGain(p, (b2) => placeItemB(b2, 'water', w.cells)) * PROTO_GOAL_W;
         if (!best || v > best.v) best = { item: 'water', cells: w.cells, v };
       });
     }
@@ -6251,12 +6260,12 @@
       const wantGem = state.faceUp.concat(P.hand).some((sp) => protoCost(sp).d > P.diamonds) && left > 1;
       if (X.type === 'buy') {
         const buy = protoBestBuy(p, null, protoExtra(X));
-        if (buy) plan = { v: buy.v + 1, buy };
+        if (buy) plan = { v: buy.v, buy };
       } else if (X.type === 'breed') {
         const br = protoBestBreed(p, breedPrice(X));
         if (br) plan = { v: br.v, breed: br };
       } else if (X.type === 'coins') plan = { v: protoSpaceAmount(k) * cv + 0.4 };
-      else if (X.type === 'gem') plan = { v: 1 + (wantGem ? 2 : 0) + (known.includes('gems') ? 0.75 * PROTO_GEM_PTS : 0) - gemCost(X) * cv * 0.7 };
+      else if (X.type === 'gem') plan = { v: 1 + (wantGem ? 2 : 0) + (known.includes('gems') ? 0.75 * PROTO_GEM_PTS * PROTO_GOAL_W : 0) - gemCost(X) * cv * 0.7 };
       else if (X.type === 'forage') {
         const n = protoSpaceAmount(k);
         // Unfed enclosures score nothing at the end, so the last Feeding matters most.
