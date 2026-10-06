@@ -2280,7 +2280,12 @@
     out.push(`<rect x="0" y="0" width="${W}" height="${W}" rx="12" fill="url(#wd${p})" class="b-bg"/>`);
 
     const firstSel = sel && sel.type === 'cells' && sel.purpose !== 'rubble' && sel.cells.size ? sel.cells.values().next().value : null;
-    const selComp = firstSel !== null ? an.comps[an.compOf[firstSel]] : null;
+    // A growing baby (or a breeding pair) is marked, and only its enclosure takes squares.
+    const anchor = sel && sel.type === 'cells' && (sel.purpose === 'grow' || sel.purpose === 'birth') ? b.items[sel.id] : null;
+    const anchorComp = anchor ? an.comps[an.compOf[anchor.cells[0]]] : null;
+    const selComp = firstSel !== null ? an.comps[an.compOf[firstSel]] : anchorComp;
+    const focus = new Set(!anchor ? [] : sel.purpose === 'grow' ? [anchor.id]
+      : anchorComp.living.filter((d) => d.species === anchor.species && isAdult(d)).slice(0, 2).map((d) => d.id));
 
     // cells
     out.push('<g class="cells">');
@@ -2361,7 +2366,11 @@
         const s = R * 2.3;
         g.push(`<image href="${IMG}${img}.webp" x="${spot.x - s / 2}" y="${spot.y - s / 2}" width="${s}" height="${s}"/>`);
       }
-      out.push(`<g class="piece${fresh ? ' drop' : ''}${inactive ? ' zz' : ''}">${g.join('')}</g>`);
+      if (focus.has(it.id)) {
+        it.cells.forEach((i) => g.push(`<rect class="focus-cell" x="${X(i % N) + 1.5}" y="${Y(Math.floor(i / N)) + 1.5}" width="${CS - 3}" height="${CS - 3}" rx="9" fill="none" stroke="#ffeb3b" stroke-width="3"/>`));
+        g.push(`<circle class="focus-ring" cx="${spot.x}" cy="${spot.y}" r="${(it.stage === 'baby' ? R * 0.72 : R) + 7}" fill="none" stroke="#ffeb3b" stroke-width="3.5"/>`);
+      }
+      out.push(`<g class="piece${fresh ? ' drop' : ''}${inactive ? ' zz' : ''}${focus.has(it.id) ? ' focus' : ''}">${g.join('')}</g>`);
     });
     for (let i = 0; i < 100; i++) {
       if (b.cells[i] !== -1) continue;
@@ -3348,8 +3357,10 @@
     const extra = growExtra(it);
     const v = validateSel();
     const mine = !theirTurn(T);
+    const an = analyze(state.players[T.p].board);
+    const encl = an.comps[an.compOf[it.cells[0]]].name;
     return `<div class="place-head">${dz(it.species, 'big')}<h3>🍼 Baby ${esc(S.name)} is growing up!</h3></div>
-      <p>It’s been fed ${PROTO_BABY_FEEDS} times, so it grows into an adult. Pick <b>${plural(extra, 'more square')}</b> joined to it in its enclosure (an adult takes ${S.space}).${SPECIES[it.species].type === 'event' ? ' Its when-played power triggers once it’s grown.' : ''}</p>
+      <p>The baby with the flashing yellow ring${encl ? ` in enclosure <b>${esc(encl)}</b>` : ''} has been fed ${PROTO_BABY_FEEDS} times, so it grows into an adult. Pick <b>${plural(extra, 'more square')}</b> joined to it in its enclosure (an adult takes ${S.space}).${SPECIES[it.species].type === 'event' ? ' Its when-played power triggers once it’s grown.' : ''}</p>
       ${placementBox(`Select ${plural(extra, 'empty square')} next to the baby`)}
       ${mine ? `<div class="btn-row"><button class="btn ghost" data-act="growAuto">Pick squares for me</button><button class="btn big" data-act="place" ${v.ok ? '' : 'disabled'}>Grow up</button></div>` : ''}`;
   }
@@ -3360,8 +3371,11 @@
     const v = validateSel();
     const mine = !theirTurn(T);
     const n = babySize(T.sp);
+    const par = state.players[T.p].board.items[T.par];
+    const an = analyze(state.players[T.p].board);
+    const encl = par ? an.comps[an.compOf[par.cells[0]]].name : '';
     return `<div class="place-head">${dz(T.sp, 'big')}<h3>🐣 Your ${esc(S.name)} pair had a baby!</h3></div>
-      <p>The pair was fed this round, so they breed for free. Pick <b>${plural(n, 'empty square')}</b> in their enclosure for the baby. It grows up after ${PROTO_BABY_FEEDS} Feedings, but only if there’s room for an adult (${S.space} squares) in this enclosure — otherwise it dies then.</p>
+      <p>The pair with the flashing yellow rings${encl ? ` in enclosure <b>${esc(encl)}</b>` : ''} was fed this round, so they breed for free. Pick <b>${plural(n, 'empty square')}</b> in their enclosure for the baby. It grows up after ${PROTO_BABY_FEEDS} Feedings, but only if there’s room for an adult (${S.space} squares) in this enclosure — otherwise it dies then.</p>
       ${placementBox(`Select ${plural(n, 'connected square')} in the enclosure with the pair`)}
       ${mine ? `<div class="btn-row"><button class="btn ghost" data-act="skip">No baby</button><button class="btn ghost" data-act="birthAuto">Pick squares for me</button><button class="btn big" data-act="place" ${v.ok ? '' : 'disabled'}>Place baby</button></div>` : ''}`;
   }

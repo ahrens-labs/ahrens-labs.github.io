@@ -289,6 +289,8 @@ button { font-family: inherit; }
 .item, .badges, .fences { pointer-events: none; }
 .piece.zz { filter: saturate(0.3) brightness(0.88); }
 .piece.drop { animation: pieceDrop 0.6s var(--pop) both; transform-box: fill-box; transform-origin: 50% 50%; }
+.piece.focus .focus-ring, .piece.focus .focus-cell { pointer-events: none; animation: focusPulse 1.1s ease-in-out infinite; transform-box: fill-box; transform-origin: 50% 50%; }
+.piece.focus .focus-ring { animation-name: focusRing; }
 .fence.new { animation: fenceIn 0.5s var(--pop) both; transform-box: fill-box; transform-origin: 50% 50%; }
 .sleep-tok.danger { animation: danger 1s ease-in-out infinite; transform-box: fill-box; transform-origin: 50% 50%; }
 .edge { cursor: pointer; }
@@ -1013,6 +1015,8 @@ a.btn { display: inline-block; text-align: center; text-decoration: none; }
 @keyframes bump { 0% { transform: scale(1); } 40% { transform: scale(1.22); } 100% { transform: scale(1); } }
 @keyframes floatUp { 0% { opacity: 0; transform: translateY(6px) scale(0.6); } 15% { opacity: 1; transform: translateY(0) scale(1.1); } 75% { opacity: 1; } 100% { opacity: 0; transform: translateY(-14px); } }
 @keyframes tokenDrop { 0% { opacity: 0; transform: translateY(-18px) scale(1.4); } 100% { opacity: 1; transform: none; } }
+@keyframes focusPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+@keyframes focusRing { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(1.2); } }
 @keyframes pieceDrop { 0% { opacity: 0; transform: translateY(-26px) scale(1.3); } 55% { opacity: 1; } 100% { opacity: 1; transform: none; } }
 @keyframes fenceIn { from { opacity: 0; transform: scale(0.1); } to { opacity: 1; transform: none; } }
 @keyframes glow { 0%, 100% { box-shadow: 0 0 0 0 rgba(255, 179, 0, 0), 0 3px 0 rgba(0, 0, 0, 0.2); } 50% { box-shadow: 0 0 0 5px rgba(255, 179, 0, 0.6), 0 3px 0 rgba(0, 0, 0, 0.2); } }
