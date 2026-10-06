@@ -18,7 +18,7 @@ const HISTORY_PAGE_MAX = 50;
 const MAX_BOARD_BYTES = 64 * 1024;
 const LOCAL_ID_RE = /^g[0-9a-z]{6,30}$/;
 // Bump with RULES_VERSION in js/dino-board-game.js so tabs still running old rules can't move in online games.
-const RULES_VERSION = 9;
+const RULES_VERSION = 10;
 const LEVELS = new Set(['easy', 'medium', 'hard']);
 const MODES = new Set(['quick', 'long']);
 
