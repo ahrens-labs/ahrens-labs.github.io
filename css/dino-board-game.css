@@ -1128,7 +1128,10 @@ a.btn { display: inline-block; text-align: center; text-decoration: none; }
   .brand-logo { width: 34px; height: 34px; }
   .brand h1 { font-size: 1.15rem; white-space: nowrap; }
   .brand small { display: none; }
-  .top-actions .btn { padding: 0.35rem 0.55rem; font-size: 0.8rem; }
+  .topbar { grid-template-columns: 1fr; }
+  .top-actions { grid-row: 2; flex-wrap: wrap; justify-content: flex-end; gap: 0.35rem; }
+  .top-mid { grid-row: 3; }
+  .top-actions .btn { padding: 0.35rem 0.55rem; font-size: 0.8rem; white-space: nowrap; }
   .log-btn .lb-t { display: none; }
   .tracker { gap: 2px; flex-wrap: nowrap; }
   .tracker-label { display: none; }
