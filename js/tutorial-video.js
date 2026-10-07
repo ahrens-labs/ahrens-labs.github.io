@@ -7,7 +7,7 @@
     dino: { title: 'Dino Board Game — video tutorial', base: '/video/dino-tutorial' },
     hearthhold: { title: 'Hearthhold — video tutorial', base: '/video/hearthhold-tutorial' },
   };
-  const V = '?v=2';
+  const V = '?v=3';
   const CC_KEY = 'ahrensTutorial.cc';
 
   const css = `
@@ -22,7 +22,7 @@
       background: #3a2a18; color: #fff; }
     .tutv-x:hover { background: #5a4026; }
     .tutv .tutv-embed { padding: 0 0.8rem 0.8rem; color: #ffe7a8; }
-    .tutv-embed video { display: block; width: 100%; max-height: min(70vh, calc(100vh - 14rem)); aspect-ratio: 16 / 10; background: #000; border-radius: 10px; }
+    .tutv-embed video { display: block; width: 100%; max-height: min(70vh, calc(100vh - 14rem)); aspect-ratio: 160 / 99; background: #000; border-radius: 10px; }
     .tutv-bar { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; margin: 0.55rem 0 0.4rem; }
     .tutv-bar button, .tutv-chaps button { font-family: inherit; font-size: 0.85rem; font-weight: 600; line-height: 1.2; cursor: pointer; border-radius: 999px; border: 0;
       padding: 0.38rem 0.75rem; background: #3a2a18; color: #fff; box-shadow: inset 0 0 0 1.5px #6b4a2a; }
