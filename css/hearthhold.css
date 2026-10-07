@@ -619,3 +619,30 @@ button { font-family: inherit; }
 .hr-skip { position: fixed; right: 16px; bottom: 16px; background: rgba(255, 246, 226, 0.12); color: #fff6e2; border: 1px solid rgba(255, 246, 226, 0.3); border-radius: 999px; padding: 0.4rem 0.9rem; font-weight: 600; cursor: pointer; }
 .hh-reveal.decided .hr-skip { display: none; }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* ---------- game history ---------- */
+.hist .hist-kind { margin-bottom: 0.9rem; }
+.hist-stats { display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.5rem; margin-bottom: 1rem; }
+.hist-stats .hs { text-align: center; padding: 0.55rem 0.3rem; border-radius: 12px; background: #fffdf6; box-shadow: inset 0 0 0 2px var(--parchment-2); }
+.hist-stats .hs b { display: block; font-size: 1.35rem; line-height: 1.1; }
+.hist-stats .hs small { color: #6d5838; font-size: 0.78rem; }
+.hist-list { display: grid; gap: 0.45rem; }
+.hg { border-radius: 12px; background: #fffdf6; box-shadow: inset 0 0 0 2px var(--parchment-2); }
+.hg summary { display: flex; align-items: center; gap: 0.7rem; padding: 0.6rem 0.8rem; cursor: pointer; list-style: none; }
+.hg summary::-webkit-details-marker { display: none; }
+.hg-icon { font-size: 1.4rem; }
+.hg-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.hg-main b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hg-main small { color: #6d5838; }
+.hg-res { flex: none; padding: 0.2rem 0.6rem; border-radius: 999px; font-weight: 700; font-size: 0.82rem; background: #efe2c2; }
+.hg-res.win { background: #cfeec0; color: #1f5b12; }
+.hg-res.loss { background: #f6d0c8; color: #7a1f12; }
+.hg-res.tie { background: #e6e0f5; color: #3d2f6b; }
+.hg-table { display: grid; gap: 0.15rem; margin: 0 0.8rem 0.8rem; padding-top: 0.5rem; border-top: 1px solid var(--parchment-2); font-size: 0.9rem; }
+.hg-table div { display: grid; grid-template-columns: 3rem 1fr 3rem; align-items: center; text-align: center; }
+.hg-table span { font-weight: 700; }
+.hg-table small { color: #5a4630; }
+.hg-main em { font-style: normal; color: #8a5a00; }
+.hist-note { margin: 0.8rem 0 0; font-size: 0.85rem; text-align: center; }
+.hist-empty { text-align: center; padding: 1rem 0; }
+@media (max-width: 560px) { .hist-stats { grid-template-columns: repeat(3, 1fr); } }

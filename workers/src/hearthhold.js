@@ -10,6 +10,10 @@ const MAX_OPEN_GAMES = 20;
 const LOBBY_KEEP_FINISHED = 10;
 const MAX_TRADES = 40;
 const GAME_ID_RE = /^hh[0-9a-f]{18}$/;
+const LOCAL_ID_RE = /^hl[0-9a-f]{16}$/;
+const HISTORY_KEEP = 200;
+const SCORE_KEYS = ['renown', 'buildings', 'villagers', 'walls', 'fortified', 'gold', 'total'];
+const LEVELS = new Set(['easy', 'normal', 'hard']);
 const RES = new Set(E.RES);
 
 function jsonResponse(body, corsHeaders, status = 200) {
@@ -180,6 +184,56 @@ function viewFor(record, me, withState) {
 
 const turnOf = (state) => (state && state.phase === 'act' ? state.turn : null);
 
+// ---------------------------------------------------------------- game history
+
+const int = (v, lo, hi) => (Number.isInteger(v) && v >= lo && v <= hi ? v : null);
+
+function cleanCats(c) {
+  if (!c || typeof c !== 'object') return null;
+  const out = {};
+  for (const k of SCORE_KEYS) {
+    const v = int(c[k], -999, 9999);
+    if (v == null) return null;
+    out[k] = v;
+  }
+  return out;
+}
+
+// A finished computer or two-player game reported by the page. These are the player's own records,
+// so the page is trusted for the result, but every field is checked and size-limited.
+function localHistoryItem(b) {
+  if (!b || !LOCAL_ID_RE.test(String(b.id || ''))) return null;
+  const kind = b.kind === 'ai' || b.kind === 'local' ? b.kind : null;
+  const names = Array.isArray(b.names) && b.names.length === 2 ? b.names.map((n) => String(n || '').trim().slice(0, 18)) : null;
+  const cats = Array.isArray(b.cats) && b.cats.length === 2 ? b.cats.map(cleanCats) : null;
+  const winner = int(b.winner, -1, 1);
+  if (!kind || !names || names.some((n) => !n) || !cats || cats.some((c) => !c) || winner == null) return null;
+  return {
+    id: b.id,
+    kind,
+    at: Date.now(),
+    names,
+    cats,
+    winner,
+    me: kind === 'ai' ? 0 : null,
+    level: kind === 'ai' && LEVELS.has(b.level) ? b.level : null,
+  };
+}
+
+function onlineHistoryItem(record, me) {
+  const s = record.state;
+  return {
+    id: record.id,
+    kind: 'online',
+    at: Date.now(),
+    names: record.players.map((p) => p.username.slice(0, 18)),
+    cats: s ? s.players.map((p) => E.score(s, p)) : null,
+    winner: record.result && record.result.winner != null ? record.result.winner : -1,
+    me,
+    reason: record.result ? record.result.reason : null,
+  };
+}
+
 // ---------------------------------------------------------------- Worker routes
 
 export async function handleHearthholdRequest(request, env, corsHeaders, path, { executionCtx, notifyChallenge } = {}) {
@@ -207,6 +261,11 @@ export async function handleHearthholdRequest(request, env, corsHeaders, path, {
     return jsonResponse(await res.json(), corsHeaders);
   }
 
+  if (path === '/api/hearthhold/history' && request.method === 'GET') {
+    const res = await lobbyStub(env, userId).fetch(new Request('http://do/history'));
+    return jsonResponse(await res.json(), corsHeaders);
+  }
+
   let body = {};
   if (request.method === 'POST') {
     try {
@@ -214,6 +273,13 @@ export async function handleHearthholdRequest(request, env, corsHeaders, path, {
     } catch {
       return jsonResponse({ error: 'Invalid JSON' }, corsHeaders, 400);
     }
+  }
+
+  if (path === '/api/hearthhold/history/record' && request.method === 'POST') {
+    const item = localHistoryItem(body);
+    if (!item) return jsonResponse({ error: 'Invalid game record' }, corsHeaders, 400);
+    const res = await lobbyStub(env, userId).fetch(new Request('http://do/record', { method: 'POST', body: JSON.stringify(item) }));
+    return jsonResponse(await res.json(), corsHeaders, res.status);
   }
 
   if (path === '/api/hearthhold/challenge' && request.method === 'POST') {
@@ -295,7 +361,10 @@ export class HearthholdGame {
   async publishLobbies(record) {
     await Promise.all(record.players.map((p, i) =>
       lobbyStub(this.env, p.userId)
-        .fetch(new Request('http://do/upsert', { method: 'POST', body: JSON.stringify(summaryFor(record, i)) }))
+        .fetch(new Request('http://do/upsert', {
+          method: 'POST',
+          body: JSON.stringify({ ...summaryFor(record, i), ...(record.status === 'over' ? { history: onlineHistoryItem(record, i) } : {}) }),
+        }))
         .catch(() => {})
     ));
   }
@@ -501,6 +570,13 @@ export class HearthholdLobby {
 
   async fetch(request) {
     const op = new URL(request.url).pathname;
+    if (op === '/history') {
+      return Response.json({ items: (await this.storage.get('history')) || [] });
+    }
+    if (op === '/record' && request.method === 'POST') {
+      await this.addHistory(await request.json());
+      return Response.json({ ok: true });
+    }
     const games = (await this.storage.get('games')) || {};
     if (op === '/list') {
       return Response.json({ games: Object.values(games).sort((a, b) => b.updatedAt - a.updatedAt) });
@@ -508,7 +584,9 @@ export class HearthholdLobby {
     if (op === '/upsert' && request.method === 'POST') {
       const s = await request.json();
       if (!s || !s.id) return Response.json({ error: 'bad summary' }, { status: 400 });
-      games[s.id] = s;
+      const { history, ...summary } = s;
+      if (history) await this.addHistory(history);
+      games[s.id] = summary;
       Object.values(games)
         .filter((g) => g.status !== 'pending' && g.status !== 'active')
         .sort((a, b) => b.updatedAt - a.updatedAt)
@@ -518,5 +596,13 @@ export class HearthholdLobby {
       return Response.json({ ok: true });
     }
     return Response.json({ error: 'Not found' }, { status: 404 });
+  }
+
+  async addHistory(item) {
+    if (!item || !item.id) return;
+    const list = (await this.storage.get('history')) || [];
+    if (list.some((h) => h.id === item.id)) return;
+    list.unshift(item);
+    await this.storage.put('history', list.slice(0, HISTORY_KEEP));
   }
 }

@@ -5,6 +5,13 @@
   const SAVE_KEY = 'ahrensHearthhold.v1';
   const PREFS_KEY = 'ahrensHearthhold.prefs';
   const ONLINE_KEY = 'ahrensHearthhold.online';
+  const ADMIN_EMAIL = 'calebahrens2011@gmail.com';
+  const LEVEL_NAME = { easy: 'Easy', normal: 'Normal', hard: 'Hard' };
+  const SIM_SPEEDS = {
+    turbo: { name: '⚡ Turbo', ai: 0, dusk: 350 },
+    fast: { name: '⏩ Fast', ai: 160, dusk: 1600 },
+    watch: { name: '👀 Watch', ai: 850, dusk: 4500 },
+  };
   const API_BASE = window.AHRENS_LABS_API_BASE || 'https://chess-accounts.matthewahrens.workers.dev';
   const IMG = (k) => `/img/hearthhold/${k}.webp`;
   const S = 38;
@@ -22,6 +29,7 @@
 
   // ---------------------------------------------------------------- persistence
   function save() {
+    if (G && G.mode === 'sim') return;
     try {
       if (G && G.mode === 'online') localStorage.setItem(ONLINE_KEY, JSON.stringify({ id: G.id, revealed: !!G.revealed, duskSeen: G.duskSeen || 0 }));
       else localStorage.setItem(SAVE_KEY, JSON.stringify(G));
@@ -169,6 +177,8 @@
           <button class="btn big offline-only" id="start">Found your village</button>
           <div class="gh-links">
             <button class="btn ghost sm" id="how">📜 How to play</button>
+            <button class="btn ghost sm" id="hist">🏆 Game history</button>
+            ${isAdmin() ? '<button class="btn ghost sm" id="sim">🧪 Computer vs computer</button>' : ''}
           </div>
         </div>
       </div>`;
@@ -191,6 +201,8 @@
     setMode(focusGame ? 'online' : pr.mode === 'local' || pr.mode === 'online' ? pr.mode : 'ai');
     if (focusGame) [...$('#mode').children].forEach((x) => x.classList.toggle('on', x.dataset.v === 'online'));
     $('#how').onclick = () => showRules();
+    $('#hist').onclick = () => showHistory();
+    if ($('#sim')) $('#sim').onclick = openSimSetup;
     if (canResume) $('#resume').onclick = () => {
       forgetOnline();
       startFrom(saved);
@@ -207,7 +219,7 @@
       savePrefs({ mode, level, n0, n1: $('#n1').value.trim() || 'Stonebrook' });
       forgetOnline();
       const state = E.newGame({ names: [n0, n1], ai: [false, mode === 'ai'], first });
-      startFrom({ state, mode, level, view: mode === 'local' ? state.turn : 0 });
+      startFrom({ state, mode, level, view: mode === 'local' ? state.turn : 0, gid: newLocalId() });
     };
   }
 
@@ -245,7 +257,8 @@
         </div>
         <div class="top-actions">
           <button class="btn ghost sm" id="rules-btn">📜 Rules</button>
-          <button class="btn ghost sm" id="new-btn">${G && G.mode === 'online' ? '🌐 Game' : '🏰 New game'}</button>
+          ${G && G.mode === 'sim' ? '<button class="btn ghost sm" id="sim-speed"></button>' : ''}
+          <button class="btn ghost sm" id="new-btn">${G && G.mode === 'online' ? '🌐 Game' : G && G.mode === 'sim' ? '⏹ Stop' : '🏰 New game'}</button>
           <a class="btn ghost sm" href="/board-games.html" title="All board games" aria-label="All board games">🎲</a>
         </div>
       </header>
@@ -269,6 +282,16 @@
       </section>`;
     $('#rules-btn').onclick = () => showRules();
     $('#new-btn').onclick = newGame;
+    if ($('#sim-speed')) {
+      const paint = () => ($('#sim-speed').textContent = SIM_SPEEDS[G.speed].name);
+      paint();
+      $('#sim-speed').onclick = () => {
+        const keys = Object.keys(SIM_SPEEDS);
+        G.speed = keys[(keys.indexOf(G.speed) + 1) % keys.length];
+        paint();
+        scheduleAI();
+      };
+    }
     $('#svg').addEventListener('click', onBoardClick);
     $('#app').addEventListener('click', onAppClick);
   }
@@ -860,7 +883,7 @@
     if (!G || ui.modal) return;
     const s = st();
     if (s.phase !== 'act' || !s.players[s.turn].ai) return;
-    ui.aiTimer = setTimeout(aiStep, ui.aiFast ? 450 : 850);
+    ui.aiTimer = setTimeout(aiStep, G.mode === 'sim' ? SIM_SPEEDS[G.speed].ai : ui.aiFast ? 450 : 850);
   }
   function aiStep() {
     if (!G || ui.modal) return;
@@ -868,7 +891,7 @@
     if (s.phase !== 'act' || !s.players[s.turn].ai) return;
     const pi = s.turn;
     const p = s.players[pi];
-    const a = E.aiChoose(s, pi, G.level);
+    const a = E.aiChoose(s, pi, G.levels ? G.levels[pi] : G.level);
     const before = p.bld.length;
     let msg;
     try {
@@ -879,7 +902,7 @@
     ui.aiFast = a.t !== 'place' && a.t !== 'end';
     if (a.t === 'build' && p.bld.length > before) ui.fresh.add(p.bld[p.bld.length - 1].id);
     if (a.t === 'wall' && G.view === pi) ui.freshSide = a.side;
-    toast(`<span class="dot" style="--pc:${PCOLOR[pi]}"></span><b>${esc(p.name)}</b> ${esc(msg)}`, 'ai');
+    if (G.mode !== 'sim' || G.speed !== 'turbo') toast(`<span class="dot" style="--pc:${PCOLOR[pi]}"></span><b>${esc(p.name)}</b> ${esc(msg)}`, 'ai');
     afterAction();
   }
 
@@ -1078,6 +1101,7 @@
 
   // ---------------------------------------------------------------- dusk
   function runDusk() {
+    if (!G) return;
     const s = st();
     if (s.phase !== 'dusk') return;
     clearTimeout(ui.aiTimer);
@@ -1162,6 +1186,12 @@
         }
       },
     });
+    if (G.mode === 'sim') {
+      clearTimeout(ui.simTimer);
+      ui.simTimer = setTimeout(() => {
+        if ($('.dusk-back')) closeModal();
+      }, SIM_SPEEDS[G.speed].dusk);
+    }
   }
 
   function seasonBanner() {
@@ -1191,6 +1221,7 @@
       ['🪙 Gold (1 per 5)', 'gold'],
     ].filter(([, k]) => k === 'renown' || sc[0][k] || sc[1][k]);
     let head;
+    if (G.mode === 'ai' || G.mode === 'local') recordGame();
     if (w < 0) head = '🤝 A perfect tie!';
     else if (G.mode === 'ai') head = s.players[w].ai ? '🐉 The Computer wins!' : '🏆 You win!';
     else if (G.mode === 'online') head = w === G.me ? '🏆 You win!' : `🏆 ${esc(s.players[w].name)} wins!`;
@@ -1213,7 +1244,7 @@
         <div class="hr-verdict" aria-live="polite"></div>
         <div class="hr-sub">${sub}</div>
         <div class="hr-rows">${rows.map(([label, k]) => `<div class="hr-row"><span class="${sc[0][k] > sc[1][k] ? 'lead' : ''}">${sc[0][k]}</span><small>${label}</small><span class="${sc[1][k] > sc[0][k] ? 'lead' : ''}">${sc[1][k]}</span></div>`).join('')}</div>
-        <div class="hr-actions"><button class="btn" data-rv="close">🏘️ See the villages</button><button class="btn" data-rv="again">${G.mode === 'online' ? '🌐 Your games' : '🏰 Play again'}</button><a class="btn ghost" href="/board-games.html">🎲 All board games</a></div>
+        <div class="hr-actions"><button class="btn" data-rv="close">🏘️ See the villages</button><button class="btn" data-rv="again">${G.mode === 'online' ? '🌐 Your games' : G.mode === 'sim' ? '🧪 Run again' : '🏰 Play again'}</button>${G.mode === 'sim' ? '' : '<button class="btn ghost" data-rv="hist">🏆 Game history</button>'}<a class="btn ghost" href="/board-games.html">🎲 All board games</a></div>
       </div><button class="hr-skip" data-rv="skip">Skip ▸</button>`;
     document.body.appendChild(el);
     const timers = [];
@@ -1238,7 +1269,7 @@
       announce();
       el.querySelectorAll('.hr-row').forEach((r) => r.classList.add('in'));
       el.classList.add('decided');
-      G.revealed = true;
+      if (G) G.revealed = true;
       save();
     };
     const close = () => {
@@ -1258,9 +1289,14 @@
     el.addEventListener('click', (e) => {
       const b = e.target.closest('[data-rv]');
       if (b && b.dataset.rv === 'close') return close();
+      if (b && b.dataset.rv === 'hist') {
+        close();
+        return showHistory();
+      }
       if (b && b.dataset.rv === 'again') {
         close();
         if (G.mode === 'online') return showSetup(G.id);
+        if (G.mode === 'sim') return startSim({ l0: G.levels[0], l1: G.levels[1], speed: G.speed });
         try {
           localStorage.removeItem(SAVE_KEY);
         } catch (err) {
@@ -1299,6 +1335,7 @@
   // ---------------------------------------------------------------- new game
   function newGame() {
     if (G.mode === 'online') return onlineMenu();
+    if (G.mode === 'sim') return stopSim();
     const go = () => {
       try {
         localStorage.removeItem(SAVE_KEY);
@@ -1315,6 +1352,180 @@
       closeModal();
       go();
     });
+  }
+
+  // ---------------------------------------------------------------- game history
+  function newLocalId() {
+    const b = new Uint8Array(8);
+    crypto.getRandomValues(b);
+    return 'hl' + [...b].map((x) => x.toString(16).padStart(2, '0')).join('');
+  }
+
+  // Finished computer and two-player games go to the account's history (online games are added by the server).
+  function recordGame() {
+    const g = G;
+    if (g.recorded || !sessionId()) return;
+    const s = g.state;
+    g.gid = g.gid || newLocalId();
+    g.recorded = true;
+    save();
+    api('/api/hearthhold/history/record', {
+      id: g.gid,
+      kind: g.mode,
+      level: g.level,
+      names: s.players.map((p) => p.name),
+      cats: s.players.map((p) => E.score(s, p)),
+      winner: E.winner(s),
+    }).then((r) => {
+      if (r.ok || r.status === 400 || G !== g) return;
+      g.recorded = false;
+      save();
+    });
+  }
+
+  const hist = { items: null, kind: 'all' };
+  const SCORE_ROWS = [
+    ['⭐ Renown', 'renown'],
+    ['🏠 Buildings & wonders', 'buildings'],
+    ['👥 Villagers', 'villagers'],
+    ['🧱 Stone wall sections', 'walls'],
+    ['🏰 Fully walled', 'fortified'],
+    ['🪙 Gold', 'gold'],
+  ];
+
+  async function showHistory() {
+    clearTimeout(ui.aiTimer);
+    stopOnline();
+    G = null;
+    document.body.className = 'setup-mode';
+    $('#app').innerHTML = `
+      <div class="setup gh">
+        <div class="gh-top"><a class="gh-lobby" href="/board-games.html" title="Back to the game lobby">← 🎲 Game lobby</a><button class="btn ghost sm" id="hist-new">🏰 New game</button></div>
+        <div class="setup-card gh-card panel hist">
+          <h2>🏆 Game history</h2>
+          <div id="hist-body"><p class="muted">Loading your games…</p></div>
+        </div>
+      </div>`;
+    $('#hist-new').onclick = () => showSetup();
+    if (!sessionId()) {
+      const back = encodeURIComponent(location.pathname.replace(/^\//, ''));
+      $('#hist-body').innerHTML = `<div class="ol-gate"><p>Sign in to keep a history of your Hearthhold games — against the computer, on one device, or online.</p><a class="btn big" href="/account.html?return=${back}">Log in or sign up</a></div>`;
+      return;
+    }
+    const r = await api('/api/hearthhold/history');
+    if (!$('#hist-body')) return;
+    if (r.status === 401) {
+      try {
+        localStorage.removeItem('ahrenslabs_sessionId');
+      } catch (e) {
+        /* ignore */
+      }
+      return showHistory();
+    }
+    if (!r.ok) {
+      $('#hist-body').innerHTML = `<p class="bad">${esc(r.data.error || 'Couldn’t load your games.')}</p><button class="btn ghost sm" id="hist-retry">Try again</button>`;
+      $('#hist-retry').onclick = showHistory;
+      return;
+    }
+    hist.items = r.data.items || [];
+    renderHistory();
+  }
+
+  function renderHistory() {
+    const box = $('#hist-body');
+    if (!box) return;
+    const items = hist.items.filter((h) => hist.kind === 'all' || h.kind === hist.kind);
+    const mine = items.filter((h) => h.me != null && h.cats);
+    const count = (f) => mine.filter(f).length;
+    const wins = count((h) => h.winner === h.me);
+    const ties = count((h) => h.winner < 0);
+    const myScores = mine.map((h) => h.cats[h.me].total);
+    const stat = (n, label) => `<div class="hs"><b>${n}</b><small>${label}</small></div>`;
+    const kinds = { all: 'All', ai: '🤖 Computer', local: '👥 Two players', online: '🌐 Online' };
+    const icon = { ai: '🤖', local: '👥', online: '🌐' };
+    const row = (h) => {
+      const a = h.me === 1 ? 1 : 0;
+      const b = 1 - a;
+      const total = (i) => (h.cats ? h.cats[i].total : '–');
+      let res = '';
+      if (h.me != null) res = h.winner < 0 ? '<span class="hg-res tie">Tie</span>' : h.winner === h.me ? '<span class="hg-res win">Win</span>' : '<span class="hg-res loss">Loss</span>';
+      else res = h.winner < 0 ? '<span class="hg-res tie">Tie</span>' : `<span class="hg-res">${esc(h.names[h.winner])} won</span>`;
+      const when = new Date(h.at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+      const what = [h.kind === 'ai' ? `Computer${h.level ? ' · ' + LEVEL_NAME[h.level] : ''}` : h.kind === 'local' ? 'Two players, one device' : 'Online', h.reason === 'resign' ? 'ended by resignation' : '', when].filter(Boolean).join(' · ');
+      const table = h.cats
+        ? `<div class="hg-table">${SCORE_ROWS.map(([label, k]) => `<div><span>${h.cats[a][k]}</span><small>${label}</small><span>${h.cats[b][k]}</span></div>`).join('')}</div>`
+        : '';
+      return `<details class="hg"><summary><span class="hg-icon">${icon[h.kind] || '🏰'}</span><span class="hg-main"><b>${esc(h.names[a])} <em>${total(a)}</em> – <em>${total(b)}</em> ${esc(h.names[b])}</b><small>${esc(what)}</small></span>${res}</summary>${table}</details>`;
+    };
+    box.innerHTML = `
+      <div class="seg hist-kind">${Object.keys(kinds).map((k) => `<button data-k="${k}" class="${hist.kind === k ? 'on' : ''}">${kinds[k]}</button>`).join('')}</div>
+      <div class="hist-stats">
+        ${stat(items.length, 'played')}
+        ${stat(wins, 'won')}
+        ${stat(mine.length - wins - ties, 'lost')}
+        ${stat(ties, 'tied')}
+        ${stat(myScores.length ? Math.max(...myScores) : '–', 'best score')}
+        ${stat(myScores.length ? Math.round(myScores.reduce((t, x) => t + x, 0) / myScores.length) : '–', 'average')}
+      </div>
+      ${items.length ? `<div class="hist-list">${items.map(row).join('')}</div>` : '<p class="muted hist-empty">No finished games here yet. Games are added when they end.</p>'}
+      <p class="muted hist-note">Wins and scores count your computer and online games. Tap a game to see how the points were scored.</p>`;
+    box.querySelector('.hist-kind').onclick = (e) => {
+      const b = e.target.closest('button');
+      if (!b) return;
+      hist.kind = b.dataset.k;
+      renderHistory();
+    };
+  }
+
+  // ---------------------------------------------------------------- computer vs computer (admin)
+  function isAdmin() {
+    try {
+      return (localStorage.getItem('ahrenslabs_email') || '').trim().toLowerCase() === ADMIN_EMAIL;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function openSimSetup() {
+    if (!isAdmin()) return;
+    const sim = Object.assign({ l0: 'hard', l1: 'normal', speed: 'fast' }, prefs().sim);
+    const speeds = {};
+    Object.keys(SIM_SPEEDS).forEach((k) => (speeds[k] = SIM_SPEEDS[k].name));
+    const seg = (k, opts) => `<div class="seg" data-k="${k}">${Object.keys(opts).map((v) => `<button data-v="${v}" class="${sim[k] === v ? 'on' : ''}">${opts[v]}</button>`).join('')}</div>`;
+    const back = openModal(`<h2>🧪 Computer vs computer</h2>
+      <p class="muted">Admin only. Two computers play a whole game while you watch. Nothing is saved or added to game history.</p>
+      <div class="field"><span class="label">🔴 Red village</span>${seg('l0', LEVEL_NAME)}</div>
+      <div class="field"><span class="label">🔵 Blue village</span>${seg('l1', LEVEL_NAME)}</div>
+      <div class="field"><span class="label">Speed</span>${seg('speed', speeds)}</div>
+      <button class="btn big" id="sim-go">▶ Start</button>`);
+    back.addEventListener('click', (e) => {
+      const b = e.target.closest('.seg button');
+      if (b) {
+        sim[b.parentNode.dataset.k] = b.dataset.v;
+        [...b.parentNode.children].forEach((x) => x.classList.toggle('on', x === b));
+      }
+      if (e.target.closest('#sim-go')) {
+        savePrefs(Object.assign(prefs(), { sim }));
+        startSim(sim);
+      }
+    });
+  }
+
+  function startSim(sim) {
+    clearTimeout(ui.simTimer);
+    ui.onClose = null;
+    closeModal();
+    const state = E.newGame({ names: [`Red · ${LEVEL_NAME[sim.l0]}`, `Blue · ${LEVEL_NAME[sim.l1]}`], ai: [true, true], first: Math.random() < 0.5 ? 0 : 1 });
+    startFrom({ state, mode: 'sim', level: sim.l0, levels: [sim.l0, sim.l1], speed: sim.speed, view: 0 });
+  }
+
+  function stopSim() {
+    clearTimeout(ui.aiTimer);
+    clearTimeout(ui.simTimer);
+    ui.onClose = null;
+    closeModal();
+    document.querySelectorAll('.hh-reveal').forEach((x) => x.remove());
+    showSetup();
   }
 
   // ---------------------------------------------------------------- online play (Ahrens Labs accounts)
