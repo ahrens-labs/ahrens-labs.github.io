@@ -97,13 +97,41 @@
       color: '#ec407a', emoji: '🦖', code: 'GIG',
       ability: 'You may do one phase twice next round.',
     },
+    quetzalcoatlus: {
+      name: 'Quetzalcoatlus', type: 'event', cost: { d: 0, c: 6 }, space: 6, food: { t: 'meat', n: 2 }, prod: 2, pts: 6,
+      color: '#4fc3f7', emoji: '🦅', code: 'QUE',
+      ability: 'Take 1 extra worker turn right now, on any open space (if it isn’t the Workers phase, place 1 extra worker next round instead).',
+    },
+    giganotosaurus: {
+      name: 'Giganotosaurus', type: 'action', cost: { d: 2, c: 4 }, space: 10, food: { t: 'meat', n: 3 }, prod: 3, pts: 12,
+      color: '#546e7a', emoji: '🦖', code: 'GIA',
+      ability: 'Every round: steal 1 coin and 1 food from your opponent.',
+    },
+    sauroposeidon: {
+      name: 'Sauroposeidon', type: 'action', cost: { d: 2, c: 4 }, space: 12, food: { t: 'plant', n: 3 }, prod: 3, pts: 11,
+      color: '#9e9d24', emoji: '🦕', code: 'SAU',
+      ability: 'Every round in Production: also collect half (rounded up) of the best active enclosure you didn’t collect from.',
+    },
+    maiasaura: {
+      name: 'Maiasaura', type: 'event', cost: { d: 1, c: 4 }, space: 5, food: { t: 'plant', n: 2 }, prod: 2, pts: 6,
+      color: '#ff8a65', emoji: '🦕', code: 'MAI',
+      ability: 'One of your adult pairs has a baby for free. Babies in this enclosure grow up after 1 Feeding.',
+    },
+    oviraptor: {
+      name: 'Oviraptor', type: 'event', cost: { d: 0, c: 4 }, space: 2, food: { t: 'meat', n: 1 }, prod: 1, pts: 3,
+      color: '#5e35b1', emoji: '🦖', code: 'OVI',
+      ability: 'Play a market card or one from your opponent’s reserved hand right now for 🪙3 less (you still pay any 💎).',
+    },
   };
 
   // Bump with RULES_VERSION in workers/src/dino.js when costs or rules change, so open tabs on old rules must reload.
-  const RULES_VERSION = 12;
+  const RULES_VERSION = 13;
 
   const BOOK = ['compy', 'triceratops', 'spinosaurus', 'stegosaurus', 'velociraptor', 'brachiosaurus', 'trex', 'pachy'];
   const DECK = ['allosaurus', 'mosasaurus', 'carnotaurus', 'microraptor', 'ankylosaurus', 'dilophosaurus', 'parasaurolophus', 'gigantoraptor'];
+  // Dinos only in the 15-round game's deck.
+  const PROTO_NEW = ['quetzalcoatlus', 'giganotosaurus', 'sauroposeidon', 'maiasaura', 'oviraptor'];
+  const PROTO_OVI_OFF = 3;
 
   // ---------------------------------------------------------------- the 15-round rules ("proto" games; older saves may use the classic 18-round rules)
   // Shared dino market, worker spaces, park scoring, 12 rounds, round events and free powers.
@@ -249,7 +277,7 @@
 
   function protoDeck() {
     const out = [];
-    BOOK.concat(DECK).forEach((sp) => {
+    BOOK.concat(DECK, PROTO_NEW).forEach((sp) => {
       for (let i = 0; i < (PROTO_COPIES[sp] || 3); i++) out.push(sp);
     });
     return shuffle(out);
@@ -265,6 +293,13 @@
   function playCost(sp, src) {
     const c = protoCost(sp);
     return src === 'h' ? { d: c.d, c: Math.max(0, c.c - PROTO_RESERVE_OFF) } : c;
+  }
+
+  // What a card costs in this task: Oviraptor knocks coins off, a worker space may add a surcharge.
+  function protoTaskCost(sp, src, T, extra) {
+    const c = playCost(sp, src);
+    if (T && T.t === 'freePlay' && T.off) return { d: c.d, c: Math.max(0, c.c - T.off) };
+    return withExtra(c, extra || 0);
   }
 
   // A baby costs half the card's coins (rounded up) and 1 diamond less than the card.
@@ -1268,9 +1303,10 @@
       }
       if (T.t === 'power' && powerEffect(T)[1] <= 0) { skip(`${pn(T.p)}’s ${spName(T.sp)} had nothing to take.`); continue; }
       if (T.t === 'freePlay' && !(state.proto ? protoPlayOptions(T.p, T) : playOptions(T.p, true)).some((o) => o.ok)) {
-        skip(`${pn(T.p)} has no dino worth ${T.limit || 5} or fewer points to play for free.`);
+        skip(T.off ? `${pn(T.p)}’s Oviraptor found no dino they could afford and place.` : `${pn(T.p)} has no dino worth ${T.limit || 5} or fewer points to play for free.`);
         continue;
       }
+      if (T.t === 'maiaBreed' && !protoBreedOptions(T.p, 0).some((o) => o.ok)) { skip(`${pn(T.p)}’s Maiasaura found no adult pair that could breed.`); continue; }
       return;
     }
   }
@@ -1344,6 +1380,21 @@
         } else logMsg('Gigantoraptor’s bonus has no next round to use.');
         return [];
       }
+      if (sp === 'quetzalcoatlus') {
+        const T = cur();
+        if (T && state.phaseOrder[T.k] === 'action') {
+          state.workers[p]++;
+          logMsg(`🦅 ${pn(p)} takes an extra worker turn (Quetzalcoatlus).`);
+          return [{ t: 'actions', p, remaining: 1, work: true }];
+        }
+        if (state.round < rounds()) {
+          P.bonusNext++;
+          logMsg(`🦅 ${pn(p)} will place an extra worker next round (Quetzalcoatlus).`);
+        } else logMsg('Quetzalcoatlus’s extra worker has no round left to use.');
+        return [];
+      }
+      if (sp === 'maiasaura') return [{ t: 'maiaBreed', p }];
+      if (sp === 'oviraptor') return [{ t: 'freePlay', p, off: PROTO_OVI_OFF, opp: true }];
     }
     switch (sp) {
       case 'spinosaurus':
@@ -1425,7 +1476,7 @@
     state.spaces = {};
     state.workers = state.players.map((P) => PROTO_WORKERS + P.bonusPending + (state.event === 'hiring' ? 1 : 0));
     state.players.forEach((P, p) => {
-      if (P.bonusPending) logMsg(`${pn(p)} has ${plural(state.workers[p], 'worker')} this round (Gigantoraptor).`);
+      if (P.bonusPending) logMsg(`${pn(p)} has ${plural(state.workers[p], 'worker')} this round (dino bonus).`);
       P.bonusPending = 0;
     });
     const ev = state.event;
@@ -1502,16 +1553,22 @@
   }
 
   // Production powers become one step each, so the player sees and triggers every one of them.
-  function protoPowerTasks(p) {
+  function protoPowerTasks(p, got) {
     const O = state.players[other(p)];
     const comps = producible(p);
     const n = (sp) => comps.reduce((s, cp) => s + cp.living.filter((d) => d.species === sp && isAdult(d)).length, 0);
     const tasks = [];
+    if (n('sauroposeidon')) {
+      const rest = comps.filter((cp) => !(got || []).includes(cp.key) && cp.prod > 0).sort((a, b) => b.prod - a.prod).slice(0, n('sauroposeidon'));
+      if (rest.length) tasks.push({ t: 'power', p, sp: 'sauroposeidon', cnt: n('sauroposeidon'), n: rest.reduce((t, cp) => t + Math.ceil(cp.prod / 2), 0), from: rest.map((cp) => cp.name).join(' & ') });
+    }
+    if (n('giganotosaurus') && O.coins) tasks.push({ t: 'power', p, sp: 'giganotosaurus', n: n('giganotosaurus') });
     if (n('parasaurolophus')) tasks.push({ t: 'power', p, sp: 'parasaurolophus', n: n('parasaurolophus') });
     if (n('allosaurus')) tasks.push({ t: 'power', p, sp: 'allosaurus', n: n('allosaurus') });
-    const raid = Math.min(n('velociraptor'), O.meat + O.plants);
-    if (raid) tasks.push({ t: 'steal', p, amount: raid });
-    else if (n('velociraptor')) logMsg(`${pn(p)}’s Velociraptors found no food to steal.`);
+    const raiders = [n('velociraptor') && 'Velociraptor', n('giganotosaurus') && 'Giganotosaurus'].filter(Boolean).join(' + ');
+    const raid = Math.min(n('velociraptor') + n('giganotosaurus'), O.meat + O.plants);
+    if (raid) tasks.push({ t: 'steal', p, amount: raid, who: raiders });
+    else if (raiders) logMsg(`${pn(p)}’s ${raiders} found no food to steal.`);
     if (n('triceratops') && state.players[p].plants) tasks.push({ t: 'power', p, sp: 'triceratops', n: n('triceratops') });
     else if (n('triceratops')) logMsg(`${pn(p)} had no 🌿 to put on their Triceratops page.`);
     return tasks;
@@ -1521,7 +1578,8 @@
   function powerEffect(T) {
     const O = state.players[other(T.p)];
     if (T.sp === 'parasaurolophus') return [`Collect 🪙${T.n}`, T.n];
-    if (T.sp === 'allosaurus') {
+    if (T.sp === 'sauroposeidon') return [`Collect 🪙${T.n} (half of ${T.from})`, T.n];
+    if (T.sp === 'allosaurus' || T.sp === 'giganotosaurus') {
       const n = Math.min(T.n, O.coins);
       return [`Steal 🪙${n} from ${O.name}`, n];
     }
@@ -1545,14 +1603,14 @@
     const P = state.players[p];
     const O = state.players[other(p)];
     const n = powerEffect(T)[1];
-    if (T.sp === 'parasaurolophus') {
+    if (T.sp === 'parasaurolophus' || T.sp === 'sauroposeidon') {
       P.coins += n;
-      logMsg(`${pn(p)}’s Parasaurolophus earned 🪙${n}.`);
+      logMsg(`${pn(p)}’s ${spName(T.sp)} earned 🪙${n}${T.from ? ` (half of enclosure ${T.from})` : ''}.`);
       toast(`🦕 +🪙${n} for ${P.name}`, 'good');
-    } else if (T.sp === 'allosaurus') {
+    } else if (T.sp === 'allosaurus' || T.sp === 'giganotosaurus') {
       O.coins -= n;
       P.coins += n;
-      logMsg(`${pn(p)}’s Allosaurus stole 🪙${n} from ${pn(other(p))}.`);
+      logMsg(`${pn(p)}’s ${spName(T.sp)} stole 🪙${n} from ${pn(other(p))}.`);
       toast(`🦖 ${P.name} stole 🪙${n}`, 'good');
     } else if (n) {
       P.plants -= n;
@@ -1569,14 +1627,15 @@
   function protoPlayOptions(p, freeTask, extra) {
     const P = state.players[p];
     const an = analyze(P.board);
-    const free = !!freeTask;
+    const free = !!freeTask && !freeTask.off;
     const limit = free ? freeTask.limit || 5 : 0;
     const src = state.faceUp.map((sp, i) => ({ sp, src: 'm', i })).filter((o) => o.sp);
-    if (!free || !freeTask.marketOnly) P.hand.forEach((sp, i) => src.push({ sp, src: 'h', i }));
+    if (freeTask && freeTask.opp) state.players[other(p)].hand.forEach((sp, i) => src.push({ sp, src: 'o', i }));
+    else if (!free || !freeTask.marketOnly) P.hand.forEach((sp, i) => src.push({ sp, src: 'h', i }));
     return src.map((o) => {
       let why = '';
       if (P.blocked.includes(o.sp)) why = 'Blocked by T. Rex';
-      else if (free ? spec(o.sp).pts > limit : !canAfford(P, withExtra(playCost(o.sp, o.src), extra || 0))) why = free ? `Worth more than ${limit} points` : 'Can’t afford yet';
+      else if (free ? spec(o.sp).pts > limit : !canAfford(P, protoTaskCost(o.sp, o.src, freeTask, extra))) why = free ? `Worth more than ${limit} points` : 'Can’t afford yet';
       else if (!roomFor(p, o.sp, an)) why = 'No room in your park';
       return Object.assign(o, { ok: !why, why });
     });
@@ -1585,6 +1644,8 @@
   // Breeding: a Breed worker picks a species with an adult pair in one enclosure; that pair has one baby.
   // Each enclosure breeds at most once per round (its dinos are marked with the round), and only while active.
   // `any` also lists pens that can't breed right now, so the picker can say why.
+  // An adult Maiasaura makes babies in its enclosure grow up after a single Feeding.
+  const protoMaiaPen = (cp) => cp.living.some((d) => d.species === 'maiasaura' && isAdult(d));
   const protoBredHere = (cp) => cp.dinos.some((d) => d.bredR === state.round);
   function protoBreedPens(an, sp, any) {
     return an.comps.filter((cp) => cp.valid && !cp.dead && (any || (!cp.inactive && !protoBredHere(cp))) && cp.living.filter((d) => d.species === sp && isAdult(d)).length >= 2);
@@ -1922,7 +1983,7 @@
   function confetti() {
     const box = document.createElement('div');
     box.className = 'confetti';
-    const icons = ['coin', 'diamond', 'meat', 'plant', 'coin', 'diamond'].concat(BOOK, DECK);
+    const icons = ['coin', 'diamond', 'meat', 'plant', 'coin', 'diamond'].concat(BOOK, DECK, PROTO_NEW);
     for (let i = 0; i < 46; i++) {
       const s = document.createElement('img');
       const name = icons[rand(icons.length)];
@@ -2241,7 +2302,7 @@
         facts.push('<li>🥚 <b>Egg.</b> It hatches into a baby at the start of next round. Until then it eats nothing, earns nothing and scores nothing.</li>');
       } else if (!it.dead && it.stage === 'baby') {
         facts.push(`<li>🍼 <b>Baby.</b> Eats <b>${dinoFood(it) + (cp.inactive || 0)} ${foodText({ t: S.food.t, n: '' }).trim()}</b>, adds <b>🪙${dinoProd(it)}</b> and is worth <b>${plural(dinoPoints(it), 'point')}</b> (half an adult). No when-played or every-round power; scoring powers count half.</li>`);
-        facts.push(`<li>Grows up after being fed in <b>${PROTO_BABY_FEEDS} Feedings</b> (${it.fed || 0} so far). It then needs ${S.space} squares in this enclosure — if there’s no room, it dies.</li>`);
+        facts.push(`<li>Grows up after being fed in <b>${protoMaiaPen(cp) ? '1 Feeding</b> (Maiasaura)' : `${PROTO_BABY_FEEDS} Feedings</b>`} (${it.fed || 0} so far). It then needs ${S.space} squares in this enclosure — if there’s no room, it dies.</li>`);
       } else if (!it.dead) {
         const eats = S.food.n + (cp.inactive || 0);
         const why = cp.inactive ? ` <span class="muted">(card says ${S.food.n}; +${cp.inactive} because it’s inactive)</span>` : '';
@@ -2668,7 +2729,7 @@
           <div class="res">
             ${chips}
             ${P.triPlants ? chip(`${dz('triceratops')}🌿`, P.triPlants, 'Plants on your Triceratops page', 'triPlants', resFx[p].triPlants) : ''}
-            ${bonus ? chip('⏩', bonus, state.proto ? 'Gigantoraptor: extra worker next round' : 'Gigantoraptor: do a phase twice next round') : ''}
+            ${bonus ? chip('⏩', bonus, state.proto ? 'Dino bonus: extra worker next round' : 'Gigantoraptor: do a phase twice next round') : ''}
           </div>
           <div class="board-wrap">${boardSvg(p)}</div>
           <div class="p-foot">
@@ -2812,18 +2873,23 @@
         lock = o ? o.why : breeding ? 'Breed from your park' : 'Market cards only';
       }
       const deal = src === 'm' && isFresh(`bm${i}:${sp}:${state.deck.length}`, 900) ? ' deal' : '';
-      const where = src === 'h' ? ' held' : src === 'b' ? ' bred' : ' shop';
-      const cost = src === 'b' ? { d: 0, c: price } : withExtra(playCost(sp, src), buying && T.t !== 'freePlay' ? spaceExtra() : 0);
-      return cardHtml(sp, { cls: cls + deal + where, attrs, lock, cost, costLabel: src === 'b' ? 'Baby' : '', tag: src === 'h' ? '✋ Reserved' : src === 'b' ? `🐣 Baby · ⬛${babySize(sp)}` : '' });
+      const where = src === 'h' || src === 'o' ? ' held' : src === 'b' ? ' bred' : ' shop';
+      const cost = src === 'b' ? { d: 0, c: price } : buying && T.t === 'freePlay' ? (T.off ? protoTaskCost(sp, src, T) : playCost(sp, src)) : withExtra(playCost(sp, src), buying ? spaceExtra() : 0);
+      return cardHtml(sp, { cls: cls + deal + where, attrs, lock, cost, costLabel: src === 'b' ? 'Baby' : '', tag: src === 'h' ? '✋ Reserved' : src === 'o' ? '🥚 Their reserved' : src === 'b' ? `🐣 Baby · ⬛${babySize(sp)}` : '' });
     };
     const hint = picking ? 'Tap a card or the deck to reserve it'
       : breeding ? `Tap a 🥚 dino: one of its adult pairs has a baby in their enclosure (${price ? `🪙${price}` : 'free'})`
+      : buying && T.off ? `Oviraptor: tap a market card or one from your opponent’s reserved hand — 🪙${T.off} off`
       : buying ? `Tap a dino to buy it, then place it in your park${T.t !== 'freePlay' && spaceExtra() ? ` (costs 🪙${spaceExtra()} extra on this space)` : ''}`
         : 'Tap any card for details. Buy with a 🦖 Play a dino worker, or 🥚 Breed dinos you have a pair of.';
     const viewer = buying || picking ? T.p : state.ai != null ? other(state.ai) : T.p != null ? T.p : state.first;
     const P = state.players[viewer];
     const hand = P.hand.length
       ? `<div class="bm-hand pl-${P.color}"><div class="bm-sub">✋ ${esc(P.name)}’s hand <small>reserved cards only ${esc(P.name)} can buy · ${P.hand.length}/${handMax(P)}</small></div><div class="bm-row">${P.hand.map((sp, i) => card(sp, 'h', i)).join('')}</div></div>`
+      : '';
+    const O = buying && T.opp ? state.players[other(T.p)] : null;
+    const theirs = O && O.hand.length
+      ? `<div class="bm-hand pl-${O.color}"><div class="bm-sub">🥚 ${esc(O.name)}’s reserved hand <small>Oviraptor can take one of these</small></div><div class="bm-row">${O.hand.map((sp, i) => card(sp, 'o', i)).join('')}</div></div>`
       : '';
     const stack = Math.min(state.deck.length, 4);
     setHtml(el, `<div class="bm-head"><h2>🃏 Dino market</h2><span class="bm-hint${picking || buying ? ' live' : ''}">${hint}</span></div>
@@ -2832,7 +2898,7 @@
       <div class="bm-row">
         <div class="deck-back bm-deck ${deckOk ? 'pick' : ''} ${state.deck.length ? '' : 'gone'}" ${deckOk ? 'data-act="take" data-from="deck"' : ''} title="Top of the deck (face down)" style="--stack:${stack}"><b>${state.deck.length}</b><small>deck</small></div>
         ${state.faceUp.map((sp, i) => card(sp, 'm', i)).join('')}
-      </div>${breeding ? `<div class="bm-hand bm-breed pl-${P.color}"><div class="bm-sub">🥚 Breed <small>species with an adult pair in one of ${esc(P.name)}’s enclosures · babies take half the squares · ${price ? `🪙${price}` : 'free'}</small></div><div class="bm-row">${opts.map((o) => card(o.sp, 'b', o.i)).join('')}</div></div>` : ''}${hand}`);
+      </div>${breeding ? `<div class="bm-hand bm-breed pl-${P.color}"><div class="bm-sub">🥚 Breed <small>species with an adult pair in one of ${esc(P.name)}’s enclosures · babies take half the squares · ${price ? `🪙${price}` : 'free'}</small></div><div class="bm-row">${opts.map((o) => card(o.sp, 'b', o.i)).join('')}</div></div>` : ''}${theirs}${theirs ? '' : hand}`);
   }
 
   function logItems(list) {
@@ -2873,6 +2939,7 @@
       case 'trex': return trexHtml(T);
       case 'carno': return carnoHtml(T);
       case 'freePlay': return freePlayHtml(T);
+      case 'maiaBreed': return maiaBreedHtml(T);
       case 'steal': return stealHtml(T);
       case 'power': return powerHtml(T);
       case 'grow': return growHtml(T);
@@ -2923,7 +2990,7 @@
   }
 
   function protoRoundStartHtml(list) {
-    const extra = state.players.filter((P) => P.bonusPending).map((P) => `${esc(P.name)} has ${PROTO_WORKERS + P.bonusPending} workers this round (Gigantoraptor).`).join(' ');
+    const extra = state.players.filter((P) => P.bonusPending).map((P) => `${esc(P.name)} has ${PROTO_WORKERS + P.bonusPending} workers this round (dino bonus).`).join(' ');
     return `<h2>Round ${state.round} of ${rounds()}</h2>
       ${eventCardHtml()}
       <p>${pn(state.first)} goes first this round.${extra ? ` ${extra}` : ''}</p>
@@ -3258,24 +3325,24 @@
       const card = (o) => cardHtml(o.sp, {
         cls: `${o.ok ? 'pick' : 'nope'} ${o.why === 'Blocked by T. Rex' ? 'blockedc' : ''}`,
         attrs: o.ok ? `data-act="pickSpecies" data-sp="${o.sp}"${state.proto ? ` data-src="${o.src}" data-i="${o.i}"` : ''}` : '',
-        tag: state.proto ? ({ h: 'reserved', b: 'breed' }[o.src] || 'market') : state.players[T.p].cards.includes(o.sp) ? 'card' : '',
+        tag: state.proto ? ({ h: 'reserved', b: 'breed', o: 'their reserved' }[o.src] || 'market') : state.players[T.p].cards.includes(o.sp) ? 'card' : '',
         lock: o.ok ? '' : o.why,
-        cost: !state.proto ? null : o.src === 'b' ? { d: 0, c: breedPrice(PROTO_SPACES[ui.space]) } : withExtra(playCost(o.sp, o.src), free ? 0 : spaceExtra()),
+        cost: !state.proto ? null : o.src === 'b' ? { d: 0, c: breedPrice(PROTO_SPACES[ui.space]) } : free ? playCost(o.sp, o.src) : protoTaskCost(o.sp, o.src, T, spaceExtra()),
         costLabel: o.src === 'b' ? 'Baby' : '',
       });
       const can = opts.filter((o) => o.ok);
       const cant = opts.filter((o) => !o.ok);
       const cards = (can.length ? can.map(card).join('') : '<p class="grid-note">Nothing you can play right now.</p>')
         + (cant.length ? `<div class="grid-split">🔒 Not right now</div>${cant.map(card).join('')}` : '');
-      const title = free ? `🎁 Pick a free dino (≤ ${T.limit || 5} points)` : state.proto ? (protoBreeding() ? `🥚 Pick a pair to breed (${breedPrice(PROTO_SPACES[ui.space]) ? `🪙${breedPrice(PROTO_SPACES[ui.space])}` : 'free'})` : '🦖 Buy a dino from the market or your hand') : '🦖 Choose a dino to play';
+      const title = T.off ? `🥚 Oviraptor: play a dino from the market or ${esc(state.players[other(T.p)].name)}’s reserved hand for 🪙${T.off} less` : free ? `🎁 Pick a free dino (≤ ${T.limit || 5} points)` : state.proto ? (protoBreeding() ? `🥚 Pick a pair to breed (${breedPrice(PROTO_SPACES[ui.space]) ? `🪙${breedPrice(PROTO_SPACES[ui.space])}` : 'free'})` : '🦖 Buy a dino from the market or your hand') : '🦖 Choose a dino to play';
       return `<h3>${title}</h3>
         <div class="card-grid">${cards}</div>
-        ${free ? '<button class="btn ghost" data-act="skip">Skip free dino</button>' : ''}`;
+        ${T.t === 'freePlay' ? `<button class="btn ghost" data-act="skip">${T.off ? 'Skip' : 'Skip free dino'}</button>` : ''}`;
     }
     const S = spec(ui.species);
     const v = validateSel();
     const need = ui.sel && ui.sel.need ? ui.sel.need : S.space;
-    const price = free ? ' (free!)' : ` · ${costText(state.proto ? withExtra(playCost(ui.species, ui.pick && ui.pick.src), spaceExtra()) : cardCost(ui.species))}`;
+    const price = free ? ' (free!)' : ` · ${costText(state.proto ? protoTaskCost(ui.species, ui.pick && ui.pick.src, T, spaceExtra()) : cardCost(ui.species))}`;
     return `<div class="place-head">${dz(ui.species, 'big')}<h3>Place ${esc(S.name)}${price}</h3></div>
       ${placementBox(`Select ${plural(need, 'connected square')} inside one enclosure`)}
       <button class="btn big" data-act="place" ${v.ok ? '' : 'disabled'}>Place ${esc(spName(ui.species))}</button>
@@ -3381,7 +3448,16 @@
   }
 
   function freePlayHtml(T) {
-    return (ui.species ? `<div class="act-top">${backBtn('back', 'Other dinos')}</div>` : '') + playModeHtml(T, true);
+    return (ui.species ? `<div class="act-top">${backBtn('back', 'Other dinos')}</div>` : '') + playModeHtml(T, !T.off);
+  }
+
+  function maiaBreedHtml(T) {
+    const opts = protoBreedOptions(T.p, 0);
+    const rows = opts.map((o) => `<button class="opt" data-act="maiaBreed" data-sp="${o.sp}" ${o.ok ? '' : 'disabled'}><span class="o-i">${dz(o.sp, 'big')}</span><span class="o-t"><b>${esc(SPECIES[o.sp].name)} pair</b><small>${o.ok ? `Baby takes ${plural(babySize(o.sp), 'square')}` : `🔒 ${o.why}`}</small></span></button>`).join('');
+    return `<h3>🥚 Maiasaura: free baby</h3>
+      <p>Pick one of your adult pairs to have a baby for free. It goes in the pair’s enclosure.</p>
+      <div class="opt-list">${rows}</div>
+      <button class="btn ghost" data-act="skip">Skip</button>`;
   }
 
   function backBtn(act, label) {
@@ -3398,7 +3474,7 @@
     const an = analyze(state.players[T.p].board);
     const encl = an.comps[an.compOf[it.cells[0]]].name;
     return `<div class="place-head">${dz(it.species, 'big')}<h3>🍼 Baby ${esc(S.name)} is growing up!</h3></div>
-      <p>The baby with the flashing yellow ring${encl ? ` in enclosure <b>${esc(encl)}</b>` : ''} has been fed ${PROTO_BABY_FEEDS} times, so it grows into an adult. Pick <b>${plural(extra, 'more square')}</b> joined to it in its enclosure (an adult takes ${S.space}).${SPECIES[it.species].type === 'event' ? ' Its when-played power triggers once it’s grown.' : ''}</p>
+      <p>The baby with the flashing yellow ring${encl ? ` in enclosure <b>${esc(encl)}</b>` : ''} has been fed enough, so it grows into an adult. Pick <b>${plural(extra, 'more square')}</b> joined to it in its enclosure (an adult takes ${S.space}).${SPECIES[it.species].type === 'event' ? ' Its when-played power triggers once it’s grown.' : ''}</p>
       ${placementBox(`Select ${plural(extra, 'empty square')} next to the baby`)}
       ${mine ? `<div class="btn-row"><button class="btn ghost" data-act="growAuto">Pick squares for me</button><button class="btn big" data-act="place" ${v.ok ? '' : 'disabled'}>Grow up</button></div>` : ''}`;
   }
@@ -3422,7 +3498,7 @@
     const [label] = powerEffect(T);
     const S = spec(T.sp);
     return `<h3>⚡ Production power</h3>
-      <div class="power-card"><img src="${IMG}${T.sp}.webp" alt=""><div><b>${esc(S.name)}${T.n > 1 ? ` ×${T.n}` : ''}</b><p>${esc(S.ability)}</p></div></div>
+      <div class="power-card"><img src="${IMG}${T.sp}.webp" alt=""><div><b>${esc(S.name)}${(T.cnt || T.n) > 1 ? ` ×${T.cnt || T.n}` : ''}</b><p>${esc(S.ability)}</p></div></div>
       ${T.sp === 'triceratops' ? triPayHtml(T) : ''}
       <button class="btn big" data-act="usePower">${label}</button>`;
   }
@@ -3439,7 +3515,7 @@
     const O = state.players[other(T.p)];
     const [lo, hi] = stealRange(T);
     const plant = T.amount - ui.meat;
-    return `<h3>🦖 Velociraptor raid</h3>
+    return `<h3>🦖 ${esc(T.who || 'Velociraptor')} raid</h3>
       ${state.proto ? '<p class="muted">⚡ Production power: choose what to take.</p>' : ''}
       <p>Steal <b>${T.amount}</b> food from ${pn(other(T.p))} (they have 🍖${O.meat} 🌿${O.plants}).</p>
       ${stepper('meat', '🍖 Meat', ui.meat, ui.meat > lo, ui.meat < hi)}
@@ -3586,7 +3662,7 @@
     const floaters = ['coin', 'diamond', 'meat', 'plant', 'coin', 'fence', 'water', 'diamond']
       .map((t, i) => `<img class="floater f${i}" src="${IMG}${t}.webp" alt="">`)
       .join('');
-    const parade = BOOK.concat(DECK)
+    const parade = BOOK.concat(DECK, PROTO_NEW)
       .map((sp, i) => `<img src="${IMG}${sp}.webp" alt="${esc(SPECIES[sp].name)}" title="${esc(SPECIES[sp].name)}" style="--i:${i}">`)
       .join('');
     const saved = load();
@@ -4066,7 +4142,7 @@
             commit();
             break;
           }
-          resolveCurrent(protoPowerTasks(p));
+          resolveCurrent(protoPowerTasks(p, T.got));
           break;
         }
         resolveCurrent();
@@ -4220,7 +4296,7 @@
         O.plants -= pl;
         P.meat += m;
         P.plants += pl;
-        logMsg(`${pn(p)}’s Velociraptors stole 🍖${m} 🌿${pl} from ${pn(other(p))}!`);
+        logMsg(`${pn(p)}’s ${T.who || 'Velociraptors'} stole 🍖${m} 🌿${pl} from ${pn(other(p))}!`);
         toast(`🦖 Raid! ${P.name} stole ${T.amount} food`, 'good');
         resolveCurrent();
         break;
@@ -4267,10 +4343,21 @@
         break;
       case 'skip':
         if (T.t === 'freePlay') {
-          logMsg(`${pn(p)} skipped the free dino.`);
+          logMsg(T.off ? `${pn(p)} skipped Oviraptor’s play.` : `${pn(p)} skipped the free dino.`);
+          resolveCurrent();
+        } else if (T.t === 'maiaBreed') {
+          logMsg(`${pn(p)} skipped Maiasaura’s free baby.`);
           resolveCurrent();
         }
         break;
+      case 'maiaBreed': {
+        if (T.t !== 'maiaBreed') break;
+        const o = protoBreedOptions(p, 0).find((x) => x.sp === ds.sp);
+        const task = o && o.ok && protoBreedTask(p, ds.sp, 0);
+        if (!task) break;
+        resolveCurrent([task]);
+        break;
+      }
       default:
         break;
     }
@@ -4292,7 +4379,12 @@
     const paidM = tot.meat + fm;
     const paidP = tot.plant + tot.flex - fm;
     if (fed.length) msgs.push(`fed ${fed.map((cp) => cp.name).join(', ')}${tot.total ? ` (paid ${[paidM ? '🍖' + paidM : '', paidP ? '🌿' + paidP : ''].filter(Boolean).join(' ')})` : ''}`);
-    if (state.proto) fed.forEach((cp) => cp.living.forEach((d) => { if (d.stage === 'baby') d.fed = (d.fed || 0) + (state.event === 'nursery' ? 2 : 1); }));
+    if (state.proto) {
+      fed.forEach((cp) => {
+        const step = protoMaiaPen(cp) ? PROTO_BABY_FEEDS : state.event === 'nursery' ? 2 : 1;
+        cp.living.forEach((d) => { if (d.stage === 'baby') d.fed = (d.fed || 0) + step; });
+      });
+    }
     fed.forEach((cp) => {
       if (b.inactive[cp.key]) {
         delete b.inactive[cp.key];
@@ -4345,16 +4437,18 @@
     const P = state.players[p];
     if (s.purpose === 'dino') {
       const sp = s.species;
-      const free = T.t === 'freePlay';
-      const cost = state.proto ? withExtra(playCost(sp, ui.pick && ui.pick.src), spaceExtra()) : SPECIES[sp].cost;
+      const free = T.t === 'freePlay' && !T.off;
+      const cost = state.proto ? protoTaskCost(sp, ui.pick && ui.pick.src, T, spaceExtra()) : SPECIES[sp].cost;
       if (state.proto) {
         const pk = ui.pick;
         if (!pk) return;
-        const list = pk.src === 'h' ? P.hand : state.faceUp;
+        const O = state.players[other(p)];
+        const list = pk.src === 'h' ? P.hand : pk.src === 'o' ? O.hand : state.faceUp;
         if (list[pk.i] !== sp) return;
         if (!free && !canAfford(P, cost)) return;
-        if (pk.src === 'h') P.hand.splice(pk.i, 1);
+        if (pk.src === 'h' || pk.src === 'o') list.splice(pk.i, 1);
         else protoTakeFromMarket(pk.i);
+        if (pk.src === 'o') logMsg(`🥚 ${pn(p)}’s Oviraptor took ${dz(sp)} <b>${spName(sp)}</b> from ${pn(other(p))}’s reserved hand.`);
         P.cards.push(sp);
         if (!free) pay(P, cost);
       } else if (!free) {
@@ -4368,7 +4462,7 @@
         toast(`⚡ ${spName(sp)} event!`, 'good');
         tasks = eventTasks(p, sp);
       }
-      if (free) resolveCurrent(tasks);
+      if (T.t === 'freePlay') resolveCurrent(tasks);
       else completeAction(tasks);
       return;
     }
@@ -5944,7 +6038,7 @@
   // ---------------------------------------------------------------- prototype computer player
   // A one-step greedy player for the prototype rules: it scores each open worker space by rough point
   // value and takes the best. Lower levels add more random noise.
-  const PROTO_POWER = { trex: 3, gigantoraptor: 2, spinosaurus: 4, dilophosaurus: 4, stegosaurus: 2.5, brachiosaurus: 2, carnotaurus: 2.5, ankylosaurus: 3 };
+  const PROTO_POWER = { quetzalcoatlus: 2.5, oviraptor: 2, trex: 3, gigantoraptor: 2, spinosaurus: 4, dilophosaurus: 4, stegosaurus: 2.5, brachiosaurus: 2, carnotaurus: 2.5, ankylosaurus: 3 };
 
   // Goal points are certain and the human opponent chases them hard, so the computer weighs them up a bit.
   const PROTO_GOAL_W = 1.6;
@@ -5983,7 +6077,7 @@
 
   // Food the opponent's Velociraptors will steal in Production, before Feeding.
   function protoRaid(p) {
-    return producible(other(p)).reduce((s, cp) => s + cp.living.filter((d) => d.species === 'velociraptor' && isAdult(d)).length, 0);
+    return producible(other(p)).reduce((s, cp) => s + cp.living.filter((d) => (d.species === 'velociraptor' || d.species === 'giganotosaurus') && isAdult(d)).length, 0);
   }
 
   // Food still missing for this round's Feeding, after the opponent's Velociraptors eat into any spare.
@@ -6044,6 +6138,13 @@
     if (sp === 'triceratops') power = left * 0.3;
     if (sp === 'pachy') power = (P.coins + left * 3) / PROTO_PACHY_COINS;
     if (sp === 'microraptor') power = 1.5;
+    if (sp === 'giganotosaurus') power = left * (protoCoinValue(p) + 0.35);
+    if (sp === 'sauroposeidon') {
+      const prods = producible(p).map((cp) => cp.prod).sort((a, b) => b - a);
+      power = Math.max(1, Math.ceil((prods[1] || prods[0] || 2) / 2)) * left * protoCoinValue(p) * 0.8;
+    }
+    if (sp === 'maiasaura') power = 1.5 + (protoBreedOptions(p, 0).some((o) => o.ok) ? 2.5 : 0);
+    if (sp === 'quetzalcoatlus' && state.phaseOrder[cur() ? cur().k : 0] !== 'action' && left <= 1) power = 0;
     // Only one enclosure pays each round, so production counts by how much it lifts the best one.
     const top = bestProdB(P.board);
     const home = an.comps.filter((cp) => cp.valid && !cp.dead && cp.species.has(sp)).reduce((m, cp) => Math.max(m, cp.prod), 0);
@@ -6340,7 +6441,7 @@
     return best ? new Set(best.keys) : defaultFeed(p);
   }
 
-  function protoAiPlaceBuy(buy, free, space) {
+  function protoAiPlaceBuy(buy, free, space, how) {
     if (space) handle('space', { s: space });
     handle('pickSpecies', { sp: buy.sp, src: buy.src, i: String(buy.i) });
     if (!ui.sel) {
@@ -6357,7 +6458,7 @@
       return;
     }
     document.getElementById('boards')._html = null;
-    aiShow(`Playing ${spName(buy.sp)}${free ? ' for free' : ''}…`, () => handle('place', {}));
+    aiShow(`Playing ${spName(buy.sp)}${how || (free ? ' for free' : '')}…`, () => handle('place', {}));
   }
 
   function protoAiStep(T) {
@@ -6426,8 +6527,15 @@
         return true;
       case 'freePlay': {
         const buy = protoBestBuy(p, T);
-        if (!buy) { handle('skip', {}); return true; }
-        protoAiPlaceBuy(buy, true);
+        const c = buy && T.off ? protoTaskCost(buy.sp, buy.src, T) : null;
+        if (!buy || (c && buy.v - c.c * protoCoinValue(p) - c.d * protoDiamondPts(p) <= 0)) { handle('skip', {}); return true; }
+        protoAiPlaceBuy(buy, true, null, T.off ? ` for 🪙${T.off} less` : '');
+        return true;
+      }
+      case 'maiaBreed': {
+        const br = protoBestBreed(p, 0) || protoBreedOptions(p, 0).find((o) => o.ok);
+        if (!br) { handle('skip', {}); return true; }
+        aiShow(`Maiasaura: ${spName(br.sp)} pair is having a baby…`, () => handle('maiaBreed', { sp: br.sp }), AI_FOLLOW_MS);
         return true;
       }
       case 'trex': {
