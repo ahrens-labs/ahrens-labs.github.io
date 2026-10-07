@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Board Games — Ahrens Labs</title>
+  <meta name="description" content="Board games from Ahrens Labs. Pick a box off the shelf and play.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎲</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Lilita+One&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/board-games.css?v=1">
+  <link rel="stylesheet" href="/css/emoji.css">
+</head>
+<body>
+  <header class="lobby-top">
+    <a class="back" href="/coding-lab.html">← Ahrens Labs</a>
+    <div class="lobby-title">
+      <span class="dice" aria-hidden="true">🎲</span>
+      <div>
+        <h1>The Board Game Shelf</h1>
+        <p>Pick a box, open the lid, and play — against the computer or a friend on the same device.</p>
+      </div>
+    </div>
+  </header>
+
+  <main class="shelf-wrap">
+    <section class="shelf" aria-label="Games">
+      <a class="game" href="/dino-board-game.html" style="--accent:#ffb300;--accent-2:#2f6b3a">
+        <div class="box">
+          <div class="lid">
+            <img src="/img/dino-game/cover.webp" alt="Dino Board Game cover: dinosaurs in a jungle park">
+            <span class="shine"></span>
+            <span class="lid-title">Dino Board Game</span>
+          </div>
+          <div class="box-side"></div>
+        </div>
+        <div class="info">
+          <h2>Dino Board Game</h2>
+          <p>Fence your land, feed your dinos and build the best dino park in 15 rounds. Breed pairs, dodge disasters and outscore your rivals.</p>
+          <ul class="chips">
+            <li>👥 1–2 players</li>
+            <li>🤖 vs computer</li>
+            <li>🌐 online play</li>
+            <li>🔐 needs an account</li>
+          </ul>
+          <span class="play">Play Dino Board Game →</span>
+        </div>
+      </a>
+
+      <a class="game" href="/hearthhold.html" style="--accent:#f2c14e;--accent-2:#b23a48">
+        <div class="box">
+          <div class="lid">
+            <img src="/img/hearthhold/cover.webp" alt="Hearthhold cover: a medieval village with a dragon flying overhead">
+            <span class="shine"></span>
+            <span class="lid-title">Hearthhold</span>
+            <span class="badge">New!</span>
+          </div>
+          <div class="box-side"></div>
+        </div>
+        <div class="info">
+          <h2>Hearthhold</h2>
+          <p>Raise a medieval village over three years. House and feed your people, hire chefs, carpenters and knights, and hold the walls when trolls, griffins and dragons attack.</p>
+          <ul class="chips">
+            <li>👥 1–2 players</li>
+            <li>🤖 vs computer</li>
+            <li>📱 same device</li>
+            <li>⏱️ ~30 min</li>
+          </ul>
+          <span class="play">Play Hearthhold →</span>
+        </div>
+      </a>
+
+      <div class="game soon" aria-hidden="true">
+        <div class="box">
+          <div class="lid sealed">
+            <span class="q">?</span>
+            <span class="lid-title">Coming soon</span>
+          </div>
+          <div class="box-side"></div>
+        </div>
+        <div class="info">
+          <h2>More on the way</h2>
+          <p>New games are being playtested in the lab.</p>
+        </div>
+      </div>
+    </section>
+    <div class="plank" aria-hidden="true"></div>
+  </main>
+
+  <script>
+    // Tilt each box toward the pointer.
+    document.querySelectorAll('.game:not(.soon)').forEach((g) => {
+      const box = g.querySelector('.box');
+      g.addEventListener('pointermove', (e) => {
+        const r = box.getBoundingClientRect();
+        const x = (e.clientX - r.left) / r.width - 0.5;
+        const y = (e.clientY - r.top) / r.height - 0.5;
+        box.style.setProperty('--rx', `${(-y * 10).toFixed(2)}deg`);
+        box.style.setProperty('--ry', `${(x * 14).toFixed(2)}deg`);
+      });
+      g.addEventListener('pointerleave', () => {
+        box.style.removeProperty('--rx');
+        box.style.removeProperty('--ry');
+      });
+    });
+  </script>
+</body>
+</html>
