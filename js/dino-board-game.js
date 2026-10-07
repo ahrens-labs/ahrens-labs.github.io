@@ -100,7 +100,7 @@
   };
 
   // Bump with RULES_VERSION in workers/src/dino.js when costs or rules change, so open tabs on old rules must reload.
-  const RULES_VERSION = 11;
+  const RULES_VERSION = 12;
 
   const BOOK = ['compy', 'triceratops', 'spinosaurus', 'stegosaurus', 'velociraptor', 'brachiosaurus', 'trex', 'pachy'];
   const DECK = ['allosaurus', 'mosasaurus', 'carnotaurus', 'microraptor', 'ankylosaurus', 'dilophosaurus', 'parasaurolophus', 'gigantoraptor'];
@@ -138,7 +138,8 @@
     gems: { icon: '💎', name: 'Gem collector', desc: `${PROTO_GEM_PTS} points per diamond you have left`, pts: (c) => PROTO_GEM_PTS * c.P.diamonds },
     earners: { icon: '💰', name: 'Big earners', desc: '3 points for every 2 coins your best enclosure produces', pts: (c) => Math.floor(1.5 * c.pens.reduce((m, x) => Math.max(m, x.prod), 0)) },
   };
-  const PROTO_PACHY_COINS = 5;
+  const PROTO_PACHY_COINS = 10;
+  const PROTO_COMPY_MAX = 3;
   const PROTO_REFRESH = 2;
   const PROTO_GOLDRUSH = 2;
   // Seven kinds of worker space in three tiers. A top or middle tier holds one worker per round;
@@ -194,7 +195,7 @@
     spoilage: { name: 'Spoilage', icon: '🦠', desc: 'Everyone’s food above 6 spoils (from the bigger pile first).' },
   };
   const PROTO_SP = {
-    compy: { space: 2 },
+    compy: { space: 2, ability: `1 point for each adjacent Compy in the enclosure, up to ${PROTO_COMPY_MAX} per Compy (diagonals don’t count).` },
     microraptor: { space: 2 },
     trex: { ability: `Choose a dino. Your opponent can’t place that dino for the next ${PROTO_TREX_ROUNDS} rounds.` },
     gigantoraptor: { ability: 'Place one extra worker next round.' },
@@ -933,7 +934,7 @@
     return n;
   }
 
-  // Each Compy scores 1 per other Compy touching any of its squares in the same enclosure (babies half).
+  // Each Compy scores 1 per other Compy touching any of its squares in the same enclosure, up to a cap (babies half).
   function protoCompyAdjacency(b, an, dinos) {
     let n = 0;
     dinos.filter((x) => x.d.species === 'compy').forEach(({ d }) => {
@@ -942,7 +943,8 @@
         const it = b.items[b.cells[j]];
         if (it && it !== d && it.species === 'compy' && !it.dead && hatched(it) && an.compOf[j] === an.compOf[i]) near.add(it.id);
       }));
-      n += isAdult(d) ? near.size : Math.ceil(near.size / 2);
+      const pts = Math.min(PROTO_COMPY_MAX, near.size);
+      n += isAdult(d) ? pts : Math.ceil(pts / 2);
     });
     return n;
   }
