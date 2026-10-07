@@ -225,7 +225,8 @@
         </div>
         <div class="top-actions">
           <button class="btn ghost sm" id="rules-btn">📜 Rules</button>
-          <button class="btn ghost sm" id="menu-btn">☰ Menu</button>
+          <button class="btn ghost sm" id="new-btn">🏰 New game</button>
+          <a class="btn ghost sm" href="/board-games.html" title="All board games" aria-label="All board games">🎲</a>
         </div>
       </header>
       <section class="threats" id="threats"></section>
@@ -246,7 +247,7 @@
         <div class="panel" id="log"></div>
       </section>`;
     $('#rules-btn').onclick = () => showRules();
-    $('#menu-btn').onclick = showMenu;
+    $('#new-btn').onclick = newGame;
     $('#svg').addEventListener('click', onBoardClick);
     $('#app').addEventListener('click', onAppClick);
   }
@@ -407,7 +408,7 @@
           h += `<text class="decor d-${t}" x="${x + dx}" y="${y + dy}" font-size="${fs}" style="animation-delay:${-((i * 7 + k * 3) % 10) / 3}s">${e}</text>`;
         });
       }
-      if (can) h += `<polygon class="can-ring" points="${hexPoints(x, y, S - 4)}"/><image class="ghost" href="${IMG(pick.b)}" x="${x - S * 0.6}" y="${y - S * 0.6}" width="${S * 1.2}" height="${S * 1.2}"/>`;
+      if (can) h += `<polygon class="can-ring" points="${hexPoints(x, y, S - 4)}"/><image class="ghost-img" href="${IMG(pick.b)}" x="${x - S * 0.6}" y="${y - S * 0.6}" width="${S * 1.2}" height="${S * 1.2}"/>`;
       h += '</g>';
       if (b) h += buildingSvg(p, b, x, y);
     });
@@ -1150,39 +1151,23 @@
     setTimeout(() => box.remove(), 6000);
   }
 
-  // ---------------------------------------------------------------- menu
-  function showMenu() {
-    const back = openModal(`
-      <h2>☰ Menu</h2>
-      <p class="muted">Your game saves on this device after every move.</p>
-      <div class="menu-list">
-        <button class="btn" data-close>Back to the game</button>
-        <button class="btn ghost" data-rules>📜 How to play</button>
-        <button class="btn ghost" data-new>🆕 New game</button>
-        <a class="btn ghost" href="/board-games.html">🎲 All board games</a>
-      </div>`);
+  // ---------------------------------------------------------------- new game
+  function newGame() {
+    const go = () => {
+      try {
+        localStorage.removeItem(SAVE_KEY);
+      } catch (err) {
+        /* ignore */
+      }
+      showSetup();
+    };
+    if (st().phase === 'over') return go();
+    const back = openModal('<h2>🏰 Start a new game?</h2><p>This ends the current game. Your progress so far will be lost.</p><div class="btn-row"><button class="btn lava" data-yes>New game</button><button class="btn ghost" data-close>Keep playing</button></div>');
     back.addEventListener('click', (e) => {
-      if (e.target.closest('[data-rules]')) {
-        ui.onClose = null;
-        closeModal();
-        showRules();
-      }
-      if (e.target.closest('[data-new]')) {
-        ui.onClose = null;
-        closeModal();
-        const b2 = openModal('<h2>Start over?</h2><p>This ends the current game.</p><div class="btn-row"><button class="btn lava" data-yes>New game</button><button class="btn ghost" data-close>Cancel</button></div>');
-        b2.addEventListener('click', (ev) => {
-          if (!ev.target.closest('[data-yes]')) return;
-          ui.onClose = null;
-          closeModal();
-          try {
-            localStorage.removeItem(SAVE_KEY);
-          } catch (err) {
-            /* ignore */
-          }
-          showSetup();
-        });
-      }
+      if (!e.target.closest('[data-yes]')) return;
+      ui.onClose = null;
+      closeModal();
+      go();
     });
   }
 
