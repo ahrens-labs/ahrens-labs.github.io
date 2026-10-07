@@ -563,12 +563,21 @@ button { font-family: inherit; }
 .meeple { position: absolute; top: -0.7rem; right: -0.4rem; width: 2.2rem; height: 2.2rem; border-radius: 50%; display: grid; place-items: center; font-size: 1.25rem;
   background: var(--pc); box-shadow: 0 0 0 3px #fff, 0 4px 8px rgba(0, 0, 0, 0.35); animation: meepleDrop 0.45s cubic-bezier(.34, 1.56, .64, 1) both; }
 @keyframes meepleDrop { from { transform: translateY(-30px) scale(0.6); opacity: 0; } to { transform: none; opacity: 1; } }
+.open-head { margin: 0.8rem 0 0.45rem; }
+.open-head h4 { margin: 0; font-size: 0.92rem; }
+.loc-row.extra { grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: calc(40% + 0.3rem); }
+.loc.mini { grid-template-columns: 40px minmax(0, 1fr); grid-template-rows: auto auto; padding: 0.4rem 0.55rem; background: #f6eedb; }
+.loc.mini .loc-art { grid-row: span 2; width: 40px; height: 40px; border-radius: 9px; }
+.loc.mini .loc-name { font-size: 0.88rem; }
+.crowd { position: absolute; top: -0.55rem; right: -0.3rem; display: flex; }
+.crowd i { width: 1.7rem; height: 1.7rem; margin-left: -0.45rem; border-radius: 50%; display: grid; place-items: center; font-size: 0.95rem; font-style: normal;
+  background: var(--pc); box-shadow: 0 0 0 2px #fff, 0 3px 6px rgba(0, 0, 0, 0.3); animation: meepleDrop 0.45s cubic-bezier(.34, 1.56, .64, 1) both; }
 .who small { opacity: 0.75; font-weight: 600; }
 .end-btn { width: 100%; margin-top: 0.4rem; }
 .end-btn small { font-weight: 600; opacity: 0.8; }
 .hidden-score { opacity: 0.75; }
-@media (max-width: 1100px) { .loc-row { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); } }
-@media (max-width: 560px) { .locs { margin: 0.8rem 0.6rem 0; } .loc-row { grid-template-columns: 1fr; } }
+@media (max-width: 1100px) { .loc-row { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); } .loc-row.extra { max-width: none; } }
+@media (max-width: 560px) { .locs { margin: 0.8rem 0.6rem 0; } .loc-row { grid-template-columns: 1fr; } .loc-row.extra { grid-template-columns: 1fr 1fr; } }
 
 /* ---------- final reveal ---------- */
 .hh-reveal { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; padding: 1.2rem; overflow-y: auto; cursor: pointer;

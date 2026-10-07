@@ -2718,11 +2718,12 @@
         ${state.past ? '' : '<button class="btn sm ghost log-btn" data-act="fullLog" title="What happened" aria-label="What happened">🗒️<span class="lb-t"> What happened</span></button>'}
         ${state.aiCfg && !online && !state.past ? `<button class="btn sm ghost" data-act="aiSettings" title="Computer settings">🤖 ${AI_LEVELS[state.aiCfg.level]} · ${AI_PACES[state.aiCfg.pace]}</button>` : ''}
         ${!online && !state.sim && !state.past && isAdmin() ? '<button class="btn sm ghost" data-act="simOpen" title="Computer vs computer (admin)" aria-label="Computer vs computer (admin)">🧪</button>' : ''}
-        ${state.sim ? `<button class="btn sm ghost" data-act="simSpeed" title="Change simulation speed">${SIM_SPEEDS[state.sim.speed].icon} ${SIM_SPEEDS[state.sim.speed].name}</button>` : `${state.goals ? '<button class="btn sm ghost" data-act="goals" title="Goal cards">🎯 Goals</button>' : ''}<button class="btn sm ghost" data-act="rules">📜 Rules</button>`}
+        ${state.sim ? `<button class="btn sm ghost" data-act="simSpeed" title="Change simulation speed">${SIM_SPEEDS[state.sim.speed].icon} ${SIM_SPEEDS[state.sim.speed].name}</button>` : '<button class="btn sm ghost" data-act="rules">📜 Rules</button>'}
         ${online
     ? `<button class="btn sm ghost" data-act="onlineLeave">🏠 My games</button>${online.status === 'active' ? '<button class="btn sm ghost" data-act="onlineResign">🏳️ Resign</button>' : ''}`
     : state.sim ? '<button class="btn sm ghost" data-act="simStop">⏹ Exit simulation</button>'
       : state.past ? '<a class="btn sm ghost" href="/dino-history.html">🏆 Back to history</a>' : '<button class="btn sm ghost" data-act="newGame">🥚 New game</button>'}
+        <a class="btn sm ghost" href="/board-games.html" title="Back to the game lobby">🎲 Lobby</a>
       </div>`);
   }
 
@@ -3790,7 +3791,7 @@
       <p class="muted">Changes apply right away. Pick Slow to watch each of the computer’s moves.</p>`, 'small');
   }
 
-  const RULE_TABS = [['basics', '🦖 Basics'], ['round', '🔄 A round'], ['workers', '👷 Workers'], ['park', '🏞️ Your park'], ['dinos', '🃏 All dinos'], ['scoring', '🏆 Scoring'], ['events', '🎲 Events']];
+  const RULE_TABS = [['video', '🎬 Video tutorial'], ['basics', '🦖 Basics'], ['round', '🔄 A round'], ['workers', '👷 Workers'], ['park', '🏞️ Your park'], ['dinos', '🃏 All dinos'], ['scoring', '🏆 Scoring'], ['events', '🎲 Events']];
   let rulesTab = 'basics';
 
   const ruleLink = (tab, label) => `<button class="rules-link" data-act="rulesTab" data-tab="${tab}">${label} ›</button>`;
@@ -3826,6 +3827,9 @@
     const sched = protoGoalSchedule();
     const Sched = sched.charAt(0).toUpperCase() + sched.slice(1);
     return {
+      video: window.AhrensTutorial
+        ? `<p class="rules-lead">Watch a full game explained step by step. Use the chapter buttons to jump to any part, and turn on captions if you like.</p>${window.AhrensTutorial.embed('dino')}`
+        : '<p>The video tutorial couldn’t load. Please refresh the page.</p>',
       basics: `<p class="rules-lead">Build the best dino park in <b>${PROTO_ROUNDS} rounds</b>. Fence in enclosures, fill them with dinos, keep everyone fed and chase the goal cards. Most points wins.</p>
         <h3>What you have</h3>
         <ul class="rules-icons">
@@ -3963,7 +3967,7 @@
         <div class="rule-box">Only dinos in <b>active</b> enclosures count — for points, for scoring powers and for goal cards. Dinos in inactive or extinct enclosures score nothing.</div>
         <p>The player with more points wins. If the totals are equal, it’s a tie.</p>
         <h3>Goal cards</h3>
-        <p>${Sched}. Tap 🎯 Goals during a game to see the revealed ones and what they’re worth right now. “Enclosure” on a goal means an active enclosure with at least one dino in it.</p>
+        <p>${Sched}. Tap any card in the 🎯 Goals strip during a game to see the revealed ones and what they’re worth right now. “Enclosure” on a goal means an active enclosure with at least one dino in it.</p>
         <ul>${Object.values(PROTO_GOALS).map((G) => `<li>${G.icon} <b>${G.name}</b> — ${G.desc}</li>`).join('')}</ul>`,
       events: `<p>Each round starts with a random event that lasts only that round. No event comes up twice in a game.</p>
         <ul>${Object.values(PROTO_EVENTS).map((E) => `<li>${E.icon} <b>${E.name}</b> — ${E.desc}</li>`).join('')}</ul>
@@ -3978,6 +3982,7 @@
     openModal(`<div class="rules-top"><div class="modal-head"><h2>📜 How to play</h2><button class="x" data-act="closeModal" aria-label="Close">✕</button></div>
       <nav class="rules-tabs">${tabs}</nav></div>
       ${RULE_TABS.map(([k]) => `<section class="rules-pane" data-pane="${k}"${k === rulesTab ? '' : ' hidden'}>${panes[k]}</section>`).join('')}`, 'rules');
+    if (window.AhrensTutorial) window.AhrensTutorial.mount(document.querySelector('.modal.rules'));
   }
 
   function showRulesTab(tab) {
@@ -3987,6 +3992,7 @@
       if (b.dataset.tab === tab && b.scrollIntoView) b.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     });
     document.querySelectorAll('.rules-pane').forEach((x) => { x.hidden = x.dataset.pane !== tab; });
+    if (tab !== 'video') document.querySelectorAll('.rules-pane video').forEach((v) => v.pause());
     const m = document.querySelector('.modal.rules');
     if (m) m.scrollTop = 0;
   }

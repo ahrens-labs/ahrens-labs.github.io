@@ -485,7 +485,8 @@
     const slots = E.slotsOf(b.b);
     const worked = !slots || occ.some((v) => E.canWork(v.k, b.b));
     const r = S * 0.78;
-    let h = `<g class="bld b-${b.b}${ui.fresh.has(b.id) ? ' fresh' : ''}${worked ? '' : ' unstaffed'}" data-cell="${b.cell}" data-bld="${b.id}" transform="translate(${x.toFixed(1)},${y.toFixed(1)})">`;
+    // Position lives on an outer group: the drop-in animation's CSS transform would replace an SVG transform attribute.
+    let h = `<g transform="translate(${x.toFixed(1)},${y.toFixed(1)})"><g class="bld b-${b.b}${ui.fresh.has(b.id) ? ' fresh' : ''}${worked ? '' : ' unstaffed'}" data-cell="${b.cell}" data-bld="${b.id}">`;
     h += `<title>${esc(bldTitle(p, b))}</title>`;
     h += `<circle r="${r}" class="bld-bg" fill="${B.color}"/>`;
     h += `<image href="${IMG(k)}" x="${-S * 0.95}" y="${-S * 0.95}" width="${S * 1.9}" height="${S * 1.9}" clip-path="url(#clip-b)" preserveAspectRatio="xMidYMid slice"/>`;
@@ -503,7 +504,7 @@
         h += '</g>';
       }
     }
-    h += '</g>';
+    h += '</g></g>';
     return h;
   }
   function bldTitle(p, b) {
@@ -606,7 +607,7 @@
     const rate = E.tradeRate(p) === 1 ? '1:1' : '2:1';
     const open = E.freeLocs(s).length;
     const workerMsg = p.workers > 0
-      ? open ? `Place ${plural(p.workers, 'worker')} on the locations above — placing one ends your turn.` : 'Every location is taken — end your round when you’re done.'
+      ? `Place ${plural(p.workers, 'worker')} on the locations above — placing one ends your turn.${E.freeLocs(s).length === E.OPEN_LOCS.length ? ' The five main spots are taken, but the always-open ones still have room.' : ''}`
       : 'All your workers are out. Finish your free actions, then end your round.';
     box.innerHTML = `
       <h3>Free actions <span class="muted">as many as you can pay for</span></h3>
@@ -647,7 +648,19 @@
         </button>`;
       })
       .join('');
-    $('#locs').innerHTML = `<div class="locs-head"><h3>📍 Locations</h3><span class="muted">Each holds one worker per round — whoever gets there first. This game’s five are drawn from ${E.LOC_ORDER.length}.</span></div><div class="loc-row">${cards}</div>`;
+    const extra = E.OPEN_LOCS.map((k) => {
+      const L = E.LOC[k];
+      const crowd = E.crowdAt(s, k);
+      const g = gainTxt(k);
+      return `<button class="loc mini${can ? ' open' : ''}" data-loc="${k}" ${can ? 'title="Send a worker here"' : `aria-disabled="true" title="${s.phase === 'act' && myTurnHere() ? 'No workers left' : 'Not your turn'}"`}>
+          <span class="loc-art"><img src="${IMG(L.img)}" alt=""></span>
+          <b class="loc-name">${L.name}</b>
+          <span class="loc-text">Take ${g}. No limit.</span>
+          ${crowd.length ? `<span class="crowd">${crowd.map((pi) => `<i style="--pc:${PCOLOR[pi]}" title="${esc(s.players[pi].name)}">🧍</i>`).join('')}</span>` : ''}
+        </button>`;
+    }).join('');
+    $('#locs').innerHTML = `<div class="locs-head"><h3>📍 Locations</h3><span class="muted">Each holds one worker per round — whoever gets there first. This game’s five are drawn from ${E.LOC_ORDER.length}.</span></div><div class="loc-row">${cards}</div>
+      <div class="locs-head open-head"><h4>Always open</h4><span class="muted">Weaker, but any number of workers fit — for a worker with nowhere better to go.</span></div><div class="loc-row extra">${extra}</div>`;
   }
 
   function renderRow() {
@@ -1667,6 +1680,7 @@
 
   // ---------------------------------------------------------------- rules
   const RULE_TABS = [
+    ['video', '🎬 Video tutorial'],
     ['basics', 'Basics'],
     ['round', 'A round'],
     ['places', 'Workers & places'],
@@ -1682,6 +1696,10 @@
     return `⚔️${Math.min(...s)}–${Math.max(...s)}`;
   }
   function rulesBody(tab) {
+    if (tab === 'video')
+      return window.AhrensTutorial
+        ? `<p class="lead">Watch a full game explained step by step. Use the chapter buttons to jump to any part, and turn on captions if you like.</p>${window.AhrensTutorial.embed('hearthhold')}`
+        : '<p>The video tutorial couldn’t load. Please refresh the page.</p>';
     if (tab === 'basics')
       return `
       <p class="lead">Two villages grow side by side for <b>3 years</b> — 12 rounds, one per season. Each round you send your <b>workers</b> to the places on offer, build and recruit as much as you can pay for, and then the night comes: your village works, a creature attacks <i>both</i> villages, and everyone eats. After the 12th round the village with the most <b>⭐ points</b> wins.</p>
@@ -1713,6 +1731,8 @@
         <li>🍞4 🪵5 🪨2 and 🪙4. The village that goes second in round 1 gets 🪙5 instead.</li>
         <li>2 workers every round (3 once a Steward works your Keep).</li>
       </ul>
+      <h4>Where workers go</h4>
+      <p>Five main places are drawn for each game, and each takes only one worker per round. Two weaker <b>always-open</b> places — the Village commons and Odd jobs — take any number of workers.</p>
       <h4>Scores are secret</h4>
       <p>You can always look at both villages, the places, the Crossroads and the creatures coming, but nobody’s ⭐ total is shown during the game. It is revealed, category by category, after the last night.</p>`;
     if (tab === 'round')
@@ -1722,7 +1742,7 @@
       <h4>2. Day — take turns</h4>
       <ol class="steps">
         <li>On your turn, do as many <b>free actions</b> as you like and can pay for, in any order: build, wall, recruit, trade and move villagers.</li>
-        <li>Then either <b>send one worker</b> to an empty place — you get its reward straight away and your turn ends — or press <b>End round</b>.</li>
+        <li>Then either <b>send one worker</b> to an empty place (or one of the always-open places) — you get its reward straight away and your turn ends — or press <b>End round</b>.</li>
         <li>If that was your <b>last</b> worker, your turn doesn’t end: finish any free actions (you can use what the place just gave you) and then press End round.</li>
         <li>Once you end the round you can’t do anything more until tomorrow. Any workers you didn’t place are wasted. Your rival keeps taking turns until they end too.</li>
       </ol>
@@ -1743,12 +1763,14 @@
         <li>Each place holds <b>one worker per round</b>, from either village. Whoever gets there first takes it; the other village can’t use it that round.</li>
         <li>You get the reward the moment you place the worker. The place card shows exactly what you would get right now.</li>
         <li>You can’t place two workers on the same place, and you never have to place all your workers.</li>
+        <li>Two <b>always-open places</b> are in every game as well. They give much less, but they have <b>no limit</b>: any number of workers from either village can go there, even several of yours in the same round. They’re there so a spare worker — say when you have 3 workers with a Steward and the five main places are full — still does something.</li>
       </ul>
       ${E.LOC_GROUPS.map(
         (g) => `<h4>${g.icon} ${g.name}</h4><table class="rules-table fixed">${E.LOC_ORDER.filter((k) => E.LOC[k].group === g.k)
           .map((k) => `<tr><td>${inGame && inGame.has(k) ? '✓ ' : ''}<b>${E.LOC[k].name}</b></td><td>${E.LOC[k].text}</td></tr>`)
           .join('')}</table>`,
       ).join('')}
+      <h4>♾️ Always open (every game, no limit)</h4><table class="rules-table fixed">${E.OPEN_LOCS.map((k) => `<tr><td><b>${E.LOC[k].name}</b></td><td>${E.LOC[k].text}</td></tr>`).join('')}</table>
       <h4>The fine print</h4>
       <ul>
         <li><b>Mill fields</b> counts every Farm you have built, worked or not.</li>
@@ -1884,12 +1906,14 @@
   function showRules(tab) {
     ui.rulesTab = tab || ui.rulesTab || 'basics';
     const back = openModal(`<div class="rules"><h2>📜 How to play Hearthhold</h2><div class="rules-tabs">${RULE_TABS.map(([k, n]) => `<button class="rules-tab${k === ui.rulesTab ? ' on' : ''}" data-tab="${k}">${n}</button>`).join('')}</div><div class="rules-body">${rulesBody(ui.rulesTab)}</div></div>`, { cls: 'wide', onClose: G ? null : () => {} });
+    if (window.AhrensTutorial) window.AhrensTutorial.mount(back);
     back.addEventListener('click', (e) => {
       const t = e.target.closest('[data-tab]');
       if (!t) return;
       ui.rulesTab = t.dataset.tab;
       back.querySelectorAll('.rules-tab').forEach((b) => b.classList.toggle('on', b === t));
       back.querySelector('.rules-body').innerHTML = rulesBody(ui.rulesTab);
+      if (window.AhrensTutorial) window.AhrensTutorial.mount(back);
       back.querySelector('.rules-body').scrollTop = 0;
       t.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     });

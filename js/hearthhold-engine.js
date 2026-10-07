@@ -137,8 +137,12 @@
     masons: { name: 'Mason’s lodge', group: 'guard', img: 'wall', text: 'Raise the walls on 2 sides by one level for free — tonight’s side first, then your weakest. A bare side gets a Palisade, a Palisade becomes Stone.' },
     watch: { name: 'Watch post', group: 'guard', img: 'tower', text: 'Tonight you get 🛡️3 on every side, or 🛡️5 if tonight’s creature flies.' },
     armory: { name: 'Armory', group: 'guard', img: 'smithy', text: 'Forge 1 set of arms for free (🛡️1 on every side for the rest of the game, max 6) and take 🔩1.' },
+    // In every game, with no worker limit — weak on purpose, for workers with nowhere better to go.
+    commons: { name: 'Village commons', group: 'open', img: 'peasant', text: 'Take 🍞1. Any number of workers can go here.' },
+    odd: { name: 'Odd jobs', group: 'open', img: 'workshop', text: 'Take 🪙1. Any number of workers can go here.' },
   };
-  const LOC_ORDER = Object.keys(LOC);
+  const OPEN_LOCS = ['commons', 'odd'];
+  const LOC_ORDER = Object.keys(LOC).filter((k) => LOC[k].group !== 'open');
 
   // ---------------------------------------------------------------- helpers
   function rng(state) {
@@ -289,6 +293,7 @@
   function startRound(state) {
     state.phase = 'act';
     state.spots = {};
+    state.crowd = {};
     state.players.forEach((p) => {
       p.workers = workerCount(p);
       p.done = false;
@@ -298,7 +303,11 @@
     state.turn = state.first;
   }
   function freeLocs(state) {
-    return state.locs.filter((k) => state.spots[k] == null);
+    return state.locs.filter((k) => state.spots[k] == null).concat(OPEN_LOCS);
+  }
+  // Workers each player has on an always-open place this round.
+  function crowdAt(state, k) {
+    return (state.crowd && state.crowd[k]) || [];
   }
 
   // ---------------------------------------------------------------- village queries
@@ -550,8 +559,9 @@
         return canPay(p, price) ? null : 'You can’t afford them.';
       }
       case 'place': {
-        if (!state.locs.includes(a.loc)) return 'That place isn’t in this game.';
+        if (!state.locs.includes(a.loc) && !OPEN_LOCS.includes(a.loc)) return 'That place isn’t in this game.';
         if (p.workers <= 0) return 'You have no workers left this round.';
+        if (OPEN_LOCS.includes(a.loc)) return null;
         if (state.spots[a.loc] != null) return `${state.players[state.spots[a.loc]].name}’s worker is already there.`;
         return null;
       }
@@ -608,6 +618,8 @@
       case 'tavern': return { food: 1 };
       case 'crier': return room(p) > 0 ? { food: 1 } : { food: 1, gold: 2 };
       case 'armory': return { iron: 1 };
+      case 'commons': return { food: 1 };
+      case 'odd': return { gold: 1 };
       default: return {};
     }
   }
@@ -710,7 +722,10 @@
         break;
       }
       case 'place': {
-        state.spots[a.loc] = pi;
+        if (OPEN_LOCS.includes(a.loc)) {
+          state.crowd = state.crowd || {};
+          (state.crowd[a.loc] = state.crowd[a.loc] || []).push(pi);
+        } else state.spots[a.loc] = pi;
         p.workers -= 1;
         msg = `sent a worker to the ${LOC[a.loc].name} and ${useLoc(state, pi, a.loc)}`;
         break;
@@ -1121,7 +1136,7 @@
       if (!s2) return;
       s2.turn = pi;
       let v = evaluate(settle(s2, pi, level, depth), pi, level) - mine0;
-      if (deny && !opp.done && opp.workers > 0) {
+      if (deny && !opp.done && opp.workers > 0 && !OPEN_LOCS.includes(k)) {
         const so = clone(state);
         so.log = [];
         so.turn = oi;
@@ -1138,12 +1153,12 @@
   }
 
   const api = {
-    SAVE_V, ROUNDS, BASE_WORKERS, LOCS_PER_GAME, LOC, LOC_GROUPS, LOC_ORDER, ROW_SIZE, ARMS_MAX, RES, RES_ICON, RES_NAME, SEASONS, SEASON, SIDES, WALL, TERRAIN, LABOR,
+    SAVE_V, ROUNDS, BASE_WORKERS, LOCS_PER_GAME, LOC, LOC_GROUPS, LOC_ORDER, OPEN_LOCS, ROW_SIZE, ARMS_MAX, RES, RES_ICON, RES_NAME, SEASONS, SEASON, SIDES, WALL, TERRAIN, LABOR,
     BUILD, BUILD_ORDER, VIL, VIL_ORDER, DECK, BEAST, BEAST_ORDER, CELLS, NEIGH,
     newGame, legal, apply, resolveDusk, score, winner, aiChoose, evaluate,
     seasonOf, yearOf, costText, beastText, beastKind, ringOf,
     beds, water, room, workers, production, defense, baseDefense, buildCost, wallCost, canPay, rowPrice, freeCells, buildBlock,
-    occupants, moveTargets, canWork, slotsOf, adjacent, hasMerchant, tradeRate, peasantPrice, squareAmount, locGain, masonSides, freeLocs, workerCount, musterAmount, foodNeed, woodNeed, upcoming, clone,
+    occupants, moveTargets, canWork, slotsOf, adjacent, hasMerchant, tradeRate, peasantPrice, squareAmount, locGain, masonSides, freeLocs, crowdAt, workerCount, musterAmount, foodNeed, woodNeed, upcoming, clone,
   };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.HearthholdEngine = api;
