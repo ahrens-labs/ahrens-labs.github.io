@@ -349,7 +349,7 @@
   let resFx = [{}, {}];
   let pendingCard = null;
   let pendingConfirm = null;
-  let setupVsAi = false;
+  let setupVsAi = true;
   let setupOnline = false;
   const PREFS_KEY = 'ahrensDinoBoardGame.prefs';
   const prefs = (() => {

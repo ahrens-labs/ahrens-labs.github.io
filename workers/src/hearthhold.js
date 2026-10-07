@@ -4,7 +4,14 @@
 // user) keeps small summaries so the game list is a single read.
 import E from '../../js/hearthhold-engine.js';
 
-const PENDING_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const PENDING_TTL_MS = { quick: 24 * 60 * 60 * 1000, long: 7 * 24 * 60 * 60 * 1000 };
+const MODES = new Set(['quick', 'long']);
+// Quick games: each turn has a time limit. When it runs out the computer takes that turn for the
+// absent player; missing several turns in a row loses the game.
+const QUICK_TURN_MS = 2 * 60 * 1000;
+// The challenger may not be watching when a quick game is accepted, so the first turn is longer.
+const QUICK_FIRST_TURN_MS = 5 * 60 * 1000;
+const QUICK_MAX_MISSES = 3;
 const MAX_PENDING_OUT = 5;
 const MAX_OPEN_GAMES = 20;
 const LOBBY_KEEP_FINISHED = 10;
@@ -162,6 +169,8 @@ function summaryFor(record, me) {
     me,
     opp: opp ? opp.username : '',
     turn: record.turn,
+    mode: record.mode || 'long',
+    deadline: record.deadline || null,
     round: record.state ? record.state.round : 0,
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
@@ -177,6 +186,9 @@ function viewFor(record, me, withState) {
     players: record.players.map((p) => p.username),
     version: record.version,
     turn: record.turn,
+    mode: record.mode || 'long',
+    deadline: record.deadline || null,
+    now: Date.now(),
     result: record.result || null,
     ...(withState ? { state: publicState(record.state) } : {}),
   };
@@ -306,6 +318,7 @@ export async function handleHearthholdRequest(request, env, corsHeaders, path, {
       method: 'POST',
       body: JSON.stringify({
         id: gameId,
+        mode: MODES.has(body.mode) ? body.mode : 'long',
         players: [{ userId, username: me.username }, { userId: opp.userId, username: opp.username }],
       }),
     }));
@@ -388,13 +401,15 @@ export class HearthholdGame {
   }
 
   async scheduleAlarm(record) {
-    if (record.status === 'pending') await this.storage.setAlarm(record.createdAt + PENDING_TTL_MS);
+    if (record.status === 'pending') await this.storage.setAlarm(record.createdAt + pendingTtl(record));
+    else if (record.status === 'active' && record.deadline) await this.storage.setAlarm(record.deadline);
     else await this.storage.deleteAlarm();
   }
 
   finish(record, winner, reason) {
     record.status = 'over';
     record.turn = null;
+    record.deadline = null;
     const scores = record.state ? record.state.players.map((p) => E.score(record.state, p).total) : null;
     record.result = { winner, reason, scores };
   }
@@ -428,6 +443,9 @@ export class HearthholdGame {
       const record = {
         id: body.id,
         status: 'pending',
+        mode: MODES.has(body.mode) ? body.mode : 'long',
+        deadline: null,
+        misses: [0, 0],
         players: body.players,
         createdAt: now,
         updatedAt: now,
@@ -467,6 +485,7 @@ export class HearthholdGame {
         record.status = 'active';
         record.version = 1;
         record.turn = turnOf(record.state);
+        record.deadline = record.mode === 'quick' ? Date.now() + QUICK_FIRST_TURN_MS : null;
       }
       await this.persist(record);
       await this.scheduleAlarm(record);
@@ -505,6 +524,8 @@ export class HearthholdGame {
     const why = E.legal(state, me, a);
     if (why) return fresh(why);
     const prevTurn = record.turn;
+    const prevRound = state.round;
+    if (me === state.turn && record.misses) record.misses[me] = 0;
     E.apply(state, me, a);
     if (state.phase === 'dusk') E.resolveDusk(state);
     record.version += 1;
@@ -514,12 +535,51 @@ export class HearthholdGame {
       this.finish(record, w < 0 ? null : w, 'finished');
     }
     await this.persist(record);
-    if (record.status === 'over' || record.turn !== prevTurn) {
+    const newTurn = record.turn !== prevTurn || state.round !== prevRound;
+    if (record.status === 'active' && record.mode === 'quick' && newTurn) record.deadline = Date.now() + QUICK_TURN_MS;
+    if (record.status === 'over' || newTurn) {
       await this.scheduleAlarm(record);
       await this.publishLobbies(record);
     }
     this.broadcast(record, me, socket);
     return { status: 200, body: viewFor(record, me, true) };
+  }
+
+  // A quick-game turn ran out: the computer plays that turn, or the game is lost after too many misses.
+  async turnTimedOut(record) {
+    if (Date.now() < record.deadline - 1000) return this.scheduleAlarm(record);
+    const state = record.state;
+    const pi = state.turn;
+    record.misses = record.misses || [0, 0];
+    record.misses[pi] += 1;
+    if (record.misses[pi] >= QUICK_MAX_MISSES) {
+      this.finish(record, 1 - pi, 'timeout');
+    } else {
+      state.log.push({ r: state.round, text: `${state.players[pi].name} ran out of time, so the computer took the turn.`, who: pi });
+      const round = state.round;
+      for (let i = 0; i < 40 && state.phase === 'act' && state.turn === pi && state.round === round; i++) {
+        try {
+          E.apply(state, pi, E.aiChoose(state, pi, 'easy'));
+        } catch {
+          try {
+            E.apply(state, pi, { t: 'end' });
+          } catch {
+            break;
+          }
+        }
+      }
+      if (state.phase === 'dusk') E.resolveDusk(state);
+      record.turn = turnOf(state);
+      if (state.phase === 'over') {
+        const w = E.winner(state);
+        this.finish(record, w < 0 ? null : w, 'finished');
+      } else record.deadline = Date.now() + QUICK_TURN_MS;
+    }
+    record.version += 1;
+    await this.persist(record);
+    await this.scheduleAlarm(record);
+    await this.publishLobbies(record);
+    this.broadcast(record, null);
   }
 
   async webSocketMessage(ws, message) {
@@ -550,8 +610,9 @@ export class HearthholdGame {
   async alarm() {
     const record = await this.load();
     if (!record) return;
+    if (record.status === 'active' && record.deadline) return this.turnTimedOut(record);
     if (record.status !== 'pending') return;
-    if (Date.now() < record.createdAt + PENDING_TTL_MS - 1000) {
+    if (Date.now() < record.createdAt + pendingTtl(record) - 1000) {
       await this.scheduleAlarm(record);
       return;
     }
@@ -561,6 +622,10 @@ export class HearthholdGame {
     await this.publishLobbies(record);
     this.broadcast(record, null);
   }
+}
+
+function pendingTtl(record) {
+  return PENDING_TTL_MS[record.mode] || PENDING_TTL_MS.long;
 }
 
 export class HearthholdLobby {

@@ -97,7 +97,7 @@ button { font-family: inherit; }
 .ol-you { color: #a15c00; }
 .ol-btns { display: flex; gap: 0.35rem; flex-shrink: 0; }
 .ol-empty { padding: 0.5rem 0.2rem; }
-.ol-new { display: flex; align-items: flex-end; gap: 0.5rem; }
+.ol-new { display: grid; gap: 0.5rem; }
 .ol-new label { flex: 1; }
 .ol-new input { width: 100%; padding: 0.55rem 0.7rem; border-radius: 10px; border: 2px solid var(--parchment-2); font: inherit; background: #fffdf6; }
 .ol .small { font-size: 0.85rem; margin: 0.6rem 0 0; }
@@ -646,3 +646,12 @@ button { font-family: inherit; }
 .hist-note { margin: 0.8rem 0 0; font-size: 0.85rem; text-align: center; }
 .hist-empty { text-align: center; padding: 1rem 0; }
 @media (max-width: 560px) { .hist-stats { grid-template-columns: repeat(3, 1fr); } }
+
+/* ---------- online quick / long games ---------- */
+.ol-new .seg.ol-mode { margin: 0; }
+.seg.ol-mode button { display: flex; flex-direction: column; align-items: center; gap: 0.1rem; flex: 1 1 12rem; }
+.seg.ol-mode small { font-weight: 400; font-size: 0.78rem; opacity: 0.8; }
+.ol-clock { display: inline-block; margin-left: 0.5rem; padding: 0.1rem 0.55rem; border-radius: 999px; background: rgba(255, 255, 255, 0.85); color: #3b2a14; font-weight: 700; font-variant-numeric: tabular-nums; }
+.ol-clock.mine { box-shadow: 0 0 0 2px var(--gold); }
+.ol-clock.low { background: #ffe1dc; color: #a3241a; animation: clockPulse 1s ease-in-out infinite; }
+@keyframes clockPulse { 50% { transform: scale(1.08); } }

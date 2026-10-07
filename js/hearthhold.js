@@ -334,7 +334,9 @@
         ? `<b class="thinking">${esc(p.name)} is thinking<span class="dots"><i>.</i><i>.</i><i>.</i></span></b>${dots}`
         : `<b style="--pc:${PCOLOR[s.turn]}" class="turn-name">${turnLabel(p)}</b><span class="acts">${what}</span>${dots}`;
     }
+    if (G.mode === 'online' && G.gmode === 'quick' && G.status === 'active' && G.deadline) b += '<span class="ol-clock" id="ol-clock"></span>';
     $('#banner').innerHTML = b;
+    tickClock();
   }
   function turnLabel(p) {
     if (G.mode === 'online') return st().turn === G.me ? 'Your turn' : `${esc(p.name)}’s turn`;
@@ -1451,7 +1453,7 @@
       if (h.me != null) res = h.winner < 0 ? '<span class="hg-res tie">Tie</span>' : h.winner === h.me ? '<span class="hg-res win">Win</span>' : '<span class="hg-res loss">Loss</span>';
       else res = h.winner < 0 ? '<span class="hg-res tie">Tie</span>' : `<span class="hg-res">${esc(h.names[h.winner])} won</span>`;
       const when = new Date(h.at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-      const what = [h.kind === 'ai' ? `Computer${h.level ? ' · ' + LEVEL_NAME[h.level] : ''}` : h.kind === 'local' ? 'Two players, one device' : 'Online', h.reason === 'resign' ? 'ended by resignation' : '', when].filter(Boolean).join(' · ');
+      const what = [h.kind === 'ai' ? `Computer${h.level ? ' · ' + LEVEL_NAME[h.level] : ''}` : h.kind === 'local' ? 'Two players, one device' : 'Online', h.reason === 'resign' ? 'ended by resignation' : h.reason === 'timeout' ? 'ended on time' : '', when].filter(Boolean).join(' · ');
       const table = h.cats
         ? `<div class="hg-table">${SCORE_ROWS.map(([label, k]) => `<div><span>${h.cats[a][k]}</span><small>${label}</small><span>${h.cats[b][k]}</span></div>`).join('')}</div>`
         : '';
@@ -1622,13 +1624,13 @@
   }
   function onlineStatus(g) {
     if (g.status === 'pending') return g.me === 1 ? `<b>${esc(g.opp)}</b> challenged you` : `Waiting for <b>${esc(g.opp)}</b> to accept`;
-    if (g.status === 'active') return `${g.turn === g.me ? '<b class="ol-you">Your turn</b>' : `${esc(g.opp)}’s turn`} · round ${g.round} of ${E.ROUNDS}`;
+    if (g.status === 'active') return `${g.turn === g.me ? '<b class="ol-you">Your turn</b>' : `${esc(g.opp)}’s turn`} · round ${g.round} of ${E.ROUNDS} · ${g.mode === 'quick' ? '⚡ quick' : '🐢 long'}`;
     if (g.status === 'declined') return `${g.me === 1 ? 'You' : esc(g.opp)} declined`;
     if (g.status === 'cancelled') return 'Challenge cancelled';
     if (g.status === 'expired') return 'Nobody answered in a week';
     const r = g.result || {};
     const sc = r.scores ? ` · ${r.scores[g.me]}–${r.scores[1 - g.me]}` : '';
-    const why = r.reason === 'resign' ? (r.winner === g.me ? ' — they resigned' : ' — you resigned') : '';
+    const why = r.reason === 'resign' ? (r.winner === g.me ? ' — they resigned' : ' — you resigned') : r.reason === 'timeout' ? (r.winner === g.me ? ' — they ran out of time' : ' — you ran out of time') : '';
     return `${r.winner == null ? '🤝 Tie' : r.winner === g.me ? '🏆 You won' : 'You lost'}${sc}${why}`;
   }
   function lobbyHtml(loading) {
@@ -1647,8 +1649,12 @@
       <div class="ol-head"><span class="label">Your online games</span><button class="btn ghost sm" data-ol="refresh" title="Refresh">↻</button></div>
       ${net.err ? `<p class="bad">${esc(net.err)}</p>` : ''}
       <ul class="ol-list">${list}</ul>
-      <form class="ol-new" data-ol-form><label><span class="label">Challenge a player</span><input id="ol-opp" maxlength="80" placeholder="Username or email" autocomplete="off"></label><button class="btn" type="submit">Send challenge</button></form>
-      <p class="muted small">No time limit: take your turn whenever it’s your move. You’ll see their moves live while you both have the game open.</p>
+      <form class="ol-new" data-ol-form>
+        <label><span class="label">Challenge a player</span><input id="ol-opp" maxlength="80" placeholder="Username or email" autocomplete="off"></label>
+        <div class="seg ol-mode" id="ol-mode">${['quick', 'long'].map((m) => `<button type="button" data-v="${m}" class="${(prefs().olMode || 'quick') === m ? 'on' : ''}">${m === 'quick' ? '<b>⚡ Quick game</b><small>2 minutes per turn — play it now</small>' : '<b>🐢 Long game</b><small>No time limit — take your turn whenever, over days</small>'}</button>`).join('')}</div>
+        <button class="btn" type="submit">Send challenge</button>
+      </form>
+      <p class="muted small">In a quick game, if your time runs out the computer takes that turn for you; miss three turns in a row and you lose. You’ll see each other’s moves live while you both have the game open.</p>
     </div>`;
   }
   document.addEventListener('submit', async (e) => {
@@ -1659,7 +1665,10 @@
     if (!opponent) return inp.focus();
     const btn = e.target.querySelector('button');
     btn.disabled = true;
-    const r = await api('/api/hearthhold/challenge', { opponent });
+    const pick = $('#ol-mode .on');
+    const mode = pick ? pick.dataset.v : 'quick';
+    savePrefs(Object.assign(prefs(), { olMode: mode }));
+    const r = await api('/api/hearthhold/challenge', { opponent, mode });
     btn.disabled = false;
     if (!r.ok) return toast(esc(r.data.error || 'Couldn’t send the challenge.'), 'bad');
     toast(`Challenge sent to <b>${esc(r.data.game.opp)}</b>.`);
@@ -1714,6 +1723,9 @@
       version: v.version,
       status: v.status,
       result: v.result,
+      gmode: v.mode || 'long',
+      deadline: v.deadline || null,
+      skew: v.now ? v.now - Date.now() : 0,
       state: s,
       revealed: same ? mem.revealed : false,
       duskSeen: same ? mem.duskSeen : 0,
@@ -1726,6 +1738,7 @@
     const r = G.result || {};
     const opp = st().players[1 - G.me].name;
     if (G.status === 'over' && r.reason === 'resign') return r.winner === G.me ? `${opp} resigned — you win!` : 'You resigned.';
+    if (G.status === 'over' && r.reason === 'timeout') return r.winner === G.me ? `${opp} ran out of time three turns in a row — you win!` : 'You ran out of time three turns in a row, so the game is over.';
     return 'This game has ended.';
   }
   function showResigned() {
@@ -1802,6 +1815,8 @@
     G.version = v.version;
     G.status = v.status;
     G.result = v.result;
+    G.deadline = v.deadline || null;
+    if (v.now) G.skew = v.now - Date.now();
     if (!v.state) return render();
     const s = v.state;
     G.state = s;
@@ -1823,6 +1838,19 @@
     }
     if (G.status === 'over' && s.phase !== 'over' && !G.revealed) return showResigned();
     if (prev.turn !== s.turn && s.turn === G.me && s.phase === 'act') handoff();
+  }
+
+  // Quick online games: count down the current turn's time limit (the server enforces it).
+  function tickClock() {
+    clearTimeout(net.clock);
+    const el = $('#ol-clock');
+    if (!el || !G || !G.deadline) return;
+    const left = Math.max(0, Math.round((G.deadline - Date.now() - (G.skew || 0)) / 1000));
+    const mine = st().turn === G.me;
+    el.textContent = `⏱ ${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}${mine ? '' : ' them'}`;
+    el.className = `ol-clock${mine ? ' mine' : ''}${left <= 20 ? ' low' : ''}`;
+    el.title = mine ? 'Time left for your turn. If it runs out, the computer takes the turn for you.' : 'Time left for their turn.';
+    net.clock = setTimeout(tickClock, 1000);
   }
 
   function connectSock() {
