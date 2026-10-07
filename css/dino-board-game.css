@@ -853,6 +853,37 @@ a.btn { display: inline-block; text-align: center; text-decoration: none; }
 
 .modal.small { width: min(440px, 100%); text-align: center; }
 .modal.medium { width: min(620px, 100%); }
+/* How to play: tabbed sections, worker-space table and the card gallery */
+.modal.rules { width: min(960px, 100%); padding-top: 0; }
+.rules-top { position: sticky; top: 0; z-index: 3; margin: 0 -1.4rem 0.4rem; padding: 1rem 1.4rem 0.6rem; background: var(--bone); border-bottom: 2px solid var(--bone-dark); }
+.rules-tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.rules-tab { font: inherit; font-size: 0.88rem; font-weight: 700; padding: 5px 12px; border-radius: 999px; border: 2px solid var(--bone-dark); background: #fff; color: var(--ink); cursor: pointer; }
+.rules-tab:hover { border-color: #c9a46a; }
+.rules-tab.on { background: #6b3f0a; border-color: #6b3f0a; color: #fff; }
+.rules-pane[hidden] { display: none; }
+.rules-lead { font-size: 1.05rem; }
+.rules-link { font: inherit; font-size: 0.9rem; font-weight: 700; color: #1565c0; background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; }
+.rules-steps li { margin-bottom: 0.2rem; }
+.rules-icons { list-style: none; padding: 0; }
+.rules-icons li { display: flex; gap: 0.6rem; align-items: flex-start; margin-bottom: 0.35rem; }
+.rules-icons li > span { flex: 0 0 1.6rem; text-align: center; font-size: 1.1rem; }
+.rule-box { background: #fff4d6; border-left: 5px solid #e0a12a; border-radius: 10px; padding: 0.5rem 0.9rem; margin: 0.6rem 0; }
+.rule-box ol { margin: 0; padding-left: 1.2rem; }
+.rules-table-wrap { overflow-x: auto; margin: 0.6rem 0; }
+.rules-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; background: #fff; border-radius: 10px; overflow: hidden; }
+.rules-table th, .rules-table td { border: 1px solid var(--bone-dark); padding: 6px 8px; text-align: left; vertical-align: top; line-height: 1.35; }
+.rules-table thead th { background: #f3e2c0; }
+.rules-table thead small { display: block; font-weight: 400; color: var(--muted); font-size: 0.75rem; }
+.rules-table tbody th { white-space: nowrap; background: #fbf3df; }
+.rules-sub small { display: block; margin-top: 0.15rem; font-size: 0.85rem; font-weight: 400; color: var(--muted); }
+.dc-copies { padding: 2px 0 6px; text-align: center; font-size: 0.72rem; font-weight: 700; color: var(--muted); }
+.rules-card { cursor: default; }
+.rules-card .dc-art { aspect-ratio: 16 / 10; }
+@media (max-width: 640px) {
+  .rules-tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-right: -1.4rem; padding-right: 1.4rem; }
+  .rules-tab { flex: 0 0 auto; }
+  .rules-table { min-width: 520px; font-size: 0.82rem; }
+}
 .confirm-box h2 { margin: 0.3rem 0 0.2rem; font-size: 1.5rem; }
 .confirm-box p { margin: 0 0 0.6rem; color: #5d4a2c; }
 .confirm-box .btn-row { justify-content: center; }

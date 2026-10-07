@@ -239,17 +239,21 @@
   };
   const protoSpCache = {};
 
-  // A species as the current game's rules define it (prototype games change points and some powers).
-  function spec(sp) {
-    if (!state || !state.proto) return SPECIES[sp];
+  // A species under the 15-round rules (they change points and some powers).
+  function protoSpec(sp) {
     if (!protoSpCache[sp]) {
       protoSpCache[sp] = Object.assign({}, SPECIES[sp], { pts: Math.max(1, Math.round((SPECIES[sp].pts * 2) / 3)) }, PROTO_SP[sp]);
     }
     return protoSpCache[sp];
   }
 
-  function typeLabel(S) {
-    return state && state.proto && S.type === 'action' ? 'Every round' : TYPE_LABEL[S.type];
+  // A species as the current game's rules define it.
+  function spec(sp) {
+    return state && state.proto ? protoSpec(sp) : SPECIES[sp];
+  }
+
+  function typeLabel(S, proto) {
+    return (proto || (state && state.proto)) && S.type === 'action' ? 'Every round' : TYPE_LABEL[S.type];
   }
 
   function typeHelp(S) {
@@ -2228,14 +2232,14 @@
 
   function cardHtml(sp, opts) {
     const o = opts || {};
-    const S = spec(sp);
+    const S = o.S || spec(sp);
     return `<div class="dcard t-${S.type} ${o.cls || ''}" ${o.attrs || ''} title="${esc(S.name)}">
       ${o.tag ? `<span class="dc-tag">${o.tag}</span>` : ''}
       <div class="dc-head"><div class="dc-name ${S.name.length > 11 && S.name.length <= 15 ? 'long' : ''}">${esc(S.name.length > 15 ? spName(sp) : S.name)}</div><div class="dc-pts" title="Points">${S.pts}</div></div>
       <div class="dc-art" style="--sc:${S.color}"><img src="${IMG}${sp}.webp" alt="" draggable="false">${o.lock ? `<span class="dc-lock">🔒 ${o.lock}</span>` : ''}</div>
       <div class="dc-price"><small>${o.costLabel || 'Cost'}</small><b>${costText(o.cost || cardCost(sp))}</b></div>
       <div class="dc-facts">${statBox('space', `⬛${S.space}`, 'Squares it takes up')}${statBox('eats', foodText(S.food).replace(' ', ''), 'Food it eats every Feeding')}${statBox('earns', `🪙${S.prod}`, 'Coins it adds in Production')}</div>
-      <div class="dc-ab"><span class="dc-type">${typeLabel(S)}</span>${esc(S.ability)}</div>
+      <div class="dc-ab"><span class="dc-type">${typeLabel(S, o.proto)}</span>${esc(S.ability)}</div>
       ${o.foot || ''}
     </div>`;
   }
@@ -3740,55 +3744,169 @@
       <p class="muted">Changes apply right away. Pick Slow to watch each of the computer’s moves.</p>`, 'small');
   }
 
+  const RULE_TABS = [['basics', '🦖 Basics'], ['round', '🔄 A round'], ['workers', '👷 Workers'], ['park', '🏞️ Your park'], ['dinos', '🃏 All dinos'], ['scoring', '🏆 Scoring'], ['events', '🎲 Events']];
+  let rulesTab = 'basics';
+
+  const ruleLink = (tab, label) => `<button class="rules-link" data-act="rulesTab" data-tab="${tab}">${label} ›</button>`;
+
+  // Worker spaces as a grid: one row per kind of space, one column per tier.
+  function rulesSpaceTable() {
+    const all = Object.values(PROTO_SPACES);
+    const rows = [...new Set(all.map((X) => X.type))].map((t) => {
+      const tiers = all.filter((X) => X.type === t);
+      return `<tr><th>${tiers[0].icon} ${tiers[0].name}</th>${tiers.map((X) => `<td>${X.desc}</td>`).join('')}</tr>`;
+    }).join('');
+    return `<div class="rules-table-wrap"><table class="rules-table"><thead><tr><th>Space</th><th>Top<small>1 worker</small></th><th>Middle<small>1 worker</small></th><th>Bottom<small>any number</small></th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  }
+
+  // Every dino card in the 15-round deck, grouped by when its power works.
+  function rulesDinoCards() {
+    const all = BOOK.concat(DECK, PROTO_NEW);
+    const groups = [
+      ['event', '⚡ When played', 'Happens once, when you place it (or when a baby of it grows up).'],
+      ['action', '🔁 Every round', 'Triggers by itself in Production while its enclosure is active. Babies don’t use it.'],
+      ['scoring', '🏆 Scores at end', 'Adds points at the end if its enclosure is active. Babies score half (rounded up).'],
+      ['none', '💪 No power', 'Just big and worth lots of points.'],
+    ];
+    return groups.map(([type, title, help]) => {
+      const list = all.filter((sp) => protoSpec(sp).type === type).sort((a, b) => protoSpec(a).pts - protoSpec(b).pts);
+      if (!list.length) return '';
+      const cards = list.map((sp) => cardHtml(sp, { S: protoSpec(sp), proto: true, cost: protoSpec(sp).cost, cls: 'rules-card', foot: `<div class="dc-copies">×${PROTO_COPIES[sp] || 3} in the deck</div>` })).join('');
+      return `<h3 class="rules-sub">${title}<small>${help}</small></h3><div class="card-grid">${cards}</div>`;
+    }).join('');
+  }
+
+  function protoRulesPanes() {
+    return {
+      basics: `<p class="rules-lead">Build the best dino park in <b>${PROTO_ROUNDS} rounds</b>. Fence in enclosures, fill them with dinos, keep everyone fed and chase the goal cards. Most points wins.</p>
+        <h3>What you have</h3>
+        <ul class="rules-icons">
+          <li><span>🏞️</span><div><b>A park</b> — a 10×10 grid. Draw fences on it to make enclosures for your dinos.</div></li>
+          <li><span>👷</span><div><b>${PROTO_WORKERS} workers</b> each round — the actions you take.</div></li>
+          <li><span>🪙</span><div><b>Coins</b> — pay for dinos, diamonds and buildings. You start with 🪙5.</div></li>
+          <li><span>💎</span><div><b>Diamonds</b> — some dinos and feeders need them. Each leftover one is worth 1 point.</div></li>
+          <li><span>🍖</span><div><b>Meat and 🌿 plants</b> — your dinos eat every round.</div></li>
+        </ul>
+        <h3>Setup</h3>
+        <ul>
+          <li>Each player gets an empty park and 🪙5.</li>
+          <li>The dino deck is shuffled and ${PROTO_MARKET} cards are dealt face up as a shared market.</li>
+          <li>${PROTO_GOAL_ROUNDS.length} of ${Object.keys(PROTO_GOALS).length} goal cards are picked at random: ${protoGoalSchedule()}.</li>
+          <li>Whoever most recently watched a dino movie goes first.</li>
+        </ul>
+        <h3>A round at a glance</h3>
+        <ol class="rules-steps">
+          <li><b>✨ Event</b> — a new event card changes something for this round.</li>
+          <li><b>🎲 Food &amp; Fences</b> — roll a die and split it between food and fences.</li>
+          <li><b>👷 Workers</b> — take turns placing workers on action spaces.</li>
+          <li><b>🪙 Production</b> — collect coins from one enclosure; every-round powers trigger.</li>
+          <li><b>🍖 Feeding</b> — feed your dinos or their enclosure goes inactive.</li>
+        </ol>
+        <p>${ruleLink('round', 'Each step in detail')}</p>
+        <h3>Three things to remember</h3>
+        <div class="rule-box"><ol>
+          <li>Dinos only live in <b>closed enclosures</b>, one species per enclosure (watering holes let more share).</li>
+          <li><b>Feed every enclosure every round.</b> Unfed enclosures go inactive and earn and score nothing.</li>
+          <li>Points come from <b>dinos</b>, their <b>scoring powers</b>, the <b>goal cards</b>, <b>diamonds</b> and leftover <b>coins</b>.</li>
+        </ol></div>`,
+      round: `<h3>Start of the round</h3>
+        <ul>
+          <li>A new <b>event</b> card is revealed. ${ruleLink('events', 'All events')}</li>
+          <li>From round 2, ${PROTO_REFRESH} random market cards go to the bottom of the deck and are replaced.</li>
+          <li>Goal cards are revealed on schedule: ${protoGoalSchedule()}.</li>
+          <li>The first player switches every round, unless someone took the top 🔭 Scout space last round.</li>
+        </ul>
+        <h3>1 · 🎲 Food &amp; Fences</h3>
+        <p>One die is rolled for both players. Each player splits that number between <b>food</b> (any mix of 🍖 meat and 🌿 plants) and <b>fences</b>. Each fence fills one edge of one square.</p>
+        <h3>2 · 👷 Workers</h3>
+        <p>Each player has <b>${PROTO_WORKERS} workers</b>. Starting with the first player, take turns placing one worker at a time on an action space and doing what it says. If one player has more workers, they place the rest at the end. You may pass instead. ${ruleLink('workers', 'All worker spaces')}</p>
+        <h3>3 · 🪙 Production &amp; powers</h3>
+        <p>Pick <b>one</b> active enclosure with dinos and collect coins equal to the production of every dino in it. Then the every-round powers of your adult dinos in active enclosures trigger, one at a time.</p>
+        <h3>4 · 🍖 Feeding</h3>
+        <p>Pay each enclosure’s food bill: what all its dinos eat, minus its feeder squares. If you can’t feed them all, choose which to feed; the rest go inactive. ${ruleLink('park', 'Feeding and inactive enclosures')}</p>`,
+      workers: `<ul>
+          <li>Every kind of space comes in <b>three tiers</b>. The top and middle tiers hold <b>one worker per round</b>, so taking one blocks your opponent.</li>
+          <li>The weaker <b>bottom tier</b> (∞) takes any number of workers from both players.</li>
+          <li>Events can change amounts and costs. The board always shows this round’s value, highlighted in blue.</li>
+        </ul>
+        ${rulesSpaceTable()}
+        <h3>Notes</h3>
+        <ul>
+          <li><b>🦖 Play a dino</b> — buy a market card or one you reserved; any extra coins are on top of the card’s cost. ${ruleLink('dinos', 'Buying dinos')}</li>
+          <li><b>🥚 Breed</b> — one adult pair has a baby. ${ruleLink('park', 'Breeding')}</li>
+          <li><b>🌾 Builder</b> — build a 🌾 feeder (💎1 + 🪙1 per square) or a 💧 watering hole (${costText(WATER_COST)}, ${WATER_SQUARES} squares).</li>
+          <li><b>🔭 Scout</b> — reserve cards into your hand (up to ${PROTO_HAND_MAX}). The top Scout also makes you first player next round.</li>
+        </ul>`,
+      park: `<h3>Enclosures</h3>
+        <ul>
+          <li>An enclosure is an area completely closed off by fences. It may use at most <b>two sides</b> of the board edge as walls.</li>
+          <li>Dinos, feeders and watering holes fill <b>connected</b> squares inside one enclosure, and fences can’t cut through them.</li>
+          <li>Each enclosure holds <b>one species</b>, plus one more for each 💧 watering hole in it (${costText(WATER_COST)}, ${WATER_SQUARES} squares).</li>
+          <li>🌾 <b>Feeders</b> cost 💎1 + 🪙1 per square. Each feeder square takes 1 food off that enclosure’s bill every Feeding.</li>
+        </ul>
+        <h3>Feeding and inactive enclosures</h3>
+        <ul>
+          <li>Every Feeding, each enclosure needs the food its dinos eat (meat for meat-eaters, plants for plant-eaters).</li>
+          <li>An unfed enclosure goes <b>inactive 💤</b> with a marker on 1. Inactive enclosures don’t produce coins, can’t breed and score nothing.</li>
+          <li>While inactive, each dino there eats extra food equal to the marker, and the marker rises by 1 each Feeding it stays unfed.</li>
+          <li>Feeding it makes it active again. If it goes unfed with the marker on 4, its dinos <b>die</b> and the enclosure is extinct 💀.</li>
+        </ul>
+        <h3>Breeding and babies</h3>
+        <ul>
+          <li>A 🥚 Breed worker picks a species you have an <b>adult pair</b> of in one <b>active</b> enclosure. That pair has one baby in their enclosure.</li>
+          <li>The top Breed space is free, the middle costs 🪙3 and the bottom (any number of workers) costs 🪙6.</li>
+          <li>Each enclosure can breed <b>once per round</b>, so you can breed in several enclosures in the same round.</li>
+          <li>Babies take half the squares (rounded down), and eat, produce and score half (rounded up). They have no when-played or every-round powers.</li>
+          <li>After being fed in ${PROTO_BABY_FEEDS} Feedings a baby <b>grows up</b>: add squares for its full size in its own enclosure (it dies if there’s no room), and its when-played power triggers.</li>
+        </ul>`,
+      dinos: `<h3>Buying dinos</h3>
+        <ul>
+          <li>Use a 🦖 Play a dino worker to buy a face-up market card or one you reserved. Pay its cost and fill its squares in one enclosure.</li>
+          <li>Reserve cards with 🔭 Scout (up to ${PROTO_HAND_MAX} in your hand). Only you can buy them, and they cost 🪙${PROTO_RESERVE_OFF} less.</li>
+          <li>Bought cards are gone for your opponent; the market refills from the deck.</li>
+        </ul>
+        <h3>Reading a card</h3>
+        <ul class="rules-icons">
+          <li><span>🟡</span><div><b>Points</b> (top right) — scored at the end if its enclosure is active.</div></li>
+          <li><span>🪙</span><div><b>Cost</b> — coins and diamonds to play it.</div></li>
+          <li><span>⬛</span><div><b>Space</b> — squares it fills. <b>Eats</b> — food every Feeding. <b>Earns</b> — coins it adds in Production.</div></li>
+          <li><span>⚡</span><div><b>Power</b> — when played, every round, scores at end, or none.</div></li>
+        </ul>
+        ${rulesDinoCards()}`,
+      scoring: `<h3>Final scoring</h3>
+        <ul>
+          <li>🦖 Each dino’s <b>points</b>.</li>
+          <li>🏆 <b>Scoring powers</b> (Compy, Microraptor, Pachy, the Triceratops page).</li>
+          <li>🎯 The <b>${PROTO_GOAL_ROUNDS.length} goal cards</b>.</li>
+          <li>💎 <b>1 point per leftover diamond</b>, and 🪙 1 point per 10 leftover coins (max 3).</li>
+        </ul>
+        <div class="rule-box">Dinos in inactive or extinct enclosures score nothing, and their scoring powers don’t count.</div>
+        <h3>Goal cards</h3>
+        <p>${protoGoalSchedule()}. Tap 🎯 Goals during a game to see the revealed ones and what they’re worth right now.</p>
+        <ul>${Object.values(PROTO_GOALS).map((G) => `<li>${G.icon} <b>${G.name}</b> — ${G.desc}</li>`).join('')}</ul>`,
+      events: `<p>Each round starts with a random event. No event comes up twice in a game.</p>
+        <ul>${Object.values(PROTO_EVENTS).map((E) => `<li>${E.icon} <b>${E.name}</b> — ${E.desc}</li>`).join('')}</ul>`,
+    };
+  }
+
   function openProtoRules() {
-    const spaces = Object.values(PROTO_SPACES).map((X) => `<li>${X.icon} <b>${X.name}</b> — ${X.desc}${X.open ? ' <i>(any number of workers)</i>' : ''}</li>`).join('');
-    const events = Object.values(PROTO_EVENTS).map((E) => `<li>${E.icon} <b>${E.name}</b> — ${E.desc}</li>`).join('');
-    openModal(`<div class="modal-head"><h2>📜 How to play</h2><button class="x" data-act="closeModal" aria-label="Close">✕</button></div>
-      <p>Two players each build a dino park on a 10×10 grid over <b>${PROTO_ROUNDS} rounds</b>. Most points wins.</p>
-      <h3>Setup</h3>
-      <ul>
-        <li>Each player gets an empty park and 🪙5.</li>
-        <li>The dino deck is shuffled and ${PROTO_MARKET} cards are dealt face up as a shared market.</li>
-        <li>Whoever most recently watched a dino movie goes first in round 1. After that the first player switches every round, unless someone takes the top 🔭 Scout space.</li>
-        <li>${PROTO_GOAL_ROUNDS.length} of ${Object.keys(PROTO_GOALS).length} goal cards are picked at random: ${protoGoalSchedule()}. Tap 🎯 Goals to see the revealed ones and what they’re worth right now.</li>
-      </ul>
-      <h3>Each round</h3>
-      <ol>
-        <li><b>Event</b> — a new event card changes something for this round.</li>
-        <li><b>🎲 Food &amp; Fences</b> — roll a die. Each player splits that number between food (🍖 meat / 🌿 plants) and fences. A fence fills one edge of one square.</li>
-        <li><b>👷 Workers</b> — each player has ${PROTO_WORKERS} workers. Starting with the first player, take turns placing one at a time on the worker spaces below.</li>
-        <li><b>🪙 Production &amp; powers</b> — collect coins from one active enclosure (the production of every dino in it), then use your dinos’ every-round powers.</li>
-        <li><b>🍖 Feeding</b> — feed your dinos. An enclosure with an unfed dino goes inactive: its dinos cost extra food equal to its marker, which rises each round it stays unfed. If the marker was already on 4, those dinos die and the enclosure is extinct (💀).</li>
-      </ol>
-      <h3>Worker spaces</h3>
-      <p>Every kind of space comes in three tiers. The top two hold one worker per round, so you can block your opponent; the weaker bottom tier takes any number of workers.</p>
-      <ul>${spaces}</ul>
-      <h3>Buying dinos</h3>
-      <ul>
-        <li>Buy a face-up market card, or one you reserved, with a 🦖 Play a dino worker. Pay its cost and fill its squares in one enclosure. Bought cards are gone for your opponent.</li>
-        <li>Reserve cards with 🔭 Scout (up to ${PROTO_HAND_MAX} in your hand). Only you can buy your reserved cards, and they cost 🪙${PROTO_RESERVE_OFF} less to play.</li>
-        <li>From round 2, ${PROTO_REFRESH} random market cards are replaced at the start of each round.</li>
-      </ul>
-      <h3>Enclosures</h3>
-      <ul>
-        <li>An enclosure is an area completely closed off by fences. It may use at most <b>two sides</b> of the board edge as walls.</li>
-        <li>Dinos, feeders and watering holes fill <b>connected</b> squares inside one enclosure, and fences can’t cut through them.</li>
-        <li>Each enclosure holds one species, plus one more for each 💧 watering hole in it (${costText(WATER_COST)}, ${WATER_SQUARES} squares).</li>
-        <li>🌾 Feeders cost 💎1 + 🪙1 per square. Each feeder square takes 1 food off that enclosure’s bill every Feeding.</li>
-      </ul>
-      <h3>Breeding</h3>
-      <p>A 🥚 Breed worker picks a species you have an adult pair of in one active enclosure (inactive pairs can’t breed); that pair has one baby, which goes in their enclosure. The top Breed space is free, the middle one costs 🪙3 and the bottom one (any number of workers) costs 🪙6. Each enclosure can breed only once per round, so you can breed in several enclosures in the same round. Babies take half the squares (rounded down), eat half and have half the production, points and scoring powers (all rounded up), with no when-played or every-round powers. After being fed in ${PROTO_BABY_FEEDS} Feedings a baby grows up: you add squares for its full size in its own enclosure (or it dies if there’s no room), and its when-played power triggers.</p>
-      <h3>Scoring</h3>
-      <ul>
-        <li>Each dino’s points (the yellow circle).</li>
-        <li>Scoring powers (Compy, Microraptor, Pachy, the Triceratops page).</li>
-        <li>The ${PROTO_GOAL_ROUNDS.length} goal cards.</li>
-        <li>💎 Each leftover diamond = 1 point. 🪙 1 point per 10 leftover coins (max 3).</li>
-      </ul>
-      <p>Dinos in inactive or extinct enclosures score nothing.</p>
-      <h3>Goal cards</h3><ul>${Object.values(PROTO_GOALS).map((G) => `<li>${G.icon} <b>${G.name}</b> — ${G.desc}</li>`).join('')}</ul>
-      <h3>Events</h3><ul>${events}</ul>
-      <p class="muted">The deck has more copies of herd dinos (Compy ${PROTO_COPIES.compy}, Microraptor ${PROTO_COPIES.microraptor}, Parasaurolophus ${PROTO_COPIES.parasaurolophus}, Pachy ${PROTO_COPIES.pachy}); Spinosaurus, Dilophosaurus, Ankylosaurus, T. Rex and Mosasaurus have 2. Everything else has 3.</p>`);
+    if (!RULE_TABS.some(([k]) => k === rulesTab)) rulesTab = 'basics';
+    const panes = protoRulesPanes();
+    const tabs = RULE_TABS.map(([k, label]) => `<button class="rules-tab${k === rulesTab ? ' on' : ''}" data-act="rulesTab" data-tab="${k}">${label}</button>`).join('');
+    openModal(`<div class="rules-top"><div class="modal-head"><h2>📜 How to play</h2><button class="x" data-act="closeModal" aria-label="Close">✕</button></div>
+      <nav class="rules-tabs">${tabs}</nav></div>
+      ${RULE_TABS.map(([k]) => `<section class="rules-pane" data-pane="${k}"${k === rulesTab ? '' : ' hidden'}>${panes[k]}</section>`).join('')}`, 'rules');
+  }
+
+  function showRulesTab(tab) {
+    rulesTab = tab;
+    document.querySelectorAll('.rules-tab').forEach((b) => {
+      b.classList.toggle('on', b.dataset.tab === tab);
+      if (b.dataset.tab === tab && b.scrollIntoView) b.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    });
+    document.querySelectorAll('.rules-pane').forEach((x) => { x.hidden = x.dataset.pane !== tab; });
+    const m = document.querySelector('.modal.rules');
+    if (m) m.scrollTop = 0;
   }
 
   function openRules() {
@@ -3885,6 +4003,10 @@
       const fn = pendingConfirm;
       closeModal();
       if (fn) fn();
+      return;
+    }
+    if (act === 'rulesTab') {
+      showRulesTab(ds.tab);
       return;
     }
     if (act === 'goals') {
@@ -4545,7 +4667,7 @@
   }
 
   // ---------------------------------------------------------------- computer player
-  const FREE_ACTS = new Set(['simOpen', 'simOpt', 'simStart', 'simSpeed', 'simStop', 'simAgain', 'fullLog', 'viewCard', 'rules', 'goals', 'book', 'closeModal', 'newGame', 'confirmYes', 'aiSettings', 'setAiOpt', 'onlineLeave', 'onlineResign', 'olRematch', 'replayReveal']);
+  const FREE_ACTS = new Set(['simOpen', 'simOpt', 'simStart', 'simSpeed', 'simStop', 'simAgain', 'fullLog', 'viewCard', 'rules', 'rulesTab', 'goals', 'book', 'closeModal', 'newGame', 'confirmYes', 'aiSettings', 'setAiOpt', 'onlineLeave', 'onlineResign', 'olRematch', 'replayReveal']);
   const AI_LEVELS = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
   const AI_PACES = { fast: 'Fast', medium: 'Medium', slow: 'Slow' };
   const AI_LEVEL_HELP = { easy: 'Plays for fun and makes mistakes', medium: 'Plans one move at a time', hard: 'Plays to win: plans fences, cards and the whole game' };
