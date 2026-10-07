@@ -16,8 +16,16 @@
   const IMG = (k) => `/img/hearthhold/${k}.webp`;
   const S = 38;
   const SQ3 = Math.sqrt(3);
-  const FACE = 4.4 * S;
-  const RAD = FACE / Math.cos(Math.PI / 6);
+  // Distance from the village centre to the wall faces / corners; set per game by sizeBoard().
+  let FACE = 4.4 * S;
+  let RAD = FACE / Math.cos(Math.PI / 6);
+  function sizeBoard(s) {
+    FACE = (E.mapRings(s) * SQ3 + 0.94) * S;
+    RAD = FACE / Math.cos(Math.PI / 6);
+    const w = FACE + 91;
+    const h = FACE + 73;
+    $('#svg').setAttribute('viewBox', `${(-w).toFixed(0)} ${(-h).toFixed(0)} ${(2 * w).toFixed(0)} ${(2 * h).toFixed(0)}`);
+  }
   const SMOKY = ['keep', 'house', 'inn', 'bakery', 'smithy', 'workshop'];
   const PCOLOR = ['#e05a4f', '#3f8fd8'];
 
@@ -418,6 +426,7 @@
     const sig = JSON.stringify([G.view, p.bld, p.walls, p.vil, p.castle, ui.pick, s.round, s.phase, s.turn === G.view, [...ui.fresh], ui.freshSide]);
     if (sig === ui.boardSig) return;
     ui.boardSig = sig;
+    sizeBoard(s);
     const board = $('#board');
     board.className = `board season-${season()}${ui.pick ? ' picking' : ''}`;
     board.style.setProperty('--pc', PCOLOR[G.view]);
@@ -443,6 +452,7 @@
     h += `<polygon class="road" points="${[0, 60, 120, 180, 240, 300].map((a) => polar(a, RAD - 4).map((n) => n.toFixed(1)).join(',')).join(' ')}"/>`;
     // cells
     E.CELLS.forEach((c, i) => {
+      if (i >= s.terrain.length) return;
       const [x, y] = cellXY(i);
       const t = s.terrain[i];
       const b = at[i];
@@ -1940,7 +1950,7 @@
       return `
       <p class="lead">Two villages grow side by side for <b>3 years</b> — 12 rounds, one per season. Each round you send your <b>workers</b> to the places on offer, build and recruit as much as you can pay for, and then the night comes: your village works, a creature attacks <i>both</i> villages, and everyone eats. After the 12th round the village with the most <b>⭐ points</b> wins.</p>
       <h4>Your village</h4>
-      <p>Each village has its own copy of the same map: 19 hexes with the <b>Keep</b> in the middle. One building fits on each hex, and the land decides which:</p>
+      <p>Each village has its own copy of the same map: 37 hexes in three rings around the <b>Keep</b> in the middle — 13 meadow, 13 plains, 4 forest, 3 hills and 3 mountain. One building fits on each hex, and the land decides which:</p>
       <table class="rules-table"><tr><th>Land</th><th>What fits</th></tr>
         <tr><td>🌼 Meadow</td><td>Farms — or any town building</td></tr>
         <tr><td>🟫 Plains</td><td>Any town building (Houses, Wells, Inns, Markets, wonders…) — not Farms</td></tr>

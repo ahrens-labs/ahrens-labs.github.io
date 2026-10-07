@@ -191,9 +191,12 @@
 
   // ---------------------------------------------------------------- map
   const DIRS = [[1, 0], [1, -1], [0, -1], [-1, 0], [-1, 1], [0, 1]];
+  // Villages are three rings of hexes (37). Games started before the map grew have two rings (19);
+  // cells are listed ring by ring, so those maps are simply the first 19 cells.
+  const MAP_RINGS = 3;
   function hexCells() {
     const cells = [{ q: 0, r: 0 }];
-    for (let ring = 1; ring <= 2; ring++) {
+    for (let ring = 1; ring <= MAP_RINGS; ring++) {
       let q = -ring;
       let r = ring;
       // walk the ring starting west-south-west
@@ -214,15 +217,19 @@
   );
 
   function makeMap(state) {
+    let t;
     for (let tries = 0; tries < 500; tries++) {
-      const bag = shuffle(state, [].concat(Array(6).fill('meadow'), Array(3).fill('forest'), Array(3).fill('hills'), Array(2).fill('mountain'), Array(4).fill('plains')));
-      const t = ['plains'].concat(bag);
+      const bag = shuffle(state, [].concat(Array(13).fill('meadow'), Array(4).fill('forest'), Array(3).fill('hills'), Array(3).fill('mountain'), Array(13).fill('plains')));
+      t = ['plains'].concat(bag);
       const ring1 = t.slice(1, 7);
-      const ok = ring1.filter((x) => x === 'meadow').length >= 2 && ring1.includes('forest') && ring1.includes('plains') && !ring1.includes('mountain');
+      const inner = t.slice(1, 19);
+      const ok = ring1.filter((x) => x === 'meadow').length >= 2 && ring1.includes('forest') && ring1.includes('plains') && !ring1.includes('mountain') &&
+        ['forest', 'hills', 'mountain'].every((k) => inner.includes(k));
       if (ok) return t;
     }
-    return ['plains', 'meadow', 'forest', 'plains', 'meadow', 'hills', 'plains', 'mountain', 'meadow', 'forest', 'plains', 'hills', 'meadow', 'mountain', 'forest', 'meadow', 'hills', 'plains', 'meadow'];
+    return t;
   }
+  const mapRings = (state) => (state.terrain.length > 19 ? 3 : 2);
 
   // ---------------------------------------------------------------- setup
   function newGame(opts) {
@@ -1154,7 +1161,7 @@
 
   const api = {
     SAVE_V, ROUNDS, BASE_WORKERS, LOCS_PER_GAME, LOC, LOC_GROUPS, LOC_ORDER, OPEN_LOCS, ROW_SIZE, ARMS_MAX, RES, RES_ICON, RES_NAME, SEASONS, SEASON, SIDES, WALL, TERRAIN, LABOR,
-    BUILD, BUILD_ORDER, VIL, VIL_ORDER, DECK, BEAST, BEAST_ORDER, CELLS, NEIGH,
+    BUILD, BUILD_ORDER, VIL, VIL_ORDER, DECK, BEAST, BEAST_ORDER, CELLS, NEIGH, mapRings,
     newGame, legal, apply, resolveDusk, score, winner, aiChoose, evaluate,
     seasonOf, yearOf, costText, beastText, beastKind, ringOf,
     beds, water, room, workers, production, defense, baseDefense, buildCost, wallCost, canPay, rowPrice, freeCells, buildBlock,
