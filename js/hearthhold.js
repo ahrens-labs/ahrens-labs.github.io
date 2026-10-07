@@ -4,6 +4,8 @@
   const E = window.HearthholdEngine;
   const SAVE_KEY = 'ahrensHearthhold.v1';
   const PREFS_KEY = 'ahrensHearthhold.prefs';
+  const ONLINE_KEY = 'ahrensHearthhold.online';
+  const API_BASE = window.AHRENS_LABS_API_BASE || 'https://chess-accounts.matthewahrens.workers.dev';
   const IMG = (k) => `/img/hearthhold/${k}.webp`;
   const S = 38;
   const SQ3 = Math.sqrt(3);
@@ -15,13 +17,14 @@
   const $ = (sel, root) => (root || document).querySelector(sel);
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
-  let G = null; // { state, mode: 'ai' | 'local', level, view }
+  let G = null; // { state, mode: 'ai' | 'local' | 'online', level, view } — online adds { id, me, version, status, result }
   const ui = { pick: null, boardSig: '', fresh: new Set(), freshSide: null, aiTimer: null, modal: false, rulesTab: 'basics' };
 
   // ---------------------------------------------------------------- persistence
   function save() {
     try {
-      localStorage.setItem(SAVE_KEY, JSON.stringify(G));
+      if (G && G.mode === 'online') localStorage.setItem(ONLINE_KEY, JSON.stringify({ id: G.id, revealed: !!G.revealed, duskSeen: G.duskSeen || 0 }));
+      else localStorage.setItem(SAVE_KEY, JSON.stringify(G));
     } catch (e) {
       /* storage full or blocked: the game still works, it just won't resume */
     }
@@ -55,7 +58,9 @@
   const season = () => E.seasonOf(st().round);
   const tonight = () => st().threats[st().round - 1];
   const humanTurn = () => st().phase === 'act' && !st().players[st().turn].ai;
-  const myTurnHere = () => humanTurn() && st().turn === G.view;
+  const myTurnHere = () => humanTurn() && st().turn === G.view && (G.mode !== 'online' || G.view === G.me);
+  // May the viewer move villagers in the village on screen right now?
+  const canManage = () => st().phase === 'act' && !me().ai && (G.mode === 'local' ? st().turn === G.view : G.mode === 'online' ? G.view === G.me && G.status === 'active' : true);
   function cost(c, p) {
     const parts = E.RES.filter((r) => c && c[r]).map((r) => {
       const short = p && p.res[r] < c[r];
@@ -113,9 +118,11 @@
   });
 
   // ---------------------------------------------------------------- setup screen
-  function showSetup() {
+  function showSetup(focusGame) {
     clearTimeout(ui.aiTimer);
+    stopOnline();
     G = null;
+    if (history.replaceState && location.search) history.replaceState(null, '', location.pathname);
     const pr = prefs();
     const saved = loadSave();
     const canResume = saved && saved.state.phase !== 'over';
@@ -139,19 +146,21 @@
             <div class="seg" id="mode">
               <button data-v="ai" class="${pr.mode !== 'local' ? 'on' : ''}">🤖 Computer</button>
               <button data-v="local" class="${pr.mode === 'local' ? 'on' : ''}">👥 Two players, one device</button>
+              <button data-v="online" class="${pr.mode === 'online' ? 'on' : ''}">🌐 Online</button>
             </div>
           </div>
-          <div class="field ai-only">
+          <div class="online-only" id="online-box"></div>
+          <div class="field ai-only offline-only">
             <span class="label">Difficulty</span>
             <div class="seg" id="level">
               ${['easy', 'normal', 'hard'].map((l) => `<button data-v="${l}" class="${(pr.level || 'normal') === l ? 'on' : ''}">${l[0].toUpperCase() + l.slice(1)}</button>`).join('')}
             </div>
           </div>
-          <div class="field names">
+          <div class="field names offline-only">
             <label><span class="label">Your village</span><input id="n0" maxlength="18" value="${esc(pr.n0 || 'Oakvale')}"></label>
             <label class="local-only"><span class="label">Second village</span><input id="n1" maxlength="18" value="${esc(pr.n1 || 'Stonebrook')}"></label>
           </div>
-          <div class="field">
+          <div class="field offline-only">
             <span class="label">Who starts?</span>
             <div class="seg" id="first">
               <button data-v="0" class="on">First village</button>
@@ -159,7 +168,7 @@
               <button data-v="r">🎲 Random</button>
             </div>
           </div>
-          <button class="btn big" id="start">Found your village</button>
+          <button class="btn big offline-only" id="start">Found your village</button>
           <div class="btn-row center">
             <button class="btn ghost sm" id="how">📜 How to play</button>
             <a class="btn ghost sm" href="/board-games.html">🎲 All board games</a>
@@ -168,6 +177,8 @@
       </div>`;
     const setMode = (m) => {
       $('.setup').classList.toggle('is-local', m === 'local');
+      $('.setup').classList.toggle('is-online', m === 'online');
+      if (m === 'online') showLobby(focusGame);
       $('#first').children[0].textContent = m === 'local' ? 'First village' : 'Me';
       $('#first').children[1].textContent = m === 'local' ? 'Second village' : 'Computer';
     };
@@ -175,20 +186,29 @@
       const b = e.target.closest('.seg button');
       if (!b) return;
       [...b.parentNode.children].forEach((x) => x.classList.toggle('on', x === b));
-      if (b.parentNode.id === 'mode') setMode(b.dataset.v);
+      if (b.parentNode.id === 'mode') {
+        savePrefs(Object.assign(prefs(), { mode: b.dataset.v }));
+        setMode(b.dataset.v);
+      }
     });
-    setMode(pr.mode === 'local' ? 'local' : 'ai');
+    setMode(focusGame ? 'online' : pr.mode === 'local' || pr.mode === 'online' ? pr.mode : 'ai');
+    if (focusGame) [...$('#mode').children].forEach((x) => x.classList.toggle('on', x.dataset.v === 'online'));
     $('#how').onclick = () => showRules();
-    if (canResume) $('#resume').onclick = () => startFrom(saved);
+    if (canResume) $('#resume').onclick = () => {
+      forgetOnline();
+      startFrom(saved);
+    };
     $('#start').onclick = () => {
       const pick = (id) => $(`#${id} .on`).dataset.v;
       const mode = pick('mode');
+      if (mode === 'online') return;
       const level = pick('level');
       let first = pick('first');
       first = first === 'r' ? (Math.random() < 0.5 ? 0 : 1) : +first;
       const n0 = $('#n0').value.trim() || 'Oakvale';
       const n1 = mode === 'local' ? $('#n1').value.trim() || 'Stonebrook' : 'Computer';
       savePrefs({ mode, level, n0, n1: $('#n1').value.trim() || 'Stonebrook' });
+      forgetOnline();
       const state = E.newGame({ names: [n0, n1], ai: [false, mode === 'ai'], first });
       startFrom({ state, mode, level, view: mode === 'local' ? state.turn : 0 });
     };
@@ -203,7 +223,9 @@
     buildShell();
     save();
     render();
-    if (G.dusk) showDusk(G.dusk.rep, G.dusk.arrived);
+    if (G.mode === 'online') connectSock();
+    if (G.mode === 'online' && st().dusk && st().dusk.round > (G.duskSeen || 0)) showOnlineDusk();
+    else if (G.dusk) showDusk(G.dusk.rep, G.dusk.arrived);
     else if (st().phase === 'over') showGameOver(!!G.revealed);
     else if (st().phase === 'dusk') runDusk();
     else {
@@ -226,7 +248,7 @@
         </div>
         <div class="top-actions">
           <button class="btn ghost sm" id="rules-btn">📜 Rules</button>
-          <button class="btn ghost sm" id="new-btn">🏰 New game</button>
+          <button class="btn ghost sm" id="new-btn">${G && G.mode === 'online' ? '🌐 Game' : '🏰 New game'}</button>
           <a class="btn ghost sm" href="/board-games.html" title="All board games" aria-label="All board games">🎲</a>
         </div>
       </header>
@@ -281,7 +303,7 @@
     }
     $('#tracker').innerHTML = pips;
     let b;
-    if (s.phase === 'over') b = '<b>The game is over</b>';
+    if (s.phase === 'over' || (G.mode === 'online' && G.status !== 'active')) b = '<b>The game is over</b>';
     else {
       const p = s.players[s.turn];
       const dots = s.players
@@ -295,6 +317,7 @@
     $('#banner').innerHTML = b;
   }
   function turnLabel(p) {
+    if (G.mode === 'online') return st().turn === G.me ? 'Your turn' : `${esc(p.name)}’s turn`;
     return G.mode === 'ai' ? 'Your turn' : `${esc(p.name)}’s turn`;
   }
 
@@ -332,7 +355,7 @@
     const s = st();
     $('#tabs').innerHTML = s.players
       .map((p, i) => {
-        return `<button class="tab${G.view === i ? ' on' : ''}" data-view="${i}" style="--pc:${PCOLOR[i]}"><i></i>${esc(p.name)}${G.mode === 'ai' && !p.ai ? ' (you)' : ''}</button>`;
+        return `<button class="tab${G.view === i ? ' on' : ''}" data-view="${i}" style="--pc:${PCOLOR[i]}"><i></i>${esc(p.name)}${(G.mode === 'ai' && !p.ai) || (G.mode === 'online' && i === G.me) ? ' (you)' : ''}</button>`;
       })
       .join('');
   }
@@ -558,6 +581,18 @@
       box.innerHTML = '<h3>Game over</h3><button class="btn big" data-act="show-final">See final scores</button>';
       return;
     }
+    if (G.mode === 'online' && G.status !== 'active') {
+      box.innerHTML = `<h3>Game over</h3><p class="muted">${esc(onlineEndText())}</p><button class="btn big" data-act="lobby">🌐 Back to your games</button>`;
+      return;
+    }
+    if (G.mode === 'online' && pi !== G.me) {
+      box.innerHTML = `<h3>Actions</h3><p class="muted">You’re looking at ${esc(p.name)}’s village.</p><button class="btn sm" data-view="${G.me}">Back to my village</button>`;
+      return;
+    }
+    if (G.mode === 'online' && s.turn !== G.me) {
+      box.innerHTML = `<h3>Actions</h3><p class="muted waiting">Waiting for ${esc(s.players[s.turn].name)}<span class="dots"><i>.</i><i>.</i><i>.</i></span></p><p class="tip">You can still move your villagers between jobs. ${esc(s.players[s.turn].name)}’s moves show up here as they happen.</p><button class="btn sm" data-view="${s.turn}">Watch ${esc(s.players[s.turn].name)}’s village</button>`;
+      return;
+    }
     if (s.players[s.turn].ai) {
       box.innerHTML = `<h3>Actions</h3><p class="muted waiting">${esc(s.players[s.turn].name)} is taking a turn…</p>`;
       return;
@@ -651,7 +686,7 @@
 
   function renderPeople() {
     const p = me();
-    const own = !p.ai && st().phase === 'act' && (G.mode === 'local' ? st().turn === G.view : true);
+    const own = canManage();
     const chips = p.vil
       .map((v) => {
         const b = v.at != null && p.bld.find((x) => x.id === v.at);
@@ -729,6 +764,7 @@
     if (what === 'trade') showTrade();
     if (what === 'end') confirmEnd();
     if (what === 'show-final') showGameOver(true);
+    if (what === 'lobby') showSetup(G.id);
   }
 
   function onBoardClick(e) {
@@ -764,6 +800,7 @@
   }
 
   function doAction(a) {
+    if (G.mode === 'online') return sendOnline(a);
     const s = st();
     const pi = a.t === 'move' ? G.view : s.turn;
     const before = s.players[pi].bld.length;
@@ -802,7 +839,7 @@
     const el = document.createElement('div');
     el.className = 'handoff';
     el.style.setProperty('--pc', PCOLOR[s.turn]);
-    el.textContent = `${s.players[s.turn].name}’s turn`;
+    el.textContent = G.mode === 'online' && s.turn === G.me ? 'Your turn' : `${s.players[s.turn].name}’s turn`;
     document.body.appendChild(el);
     setTimeout(() => el.remove(), 1300);
   }
@@ -895,7 +932,7 @@
     const k = b.b === 'keep' && p.castle ? 'castle' : b.b;
     const occ = E.occupants(p, b.id);
     const pr = E.production(p, season()).by[b.id];
-    const own = !p.ai && s.phase === 'act' && (G.mode === 'local' ? s.turn === G.view : true);
+    const own = canManage();
     const slots = E.slotsOf(b.b);
     const movers = own && slots && occ.length < slots ? p.vil.filter((v) => v.at !== b.id && E.canWork(v.k, b.b)) : [];
     const prodTxt = pr ? Object.entries(pr).map(([r, n]) => (r === 'forge' ? '⚒️ forges arms' : `${r === 'renown' ? '⭐' : E.RES_ICON[r]}${n}`)).join(' ') : 'nothing this round';
@@ -1034,10 +1071,8 @@
     const s = st();
     if (s.phase !== 'dusk') return;
     clearTimeout(ui.aiTimer);
-    const rowBefore = s.row.slice();
     const rep = E.resolveDusk(s);
-    const kept = rowBefore.length - (rep.leftRow ? 1 : 0);
-    const arrived = s.row.slice(kept);
+    const arrived = rep.arrived;
     G.dusk = { rep, arrived };
     save();
     showDusk(rep, arrived);
@@ -1148,6 +1183,7 @@
     let head;
     if (w < 0) head = '🤝 A perfect tie!';
     else if (G.mode === 'ai') head = s.players[w].ai ? '🐉 The Computer wins!' : '🏆 You win!';
+    else if (G.mode === 'online') head = w === G.me ? '🏆 You win!' : `🏆 ${esc(s.players[w].name)} wins!`;
     else head = `🏆 ${esc(s.players[w].name)} wins!`;
     const margin = Math.abs(sc[0].total - sc[1].total);
     const sub = w < 0 ? `Both villages scored ${sc[0].total} — ${s.players[0].vil.length === s.players[1].vil.length ? 'and have the same number of villagers' : 'the tie-break is villagers'}.`
@@ -1167,7 +1203,7 @@
         <div class="hr-verdict" aria-live="polite"></div>
         <div class="hr-sub">${sub}</div>
         <div class="hr-rows">${rows.map(([label, k]) => `<div class="hr-row"><span class="${sc[0][k] > sc[1][k] ? 'lead' : ''}">${sc[0][k]}</span><small>${label}</small><span class="${sc[1][k] > sc[0][k] ? 'lead' : ''}">${sc[1][k]}</span></div>`).join('')}</div>
-        <div class="hr-actions"><button class="btn" data-rv="close">🏘️ See the villages</button><button class="btn" data-rv="again">🏰 Play again</button><a class="btn ghost" href="/board-games.html">🎲 All board games</a></div>
+        <div class="hr-actions"><button class="btn" data-rv="close">🏘️ See the villages</button><button class="btn" data-rv="again">${G.mode === 'online' ? '🌐 Your games' : '🏰 Play again'}</button><a class="btn ghost" href="/board-games.html">🎲 All board games</a></div>
       </div><button class="hr-skip" data-rv="skip">Skip ▸</button>`;
     document.body.appendChild(el);
     const timers = [];
@@ -1183,7 +1219,7 @@
       sides.forEach((x, i) => x.classList.add(w < 0 ? 'tie' : i === w ? 'win' : 'lose'));
       el.querySelector('.hr-verdict').innerHTML = `<div class="hr-head">${head}</div>`;
       el.querySelectorAll('.hr-total').forEach((t, i) => (t.textContent = sc[i].total));
-      if (!instant && (w < 0 || !s.players[w].ai)) confetti();
+      if (!instant && (w < 0 || (G.mode === 'online' ? w === G.me : !s.players[w].ai))) confetti();
     };
     const finish = () => {
       if (decided) return;
@@ -1214,6 +1250,7 @@
       if (b && b.dataset.rv === 'close') return close();
       if (b && b.dataset.rv === 'again') {
         close();
+        if (G.mode === 'online') return showSetup(G.id);
         try {
           localStorage.removeItem(SAVE_KEY);
         } catch (err) {
@@ -1251,6 +1288,7 @@
 
   // ---------------------------------------------------------------- new game
   function newGame() {
+    if (G.mode === 'online') return onlineMenu();
     const go = () => {
       try {
         localStorage.removeItem(SAVE_KEY);
@@ -1268,6 +1306,364 @@
       go();
     });
   }
+
+  // ---------------------------------------------------------------- online play (Ahrens Labs accounts)
+  // The server runs the same engine and is the only one that applies actions; the page sends an action
+  // and draws whatever state comes back. One WebSocket per open game carries both directions.
+  const net = { sock: null, ping: null, retry: null, poll: null, pending: null, lobby: null, err: '', focus: null, autoOpen: null };
+
+  function sessionId() {
+    try {
+      return localStorage.getItem('ahrenslabs_sessionId') || '';
+    } catch (e) {
+      return '';
+    }
+  }
+  function forgetOnline() {
+    try {
+      localStorage.removeItem(ONLINE_KEY);
+    } catch (e) {
+      /* ignore */
+    }
+  }
+  function savedOnline() {
+    try {
+      return JSON.parse(localStorage.getItem(ONLINE_KEY) || 'null');
+    } catch (e) {
+      return null;
+    }
+  }
+  async function api(path, body) {
+    let res;
+    try {
+      res = await fetch(API_BASE + path, {
+        method: body ? 'POST' : 'GET',
+        headers: { Authorization: `Bearer ${sessionId()}`, ...(body ? { 'Content-Type': 'application/json' } : {}) },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+    } catch (e) {
+      return { ok: false, status: 0, data: { error: 'Couldn’t reach the server. Check your connection.' } };
+    }
+    const data = await res.json().catch(() => ({}));
+    return { ok: res.ok, status: res.status, data };
+  }
+
+  function stopOnline() {
+    clearInterval(net.ping);
+    clearTimeout(net.retry);
+    clearInterval(net.poll);
+    net.ping = net.retry = net.poll = null;
+    net.pending = null;
+    const ws = net.sock;
+    net.sock = null;
+    if (ws) {
+      try {
+        ws.close();
+      } catch (e) {
+        /* ignore */
+      }
+    }
+  }
+
+  // ---- lobby (inside the setup screen)
+  async function showLobby(focus) {
+    net.focus = focus || net.focus;
+    const box = $('#online-box');
+    if (!box) return;
+    if (!sessionId()) {
+      const back = encodeURIComponent(location.pathname.replace(/^\//, '') + location.search);
+      box.innerHTML = `<div class="ol-gate"><p>Play Hearthhold against another Ahrens Labs player. Each of you takes your turn whenever you like — the game waits.</p><a class="btn big" href="/account.html?return=${back}">Log in or sign up</a></div>`;
+      return;
+    }
+    box.innerHTML = lobbyHtml(true);
+    const r = await api('/api/hearthhold/games');
+    if (!$('#online-box')) return;
+    if (r.status === 401) {
+      try {
+        localStorage.removeItem('ahrenslabs_sessionId');
+      } catch (e) {
+        /* ignore */
+      }
+      return showLobby();
+    }
+    net.lobby = r.ok ? r.data.games || [] : null;
+    net.err = r.ok ? '' : r.data.error || 'Couldn’t load your games.';
+    renderLobby();
+    const f = net.focus && net.lobby && net.lobby.find((g) => g.id === net.focus);
+    net.focus = null;
+    const auto = net.autoOpen;
+    net.autoOpen = null;
+    if (f && f.status === 'active' && G == null && auto === f.id) openOnline(f.id);
+  }
+  function renderLobby() {
+    const box = $('#online-box');
+    if (box) box.innerHTML = lobbyHtml(false);
+  }
+  function onlineStatus(g) {
+    if (g.status === 'pending') return g.me === 1 ? `<b>${esc(g.opp)}</b> challenged you` : `Waiting for <b>${esc(g.opp)}</b> to accept`;
+    if (g.status === 'active') return `${g.turn === g.me ? '<b class="ol-you">Your turn</b>' : `${esc(g.opp)}’s turn`} · round ${g.round} of ${E.ROUNDS}`;
+    if (g.status === 'declined') return `${g.me === 1 ? 'You' : esc(g.opp)} declined`;
+    if (g.status === 'cancelled') return 'Challenge cancelled';
+    if (g.status === 'expired') return 'Nobody answered in a week';
+    const r = g.result || {};
+    const sc = r.scores ? ` · ${r.scores[g.me]}–${r.scores[1 - g.me]}` : '';
+    const why = r.reason === 'resign' ? (r.winner === g.me ? ' — they resigned' : ' — you resigned') : '';
+    return `${r.winner == null ? '🤝 Tie' : r.winner === g.me ? '🏆 You won' : 'You lost'}${sc}${why}`;
+  }
+  function lobbyHtml(loading) {
+    const games = net.lobby || [];
+    const btns = (g) => {
+      if (g.status === 'pending' && g.me === 1) return `<button class="btn sm" data-ol="accept" data-id="${g.id}">Accept</button><button class="btn ghost sm" data-ol="decline" data-id="${g.id}">Decline</button>`;
+      if (g.status === 'pending') return `<button class="btn ghost sm" data-ol="cancel" data-id="${g.id}">Cancel</button>`;
+      if (g.status === 'active') return `<button class="btn sm" data-ol="open" data-id="${g.id}">${g.turn === g.me ? 'Play' : 'Open'}</button>`;
+      if (g.status === 'over') return `<button class="btn ghost sm" data-ol="open" data-id="${g.id}">View</button>`;
+      return '';
+    };
+    const list = games.length
+      ? games.map((g) => `<li class="ol-game${g.status === 'active' && g.turn === g.me ? ' mine' : ''}${g.status === 'pending' && g.me === 1 ? ' invite' : ''}"><span class="ol-who">vs <b>${esc(g.opp)}</b><small>${onlineStatus(g)}</small></span><span class="ol-btns">${btns(g)}</span></li>`).join('')
+      : `<li class="muted ol-empty">${loading ? 'Loading your games…' : 'No online games yet — challenge someone below.'}</li>`;
+    return `<div class="ol">
+      <div class="ol-head"><span class="label">Your online games</span><button class="btn ghost sm" data-ol="refresh" title="Refresh">↻</button></div>
+      ${net.err ? `<p class="bad">${esc(net.err)}</p>` : ''}
+      <ul class="ol-list">${list}</ul>
+      <form class="ol-new" data-ol-form><label><span class="label">Challenge a player</span><input id="ol-opp" maxlength="80" placeholder="Username or email" autocomplete="off"></label><button class="btn" type="submit">Send challenge</button></form>
+      <p class="muted small">No time limit: take your turn whenever it’s your move. You’ll see their moves live while you both have the game open.</p>
+    </div>`;
+  }
+  document.addEventListener('submit', async (e) => {
+    if (!e.target.closest('[data-ol-form]')) return;
+    e.preventDefault();
+    const inp = $('#ol-opp');
+    const opponent = inp.value.trim();
+    if (!opponent) return inp.focus();
+    const btn = e.target.querySelector('button');
+    btn.disabled = true;
+    const r = await api('/api/hearthhold/challenge', { opponent });
+    btn.disabled = false;
+    if (!r.ok) return toast(esc(r.data.error || 'Couldn’t send the challenge.'), 'bad');
+    toast(`Challenge sent to <b>${esc(r.data.game.opp)}</b>.`);
+    net.lobby = [r.data.game].concat((net.lobby || []).filter((g) => g.id !== r.data.game.id));
+    renderLobby();
+  });
+  document.addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-ol]');
+    if (!b || b.disabled) return;
+    const id = b.dataset.id;
+    const what = b.dataset.ol;
+    if (what === 'refresh') return showLobby();
+    if (what === 'open') return openOnline(id);
+    b.disabled = true;
+    if (what === 'accept' || what === 'decline') {
+      const r = await api('/api/hearthhold/respond', { id, accept: what === 'accept' });
+      if (!r.ok) {
+        b.disabled = false;
+        toast(esc(r.data.error || 'That didn’t work.'), 'bad');
+        return showLobby();
+      }
+      if (what === 'accept') return enterOnline(r.data);
+      return showLobby();
+    }
+    if (what === 'cancel') {
+      await api('/api/hearthhold/resign', { id });
+      showLobby();
+    }
+  });
+
+  // ---- an online game
+  async function openOnline(id) {
+    if (!G && !$('.setup')) $('#app').innerHTML = '<p class="ol-loading">Loading your game…</p>';
+    const r = await api(`/api/hearthhold/game?id=${encodeURIComponent(id)}`);
+    if (!r.ok || !r.data.state) {
+      forgetOnline();
+      toast(esc(r.data.error || 'Couldn’t open that game.'), 'bad');
+      if (!G && !$('.setup')) showSetup();
+      return;
+    }
+    enterOnline(r.data);
+  }
+  function enterOnline(v) {
+    const mem = savedOnline();
+    const same = mem && mem.id === v.id;
+    const s = v.state;
+    G = {
+      mode: 'online',
+      id: v.id,
+      me: v.me,
+      view: v.me,
+      version: v.version,
+      status: v.status,
+      result: v.result,
+      state: s,
+      revealed: same ? mem.revealed : false,
+      duskSeen: same ? mem.duskSeen : 0,
+    };
+    if (history.replaceState) history.replaceState(null, '', `${location.pathname}?game=${v.id}`);
+    startFrom(G);
+    if (G.status === 'over' && s.phase !== 'over' && !G.revealed) showResigned();
+  }
+  function onlineEndText() {
+    const r = G.result || {};
+    const opp = st().players[1 - G.me].name;
+    if (G.status === 'over' && r.reason === 'resign') return r.winner === G.me ? `${opp} resigned — you win!` : 'You resigned.';
+    return 'This game has ended.';
+  }
+  function showResigned() {
+    G.revealed = true;
+    save();
+    openModal(`<h2>${G.result && G.result.winner === G.me ? '🏆 You win!' : '🏳️ Game over'}</h2><p>${esc(onlineEndText())}</p><div class="btn-row"><button class="btn" data-close>See the villages</button><button class="btn ghost" data-ol-lobby>Your games</button></div>`).addEventListener('click', (e) => {
+      if (!e.target.closest('[data-ol-lobby]')) return;
+      ui.onClose = null;
+      closeModal();
+      showSetup(G.id);
+    });
+  }
+  function showOnlineDusk() {
+    const rep = st().dusk;
+    G.duskSeen = rep.round;
+    save();
+    showDusk(rep, rep.arrived || []);
+  }
+  function onlineMenu() {
+    const active = G.status === 'active';
+    const back = openModal(`<h2>🌐 Online game</h2><p>Playing <b>${esc(st().players[1 - G.me].name)}</b>. The game is saved on the server — you can come back to it any time.</p><div class="btn-row"><button class="btn" data-m="lobby">Back to your games</button>${active ? '<button class="btn lava" data-m="resign">Resign</button>' : ''}<button class="btn ghost" data-close>Keep playing</button></div>`);
+    back.addEventListener('click', async (e) => {
+      const b = e.target.closest('[data-m]');
+      if (!b) return;
+      if (b.dataset.m === 'lobby') {
+        ui.onClose = null;
+        closeModal();
+        forgetOnline();
+        return showSetup(G.id);
+      }
+      if (b.dataset.m === 'resign') {
+        b.disabled = true;
+        const r = await api('/api/hearthhold/resign', { id: G.id });
+        ui.onClose = null;
+        closeModal();
+        if (r.ok) applyView(r.data);
+        else toast(esc(r.data.error || 'Couldn’t resign.'), 'bad');
+      }
+    });
+  }
+
+  function sendOnline(a) {
+    if (G.status !== 'active') return toast('This game is over.');
+    if (net.pending) return toast('One moment…');
+    net.pending = { a, at: Date.now() };
+    $('#app').classList.add('ol-wait');
+    const msg = { type: 'act', id: G.id, base: G.version, a };
+    if (net.sock && net.sock.readyState === 1) {
+      net.sock.send(JSON.stringify(msg));
+      setTimeout(() => {
+        if (net.pending && Date.now() - net.pending.at >= 7900) actViaHttp(msg);
+      }, 8000);
+    } else actViaHttp(msg);
+  }
+  async function actViaHttp(msg) {
+    const r = await api('/api/hearthhold/act', { id: msg.id, base: msg.base, a: msg.a });
+    if (!G || G.id !== msg.id) return;
+    if (!r.ok && r.data.error) toast(esc(r.data.error), 'bad');
+    if (r.data.state || r.data.version) applyView(r.data);
+    else settlePending();
+  }
+  function settlePending() {
+    net.pending = null;
+    const app = $('#app');
+    if (app) app.classList.remove('ol-wait');
+  }
+
+  // Draw a fresh server view: toasts for the opponent's moves, the dusk report, the final reveal.
+  function applyView(v) {
+    if (!G || G.mode !== 'online' || v.id !== G.id) return;
+    settlePending();
+    if (v.version < G.version) return;
+    const prev = G.state;
+    G.version = v.version;
+    G.status = v.status;
+    G.result = v.result;
+    if (!v.state) return render();
+    const s = v.state;
+    G.state = s;
+    const opp = 1 - G.me;
+    const oldIds = new Set(prev.players.flatMap((p) => p.bld.map((b) => b.id)));
+    s.players.forEach((p) => p.bld.forEach((b) => !oldIds.has(b.id) && ui.fresh.add(b.id)));
+    if (s.round === prev.round && s.phase === 'act') {
+      const last = prev.log[prev.log.length - 1];
+      let from = 0;
+      if (last) for (let i = s.log.length - 1; i >= 0; i--) if (s.log[i].text === last.text && s.log[i].r === last.r) { from = i + 1; break; }
+      s.log.slice(from).filter((l) => l.who === opp).forEach((l) => toast(`<span class="dot" style="--pc:${PCOLOR[opp]}"></span>${esc(l.text)}`, 'ai'));
+    }
+    ui.pick = null;
+    save();
+    render();
+    if (s.dusk && s.dusk.round > (G.duskSeen || 0)) {
+      if (ui.modal) closeModal();
+      return showOnlineDusk();
+    }
+    if (G.status === 'over' && s.phase !== 'over' && !G.revealed) return showResigned();
+    if (prev.turn !== s.turn && s.turn === G.me && s.phase === 'act') handoff();
+  }
+
+  function connectSock() {
+    if (!G || G.mode !== 'online' || net.sock || G.status !== 'active') return;
+    const id = G.id;
+    const url = `${API_BASE.replace(/^http/, 'ws')}/api/hearthhold/live?id=${encodeURIComponent(id)}&session=${encodeURIComponent(sessionId())}`;
+    let ws;
+    try {
+      ws = new WebSocket(url);
+    } catch (e) {
+      return startPoll();
+    }
+    net.sock = ws;
+    ws.addEventListener('open', () => {
+      clearInterval(net.poll);
+      net.poll = null;
+      clearInterval(net.ping);
+      net.ping = setInterval(() => net.sock === ws && ws.readyState === 1 && ws.send('ping'), 30000);
+    });
+    ws.addEventListener('message', (e) => {
+      if (net.sock !== ws || e.data === 'pong') return;
+      let m;
+      try {
+        m = JSON.parse(e.data);
+      } catch (err) {
+        return;
+      }
+      if (m.type === 'reject') toast(esc(m.error || 'That move didn’t go through.'), 'bad');
+      if (m.type === 'state' && m.by === G.me && m.version <= G.version) return;
+      applyView(m);
+    });
+    ws.addEventListener('close', () => {
+      if (net.sock !== ws) return;
+      net.sock = null;
+      clearInterval(net.ping);
+      if (!G || G.id !== id || G.status !== 'active') return;
+      if (net.pending) actViaHttp({ id, base: G.version, a: net.pending.a });
+      startPoll();
+      clearTimeout(net.retry);
+      net.retry = setTimeout(connectSock, 5000);
+    });
+    ws.addEventListener('error', () => {
+      try {
+        ws.close();
+      } catch (err) {
+        /* ignore */
+      }
+    });
+  }
+  // Fallback while the live connection is down: check for changes now and then (cheap "unchanged" replies).
+  function startPoll() {
+    if (net.poll) return;
+    net.poll = setInterval(async () => {
+      if (!G || G.mode !== 'online' || document.hidden || net.sock) return;
+      const r = await api(`/api/hearthhold/game?id=${encodeURIComponent(G.id)}&v=${G.version}`);
+      if (r.ok && !r.data.unchanged) applyView(r.data);
+    }, 20000);
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden || !G || G.mode !== 'online') return;
+    if (!net.sock) connectSock();
+  });
 
   // ---------------------------------------------------------------- rules
   const RULE_TABS = [
@@ -1501,7 +1897,16 @@
 
   // ---------------------------------------------------------------- boot
   const saved = loadSave();
-  if (saved) startFrom(saved);
+  const linked = new URLSearchParams(location.search).get('game');
+  const mem = savedOnline();
+  if (linked && /^hh[0-9a-f]{18}$/.test(linked)) {
+    if (mem && mem.id === linked && sessionId()) openOnline(linked);
+    else {
+      net.autoOpen = linked;
+      showSetup(linked);
+    }
+  } else if (mem && sessionId()) openOnline(mem.id);
+  else if (saved) startFrom(saved);
   else showSetup();
-  window.__hh = { get G() { return G; }, render, E };
+  window.__hh = { get G() { return G; }, render, E, send: (a) => doAction(a) };
 })();

@@ -57,7 +57,9 @@ bindings = [
   { name = "PLATTER_MENU", class_name = "PlatterMenu", script_name = "chess-accounts" },
   { name = "DECK_SHARE", class_name = "DeckShare", script_name = "chess-accounts" },
   { name = "DINO_GAME", class_name = "DinoGame", script_name = "chess-accounts" },
-  { name = "DINO_LOBBY", class_name = "DinoLobby", script_name = "chess-accounts" }
+  { name = "DINO_LOBBY", class_name = "DinoLobby", script_name = "chess-accounts" },
+  { name = "HEARTHHOLD_GAME", class_name = "HearthholdGame", script_name = "chess-accounts" },
+  { name = "HEARTHHOLD_LOBBY", class_name = "HearthholdLobby", script_name = "chess-accounts" }
 ]
 
 [[migrations]]
@@ -92,6 +94,10 @@ new_sqlite_classes = ["DeckShare"]
 [[migrations]]
 tag = "v8"
 new_sqlite_classes = ["DinoGame", "DinoLobby"]
+
+[[migrations]]
+tag = "v9"
+new_sqlite_classes = ["HearthholdGame", "HearthholdLobby"]
 
 # Sports Digest HTML builder — use service binding (workers cannot fetch *.workers.dev from another worker; error 1042).
 [[services]]

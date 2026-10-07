@@ -90,6 +90,26 @@ button { font-family: inherit; }
 .names input { width: 100%; padding: 0.55rem 0.7rem; border-radius: 10px; border: 2px solid var(--parchment-2); font: inherit; background: #fffdf6; }
 .setup:not(.is-local) .local-only { visibility: hidden; }
 .setup.is-local .ai-only { display: none; }
+.setup.is-online .offline-only { display: none; }
+.setup:not(.is-online) .online-only { display: none; }
+.ol-gate { text-align: center; padding: 0.6rem 0 0.2rem; }
+.ol-gate p { margin: 0 0 0.9rem; }
+.ol-head { display: flex; align-items: center; justify-content: space-between; }
+.ol-head .label { margin: 0; }
+.ol-list { list-style: none; margin: 0.4rem 0 0.9rem; padding: 0; display: grid; gap: 0.4rem; }
+.ol-game { display: flex; align-items: center; justify-content: space-between; gap: 0.8rem; padding: 0.55rem 0.75rem; border-radius: 12px; background: #fffdf6; box-shadow: inset 0 0 0 2px var(--parchment-2); }
+.ol-game.mine, .ol-game.invite { background: #fff4d0; box-shadow: inset 0 0 0 2px #f0c75a; }
+.ol-who small { display: block; color: #6b5a44; font-size: 0.85rem; margin-top: 0.1rem; }
+.ol-you { color: #a15c00; }
+.ol-btns { display: flex; gap: 0.35rem; flex-shrink: 0; }
+.ol-empty { padding: 0.5rem 0.2rem; }
+.ol-new { display: flex; align-items: flex-end; gap: 0.5rem; }
+.ol-new label { flex: 1; }
+.ol-new input { width: 100%; padding: 0.55rem 0.7rem; border-radius: 10px; border: 2px solid var(--parchment-2); font: inherit; background: #fffdf6; }
+.ol .small { font-size: 0.85rem; margin: 0.6rem 0 0; }
+.ol-loading { text-align: center; padding: 4rem 1rem; color: #f4e6c8; font-size: 1.1rem; }
+#app.ol-wait { cursor: progress; }
+#app.ol-wait .loc, #app.ol-wait .act, #app.ol-wait .vcard { pointer-events: none; opacity: 0.85; }
 .resume { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.7rem 0.9rem; border-radius: 12px; background: #fff4d0; box-shadow: inset 0 0 0 2px #f0d58a; margin-bottom: 0.4rem; }
 .resume b { display: block; }
 

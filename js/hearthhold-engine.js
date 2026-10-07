@@ -866,7 +866,9 @@
     });
     // 4. the crossroads: the longest-waiting traveller moves on, newcomers arrive
     if (state.row.length) rep.leftRow = state.row.shift();
+    const kept = state.row.length;
     while (state.row.length < ROW_SIZE && state.deck.length) state.row.push(state.deck.shift());
+    rep.arrived = state.row.slice(kept);
     state.dusk = rep;
     if (state.round >= ROUNDS) {
       state.phase = 'over';
