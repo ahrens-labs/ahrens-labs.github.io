@@ -1,7 +1,10 @@
 (() => {
   'use strict';
 
-  const N = 10;
+  const N = 12;
+  const CELL_COUNT = N * N;
+  const FENCE_STRIDE = N - 1;
+  const FENCE_COUNT = N * FENCE_STRIDE;
   const ROUNDS = 18;
   const SAVE_KEY = 'ahrensDinoBoardGame.v1';
   const CS = 40;
@@ -125,7 +128,7 @@
   };
 
   // Bump with RULES_VERSION in workers/src/dino.js when costs or rules change, so open tabs on old rules must reload.
-  const RULES_VERSION = 14;
+  const RULES_VERSION = 15;
 
   const BOOK = ['compy', 'triceratops', 'spinosaurus', 'stegosaurus', 'velociraptor', 'brachiosaurus', 'trex', 'pachy'];
   const DECK = ['allosaurus', 'mosasaurus', 'carnotaurus', 'microraptor', 'ankylosaurus', 'dilophosaurus', 'parasaurolophus', 'gigantoraptor'];
@@ -484,9 +487,9 @@
   // ---------------------------------------------------------------- board model
   function newBoard() {
     return {
-      h: new Array(90).fill(0), // fence below cell (r,c): index r*10+c, r 0..8
-      v: new Array(90).fill(0), // fence right of cell (r,c): index r*9+c, c 0..8
-      cells: new Array(100).fill(0), // 0 empty, -1 filled by opponent, >0 item id
+      h: new Array(FENCE_COUNT).fill(0), // fence below cell (r,c): index r*N+c, r 0..N-2
+      v: new Array(FENCE_COUNT).fill(0), // fence right of cell (r,c): index r*(N-1)+c, c 0..N-2
+      cells: new Array(CELL_COUNT).fill(0), // 0 empty, -1 filled by opponent, >0 item id
       items: {},
       nextId: 1,
       inactive: {},
@@ -505,8 +508,8 @@
       const c = i % N;
       return [r * N + c, (r + 1) * N + c];
     }
-    const r = Math.floor(i / 9);
-    const c = i % 9;
+    const r = Math.floor(i / FENCE_STRIDE);
+    const c = i % FENCE_STRIDE;
     return [r * N + c, r * N + c + 1];
   }
 
@@ -516,8 +519,8 @@
     const out = [];
     if (r > 0 && !b.h[(r - 1) * N + c]) out.push(i - N);
     if (r < N - 1 && !b.h[r * N + c]) out.push(i + N);
-    if (c > 0 && !b.v[r * 9 + c - 1]) out.push(i - 1);
-    if (c < N - 1 && !b.v[r * 9 + c]) out.push(i + 1);
+    if (c > 0 && !b.v[r * FENCE_STRIDE + c - 1]) out.push(i - 1);
+    if (c < N - 1 && !b.v[r * FENCE_STRIDE + c]) out.push(i + 1);
     return out;
   }
 
@@ -541,9 +544,9 @@
   }
 
   function analyze(b) {
-    const compOf = new Array(100).fill(-1);
+    const compOf = new Array(CELL_COUNT).fill(-1);
     const comps = [];
-    for (let s = 0; s < 100; s++) {
+    for (let s = 0; s < CELL_COUNT; s++) {
       if (compOf[s] >= 0) continue;
       const idx = comps.length;
       const cells = [];
@@ -575,7 +578,7 @@
       });
     }
     const seen = new Set();
-    for (let i = 0; i < 100; i++) {
+    for (let i = 0; i < CELL_COUNT; i++) {
       const v = b.cells[i];
       const cp = comps[compOf[i]];
       if (v === 0) { cp.empty++; continue; }
@@ -618,7 +621,7 @@
 
   function legalEdgesB(b) {
     const out = [];
-    for (let i = 0; i < 90; i++) {
+    for (let i = 0; i < FENCE_COUNT; i++) {
       if (!b.h[i] && !splitsItemB(b, 'h' + i)) out.push('h' + i);
       if (!b.v[i] && !splitsItemB(b, 'v' + i)) out.push('v' + i);
     }
@@ -721,7 +724,7 @@
     const ci = an.compOf[cells[0]];
     if (cells.some((i) => an.compOf[i] !== ci)) return { ok: false, msg: 'All squares must be inside one enclosure.' };
     const set = new Set(cells);
-    const fenced = cells.some((i) => (i % N < N - 1 && set.has(i + 1) && b.v[Math.floor(i / N) * 9 + (i % N)]) || (set.has(i + N) && b.h[i]));
+    const fenced = cells.some((i) => (i % N < N - 1 && set.has(i + 1) && b.v[Math.floor(i / N) * FENCE_STRIDE + (i % N)]) || (set.has(i + N) && b.h[i]));
     if (fenced) return { ok: false, msg: 'A piece can’t sit across a fence.' };
     const cp = an.comps[ci];
     if (!cp.valid) {
@@ -1152,6 +1155,48 @@
     }
   }
 
+  function mapBoardKeys(obj, fromN) {
+    return Object.fromEntries(Object.entries(obj || {}).map(([k, v]) => {
+      const i = +k;
+      if (!Number.isFinite(i)) return [k, v];
+      return [String(Math.floor(i / fromN) * N + (i % fromN)), v];
+    }));
+  }
+
+  function normalizeBoard(b) {
+    const fromN = Math.max(1, Math.round(Math.sqrt((b.cells || []).length || CELL_COUNT)));
+    if (fromN === N) {
+      b.h = b.h.slice(0, FENCE_COUNT).concat(new Array(Math.max(0, FENCE_COUNT - b.h.length)).fill(0));
+      b.v = b.v.slice(0, FENCE_COUNT).concat(new Array(Math.max(0, FENCE_COUNT - b.v.length)).fill(0));
+      b.cells = (b.cells || []).slice(0, CELL_COUNT).concat(new Array(Math.max(0, CELL_COUNT - (b.cells || []).length)).fill(0));
+      return;
+    }
+
+    const fromStride = fromN - 1;
+    const oldCells = b.cells || [];
+    const oldH = b.h || [];
+    const oldV = b.v || [];
+    b.cells = new Array(CELL_COUNT).fill(0);
+    b.h = new Array(FENCE_COUNT).fill(0);
+    b.v = new Array(FENCE_COUNT).fill(0);
+    for (let r = 0; r < Math.min(fromN, N); r++) {
+      for (let c = 0; c < Math.min(fromN, N); c++) b.cells[r * N + c] = oldCells[r * fromN + c] || 0;
+    }
+    for (let r = 0; r < Math.min(fromN - 1, N - 1); r++) {
+      for (let c = 0; c < Math.min(fromN, N); c++) b.h[r * N + c] = oldH[r * fromN + c] || 0;
+    }
+    for (let r = 0; r < Math.min(fromN, N); r++) {
+      for (let c = 0; c < Math.min(fromStride, FENCE_STRIDE); c++) b.v[r * FENCE_STRIDE + c] = oldV[r * fromStride + c] || 0;
+    }
+    Object.values(b.items || {}).forEach((it) => {
+      it.cells = (it.cells || []).map((i) => Math.floor(i / fromN) * N + (i % fromN));
+    });
+    b.inactive = mapBoardKeys(b.inactive, fromN);
+    b.placedRound = mapBoardKeys(b.placedRound, fromN);
+    b.dead = mapBoardKeys(b.dead, fromN);
+    b.names = mapBoardKeys(b.names, fromN);
+  }
+
   // Older versions could draw a fence through a placed piece; lift those fences so every piece is whole.
   // Prototype games saved before goal cards existed get a fresh set.
   function repairFences(s) {
@@ -1165,7 +1210,8 @@
     (s.players || []).forEach((P) => {
       const b = P.board;
       if (!b || !b.h || !b.v) return;
-      for (let i = 0; i < 90; i++) {
+      normalizeBoard(b);
+      for (let i = 0; i < FENCE_COUNT; i++) {
         if (b.h[i] && splitsItemB(b, 'h' + i)) b.h[i] = 0;
         if (b.v[i] && splitsItemB(b, 'v' + i)) b.v[i] = 0;
       }
@@ -1527,7 +1573,7 @@
         const an = analyze(P.board);
         const inside = [];
         const open = [];
-        for (let i = 0; i < 100; i++) if (P.board.cells[i] === 0) (an.comps[an.compOf[i]].valid ? inside : open).push(i);
+        for (let i = 0; i < CELL_COUNT; i++) if (P.board.cells[i] === 0) (an.comps[an.compOf[i]].valid ? inside : open).push(i);
         const hit = shuffle(inside).slice(0, 4);
         const pens = hit.length;
         hit.push(...shuffle(open).slice(0, 4 - pens));
@@ -1744,7 +1790,7 @@
     const all = it.cells.concat(cells);
     if (!contiguous(all)) return { ok: false, msg: 'The new squares must join the baby side to side.' };
     const set = new Set(all);
-    if (all.some((i) => (i % N < N - 1 && set.has(i + 1) && b.v[Math.floor(i / N) * 9 + (i % N)]) || (set.has(i + N) && b.h[i]))) return { ok: false, msg: 'A piece can’t sit across a fence.' };
+    if (all.some((i) => (i % N < N - 1 && set.has(i + 1) && b.v[Math.floor(i / N) * FENCE_STRIDE + (i % N)]) || (set.has(i + N) && b.h[i]))) return { ok: false, msg: 'A piece can’t sit across a fence.' };
     return { ok: true, msg: `Room for an adult ${spName(it.species)} ✔` };
   }
 
@@ -2388,7 +2434,7 @@
 
     // cells
     out.push('<g class="cells">');
-    for (let i = 0; i < 100; i++) {
+    for (let i = 0; i < CELL_COUNT; i++) {
       const r = Math.floor(i / N);
       const c = i % N;
       const cp = an.comps[an.compOf[i]];
@@ -2471,7 +2517,7 @@
       }
       out.push(`<g class="piece${fresh ? ' drop' : ''}${inactive ? ' zz' : ''}${focus.has(it.id) ? ' focus' : ''}">${g.join('')}</g>`);
     });
-    for (let i = 0; i < 100; i++) {
+    for (let i = 0; i < CELL_COUNT; i++) {
       if (b.cells[i] !== -1) continue;
       const r = Math.floor(i / N);
       const c = i % N;
@@ -2493,14 +2539,14 @@
         const c = i % N;
         return [X(c), Y(r + 1), X(c + 1), Y(r + 1)];
       }
-      const r = Math.floor(i / 9);
-      const c = i % 9;
+      const r = Math.floor(i / FENCE_STRIDE);
+      const c = i % FENCE_STRIDE;
       return [X(c + 1), Y(r), X(c + 1), Y(r + 1)];
     };
     out.push('<g class="fences">');
     out.push(`<rect x="${PAD}" y="${PAD}" width="${N * CS}" height="${N * CS}" rx="3" fill="none" stroke="#2e1a08" stroke-width="5"/>`);
     const posts = new Set();
-    for (let i = 0; i < 90; i++) {
+    for (let i = 0; i < FENCE_COUNT; i++) {
       ['h', 'v'].forEach((k) => {
         if (!b[k][i]) return;
         const e = k + i;
@@ -3610,13 +3656,13 @@
     const b = state.players[s.board].board;
     const out = new Set();
     if (s.purpose === 'rubble') {
-      for (let i = 0; i < 100; i++) if (b.cells[i] === 0) out.add(i);
+      for (let i = 0; i < CELL_COUNT; i++) if (b.cells[i] === 0) out.add(i);
       return out;
     }
     const an = analyze(b);
     const first = (s.purpose === 'grow' || s.purpose === 'birth') && b.items[s.id] ? b.items[s.id].cells[0] : s.cells.size ? s.cells.values().next().value : null;
     const only = first !== null ? an.compOf[first] : null;
-    for (let i = 0; i < 100; i++) {
+    for (let i = 0; i < CELL_COUNT; i++) {
       const cp = an.comps[an.compOf[i]];
       if (b.cells[i] === 0 && cp.valid && !cp.dead && (only === null || an.compOf[i] === only)) out.add(i);
     }
@@ -3781,7 +3827,7 @@
       basics: `<p class="rules-lead">Build the best dino park in <b>${PROTO_ROUNDS} rounds</b>. Fence in enclosures, fill them with dinos, keep everyone fed and chase the goal cards. Most points wins.</p>
         <h3>What you have</h3>
         <ul class="rules-icons">
-          <li><span>🏞️</span><div><b>A park</b> — a 10×10 grid. Draw fences on it to make enclosures for your dinos.</div></li>
+          <li><span>🏞️</span><div><b>A park</b> — a 12×12 grid. Draw fences on it to make enclosures for your dinos.</div></li>
           <li><span>👷</span><div><b>${PROTO_WORKERS} workers</b> each round — the actions you take.</div></li>
           <li><span>🪙</span><div><b>Coins</b> — pay for dinos, diamonds and buildings. You start with 🪙5.</div></li>
           <li><span>💎</span><div><b>Diamonds</b> — some dinos and feeders need them. Each leftover one is worth 1 point.</div></li>
@@ -3911,7 +3957,7 @@
 
   function openRules() {
     openModal(`<div class="modal-head"><h2>📜 How to play</h2><button class="x" data-act="closeModal" aria-label="Close">✕</button></div>
-      <p>Two players each build a dino park on a 10×10 grid over <b>18 rounds</b>. Most points wins.</p>
+      <p>Two players each build a dino park on a 12×12 grid over <b>18 rounds</b>. Most points wins.</p>
       <h3>Setup</h3>
       <ul>
         <li>Each player gets a park, 🪙5, and a dino book (red or blue — both have the same 8 dinos).</li>
@@ -4845,15 +4891,15 @@
 
   function edgeRC(e) {
     const i = +e.slice(1);
-    return e[0] === 'h' ? ['h', Math.floor(i / N), i % N] : ['v', Math.floor(i / 9), i % 9];
+    return e[0] === 'h' ? ['h', Math.floor(i / N), i % N] : ['v', Math.floor(i / FENCE_STRIDE), i % FENCE_STRIDE];
   }
 
   function xformEdge(e, t) {
     let [k, r, c] = edgeRC(e);
     if (t & 4) [k, r, c] = [k === 'h' ? 'v' : 'h', c, r];
-    if (t & 1) c = (k === 'h' ? 9 : 8) - c;
-    if (t & 2) r = (k === 'h' ? 8 : 9) - r;
-    return k === 'h' ? `h${r * N + c}` : `v${r * 9 + c}`;
+    if (t & 1) c = (k === 'h' ? N - 1 : FENCE_STRIDE - 1) - c;
+    if (t & 2) r = (k === 'h' ? FENCE_STRIDE - 1 : N - 1) - r;
+    return k === 'h' ? `h${r * N + c}` : `v${r * FENCE_STRIDE + c}`;
   }
 
   function aiPlan() {
@@ -5048,7 +5094,7 @@
 
   function fenceBetween(b, i, j) {
     const lo = Math.min(i, j);
-    return Math.abs(i - j) === N ? !!b.h[lo] : !!b.v[Math.floor(lo / N) * 9 + (lo % N)];
+    return Math.abs(i - j) === N ? !!b.h[lo] : !!b.v[Math.floor(lo / N) * FENCE_STRIDE + (lo % N)];
   }
 
   function growFrom(start, free, size, b) {
@@ -5609,7 +5655,7 @@
     for (let r = r0; r < r0 + h; r++) {
       for (let c = c0; c < c0 + w; c++) {
         if (b.cells[r * N + c] !== 0) return null;
-        if (c < c0 + w - 1 && b.v[r * 9 + c]) return null;
+        if (c < c0 + w - 1 && b.v[r * FENCE_STRIDE + c]) return null;
         if (r < r0 + h - 1 && b.h[r * N + c]) return null;
       }
     }
@@ -5619,8 +5665,8 @@
       if (r0 + h < N && !b.h[(r0 + h - 1) * N + c]) need.push('h' + ((r0 + h - 1) * N + c));
     }
     for (let r = r0; r < r0 + h; r++) {
-      if (c0 > 0 && !b.v[r * 9 + c0 - 1]) need.push('v' + (r * 9 + c0 - 1));
-      if (c0 + w < N && !b.v[r * 9 + c0 + w - 1]) need.push('v' + (r * 9 + c0 + w - 1));
+      if (c0 > 0 && !b.v[r * FENCE_STRIDE + c0 - 1]) need.push('v' + (r * FENCE_STRIDE + c0 - 1));
+      if (c0 + w < N && !b.v[r * FENCE_STRIDE + c0 + w - 1]) need.push('v' + (r * FENCE_STRIDE + c0 + w - 1));
     }
     return need;
   }
@@ -6034,7 +6080,7 @@
     const b = state.players[q].board;
     const an = analyze(b);
     const scored = [];
-    for (let i = 0; i < 100; i++) {
+    for (let i = 0; i < CELL_COUNT; i++) {
       if (b.cells[i] !== 0) continue;
       const cp = an.comps[an.compOf[i]];
       const checker = (Math.floor(i / N) + (i % N)) % 2 === 0 ? 2 : 0;
@@ -6461,7 +6507,7 @@
             for (let r = r0; r <= r1 && ok; r++) {
               for (let c = c0; c <= c1 && ok; c++) {
                 const i = r * N + c;
-                if (b.cells[i] !== 0 || an.compOf[i] !== home || (c < c1 && b.v[r * 9 + c]) || (r < r1 && b.h[i])) ok = false;
+                if (b.cells[i] !== 0 || an.compOf[i] !== home || (c < c1 && b.v[r * FENCE_STRIDE + c]) || (r < r1 && b.h[i])) ok = false;
               }
             }
             if (!ok) continue;
@@ -6471,8 +6517,8 @@
               if (r1 < N - 1 && !b.h[r1 * N + c]) need.push(`h${r1 * N + c}`);
             }
             for (let r = r0; r <= r1; r++) {
-              if (c0 > 0 && !b.v[r * 9 + c0 - 1]) need.push(`v${r * 9 + c0 - 1}`);
-              if (c1 < N - 1 && !b.v[r * 9 + c1]) need.push(`v${r * 9 + c1}`);
+              if (c0 > 0 && !b.v[r * FENCE_STRIDE + c0 - 1]) need.push(`v${r * FENCE_STRIDE + c0 - 1}`);
+              if (c1 < N - 1 && !b.v[r * FENCE_STRIDE + c1]) need.push(`v${r * FENCE_STRIDE + c1}`);
             }
             if (!need.length || need.some((e) => !legal.has(e))) continue;
             const f = fit(area);
