@@ -3823,93 +3823,126 @@
   }
 
   function protoRulesPanes() {
+    const sched = protoGoalSchedule();
+    const Sched = sched.charAt(0).toUpperCase() + sched.slice(1);
     return {
       basics: `<p class="rules-lead">Build the best dino park in <b>${PROTO_ROUNDS} rounds</b>. Fence in enclosures, fill them with dinos, keep everyone fed and chase the goal cards. Most points wins.</p>
         <h3>What you have</h3>
         <ul class="rules-icons">
-          <li><span>🏞️</span><div><b>A park</b> — a 12×12 grid. Draw fences on it to make enclosures for your dinos.</div></li>
-          <li><span>👷</span><div><b>${PROTO_WORKERS} workers</b> each round — the actions you take.</div></li>
-          <li><span>🪙</span><div><b>Coins</b> — pay for dinos, diamonds and buildings. You start with 🪙5.</div></li>
-          <li><span>💎</span><div><b>Diamonds</b> — some dinos and feeders need them. Each leftover one is worth 1 point.</div></li>
-          <li><span>🍖</span><div><b>Meat and 🌿 plants</b> — your dinos eat every round.</div></li>
+          <li><span>🏞️</span><div><b>A park</b> — a 12×12 grid of squares. Draw fences along the lines between squares to make enclosures.</div></li>
+          <li><span>👷</span><div><b>${PROTO_WORKERS} workers</b> each round — each one takes one action space.</div></li>
+          <li><span>🪙</span><div><b>Coins</b> — pay for dinos, breeding, diamonds and buildings. You start with 🪙5.</div></li>
+          <li><span>💎</span><div><b>Diamonds</b> — some dinos, feeders and watering holes need them. Each leftover one is worth 1 point.</div></li>
+          <li><span>🍖</span><div><b>Meat and 🌿 plants</b> — your dinos eat every round. Food you don’t eat is kept for later.</div></li>
+          <li><span>🃏</span><div><b>A hand</b> of reserved dino cards, up to ${PROTO_HAND_MAX}. You start with none.</div></li>
         </ul>
         <h3>Setup</h3>
         <ul>
-          <li>Each player gets an empty park and 🪙5.</li>
+          <li>Each player gets an empty park, 🪙5, no food and no diamonds.</li>
           <li>The dino deck is shuffled and ${PROTO_MARKET} cards are dealt face up as a shared market.</li>
-          <li>${PROTO_GOAL_ROUNDS.length} of ${Object.keys(PROTO_GOALS).length} goal cards are picked at random: ${protoGoalSchedule()}.</li>
-          <li>Whoever most recently watched a dino movie goes first.</li>
+          <li>${PROTO_GOAL_ROUNDS.length} of ${Object.keys(PROTO_GOALS).length} goal cards are picked at random: ${sched}. Hidden goals still score.</li>
+          <li>Whoever most recently watched a dino movie goes first in round 1.</li>
         </ul>
         <h3>A round at a glance</h3>
         <ol class="rules-steps">
-          <li><b>✨ Event</b> — a new event card changes something for this round.</li>
-          <li><b>🎲 Food &amp; Fences</b> — roll a die and split it between food and fences.</li>
-          <li><b>👷 Workers</b> — take turns placing workers on action spaces.</li>
+          <li><b>✨ Start</b> — an event card, a market refresh, maybe a new goal; babies that are ready grow up.</li>
+          <li><b>🎲 Food &amp; Fences</b> — roll one die and split it between food and fences.</li>
+          <li><b>👷 Workers</b> — take turns placing one worker at a time on action spaces.</li>
           <li><b>🪙 Production</b> — collect coins from one enclosure; every-round powers trigger.</li>
-          <li><b>🍖 Feeding</b> — feed your dinos or their enclosure goes inactive.</li>
+          <li><b>🍖 Feeding</b> — feed your enclosures or they go inactive.</li>
         </ol>
         <p>${ruleLink('round', 'Each step in detail')}</p>
         <h3>Three things to remember</h3>
         <div class="rule-box"><ol>
-          <li>Dinos only live in <b>closed enclosures</b>, one species per enclosure (watering holes let more share).</li>
-          <li><b>Feed every enclosure every round.</b> Unfed enclosures go inactive and earn and score nothing.</li>
+          <li>Dinos only live in <b>closed enclosures</b>, one species per enclosure (each watering hole lets one more species share).</li>
+          <li><b>Feed every enclosure every round.</b> Unfed enclosures go inactive and earn and score nothing — and after a few rounds their dinos die.</li>
           <li>Points come from <b>dinos</b>, their <b>scoring powers</b>, the <b>goal cards</b>, <b>diamonds</b> and leftover <b>coins</b>.</li>
         </ol></div>`,
       round: `<h3>Start of the round</h3>
-        <ul>
-          <li>A new <b>event</b> card is revealed. ${ruleLink('events', 'All events')}</li>
-          <li>From round 2, ${PROTO_REFRESH} random market cards go to the bottom of the deck and are replaced.</li>
-          <li>Goal cards are revealed on schedule: ${protoGoalSchedule()}.</li>
-          <li>The first player switches every round, unless someone took the top 🔭 Scout space last round.</li>
-        </ul>
+        <ol class="rules-steps">
+          <li>A new <b>event</b> card is revealed and applies to this round only. Instant events (Tax day, Feast, Tourists, Storm, Fossil find, Spoilage, Migration) happen right away. ${ruleLink('events', 'All events')}</li>
+          <li>From round 2, ${PROTO_REFRESH} random market cards go to the bottom of the deck and are replaced from the top (not during Migration, which replaces the whole market).</li>
+          <li><b>🎯 Goal cards:</b> ${sched}.</li>
+          <li>Babies that have been fed in ${PROTO_BABY_FEEDS} Feedings <b>grow up</b>. ${ruleLink('park', 'Breeding and babies')}</li>
+          <li>The first player switches every round — unless someone took the top 🔭 Scout space last round, then they go first.</li>
+        </ol>
         <h3>1 · 🎲 Food &amp; Fences</h3>
-        <p>One die is rolled for both players. Each player splits that number between <b>food</b> (any mix of 🍖 meat and 🌿 plants) and <b>fences</b>. Each fence fills one edge of one square.</p>
+        <ul>
+          <li>One die (1–6) is rolled for both players.</li>
+          <li>Each player splits that number between <b>food</b> (any mix of 🍖 meat and 🌿 plants) and <b>fences</b>. Example: a 5 could be 🍖2 + 🌿1 + 2 fences.</li>
+          <li>Each fence fills one line between two squares (the board edge already counts as a wall). Fences can’t cut through a dino, feeder or watering hole, and can’t leave two species together without a watering hole.</li>
+          <li>Fences are permanent. You don’t have to use all of the roll, but unused points are lost.</li>
+        </ul>
         <h3>2 · 👷 Workers</h3>
-        <p>Each player has <b>${PROTO_WORKERS} workers</b>. Starting with the first player, take turns placing one worker at a time on an action space and doing what it says. If one player has more workers, they place the rest at the end. You may pass instead. ${ruleLink('workers', 'All worker spaces')}</p>
+        <ul>
+          <li>Each player has <b>${PROTO_WORKERS} workers</b> (more with Gigantoraptor or the Hiring fair event).</li>
+          <li>Starting with the first player, take turns placing <b>one worker</b> on a free action space and doing what it says straight away. If one player has more workers, they place the rest at the end.</li>
+          <li>Instead of placing a worker you may <b>pass</b>; that worker is lost for the round.</li>
+          <li>You can only use a space if you can do what it says (afford it, have room, have a pair to breed…). Unavailable spaces show why.</li>
+        </ul>
+        <p>${ruleLink('workers', 'All worker spaces')}</p>
         <h3>3 · 🪙 Production &amp; powers</h3>
-        <p>Pick <b>one</b> active enclosure with dinos and collect coins equal to the production of every dino in it. Then the every-round powers of your adult dinos in active enclosures trigger, one at a time.</p>
+        <ul>
+          <li>Pick <b>one</b> active enclosure with dinos and collect coins equal to what all the dinos in it earn (babies earn half, rounded up). Gold rush lets you pick ${PROTO_GOLDRUSH}.</li>
+          <li>Then the <b>every-round</b> powers of your <b>adult</b> dinos in active enclosures trigger, one at a time. Stealing takes only what your opponent has.</li>
+        </ul>
         <h3>4 · 🍖 Feeding</h3>
-        <p>Pay each enclosure’s food bill: what all its dinos eat, minus its feeder squares. If you can’t feed them all, choose which to feed; the rest go inactive. ${ruleLink('park', 'Feeding and inactive enclosures')}</p>`,
+        <ul>
+          <li>Each enclosure has a food bill: what all its dinos eat (meat-eaters 🍖, plant-eaters 🌿, “either” can be paid with both), minus 1 per feeder square inside it.</li>
+          <li>Choose which enclosures to feed and pay their bills in full. Unfed enclosures go <b>inactive</b>. ${ruleLink('park', 'Inactive enclosures')}</li>
+        </ul>
+        <h3>End of the game</h3>
+        <p>After the Feeding of round ${PROTO_ROUNDS} the game ends and the scores are revealed. ${ruleLink('scoring', 'Scoring')}</p>`,
       workers: `<ul>
           <li>Every kind of space comes in <b>three tiers</b>. The top and middle tiers hold <b>one worker per round</b>, so taking one blocks your opponent.</li>
-          <li>The weaker <b>bottom tier</b> (∞) takes any number of workers from both players.</li>
+          <li>The weaker <b>bottom tier</b> (∞) takes any number of workers from both players — you can even use it more than once yourself.</li>
           <li>Events can change amounts and costs. The board always shows this round’s value, highlighted in blue.</li>
         </ul>
         ${rulesSpaceTable()}
-        <h3>Notes</h3>
+        <h3>Exactly what each space does</h3>
         <ul>
-          <li><b>🦖 Play a dino</b> — buy a market card or one you reserved; any extra coins are on top of the card’s cost. ${ruleLink('dinos', 'Buying dinos')}</li>
-          <li><b>🥚 Breed</b> — one adult pair has a baby. ${ruleLink('park', 'Breeding')}</li>
-          <li><b>🌾 Builder</b> — build a 🌾 feeder (💎1 + 🪙1 per square) or a 💧 watering hole (${costText(WATER_COST)}, ${WATER_SQUARES} squares).</li>
-          <li><b>🔭 Scout</b> — reserve cards into your hand (up to ${PROTO_HAND_MAX}). The top Scout also makes you first player next round.</li>
+          <li><b>🦖 Play a dino</b> — buy one market card or one card from your hand, pay its cost plus the space’s extra coins, and place it on empty squares in one enclosure. Its when-played power happens right away. ${ruleLink('dinos', 'Buying dinos')}</li>
+          <li><b>🥚 Breed</b> — choose a species with an adult pair in one active enclosure that hasn’t bred this round. Pay the space’s price and place a baby in that enclosure. ${ruleLink('park', 'Breeding')}</li>
+          <li><b>🪙 Coins</b> — take the coins shown.</li>
+          <li><b>💎 Gems</b> — pay the coins shown for 1 diamond.</li>
+          <li><b>🍖 Forage</b> — take that much food, any mix of meat and plants.</li>
+          <li><b>🪵 Fences</b> — draw that many fences right away.</li>
+          <li><b>🌾 Builder</b> — build <b>one</b> 🌾 feeder (💎1 + 🪙1 per square, any size, in one enclosure) or one 💧 watering hole (${costText(WATER_COST)}, ${WATER_SQUARES} squares), plus the space’s extra coins.</li>
+          <li><b>🔭 Scout</b> — reserve cards into your hand from the market or the top of the deck (only while your hand has room, max ${PROTO_HAND_MAX}). The top Scout also gives 🪙1 and makes you first player next round; the middle gives 🪙1.</li>
         </ul>`,
       park: `<h3>Enclosures</h3>
         <ul>
-          <li>An enclosure is an area completely closed off by fences. It may use at most <b>two sides</b> of the board edge as walls.</li>
-          <li>Dinos, feeders and watering holes fill <b>connected</b> squares inside one enclosure, and fences can’t cut through them.</li>
+          <li>An enclosure is an area completely closed off by fences. It may use at most <b>two sides</b> of the board edge as walls; an area touching three or four edges isn’t an enclosure yet.</li>
+          <li>Each enclosure gets a letter (A, B, C…) so you can tell them apart.</li>
+          <li>Dinos, feeders and watering holes fill <b>connected</b> empty squares (side to side, not diagonal) inside one enclosure, and can’t sit across a fence.</li>
           <li>Each enclosure holds <b>one species</b>, plus one more for each 💧 watering hole in it (${costText(WATER_COST)}, ${WATER_SQUARES} squares).</li>
-          <li>🌾 <b>Feeders</b> cost 💎1 + 🪙1 per square. Each feeder square takes 1 food off that enclosure’s bill every Feeding.</li>
+          <li>🌾 <b>Feeders</b> cost 💎1 + 🪙1 per square and can be any size. Each feeder square takes 1 food off that enclosure’s bill every Feeding.</li>
+          <li>Splitting an enclosure with new fences is allowed. Any inactive or extinct status carries over to the new parts that hold dinos.</li>
+          <li>Squares filled in by the Storm event or a Spinosaurus are blocked for good.</li>
         </ul>
         <h3>Feeding and inactive enclosures</h3>
         <ul>
-          <li>Every Feeding, each enclosure needs the food its dinos eat (meat for meat-eaters, plants for plant-eaters).</li>
-          <li>An unfed enclosure goes <b>inactive 💤</b> with a marker on 1. Inactive enclosures don’t produce coins, can’t breed and score nothing.</li>
-          <li>While inactive, each dino there eats extra food equal to the marker, and the marker rises by 1 each Feeding it stays unfed.</li>
-          <li>Feeding it makes it active again. If it goes unfed with the marker on 4, its dinos <b>die</b> and the enclosure is extinct 💀.</li>
+          <li>Every Feeding, each enclosure with dinos needs its whole bill paid, or it goes unfed.</li>
+          <li>An unfed enclosure goes <b>inactive 💤</b> with a marker on 1. Inactive enclosures don’t produce coins, can’t breed, don’t trigger powers and score nothing.</li>
+          <li>While inactive, <b>each dino</b> there eats extra food equal to the marker. Every later Feeding it stays unfed, the marker rises by 1.</li>
+          <li>Feeding it in full makes it active again right away. If it goes unfed with the marker on 4, its dinos <b>die</b> and the enclosure is extinct 💀 — nothing new can ever be placed there.</li>
         </ul>
         <h3>Breeding and babies</h3>
         <ul>
           <li>A 🥚 Breed worker picks a species you have an <b>adult pair</b> of in one <b>active</b> enclosure. That pair has one baby in their enclosure.</li>
-          <li>The top Breed space is free, the middle costs 🪙3 and the bottom (any number of workers) costs 🪙6.</li>
+          <li>The top Breed space is free, the middle costs 🪙3 and the bottom (any number of workers) costs 🪙6. Breeding season makes all of them free.</li>
           <li>Each enclosure can breed <b>once per round</b>, so you can breed in several enclosures in the same round.</li>
-          <li>Babies take half the squares (rounded down), and eat, produce and score half (rounded up). They have no when-played or every-round powers.</li>
-          <li>After being fed in ${PROTO_BABY_FEEDS} Feedings a baby <b>grows up</b>: add squares for its full size in its own enclosure (it dies if there’s no room), and its when-played power triggers.</li>
+          <li>Babies take half the squares (rounded down, at least 1), and eat, earn and score half (rounded up). They have no when-played or every-round powers.</li>
+          <li>Once a baby has been fed in ${PROTO_BABY_FEEDS} Feedings (1 with an adult Maiasaura in the enclosure; the Nursery event counts double) it <b>grows up</b> at the start of the next round: it fills squares for its full size in its own enclosure — or dies if there isn’t room — and its when-played power triggers.</li>
+          <li>T. Rex blocks stop breeding that species too.</li>
         </ul>`,
       dinos: `<h3>Buying dinos</h3>
         <ul>
           <li>Use a 🦖 Play a dino worker to buy a face-up market card or one you reserved. Pay its cost and fill its squares in one enclosure.</li>
-          <li>Reserve cards with 🔭 Scout (up to ${PROTO_HAND_MAX} in your hand). Only you can buy them, and they cost 🪙${PROTO_RESERVE_OFF} less.</li>
-          <li>Bought cards are gone for your opponent; the market refills from the deck.</li>
+          <li>You need a valid spot: enough connected empty squares in one enclosure that isn’t extinct and has room for another species if needed.</li>
+          <li>Reserve cards with 🔭 Scout (up to ${PROTO_HAND_MAX} in your hand). Only you can buy them, and they cost 🪙${PROTO_RESERVE_OFF} less. Reserved cards stay in your hand until you play them.</li>
+          <li>A bought market card is replaced from the deck right away.</li>
+          <li>A dino blocked by T. Rex can’t be bought or bred by that player until the block ends.</li>
         </ul>
         <h3>Reading a card</h3>
         <ul class="rules-icons">
@@ -3921,17 +3954,20 @@
         ${rulesDinoCards()}`,
       scoring: `<h3>Final scoring</h3>
         <ul>
-          <li>🦖 Each dino’s <b>points</b>.</li>
-          <li>🏆 <b>Scoring powers</b> (Compy, Microraptor, Pachy, the Triceratops page).</li>
-          <li>🎯 The <b>${PROTO_GOAL_ROUNDS.length} goal cards</b>.</li>
-          <li>💎 <b>1 point per leftover diamond</b>, and 🪙 1 point per 10 leftover coins (max 3).</li>
+          <li>🦖 Each dino’s <b>points</b> (babies half, rounded up).</li>
+          <li>🏆 <b>Scoring powers</b>: Compy, Microraptor, Pachy and the Triceratops page.</li>
+          <li>🎯 The <b>${PROTO_GOAL_ROUNDS.length} goal cards</b> — all of them, even any revealed late.</li>
+          <li>💎 <b>1 point per leftover diamond</b>.</li>
+          <li>🪙 1 point per 10 leftover coins, at most 3.</li>
         </ul>
-        <div class="rule-box">Dinos in inactive or extinct enclosures score nothing, and their scoring powers don’t count.</div>
+        <div class="rule-box">Only dinos in <b>active</b> enclosures count — for points, for scoring powers and for goal cards. Dinos in inactive or extinct enclosures score nothing.</div>
+        <p>The player with more points wins. If the totals are equal, it’s a tie.</p>
         <h3>Goal cards</h3>
-        <p>${protoGoalSchedule()}. Tap 🎯 Goals during a game to see the revealed ones and what they’re worth right now.</p>
+        <p>${Sched}. Tap 🎯 Goals during a game to see the revealed ones and what they’re worth right now. “Enclosure” on a goal means an active enclosure with at least one dino in it.</p>
         <ul>${Object.values(PROTO_GOALS).map((G) => `<li>${G.icon} <b>${G.name}</b> — ${G.desc}</li>`).join('')}</ul>`,
-      events: `<p>Each round starts with a random event. No event comes up twice in a game.</p>
-        <ul>${Object.values(PROTO_EVENTS).map((E) => `<li>${E.icon} <b>${E.name}</b> — ${E.desc}</li>`).join('')}</ul>`,
+      events: `<p>Each round starts with a random event that lasts only that round. No event comes up twice in a game.</p>
+        <ul>${Object.values(PROTO_EVENTS).map((E) => `<li>${E.icon} <b>${E.name}</b> — ${E.desc}</li>`).join('')}</ul>
+        <p class="muted">Drought never takes Forage below 1 food.</p>`,
     };
   }
 
