@@ -163,109 +163,121 @@
   const GOAL_ORDER = Object.keys(GOALS);
   const GOALS_PER_GAME = 3;
 
-  // Season events: one each round from round 2. Both villages answer the same event, each choosing an option.
+  // Season events: two random seasons each year (never round 1). Both villages answer the same event, each choosing an option.
   // when: seasons it can come up in (any if missing). Options: can(state, p) says if it's possible; do(state, p) returns a log line.
   const EVENTS = {
     drought: {
       name: 'Dry spell', icon: '☀️', when: ['summer', 'autumn'], text: 'The streams are low and the fields are thirsty.',
       opts: [
-        { label: 'Dig deeper', cost: { stone: 2 }, text: 'Pay 🪨2.' },
-        { label: 'Let the fields wilt', text: 'Tonight each worked Farm makes 🍞1 less.', do: (s, p) => ((p.flags.drought = true), 'let the fields wilt') },
+        { label: 'Dig deeper', cost: { stone: 3 }, text: 'Pay 🪨3.' },
+        { label: 'Let the fields wilt', text: 'Tonight each worked Farm makes 🍞2 less.', do: (s, p) => ((p.flags.drought = true), 'let the fields wilt') },
       ],
     },
     refugees: {
       name: 'Refugees at the gate', icon: '🧳', text: 'A family fleeing the wilds asks for shelter.',
       opts: [
-        { label: 'Take them in', text: 'A Peasant joins you for free (needs room). Pay 🍞2 to feed them.', cost: { food: 2 }, can: (s, p) => room(p) > 0, do: (s, p) => addPeasant(s, p, 'took in a refugee family') },
-        { label: 'Turn them away', text: 'Lose ⭐1.', renown: -1 },
+        { label: 'Take them in', text: 'Pay 🍞2 to feed them: a Peasant joins you for free (needs room) and you gain ⭐1.', cost: { food: 2 }, renown: 1, can: (s, p) => room(p) > 0, do: (s, p) => addPeasant(s, p, 'took in a refugee family') },
+        { label: 'Turn them away', text: 'Lose ⭐2.', renown: -2 },
       ],
     },
     bandits: {
       name: 'Bandits on the road', icon: '🗡️', text: 'Bandits demand a toll from your carts.',
       opts: [
         { label: 'Pay the toll', cost: { gold: 3 }, text: 'Pay 🪙3.' },
-        { label: 'Refuse', text: 'They raid your stores: lose up to 🍞2 and 🪵2.', do: (s, p) => (loseRes(p, { food: 2, wood: 2 }), 'refused the bandits and was raided') },
+        { label: 'Refuse', text: 'They raid your stores: lose up to 🍞3, 🪵3 and 🪨1.', do: (s, p) => (loseRes(p, { food: 3, wood: 3, stone: 1 }), 'refused the bandits and was raided') },
       ],
     },
     tax: {
       name: 'The king’s tax', icon: '👑', text: 'The king’s collector counts your people.',
       opts: [
-        { label: 'Pay up', text: 'Pay 🪙1 for every 3 villagers (rounded up).', cost: (s, p) => ({ gold: Math.ceil(p.vil.length / 3) }) },
-        { label: 'Refuse', text: 'Lose ⭐3.', renown: -3 },
+        { label: 'Pay up', text: 'Pay 🪙1 for every 2 villagers (rounded up).', cost: (s, p) => ({ gold: Math.ceil(p.vil.length / 2) }) },
+        { label: 'Refuse', text: 'Lose ⭐4.', renown: -4 },
       ],
     },
     gale: {
       name: 'Autumn gale', icon: '🌬️', when: ['autumn', 'winter'], text: 'A storm is coming over the hills.',
       opts: [
-        { label: 'Batten down', cost: { wood: 2 }, text: 'Pay 🪵2.' },
-        { label: 'Ride it out', text: 'One Palisade blows down (the first one clockwise from north).', do: (s, p) => {
-          const i = p.walls.indexOf(1);
-          if (i < 0) return 'rode out the gale';
-          p.walls[i] = 0;
-          return `lost the ${SIDES[i].name.toLowerCase()} palisade to the gale`;
+        { label: 'Batten down', cost: { wood: 3 }, text: 'Pay 🪵3.' },
+        { label: 'Ride it out', text: 'Up to two Palisades blow down (the first ones clockwise from north). With fewer than two, lose 🪵2 instead of each missing one.', do: (s, p) => {
+          const lost = [];
+          for (let n = 0; n < 2; n++) {
+            const i = p.walls.indexOf(1);
+            if (i < 0) {
+              loseRes(p, { wood: 2 });
+              continue;
+            }
+            p.walls[i] = 0;
+            lost.push(SIDES[i].name.toLowerCase());
+          }
+          return lost.length ? `lost the ${lost.join(' and ')} palisade${lost.length > 1 ? 's' : ''} to the gale` : 'lost timber to the gale';
         } },
       ],
     },
     rats: {
       name: 'Rats in the stores', icon: '🐀', text: 'Rats have found their way into your food.',
       opts: [
-        { label: 'Hire a ratcatcher', cost: { gold: 2 }, text: 'Pay 🪙2.' },
+        { label: 'Hire a ratcatcher', cost: { gold: 3 }, text: 'Pay 🪙3.' },
         { label: 'Let them be', text: 'Lose half your food (rounded down).', do: (s, p) => (loseRes(p, { food: Math.floor(p.res.food / 2) }), 'lost half its food to rats') },
       ],
     },
     caravan: {
       name: 'A merchant caravan', icon: '🐫', text: 'Traders stop at your gate for the night.',
       opts: [
-        { label: 'Buy iron', cost: { gold: 3 }, gain: { iron: 2 }, text: 'Pay 🪙3 for 🔩2.' },
-        { label: 'Sell food', cost: { food: 4 }, gain: { gold: 4 }, text: 'Pay 🍞4 for 🪙4.' },
+        { label: 'Buy iron', cost: { gold: 3 }, gain: { iron: 3 }, text: 'Pay 🪙3 for 🔩3.' },
+        { label: 'Sell food', cost: { food: 4 }, gain: { gold: 6 }, text: 'Pay 🍞4 for 🪙6.' },
         { label: 'Wave them on', text: 'Nothing happens.' },
       ],
     },
     weather: {
       name: 'Fair weather', icon: '🌤️', text: 'A run of good days. What should the village do with them?',
       opts: [
-        { label: 'Cut timber', gain: { wood: 3 }, text: 'Take 🪵3.' },
-        { label: 'Gather berries', gain: { food: 3 }, text: 'Take 🍞3.' },
+        { label: 'Cut timber', gain: { wood: 4 }, text: 'Take 🪵4.' },
+        { label: 'Quarry stone', gain: { stone: 3 }, text: 'Take 🪨3.' },
+        { label: 'Gather berries', gain: { food: 5 }, text: 'Take 🍞5.' },
       ],
     },
     pilgrims: {
       name: 'Pilgrims', icon: '🙏', text: 'Pilgrims on the road ask for a meal and a bed.',
       opts: [
-        { label: 'Host them', cost: { food: 2 }, text: 'Pay 🍞2. Gain ⭐1, plus ⭐1 for each Inn and Chapel you have.', do: (s, p) => {
-          const n = 1 + count(p, 'inn') + count(p, 'chapel');
+        { label: 'Host them', cost: { food: 3 }, text: 'Pay 🍞3. Gain ⭐2, plus ⭐1 for each Inn and Chapel you have.', do: (s, p) => {
+          const n = 2 + count(p, 'inn') + count(p, 'chapel');
           p.renown += n;
           return `hosted the pilgrims (+⭐${n})`;
         } },
-        { label: 'Ask a tithe', gain: { gold: 2 }, text: 'Take 🪙2.' },
+        { label: 'Ask a tithe', gain: { gold: 3 }, text: 'Take 🪙3.' },
       ],
     },
     scholar: {
       name: 'A travelling scholar', icon: '📜', text: 'A scholar who reads the signs offers his services.',
       opts: [
-        { label: 'Pay for a reading', cost: { gold: 2 }, text: 'Pay 🪙2. For the rest of this round you see the next two creatures and their sides.', do: (s, p) => ((p.flags.sight = true), 'paid the scholar to read the signs') },
+        { label: 'Pay for a reading', cost: { gold: 2 }, renown: 2, text: 'Pay 🪙2. Gain ⭐2, and for the rest of this round you see the next two creatures and their sides.', do: (s, p) => ((p.flags.sight = true), 'paid the scholar to read the signs') },
         { label: 'Hear his tales', text: 'Gain ⭐1.', renown: 1 },
       ],
     },
     sellswords: {
       name: 'Sellswords for hire', icon: '🪖', text: 'A band of sellswords offers to guard your walls tonight.',
       opts: [
-        { label: 'Hire them', cost: { gold: 3 }, text: 'Pay 🪙3: 🛡️3 on every side tonight.', do: (s, p) => ((p.muster += 3), 'hired sellswords for the night (🛡️+3)') },
+        { label: 'Hire them', cost: (s) => ({ gold: 2 + yearOf(s.round) }), text: 'Tonight 🛡️2 on every side for 🪙3 in year 1, 🛡️4 for 🪙4 in year 2, or 🛡️6 for 🪙5 in year 3.', do: (s, p) => {
+          const n = 2 * yearOf(s.round);
+          p.muster += n;
+          return `hired sellswords for the night (🛡️+${n})`;
+        } },
         { label: 'Send them away', text: 'Nothing happens.' },
       ],
     },
     frost: {
       name: 'Bitter cold', icon: '🥶', when: ['winter'], text: 'The coldest night in years.',
       opts: [
-        { label: 'Stoke the fires', cost: { wood: 2 }, text: 'Pay 🪵2.' },
-        { label: 'Huddle together', text: 'Lose ⭐2.', renown: -2 },
+        { label: 'Stoke the fires', cost: { wood: 3 }, text: 'Pay 🪵3.' },
+        { label: 'Huddle together', text: 'Lose ⭐3.', renown: -3 },
       ],
     },
     fair: {
       name: 'Spring fair', icon: '🎪', when: ['spring'], text: 'The whole valley comes to the spring fair.',
       opts: [
-        { label: 'Hold a contest', cost: { food: 3 }, text: 'Pay 🍞3. Gain ⭐3.', renown: 3 },
-        { label: 'Sell at the stalls', text: 'Take 🪙2, plus 🪙1 for each Market and Inn you have.', do: (s, p) => {
-          const n = 2 + count(p, 'market') + count(p, 'inn');
+        { label: 'Hold a contest', cost: { food: 4 }, text: 'Pay 🍞4. Gain ⭐4.', renown: 4 },
+        { label: 'Sell at the stalls', text: 'Take 🪙3, plus 🪙1 for each Market and Inn you have.', do: (s, p) => {
+          const n = 3 + count(p, 'market') + count(p, 'inn');
           p.res.gold += n;
           return `sold at the fair (+🪙${n})`;
         } },
@@ -274,18 +286,19 @@
     levy: {
       name: 'The lord’s levy', icon: '⚔️', text: 'Your lord calls soldiers to his war.',
       opts: [
-        { label: 'Send your soldiers', text: 'Your Guards, Knights and Archers don’t defend tonight. Gain ⭐2 for each.', can: (s, p) => soldiers(p) > 0, do: (s, p) => {
-          const n = soldiers(p) * 2;
+        { label: 'Send your soldiers', text: 'Your Guards, Knights and Archers don’t defend tonight. Gain ⭐3 for each.', can: (s, p) => soldiers(p) > 0, do: (s, p) => {
+          const n = soldiers(p) * 3;
           p.flags.levy = true;
           p.renown += n;
           return `sent its soldiers to the lord’s war (+⭐${n})`;
         } },
-        { label: 'Send iron instead', cost: { iron: 1 }, text: 'Pay 🔩1.' },
-        { label: 'Refuse', text: 'Lose ⭐2.', renown: -2 },
+        { label: 'Send iron instead', cost: { iron: 2 }, text: 'Pay 🔩2.' },
+        { label: 'Refuse', text: 'Lose ⭐3.', renown: -3 },
       ],
     },
   };
   const EVENT_ORDER = Object.keys(EVENTS);
+  const EVENTS_PER_YEAR = 2;
 
   // Wages: as Spring begins in years 2 and 3, every villager with a job is paid 🪙1.
   const WAGE = 1;
@@ -440,10 +453,13 @@
     state.threats = order.map((k) => ({ k, side: BEAST[k].kind === 'fly' && SAVE_V < 3 ? null : Math.floor(rng(state) * 6) }));
     state.goals = shuffle(state, GOAL_ORDER.slice()).slice(0, GOALS_PER_GAME);
     const left = shuffle(state, EVENT_ORDER.slice());
-    state.events = [null];
-    for (let r = 2; r <= ROUNDS; r++) {
-      const i = left.findIndex((k) => !EVENTS[k].when || EVENTS[k].when.includes(seasonOf(r)));
-      state.events.push(i < 0 ? null : left.splice(i, 1)[0]);
+    state.events = Array(ROUNDS).fill(null);
+    for (let y = 0; y < ROUNDS / 4; y++) {
+      const rounds = [1, 2, 3, 4].map((n) => y * 4 + n).filter((r) => r > 1);
+      shuffle(state, rounds).slice(0, EVENTS_PER_YEAR).sort((a, b) => a - b).forEach((r) => {
+        const i = left.findIndex((k) => !EVENTS[k].when || EVENTS[k].when.includes(seasonOf(r)));
+        if (i >= 0) state.events[r - 1] = left.splice(i, 1)[0];
+      });
     }
     startRound(state);
     return state;
@@ -710,7 +726,7 @@
             add(b.id, 'food', granary);
             break;
           }
-          let n = (spec ? 3 : 2) + granary - (p.flags && p.flags.drought ? 1 : 0);
+          let n = (spec ? 3 : 2) + granary - (p.flags && p.flags.drought ? 2 : 0);
           if (season === 'summer') n += 1;
           if (season === 'autumn') n += 2;
           if (adjacent(p, b.cell, 'well')) n += 1;

@@ -338,7 +338,10 @@
     for (let r = 1; r <= E.ROUNDS; r++) {
       const cls = r < s.round ? 'done' : r === s.round ? 'now' : '';
       const sea = E.SEASON[E.seasonOf(r)];
-      pips += `${r > 1 && (r - 1) % 4 === 0 ? '<span class="yr-gap"></span>' : ''}<span class="pip ${cls}" title="${sea.name}, year ${E.yearOf(r)}">${sea.icon}</span>`;
+      const ev = s.events && s.events[r - 1];
+      const evName = ev && E.EVENTS[ev] ? E.EVENTS[ev].name : '';
+      const evTitle = ev ? (r <= s.round && evName ? ` · event: ${evName}` : ' · an event is coming') : '';
+      pips += `${r > 1 && (r - 1) % 4 === 0 ? '<span class="yr-gap"></span>' : ''}<span class="pip ${cls}${ev ? ' ev' : ''}" title="${sea.name}, year ${E.yearOf(r)}${esc(evTitle)}">${sea.icon}</span>`;
     }
     $('#tracker').innerHTML = pips;
     let b;
@@ -2098,7 +2101,7 @@
       <p>Each village gets its workers: <b>${E.BASE_WORKERS}</b>, plus 1 if a Steward works the Keep. Every place is empty again.</p>
       <h4>2. Day — take turns</h4>
       <ol class="steps">
-        <li>On your turn, do as many <b>free actions</b> as you like and can pay for, in any order: build, wall, recruit, trade and move villagers. From round 2 there is also a <b>season event</b> to answer (see Goals &amp; events) — you must choose before you end the round.</li>
+        <li>On your turn, do as many <b>free actions</b> as you like and can pay for, in any order: build, wall, recruit, trade and move villagers. In two seasons each year (marked 📰 on the season track) there is also a <b>season event</b> to answer (see Goals &amp; events) — you must choose before you end the round.</li>
         <li>Then either <b>send one worker</b> to an empty place (or one of the always-open places) — you get its reward straight away and your turn ends — or press <b>End round</b>.</li>
         <li>If that was your <b>last</b> worker, your turn doesn’t end: finish any free actions (you can use what the place just gave you) and then press End round.</li>
         <li>Once you end the round you can’t do anything more until tomorrow. Any workers you didn’t place are wasted. Your rival keeps taking turns until they end too.</li>
@@ -2211,7 +2214,7 @@
       <p>Every game draws <b>3 goals</b> from the ${E.GOAL_ORDER.length} below. They are shown beside the map all game, with each village’s current count. At the end the village with the most of each scores ⭐${E.GOAL_PTS}; a tie gives ⭐${E.GOAL_PTS / 2} each, and nobody scores if both have none.${G && st().goals ? ` This game’s goals are marked <b>✓</b>.` : ''}</p>
       <table class="rules-table">${E.GOAL_ORDER.map((g) => `<tr><td>${G && (st().goals || []).includes(g) ? '✓ ' : ''}${E.GOALS[g].icon} <b>${E.GOALS[g].name}</b></td><td>${E.GOALS[g].text}</td></tr>`).join('')}</table>
       <h4>📰 Season events</h4>
-      <p>From round 2, each round brings an <b>event</b> that both villages face. Each village picks one of its options on its own turn, and must do so before ending the round. Effects happen at once, or tonight if they say so. If you can’t pay for an option, you can’t pick it — there is always one you can. Events never repeat in a game, and some only happen in certain seasons.</p>
+      <p><b>Two seasons each year</b>, picked at random when the game starts (never the very first round), bring an <b>event</b> that both villages face. The season track at the top marks them with 📰, but which event it is stays secret until that round. Each village picks one of its options on its own turn, and must do so before ending the round. Effects happen at once, or tonight if they say so. If you can’t pay for an option, you can’t pick it — there is always one you can. Events never repeat in a game, and some only happen in certain seasons.</p>
       <div class="gallery">${Object.keys(E.EVENTS).map((k) => {
         const ev = E.EVENTS[k];
         return `<div class="gcard ev"><span class="ev-icon">${ev.icon}</span><div><b>${esc(ev.name)}</b>${ev.when ? `<div class="g-cost">${ev.when.map((w) => E.SEASON[w].name).join(' or ')} only</div>` : ''}<p class="muted">${esc(ev.text)}</p><ul>${ev.opts.map((o) => `<li><b>${esc(o.label)}:</b> ${o.text}</li>`).join('')}</ul></div></div>`;

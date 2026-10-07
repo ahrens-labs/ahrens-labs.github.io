@@ -154,8 +154,8 @@ function cleanAction(a) {
   }
 }
 
-// What a player may see: the deck order, the random seed, later events and any creature (or side) this
-// village can't see yet stay on the server.
+// What a player may see: the deck order, the random seed, which later events are coming (only that one
+// is, as '?') and any creature (or side) this village can't see yet stay on the server.
 function publicState(state, me) {
   if (!state) return null;
   const s = E.clone(state);
@@ -163,7 +163,7 @@ function publicState(state, me) {
   s.seed = 0;
   if (E.newRules(state) && state.phase !== 'over') {
     s.threats = E.maskThreats(state, me);
-    if (s.events) s.events = s.events.map((k, i) => (i < state.round ? k : null));
+    if (s.events) s.events = s.events.map((k, i) => (i < state.round || !k ? k : '?'));
   } else s.threats = s.threats.map((t, i) => (i < state.round - 1 + 3 ? t : null));
   return s;
 }

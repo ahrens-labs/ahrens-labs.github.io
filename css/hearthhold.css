@@ -124,6 +124,9 @@ button { font-family: inherit; }
 .pip { width: 26px; height: 26px; display: grid; place-items: center; border-radius: 50%; background: rgba(255, 255, 255, 0.08); font-size: 0.85rem; opacity: 0.55; transition: transform 0.3s var(--pop); }
 .pip.done { opacity: 0.3; filter: grayscale(1); }
 .pip.now { opacity: 1; background: rgba(242, 193, 78, 0.3); box-shadow: 0 0 0 2px var(--gold); transform: scale(1.18); animation: glowPip 2s ease-in-out infinite; }
+.pip.ev { position: relative; outline: 2px dashed rgba(242, 193, 78, 0.85); outline-offset: 1px; opacity: 0.85; }
+.pip.ev::after { content: '📰'; position: absolute; right: -6px; top: -4px; font-size: 0.62rem; line-height: 1; }
+.pip.done.ev { outline-color: rgba(242, 193, 78, 0.35); }
 .yr-gap { width: 10px; }
 .turn-banner { display: flex; align-items: center; flex-wrap: wrap; gap: 0.3rem 0.9rem; font-size: 0.95rem; }
 .turn-name { color: #fff; padding: 0.1rem 0.6rem; border-radius: 999px; background: var(--pc); box-shadow: 0 2px 0 rgba(0, 0, 0, 0.35); animation: bannerIn 0.4s ease; }
