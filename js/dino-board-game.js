@@ -110,12 +110,12 @@
     sauroposeidon: {
       name: 'Sauroposeidon', type: 'action', cost: { d: 2, c: 4 }, space: 12, food: { t: 'plant', n: 3 }, prod: 3, pts: 11,
       color: '#9e9d24', emoji: '🦕', code: 'SAU',
-      ability: 'Every round in Production: also collect half (rounded up) of the best active enclosure you didn’t collect from.',
+      ability: 'Every round in Production: also collect from the best active enclosure you didn’t collect from.',
     },
     maiasaura: {
-      name: 'Maiasaura', type: 'event', cost: { d: 1, c: 4 }, space: 5, food: { t: 'plant', n: 2 }, prod: 2, pts: 6,
+      name: 'Maiasaura', type: 'event', cost: { d: 0, c: 5 }, space: 5, food: { t: 'plant', n: 2 }, prod: 2, pts: 6,
       color: '#ff8a65', emoji: '🦕', code: 'MAI',
-      ability: 'One of your adult pairs has a baby for free. Babies in this enclosure grow up after 1 Feeding.',
+      ability: 'One of your adult pairs has a baby for free, even in an enclosure that already bred this round. Babies in this enclosure grow up after 1 Feeding.',
     },
     oviraptor: {
       name: 'Oviraptor', type: 'event', cost: { d: 0, c: 4 }, space: 2, food: { t: 'meat', n: 1 }, prod: 1, pts: 3,
@@ -125,7 +125,7 @@
   };
 
   // Bump with RULES_VERSION in workers/src/dino.js when costs or rules change, so open tabs on old rules must reload.
-  const RULES_VERSION = 13;
+  const RULES_VERSION = 14;
 
   const BOOK = ['compy', 'triceratops', 'spinosaurus', 'stegosaurus', 'velociraptor', 'brachiosaurus', 'trex', 'pachy'];
   const DECK = ['allosaurus', 'mosasaurus', 'carnotaurus', 'microraptor', 'ankylosaurus', 'dilophosaurus', 'parasaurolophus', 'gigantoraptor'];
@@ -1306,7 +1306,7 @@
         skip(T.off ? `${pn(T.p)}’s Oviraptor found no dino they could afford and place.` : `${pn(T.p)} has no dino worth ${T.limit || 5} or fewer points to play for free.`);
         continue;
       }
-      if (T.t === 'maiaBreed' && !protoBreedOptions(T.p, 0).some((o) => o.ok)) { skip(`${pn(T.p)}’s Maiasaura found no adult pair that could breed.`); continue; }
+      if (T.t === 'maiaBreed' && !protoBreedOptions(T.p, 0, true).some((o) => o.ok)) { skip(`${pn(T.p)}’s Maiasaura found no adult pair that could breed.`); continue; }
       return;
     }
   }
@@ -1560,7 +1560,7 @@
     const tasks = [];
     if (n('sauroposeidon')) {
       const rest = comps.filter((cp) => !(got || []).includes(cp.key) && cp.prod > 0).sort((a, b) => b.prod - a.prod).slice(0, n('sauroposeidon'));
-      if (rest.length) tasks.push({ t: 'power', p, sp: 'sauroposeidon', cnt: n('sauroposeidon'), n: rest.reduce((t, cp) => t + Math.ceil(cp.prod / 2), 0), from: rest.map((cp) => cp.name).join(' & ') });
+      if (rest.length) tasks.push({ t: 'power', p, sp: 'sauroposeidon', cnt: n('sauroposeidon'), n: rest.reduce((t, cp) => t + cp.prod, 0), from: rest.map((cp) => cp.name).join(' & ') });
     }
     if (n('giganotosaurus') && O.coins) tasks.push({ t: 'power', p, sp: 'giganotosaurus', n: n('giganotosaurus') });
     if (n('parasaurolophus')) tasks.push({ t: 'power', p, sp: 'parasaurolophus', n: n('parasaurolophus') });
@@ -1578,7 +1578,7 @@
   function powerEffect(T) {
     const O = state.players[other(T.p)];
     if (T.sp === 'parasaurolophus') return [`Collect 🪙${T.n}`, T.n];
-    if (T.sp === 'sauroposeidon') return [`Collect 🪙${T.n} (half of ${T.from})`, T.n];
+    if (T.sp === 'sauroposeidon') return [`Collect 🪙${T.n} from enclosure ${T.from}`, T.n];
     if (T.sp === 'allosaurus' || T.sp === 'giganotosaurus') {
       const n = Math.min(T.n, O.coins);
       return [`Steal 🪙${n} from ${O.name}`, n];
@@ -1605,7 +1605,7 @@
     const n = powerEffect(T)[1];
     if (T.sp === 'parasaurolophus' || T.sp === 'sauroposeidon') {
       P.coins += n;
-      logMsg(`${pn(p)}’s ${spName(T.sp)} earned 🪙${n}${T.from ? ` (half of enclosure ${T.from})` : ''}.`);
+      logMsg(`${pn(p)}’s ${spName(T.sp)} earned 🪙${n}${T.from ? ` from enclosure ${T.from}` : ''}.`);
       toast(`🦕 +🪙${n} for ${P.name}`, 'good');
     } else if (T.sp === 'allosaurus' || T.sp === 'giganotosaurus') {
       O.coins -= n;
@@ -1643,33 +1643,34 @@
 
   // Breeding: a Breed worker picks a species with an adult pair in one enclosure; that pair has one baby.
   // Each enclosure breeds at most once per round (its dinos are marked with the round), and only while active.
-  // `any` also lists pens that can't breed right now, so the picker can say why.
+  // `any` also lists pens that can't breed right now, so the picker can say why; `again` (Maiasaura) ignores
+  // the once-per-round limit.
   // An adult Maiasaura makes babies in its enclosure grow up after a single Feeding.
   const protoMaiaPen = (cp) => cp.living.some((d) => d.species === 'maiasaura' && isAdult(d));
   const protoBredHere = (cp) => cp.dinos.some((d) => d.bredR === state.round);
-  function protoBreedPens(an, sp, any) {
-    return an.comps.filter((cp) => cp.valid && !cp.dead && (any || (!cp.inactive && !protoBredHere(cp))) && cp.living.filter((d) => d.species === sp && isAdult(d)).length >= 2);
+  function protoBreedPens(an, sp, any, again) {
+    return an.comps.filter((cp) => cp.valid && !cp.dead && (any || (!cp.inactive && (again || !protoBredHere(cp)))) && cp.living.filter((d) => d.species === sp && isAdult(d)).length >= 2);
   }
 
-  function protoBreedOptions(p, price) {
+  function protoBreedOptions(p, price, again) {
     const P = state.players[p];
     const an = analyze(P.board);
     const kinds = [...new Set(an.comps.flatMap((cp) => cp.living.filter(isAdult).map((d) => d.species)))].filter((sp) => protoBreedPens(an, sp, true).length);
     return kinds.map((sp, i) => {
       let why = '';
       if (protoBreedPens(an, sp, true).every((cp) => cp.inactive)) why = 'Pair’s enclosure is inactive';
-      else if (!protoBreedPens(an, sp).length) why = 'Already bred there this round';
+      else if (!protoBreedPens(an, sp, false, again).length) why = 'Already bred there this round';
       else if (P.blocked.includes(sp)) why = 'Blocked by T. Rex';
       else if (P.coins < price) why = 'Can’t afford yet';
-      else if (!protoBreedTask(p, sp, price)) why = 'No room next to the pair';
+      else if (!protoBreedTask(p, sp, price, again)) why = 'No room next to the pair';
       return { sp, src: 'b', i, ok: !why, why };
     });
   }
 
   // The baby goes with the pair whose enclosure has room for it to grow up, if any.
-  function protoBreedTask(p, sp, cost) {
+  function protoBreedTask(p, sp, cost, again) {
     const an = analyze(state.players[p].board);
-    const tasks = protoBreedPens(an, sp).map((cp) => ({ t: 'birth', p, sp, cost, par: cp.living.find((d) => d.species === sp && isAdult(d)).id, title: `${spName(sp)} pair is having a baby` }));
+    const tasks = protoBreedPens(an, sp, false, again).map((cp) => ({ t: 'birth', p, sp, cost, par: cp.living.find((d) => d.species === sp && isAdult(d)).id, title: `${spName(sp)} pair is having a baby` }));
     return tasks.find((T) => protoBirthCells(p, T, true)) || tasks.find((T) => protoBirthCells(p, T)) || null;
   }
 
@@ -3452,7 +3453,7 @@
   }
 
   function maiaBreedHtml(T) {
-    const opts = protoBreedOptions(T.p, 0);
+    const opts = protoBreedOptions(T.p, 0, true);
     const rows = opts.map((o) => `<button class="opt" data-act="maiaBreed" data-sp="${o.sp}" ${o.ok ? '' : 'disabled'}><span class="o-i">${dz(o.sp, 'big')}</span><span class="o-t"><b>${esc(SPECIES[o.sp].name)} pair</b><small>${o.ok ? `Baby takes ${plural(babySize(o.sp), 'square')}` : `🔒 ${o.why}`}</small></span></button>`).join('');
     return `<h3>🥚 Maiasaura: free baby</h3>
       <p>Pick one of your adult pairs to have a baby for free. It goes in the pair’s enclosure.</p>
@@ -4352,8 +4353,8 @@
         break;
       case 'maiaBreed': {
         if (T.t !== 'maiaBreed') break;
-        const o = protoBreedOptions(p, 0).find((x) => x.sp === ds.sp);
-        const task = o && o.ok && protoBreedTask(p, ds.sp, 0);
+        const o = protoBreedOptions(p, 0, true).find((x) => x.sp === ds.sp);
+        const task = o && o.ok && protoBreedTask(p, ds.sp, 0, true);
         if (!task) break;
         resolveCurrent([task]);
         break;
@@ -6141,9 +6142,9 @@
     if (sp === 'giganotosaurus') power = left * (protoCoinValue(p) + 0.35);
     if (sp === 'sauroposeidon') {
       const prods = producible(p).map((cp) => cp.prod).sort((a, b) => b - a);
-      power = Math.max(1, Math.ceil((prods[1] || prods[0] || 2) / 2)) * left * protoCoinValue(p) * 0.8;
+      power = Math.max(2, prods[1] || prods[0] || 0) * left * protoCoinValue(p) * 0.8;
     }
-    if (sp === 'maiasaura') power = 1.5 + (protoBreedOptions(p, 0).some((o) => o.ok) ? 2.5 : 0);
+    if (sp === 'maiasaura') power = 1.5 + (protoBreedOptions(p, 0, true).some((o) => o.ok) ? 2.5 : 0);
     if (sp === 'quetzalcoatlus' && state.phaseOrder[cur() ? cur().k : 0] !== 'action' && left <= 1) power = 0;
     // Only one enclosure pays each round, so production counts by how much it lifts the best one.
     const top = bestProdB(P.board);
@@ -6197,11 +6198,11 @@
 
   // A baby grows up (in its own enclosure) PROTO_BABY_FEEDS Feedings after it's bred: worth most of a dino if it
   // has room and time, half until then, and nothing at the end if it dies for lack of room.
-  function protoBestBreed(p, price) {
+  function protoBestBreed(p, price, again) {
     const grown = protoRoundsLeft() - PROTO_BABY_FEEDS;
     let best = null;
-    protoBreedOptions(p, price).filter((o) => o.ok).forEach((o) => {
-      const T = protoBreedTask(p, o.sp, price);
+    protoBreedOptions(p, price, again).filter((o) => o.ok).forEach((o) => {
+      const T = protoBreedTask(p, o.sp, price, again);
       const roomy = !!protoBirthCells(p, T, true);
       const full = protoDinoValue(p, o.sp);
       const value = grown >= 1 ? (roomy ? full * 0.75 : 0) : full * 0.5;
@@ -6533,7 +6534,7 @@
         return true;
       }
       case 'maiaBreed': {
-        const br = protoBestBreed(p, 0) || protoBreedOptions(p, 0).find((o) => o.ok);
+        const br = protoBestBreed(p, 0, true) || protoBreedOptions(p, 0, true).find((o) => o.ok);
         if (!br) { handle('skip', {}); return true; }
         aiShow(`Maiasaura: ${spName(br.sp)} pair is having a baby…`, () => handle('maiaBreed', { sp: br.sp }), AI_FOLLOW_MS);
         return true;
