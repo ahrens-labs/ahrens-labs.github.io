@@ -7,7 +7,7 @@
     dino: { title: 'Dino Board Game — video tutorial', base: '/video/dino-tutorial' },
     hearthhold: { title: 'Hearthhold — video tutorial', base: '/video/hearthhold-tutorial' },
   };
-  const V = '?v=3';
+  const V = '?v=4';
   const CC_KEY = 'ahrensTutorial.cc';
 
   const css = `
