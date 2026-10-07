@@ -878,7 +878,6 @@ a.btn { display: inline-block; text-align: center; text-decoration: none; }
 .rules-sub small { display: block; margin-top: 0.15rem; font-size: 0.85rem; font-weight: 400; color: var(--muted); }
 .dc-copies { padding: 2px 0 6px; text-align: center; font-size: 0.72rem; font-weight: 700; color: var(--muted); }
 .rules-card { cursor: default; }
-.rules-card .dc-art { aspect-ratio: 16 / 10; }
 @media (max-width: 640px) {
   .rules-tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-right: -1.4rem; padding-right: 1.4rem; }
   .rules-tab { flex: 0 0 auto; }
