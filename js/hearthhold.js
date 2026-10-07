@@ -203,7 +203,8 @@
     buildShell();
     save();
     render();
-    if (st().phase === 'over') showGameOver();
+    if (G.dusk) showDusk(G.dusk.rep, G.dusk.arrived);
+    else if (st().phase === 'over') showGameOver();
     else if (st().phase === 'dusk') runDusk();
     else {
       seasonBanner();
@@ -652,6 +653,7 @@
     if (v) {
       G.view = +v.dataset.view;
       ui.pick = null;
+      save();
       render();
       return;
     }
@@ -817,12 +819,14 @@
       const n = p.bld.filter((x) => x.b === b).length;
       return `<button class="bcard${why ? ' off' : ''}${B.wonder ? ' wonder' : ''}" data-pick="${b}" ${why ? `title="${esc(why)}"` : ''}>
         <div class="b-art" style="--bc:${B.color}"><img src="${IMG(b)}" alt="">${n ? `<span class="b-n">×${n}</span>` : ''}</div>
-        <div class="b-name">${B.name}${B.wonder ? ' <span class="wtag">Wonder</span>' : ''}</div>
-        <div class="b-cost">${cost(c, p)}</div>
-        <div class="b-text">${B.text}</div>
-        ${jobLine(b)}
-        <div class="b-foot"><span>${where}</span><span>${pts}</span></div>
-        ${why ? `<div class="b-why">${esc(why)}</div>` : ''}
+        <div class="b-body">
+          <div class="b-name">${B.name}${B.wonder ? ' <span class="wtag">Wonder</span>' : ''}</div>
+          <div class="b-cost">${cost(c, p)}</div>
+          <div class="b-text">${B.text}</div>
+          ${jobLine(b)}
+          <div class="b-foot"><span>${where}</span><span>${pts}</span></div>
+          ${why ? `<div class="b-why">${esc(why)}</div>` : ''}
+        </div>
       </button>`;
     };
     const back = openModal(`<h2>🏗️ Build</h2><p class="muted">Your stores: ${E.RES.map((r) => `${E.RES_ICON[r]}${p.res[r]}`).join(' ')}${E.hasMerchant(p) ? '' : ' · short? Trade first (2:1).'}</p><div class="bgrid">${E.BUILD_ORDER.map(card).join('')}</div>`, { cls: 'wide' });
@@ -999,6 +1003,7 @@
     const rep = E.resolveDusk(s);
     const kept = rowBefore.length - (rep.leftRow ? 1 : 0);
     const arrived = s.row.slice(kept);
+    G.dusk = { rep, arrived };
     save();
     showDusk(rep, arrived);
   }
@@ -1065,6 +1070,8 @@
       cls: 'dusk-back locked',
       noClose: true,
       onClose: () => {
+        delete G.dusk;
+        save();
         if (s.phase === 'over') showGameOver();
         else {
           if (G.mode === 'local') G.view = s.turn;
@@ -1300,7 +1307,7 @@
 
   // ---------------------------------------------------------------- boot
   const saved = loadSave();
-  if (saved && saved.state.phase !== 'over' && /[?&]resume\b/.test(location.search)) startFrom(saved);
+  if (saved) startFrom(saved);
   else showSetup();
   window.__hh = { get G() { return G; }, render, E };
 })();

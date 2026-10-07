@@ -37,7 +37,7 @@ h1, h2 { font-family: "Lilita One", "Fredoka", sans-serif; font-weight: 400; let
   transition: transform 0.25s ease;
 }
 .lid {
-  position: relative; aspect-ratio: 16 / 10; border-radius: 14px; overflow: hidden;
+  position: relative; aspect-ratio: 16 / 9; border-radius: 14px; overflow: hidden;
   box-shadow: 0 0 0 4px var(--accent), 0 0 0 7px rgba(0, 0, 0, 0.55), 14px 18px 0 -2px rgba(0, 0, 0, 0.35), 0 24px 40px rgba(0, 0, 0, 0.5);
   transform: rotate(-1.2deg); transition: transform 0.35s cubic-bezier(.34, 1.56, .64, 1), box-shadow 0.3s ease;
 }

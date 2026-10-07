@@ -935,7 +935,7 @@ a.btn { display: inline-block; text-align: center; text-decoration: none; }
 .fly-card.t-event { --tc: var(--event); }
 .fly-card.t-action { --tc: var(--action); }
 .fly-card.t-scoring { --tc: var(--scoring); }
-.fly-card img { width: 100%; height: 64px; object-fit: cover; border-radius: 6px; display: block; margin-bottom: 3px; }
+.fly-card img { width: 100%; height: 64px; object-fit: contain; border-radius: 6px; display: block; margin-bottom: 3px; }
 .turn-ov { position: fixed; inset: 0; z-index: 75; display: grid; place-items: center; pointer-events: none; }
 .to-card {
   --pc: #3d5a2e;
