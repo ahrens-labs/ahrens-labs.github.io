@@ -1211,6 +1211,7 @@ a.btn { display: inline-block; text-align: center; text-decoration: none; }
 .ws-name { font-size: 0.76rem; line-height: 1.1; }
 .ws-desc { font-size: 0.64rem; line-height: 1.15; color: var(--muted); }
 .wspace:disabled .ws-desc { color: #8a5a2d; }
+.wspace .ws-desc.ev { color: #1565c0; font-weight: 700; }
 .pend-chip { display: inline-flex; align-items: center; gap: 6px; margin: 0 0 0.5rem; padding: 4px 10px; border-radius: 999px; background: #fff8e1; border: 2px solid #ffcf6b; font-size: 0.8rem; }
 .watch-mini { display: flex; align-items: center; gap: 6px; margin-bottom: 0.5rem; padding: 6px 10px; border-radius: 10px; background: rgba(255, 255, 255, 0.6); font-size: 0.85rem; }
 /* Prototype: full-size dino market under the parks */
