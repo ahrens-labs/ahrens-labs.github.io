@@ -20,7 +20,8 @@ const GAME_ID_RE = /^hh[0-9a-f]{18}$/;
 const LOCAL_ID_RE = /^hl[0-9a-f]{16}$/;
 const HISTORY_KEEP = 200;
 const SCORE_KEYS = ['renown', 'buildings', 'villagers', 'walls', 'fortified', 'gold', 'total'];
-const LEVELS = new Set(['easy', 'normal', 'hard']);
+const OPTIONAL_SCORE_KEYS = ['goals'];
+const LEVELS = new Set(['easy', 'normal', 'hard', 'brutal']);
 const RES = new Set(E.RES);
 
 function jsonResponse(body, corsHeaders, status = 200) {
@@ -144,6 +145,8 @@ function cleanAction(a) {
     case 'move':
       if (!isInt(a.v) || (a.to != null && !isInt(a.to))) return null;
       return { t: 'move', v: a.v, to: a.to == null ? null : a.to };
+    case 'event':
+      return Number.isInteger(a.o) && a.o >= 0 && a.o < 4 ? { t: 'event', o: a.o } : null;
     case 'end':
       return { t: 'end' };
     default:
@@ -151,13 +154,17 @@ function cleanAction(a) {
   }
 }
 
-// What a player may see: the deck order, the random seed and creatures beyond the visible three stay on the server.
-function publicState(state) {
+// What a player may see: the deck order, the random seed, later events and any creature (or side) this
+// village can't see yet stay on the server.
+function publicState(state, me) {
   if (!state) return null;
   const s = E.clone(state);
   s.deck = new Array(state.deck.length).fill(0);
   s.seed = 0;
-  s.threats = s.threats.map((t, i) => (i < state.round - 1 + 3 ? t : null));
+  if (E.newRules(state) && state.phase !== 'over') {
+    s.threats = E.maskThreats(state, me);
+    if (s.events) s.events = s.events.map((k, i) => (i < state.round ? k : null));
+  } else s.threats = s.threats.map((t, i) => (i < state.round - 1 + 3 ? t : null));
   return s;
 }
 
@@ -190,7 +197,7 @@ function viewFor(record, me, withState) {
     deadline: record.deadline || null,
     now: Date.now(),
     result: record.result || null,
-    ...(withState ? { state: publicState(record.state) } : {}),
+    ...(withState ? { state: publicState(record.state, me) } : {}),
   };
 }
 
@@ -208,6 +215,7 @@ function cleanCats(c) {
     if (v == null) return null;
     out[k] = v;
   }
+  for (const k of OPTIONAL_SCORE_KEYS) out[k] = c[k] == null ? 0 : int(c[k], -999, 9999) || 0;
   return out;
 }
 

@@ -2,7 +2,7 @@
 (function (root) {
   'use strict';
 
-  const SAVE_V = 2;
+  const SAVE_V = 3;
   const ROUNDS = 12;
   const BASE_WORKERS = 2;
   const LOCS_PER_GAME = 5;
@@ -46,22 +46,22 @@
 
   const BUILD = {
     keep: { name: 'Keep', start: true, beds: 3, water: 3, def: 1, slots: 1, pts: 0, color: '#8d6e63', text: 'Your village’s heart. Sleeps 3, has a spring for 3, and adds 🛡️1 on every side. A Steward can work here.' },
-    house: { name: 'House', cost: { wood: 2 }, on: OPEN, beds: 3, pts: 0, color: '#f4a261', text: 'Sleeps 3 villagers.' },
+    house: { name: 'House', cost: { wood: 2 }, on: OPEN, beds: 3, pts: 0, color: '#f4a261', text: 'Sleeps 3 villagers — only 2 next to a Smithy, Barracks or Market. Scores ⭐1 next to a Chapel.' },
     well: { name: 'Well', cost: { stone: 2 }, on: OPEN, water: 4, pts: 0, color: '#4fc3f7', text: 'Water for 4 more villagers. Each Farm next to a Well makes +1 food.' },
     farm: { name: 'Farm', cost: { wood: 1 }, on: ['meadow'], slots: 1, pts: 1, color: '#c0ca33', text: 'Worked by a Farmer: 🍞3. Anyone else: 🍞2. +1 next to a Well. Summer +1, Autumn +2, nothing in Winter.' },
     lumber: { name: 'Lumber camp', cost: { wood: 1 }, on: ['forest'], slots: 1, pts: 1, color: '#66bb6a', text: 'Worked by a Woodcutter: 🪵3. Anyone else: 🪵2.' },
     quarry: { name: 'Quarry', cost: { wood: 2 }, on: ['hills'], slots: 1, pts: 1, color: '#9e9e9e', text: 'Worked by a Stonecutter: 🪨3. Anyone else: 🪨2.' },
     mine: { name: 'Mine', cost: { wood: 2, stone: 1 }, on: ['mountain'], slots: 1, pts: 1, color: '#607d8b', text: 'Worked by a Miner: 🔩2. Anyone else: 🔩1.' },
-    inn: { name: 'Inn', cost: { wood: 3, stone: 1 }, on: OPEN, beds: 2, slots: 1, pts: 2, color: '#ffb74d', text: 'Sleeps 2. A Chef or Bard can work here.' },
+    inn: { name: 'Inn', cost: { wood: 3, stone: 1 }, on: OPEN, beds: 2, slots: 1, pts: 2, color: '#ffb74d', text: 'Sleeps 2 (1 next to a Smithy, Barracks or Market). A Chef or Bard can work here.' },
     workshop: { name: 'Workshop', cost: { wood: 2, stone: 1 }, on: OPEN, slots: 1, pts: 1, color: '#d7a86e', text: 'A Carpenter works here.' },
-    smithy: { name: 'Smithy', cost: { stone: 2, iron: 1 }, on: OPEN, slots: 1, pts: 2, color: '#ff7043', text: 'A Blacksmith works here.' },
+    smithy: { name: 'Smithy', cost: { stone: 2, iron: 1 }, on: OPEN, slots: 1, pts: 2, color: '#ff7043', text: 'A Blacksmith works here. Noisy: Houses and Inns next to it sleep 1 fewer.' },
     bakery: { name: 'Bakery', cost: { wood: 2, stone: 1 }, on: OPEN, slots: 1, pts: 1, color: '#ffcc80', text: 'A Baker works here.' },
-    barracks: { name: 'Barracks', cost: { wood: 2, stone: 2 }, on: OPEN, beds: 1, slots: 2, pts: 1, color: '#e57373', text: 'Sleeps 1. Two Guards or Knights can work here.' },
-    tower: { name: 'Watchtower', cost: { wood: 1, stone: 3 }, on: OPEN, def: 1, slots: 1, pts: 1, color: '#64b5f6', text: 'Adds 🛡️1 on every side. An Archer can work here.' },
-    market: { name: 'Market', cost: { wood: 2, stone: 2 }, on: OPEN, slots: 1, pts: 1, color: '#ffd54f', text: 'Makes 🪙1 every round (+1 more next to an Inn). A Merchant can work here.' },
-    chapel: { name: 'Chapel', cost: { stone: 3, gold: 2 }, on: OPEN, slots: 1, pts: 3, color: '#b39ddb', text: 'A Priest can work here.' },
+    barracks: { name: 'Barracks', cost: { wood: 2, stone: 2 }, on: OPEN, beds: 1, slots: 2, pts: 1, color: '#e57373', text: 'Sleeps 1. Two Guards or Knights can work here. Noisy: Houses and Inns next to it sleep 1 fewer.' },
+    tower: { name: 'Watchtower', cost: { wood: 1, stone: 3 }, on: OPEN, def: 1, slots: 1, pts: 1, color: '#64b5f6', text: 'Adds 🛡️1 against attacks from sides within 2 rows of it, and shows where tomorrow’s creature attacks. An Archer can work here.' },
+    market: { name: 'Market', cost: { wood: 2, stone: 2 }, on: OPEN, slots: 1, pts: 1, color: '#ffd54f', text: 'Makes 🪙1 every round (+1 more next to an Inn). A Merchant can work here. Noisy: Houses and Inns next to it sleep 1 fewer.' },
+    chapel: { name: 'Chapel', cost: { stone: 3, gold: 2 }, on: OPEN, slots: 1, pts: 3, color: '#b39ddb', text: 'A Priest can work here. Each House next to it scores ⭐1.' },
     cathedral: { name: 'Cathedral', wonder: true, need: 7, cost: { wood: 2, stone: 7, gold: 5 }, on: OPEN, pts: 10, color: '#80cbc4', text: 'Wonder — only one village can build it, and you need 7 villagers. Worth ⭐10.' },
-    wizardtower: { name: 'Wizard’s Tower', wonder: true, need: 5, cost: { stone: 4, iron: 2, gold: 4 }, on: OPEN, def: 1, slots: 1, pts: 5, color: '#9575cd', text: 'Wonder — only one village can build it, and you need 5 villagers. Adds 🛡️1 on every side. A Wizard can work here.' },
+    wizardtower: { name: 'Wizard’s Tower', wonder: true, need: 5, cost: { stone: 4, iron: 2, gold: 4 }, on: OPEN, def: 1, slots: 1, pts: 5, color: '#9575cd', text: 'Wonder — only one village can build it, and you need 5 villagers. Adds 🛡️1 against attacks from sides within 3 rows of it. A Wizard can work here.' },
     castle: { name: 'Castle', wonder: true, need: 5, upgrade: true, cost: { stone: 6, iron: 2, gold: 3 }, beds: 3, def: 3, pts: 6, color: '#5c6bc0', text: 'Wonder — only one village can build it, and you need 5 villagers. Upgrades your Keep: sleeps 3 more and adds 🛡️3 more on every side.' },
   };
   const BUILD_ORDER = ['house', 'well', 'farm', 'lumber', 'quarry', 'mine', 'inn', 'bakery', 'workshop', 'smithy', 'market', 'barracks', 'tower', 'chapel', 'castle', 'wizardtower', 'cathedral'];
@@ -81,12 +81,12 @@
     priest: { name: 'Priest', cost: 3, at: 'chapel', pts: 2, text: 'Chapel: ⭐1 every round and 🛡️4 against the undead.' },
     guard: { name: 'Guard', cost: 2, at: 'barracks', pts: 2, text: 'Barracks: 🛡️2 on every side.' },
     knight: { name: 'Knight', cost: 4, iron: 1, at: 'barracks', pts: 3, text: 'Barracks: 🛡️4 on every side.' },
-    archer: { name: 'Archer', cost: 3, at: 'tower', pts: 2, text: 'Watchtower: 🛡️2 on every side, and 🛡️3 more against flyers.' },
-    wizard: { name: 'Wizard', cost: 6, at: 'wizardtower', pts: 4, text: 'Wizard’s Tower: 🛡️3 on every side, 🛡️4 more against flyers and the undead, and ⭐1 every round.' },
+    archer: { name: 'Archer', cost: 3, at: 'tower', pts: 2, text: 'Watchtower: 🛡️2, and 🛡️3 more against flyers, on sides within 2 rows of the tower. Also reveals the creature after next.' },
+    wizard: { name: 'Wizard', cost: 6, at: 'wizardtower', pts: 4, text: 'Wizard’s Tower: 🛡️3, and 🛡️4 more against flyers and the undead, on sides within 3 rows of the tower. ⭐1 every round.' },
     steward: { name: 'Steward', cost: 5, at: 'keep', pts: 3, text: 'Keep: you get 1 extra worker every round (from the next round).' },
   };
   const VIL_ORDER = ['peasant', 'farmer', 'woodcutter', 'stonecutter', 'miner', 'chef', 'bard', 'baker', 'carpenter', 'blacksmith', 'merchant', 'priest', 'guard', 'knight', 'archer', 'wizard', 'steward'];
-  const DECK = { farmer: 4, woodcutter: 3, stonecutter: 3, miner: 3, chef: 2, bard: 2, baker: 2, carpenter: 2, blacksmith: 2, merchant: 2, priest: 2, guard: 4, knight: 2, archer: 3, wizard: 1, steward: 2 };
+  const DECK = { farmer: 6, woodcutter: 5, stonecutter: 5, miner: 4, chef: 3, bard: 3, baker: 3, carpenter: 3, blacksmith: 3, merchant: 3, priest: 3, guard: 6, knight: 3, archer: 5, wizard: 2, steward: 3 };
 
   // fly: walls don't help. undead: Priests and Wizards add extra defense.
   const BEAST = {
@@ -143,6 +143,152 @@
   };
   const OPEN_LOCS = ['commons', 'odd'];
   const LOC_ORDER = Object.keys(LOC).filter((k) => LOC[k].group !== 'open');
+
+  // Goal cards: three per game, scored at the end. The village with the most gets ⭐6; a tie gives ⭐3 each; nobody scores at 0.
+  const GOAL_PTS = 6;
+  const GOALS = {
+    farms: { name: 'Breadbasket', icon: '🌾', text: 'Most Farms' },
+    stone: { name: 'Stonework', icon: '🧱', text: 'Most Stone walls' },
+    crowd: { name: 'Bustling town', icon: '👥', text: 'Most villagers' },
+    trades: { name: 'Master crafts', icon: '🛠️', text: 'Most villagers working in their own trade' },
+    trophies: { name: 'Trophy hall', icon: '🏆', text: 'Most creatures driven off' },
+    purse: { name: 'Fat purse', icon: '💰', text: 'Most gold left' },
+    homes: { name: 'Hearth and home', icon: '🏠', text: 'Most Houses and Inns' },
+    kinds: { name: 'Melting pot', icon: '🎭', text: 'Most different kinds of villager' },
+    variety: { name: 'Master builder', icon: '🏗️', text: 'Most different kinds of building' },
+    arms: { name: 'Armed to the teeth', icon: '⚔️', text: 'Most sets of arms' },
+    wells: { name: 'Green fields', icon: '💧', text: 'Most Farms next to a Well' },
+    larder: { name: 'Full larder', icon: '🧺', text: 'Most food left' },
+  };
+  const GOAL_ORDER = Object.keys(GOALS);
+  const GOALS_PER_GAME = 3;
+
+  // Season events: one each round from round 2. Both villages answer the same event, each choosing an option.
+  // when: seasons it can come up in (any if missing). Options: can(state, p) says if it's possible; do(state, p) returns a log line.
+  const EVENTS = {
+    drought: {
+      name: 'Dry spell', icon: '☀️', when: ['summer', 'autumn'], text: 'The streams are low and the fields are thirsty.',
+      opts: [
+        { label: 'Dig deeper', cost: { stone: 2 }, text: 'Pay 🪨2.' },
+        { label: 'Let the fields wilt', text: 'Tonight each worked Farm makes 🍞1 less.', do: (s, p) => ((p.flags.drought = true), 'let the fields wilt') },
+      ],
+    },
+    refugees: {
+      name: 'Refugees at the gate', icon: '🧳', text: 'A family fleeing the wilds asks for shelter.',
+      opts: [
+        { label: 'Take them in', text: 'A Peasant joins you for free (needs room). Pay 🍞2 to feed them.', cost: { food: 2 }, can: (s, p) => room(p) > 0, do: (s, p) => addPeasant(s, p, 'took in a refugee family') },
+        { label: 'Turn them away', text: 'Lose ⭐1.', renown: -1 },
+      ],
+    },
+    bandits: {
+      name: 'Bandits on the road', icon: '🗡️', text: 'Bandits demand a toll from your carts.',
+      opts: [
+        { label: 'Pay the toll', cost: { gold: 3 }, text: 'Pay 🪙3.' },
+        { label: 'Refuse', text: 'They raid your stores: lose up to 🍞2 and 🪵2.', do: (s, p) => (loseRes(p, { food: 2, wood: 2 }), 'refused the bandits and was raided') },
+      ],
+    },
+    tax: {
+      name: 'The king’s tax', icon: '👑', text: 'The king’s collector counts your people.',
+      opts: [
+        { label: 'Pay up', text: 'Pay 🪙1 for every 3 villagers (rounded up).', cost: (s, p) => ({ gold: Math.ceil(p.vil.length / 3) }) },
+        { label: 'Refuse', text: 'Lose ⭐3.', renown: -3 },
+      ],
+    },
+    gale: {
+      name: 'Autumn gale', icon: '🌬️', when: ['autumn', 'winter'], text: 'A storm is coming over the hills.',
+      opts: [
+        { label: 'Batten down', cost: { wood: 2 }, text: 'Pay 🪵2.' },
+        { label: 'Ride it out', text: 'One Palisade blows down (the first one clockwise from north).', do: (s, p) => {
+          const i = p.walls.indexOf(1);
+          if (i < 0) return 'rode out the gale';
+          p.walls[i] = 0;
+          return `lost the ${SIDES[i].name.toLowerCase()} palisade to the gale`;
+        } },
+      ],
+    },
+    rats: {
+      name: 'Rats in the stores', icon: '🐀', text: 'Rats have found their way into your food.',
+      opts: [
+        { label: 'Hire a ratcatcher', cost: { gold: 2 }, text: 'Pay 🪙2.' },
+        { label: 'Let them be', text: 'Lose half your food (rounded down).', do: (s, p) => (loseRes(p, { food: Math.floor(p.res.food / 2) }), 'lost half its food to rats') },
+      ],
+    },
+    caravan: {
+      name: 'A merchant caravan', icon: '🐫', text: 'Traders stop at your gate for the night.',
+      opts: [
+        { label: 'Buy iron', cost: { gold: 3 }, gain: { iron: 2 }, text: 'Pay 🪙3 for 🔩2.' },
+        { label: 'Sell food', cost: { food: 4 }, gain: { gold: 4 }, text: 'Pay 🍞4 for 🪙4.' },
+        { label: 'Wave them on', text: 'Nothing happens.' },
+      ],
+    },
+    weather: {
+      name: 'Fair weather', icon: '🌤️', text: 'A run of good days. What should the village do with them?',
+      opts: [
+        { label: 'Cut timber', gain: { wood: 3 }, text: 'Take 🪵3.' },
+        { label: 'Gather berries', gain: { food: 3 }, text: 'Take 🍞3.' },
+      ],
+    },
+    pilgrims: {
+      name: 'Pilgrims', icon: '🙏', text: 'Pilgrims on the road ask for a meal and a bed.',
+      opts: [
+        { label: 'Host them', cost: { food: 2 }, text: 'Pay 🍞2. Gain ⭐1, plus ⭐1 for each Inn and Chapel you have.', do: (s, p) => {
+          const n = 1 + count(p, 'inn') + count(p, 'chapel');
+          p.renown += n;
+          return `hosted the pilgrims (+⭐${n})`;
+        } },
+        { label: 'Ask a tithe', gain: { gold: 2 }, text: 'Take 🪙2.' },
+      ],
+    },
+    scholar: {
+      name: 'A travelling scholar', icon: '📜', text: 'A scholar who reads the signs offers his services.',
+      opts: [
+        { label: 'Pay for a reading', cost: { gold: 2 }, text: 'Pay 🪙2. For the rest of this round you see the next two creatures and their sides.', do: (s, p) => ((p.flags.sight = true), 'paid the scholar to read the signs') },
+        { label: 'Hear his tales', text: 'Gain ⭐1.', renown: 1 },
+      ],
+    },
+    sellswords: {
+      name: 'Sellswords for hire', icon: '🪖', text: 'A band of sellswords offers to guard your walls tonight.',
+      opts: [
+        { label: 'Hire them', cost: { gold: 3 }, text: 'Pay 🪙3: 🛡️3 on every side tonight.', do: (s, p) => ((p.muster += 3), 'hired sellswords for the night (🛡️+3)') },
+        { label: 'Send them away', text: 'Nothing happens.' },
+      ],
+    },
+    frost: {
+      name: 'Bitter cold', icon: '🥶', when: ['winter'], text: 'The coldest night in years.',
+      opts: [
+        { label: 'Stoke the fires', cost: { wood: 2 }, text: 'Pay 🪵2.' },
+        { label: 'Huddle together', text: 'Lose ⭐2.', renown: -2 },
+      ],
+    },
+    fair: {
+      name: 'Spring fair', icon: '🎪', when: ['spring'], text: 'The whole valley comes to the spring fair.',
+      opts: [
+        { label: 'Hold a contest', cost: { food: 3 }, text: 'Pay 🍞3. Gain ⭐3.', renown: 3 },
+        { label: 'Sell at the stalls', text: 'Take 🪙2, plus 🪙1 for each Market and Inn you have.', do: (s, p) => {
+          const n = 2 + count(p, 'market') + count(p, 'inn');
+          p.res.gold += n;
+          return `sold at the fair (+🪙${n})`;
+        } },
+      ],
+    },
+    levy: {
+      name: 'The lord’s levy', icon: '⚔️', text: 'Your lord calls soldiers to his war.',
+      opts: [
+        { label: 'Send your soldiers', text: 'Your Guards, Knights and Archers don’t defend tonight. Gain ⭐2 for each.', can: (s, p) => soldiers(p) > 0, do: (s, p) => {
+          const n = soldiers(p) * 2;
+          p.flags.levy = true;
+          p.renown += n;
+          return `sent its soldiers to the lord’s war (+⭐${n})`;
+        } },
+        { label: 'Send iron instead', cost: { iron: 1 }, text: 'Pay 🔩1.' },
+        { label: 'Refuse', text: 'Lose ⭐2.', renown: -2 },
+      ],
+    },
+  };
+  const EVENT_ORDER = Object.keys(EVENTS);
+
+  // Wages: as Spring begins in years 2 and 3, every villager with a job is paid 🪙1.
+  const WAGE = 1;
 
   // ---------------------------------------------------------------- helpers
   function rng(state) {
@@ -274,6 +420,7 @@
         flags: {},
         trophies: [],
         lost: 0,
+        rules: SAVE_V,
       };
       const keep = { id: state.nextId++, b: 'keep', cell: 0 };
       const farm = { id: state.nextId++, b: 'farm', cell: farmCell };
@@ -289,7 +436,15 @@
     state.row = state.deck.splice(0, ROW_SIZE);
     const tier = (n) => shuffle(state, BEAST_ORDER.filter((k) => BEAST[k].tier === n && k !== 'wolves')).slice(0, n === 1 ? 3 : 4);
     const order = ['wolves'].concat(tier(1), tier(2), tier(3));
-    state.threats = order.map((k) => ({ k, side: BEAST[k].kind === 'fly' ? null : Math.floor(rng(state) * 6) }));
+    // Flyers ignore walls, but they still come from one direction, which matters for towers.
+    state.threats = order.map((k) => ({ k, side: BEAST[k].kind === 'fly' && SAVE_V < 3 ? null : Math.floor(rng(state) * 6) }));
+    state.goals = shuffle(state, GOAL_ORDER.slice()).slice(0, GOALS_PER_GAME);
+    const left = shuffle(state, EVENT_ORDER.slice());
+    state.events = [null];
+    for (let r = 2; r <= ROUNDS; r++) {
+      const i = left.findIndex((k) => !EVENTS[k].when || EVENTS[k].when.includes(seasonOf(r)));
+      state.events.push(i < 0 ? null : left.splice(i, 1)[0]);
+    }
     startRound(state);
     return state;
   }
@@ -309,6 +464,121 @@
     });
     state.turn = state.first;
   }
+  // Games started before rules v3 keep the old rules: no goals, events, wages, frost or hidden threats.
+  const newRules = (state) => (state.v || 0) >= 3;
+
+  // ---- creatures you can see
+  // Tonight's creature is always known. Tomorrow's is known, but its side only with a Watchtower.
+  // The one after shows only whether it flies; an Archer working a Watchtower reveals it.
+  // A scholar's reading (event) shows everything for the round.
+  const scout = (p) => p.bld.some((b) => b.b === 'tower');
+  const farSight = (p) => workers(p).some((w) => w.v.k === 'archer' && w.spec);
+  function threatView(state, pi, j) {
+    const t = state.threats[state.round - 1 + j];
+    if (!t) return null;
+    const i = state.round - 1 + j;
+    const tier = t.k ? BEAST[t.k].tier : t.tier;
+    const kind = t.k ? BEAST[t.k].kind : t.kind;
+    const full = { k: t.k, side: t.side, kind, tier, i };
+    if (j === 0 || !newRules(state) || pi == null) return full;
+    const p = state.players[pi];
+    const sight = p.flags && p.flags.sight;
+    const ground = t.side != null || (t.k == null && kind !== 'fly');
+    if (j === 1) return { k: t.k, side: ground ? (sight || scout(p) ? t.side : -1) : null, kind, tier, i };
+    if (sight || farSight(p)) return { k: t.k, side: ground ? (sight ? t.side : -1) : null, kind, tier, i };
+    return { k: null, side: ground ? -1 : null, kind, tier, i };
+  }
+  function threatsFor(state, pi, n) {
+    const out = [];
+    for (let j = 0; j < n; j++) {
+      const v = threatView(state, pi, j);
+      if (v) out.push(v);
+    }
+    return out;
+  }
+  // What player pi may know of the threat list (online games send only this).
+  function maskThreats(state, pi) {
+    return state.threats.map((t, i) => {
+      const j = i - (state.round - 1);
+      if (j < 0) return t;
+      if (j > 2) return null;
+      const v = threatView(state, pi, j);
+      return v.k ? { k: v.k, side: v.side } : { k: null, side: v.side, kind: v.kind, tier: v.tier };
+    });
+  }
+
+  // ---- goals
+  function goalValue(state, p, g) {
+    switch (g) {
+      case 'farms': return count(p, 'farm');
+      case 'stone': return p.walls.filter((w) => w === 2).length;
+      case 'crowd': return p.vil.length;
+      case 'trades': return workers(p).filter((w) => w.spec).length;
+      case 'trophies': return p.trophies.length;
+      case 'purse': return p.res.gold;
+      case 'homes': return count(p, 'house') + count(p, 'inn');
+      case 'kinds': return new Set(p.vil.map((v) => v.k)).size;
+      case 'variety': return new Set(p.bld.map((b) => b.b)).size;
+      case 'arms': return p.arms;
+      case 'wells': return p.bld.filter((b) => b.b === 'farm' && adjacent(p, b.cell, 'well')).length;
+      case 'larder': return p.res.food;
+      default: return 0;
+    }
+  }
+  // Points each player would get from goal g right now.
+  function goalPoints(state, g) {
+    const v = state.players.map((p) => goalValue(state, p, g));
+    if (v[0] === v[1]) return v[0] > 0 ? [GOAL_PTS / 2, GOAL_PTS / 2] : [0, 0];
+    return v[0] > v[1] ? [GOAL_PTS, 0] : [0, GOAL_PTS];
+  }
+
+  // ---- wages
+  function wagesDue(p) {
+    return workers(p).length * WAGE;
+  }
+  // Rounds until the next payday (Spring of year 2 or 3), or -1 if there is none left.
+  function roundsToWages(state) {
+    for (let r = state.round + 1; r <= ROUNDS; r++) if (seasonOf(r) === 'spring') return r - state.round;
+    return -1;
+  }
+
+  // ---- events
+  const soldiers = (p) => workers(p).filter((w) => w.spec && ['guard', 'knight', 'archer'].includes(w.v.k)).length;
+  function addPeasant(state, p, msg) {
+    const v = { id: state.nextId++, k: 'peasant' };
+    p.vil.push(v);
+    placeVillager(p, v);
+    return msg;
+  }
+  function eventNow(state) {
+    return (newRules(state) && state.events && state.events[state.round - 1]) || null;
+  }
+  function eventCost(state, p, o) {
+    return typeof o.cost === 'function' ? o.cost(state, p) : o.cost || null;
+  }
+  // Why option oi can't be chosen, or null.
+  function eventBlock(state, p, oi) {
+    const e = EVENTS[eventNow(state)];
+    const o = e && e.opts[oi];
+    if (!o) return 'No such choice.';
+    if (o.can && !o.can(state, p)) return o.label === 'Take them in' ? 'You need room for them.' : 'You can’t do that.';
+    const c = eventCost(state, p, o);
+    if (c && !canPay(p, c)) return 'You can’t afford it.';
+    return null;
+  }
+  const eventPending = (state, p) => !!eventNow(state) && p.flags.ev == null;
+  function doEvent(state, p, oi) {
+    const e = EVENTS[eventNow(state)];
+    const o = e.opts[oi];
+    const c = eventCost(state, p, o);
+    if (c) pay(p, c);
+    if (o.gain) gain(p, o.gain);
+    if (o.renown) p.renown += o.renown;
+    p.flags.ev = oi;
+    if (o.do) return o.do(state, p);
+    return `chose “${o.label}”`;
+  }
+
   function freeLocs(state) {
     return state.locs.filter((k) => state.spots[k] == null).concat(OPEN_LOCS);
   }
@@ -347,9 +617,15 @@
     });
     return out;
   }
+  // A House or Inn next to a noisy building (rules v3 villages) sleeps 1 fewer.
+  const NOISY = ['smithy', 'barracks', 'market'];
+  const HOMES = ['house', 'inn'];
+  function noisy(p, b) {
+    return p.rules >= 3 && HOMES.includes(b.b) && NOISY.some((x) => adjacent(p, b.cell, x));
+  }
   function beds(p) {
     let n = 0;
-    p.bld.forEach((b) => (n += BUILD[b.b].beds || 0));
+    p.bld.forEach((b) => (n += (BUILD[b.b].beds || 0) - (noisy(p, b) ? 1 : 0)));
     if (p.castle) n += BUILD.castle.beds;
     return n;
   }
@@ -374,22 +650,40 @@
     return workers(p).some((w) => w.v.k === 'carpenter' && w.spec);
   }
 
+  // How many rows of hexes lie between a cell and a side of the village: 0 on that edge, up to 6 on the far edge.
+  // Sides are the six edges of the hexagon; a row runs parallel to one edge.
+  const DEPTH = CELLS.map((c) => SIDES.map((sd) => {
+    const a = (sd.ang * Math.PI) / 180;
+    const x = Math.sqrt(3) * (c.q + c.r / 2);
+    const y = 1.5 * c.r;
+    return MAP_RINGS - Math.round((x * Math.cos(a) - y * Math.sin(a)) / 1.5);
+  }));
+  const sideDepth = (cell, side) => DEPTH[cell][side];
+  // Towers only defend sides within this many rows of them (rules v3 villages).
+  const RANGE = { tower: 2, wizardtower: 3 };
+  function inRange(p, bld, side) {
+    if (!(p.rules >= 3) || side == null || side < 0 || !RANGE[bld.b]) return true;
+    return sideDepth(bld.cell, side) <= RANGE[bld.b];
+  }
+
   // Muster only counts against this round's creature (k given, later not set).
   function defense(p, k, side, later) {
     const b = BEAST[k];
     let d = BUILD.keep.def + (p.castle ? BUILD.castle.def : 0) + p.arms + (k && !later ? p.muster || 0 : 0);
     p.bld.forEach((x) => {
-      if (x.b !== 'keep') d += BUILD[x.b].def || 0;
+      if (x.b !== 'keep' && BUILD[x.b].def && inRange(p, x, side)) d += BUILD[x.b].def;
     });
-    workers(p).forEach(({ v, spec }) => {
+    const levy = !later && p.flags && p.flags.levy;
+    workers(p).forEach(({ v, b: at, spec }) => {
       if (!spec) return;
+      if (levy && ['guard', 'knight', 'archer'].includes(v.k)) return;
       if (v.k === 'guard') d += 2;
       if (v.k === 'knight') d += 4;
-      if (v.k === 'archer') d += 2 + (b && b.kind === 'fly' ? 3 : 0);
-      if (v.k === 'wizard') d += 3 + (b && (b.kind === 'fly' || b.undead) ? 4 : 0);
+      if (v.k === 'archer' && inRange(p, at, side)) d += 2 + (b && b.kind === 'fly' ? 3 : 0);
+      if (v.k === 'wizard' && inRange(p, at, side)) d += 3 + (b && (b.kind === 'fly' || b.undead) ? 4 : 0);
       if (v.k === 'priest' && b && b.undead) d += 4;
     });
-    if (b && b.kind !== 'fly' && side != null) d += WALL[p.walls[side]].def;
+    if (b && b.kind !== 'fly' && side != null && side >= 0) d += WALL[p.walls[side]].def;
     return d;
   }
   function baseDefense(p) {
@@ -416,7 +710,7 @@
             add(b.id, 'food', granary);
             break;
           }
-          let n = (spec ? 3 : 2) + granary;
+          let n = (spec ? 3 : 2) + granary - (p.flags && p.flags.drought ? 1 : 0);
           if (season === 'summer') n += 1;
           if (season === 'autumn') n += 2;
           if (adjacent(p, b.cell, 'well')) n += 1;
@@ -482,7 +776,9 @@
     const on = BUILD[b].on;
     if (!on) return [];
     const used = new Set(p.bld.map((x) => x.cell));
-    return state.terrain.map((t, i) => i).filter((i) => !used.has(i) && on.includes(state.terrain[i]));
+    // Rules v3: the village grows outwards — every new building must touch one you already have.
+    const touches = (i) => !(p.rules >= 3) || NEIGH[i].some((n) => used.has(n));
+    return state.terrain.map((t, i) => i).filter((i) => !used.has(i) && on.includes(state.terrain[i]) && touches(i));
   }
   function buildBlock(state, pi, b) {
     const p = state.players[pi];
@@ -490,7 +786,7 @@
     if (B.wonder && state.wonders[b] != null) return state.wonders[b] === pi ? 'You already built it.' : `${state.players[state.wonders[b]].name} built it first.`;
     if (B.need && p.vil.length < B.need) return `You need ${B.need} villagers first.`;
     if (B.upgrade) return p.castle ? 'Already built.' : null;
-    if (!freeCells(state, p, b).length) return `No free ${B.on.map((t) => TERRAIN[t].name.toLowerCase()).join(' or ')} left.`;
+    if (!freeCells(state, p, b).length) return `No free ${B.on.map((t) => TERRAIN[t].name.toLowerCase()).join(' or ')} ${p.rules >= 3 ? 'next to your village yet — build towards some' : 'left'}.`;
     return null;
   }
 
@@ -584,8 +880,11 @@
         }
         return null;
       }
+      case 'event':
+        if (!eventPending(state, p)) return 'Nothing to answer.';
+        return eventBlock(state, p, a.o);
       case 'end':
-        return null;
+        return eventPending(state, p) ? `Answer the ${EVENTS[eventNow(state)].name} first.` : null;
       default:
         return 'Unknown action.';
     }
@@ -604,7 +903,7 @@
   function masonSides(state, p) {
     const t = state.threats[state.round - 1];
     const order = [0, 1, 2, 3, 4, 5].filter((i) => p.walls[i] < 2).sort((a, b) => p.walls[a] - p.walls[b] || a - b);
-    if (t && t.side != null && p.walls[t.side] < 2) order.splice(order.indexOf(t.side), 1), order.unshift(t.side);
+    if (t && t.side != null && BEAST[t.k].kind !== 'fly' && p.walls[t.side] < 2) order.splice(order.indexOf(t.side), 1), order.unshift(t.side);
     return order.slice(0, 2);
   }
   // What a location would give player p right now, as a short description.
@@ -748,6 +1047,9 @@
         msg = `traded ${parts.join(', ')}`;
         break;
       }
+      case 'event':
+        msg = doEvent(state, p, a.o);
+        break;
       case 'end':
         p.done = true;
         msg = p.workers > 0 ? `ended the round (${p.workers} worker${p.workers > 1 ? 's' : ''} unused)` : 'ended the round';
@@ -777,11 +1079,17 @@
   function villagerValue(v) {
     return VIL[v.k].pts + VIL[v.k].cost;
   }
+  // prefer: 'best' takes the most valuable villager; a side number takes whoever works nearest that side (idle ones are at the Keep).
   function loseVillagers(p, n, prefer) {
     const gone = [];
+    const depthOf = (v) => {
+      const b = v.at != null && bldById(p, v.at);
+      return sideDepth(b ? b.cell : 0, prefer);
+    };
     for (let i = 0; i < n && p.vil.length; i++) {
       const sorted = p.vil.slice().sort((a, b) => {
         if (prefer === 'best') return villagerValue(b) - villagerValue(a);
+        if (typeof prefer === 'number' && prefer >= 0 && p.rules >= 3) return depthOf(a) - depthOf(b) || villagerValue(a) - villagerValue(b);
         const ia = a.at == null ? 0 : 1;
         const ib = b.at == null ? 0 : 1;
         return ia - ib || villagerValue(a) - villagerValue(b);
@@ -804,9 +1112,11 @@
     });
     return lost;
   }
-  function bestBuilding(p) {
+  // The building a creature burns: in rules v3 villages the one nearest the side it attacks from, else the most valuable.
+  function bestBuilding(p, side) {
     const val = (b) => BUILD[b.b].pts * 10 + RES.reduce((s, r) => s + (BUILD[b.b].cost[r] || 0), 0);
-    return p.bld.filter((b) => !BUILD[b.b].start && !BUILD[b.b].wonder).sort((a, b) => val(b) - val(a))[0] || null;
+    const near = (b) => (p.rules >= 3 && side != null && side >= 0 ? sideDepth(b.cell, side) : 0);
+    return p.bld.filter((b) => !BUILD[b.b].start && !BUILD[b.b].wonder).sort((a, b) => near(a) - near(b) || val(b) - val(a))[0] || null;
   }
 
   // Resolve production, the night's attack and upkeep for both villages. Returns a report for the UI.
@@ -845,14 +1155,14 @@
           p.walls[threat.side] = f.wall === 2 ? 0 : Math.max(0, p.walls[threat.side] - 1);
           a.wallTo = p.walls[threat.side];
         }
-        if (f.leave) a.left = loseVillagers(p, f.leave);
+        if (f.leave) a.left = loseVillagers(p, f.leave, threat.side);
         if (f.stone) a.left = loseVillagers(p, 1, 'best');
         if (f.renown) {
           p.renown -= f.renown;
           a.renown = f.renown;
         }
         if (f.burn) {
-          const bb = bestBuilding(p);
+          const bb = bestBuilding(p, threat.side);
           if (bb) {
             p.bld.splice(p.bld.indexOf(bb), 1);
             p.vil.forEach((v) => {
@@ -883,11 +1193,31 @@
           p.renown -= r.cold.length;
         }
       }
+      // 4. frost: in Winter each Palisade needs 🪵1 of repairs or it falls
+      if (newRules(state) && season === 'winter') {
+        r.frost = { fixed: 0, fell: [] };
+        p.walls.forEach((w, i) => {
+          if (w !== 1) return;
+          if (p.res.wood > 0) {
+            p.res.wood -= 1;
+            r.frost.fixed += 1;
+          } else {
+            p.walls[i] = 0;
+            r.frost.fell.push(i);
+          }
+        });
+      }
+      // 5. wages as Spring begins (years 2 and 3)
+      if (newRules(state) && state.round < ROUNDS && seasonOf(state.round + 1) === 'spring') r.wages = payWages(p);
       rep.players.push(r);
       log(state, duskLine(p, threat, a, r), pi);
     });
-    // 4. the crossroads: the longest-waiting traveller moves on, newcomers arrive
-    if (state.row.length) rep.leftRow = state.row.shift();
+    // 6. the crossroads: the longest-waiting traveller moves on, newcomers arrive
+    if (state.row.length) {
+      rep.leftRow = state.row.shift();
+      // they travel on, and may come back later
+      state.deck.push(rep.leftRow);
+    }
     const kept = state.row.length;
     while (state.row.length < ROW_SIZE && state.deck.length) state.row.push(state.deck.shift());
     rep.arrived = state.row.slice(kept);
@@ -903,11 +1233,36 @@
     return rep;
   }
 
+  // Pay the best villagers first; anyone left unpaid leaves (−⭐1 each).
+  function payWages(p) {
+    const out = { due: wagesDue(p), paid: 0, left: [] };
+    const unpaid = [];
+    workers(p)
+      .sort((a, b) => villagerValue(b.v) - villagerValue(a.v))
+      .forEach((w) => {
+        const wage = WAGE;
+        if (p.res.gold >= wage) {
+          p.res.gold -= wage;
+          out.paid += wage;
+        } else unpaid.push(w.v);
+      });
+    unpaid.forEach((v) => {
+      p.vil.splice(p.vil.indexOf(v), 1);
+      out.left.push(v.k);
+      p.lost += 1;
+      p.renown -= 1;
+    });
+    if (unpaid.length) p.vil.filter((v) => v.at == null).forEach((v) => placeVillager(p, v));
+    return out;
+  }
+
   function duskLine(p, threat, a, r) {
     const nm = BEAST[threat.k].name;
     let s = a.won ? `${p.name} drove off the ${nm} (🛡️${a.def} vs ${a.str}).` : `The ${nm} broke through ${p.name}’s defenses (🛡️${a.def} vs ${a.str}).`;
     const gone = r.hungry.length + r.cold.length;
     if (gone) s += ` ${gone} villager${gone > 1 ? 's' : ''} left — not enough ${r.hungry.length ? 'food' : 'firewood'}.`;
+    if (r.frost && r.frost.fell.length) s += ` Frost brought down ${r.frost.fell.length} palisade${r.frost.fell.length > 1 ? 's' : ''}.`;
+    if (r.wages) s += ` Paid 🪙${r.wages.paid} in wages${r.wages.left.length ? ` — ${r.wages.left.length} unpaid villager${r.wages.left.length > 1 ? 's' : ''} left` : ''}.`;
     return s;
   }
 
@@ -921,7 +1276,14 @@
     p.vil.forEach((v) => (s.villagers += VIL[v.k].pts));
     s.walls = p.walls.filter((w) => w === 2).length;
     s.fortified = p.walls.every((w) => w > 0) ? 3 : 0;
-    s.total = s.renown + s.buildings + s.villagers + s.walls + s.gold + s.fortified;
+    s.goals = 0;
+    if (newRules(state)) {
+      // Each House next to a Chapel scores ⭐1.
+      s.buildings += p.bld.filter((b) => b.b === 'house' && adjacent(p, b.cell, 'chapel')).length;
+      const pi = state.players.indexOf(p);
+      if (pi >= 0) (state.goals || []).forEach((g) => (s.goals += goalPoints(state, g)[pi]));
+    }
+    s.total = s.renown + s.buildings + s.villagers + s.walls + s.gold + s.fortified + s.goals;
     return s;
   }
   // Buildings with jobs only count if someone works there; wonders always count.
@@ -953,7 +1315,7 @@
     if (f.leave) v += f.leave * 3.2;
     if (f.stone) v += 4.5;
     if (f.burn) {
-      const bb = bestBuilding(p);
+      const bb = bestBuilding(p, t.side);
       if (bb) v += BUILD[bb.b].pts + 3;
     }
     if (f.renown) v += f.renown;
@@ -988,7 +1350,7 @@
     const foodShort = Math.max(0, -(p.res.food + netFood * horizon - (winterNext >= 0 && winterNext < horizon ? income.food : 0)));
     v -= foodShort * 3.5;
     if (winterNext >= 0 && winterNext <= 2) {
-      const wneed = Math.ceil((p.vil.length + 1) / 3);
+      const wneed = Math.ceil((p.vil.length + 1) / 3) + (newRules(state) ? p.walls.filter((x) => x === 1).length : 0);
       const wHave = p.res.wood + income.wood * winterNext;
       v -= Math.max(0, wneed - wHave) * 2;
     }
@@ -1008,12 +1370,31 @@
     // threats on the horizon
     const look = level === 'easy' ? 1 : 3;
     const w = [1, 0.75, 0.5];
-    upcoming(state, look).forEach((t, j) => {
-      const d = defense(p, t.k, t.side, j > 0);
-      const B = BEAST[t.k];
+    threatsFor(state, pi, look).forEach((t0, j) => {
+      // Only what this village can see: an unknown creature is planned for as a typical one of its year and kind,
+      // and an unknown side as somewhere between the weakest and the average wall.
+      const k = t0.k || BEAST_ORDER.find((x) => BEAST[x].tier === t0.tier && BEAST[x].kind === t0.kind) || 'wolves';
+      const t = { k, side: t0.side };
+      let d;
+      if (t0.side === -1) {
+        const ds = [0, 1, 2, 3, 4, 5].map((sd) => defense(p, k, sd, j > 0));
+        d = (Math.min(...ds) + ds.reduce((a, b) => a + b, 0) / 6) / 2;
+        t.side = ds.indexOf(Math.min(...ds));
+      } else d = defense(p, k, t0.side, j > 0);
+      const B = BEAST[k];
       if (d >= B.str) v += w[j] * (B.win + (B.loot || 0) * VAL.gold);
       else v -= w[j] * (lossValue(state, p, t) * (B.str - d <= 3 ? 1 : 0.8) + Math.min(B.str - d, 5) * 0.35);
     });
+    if (newRules(state)) {
+      // wages coming up
+      const toPay = roundsToWages(state);
+      if (toPay > 0 && toPay <= 3) {
+        const short = wagesDue(p) - (p.res.gold + income.gold * (toPay - 1));
+        if (short > 0) v -= short * (toPay === 1 ? 2.2 : 1.4);
+      }
+      // goals are already in the score; a lead early on is only worth part of the prize
+      v -= sc.goals * 0.5 * later;
+    }
     // later creatures hit harder: keep building towards them
     const aim = state.round >= 8 ? 11 : state.round >= 4 ? 7 : 4;
     if (R > 1) v += Math.min(baseDefense(p) + 2, aim) * 0.3;
@@ -1030,6 +1411,23 @@
       if (b === 'inn' && adjacent(p, c, 'market')) s += 2;
       if (b === 'market' && adjacent(p, c, 'inn')) s += 2;
       if (b !== 'farm' && state.terrain[c] === 'meadow') s -= 2;
+      if (p.rules >= 3) {
+        const used = new Set(p.bld.map((x) => x.cell));
+        // open the way to forests, hills and mountains the village can't reach yet
+        const reach = (n) => NEIGH[n].some((m) => used.has(m));
+        s += NEIGH[c].filter((n) => !used.has(n) && !reach(n) && ['forest', 'hills', 'mountain'].includes(state.terrain[n])).length * 1.2;
+        // towers: cover the sides no tower reaches yet
+        if (RANGE[b]) {
+          const covered = (sd) => p.bld.some((x) => RANGE[x.b] && sideDepth(x.cell, sd) <= RANGE[x.b]);
+          s += [0, 1, 2, 3, 4, 5].filter((sd) => sideDepth(c, sd) <= RANGE[b] && !covered(sd)).length * 1.5;
+        }
+        // things worth burning stay away from the edges; Houses sleep badly next to noise
+        if (BUILD[b].pts >= 2 || BUILD[b].wonder) s += Math.min(...[0, 1, 2, 3, 4, 5].map((sd) => sideDepth(c, sd))) * 0.6;
+        if (HOMES.includes(b) && NOISY.some((x) => adjacent(p, c, x))) s -= 3;
+        if (NOISY.includes(b)) s -= NEIGH[c].filter((n) => p.bld.some((x) => x.cell === n && HOMES.includes(x.b))).length * 1.5;
+        if (b === 'house' && adjacent(p, c, 'chapel')) s += 1;
+        if (b === 'chapel') s += NEIGH[c].filter((n) => p.bld.some((x) => x.cell === n && x.b === 'house')).length;
+      }
       return s - ringOf(CELLS[c]) * 0.1;
     };
     return cells.sort((a, c) => score1(c) - score1(a))[0];
@@ -1120,21 +1518,52 @@
     return s2;
   }
 
+  // noise: random error in its judgement. bar: how good a free action must look to take it.
+  // deny: how much it values blocking your best spot. depth: free actions it plans after placing a worker.
+  const AI_LEVEL = {
+    easy: { noise: 1.6, bar: 0.5, deny: 0, depth: 0 },
+    normal: { noise: 0.4, bar: 0.2, deny: 0.25, depth: 3 },
+    hard: { noise: 0, bar: 0.2, deny: 0.4, depth: 4 },
+    brutal: { noise: 0, bar: 0.15, deny: 0.5, depth: 6 },
+  };
+
+  // Hard and Brutal computers also start with extra supplies.
+  const AI_HEAD_START = {
+    hard: { food: 1, wood: 3, stone: 2, gold: 3 },
+    brutal: { food: 3, wood: 5, stone: 4, iron: 1, gold: 5 },
+  };
+  function aiHeadStart(state, pi, level) {
+    const c = AI_HEAD_START[level];
+    if (!c || !newRules(state)) return;
+    gain(state.players[pi], c);
+    log(state, `${state.players[pi].name} starts with extra supplies (${fmtRes(c)}).`, pi);
+  }
+
   // One step of the computer's turn: a free action, a worker placement, or ending the round.
   function aiChoose(state, pi, level) {
     level = level || 'normal';
     const p = state.players[pi];
     if (p.done || state.turn !== pi || state.phase !== 'act') return { t: 'end' };
-    const noise = level === 'easy' ? 1.6 : level === 'hard' ? 0 : 0.4;
-    const jitter = () => (noise ? (rng(state) - 0.5) * noise : 0);
+    const L = AI_LEVEL[level] || AI_LEVEL.normal;
+    const jitter = () => (L.noise ? (rng(state) - 0.5) * L.noise : 0);
+    if (eventPending(state, p)) {
+      let pick = null;
+      EVENTS[eventNow(state)].opts.forEach((o, i) => {
+        const s2 = sim(state, pi, [{ t: 'event', o: i }]);
+        if (!s2) return;
+        const v = evaluate(s2, pi, level) + jitter();
+        if (!pick || v > pick.v) pick = { i, v };
+      });
+      if (pick) return { t: 'event', o: pick.i };
+    }
     const free = bestFree(state, pi, level);
-    if (free && free.gain + jitter() * 0.5 > (level === 'easy' ? 0.5 : level === 'hard' ? 0.6 : 0.2)) return free.a;
+    if (free && free.gain + jitter() * 0.5 > L.bar) return free.a;
     const open = p.workers > 0 ? freeLocs(state) : [];
     if (!open.length) return { t: 'end' };
-    const deny = level === 'easy' ? 0 : 0.25;
+    const deny = L.deny;
     const oi = 1 - pi;
     const opp = state.players[oi];
-    const depth = level === 'easy' ? 0 : 3;
+    const depth = L.depth;
     const mine0 = evaluate(settle(state, pi, level, depth), pi, level);
     let oppBase = null;
     let best = null;
@@ -1166,6 +1595,9 @@
     seasonOf, yearOf, costText, beastText, beastKind, ringOf,
     beds, water, room, workers, production, defense, baseDefense, buildCost, wallCost, canPay, rowPrice, freeCells, buildBlock,
     occupants, moveTargets, canWork, slotsOf, adjacent, hasMerchant, tradeRate, peasantPrice, squareAmount, locGain, masonSides, freeLocs, crowdAt, workerCount, musterAmount, foodNeed, woodNeed, upcoming, clone,
+    GOALS, GOAL_ORDER, GOAL_PTS, EVENTS, AI_LEVEL, WAGE, NOISY,
+    newRules, threatView, threatsFor, maskThreats, scout, farSight, goalValue, goalPoints, wagesDue, roundsToWages,
+    eventNow, eventPending, eventBlock, eventCost, noisy, aiHeadStart, AI_HEAD_START, sideDepth, RANGE, inRange,
   };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.HearthholdEngine = api;

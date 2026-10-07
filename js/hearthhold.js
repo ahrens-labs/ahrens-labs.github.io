@@ -6,7 +6,13 @@
   const PREFS_KEY = 'ahrensHearthhold.prefs';
   const ONLINE_KEY = 'ahrensHearthhold.online';
   const ADMIN_EMAIL = 'calebahrens2011@gmail.com';
-  const LEVEL_NAME = { easy: 'Easy', normal: 'Normal', hard: 'Hard' };
+  const LEVEL_NAME = { easy: 'Easy', normal: 'Normal', hard: 'Hard', brutal: 'Brutal' };
+  const LEVEL_HINT = {
+    easy: 'Makes plenty of mistakes.',
+    normal: 'A fair game.',
+    hard: 'Plans further ahead, blocks your best spots, and starts with a few extra supplies.',
+    brutal: 'Its best play, and a big head start of supplies.',
+  };
   const SIM_SPEEDS = {
     turbo: { name: '⚡ Turbo', ai: 0, dusk: 350 },
     fast: { name: '⏩ Fast', ai: 160, dusk: 1600 },
@@ -48,7 +54,7 @@
   function loadSave() {
     try {
       const g = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
-      return g && g.state && g.state.v === E.SAVE_V ? g : null;
+      return g && g.state && g.state.v >= 2 && g.state.v <= E.SAVE_V ? g : null;
     } catch (e) {
       return null;
     }
@@ -171,7 +177,7 @@
           <div class="field ai-only offline-only">
             <span class="label">Difficulty</span>
             <div class="seg" id="level">
-              ${['easy', 'normal', 'hard'].map((l) => `<button data-v="${l}" class="${(pr.level || 'normal') === l ? 'on' : ''}">${l[0].toUpperCase() + l.slice(1)}</button>`).join('')}
+              ${Object.keys(LEVEL_NAME).map((l) => `<button data-v="${l}" class="${(pr.level || 'normal') === l ? 'on' : ''}" title="${esc(LEVEL_HINT[l])}">${LEVEL_NAME[l]}</button>`).join('')}
             </div>
           </div>
           <div class="field offline-only">
@@ -227,6 +233,7 @@
       savePrefs({ mode, level, n0, n1: $('#n1').value.trim() || 'Stonebrook' });
       forgetOnline();
       const state = E.newGame({ names: [n0, n1], ai: [false, mode === 'ai'], first });
+      if (mode === 'ai') E.aiHeadStart(state, 1, level);
       startFrom({ state, mode, level, view: mode === 'local' ? state.turn : 0, gid: newLocalId() });
     };
   }
@@ -280,7 +287,9 @@
         </section>
         <aside class="side">
           <div class="panel" id="res"></div>
+          <div class="panel event-panel" id="event" hidden></div>
           <div class="panel" id="actions"></div>
+          <div class="panel goals-panel" id="goals" hidden></div>
         </aside>
       </main>
       <section class="panel" id="row"></section>
@@ -313,7 +322,9 @@
     renderPickbar();
     renderLocs();
     renderRes();
+    renderEvent();
     renderActions();
+    renderGoals();
     renderRow();
     renderPeople();
     renderLog();
@@ -355,24 +366,48 @@
   function renderThreats() {
     const s = st();
     const p = me();
-    const list = E.upcoming(s, 3);
     const when = ['Tonight', 'Next round', 'In 2 rounds'];
+    const list = E.threatsFor(s, G.view, 3);
+    const hint = E.newRules(s) ? '<span class="muted th-hint">🔭 A Watchtower shows where the next creature attacks; an Archer in it shows the one after.</span>' : '';
     $('#threats').innerHTML =
-      `<div class="threats-head"><h3>Threats</h3><span class="muted">${plural(Math.max(0, E.ROUNDS - s.round), 'more creature')} after tonight</span></div>` +
+      `<div class="threats-head"><h3>Threats</h3><span class="muted">${plural(Math.max(0, E.ROUNDS - s.round), 'more creature')} after tonight</span>${hint}</div>` +
       list
         .map((t, j) => {
+          const sea = E.SEASON[E.seasonOf(s.round + j)].icon;
+          if (!t.k) {
+            return `<div class="threat unknown tier${t.tier}">
+              <div class="th-when">${when[j]} · ${sea}</div>
+              <div class="th-art"><span class="th-q">?</span></div>
+              <div class="th-body">
+                <div class="th-name">An unknown creature <span class="th-str" title="Strength">${strRange(t.tier)}</span></div>
+                <div class="th-kind">${t.kind === 'fly' ? '🪽 Flies over walls' : '⬆ Comes on foot, side unknown'}</div>
+                <div class="th-out"><span class="muted">Year ${t.tier} creature. Put an Archer in a Watchtower to see it sooner.</span></div>
+              </div>
+            </div>`;
+          }
           const B = E.BEAST[t.k];
           const bt = E.beastText(t.k);
-          const d = E.defense(p, t.k, t.side, j > 0);
-          const ok = d >= B.str;
-          const kind = B.kind === 'fly' ? '🪽 Flies over walls' : `⬆ Hits the ${sideName(t.side)} side`;
+          const hidden = t.side === -1;
+          let defTxt;
+          if (hidden) {
+            const ds = [0, 1, 2, 3, 4, 5].map((sd) => E.defense(p, t.k, sd, j > 0));
+            const lo = Math.min(...ds);
+            const hi = Math.max(...ds);
+            const ok = lo >= B.str;
+            defTxt = `<div class="th-def ${ok ? 'ok' : hi >= B.str ? 'maybe' : 'bad'}">${esc(p.name)}: 🛡️${lo === hi ? lo : `${lo}–${hi}`} ${ok ? '✓ holds on every side' : hi >= B.str ? '≈ depends on the side' : `✗ short by ${B.str - hi}+`}</div>`;
+          } else {
+            const d = E.defense(p, t.k, t.side, j > 0);
+            const ok = d >= B.str;
+            defTxt = `<div class="th-def ${ok ? 'ok' : 'bad'}">${esc(p.name)}: 🛡️${d} ${ok ? '✓ holds' : `✗ short by ${B.str - d}`}</div>`;
+          }
+          const kind = B.kind === 'fly' ? '🪽 Flies over walls' : hidden ? '⬆ Side unknown — 🔭 a Watchtower shows it' : `⬆ Hits the ${sideName(t.side)} side`;
           return `<div class="threat${j === 0 ? ' tonight' : ''} tier${B.tier}" data-beast="${t.k}">
-            <div class="th-when">${when[j]} · ${E.SEASON[E.seasonOf(s.round + j)].icon}</div>
+            <div class="th-when">${when[j]} · ${sea}</div>
             <div class="th-art"><img src="${IMG(t.k)}" alt=""></div>
             <div class="th-body">
               <div class="th-name">${esc(B.name)} <span class="th-str" title="Strength">⚔️${B.str}</span></div>
               <div class="th-kind">${kind}${B.undead ? ' · 💀 Undead' : ''}</div>
-              <div class="th-def ${ok ? 'ok' : 'bad'}">${esc(p.name)}: 🛡️${d} ${ok ? '✓ holds' : `✗ short by ${B.str - d}`}</div>
+              ${defTxt}
               <div class="th-out"><span class="win">Win: ${bt.win}</span><span class="lose">If not: ${bt.lose}</span></div>
             </div>
           </div>`;
@@ -465,6 +500,10 @@
         });
       }
       if (can) h += `<polygon class="can-ring" points="${hexPoints(x, y, S - 4)}"/><image class="ghost-img" href="${IMG(pick.b)}" x="${x - S * 0.6}" y="${y - S * 0.6}" width="${S * 1.2}" height="${S * 1.2}"/>`;
+      if (can && E.RANGE[pick.b] && p.rules >= 3) {
+        const cov = [0, 1, 2, 3, 4, 5].filter((sd) => E.sideDepth(i, sd) <= E.RANGE[pick.b]).map((sd) => E.SIDES[sd].k);
+        h += `<text class="cover-tag" x="${x}" y="${y + S * 0.78}">🛡️${cov.join('·')}</text>`;
+      }
       h += '</g>';
       if (b) h += buildingSvg(p, b, x, y);
     });
@@ -489,7 +528,7 @@
     // tonight's creature
     if (thr && s.phase !== 'over') {
       const B = E.BEAST[thr.k];
-      if (B.kind === 'fly') {
+      if (B.kind === 'fly' && thr.side == null) {
         h += `<g class="foe fly" transform="translate(${(RAD * 0.8).toFixed(1)},${(-RAD * 0.84).toFixed(1)})"><g class="foe-bob">${foeToken(thr.k, B.str)}</g></g>`;
       } else {
         const ang = E.SIDES[thr.side].ang;
@@ -570,7 +609,7 @@
     }
     bar.className = 'pickbar on';
     const p = me();
-    const msg = pk.t === 'build' ? `Pick a glowing spot for your <b>${E.BUILD[pk.b].name}</b> (${cost(E.buildCost(p, pk.b), p)})` : 'Pick a side to wall: a <b>Palisade</b> (🛡️2) or upgrade one to <b>Stone</b> (🛡️4)';
+    const msg = pk.t === 'build' ? `Pick a glowing spot for your <b>${E.BUILD[pk.b].name}</b> (${cost(E.buildCost(p, pk.b), p)})${p.rules >= 3 ? ' — it must touch your village' : ''}` : 'Pick a side to wall: a <b>Palisade</b> (🛡️2) or upgrade one to <b>Stone</b> (🛡️4)';
     bar.innerHTML = `<span>${msg}</span><button class="btn ghost sm" data-act="cancel-pick">Cancel</button>`;
   }
 
@@ -589,7 +628,13 @@
     const d = thr ? E.defense(p, thr.k, thr.side) : 0;
     const foodAfter = p.res.food + pr.food - pop;
     const wneed = E.woodNeed(p, season());
-    const woodAfter = p.res.wood + pr.wood - wneed;
+    const v3 = E.newRules(s);
+    const mend = v3 && season() === 'winter' ? p.walls.filter((w) => w === 1).length : 0;
+    const woodAfter = p.res.wood + pr.wood - wneed - mend;
+    const toPay = v3 ? E.roundsToWages(s) : -1;
+    const wages = E.wagesDue(p);
+    const goldAt = p.res.gold + pr.gold;
+    const loud = v3 ? p.bld.filter((b) => E.noisy(p, b)).length : 0;
     const roomWhy = room > 0 ? `<span class="good">room for ${room} more</span>` : beds <= water ? '<span class="warn">full — build a House</span>' : '<span class="warn">full — dig a Well</span>';
     $('#res').innerHTML = `
       <div class="res-head"><h3 style="--pc:${PCOLOR[G.view]}"><i></i>${esc(p.name)}</h3><span class="score-pill hidden-score" title="Scores stay secret until the final reveal">⭐ ?? points</span></div>
@@ -598,11 +643,60 @@
         ${p.arms || pr.forge ? chip('⚒️', `${p.arms}/${E.ARMS_MAX}`, pr.forge && p.arms < E.ARMS_MAX && (p.res.iron + pr.iron) > 0 ? 1 : 0, 'arms: each adds 🛡️1') : ''}
       </div>
       <ul class="vstats">
-        <li><span>👥</span>${plural(pop, 'villager')} · 🛏️${beds} beds · 💧${water} water · ${roomWhy}</li>
+        <li><span>👥</span>${plural(pop, 'villager')} · 🛏️${beds} beds · 💧${water} water · ${roomWhy}${loud ? ` <small class="warn" title="Houses and Inns next to a Smithy, Barracks or Market sleep 1 fewer">🔊 ${plural(loud, 'noisy home')}</small>` : ''}</li>
         <li class="${foodAfter < 0 ? 'bad' : ''}"><span>🍞</span>Supper: make ${pr.food}, eat ${pop} → ${foodAfter < 0 ? `<b>short ${-foodAfter} — ${plural(-foodAfter, 'villager')} will leave!</b>` : `${foodAfter} left`}</li>
-        ${wneed ? `<li class="${woodAfter < 0 ? 'bad' : ''}"><span>❄️</span>Firewood: burn ${wneed} 🪵 → ${woodAfter < 0 ? `<b>short ${-woodAfter} — villagers will freeze!</b>` : `${woodAfter} left`}</li>` : ''}
+        ${wneed || mend ? `<li class="${woodAfter < 0 ? 'bad' : ''}"><span>❄️</span>${wneed ? `Firewood: burn ${wneed} 🪵` : ''}${wneed && mend ? ' · ' : ''}${mend ? `mend ${plural(mend, 'palisade')} (🪵1 each)` : ''} → ${woodAfter < 0 ? `<b>short ${-woodAfter} — ${wneed > p.res.wood + pr.wood ? 'villagers will freeze!' : 'a palisade will fall!'}</b>` : `${woodAfter} left`}</li>` : ''}
+        ${toPay > 0 && toPay <= 4 && wages ? `<li class="${toPay === 1 && goldAt < wages ? 'bad' : ''}"><span>💰</span>Wages ${toPay === 1 ? 'tonight, as Spring begins' : `in ${plural(toPay, 'round')}`}: 🪙${wages} for ${plural(wages, 'working villager')} ${goldAt >= wages ? '<small>(you’ll have enough)</small>' : `<b>— ${toPay === 1 ? `short ${wages - goldAt}, unpaid villagers will leave!` : `you’re ${wages - goldAt} short so far`}</b>`}</li>` : ''}
         ${B ? `<li class="${d >= B.str ? 'good-li' : 'bad'}"><span>🛡️</span>Tonight vs ${esc(B.name)} ⚔️${B.str}: 🛡️${d} ${d >= B.str ? '✓ we hold' : `✗ short by ${B.str - d}`}${p.muster ? ` <small>(incl. +${p.muster} for tonight)</small>` : ''}</li>` : ''}
       </ul>`;
+  }
+
+  function renderEvent() {
+    const box = $('#event');
+    const s = st();
+    const k = s.phase === 'act' ? E.eventNow(s) : null;
+    if (!k) {
+      box.hidden = true;
+      return;
+    }
+    const ev = E.EVENTS[k];
+    const p = me();
+    const pi = G.view;
+    const chose = p.flags && p.flags.ev;
+    const mine = myTurnHere() && chose == null;
+    const opts = ev.opts
+      .map((o, i) => {
+        const why = E.eventBlock(s, p, i);
+        const pickd = chose === i;
+        if (!mine) return `<div class="ev-opt${pickd ? ' picked' : ''}"><b>${esc(o.label)}</b><small>${o.text}</small></div>`;
+        return `<button class="ev-opt" data-a='${JSON.stringify({ t: 'event', o: i })}' ${why ? `disabled title="${esc(why)}"` : ''}><b>${esc(o.label)}</b><small>${o.text}${why ? ` <em>(${esc(why)})</em>` : ''}</small></button>`;
+      })
+      .join('');
+    const other = s.players[1 - pi];
+    const otherTxt = other.flags && other.flags.ev != null ? `${esc(other.name)} chose “${esc(ev.opts[other.flags.ev].label)}”.` : '';
+    box.hidden = false;
+    box.className = `panel event-panel${mine ? ' pending' : ''}`;
+    box.innerHTML = `<div class="ev-head"><span class="ev-icon">${ev.icon}</span><div><small>${E.SEASON[season()].name} event</small><h3>${esc(ev.name)}</h3></div></div>
+      <p class="ev-text">${esc(ev.text)} ${mine ? '<b>Choose one before you end the round.</b>' : chose != null ? `You chose “${esc(ev.opts[chose].label)}”.` : ''}</p>
+      <div class="ev-opts">${opts}</div>${otherTxt ? `<p class="muted small">${otherTxt}</p>` : ''}`;
+  }
+
+  function renderGoals() {
+    const box = $('#goals');
+    const s = st();
+    if (!E.newRules(s) || !s.goals || !s.goals.length) {
+      box.hidden = true;
+      return;
+    }
+    box.hidden = false;
+    box.innerHTML = `<h3>🎯 Goals <span class="muted">⭐${E.GOAL_PTS} to the village with the most at the end (⭐${E.GOAL_PTS / 2} each on a tie)</span></h3><ul class="goal-list">${s.goals
+      .map((g) => {
+        const G2 = E.GOALS[g];
+        const v = s.players.map((p) => E.goalValue(s, p, g));
+        const lead = v[0] === v[1] ? -1 : v[0] > v[1] ? 0 : 1;
+        return `<li><span class="gl-ic">${G2.icon}</span><div><b>${esc(G2.name)}</b><small>${esc(G2.text)}</small></div><span class="gl-vals">${v.map((n, i) => `<i class="${lead === i ? 'lead' : ''}" style="--pc:${PCOLOR[i]}" title="${esc(s.players[i].name)}">${n}</i>`).join('')}</span></li>`;
+      })
+      .join('')}</ul>`;
   }
 
   function renderActions() {
@@ -988,6 +1082,8 @@
           <h2>${b.b === 'keep' && p.castle ? 'Castle' : B.name}</h2>
           <p>${B.text}${b.b === 'keep' && p.castle ? ' ' + E.BUILD.castle.text : ''}</p>
           <p><b>This round:</b> ${prodTxt}</p>
+          ${E.RANGE[b.b] && p.rules >= 3 ? `<p><b>Defends:</b> ${[0, 1, 2, 3, 4, 5].filter((sd) => E.sideDepth(b.cell, sd) <= E.RANGE[b.b]).map((sd) => E.SIDES[sd].name).join(', ')} <small class="muted">(sides within ${E.RANGE[b.b]} rows)</small></p>` : ''}
+          ${E.noisy(p, b) ? '<p class="warn">🔊 Next to a noisy building, so it sleeps 1 fewer.</p>' : ''}
           ${slots ? `<p><b>Workers (${occ.length}/${slots}):</b> ${occ.map((v) => `<button class="pchip sm" data-move="${v.id}" ${own ? '' : 'disabled'}><img src="${IMG(v.k)}" alt=""><span><b>${E.VIL[v.k].name}</b><small>${E.canWork(v.k, b.b) === 'spec' ? 'own trade ★' : 'labor'}</small></span></button>`).join(' ') || '<span class="muted">nobody — it earns no points until someone works here</span>'}</p>` : ''}
           ${movers.length ? `<p><b>Move someone here (free):</b></p><div class="pchips">${movers.map((v) => `<button class="pchip sm" data-movehere="${v.id}"><img src="${IMG(v.k)}" alt=""><span><b>${E.VIL[v.k].name}</b><small>${whereOf(p, v)}</small></span></button>`).join('')}</div>` : ''}
         </div>
@@ -1165,6 +1261,8 @@
             ${out}
           </div>
           <div class="dstep s3"><span class="dlabel">Supper</span>ate ${r.ate}🍞${r.burned ? ` · burned ${r.burned}🪵` : ''}${leftBits.length ? `<p class="bad">${leftBits.join('<br>')}</p>` : ' · <span class="good">everyone’s fed</span>'}</div>
+          ${r.frost && (r.frost.fixed || r.frost.fell.length) ? `<div class="dstep s4"><span class="dlabel">Frost</span>${r.frost.fixed ? `mended ${plural(r.frost.fixed, 'palisade')} (−${r.frost.fixed}🪵)` : ''}${r.frost.fell.length ? `<p class="bad">${r.frost.fell.map((i) => `the ${sideName(i)}`).join(', ')} palisade fell — no wood to mend it</p>` : ''}</div>` : ''}
+          ${r.wages ? `<div class="dstep s5"><span class="dlabel">Wages</span>paid 🪙${r.wages.paid}${r.wages.left.length ? `<p class="bad">${names(r.wages.left)} left unpaid (−${r.wages.left.length}⭐)</p>` : ' · <span class="good">everyone paid</span>'}</div>` : ''}
         </div>`;
       })
       .join('');
@@ -1175,7 +1273,7 @@
         <h2>${sea.icon} Dusk — ${sea.name}, year ${E.yearOf(rep.round)}</h2>
         <div class="dusk-foe ${B.kind === 'fly' ? 'swoop' : 'charge'}">
           <img src="${IMG(rep.threat.k)}" alt="">
-          <div><b>${B.name}</b> attacks${B.kind === 'fly' ? ' from the sky' : ` from the ${sideName(rep.threat.side)}`}! <span class="muted">⚔️${B.str} · win ${bt.win}</span></div>
+          <div><b>${B.name}</b> attacks${B.kind === 'fly' ? ` from the sky${rep.threat.side != null ? `, out of the ${sideName(rep.threat.side)}` : ''}` : ` from the ${sideName(rep.threat.side)}`}! <span class="muted">⚔️${B.str} · win ${bt.win}</span></div>
         </div>
         <div class="dcols">${cols}</div>
         <p class="crossroads muted">🛤️ ${crossroads}</p>
@@ -1231,6 +1329,7 @@
       ['🧱 Stone wall sections', 'walls'],
       ['🏰 Fully walled', 'fortified'],
       ['🪙 Gold (1 per 5)', 'gold'],
+      ['🎯 Goals', 'goals'],
     ].filter(([, k]) => k === 'renown' || sc[0][k] || sc[1][k]);
     let head;
     if (G.mode === 'ai' || G.mode === 'local') recordGame();
@@ -1403,6 +1502,7 @@
     ['🧱 Stone wall sections', 'walls'],
     ['🏰 Fully walled', 'fortified'],
     ['🪙 Gold', 'gold'],
+    ['🎯 Goals', 'goals'],
   ];
 
   async function showHistory() {
@@ -1465,7 +1565,7 @@
       const when = new Date(h.at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
       const what = [h.kind === 'ai' ? `Computer${h.level ? ' · ' + LEVEL_NAME[h.level] : ''}` : h.kind === 'local' ? 'Two players, one device' : 'Online', h.reason === 'resign' ? 'ended by resignation' : h.reason === 'timeout' ? 'ended on time' : '', when].filter(Boolean).join(' · ');
       const table = h.cats
-        ? `<div class="hg-table">${SCORE_ROWS.map(([label, k]) => `<div><span>${h.cats[a][k]}</span><small>${label}</small><span>${h.cats[b][k]}</span></div>`).join('')}</div>`
+        ? `<div class="hg-table">${SCORE_ROWS.map(([label, k]) => `<div><span>${h.cats[a][k] || 0}</span><small>${label}</small><span>${h.cats[b][k] || 0}</span></div>`).join('')}</div>`
         : '';
       return `<details class="hg"><summary><span class="hg-icon">${icon[h.kind] || '🏰'}</span><span class="hg-main"><b>${esc(h.names[a])} <em>${total(a)}</em> – <em>${total(b)}</em> ${esc(h.names[b])}</b><small>${esc(what)}</small></span>${res}</summary>${table}</details>`;
     };
@@ -1528,6 +1628,8 @@
     ui.onClose = null;
     closeModal();
     const state = E.newGame({ names: [`Red · ${LEVEL_NAME[sim.l0]}`, `Blue · ${LEVEL_NAME[sim.l1]}`], ai: [true, true], first: Math.random() < 0.5 ? 0 : 1 });
+    E.aiHeadStart(state, 0, sim.l0);
+    E.aiHeadStart(state, 1, sim.l1);
     startFrom({ state, mode: 'sim', level: sim.l0, levels: [sim.l0, sim.l1], speed: sim.speed, view: 0 });
   }
 
@@ -1932,6 +2034,7 @@
     ['places', 'Workers & places'],
     ['free', 'Free actions'],
     ['night', 'Night & supper'],
+    ['goals', 'Goals & events'],
     ['buildings', 'Buildings'],
     ['villagers', 'Villagers'],
     ['creatures', 'Creatures'],
@@ -1957,18 +2060,24 @@
         <tr><td>🌲 Forest</td><td>Lumber camps only</td></tr>
         <tr><td>⛰️ Hills</td><td>Quarries only</td></tr>
         <tr><td>🏔️ Mountain</td><td>Mines only</td></tr></table>
+      <h4>Where you build</h4>
+      <ul>
+        <li>Your village grows <b>outwards from the Keep</b>: every new building must sit next to one you already have. To reach a far-off forest, hill or mountain, build your way towards it.</li>
+        <li><b>Distance matters.</b> Watchtowers and the Wizard’s Tower only defend the sides close to them, and when a creature breaks through it burns the building — and carries off the villagers — <b>nearest the side it attacked</b>. Keep your best buildings away from your weakest walls.</li>
+        <li><b>Neighbours matter.</b> A Farm next to a Well makes more food, a Market next to an Inn makes more gold, a House next to a Chapel scores ⭐1 — but a House or Inn next to a noisy <b>Smithy, Barracks or Market</b> sleeps 1 fewer.</li>
+      </ul>
       <h4>Resources</h4>
       <table class="rules-table"><tr><th>Resource</th><th>Used for</th></tr>
         <tr><td>🍞 Food</td><td>Every villager eats 🍞1 every night.</td></tr>
         <tr><td>🪵 Wood</td><td>Buildings and Palisades. In Winter it is also firewood.</td></tr>
         <tr><td>🪨 Stone</td><td>Buildings, Wells and Stone walls.</td></tr>
         <tr><td>🔩 Iron</td><td>Mines, Smithies, wonders, Knights, and the Blacksmith’s arms.</td></tr>
-        <tr><td>🪙 Gold</td><td>Recruiting travellers and a few buildings. Left-over gold scores ⭐1 per 🪙5.</td></tr></table>
+        <tr><td>🪙 Gold</td><td>Recruiting travellers, a few buildings and <b>wages</b>: as Spring begins in years 2 and 3, every villager with a job is paid 🪙1. Left-over gold scores ⭐1 per 🪙5.</td></tr></table>
       <p>There is no limit on how much you can store. You can never pay with resources you don’t have.</p>
       <h4>Room for villagers</h4>
       <ul>
         <li>Every villager needs a <b>bed</b> 🛏️ and <b>water</b> 💧. Your room is the smaller of your beds and your water, minus the villagers you already have. With no room you can’t take anyone in.</li>
-        <li>Beds: Keep 3, House 3, Inn 2, Barracks 1, Castle +3. Water: Keep 3, Well 4.</li>
+        <li>Beds: Keep 3, House 3, Inn 2, Barracks 1, Castle +3 — a House or Inn next to a Smithy, Barracks or Market sleeps 1 fewer. Water: Keep 3, Well 4.</li>
         <li>Villagers who aren’t working a building are <b>idle</b>: they make nothing but still eat.</li>
       </ul>
       <h4>How you start</h4>
@@ -1980,14 +2089,16 @@
       <h4>Where workers go</h4>
       <p>Five main places are drawn for each game, and each takes only one worker per round. Two weaker <b>always-open</b> places — the Village commons and Odd jobs — take any number of workers.</p>
       <h4>Scores are secret</h4>
-      <p>You can always look at both villages, the places, the Crossroads and the creatures coming, but nobody’s ⭐ total is shown during the game. It is revealed, category by category, after the last night.</p>`;
+      <p>You can always look at both villages, the places, the Crossroads, the goals and the creatures coming, but nobody’s ⭐ total is shown during the game. It is revealed, category by category, after the last night.</p>
+      <h4>Playing the computer</h4>
+      <p>Easy makes plenty of mistakes and Normal plays a fair game. Hard plans further ahead, blocks the places you need and starts with 🍞1 🪵3 🪨2 🪙3 extra. Brutal plays its best and starts with 🍞3 🪵5 🪨4 🔩1 🪙5 extra.</p>`;
     if (tab === 'round')
       return `
       <h4>1. Morning</h4>
       <p>Each village gets its workers: <b>${E.BASE_WORKERS}</b>, plus 1 if a Steward works the Keep. Every place is empty again.</p>
       <h4>2. Day — take turns</h4>
       <ol class="steps">
-        <li>On your turn, do as many <b>free actions</b> as you like and can pay for, in any order: build, wall, recruit, trade and move villagers.</li>
+        <li>On your turn, do as many <b>free actions</b> as you like and can pay for, in any order: build, wall, recruit, trade and move villagers. From round 2 there is also a <b>season event</b> to answer (see Goals &amp; events) — you must choose before you end the round.</li>
         <li>Then either <b>send one worker</b> to an empty place (or one of the always-open places) — you get its reward straight away and your turn ends — or press <b>End round</b>.</li>
         <li>If that was your <b>last</b> worker, your turn doesn’t end: finish any free actions (you can use what the place just gave you) and then press End round.</li>
         <li>Once you end the round you can’t do anything more until tomorrow. Any workers you didn’t place are wasted. Your rival keeps taking turns until they end too.</li>
@@ -2038,7 +2149,7 @@
       <p class="lead">Free actions don’t need a worker. On your turn you can do them <b>as often as you like</b> — before or after placing a worker — as long as you can pay.</p>
       <table class="rules-table">
         <tr><th>Action</th><th>Exactly what happens</th></tr>
-        <tr><td>🏗️ Build</td><td>Pay the cost and put the building on a free hex of the right land. Build as many as you can afford, even several of the same kind. Wonders also need enough villagers and only one village can build each (see Buildings).</td></tr>
+        <tr><td>🏗️ Build</td><td>Pay the cost and put the building on a free hex of the right land <b>next to one of your buildings</b>. Build as many as you can afford, even several of the same kind. Wonders also need enough villagers and only one village can build each (see Buildings).</td></tr>
         <tr><td>🧱 Wall</td><td>Each of your 6 sides can have a wall. A bare side becomes a <b>Palisade</b> (🪵2, 🛡️2); a Palisade becomes <b>Stone</b> (🪨3, 🛡️4 in total). A wall only defends against creatures on foot attacking <i>that side</i>.</td></tr>
         <tr><td>🧑‍🌾 Recruit</td><td>Take a traveller from the Crossroads and pay their 🪙 price (Knights also cost 🔩1). You need room: a free bed and free water. A Peasant for 🪙1 is always available.</td></tr>
         <tr><td>⚖️ Trade</td><td>Give 2 of any one resource for 1 of any other, as many times as you want. With a working Merchant, or after using the Trading post this round, it’s 1 for 1.</td></tr>
@@ -2049,7 +2160,7 @@
       <ul>
         <li>Five travellers wait in a line. The <b>first</b> costs 🪙2 less and the <b>second</b> 🪙1 less, but never less than 🪙1 — then Tavern and Guild hall discounts come off.</li>
         <li>When you take someone, everyone behind them moves up a spot. The line refills only at night.</li>
-        <li>Each night the traveller at the front of the line leaves for good.</li>
+        <li>Each night the traveller at the front of the line moves on — back to the bottom of the deck, so they may turn up again later.</li>
       </ul>
       <h4>Jobs</h4>
       <ul>
@@ -2069,14 +2180,17 @@
         <li><b>Attack.</b> Tonight’s creature attacks both villages. If your 🛡️ defense is <b>at least</b> its ⚔️ strength you drive it off: gain its ⭐ trophy and any 🪙 loot. Otherwise its damage happens.</li>
         <li><b>Supper.</b> Each villager eats 🍞1. For each 🍞 you are short, one villager leaves and you lose ⭐1.</li>
         <li><b>Firewood (Winter only).</b> Burn 🪵1 for every 3 villagers, rounded up (4 villagers burn 🪵2). For each 🪵 you are short, one villager leaves and you lose ⭐1.</li>
-        <li><b>Crossroads.</b> The traveller at the front leaves; new ones arrive until there are 5 again (while the deck lasts).</li>
+        <li><b>Frost (Winter only).</b> Each Palisade needs 🪵1 of repairs, paid after firewood. With no wood left, it falls. Stone walls don’t need mending.</li>
+        <li><b>Wages (the night before Spring in years 2 and 3).</b> Every villager with a job is paid 🪙1, the most valuable first. Anyone you can’t pay leaves, and you lose ⭐1 for each.</li>
+        <li><b>Crossroads.</b> The traveller at the front moves on; new ones arrive until there are 5 again.</li>
       </ol>
       <h4>Your defense tonight</h4>
       <ul>
-        <li>Keep 🛡️1, plus 🛡️3 with the Castle. Each Watchtower and the Wizard’s Tower 🛡️1, even with nobody inside.</li>
+        <li>Keep 🛡️1, plus 🛡️3 with the Castle.</li>
+        <li>Each Watchtower 🛡️1 and the Wizard’s Tower 🛡️1, even with nobody inside — but only against attacks from a side within <b>2 rows</b> (Watchtower) or <b>3 rows</b> (Wizard’s Tower) of the tower. A hex on the edge is 0 rows from that side; the Keep is 3 rows from every side. When you place a tower, the map shows which sides it would cover.</li>
         <li>Each set of arms 🛡️1.</li>
-        <li>Working Guards 🛡️2, Knights 🛡️4, Archers 🛡️2 (+3 against flyers), the Wizard 🛡️3 (+4 against flyers and the undead), Priests +4 against the undead only.</li>
-        <li>The wall on the side being attacked: Palisade 🛡️2, Stone 🛡️4. Flyers ignore walls.</li>
+        <li>Working Guards 🛡️2 and Knights 🛡️4 on any side. Archers 🛡️2 (+3 against flyers) and the Wizard 🛡️3 (+4 against flyers and the undead) only on the sides their tower covers. Priests +4 against the undead only.</li>
+        <li>The wall on the side being attacked: Palisade 🛡️2, Stone 🛡️4. Flyers ignore walls, but they still come from one side, so towers must be in range.</li>
         <li>Anything a place gave you for tonight (Militia yard, Watch post).</li>
       </ul>
       <h4>When a creature breaks through</h4>
@@ -2085,17 +2199,30 @@
         <tr><td>Lose resources</td><td>You lose up to the amount shown; you can’t go below 0.</td></tr>
         <tr><td>Wall drops a level</td><td>Stone becomes a Palisade and a Palisade becomes bare, on the side attacked.</td></tr>
         <tr><td>Wall smashed</td><td>The wall on that side is gone completely.</td></tr>
-        <tr><td>Villager carried off</td><td>An idle villager goes first; otherwise the least valuable one. No ⭐ lost unless the creature says so.</td></tr>
+        <tr><td>Villager carried off</td><td>Whoever works nearest the side attacked (idle villagers count as being at the Keep); on a tie the least valuable. No ⭐ lost unless the creature says so.</td></tr>
         <tr><td>Turned to stone</td><td>Your most valuable villager (price + points) is lost.</td></tr>
-        <tr><td>Building burns</td><td>Your most valuable building (not the Keep or a wonder) is destroyed. Its workers move to another job or go idle.</td></tr>
+        <tr><td>Building burns</td><td>The building nearest the side attacked (not the Keep or a wonder) is destroyed — the most valuable one on a tie. Its workers move to another job or go idle.</td></tr>
         <tr><td>Lose ⭐</td><td>Comes off your renown and can take it below 0.</td></tr>
       </table>
       <p>Villagers lost to the attack don’t eat at supper, and firewood is counted after supper.</p>`;
+    if (tab === 'goals')
+      return `
+      <h4>🎯 Goals</h4>
+      <p>Every game draws <b>3 goals</b> from the ${E.GOAL_ORDER.length} below. They are shown beside the map all game, with each village’s current count. At the end the village with the most of each scores ⭐${E.GOAL_PTS}; a tie gives ⭐${E.GOAL_PTS / 2} each, and nobody scores if both have none.${G && st().goals ? ` This game’s goals are marked <b>✓</b>.` : ''}</p>
+      <table class="rules-table">${E.GOAL_ORDER.map((g) => `<tr><td>${G && (st().goals || []).includes(g) ? '✓ ' : ''}${E.GOALS[g].icon} <b>${E.GOALS[g].name}</b></td><td>${E.GOALS[g].text}</td></tr>`).join('')}</table>
+      <h4>📰 Season events</h4>
+      <p>From round 2, each round brings an <b>event</b> that both villages face. Each village picks one of its options on its own turn, and must do so before ending the round. Effects happen at once, or tonight if they say so. If you can’t pay for an option, you can’t pick it — there is always one you can. Events never repeat in a game, and some only happen in certain seasons.</p>
+      <div class="gallery">${Object.keys(E.EVENTS).map((k) => {
+        const ev = E.EVENTS[k];
+        return `<div class="gcard ev"><span class="ev-icon">${ev.icon}</span><div><b>${esc(ev.name)}</b>${ev.when ? `<div class="g-cost">${ev.when.map((w) => E.SEASON[w].name).join(' or ')} only</div>` : ''}<p class="muted">${esc(ev.text)}</p><ul>${ev.opts.map((o) => `<li><b>${esc(o.label)}:</b> ${o.text}</li>`).join('')}</ul></div></div>`;
+      }).join('')}</div>`;
     if (tab === 'buildings')
       return `<ul>
         <li>Buildings with a job only score their ⭐ while someone who can work there is in them. Houses, Wells and wonders always score.</li>
         <li><b>Wonders</b> (Castle, Wizard’s Tower, Cathedral): only <b>one</b> village can build each, and you need enough villagers when you build it. The Castle upgrades your Keep and doesn’t take a hex.</li>
-        <li>A Well next to a Farm gives that Farm +🍞1 whenever it produces. A Market next to an Inn makes +🪙1.</li>
+        <li>A Well next to a Farm gives that Farm +🍞1 whenever it produces. A Market next to an Inn makes +🪙1. Each House next to a Chapel scores ⭐1.</li>
+        <li>Smithies, Barracks and Markets are <b>noisy</b>: a House or Inn next to one sleeps 1 fewer.</li>
+        <li>Every new building must touch one you already have, so plan a path to the land you need.</li>
       </ul><div class="gallery">${E.BUILD_ORDER.concat(['keep'])
         .map((b) => {
           const B = E.BUILD[b];
@@ -2103,7 +2230,7 @@
         })
         .join('')}</div>`;
     if (tab === 'villagers')
-      return `<p>Prices are in 🪙 before discounts. The deck holds ${Object.values(E.DECK).reduce((a, b) => a + b, 0)} travellers (the number of each is shown); once a traveller leaves the Crossroads at night they are gone for good. Each villager scores the ⭐ shown at the end of the game as long as they still live with you.</p><div class="gallery">${E.VIL_ORDER.map((k) => {
+      return `<p>Prices are in 🪙 before discounts. The deck holds ${Object.values(E.DECK).reduce((a, b) => a + b, 0)} travellers (the number of each is shown); a traveller who leaves the Crossroads at night goes back to the bottom of the deck. Each villager scores the ⭐ shown at the end of the game as long as they still live with you.</p><div class="gallery">${E.VIL_ORDER.map((k) => {
         const V = E.VIL[k];
         return `<div class="gcard v"><img src="${IMG(k)}" alt=""><div><b>${V.name}</b><div class="g-cost">🪙${V.cost}${V.iron ? ` 🔩${V.iron}` : ''} · ⭐${V.pts}${E.DECK[k] ? ` · ×${E.DECK[k]} in deck` : ' · always available'}</div><p>${V.text}</p><small class="muted">Works at: ${V.at ? E.BUILD[V.at].name : 'any labor building'}</small></div></div>`;
       }).join('')}</div>`;
@@ -2111,7 +2238,8 @@
       return `<ul>
         <li>Round 1 is always the <b>Wolf pack</b>. Rounds 2–4 bring three of the other year-1 creatures, rounds 5–8 four of the five year-2 creatures, and rounds 9–12 four of the five year-3 creatures, in a random order.</li>
         <li>Strength rises each year: year 1 ${strRange(1)}, year 2 ${strRange(2)}, year 3 ${strRange(3)}.</li>
-        <li>The threat track shows the next 3 creatures. Creatures on foot attack <b>one side</b>, shown on the track and on the map, so you know which wall matters. Flyers come over the walls.</li>
+        <li>Every creature attacks from <b>one side</b>. Creatures on foot have to get past the wall there; flyers come over the walls, but towers only defend nearby sides against them too.</li>
+        <li>You don’t see everything coming. <b>Tonight’s</b> creature and its side are always shown. <b>Tomorrow’s</b> creature is shown, but its side only if you have a <b>Watchtower</b>. The one <b>after that</b> only shows whether it flies — unless an <b>Archer</b> works in one of your Watchtowers. A scholar’s reading (an event) shows everything for one round.</li>
         <li>The same creature attacks both villages, and each village fights it separately.</li>
       </ul>${[1, 2, 3]
         .map(
@@ -2136,12 +2264,15 @@
         <tr><td>🧱 Stone walls</td><td>⭐1 per side with a Stone wall.</td></tr>
         <tr><td>🏰 Fully walled</td><td>⭐3 if all 6 sides have a wall (Palisade or Stone).</td></tr>
         <tr><td>🪙 Gold</td><td>⭐1 per full 🪙5 left over (🪙9 = ⭐1).</td></tr>
+        <tr><td>🎯 Goals</td><td>Each of the game’s 3 goals gives ⭐${E.GOAL_PTS} to the village with the most, or ⭐${E.GOAL_PTS / 2} each on a tie (nobody scores if both have none).</td></tr>
       </table>
       <p>Most ⭐ wins. On a tie, the village with more villagers wins; if that’s tied too, it’s a draw.</p>
       <h4>Strategy tips</h4>
       <ul>
         <li>Food first: a Farm next to a Well with a Farmer makes 🍞4 in Spring and 🍞6 in Autumn. Save up before Winter, when Farms make nothing.</li>
-        <li>Check the threat track. A Palisade on the right side is cheap; flyers need Archers, Watchtowers, arms or a Wizard.</li>
+        <li>Check the threat track. A Palisade on the right side is cheap; flyers need Archers, Watchtowers, arms or a Wizard. Spread your towers so they cover different sides, and build one early to see where tomorrow’s creature comes from.</li>
+        <li>Keep gold for wages before each Spring, and wood for firewood and palisade repairs before each Winter.</li>
+        <li>Watch the goals: a small lead in the right place is worth ⭐${E.GOAL_PTS}.</li>
         <li>Going first? Take the place your rival needs most.</li>
         <li>Grab the first traveller at the Crossroads: they’re cheapest and leave tonight anyway.</li>
         <li>A Steward early gives you an extra worker every round for the rest of the game.</li>
