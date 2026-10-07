@@ -2,8 +2,10 @@
 (function (root) {
   'use strict';
 
+  const SAVE_V = 2;
   const ROUNDS = 12;
-  const BASE_ACTIONS = 3;
+  const BASE_WORKERS = 2;
+  const LOCS_PER_GAME = 5;
   const ROW_SIZE = 5;
   const ARMS_MAX = 6;
   const RES = ['food', 'wood', 'stone', 'iron', 'gold'];
@@ -81,30 +83,62 @@
     knight: { name: 'Knight', cost: 4, iron: 1, at: 'barracks', pts: 3, text: 'Barracks: 🛡️4 on every side.' },
     archer: { name: 'Archer', cost: 3, at: 'tower', pts: 2, text: 'Watchtower: 🛡️2 on every side, and 🛡️3 more against flyers.' },
     wizard: { name: 'Wizard', cost: 6, at: 'wizardtower', pts: 4, text: 'Wizard’s Tower: 🛡️3 on every side, 🛡️4 more against flyers and the undead, and ⭐1 every round.' },
-    steward: { name: 'Steward', cost: 5, at: 'keep', pts: 3, text: 'Keep: you take 1 extra action every round (from the next round).' },
+    steward: { name: 'Steward', cost: 5, at: 'keep', pts: 3, text: 'Keep: you get 1 extra worker every round (from the next round).' },
   };
   const VIL_ORDER = ['peasant', 'farmer', 'woodcutter', 'stonecutter', 'miner', 'chef', 'bard', 'baker', 'carpenter', 'blacksmith', 'merchant', 'priest', 'guard', 'knight', 'archer', 'wizard', 'steward'];
   const DECK = { farmer: 4, woodcutter: 3, stonecutter: 3, miner: 3, chef: 2, bard: 2, baker: 2, carpenter: 2, blacksmith: 2, merchant: 2, priest: 2, guard: 4, knight: 2, archer: 3, wizard: 1, steward: 2 };
 
   // fly: walls don't help. undead: Priests and Wizards add extra defense.
   const BEAST = {
-    wolves: { name: 'Wolf pack', tier: 1, str: 2, kind: 'ground', win: 1, fail: { res: { food: 3 } } },
-    goblins: { name: 'Goblin raiders', tier: 1, str: 3, kind: 'ground', win: 2, loot: 1, fail: { res: { gold: 3 } } },
-    spiders: { name: 'Giant spider', tier: 1, str: 3, kind: 'ground', win: 2, fail: { res: { wood: 3 } } },
-    harpies: { name: 'Harpy', tier: 1, str: 2, kind: 'fly', win: 2, fail: { res: { food: 2, gold: 1 } } },
-    imps: { name: 'Imps', tier: 1, str: 3, kind: 'fly', win: 2, fail: { res: { wood: 2, stone: 2 } } },
-    troll: { name: 'Troll', tier: 2, str: 6, kind: 'ground', win: 3, fail: { res: { food: 3 }, wall: 1 } },
-    griffin: { name: 'Griffin', tier: 2, str: 5, kind: 'fly', win: 3, fail: { leave: 1 } },
-    skeletons: { name: 'Skeleton host', tier: 2, str: 5, kind: 'ground', undead: true, win: 3, fail: { leave: 1, renown: 2 } },
-    ogre: { name: 'Ogre', tier: 2, str: 7, kind: 'ground', win: 4, loot: 2, fail: { res: { stone: 4, food: 2 } } },
-    wyvern: { name: 'Wyvern', tier: 2, str: 6, kind: 'fly', win: 4, fail: { res: { food: 4, wood: 2 } } },
-    dragon: { name: 'Dragon', tier: 3, str: 10, kind: 'fly', win: 6, loot: 4, fail: { burn: 1, res: { gold: 3 } } },
-    hydra: { name: 'Hydra', tier: 3, str: 9, kind: 'ground', win: 5, fail: { leave: 1, res: { food: 3 } } },
-    lich: { name: 'Lich king', tier: 3, str: 9, kind: 'ground', undead: true, win: 5, fail: { leave: 1, renown: 3 } },
-    giant: { name: 'Hill giant', tier: 3, str: 10, kind: 'ground', win: 5, fail: { wall: 2, res: { stone: 4 } } },
-    basilisk: { name: 'Basilisk', tier: 3, str: 9, kind: 'ground', win: 5, fail: { stone: 1 } },
+    wolves: { name: 'Wolf pack', tier: 1, str: 3, kind: 'ground', win: 1, fail: { res: { food: 3 } } },
+    goblins: { name: 'Goblin raiders', tier: 1, str: 4, kind: 'ground', win: 2, loot: 1, fail: { res: { gold: 3 } } },
+    spiders: { name: 'Giant spider', tier: 1, str: 4, kind: 'ground', win: 2, fail: { res: { wood: 3 } } },
+    harpies: { name: 'Harpy', tier: 1, str: 3, kind: 'fly', win: 2, fail: { res: { food: 2, gold: 1 } } },
+    imps: { name: 'Imps', tier: 1, str: 4, kind: 'fly', win: 2, fail: { res: { wood: 2, stone: 2 } } },
+    troll: { name: 'Troll', tier: 2, str: 8, kind: 'ground', win: 3, fail: { res: { food: 3 }, wall: 1 } },
+    griffin: { name: 'Griffin', tier: 2, str: 7, kind: 'fly', win: 3, fail: { leave: 1 } },
+    skeletons: { name: 'Skeleton host', tier: 2, str: 7, kind: 'ground', undead: true, win: 3, fail: { leave: 1, renown: 2 } },
+    ogre: { name: 'Ogre', tier: 2, str: 9, kind: 'ground', win: 4, loot: 2, fail: { res: { stone: 4, food: 2 } } },
+    wyvern: { name: 'Wyvern', tier: 2, str: 8, kind: 'fly', win: 4, fail: { res: { food: 4, wood: 2 } } },
+    dragon: { name: 'Dragon', tier: 3, str: 14, kind: 'fly', win: 6, loot: 4, fail: { burn: 1, res: { gold: 3 } } },
+    hydra: { name: 'Hydra', tier: 3, str: 13, kind: 'ground', win: 5, fail: { leave: 1, res: { food: 3 } } },
+    lich: { name: 'Lich king', tier: 3, str: 13, kind: 'ground', undead: true, win: 5, fail: { leave: 1, renown: 3 } },
+    giant: { name: 'Hill giant', tier: 3, str: 14, kind: 'ground', win: 5, fail: { wall: 2, res: { stone: 4 } } },
+    basilisk: { name: 'Basilisk', tier: 3, str: 13, kind: 'ground', win: 5, fail: { stone: 1 } },
   };
   const BEAST_ORDER = ['wolves', 'goblins', 'spiders', 'harpies', 'imps', 'troll', 'griffin', 'skeletons', 'ogre', 'wyvern', 'dragon', 'hydra', 'lich', 'giant', 'basilisk'];
+
+  // Locations: each game uses one from every group. Each holds one worker per round.
+  const LOC_GROUPS = [
+    { k: 'food', name: 'Food', icon: '🍞' },
+    { k: 'goods', name: 'Materials', icon: '🪵' },
+    { k: 'gold', name: 'Coin & trade', icon: '🪙' },
+    { k: 'folk', name: 'People & renown', icon: '👥' },
+    { k: 'guard', name: 'Defense', icon: '🛡️' },
+  ];
+  const LOC = {
+    mill: { name: 'Mill fields', group: 'food', img: 'farm', text: 'Take 🍞3, plus 🍞1 for each Farm you have (up to +3).' },
+    pier: { name: 'Fishing pier', group: 'food', img: 'well', text: 'Take 🍞5.' },
+    hunt: { name: 'Hunting grounds', group: 'food', img: 'archer', text: 'Take 🍞3 and 🪵2.' },
+    granary: { name: 'Granary', group: 'food', img: 'bakery', text: 'Take 🍞2. Tonight each of your worked Farms makes 🍞2 more — even in Winter.' },
+    woods: { name: 'Timber woods', group: 'goods', img: 'lumber', text: 'Take 🪵4.' },
+    pits: { name: 'Stone pits', group: 'goods', img: 'quarry', text: 'Take 🪨3.' },
+    yard: { name: 'Builders’ yard', group: 'goods', img: 'workshop', text: 'Take 🪵2 and 🪨2.' },
+    ruins: { name: 'Old ruins', group: 'goods', img: 'castle', text: 'Take 🪵1, 🪨1, 🔩1 and 🪙1.' },
+    square: { name: 'Market square', group: 'gold', img: 'market', text: 'Take 🪙2, plus 🪙1 for every 2 villagers you have.' },
+    post: { name: 'Trading post', group: 'gold', img: 'merchant', text: 'Take 🪙1. For the rest of this round all your trades are 1 for 1.' },
+    vein: { name: 'Silver vein', group: 'gold', img: 'mine', text: 'Take 🔩2 and 🪙2.' },
+    lender: { name: 'Moneylender', group: 'gold', img: 'steward', text: 'Take 🪙5, but lose ⭐1.' },
+    tavern: { name: 'Tavern', group: 'folk', img: 'inn', text: 'Take 🍞1. For the rest of this round your recruits cost 🪙2 less (never below 🪙0).' },
+    guild: { name: 'Guild hall', group: 'folk', img: 'house', text: 'Every traveller at the Crossroads moves on and 5 new ones arrive. Your recruits cost 🪙1 less for the rest of this round.' },
+    festival: { name: 'Festival green', group: 'folk', img: 'bard', text: 'Gain ⭐2, plus ⭐1 for each Inn you have.' },
+    crier: { name: 'Town crier', group: 'folk', img: 'peasant', text: 'A Peasant joins you for free if you have room for them (otherwise take 🪙2). Also take 🍞1.' },
+    militia: { name: 'Militia yard', group: 'guard', img: 'guard', text: 'Tonight you get 🛡️2 on every side, plus 🛡️1 for every 3 villagers.' },
+    masons: { name: 'Mason’s lodge', group: 'guard', img: 'wall', text: 'Raise the walls on 2 sides by one level for free — tonight’s side first, then your weakest. A bare side gets a Palisade, a Palisade becomes Stone.' },
+    watch: { name: 'Watch post', group: 'guard', img: 'tower', text: 'Tonight you get 🛡️3 on every side, or 🛡️5 if tonight’s creature flies.' },
+    armory: { name: 'Armory', group: 'guard', img: 'smithy', text: 'Forge 1 set of arms for free (🛡️1 on every side for the rest of the game, max 6) and take 🔩1.' },
+  };
+  const LOC_ORDER = Object.keys(LOC);
 
   // ---------------------------------------------------------------- helpers
   function rng(state) {
@@ -189,7 +223,7 @@
   // ---------------------------------------------------------------- setup
   function newGame(opts) {
     const state = {
-      v: 1,
+      v: SAVE_V,
       seed: (opts.seed != null ? opts.seed : Math.floor(Math.random() * 2 ** 31)) | 0,
       round: 1,
       phase: 'act',
@@ -203,8 +237,14 @@
       wonders: {},
       log: [],
       dusk: null,
+      locs: [],
+      spots: {},
     };
     state.terrain = makeMap(state);
+    state.locs = LOC_GROUPS.map((g) => {
+      const opts = LOC_ORDER.filter((k) => LOC[k].group === g.k);
+      return opts[Math.floor(rng(state) * opts.length)];
+    });
     const farmCell = [1, 2, 3, 4, 5, 6].find((i) => state.terrain[i] === 'meadow');
     for (let i = 0; i < 2; i++) {
       const p = {
@@ -218,7 +258,9 @@
         bld: [],
         vil: [],
         castle: false,
-        actions: 0,
+        workers: 0,
+        done: false,
+        flags: {},
         trophies: [],
         lost: 0,
       };
@@ -241,19 +283,22 @@
     return state;
   }
 
+  function workerCount(p) {
+    return BASE_WORKERS + (workers(p).some((w) => w.v.k === 'steward' && w.spec) ? 1 : 0);
+  }
   function startRound(state) {
     state.phase = 'act';
+    state.spots = {};
     state.players.forEach((p) => {
-      p.actions = BASE_ACTIONS + workers(p).filter((w) => w.v.k === 'steward' && w.spec).length;
+      p.workers = workerCount(p);
+      p.done = false;
+      p.flags = {};
       p.muster = 0;
     });
-    // Whoever is behind on points goes first; ties alternate.
-    if (state.round === 1) state.turn = state.first;
-    else {
-      const [a, b] = state.players.map((p) => score(state, p).total);
-      state.turn = a === b ? state.first : a < b ? 0 : 1;
-    }
-    state.lead = state.turn;
+    state.turn = state.first;
+  }
+  function freeLocs(state) {
+    return state.locs.filter((k) => state.spots[k] == null);
   }
 
   // ---------------------------------------------------------------- village queries
@@ -306,6 +351,9 @@
   function hasMerchant(p) {
     return workers(p).some((w) => w.v.k === 'merchant' && w.spec);
   }
+  function tradeRate(p) {
+    return hasMerchant(p) || (p.flags && p.flags.post) ? 1 : 2;
+  }
   function hasCarpenter(p) {
     return workers(p).some((w) => w.v.k === 'carpenter' && w.spec);
   }
@@ -347,8 +395,12 @@
     workers(p).forEach(({ v, b, spec }) => {
       switch (b.b) {
         case 'farm': {
-          if (season === 'winter') break;
-          let n = spec ? 3 : 2;
+          const granary = p.flags && p.flags.granary ? 2 : 0;
+          if (season === 'winter') {
+            add(b.id, 'food', granary);
+            break;
+          }
+          let n = (spec ? 3 : 2) + granary;
           if (season === 'summer') n += 1;
           if (season === 'autumn') n += 2;
           if (adjacent(p, b.cell, 'well')) n += 1;
@@ -399,10 +451,15 @@
   function pay(p, c) {
     RES.forEach((r) => (p.res[r] -= c[r] || 0));
   }
-  function rowPrice(state, i) {
+  // The first traveller in line costs 2 less and the second 1 less (never below 1); Tavern and Guild hall discounts come off after that.
+  function rowPrice(state, i, p) {
     const k = state.row[i];
     const disc = i === 0 ? 2 : i === 1 ? 1 : 0;
-    return { gold: Math.max(1, VIL[k].cost - disc), iron: VIL[k].iron || 0 };
+    const extra = (p && p.flags && p.flags.disc) || 0;
+    return { gold: Math.max(0, Math.max(1, VIL[k].cost - disc) - extra), iron: VIL[k].iron || 0 };
+  }
+  function peasantPrice(p) {
+    return { gold: Math.max(0, VIL.peasant.cost - ((p && p.flags && p.flags.disc) || 0)) };
   }
 
   function freeCells(state, p, b) {
@@ -470,7 +527,7 @@
       return null;
     }
     if (state.turn !== pi) return 'It isn’t your turn.';
-    if (p.actions <= 0) return 'No actions left.';
+    if (p.done) return 'You already ended your round.';
     switch (a.t) {
       case 'build': {
         const B = BUILD[a.b];
@@ -488,17 +545,19 @@
       }
       case 'recruit': {
         if (room(p) <= 0) return beds(p) <= water(p) ? 'You need more beds — build a House.' : 'You need more water — build a Well.';
-        const price = a.peasant ? { gold: VIL.peasant.cost } : state.row[a.i] ? rowPrice(state, a.i) : null;
+        const price = a.peasant ? peasantPrice(p) : state.row[a.i] ? rowPrice(state, a.i, p) : null;
         if (!price) return 'Nobody there.';
         return canPay(p, price) ? null : 'You can’t afford them.';
       }
-      case 'gather':
-        return ['food', 'wood', 'stone'].includes(a.r) ? null : 'Pick food, wood or stone.';
-      case 'tax':
+      case 'place': {
+        if (!state.locs.includes(a.loc)) return 'That place isn’t in this game.';
+        if (p.workers <= 0) return 'You have no workers left this round.';
+        if (state.spots[a.loc] != null) return `${state.players[state.spots[a.loc]].name}’s worker is already there.`;
         return null;
+      }
       case 'trade': {
-        if (!a.trades || !a.trades.length || a.trades.length > 3) return 'Make 1 to 3 trades.';
-        const rate = hasMerchant(p) ? 1 : 2;
+        if (!a.trades || !a.trades.length) return 'Make at least one trade.';
+        const rate = tradeRate(p);
         const r = Object.assign({}, p.res);
         for (const [give, get] of a.trades) {
           if (!RES.includes(give) || !RES.includes(get) || give === get) return 'Bad trade.';
@@ -508,9 +567,7 @@
         }
         return null;
       }
-      case 'muster':
-        return p.muster ? 'You already mustered this round.' : null;
-      case 'pass':
+      case 'end':
         return null;
       default:
         return 'Unknown action.';
@@ -520,11 +577,88 @@
   function musterAmount(p) {
     return 2 + Math.floor(p.vil.length / 3);
   }
-  function gatherAmount(r) {
-    return r === 'stone' ? 2 : 3;
+  function squareAmount(p) {
+    return 2 + Math.floor(p.vil.length / 2);
   }
-  function taxAmount(p) {
-    return 3 + Math.floor(p.vil.length / 2);
+  function gain(p, c) {
+    RES.forEach((r) => (p.res[r] += c[r] || 0));
+  }
+  // Sides the Mason's lodge raises: tonight's side first (for creatures on foot), then the weakest.
+  function masonSides(state, p) {
+    const t = state.threats[state.round - 1];
+    const order = [0, 1, 2, 3, 4, 5].filter((i) => p.walls[i] < 2).sort((a, b) => p.walls[a] - p.walls[b] || a - b);
+    if (t && t.side != null && p.walls[t.side] < 2) order.splice(order.indexOf(t.side), 1), order.unshift(t.side);
+    return order.slice(0, 2);
+  }
+  // What a location would give player p right now, as a short description.
+  function locGain(state, p, k) {
+    switch (k) {
+      case 'mill': return { food: 3 + Math.min(3, count(p, 'farm')) };
+      case 'pier': return { food: 5 };
+      case 'hunt': return { food: 3, wood: 2 };
+      case 'granary': return { food: 2 };
+      case 'woods': return { wood: 4 };
+      case 'pits': return { stone: 3 };
+      case 'yard': return { wood: 2, stone: 2 };
+      case 'ruins': return { wood: 1, stone: 1, iron: 1, gold: 1 };
+      case 'square': return { gold: squareAmount(p) };
+      case 'post': return { gold: 1 };
+      case 'vein': return { iron: 2, gold: 2 };
+      case 'lender': return { gold: 5 };
+      case 'tavern': return { food: 1 };
+      case 'crier': return room(p) > 0 ? { food: 1 } : { food: 1, gold: 2 };
+      case 'armory': return { iron: 1 };
+      default: return {};
+    }
+  }
+  function useLoc(state, pi, k) {
+    const p = state.players[pi];
+    const g = locGain(state, p, k);
+    gain(p, g);
+    const got = fmtRes(g);
+    const t = state.threats[state.round - 1];
+    switch (k) {
+      case 'granary': p.flags.granary = true; return `took ${got} and filled the Granary`;
+      case 'post': p.flags.post = true; return `took ${got} — trades are 1 for 1 this round`;
+      case 'lender': p.renown -= 1; return `borrowed ${got} (−⭐1)`;
+      case 'tavern': p.flags.disc = (p.flags.disc || 0) + 2; return `took ${got} — recruits cost 🪙2 less this round`;
+      case 'guild': {
+        state.deck.push(...state.row.splice(0));
+        while (state.row.length < ROW_SIZE && state.deck.length) state.row.push(state.deck.shift());
+        p.flags.disc = (p.flags.disc || 0) + 1;
+        return 'called new travellers to the Crossroads — recruits cost 🪙1 less this round';
+      }
+      case 'festival': {
+        const n = 2 + count(p, 'inn');
+        p.renown += n;
+        return `held a festival (+⭐${n})`;
+      }
+      case 'crier': {
+        if (room(p) > 0) {
+          const v = { id: state.nextId++, k: 'peasant' };
+          p.vil.push(v);
+          placeVillager(p, v);
+          return `took ${got} and a Peasant answered the crier`;
+        }
+        return `took ${got}`;
+      }
+      case 'militia': p.muster += musterAmount(p); return `mustered the militia (🛡️+${musterAmount(p)} tonight)`;
+      case 'watch': {
+        const n = t && BEAST[t.k].kind === 'fly' ? 5 : 3;
+        p.muster += n;
+        return `manned the watch post (🛡️+${n} tonight)`;
+      }
+      case 'masons': {
+        const sides = masonSides(state, p);
+        sides.forEach((i) => (p.walls[i] += 1));
+        return sides.length ? `raised the ${sides.map((i) => SIDES[i].name.toLowerCase()).join(' and ')} walls` : 'found nothing left to wall';
+      }
+      case 'armory': {
+        if (p.arms < ARMS_MAX) p.arms += 1;
+        return `forged arms (${p.arms}/${ARMS_MAX}) and took ${got}`;
+      }
+      default: return `took ${got}`;
+    }
   }
 
   // Apply a legal action. Returns a short description for the log.
@@ -563,9 +697,9 @@
         let k;
         if (a.peasant) {
           k = 'peasant';
-          p.res.gold -= VIL.peasant.cost;
+          pay(p, peasantPrice(p));
         } else {
-          const price = rowPrice(state, a.i);
+          const price = rowPrice(state, a.i, p);
           pay(p, price);
           k = state.row.splice(a.i, 1)[0];
         }
@@ -575,20 +709,14 @@
         msg = `took in a ${VIL[k].name}`;
         break;
       }
-      case 'gather': {
-        const n = gatherAmount(a.r);
-        p.res[a.r] += n;
-        msg = `gathered ${RES_ICON[a.r]}${n}`;
-        break;
-      }
-      case 'tax': {
-        const n = taxAmount(p);
-        p.res.gold += n;
-        msg = `collected 🪙${n} in taxes`;
+      case 'place': {
+        state.spots[a.loc] = pi;
+        p.workers -= 1;
+        msg = `sent a worker to the ${LOC[a.loc].name} and ${useLoc(state, pi, a.loc)}`;
         break;
       }
       case 'trade': {
-        const rate = hasMerchant(p) ? 1 : 2;
+        const rate = tradeRate(p);
         const parts = [];
         a.trades.forEach(([give, get]) => {
           p.res[give] -= rate;
@@ -598,28 +726,24 @@
         msg = `traded ${parts.join(', ')}`;
         break;
       }
-      case 'muster': {
-        p.muster = musterAmount(p);
-        msg = `mustered the militia (🛡️${p.muster} this round)`;
-        break;
-      }
-      case 'pass':
-        msg = 'passed';
-        p.actions = 1;
+      case 'end':
+        p.done = true;
+        msg = p.workers > 0 ? `ended the round (${p.workers} worker${p.workers > 1 ? 's' : ''} unused)` : 'ended the round';
+        p.workers = 0;
         break;
       default:
         break;
     }
-    p.actions -= 1;
     log(state, `${p.name} ${msg}.`, pi);
-    advanceTurn(state);
+    // Placing a worker ends your turn, unless it was your last one: then finish your free actions and end the round.
+    if (a.t === 'end' || (a.t === 'place' && p.workers > 0)) advanceTurn(state);
     return msg;
   }
 
   function advanceTurn(state) {
     const o = 1 - state.turn;
-    if (state.players[o].actions > 0) state.turn = o;
-    else if (state.players[state.turn].actions <= 0) state.phase = 'dusk';
+    if (!state.players[o].done) state.turn = o;
+    else if (state.players[state.turn].done) state.phase = 'dusk';
   }
 
   function log(state, text, who) {
@@ -887,7 +1011,8 @@
     return cells.sort((a, c) => score1(c) - score1(a))[0];
   }
 
-  function candidates(state, pi) {
+  // Free actions worth considering (moves are handled automatically when villagers arrive).
+  function freeCandidates(state, pi) {
     const p = state.players[pi];
     const out = [];
     BUILD_ORDER.forEach((b) => {
@@ -898,26 +1023,22 @@
     for (let s = 0; s < 6; s++) out.push({ t: 'wall', side: s });
     state.row.forEach((k, i) => out.push({ t: 'recruit', i }));
     out.push({ t: 'recruit', peasant: true });
-    ['food', 'wood', 'stone'].forEach((r) => out.push({ t: 'gather', r }));
-    out.push({ t: 'muster' });
-    out.push({ t: 'tax' });
     return out;
   }
 
-  // Trades that would make action a affordable (up to 3), or null.
+  // Trades that would make action a affordable, or null.
   function tradesFor(state, p, a) {
     let c;
     if (a.t === 'build') c = buildCost(p, a.b);
     else if (a.t === 'wall') c = wallCost(p, a.side);
-    else if (a.t === 'recruit') c = a.peasant ? { gold: 1 } : rowPrice(state, a.i);
+    else if (a.t === 'recruit') c = a.peasant ? peasantPrice(p) : rowPrice(state, a.i, p);
     if (!c) return null;
-    const rate = hasMerchant(p) ? 1 : 2;
+    const rate = tradeRate(p);
     const res = Object.assign({}, p.res);
     const trades = [];
     for (const r of RES) {
       while ((res[r] || 0) < (c[r] || 0)) {
-        if (trades.length >= 3) return null;
-        // give the most plentiful thing we don't need for this
+        if (trades.length >= 4) return null;
         const give = RES.filter((g) => g !== r && res[g] - (c[g] || 0) >= rate).sort((x, y) => res[y] - (c[y] || 0) - (res[x] - (c[x] || 0)) || VAL[x] - VAL[y])[0];
         if (!give) return null;
         res[give] -= rate;
@@ -928,75 +1049,99 @@
     return trades.length ? trades : null;
   }
 
+  function sim(state, pi, acts) {
+    const s2 = clone(state);
+    s2.log = [];
+    for (const a of acts) {
+      if (legal(s2, pi, a)) return null;
+      apply(s2, pi, a);
+    }
+    return s2;
+  }
+
+  // The best single free action and how much it improves the position.
+  function bestFree(state, pi, level) {
+    const p = state.players[pi];
+    const base = evaluate(state, pi, level);
+    let best = null;
+    freeCandidates(state, pi).forEach((a) => {
+      let s2 = sim(state, pi, [a]);
+      let first = a;
+      let pen = 0;
+      if (!s2 && level !== 'easy') {
+        const tr = tradesFor(state, p, a);
+        if (tr) {
+          s2 = sim(state, pi, [{ t: 'trade', trades: tr }, a]);
+          first = { t: 'trade', trades: tr };
+          pen = 0.3;
+        }
+      }
+      if (!s2) return;
+      const gainV = evaluate(s2, pi, level) - base - pen;
+      if (!best || gainV > best.gain) best = { a: first, gain: gainV };
+    });
+    return best;
+  }
+
+  // Greedily apply worthwhile free actions to a copy (used to judge what a location enables).
+  function settle(state, pi, level, steps) {
+    let s2 = state;
+    for (let i = 0; i < steps; i++) {
+      const b = bestFree(s2, pi, level);
+      if (!b || b.gain <= 0.2) break;
+      const n = sim(s2, pi, [b.a]);
+      if (!n) break;
+      s2 = n;
+    }
+    return s2;
+  }
+
+  // One step of the computer's turn: a free action, a worker placement, or ending the round.
   function aiChoose(state, pi, level) {
     level = level || 'normal';
     const p = state.players[pi];
-    const scored = [];
-    const tryAct = (a, extra) => {
-      if (legal(state, pi, a)) return;
-      const s2 = clone(state);
-      s2.log = [];
-      apply(s2, pi, a);
-      let v = evaluate(s2, pi, level);
-      if (extra) v += extra;
-      scored.push({ a, v });
-    };
-    candidates(state, pi).forEach((a) => {
-      if (!legal(state, pi, a)) {
-        tryAct(a);
-        return;
-      }
-      if (level === 'easy') return;
-      // Not affordable: would a trade now get us there next turn?
-      const tr = tradesFor(state, p, a);
-      if (!tr || p.actions < 2) return;
-      const s2 = clone(state);
-      s2.log = [];
-      try {
-        apply(s2, pi, { t: 'trade', trades: tr });
-        s2.turn = pi;
-        s2.players[pi].actions = Math.max(1, s2.players[pi].actions);
-        s2.phase = 'act';
-        if (legal(s2, pi, a)) return;
-        apply(s2, pi, a);
-        scored.push({ a: { t: 'trade', trades: tr }, v: evaluate(s2, pi, level) - 0.6, aim: a });
-      } catch (e) {
-        /* not reachable */
-      }
-    });
-    if (!scored.length) return { t: 'gather', r: 'wood' };
-    // Hard looks one move further: what is the best follow-up after each of the top choices?
-    if (level === 'hard' && p.actions >= 2 && !state.deep) {
-      scored.sort((a, b) => b.v - a.v);
-      scored.slice(0, 6).forEach((s) => {
-        const s2 = clone(state);
-        s2.log = [];
-        s2.deep = true;
-        try {
-          apply(s2, pi, s.a);
-          s2.turn = pi;
-          s2.phase = 'act';
-          const next = aiChoose(s2, pi, 'normal-quiet');
-          apply(s2, pi, next);
-          s.v = Math.max(s.v, evaluate(s2, pi, level) - 0.05);
-        } catch (e) {
-          /* keep the one-move score */
+    if (p.done || state.turn !== pi || state.phase !== 'act') return { t: 'end' };
+    const noise = level === 'easy' ? 1.6 : level === 'hard' ? 0 : 0.4;
+    const jitter = () => (noise ? (rng(state) - 0.5) * noise : 0);
+    const free = bestFree(state, pi, level);
+    if (free && free.gain + jitter() * 0.5 > (level === 'easy' ? 0.5 : level === 'hard' ? 0.6 : 0.2)) return free.a;
+    const open = p.workers > 0 ? freeLocs(state) : [];
+    if (!open.length) return { t: 'end' };
+    const deny = level === 'easy' ? 0 : 0.25;
+    const oi = 1 - pi;
+    const opp = state.players[oi];
+    const depth = level === 'easy' ? 0 : 3;
+    const mine0 = evaluate(settle(state, pi, level, depth), pi, level);
+    let oppBase = null;
+    let best = null;
+    open.forEach((k) => {
+      const s2 = sim(state, pi, [{ t: 'place', loc: k }]);
+      if (!s2) return;
+      s2.turn = pi;
+      let v = evaluate(settle(s2, pi, level, depth), pi, level) - mine0;
+      if (deny && !opp.done && opp.workers > 0) {
+        const so = clone(state);
+        so.log = [];
+        so.turn = oi;
+        if (oppBase == null) oppBase = evaluate(so, oi, level);
+        if (!legal(so, oi, { t: 'place', loc: k })) {
+          apply(so, oi, { t: 'place', loc: k });
+          v += deny * (evaluate(so, oi, level) - oppBase);
         }
-      });
-    }
-    const noise = level === 'easy' ? 2.2 : level === 'hard' || level === 'normal-quiet' ? 0 : 0.6;
-    scored.forEach((s) => (s.n = s.v + (noise ? (rng(state) - 0.5) * noise : 0)));
-    scored.sort((a, b) => b.n - a.n);
-    return scored[0].a;
+      }
+      v += jitter();
+      if (!best || v > best.v) best = { k, v };
+    });
+    return best ? { t: 'place', loc: best.k } : { t: 'end' };
   }
 
   const api = {
-    ROUNDS, BASE_ACTIONS, ROW_SIZE, ARMS_MAX, RES, RES_ICON, RES_NAME, SEASONS, SEASON, SIDES, WALL, TERRAIN, LABOR,
+    SAVE_V, ROUNDS, BASE_WORKERS, LOCS_PER_GAME, LOC, LOC_GROUPS, LOC_ORDER, ROW_SIZE, ARMS_MAX, RES, RES_ICON, RES_NAME, SEASONS, SEASON, SIDES, WALL, TERRAIN, LABOR,
     BUILD, BUILD_ORDER, VIL, VIL_ORDER, DECK, BEAST, BEAST_ORDER, CELLS, NEIGH,
     newGame, legal, apply, resolveDusk, score, winner, aiChoose, evaluate,
     seasonOf, yearOf, costText, beastText, beastKind, ringOf,
     beds, water, room, workers, production, defense, baseDefense, buildCost, wallCost, canPay, rowPrice, freeCells, buildBlock,
-    occupants, moveTargets, canWork, slotsOf, adjacent, hasMerchant, taxAmount, gatherAmount, musterAmount, foodNeed, woodNeed, upcoming, clone,
+    occupants, moveTargets, canWork, slotsOf, adjacent, hasMerchant, tradeRate, peasantPrice, squareAmount, locGain, masonSides, freeLocs, workerCount, musterAmount, foodNeed, woodNeed, upcoming, clone,
   };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.HearthholdEngine = api;

@@ -29,7 +29,7 @@
   function loadSave() {
     try {
       const g = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
-      return g && g.state && g.state.v === 1 ? g : null;
+      return g && g.state && g.state.v === E.SAVE_V ? g : null;
     } catch (e) {
       return null;
     }
@@ -204,7 +204,7 @@
     save();
     render();
     if (G.dusk) showDusk(G.dusk.rep, G.dusk.arrived);
-    else if (st().phase === 'over') showGameOver();
+    else if (st().phase === 'over') showGameOver(!!G.revealed);
     else if (st().phase === 'dusk') runDusk();
     else {
       seasonBanner();
@@ -231,6 +231,7 @@
         </div>
       </header>
       <section class="threats" id="threats"></section>
+      <section class="locs panel" id="locs"></section>
       <main class="layout">
         <section class="board-wrap">
           <div class="board-tabs" id="tabs"></div>
@@ -260,6 +261,7 @@
     renderTabs();
     renderBoard();
     renderPickbar();
+    renderLocs();
     renderRes();
     renderActions();
     renderRow();
@@ -283,18 +285,17 @@
     else {
       const p = s.players[s.turn];
       const dots = s.players
-        .map((q, i) => `<span class="who" style="--pc:${PCOLOR[i]}"><i></i>${esc(q.name)} ${'●'.repeat(Math.max(0, q.actions))}${'○'.repeat(Math.max(0, E.BASE_ACTIONS - q.actions))}</span>`)
+        .map((q, i) => `<span class="who" style="--pc:${PCOLOR[i]}" title="Workers left"><i></i>${esc(q.name)} ${q.done ? '<small>done</small>' : '🧍'.repeat(Math.max(0, q.workers)) || '<small>no workers</small>'}</span>`)
         .join('');
-      const lead = s.lead === s.turn && s.players[s.turn].actions === actionsAtStart(s.turn) && s.round > 1 ? ' <span class="muted">(went first: behind on points)</span>' : '';
+      const what = p.workers > 0 ? `${plural(p.workers, 'worker')} to place` : 'free actions, then End round';
       b = p.ai
         ? `<b class="thinking">${esc(p.name)} is thinking<span class="dots"><i>.</i><i>.</i><i>.</i></span></b>${dots}`
-        : `<b style="--pc:${PCOLOR[s.turn]}" class="turn-name">${G.mode === 'ai' ? 'Your turn' : `${esc(p.name)}’s turn`}</b><span class="acts">${plural(p.actions, 'action')} left${lead}</span>${dots}`;
+        : `<b style="--pc:${PCOLOR[s.turn]}" class="turn-name">${turnLabel(p)}</b><span class="acts">${what}</span>${dots}`;
     }
     $('#banner').innerHTML = b;
   }
-  function actionsAtStart(pi) {
-    const p = st().players[pi];
-    return E.BASE_ACTIONS + E.workers(p).filter((w) => w.v.k === 'steward' && w.spec).length;
+  function turnLabel(p) {
+    return G.mode === 'ai' ? 'Your turn' : `${esc(p.name)}’s turn`;
   }
 
   // ---------------------------------------------------------------- threats
@@ -331,8 +332,7 @@
     const s = st();
     $('#tabs').innerHTML = s.players
       .map((p, i) => {
-        const sc = E.score(s, p).total;
-        return `<button class="tab${G.view === i ? ' on' : ''}" data-view="${i}" style="--pc:${PCOLOR[i]}"><i></i>${esc(p.name)}${G.mode === 'ai' && !p.ai ? ' (you)' : ''} <span class="tab-score">⭐${sc}</span></button>`;
+        return `<button class="tab${G.view === i ? ' on' : ''}" data-view="${i}" style="--pc:${PCOLOR[i]}"><i></i>${esc(p.name)}${G.mode === 'ai' && !p.ai ? ' (you)' : ''}</button>`;
       })
       .join('');
   }
@@ -524,7 +524,6 @@
     const p = me();
     const pr = E.production(p, season());
     const chip = (icon, n, plus, label) => `<div class="rchip" title="${label}"><span class="ri">${icon}</span><b>${n}</b>${plus ? `<small>+${plus}</small>` : ''}</div>`;
-    const sc = E.score(s, p);
     const pop = p.vil.length;
     const beds = E.beds(p);
     const water = E.water(p);
@@ -537,17 +536,16 @@
     const woodAfter = p.res.wood + pr.wood - wneed;
     const roomWhy = room > 0 ? `<span class="good">room for ${room} more</span>` : beds <= water ? '<span class="warn">full — build a House</span>' : '<span class="warn">full — dig a Well</span>';
     $('#res').innerHTML = `
-      <div class="res-head"><h3 style="--pc:${PCOLOR[G.view]}"><i></i>${esc(p.name)}</h3><span class="score-pill" title="Renown ${sc.renown} · Buildings ${sc.buildings} · Villagers ${sc.villagers} · Stone walls ${sc.walls} · Gold ${sc.gold} · Fortified ${sc.fortified}">⭐ ${sc.total} points</span></div>
+      <div class="res-head"><h3 style="--pc:${PCOLOR[G.view]}"><i></i>${esc(p.name)}</h3><span class="score-pill hidden-score" title="Scores stay secret until the final reveal">⭐ ?? points</span></div>
       <div class="rchips">
         ${E.RES.map((r) => chip(E.RES_ICON[r], p.res[r], pr[r], `${r} (+${pr[r]} at dusk)`)).join('')}
-        ${chip('⭐', p.renown, pr.renown, 'renown')}
         ${p.arms || pr.forge ? chip('⚒️', `${p.arms}/${E.ARMS_MAX}`, pr.forge && p.arms < E.ARMS_MAX && (p.res.iron + pr.iron) > 0 ? 1 : 0, 'arms: each adds 🛡️1') : ''}
       </div>
       <ul class="vstats">
         <li><span>👥</span>${plural(pop, 'villager')} · 🛏️${beds} beds · 💧${water} water · ${roomWhy}</li>
         <li class="${foodAfter < 0 ? 'bad' : ''}"><span>🍞</span>Supper: make ${pr.food}, eat ${pop} → ${foodAfter < 0 ? `<b>short ${-foodAfter} — ${plural(-foodAfter, 'villager')} will leave!</b>` : `${foodAfter} left`}</li>
         ${wneed ? `<li class="${woodAfter < 0 ? 'bad' : ''}"><span>❄️</span>Firewood: burn ${wneed} 🪵 → ${woodAfter < 0 ? `<b>short ${-woodAfter} — villagers will freeze!</b>` : `${woodAfter} left`}</li>` : ''}
-        ${B ? `<li class="${d >= B.str ? 'good-li' : 'bad'}"><span>🛡️</span>Tonight vs ${esc(B.name)} ⚔️${B.str}: 🛡️${d} ${d >= B.str ? '✓ we hold' : `✗ short by ${B.str - d}`}${p.muster ? ` <small>(incl. militia +${p.muster})</small>` : ''}</li>` : ''}
+        ${B ? `<li class="${d >= B.str ? 'good-li' : 'bad'}"><span>🛡️</span>Tonight vs ${esc(B.name)} ⚔️${B.str}: 🛡️${d} ${d >= B.str ? '✓ we hold' : `✗ short by ${B.str - d}`}${p.muster ? ` <small>(incl. +${p.muster} for tonight)</small>` : ''}</li>` : ''}
       </ul>`;
   }
 
@@ -568,29 +566,53 @@
       box.innerHTML = `<h3>Actions</h3><p class="muted">It’s ${esc(s.players[s.turn].name)}’s turn.</p><button class="btn sm" data-view="${s.turn}">Show ${esc(s.players[s.turn].name)}’s village</button>`;
       return;
     }
-    const L = (a) => E.legal(s, pi, a);
-    const btn = (a, icon, title, sub, extraCls) => {
-      const why = a ? L(a) : null;
-      return `<button class="act${extraCls ? ' ' + extraCls : ''}" ${a ? `data-a='${JSON.stringify(a)}'` : ''} ${why ? `disabled title="${esc(why)}"` : ''}><span class="ai">${icon}</span><span class="at">${title}</span><span class="as">${sub}</span></button>`;
-    };
     const anyBuild = E.BUILD_ORDER.some((b) => !E.buildBlock(s, pi, b) && E.canPay(p, E.buildCost(p, b)));
     const anyWall = [0, 1, 2, 3, 4, 5].some((i) => E.wallCost(p, i) && E.canPay(p, E.wallCost(p, i)));
-    const rate = E.hasMerchant(p) ? '1:1' : '2:1';
+    const rate = E.tradeRate(p) === 1 ? '1:1' : '2:1';
+    const open = E.freeLocs(s).length;
+    const workerMsg = p.workers > 0
+      ? open ? `Place ${plural(p.workers, 'worker')} on the locations above — placing one ends your turn.` : 'Every location is taken — end your round when you’re done.'
+      : 'All your workers are out. Finish your free actions, then end your round.';
     box.innerHTML = `
-      <h3>Actions <span class="muted">${p.actions} left</span></h3>
+      <h3>Free actions <span class="muted">as many as you can pay for</span></h3>
       <div class="acts-grid">
         <button class="act wide" data-act="build"${anyBuild ? '' : ' title="Nothing affordable yet — you can still look"'}><span class="ai">🏗️</span><span class="at">Build</span><span class="as">${anyBuild ? 'a building' : 'browse buildings'}</span></button>
         <button class="act" data-act="wall" ${anyWall ? '' : 'disabled title="Walls cost 🪵2 (palisade) or 🪨3 (stone)"'}><span class="ai">🧱</span><span class="at">Wall</span><span class="as">🪵2 / 🪨3</span></button>
         <button class="act" data-act="recruit"><span class="ai">🧑‍🌾</span><span class="at">Recruit</span><span class="as">${E.room(p) > 0 ? 'from the Crossroads' : 'no room!'}</span></button>
-        ${btn({ t: 'gather', r: 'food' }, '🍞', 'Gather', `+${E.gatherAmount('food')} food`)}
-        ${btn({ t: 'gather', r: 'wood' }, '🪵', 'Gather', `+${E.gatherAmount('wood')} wood`)}
-        ${btn({ t: 'gather', r: 'stone' }, '🪨', 'Gather', `+${E.gatherAmount('stone')} stone`)}
-        ${btn({ t: 'tax' }, '🪙', 'Tax', `+${E.taxAmount(p)} gold`)}
-        <button class="act" data-act="trade"><span class="ai">⚖️</span><span class="at">Trade</span><span class="as">up to 3 at ${rate}</span></button>
-        ${btn({ t: 'muster' }, '⚔️', 'Muster', p.muster ? 'done this round' : `+🛡️${E.musterAmount(p)} tonight`)}
-        <button class="act ghosty" data-act="pass"><span class="ai">⏭️</span><span class="at">Pass</span><span class="as">end your round</span></button>
+        <button class="act" data-act="trade"><span class="ai">⚖️</span><span class="at">Trade</span><span class="as">${rate}, any number</span></button>
       </div>
-      <p class="tip">Moving villagers between jobs is free — click one below or a building on the map.</p>`;
+      <p class="tip">🧍 ${workerMsg}</p>
+      <button class="btn ${p.workers > 0 && open ? 'ghost' : 'big'} end-btn" data-act="end">⏭️ End round${p.workers > 0 && open ? ` <small>(${plural(p.workers, 'worker')} unused)</small>` : ''}</button>
+      <p class="tip">Moving villagers between jobs is free too — click one below or a building on the map.</p>`;
+  }
+
+  // ---------------------------------------------------------------- locations
+  function renderLocs() {
+    const s = st();
+    const p = me();
+    const can = myTurnHere() && p.workers > 0;
+    const gainTxt = (k) => {
+      const g = E.locGain(s, p, k);
+      return E.RES.filter((r) => g[r]).map((r) => `${E.RES_ICON[r]}${g[r]}`).join(' ');
+    };
+    const cards = s.locs
+      .map((k) => {
+        const L = E.LOC[k];
+        const grp = E.LOC_GROUPS.find((g) => g.k === L.group);
+        const who = s.spots[k];
+        const why = who != null ? `${s.players[who].name}’s worker is here` : !can ? (s.phase === 'act' && myTurnHere() ? 'No workers left' : 'Not your turn') : null;
+        const g = gainTxt(k);
+        return `<button class="loc${who != null ? ' taken' : ''}${can && who == null ? ' open' : ''}" data-loc="${k}" ${why ? `aria-disabled="true" title="${esc(why)}"` : 'title="Send a worker here"'}>
+          <span class="loc-grp">${grp.icon} ${grp.name}</span>
+          <span class="loc-art"><img src="${IMG(L.img)}" alt=""></span>
+          <b class="loc-name">${L.name}</b>
+          <span class="loc-text">${L.text}</span>
+          ${g && who == null ? `<span class="loc-now">You’d get ${g}</span>` : ''}
+          ${who != null ? `<span class="meeple" style="--pc:${PCOLOR[who]}" title="${esc(s.players[who].name)}">🧍</span>` : ''}
+        </button>`;
+      })
+      .join('');
+    $('#locs').innerHTML = `<div class="locs-head"><h3>📍 Locations</h3><span class="muted">Each holds one worker per round — whoever gets there first. This game’s five are drawn from ${E.LOC_ORDER.length}.</span></div><div class="loc-row">${cards}</div>`;
   }
 
   function renderRow() {
@@ -615,7 +637,7 @@
     };
     const cards = s.row
       .map((k, i) => {
-        const pr = E.rowPrice(s, i);
+        const pr = E.rowPrice(s, i, p);
         const disc = E.VIL[k].cost - pr.gold;
         const tag = i === 0 ? `Leaves at dusk${disc ? ` · −🪙${disc}` : ''}` : disc ? `−🪙${disc}` : '';
         return card(k, pr, i, tag);
@@ -624,7 +646,7 @@
     $('#row').innerHTML = `
       <div class="row-head"><h3>🛤️ The Crossroads</h3><span class="muted">Travellers looking for a home. The first is cheapest but leaves tonight. ${plural(s.deck.length, 'more traveller')} on the road.</span>
       ${room <= 0 ? '<span class="warn-pill">No room — build a House or Well</span>' : `<span class="ok-pill">Room for ${room}</span>`}</div>
-      <div class="vrow">${cards}${card('peasant', { gold: E.VIL.peasant.cost }, null, 'Always here')}</div>`;
+      <div class="vrow">${cards}${card('peasant', E.peasantPrice(p), null, 'Always here')}</div>`;
   }
 
   function renderPeople() {
@@ -662,6 +684,15 @@
       doAction(JSON.parse(a.dataset.a));
       return;
     }
+    const lc = e.target.closest('[data-loc]');
+    if (lc) {
+      if (!myTurnHere()) return toast('Not your turn right now.');
+      const act = { t: 'place', loc: lc.dataset.loc };
+      const why = E.legal(st(), G.view, act);
+      if (why) return toast(esc(why), 'bad');
+      doAction(act);
+      return;
+    }
     const r = e.target.closest('[data-recruit]');
     if (r) {
       if (!myTurnHere()) return toast('Not your turn right now.');
@@ -696,8 +727,8 @@
       row.classList.add('flash');
     }
     if (what === 'trade') showTrade();
-    if (what === 'pass') confirmPass();
-    if (what === 'show-final') showGameOver();
+    if (what === 'end') confirmEnd();
+    if (what === 'show-final') showGameOver(true);
   }
 
   function onBoardClick(e) {
@@ -745,6 +776,7 @@
     const p = s.players[pi];
     if (a.t === 'build' && p.bld.length > before) ui.fresh.add(p.bld[p.bld.length - 1].id);
     if (a.t === 'recruit') toast(`${esc(p.name)} took in a <b>${E.VIL[p.vil[p.vil.length - 1].k].name}</b>.`);
+    if (a.t === 'place') toast(`🧍 ${esc(s.log[s.log.length - 1].text)}`);
     afterAction();
   }
 
@@ -781,7 +813,7 @@
     if (!G || ui.modal) return;
     const s = st();
     if (s.phase !== 'act' || !s.players[s.turn].ai) return;
-    ui.aiTimer = setTimeout(aiStep, 850);
+    ui.aiTimer = setTimeout(aiStep, ui.aiFast ? 450 : 850);
   }
   function aiStep() {
     if (!G || ui.modal) return;
@@ -795,8 +827,9 @@
     try {
       msg = E.apply(s, pi, a);
     } catch (err) {
-      msg = E.apply(s, pi, { t: 'pass' });
+      msg = E.apply(s, pi, { t: 'end' });
     }
+    ui.aiFast = a.t !== 'place' && a.t !== 'end';
     if (a.t === 'build' && p.bld.length > before) ui.fresh.add(p.bld[p.bld.length - 1].id);
     if (a.t === 'wall' && G.view === pi) ui.freshSide = a.side;
     toast(`<span class="dot" style="--pc:${PCOLOR[pi]}"></span><b>${esc(p.name)}</b> ${esc(msg)}`, 'ai');
@@ -829,7 +862,7 @@
         </div>
       </button>`;
     };
-    const back = openModal(`<h2>🏗️ Build</h2><p class="muted">Your stores: ${E.RES.map((r) => `${E.RES_ICON[r]}${p.res[r]}`).join(' ')}${E.hasMerchant(p) ? '' : ' · short? Trade first (2:1).'}</p><div class="bgrid">${E.BUILD_ORDER.map(card).join('')}</div>`, { cls: 'wide' });
+    const back = openModal(`<h2>🏗️ Build</h2><p class="muted">Your stores: ${E.RES.map((r) => `${E.RES_ICON[r]}${p.res[r]}`).join(' ')}${E.tradeRate(p) === 1 ? ' · trades are 1:1 for you' : ' · short? Trading (2:1) is free.'}</p><div class="bgrid">${E.BUILD_ORDER.map(card).join('')}</div>`, { cls: 'wide' });
     back.addEventListener('click', (e) => {
       const c = e.target.closest('[data-pick]');
       if (!c || c.classList.contains('off')) return;
@@ -931,7 +964,7 @@
   function showTrade() {
     const s = st();
     const p = me();
-    const rate = E.hasMerchant(p) ? 1 : 2;
+    const rate = E.tradeRate(p);
     const trades = [];
     let give = null;
     const draw = () => {
@@ -943,12 +976,12 @@
       const box = $('.trade');
       box.innerHTML = `
         <h2>⚖️ Trade at the market</h2>
-        <p class="muted">Give ${rate} of one thing for 1 of another — up to 3 trades for one action.${rate === 2 ? ' A working Merchant makes it 1 for 1.' : ''}</p>
-        <div class="tr-step"><b>1. Give ${rate}:</b> ${E.RES.map((r) => `<button class="rbtn${give === r ? ' on' : ''}" data-give="${r}" ${res[r] < rate || trades.length >= 3 ? 'disabled' : ''}>${E.RES_ICON[r]}<small>${res[r]}</small></button>`).join('')}</div>
+        <p class="muted">Give ${rate} of one thing for 1 of another, as many times as you like. Trading is a free action.${rate === 2 ? ' A working Merchant (or the Trading post this round) makes it 1 for 1.' : ''}</p>
+        <div class="tr-step"><b>1. Give ${rate}:</b> ${E.RES.map((r) => `<button class="rbtn${give === r ? ' on' : ''}" data-give="${r}" ${res[r] < rate ? 'disabled' : ''}>${E.RES_ICON[r]}<small>${res[r]}</small></button>`).join('')}</div>
         <div class="tr-step"><b>2. Get 1:</b> ${E.RES.map((r) => `<button class="rbtn" data-get="${r}" ${!give || give === r ? 'disabled' : ''}>${E.RES_ICON[r]}</button>`).join('')}</div>
         <div class="tr-list">${trades.map(([g, t], i) => `<span class="tr-item">${E.RES_ICON[g]}${rate} → ${E.RES_ICON[t]}1 <button class="link" data-undo="${i}">✕</button></span>`).join('') || '<span class="muted">No trades yet.</span>'}</div>
         <p>After: ${E.RES.map((r) => `${E.RES_ICON[r]}${res[r]}`).join(' ')}</p>
-        <div class="btn-row"><button class="btn" data-ok ${trades.length ? '' : 'disabled'}>Trade (uses 1 action)</button><button class="btn ghost" data-close>Cancel</button></div>`;
+        <div class="btn-row"><button class="btn" data-ok ${trades.length ? '' : 'disabled'}>Trade</button><button class="btn ghost" data-close>Cancel</button></div>`;
     };
     const back = openModal('<div class="trade"></div>');
     draw();
@@ -982,17 +1015,19 @@
     });
   }
 
-  function confirmPass() {
+  function confirmEnd() {
     const p = me();
-    if (p.actions <= 1) return doAction({ t: 'pass' });
-    const back = openModal(`<h2>End your round?</h2><p>You still have ${plural(p.actions, 'action')}. Passing gives them up for this round.</p><div class="btn-row"><button class="btn lava" data-yes>Pass</button><button class="btn ghost" data-close>Keep playing</button></div>`);
+    const open = E.freeLocs(st()).length;
+    if (p.workers <= 0 || !open) return doAction({ t: 'end' });
+    const back = openModal(`<h2>End your round?</h2><p>You still have ${plural(p.workers, 'worker')} and ${plural(open, 'open location')}. Ending now gives them up for this round.</p><div class="btn-row"><button class="btn lava" data-yes>End round</button><button class="btn ghost" data-close>Keep playing</button></div>`);
     back.addEventListener('click', (e) => {
       if (!e.target.closest('[data-yes]')) return;
       ui.onClose = null;
       closeModal();
-      doAction({ t: 'pass' });
+      doAction({ t: 'end' });
     });
   }
+
 
   // ---------------------------------------------------------------- dusk
   function runDusk() {
@@ -1090,56 +1125,112 @@
     const el = document.createElement('div');
     el.className = `season-banner sb-${season()}`;
     const first = s.players[s.turn];
-    el.innerHTML = `<div class="sb-in"><span class="sb-icon">${sea.icon}</span><div><b>${sea.name}</b><small>Year ${E.yearOf(s.round)} · round ${s.round} of ${E.ROUNDS}</small><em>${sea.note}</em><em>${esc(first.name)} goes first${s.round > 1 ? ' (behind or tied on points)' : ''}.</em></div></div>`;
+    el.innerHTML = `<div class="sb-in"><span class="sb-icon">${sea.icon}</span><div><b>${sea.name}</b><small>Year ${E.yearOf(s.round)} · round ${s.round} of ${E.ROUNDS}</small><em>${sea.note}</em><em>${esc(first.name)} goes first${s.round > 1 ? ' (it alternates every round)' : ''}.</em></div></div>`;
     document.body.appendChild(el);
     setTimeout(() => el.classList.add('out'), 2300);
     setTimeout(() => el.remove(), 2800);
   }
 
   // ---------------------------------------------------------------- game over
-  function showGameOver() {
+  // Scores stay hidden all game; this is the big reveal at the end (instant when replayed).
+  function showGameOver(instant) {
     const s = st();
     const sc = s.players.map((p) => E.score(s, p));
     const w = E.winner(s);
     const rows = [
-      ['⭐ Renown (trophies, Bards, Priests…)', 'renown'],
-      ['🏠 Buildings (staffed) & wonders', 'buildings'],
+      ['⭐ Renown', 'renown'],
+      ['🏠 Buildings & wonders', 'buildings'],
       ['👥 Villagers', 'villagers'],
       ['🧱 Stone wall sections', 'walls'],
+      ['🏰 Fully walled', 'fortified'],
       ['🪙 Gold (1 per 5)', 'gold'],
-      ['🏰 Fully walled (+3)', 'fortified'],
-    ];
-    let title;
-    if (w < 0) title = 'A perfect tie!';
-    else if (G.mode === 'ai') title = s.players[w].ai ? `${esc(s.players[w].name)} wins` : 'Your village thrives — you win!';
-    else title = `${esc(s.players[w].name)} wins!`;
-    const humanWon = w >= 0 && !s.players[w].ai;
-    const html = `
-      <div class="final">
-        <div class="final-art"><img src="${IMG(humanWon ? 'castle' : w >= 0 ? 'dragon' : 'keep')}" alt=""></div>
-        <h2 class="final-title">${title}</h2>
-        <table class="final-table">
-          <thead><tr><th></th>${s.players.map((p, i) => `<th style="--pc:${PCOLOR[i]}"><i></i>${esc(p.name)}${w === i ? ' 👑' : ''}</th>`).join('')}</tr></thead>
-          <tbody>${rows.map(([label, k]) => `<tr><td>${label}</td>${sc.map((x) => `<td>${x[k]}</td>`).join('')}</tr>`).join('')}</tbody>
-          <tfoot><tr><td>Total</td>${sc.map((x, i) => `<td class="${w === i ? 'win' : ''}">${x.total}</td>`).join('')}</tr></tfoot>
-        </table>
-        <p class="muted">${s.players.map((p) => `${esc(p.name)}: ${plural(p.vil.length, 'villager')}, ${plural(p.trophies.length, 'creature')} driven off`).join(' · ')}</p>
-        <div class="btn-row center"><button class="btn" data-again>Play again</button><button class="btn ghost" data-close>Look at the villages</button><a class="btn ghost" href="/board-games.html">All board games</a></div>
-      </div>`;
-    const back = openModal(html, { cls: 'final-back', onClose: () => render() });
-    back.addEventListener('click', (e) => {
-      if (e.target.closest('[data-again]')) {
-        ui.onClose = null;
-        closeModal();
+    ].filter(([, k]) => k === 'renown' || sc[0][k] || sc[1][k]);
+    let head;
+    if (w < 0) head = '🤝 A perfect tie!';
+    else if (G.mode === 'ai') head = s.players[w].ai ? '🐉 The Computer wins!' : '🏆 You win!';
+    else head = `🏆 ${esc(s.players[w].name)} wins!`;
+    const margin = Math.abs(sc[0].total - sc[1].total);
+    const sub = w < 0 ? `Both villages scored ${sc[0].total} — ${s.players[0].vil.length === s.players[1].vil.length ? 'and have the same number of villagers' : 'the tie-break is villagers'}.`
+      : margin === 0 ? 'Level on points — won on villagers!'
+        : margin === 1 ? 'By a single point — what a finish!'
+          : margin <= 5 ? `A nail-biter — by ${margin} points!` : `By ${margin} points.`;
+    const side = (i) => `<div class="hr-side" style="--pc:${PCOLOR[i]}"><span class="hr-crown">👑</span><img src="${IMG(s.players[i].castle ? 'castle' : 'keep')}" alt=""><b class="hr-name">${esc(s.players[i].name)}</b><span class="hr-total">?</span><small class="muted">${plural(s.players[i].vil.length, 'villager')} · ${plural(s.players[i].trophies.length, 'trophy', 'trophies')}</small></div>`;
+    document.querySelectorAll('.hh-reveal').forEach((x) => x.remove());
+    const el = document.createElement('div');
+    el.className = 'hh-reveal';
+    el.setAttribute('role', 'dialog');
+    el.setAttribute('aria-modal', 'true');
+    el.setAttribute('aria-label', 'Final results');
+    el.innerHTML = `<div class="hr-rays"></div><div class="hr-stage">
+        <div class="hr-title">🏁 The three years are over</div>
+        <div class="hr-duel">${side(0)}<div class="hr-vs">VS</div>${side(1)}</div>
+        <div class="hr-verdict" aria-live="polite"></div>
+        <div class="hr-sub">${sub}</div>
+        <div class="hr-rows">${rows.map(([label, k]) => `<div class="hr-row"><span class="${sc[0][k] > sc[1][k] ? 'lead' : ''}">${sc[0][k]}</span><small>${label}</small><span class="${sc[1][k] > sc[0][k] ? 'lead' : ''}">${sc[1][k]}</span></div>`).join('')}</div>
+        <div class="hr-actions"><button class="btn" data-rv="close">🏘️ See the villages</button><button class="btn" data-rv="again">🏰 Play again</button><a class="btn ghost" href="/board-games.html">🎲 All board games</a></div>
+      </div><button class="hr-skip" data-rv="skip">Skip ▸</button>`;
+    document.body.appendChild(el);
+    const timers = [];
+    const at = (ms, fn) => timers.push(setTimeout(fn, ms));
+    const sides = [...el.querySelectorAll('.hr-side')];
+    let announced = false;
+    let decided = false;
+    const announce = () => {
+      if (announced) return;
+      announced = true;
+      el.classList.remove('suspense');
+      el.classList.add('announced');
+      sides.forEach((x, i) => x.classList.add(w < 0 ? 'tie' : i === w ? 'win' : 'lose'));
+      el.querySelector('.hr-verdict').innerHTML = `<div class="hr-head">${head}</div>`;
+      el.querySelectorAll('.hr-total').forEach((t, i) => (t.textContent = sc[i].total));
+      if (!instant && (w < 0 || !s.players[w].ai)) confetti();
+    };
+    const finish = () => {
+      if (decided) return;
+      decided = true;
+      timers.forEach(clearTimeout);
+      announce();
+      el.querySelectorAll('.hr-row').forEach((r) => r.classList.add('in'));
+      el.classList.add('decided');
+      G.revealed = true;
+      save();
+    };
+    const close = () => {
+      timers.forEach(clearTimeout);
+      document.removeEventListener('keydown', onKey);
+      el.remove();
+      render();
+    };
+    const onKey = (e) => {
+      if (e.key !== 'Escape' && e.key !== 'Enter' && e.key !== ' ') return;
+      if (e.target.closest && e.target.closest('[data-rv], a')) return;
+      e.preventDefault();
+      if (decided) close();
+      else finish();
+    };
+    document.addEventListener('keydown', onKey);
+    el.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-rv]');
+      if (b && b.dataset.rv === 'close') return close();
+      if (b && b.dataset.rv === 'again') {
+        close();
         try {
           localStorage.removeItem(SAVE_KEY);
         } catch (err) {
           /* ignore */
         }
-        showSetup();
+        return showSetup();
       }
+      if (!decided) finish();
     });
-    if (humanWon || (G.mode === 'local' && w >= 0)) confetti();
+    if (instant || matchMedia('(prefers-reduced-motion: reduce)').matches) return finish();
+    at(1300, () => {
+      el.classList.add('suspense');
+      el.querySelector('.hr-verdict').innerHTML = '<div class="hr-drum">And the winner is<i>.</i><i>.</i><i>.</i></div>';
+    });
+    at(3500, announce);
+    rows.forEach((_, i) => at(5200 + i * 550, () => el.querySelectorAll('.hr-row')[i].classList.add('in')));
+    at(5200 + rows.length * 550 + 400, finish);
   }
 
   function confetti() {
@@ -1182,76 +1273,183 @@
   const RULE_TABS = [
     ['basics', 'Basics'],
     ['round', 'A round'],
-    ['actions', 'Actions'],
+    ['places', 'Workers & places'],
+    ['free', 'Free actions'],
+    ['night', 'Night & supper'],
     ['buildings', 'Buildings'],
     ['villagers', 'Villagers'],
     ['creatures', 'Creatures'],
-    ['scoring', 'Scoring'],
+    ['scoring', 'Scoring & end'],
   ];
+  function strRange(t) {
+    const s = E.BEAST_ORDER.filter((k) => E.BEAST[k].tier === t).map((k) => E.BEAST[k].str);
+    return `⚔️${Math.min(...s)}–${Math.max(...s)}`;
+  }
   function rulesBody(tab) {
     if (tab === 'basics')
       return `
-      <p class="lead">Two villages grow side by side for <b>3 years</b> — 12 seasons. Build homes, wells and workshops, take in travellers with useful trades, and keep everyone fed, watered and warm. Every night a creature attacks <i>both</i> villages. The village with the most <b>⭐ points</b> after the last winter wins.</p>
+      <p class="lead">Two villages grow side by side for <b>3 years</b> — 12 rounds, one per season. Each round you send your <b>workers</b> to the places on offer, build and recruit as much as you can pay for, and then the night comes: your village works, a creature attacks <i>both</i> villages, and everyone eats. After the 12th round the village with the most <b>⭐ points</b> wins.</p>
       <h4>Your village</h4>
-      <p>Each village sits on the same map of 19 hexes around its <b>Keep</b>. The land decides what can go where:</p>
+      <p>Each village has its own copy of the same map: 19 hexes with the <b>Keep</b> in the middle. One building fits on each hex, and the land decides which:</p>
       <table class="rules-table"><tr><th>Land</th><th>What fits</th></tr>
         <tr><td>🌼 Meadow</td><td>Farms — or any town building</td></tr>
-        <tr><td>🟫 Plains</td><td>Any town building (Houses, Wells, Inns, Markets…)</td></tr>
+        <tr><td>🟫 Plains</td><td>Any town building (Houses, Wells, Inns, Markets, wonders…) — not Farms</td></tr>
         <tr><td>🌲 Forest</td><td>Lumber camps only</td></tr>
         <tr><td>⛰️ Hills</td><td>Quarries only</td></tr>
         <tr><td>🏔️ Mountain</td><td>Mines only</td></tr></table>
-      <h4>Keeping people alive</h4>
+      <h4>Resources</h4>
+      <table class="rules-table"><tr><th>Resource</th><th>Used for</th></tr>
+        <tr><td>🍞 Food</td><td>Every villager eats 🍞1 every night.</td></tr>
+        <tr><td>🪵 Wood</td><td>Buildings and Palisades. In Winter it is also firewood.</td></tr>
+        <tr><td>🪨 Stone</td><td>Buildings, Wells and Stone walls.</td></tr>
+        <tr><td>🔩 Iron</td><td>Mines, Smithies, wonders, Knights, and the Blacksmith’s arms.</td></tr>
+        <tr><td>🪙 Gold</td><td>Recruiting travellers and a few buildings. Left-over gold scores ⭐1 per 🪙5.</td></tr></table>
+      <p>There is no limit on how much you can store. You can never pay with resources you don’t have.</p>
+      <h4>Room for villagers</h4>
       <ul>
-        <li><b>Beds and water:</b> you can only take someone in if you have both a bed (🛏️ Keep, Houses, Inns, Barracks) and water (💧 Keep, Wells) for them.</li>
-        <li><b>Food:</b> every villager eats 🍞1 at the end of every round.</li>
-        <li><b>Firewood:</b> in Winter every 3 villagers burn 🪵1.</li>
-        <li>If you come up short, villagers <b>leave</b> and you lose ⭐1 for each.</li>
+        <li>Every villager needs a <b>bed</b> 🛏️ and <b>water</b> 💧. Your room is the smaller of your beds and your water, minus the villagers you already have. With no room you can’t take anyone in.</li>
+        <li>Beds: Keep 3, House 3, Inn 2, Barracks 1, Castle +3. Water: Keep 3, Well 4.</li>
+        <li>Villagers who aren’t working a building are <b>idle</b>: they make nothing but still eat.</li>
       </ul>
-      <h4>Start</h4>
-      <p>You begin with a Keep, a Farm, two Peasants and 🍞4 🪵5 🪨2 🪙4. The second village gets 🪙5.</p>`;
+      <h4>How you start</h4>
+      <ul>
+        <li>A Keep, a Farm on a meadow next to it, and two Peasants — one works the Farm, the other is idle until you give them a job.</li>
+        <li>🍞4 🪵5 🪨2 and 🪙4. The village that goes second in round 1 gets 🪙5 instead.</li>
+        <li>2 workers every round (3 once a Steward works your Keep).</li>
+      </ul>
+      <h4>Scores are secret</h4>
+      <p>You can always look at both villages, the places, the Crossroads and the creatures coming, but nobody’s ⭐ total is shown during the game. It is revealed, category by category, after the last night.</p>`;
     if (tab === 'round')
       return `
+      <h4>1. Morning</h4>
+      <p>Each village gets its workers: <b>${E.BASE_WORKERS}</b>, plus 1 if a Steward works the Keep. Every place is empty again.</p>
+      <h4>2. Day — take turns</h4>
       <ol class="steps">
-        <li><b>Day.</b> Each village has <b>3 actions</b> (+1 for each Steward). Players take turns, one action at a time. Round 1 starts with the chosen player; after that, <b>whoever is behind on points goes first</b> (on a tie it alternates).</li>
-        <li><b>Work.</b> Every staffed building produces. Farms: Summer +1, Autumn +2, nothing in Winter.</li>
-        <li><b>Night.</b> Tonight’s creature attacks both villages. If your 🛡️ defense is at least its ⚔️ strength, you drive it off and take its trophy (⭐ and sometimes 🪙 loot). If not, it does damage.</li>
-        <li><b>Supper.</b> Everyone eats 🍞1. In Winter, burn firewood. Anyone who can’t be fed or kept warm leaves (−⭐1 each).</li>
-        <li><b>Crossroads.</b> The traveller who has waited longest moves on and new ones arrive.</li>
+        <li>On your turn, do as many <b>free actions</b> as you like and can pay for, in any order: build, wall, recruit, trade and move villagers.</li>
+        <li>Then either <b>send one worker</b> to an empty place — you get its reward straight away and your turn ends — or press <b>End round</b>.</li>
+        <li>If that was your <b>last</b> worker, your turn doesn’t end: finish any free actions (you can use what the place just gave you) and then press End round.</li>
+        <li>Once you end the round you can’t do anything more until tomorrow. Any workers you didn’t place are wasted. Your rival keeps taking turns until they end too.</li>
       </ol>
+      <h4>3. Dusk</h4>
+      <p>When both villages have ended, the night plays out for both at once — see <i>Night &amp; supper</i>. Then the next round starts.</p>
+      <h4>Who goes first</h4>
+      <p>You choose who starts round 1 (or pick at random). After that it <b>alternates every round</b>. Going first means first pick of the places.</p>
+      <h4>What only lasts one round</h4>
+      <p>Everything a place gives you for “tonight” or “this round” wears off when the next round starts: the Militia yard and Watch post defense, the Granary bonus, Trading post trades and the Tavern and Guild hall discounts.</p>
       <h4>Seasons</h4>
       <table class="rules-table">${E.SEASONS.map((k) => `<tr><td>${E.SEASON[k].icon} ${E.SEASON[k].name}</td><td>${E.SEASON[k].note}</td></tr>`).join('')}</table>
-      <h4>Plan ahead</h4>
-      <p>You can always see the next <b>3 creatures</b> and which side they’ll hit. Creatures get tougher every year: year 1 ⚔️2–3, year 2 ⚔️5–7, year 3 ⚔️9–10.</p>`;
-    if (tab === 'actions')
+      <p>Rounds 1–4 are year 1, 5–8 year 2 and 9–12 year 3. Each year runs Spring, Summer, Autumn, Winter.</p>`;
+    if (tab === 'places') {
+      const inGame = G ? new Set(st().locs) : null;
       return `
+      <p class="lead">Places are the only thing you need workers for. Every game uses <b>${E.LOCS_PER_GAME}</b> places — one drawn from each group below, ${E.LOC_ORDER.length} in all — so each game plays a little differently.${inGame ? ' This game’s places are marked <b>✓</b>.' : ''}</p>
+      <ul>
+        <li>Each place holds <b>one worker per round</b>, from either village. Whoever gets there first takes it; the other village can’t use it that round.</li>
+        <li>You get the reward the moment you place the worker. The place card shows exactly what you would get right now.</li>
+        <li>You can’t place two workers on the same place, and you never have to place all your workers.</li>
+      </ul>
+      ${E.LOC_GROUPS.map(
+        (g) => `<h4>${g.icon} ${g.name}</h4><table class="rules-table fixed">${E.LOC_ORDER.filter((k) => E.LOC[k].group === g.k)
+          .map((k) => `<tr><td>${inGame && inGame.has(k) ? '✓ ' : ''}<b>${E.LOC[k].name}</b></td><td>${E.LOC[k].text}</td></tr>`)
+          .join('')}</table>`,
+      ).join('')}
+      <h4>The fine print</h4>
+      <ul>
+        <li><b>Mill fields</b> counts every Farm you have built, worked or not.</li>
+        <li><b>Granary</b> only helps Farms that someone works tonight.</li>
+        <li><b>Market square</b> counts all your villagers, working or idle (2 villagers = 🪙3, 4 = 🪙4…).</li>
+        <li><b>Trading post</b> makes trades 1 for 1 from then until the round ends.</li>
+        <li><b>Moneylender</b> can take your ⭐ below zero.</li>
+        <li><b>Tavern</b> and <b>Guild hall</b> discounts add up and come off after the Crossroads discount. They work on Peasants too, and a recruit can become free.</li>
+        <li><b>Guild hall</b> sends all the travellers at the Crossroads back to the bottom of the deck and draws 5 new ones.</li>
+        <li><b>Town crier</b>: the Peasant needs a bed and water like anyone else, and takes a free labor job if there is one.</li>
+        <li><b>Festival green</b> counts every Inn you have, worked or not.</li>
+        <li><b>Militia yard</b> counts your villagers when you place the worker.</li>
+        <li><b>Mason’s lodge</b> never goes above Stone. If tonight’s creature flies, both raises go to your weakest sides. If every side is already Stone, nothing happens.</li>
+        <li><b>Armory</b> still gives 🔩1 when you already have 6 sets of arms.</li>
+      </ul>`;
+    }
+    if (tab === 'free')
+      return `
+      <p class="lead">Free actions don’t need a worker. On your turn you can do them <b>as often as you like</b> — before or after placing a worker — as long as you can pay.</p>
       <table class="rules-table">
-        <tr><th>Action</th><th>What it does</th></tr>
-        <tr><td>🏗️ Build</td><td>Pay the cost and place a building on a free hex of the right land.</td></tr>
-        <tr><td>🧱 Wall</td><td>Build a Palisade (🪵2, 🛡️2) on one of your 6 sides, or upgrade it to Stone (🪨3, 🛡️4). Walls only stop creatures that attack <i>that side</i> on foot — flyers ignore them.</td></tr>
-        <tr><td>🧑‍🌾 Recruit</td><td>Take in a traveller from the Crossroads and pay their 🪙 price. The first in line costs 🪙2 less, the second 🪙1 less. A Peasant (🪙1) is always available. Needs a free bed <i>and</i> water.</td></tr>
-        <tr><td>🍞🪵🪨 Gather</td><td>Take 🍞3, 🪵3 or 🪨2 from the wilds.</td></tr>
-        <tr><td>🪙 Tax</td><td>Collect 🪙3, +1 for every 2 villagers.</td></tr>
-        <tr><td>⚖️ Trade</td><td>Up to 3 trades of 2-for-1 (1-for-1 with a working Merchant).</td></tr>
-        <tr><td>⚔️ Muster</td><td>Call out the militia: +🛡️2, +1 per 3 villagers, against <i>tonight’s</i> creature. Once per round.</td></tr>
-        <tr><td>⏭️ Pass</td><td>Give up the rest of your actions this round.</td></tr>
-        <tr><td>🔁 Move (free)</td><td>Move villagers between jobs any time on your turn.</td></tr>
+        <tr><th>Action</th><th>Exactly what happens</th></tr>
+        <tr><td>🏗️ Build</td><td>Pay the cost and put the building on a free hex of the right land. Build as many as you can afford, even several of the same kind. Wonders also need enough villagers and only one village can build each (see Buildings).</td></tr>
+        <tr><td>🧱 Wall</td><td>Each of your 6 sides can have a wall. A bare side becomes a <b>Palisade</b> (🪵2, 🛡️2); a Palisade becomes <b>Stone</b> (🪨3, 🛡️4 in total). A wall only defends against creatures on foot attacking <i>that side</i>.</td></tr>
+        <tr><td>🧑‍🌾 Recruit</td><td>Take a traveller from the Crossroads and pay their 🪙 price (Knights also cost 🔩1). You need room: a free bed and free water. A Peasant for 🪙1 is always available.</td></tr>
+        <tr><td>⚖️ Trade</td><td>Give 2 of any one resource for 1 of any other, as many times as you want. With a working Merchant, or after using the Trading post this round, it’s 1 for 1.</td></tr>
+        <tr><td>🔁 Move</td><td>Move a villager to another building they can work that has a free job, or make them idle. Click a villager in the list or a building on the map.</td></tr>
+        <tr><td>⏭️ End round</td><td>You’re done for today. Unplaced workers are lost.</td></tr>
       </table>
+      <h4>The Crossroads</h4>
+      <ul>
+        <li>Five travellers wait in a line. The <b>first</b> costs 🪙2 less and the <b>second</b> 🪙1 less, but never less than 🪙1 — then Tavern and Guild hall discounts come off.</li>
+        <li>When you take someone, everyone behind them moves up a spot. The line refills only at night.</li>
+        <li>Each night the traveller at the front of the line leaves for good.</li>
+      </ul>
       <h4>Jobs</h4>
-      <p>Each villager has a trade (★). Working their own building gives the full effect. <b>Anyone</b> can work a Farm, Lumber camp, Quarry or Mine as plain labor, for less. A villager without a job is idle and makes nothing — but still eats.</p>`;
+      <ul>
+        <li>Each traveller has a trade (★) and works best in their own building. Inns, Workshops, Smithies, Bakeries, Markets, Chapels, Barracks, Watchtowers, the Wizard’s Tower and the Keep only take their own trade.</li>
+        <li><b>Anyone</b> can work a Farm, Lumber camp, Quarry or Mine as plain labor; their own trade there makes more.</li>
+        <li>New villagers take a job automatically: their own building if it has room, otherwise a free Farm, Lumber camp, Quarry or Mine, otherwise idle.</li>
+        <li>When you build, idle villagers who fit move in, and specialists doing labor move to their own new building.</li>
+        <li>Each building holds 1 worker (Barracks 2). Houses, Wells and wonders without a job hold none.</li>
+        <li>A Carpenter in a Workshop makes everything with wood in its cost 🪵1 cheaper, Palisades too.</li>
+      </ul>`;
+    if (tab === 'night')
+      return `
+      <p class="lead">Once both villages have ended the round, these steps happen in order for each village.</p>
+      <ol class="steps">
+        <li><b>Work.</b> Every worked building produces (see Buildings and Villagers). Markets make 🪙1 even with nobody in them (+1 next to an Inn).</li>
+        <li><b>Forge.</b> Each working Blacksmith turns 🔩1 into 1 set of arms if you have iron (most 6 sets).</li>
+        <li><b>Attack.</b> Tonight’s creature attacks both villages. If your 🛡️ defense is <b>at least</b> its ⚔️ strength you drive it off: gain its ⭐ trophy and any 🪙 loot. Otherwise its damage happens.</li>
+        <li><b>Supper.</b> Each villager eats 🍞1. For each 🍞 you are short, one villager leaves and you lose ⭐1.</li>
+        <li><b>Firewood (Winter only).</b> Burn 🪵1 for every 3 villagers, rounded up (4 villagers burn 🪵2). For each 🪵 you are short, one villager leaves and you lose ⭐1.</li>
+        <li><b>Crossroads.</b> The traveller at the front leaves; new ones arrive until there are 5 again (while the deck lasts).</li>
+      </ol>
+      <h4>Your defense tonight</h4>
+      <ul>
+        <li>Keep 🛡️1, plus 🛡️3 with the Castle. Each Watchtower and the Wizard’s Tower 🛡️1, even with nobody inside.</li>
+        <li>Each set of arms 🛡️1.</li>
+        <li>Working Guards 🛡️2, Knights 🛡️4, Archers 🛡️2 (+3 against flyers), the Wizard 🛡️3 (+4 against flyers and the undead), Priests +4 against the undead only.</li>
+        <li>The wall on the side being attacked: Palisade 🛡️2, Stone 🛡️4. Flyers ignore walls.</li>
+        <li>Anything a place gave you for tonight (Militia yard, Watch post).</li>
+      </ul>
+      <h4>When a creature breaks through</h4>
+      <table class="rules-table">
+        <tr><th>Damage</th><th>Exactly what happens</th></tr>
+        <tr><td>Lose resources</td><td>You lose up to the amount shown; you can’t go below 0.</td></tr>
+        <tr><td>Wall drops a level</td><td>Stone becomes a Palisade and a Palisade becomes bare, on the side attacked.</td></tr>
+        <tr><td>Wall smashed</td><td>The wall on that side is gone completely.</td></tr>
+        <tr><td>Villager carried off</td><td>An idle villager goes first; otherwise the least valuable one. No ⭐ lost unless the creature says so.</td></tr>
+        <tr><td>Turned to stone</td><td>Your most valuable villager (price + points) is lost.</td></tr>
+        <tr><td>Building burns</td><td>Your most valuable building (not the Keep or a wonder) is destroyed. Its workers move to another job or go idle.</td></tr>
+        <tr><td>Lose ⭐</td><td>Comes off your renown and can take it below 0.</td></tr>
+      </table>
+      <p>Villagers lost to the attack don’t eat at supper, and firewood is counted after supper.</p>`;
     if (tab === 'buildings')
-      return `<p>Buildings with a job slot only score their ⭐ while someone works there. Wonders can only be built by <b>one</b> village.</p><div class="gallery">${E.BUILD_ORDER.concat(['keep'])
+      return `<ul>
+        <li>Buildings with a job only score their ⭐ while someone who can work there is in them. Houses, Wells and wonders always score.</li>
+        <li><b>Wonders</b> (Castle, Wizard’s Tower, Cathedral): only <b>one</b> village can build each, and you need enough villagers when you build it. The Castle upgrades your Keep and doesn’t take a hex.</li>
+        <li>A Well next to a Farm gives that Farm +🍞1 whenever it produces. A Market next to an Inn makes +🪙1.</li>
+      </ul><div class="gallery">${E.BUILD_ORDER.concat(['keep'])
         .map((b) => {
           const B = E.BUILD[b];
           return `<div class="gcard" style="--bc:${B.color}"><img src="${IMG(b)}" alt=""><div><b>${B.name}</b>${B.wonder ? ' <span class="wtag">Wonder</span>' : ''}<div class="g-cost">${B.start ? 'You start with it' : cost(B.cost)}${B.on ? ` · ${B.on.map((t) => E.TERRAIN[t].name).join('/')}` : ''}${B.pts ? ` · ⭐${B.pts}` : ''}</div><p>${B.text}</p>${jobLine(b)}</div></div>`;
         })
         .join('')}</div>`;
     if (tab === 'villagers')
-      return `<p>Prices are in 🪙. The deck holds ${Object.values(E.DECK).reduce((a, b) => a + b, 0)} travellers.</p><div class="gallery">${E.VIL_ORDER.map((k) => {
+      return `<p>Prices are in 🪙 before discounts. The deck holds ${Object.values(E.DECK).reduce((a, b) => a + b, 0)} travellers (the number of each is shown); once a traveller leaves the Crossroads at night they are gone for good. Each villager scores the ⭐ shown at the end of the game as long as they still live with you.</p><div class="gallery">${E.VIL_ORDER.map((k) => {
         const V = E.VIL[k];
         return `<div class="gcard v"><img src="${IMG(k)}" alt=""><div><b>${V.name}</b><div class="g-cost">🪙${V.cost}${V.iron ? ` 🔩${V.iron}` : ''} · ⭐${V.pts}${E.DECK[k] ? ` · ×${E.DECK[k]} in deck` : ' · always available'}</div><p>${V.text}</p><small class="muted">Works at: ${V.at ? E.BUILD[V.at].name : 'any labor building'}</small></div></div>`;
       }).join('')}</div>`;
     if (tab === 'creatures')
-      return `<p>Year 1 brings the Wolf pack first, then three more from tier 1. Year 2 and year 3 each draw four.</p>${[1, 2, 3]
+      return `<ul>
+        <li>Round 1 is always the <b>Wolf pack</b>. Rounds 2–4 bring three of the other year-1 creatures, rounds 5–8 four of the five year-2 creatures, and rounds 9–12 four of the five year-3 creatures, in a random order.</li>
+        <li>Strength rises each year: year 1 ${strRange(1)}, year 2 ${strRange(2)}, year 3 ${strRange(3)}.</li>
+        <li>The threat track shows the next 3 creatures. Creatures on foot attack <b>one side</b>, shown on the track and on the map, so you know which wall matters. Flyers come over the walls.</li>
+        <li>The same creature attacks both villages, and each village fights it separately.</li>
+      </ul>${[1, 2, 3]
         .map(
           (t) =>
             `<h4>${['', 'Year 1', 'Year 2', 'Year 3'][t]}</h4><div class="gallery">${E.BEAST_ORDER.filter((k) => E.BEAST[k].tier === t)
@@ -1262,31 +1460,27 @@
               })
               .join('')}</div>`,
         )
-        .join('')}
-      <h4>Defense</h4>
-      <ul>
-        <li>Keep 🛡️1 (Castle +3), each Watchtower or Wizard’s Tower 🛡️1, each set of arms 🛡️1.</li>
-        <li>Guards 🛡️2, Knights 🛡️4, Archers 🛡️2 (+3 vs flyers), Wizards 🛡️3 (+4 vs flyers and undead), Priests +4 vs undead.</li>
-        <li>The wall on the side being attacked (ground creatures only), and Muster for tonight.</li>
-      </ul>`;
+        .join('')}`;
     if (tab === 'scoring')
       return `
+      <p>After the 12th night the game ends and the scores are revealed one category at a time.</p>
       <table class="rules-table">
         <tr><th>Source</th><th>Points</th></tr>
-        <tr><td>⭐ Renown</td><td>Creature trophies, Bards, Priests and the Wizard each round, minus anyone who left hungry or cold or was lost to undead.</td></tr>
-        <tr><td>🏠 Buildings</td><td>The ⭐ printed on each building — but job buildings only while staffed. Wonders: Castle ⭐6, Wizard’s Tower ⭐5, Cathedral ⭐10.</td></tr>
-        <tr><td>👥 Villagers</td><td>Every villager still living with you: Peasants ⭐1, most trades ⭐2, Knights and Stewards ⭐3, the Wizard ⭐4.</td></tr>
-        <tr><td>🧱 Stone walls</td><td>⭐1 per stone section.</td></tr>
-        <tr><td>🏰 Fully walled</td><td>⭐3 if all 6 sides have a wall.</td></tr>
-        <tr><td>🪙 Gold</td><td>⭐1 per 🪙5 left over.</td></tr>
+        <tr><td>⭐ Renown</td><td>Gained from trophies, working Bards, Priests and the Wizard (⭐1 each per round) and the Festival green. Lost when villagers leave hungry or cold (⭐1 each), to undead creatures and at the Moneylender. Can be negative.</td></tr>
+        <tr><td>🏠 Buildings</td><td>The ⭐ printed on each building — job buildings only if someone works there. Castle ⭐6, Wizard’s Tower ⭐5, Cathedral ⭐10.</td></tr>
+        <tr><td>👥 Villagers</td><td>Every villager still with you: Peasants ⭐1, most trades ⭐2, Knights and Stewards ⭐3, the Wizard ⭐4.</td></tr>
+        <tr><td>🧱 Stone walls</td><td>⭐1 per side with a Stone wall.</td></tr>
+        <tr><td>🏰 Fully walled</td><td>⭐3 if all 6 sides have a wall (Palisade or Stone).</td></tr>
+        <tr><td>🪙 Gold</td><td>⭐1 per full 🪙5 left over (🪙9 = ⭐1).</td></tr>
       </table>
-      <p>Ties go to the village with more villagers.</p>
+      <p>Most ⭐ wins. On a tie, the village with more villagers wins; if that’s tied too, it’s a draw.</p>
       <h4>Strategy tips</h4>
       <ul>
-        <li>Food first: a Farm next to a Well with a Farmer makes 🍞4 most seasons. Stock up before Winter.</li>
-        <li>Look at the threat track. A palisade on the right side is cheap; flyers need Archers, Towers or a Wizard.</li>
-        <li>Muster when you are just short — it’s one action for a trophy.</li>
-        <li>Grab the first traveller in the Crossroads: it’s cheapest, and it leaves tonight anyway.</li>
+        <li>Food first: a Farm next to a Well with a Farmer makes 🍞4 in Spring and 🍞6 in Autumn. Save up before Winter, when Farms make nothing.</li>
+        <li>Check the threat track. A Palisade on the right side is cheap; flyers need Archers, Watchtowers, arms or a Wizard.</li>
+        <li>Going first? Take the place your rival needs most.</li>
+        <li>Grab the first traveller at the Crossroads: they’re cheapest and leave tonight anyway.</li>
+        <li>A Steward early gives you an extra worker every round for the rest of the game.</li>
         <li>Race for a wonder — but you need 5 or 7 villagers first.</li>
       </ul>`;
     return '';
