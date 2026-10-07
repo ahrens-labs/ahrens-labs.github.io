@@ -128,37 +128,35 @@
     const canResume = saved && saved.state.phase !== 'over';
     document.body.className = 'setup-mode';
     $('#app').innerHTML = `
-      <div class="setup">
-        <div class="setup-hero">
-          <img src="${IMG('cover')}" alt="" class="hero-img">
-          <div class="hero-shade"></div>
-          <div class="hero-text">
+      <div class="setup gh">
+        <div class="gh-top"><a class="gh-lobby" href="/board-games.html" title="Back to the game lobby">← 🎲 Game lobby</a></div>
+        <div class="gh-hero">
+          <img src="${IMG('cover')}" alt="" class="gh-hero-img">
+          <div class="gh-shade"></div>
+          <div class="hero-particles" aria-hidden="true">${particles('autumn', 10)}</div>
+          <div class="gh-title">
             <h1 class="display">Hearthhold</h1>
             <p>Raise a village. Keep its people fed, warm and housed. Hold the walls when the dragons come.</p>
           </div>
-          <div class="hero-particles" aria-hidden="true">${particles('autumn', 10)}</div>
         </div>
-        <div class="setup-card panel">
-          ${canResume ? `<div class="resume"><div><b>Game in progress</b><span class="muted">${esc(saved.state.players.map((p) => p.name).join(' vs '))} · ${E.SEASON[E.seasonOf(saved.state.round)].name}, year ${E.yearOf(saved.state.round)}</span></div><button class="btn" id="resume">Continue</button></div>` : ''}
+        <div class="setup-card gh-card panel">
+          ${canResume ? `<div class="gh-resume"><div><b>Game in progress</b><span>${esc(saved.state.players.map((p) => p.name).join(' vs '))} · ${E.SEASON[E.seasonOf(saved.state.round)].name}, year ${E.yearOf(saved.state.round)}</span></div><button class="btn" id="resume">Continue</button></div>` : ''}
           <h2>New game</h2>
-          <div class="field">
-            <span class="label">Opponent</span>
-            <div class="seg" id="mode">
-              <button data-v="ai" class="${pr.mode !== 'local' ? 'on' : ''}">🤖 Computer</button>
-              <button data-v="local" class="${pr.mode === 'local' ? 'on' : ''}">👥 Two players, one device</button>
-              <button data-v="online" class="${pr.mode === 'online' ? 'on' : ''}">🌐 Online</button>
-            </div>
+          <div class="gh-modes" id="mode">
+            <button data-v="ai" class="gh-mode ${pr.mode !== 'local' && pr.mode !== 'online' ? 'on' : ''}"><span>🤖</span><b>Computer</b><small>You build one village</small></button>
+            <button data-v="local" class="gh-mode ${pr.mode === 'local' ? 'on' : ''}"><span>👥</span><b>Two players</b><small>Share this device</small></button>
+            <button data-v="online" class="gh-mode ${pr.mode === 'online' ? 'on' : ''}"><span>🌐</span><b>Online</b><small>Challenge a friend</small></button>
           </div>
           <div class="online-only" id="online-box"></div>
+          <div class="field names offline-only">
+            <label><span class="label">Your village</span><input id="n0" maxlength="18" value="${esc(pr.n0 || 'Oakvale')}"></label>
+            <label class="local-only"><span class="label">Second village</span><input id="n1" maxlength="18" value="${esc(pr.n1 || 'Stonebrook')}"></label>
+          </div>
           <div class="field ai-only offline-only">
             <span class="label">Difficulty</span>
             <div class="seg" id="level">
               ${['easy', 'normal', 'hard'].map((l) => `<button data-v="${l}" class="${(pr.level || 'normal') === l ? 'on' : ''}">${l[0].toUpperCase() + l.slice(1)}</button>`).join('')}
             </div>
-          </div>
-          <div class="field names offline-only">
-            <label><span class="label">Your village</span><input id="n0" maxlength="18" value="${esc(pr.n0 || 'Oakvale')}"></label>
-            <label class="local-only"><span class="label">Second village</span><input id="n1" maxlength="18" value="${esc(pr.n1 || 'Stonebrook')}"></label>
           </div>
           <div class="field offline-only">
             <span class="label">Who starts?</span>
@@ -169,9 +167,8 @@
             </div>
           </div>
           <button class="btn big offline-only" id="start">Found your village</button>
-          <div class="btn-row center">
+          <div class="gh-links">
             <button class="btn ghost sm" id="how">📜 How to play</button>
-            <a class="btn ghost sm" href="/board-games.html">🎲 All board games</a>
           </div>
         </div>
       </div>`;
@@ -183,7 +180,7 @@
       $('#first').children[1].textContent = m === 'local' ? 'Second village' : 'Computer';
     };
     $('.setup').addEventListener('click', (e) => {
-      const b = e.target.closest('.seg button');
+      const b = e.target.closest('.seg button, .gh-modes button');
       if (!b) return;
       [...b.parentNode.children].forEach((x) => x.classList.toggle('on', x === b));
       if (b.parentNode.id === 'mode') {

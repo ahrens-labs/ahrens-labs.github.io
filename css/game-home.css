@@ -1,0 +1,46 @@
+/* Shared layout for the board games' home / new-game screens (Dino Board Game, Hearthhold).
+   Load after the game's own stylesheet; each game sets the --gh-* colours. */
+.gh { max-width: 860px; margin: 0 auto; padding: 16px 18px 48px; display: flex; flex-direction: column; gap: 18px; text-align: left; }
+.gh-top { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; }
+.gh-lobby { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.5rem 0.95rem; border-radius: 999px; font: 600 0.95rem/1 inherit; font-family: inherit;
+  text-decoration: none; color: #fff6e2; background: rgba(0, 0, 0, 0.28); box-shadow: inset 0 0 0 1.5px rgba(255, 236, 200, 0.35); transition: background 0.15s; }
+.gh-lobby:hover { background: rgba(0, 0, 0, 0.42); }
+
+.gh-hero { position: relative; border-radius: 22px; overflow: hidden; aspect-ratio: 16 / 8; min-height: 220px;
+  box-shadow: 0 0 0 4px var(--gh-frame, #6b4a2a), 0 0 0 7px var(--gh-frame-2, #3e2a16), 0 18px 40px rgba(0, 0, 0, 0.55); }
+.gh-hero-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; animation: ghKen 22s ease-in-out infinite alternate; }
+@keyframes ghKen { from { transform: scale(1.02); } to { transform: scale(1.1) translate(-1%, -1%); } }
+.gh-shade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0, 0, 0, 0) 38%, rgba(0, 0, 0, 0.78)); }
+.gh-title { position: absolute; left: 1.6rem; right: 1.6rem; bottom: 1.2rem; }
+.gh-title h1 { margin: 0; font-size: clamp(2.3rem, 7vw, 4.2rem); line-height: 1; color: #ffe08a;
+  text-shadow: 0 4px 0 rgba(0, 0, 0, 0.5), 0 0 30px rgba(255, 160, 60, 0.45); }
+.gh-title p { margin: 0.4rem 0 0; font-size: clamp(0.95rem, 2.2vw, 1.2rem); color: #fff6e2; max-width: 40rem; font-weight: 600; text-shadow: 0 2px 6px rgba(0, 0, 0, 0.75); }
+
+.gh-card { width: 100%; max-width: none; margin: 0; box-sizing: border-box; border-radius: 22px; padding: 1.5rem; text-align: left; }
+.gh-card > h2 { margin: 0 0 0.9rem; font-size: 1.45rem; }
+.gh-resume { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.75rem 1rem; margin: 0 0 1.1rem; border-radius: 14px;
+  background: #fff3cf; color: #3b2a14; box-shadow: inset 0 0 0 2px var(--gh-accent, #ffb300); }
+.gh-resume > div { display: flex; flex-direction: column; gap: 0.1rem; }
+.gh-resume span { font-size: 0.88rem; opacity: 0.75; }
+
+.gh-modes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 0 0 1.1rem; }
+.gh-modes .gh-mode { display: flex; flex-direction: column; align-items: center; gap: 0.2rem; padding: 0.9rem 0.6rem; border-radius: 16px;
+  border: 2px solid var(--gh-line, #e3d2ac); background: #fffdf6; color: #3b2a14; font: inherit; cursor: pointer; text-align: center; box-shadow: none;
+  transition: transform 0.15s, box-shadow 0.15s; }
+.gh-mode span { font-size: 1.8rem; line-height: 1.1; }
+.gh-mode b { font-family: "Lilita One", sans-serif; font-weight: 400; font-size: 1.1rem; }
+.gh-mode small { opacity: 0.7; font-size: 0.82rem; }
+.gh-modes .gh-mode:hover { transform: translateY(-2px); }
+.gh-modes .gh-mode.on { border-color: var(--gh-accent, #ffb300); background: #fff8e1; box-shadow: 0 0 0 3px var(--gh-accent-soft, rgba(255, 179, 0, 0.35)); }
+
+.gh-links { display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: center; margin-top: 1.2rem; padding-top: 1rem; border-top: 1.5px dashed var(--gh-line, #e3d2ac); }
+
+@media (max-width: 560px) {
+  .gh { padding: 10px 10px 36px; gap: 14px; }
+  .gh-hero { aspect-ratio: 4 / 3; min-height: 0; }
+  .gh-modes { gap: 8px; }
+  .gh-modes .gh-mode { padding: 0.7rem 0.3rem; }
+  .gh-mode small { display: none; }
+  .gh-card { padding: 1.1rem; }
+  .gh-title { left: 1rem; right: 1rem; bottom: 0.8rem; }
+}

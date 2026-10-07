@@ -3709,29 +3709,33 @@
     return 0;
   }
 
-  // ---------------------------------------------------------------- setup screen
-  function renderSetup(app) {
+  // Lobby link + cover art, shared by the new-game and sign-in screens.
+  function homeTop() {
     const floaters = ['coin', 'diamond', 'meat', 'plant', 'coin', 'fence', 'water', 'diamond']
       .map((t, i) => `<img class="floater f${i}" src="${IMG}${t}.webp" alt="">`)
       .join('');
-    const parade = BOOK.concat(DECK, PROTO_NEW)
-      .map((sp, i) => `<img src="${IMG}${sp}.webp" alt="${esc(SPECIES[sp].name)}" title="${esc(SPECIES[sp].name)}" style="--i:${i}">`)
-      .join('');
+    return `<div class="gh-top"><a class="gh-lobby" href="/board-games.html" title="Back to the game lobby">← 🎲 Game lobby</a></div>
+      <div class="gh-hero">
+        <img class="gh-hero-img" src="${IMG}cover.webp" alt="Dinosaurs in fenced enclosures in a jungle park">
+        <div class="gh-shade"></div>
+        ${floaters}
+        <div class="gh-title"><h1>Dino Board Game</h1><p>Fence your land, feed your dinos, and build the best park in ${PROTO_ROUNDS} rounds.</p></div>
+      </div>`;
+  }
+
+  // ---------------------------------------------------------------- setup screen
+  function renderSetup(app) {
     const saved = load();
     const canResume = saved && saved.queue[0] && saved.queue[0].t !== 'gameOver';
-    app.innerHTML = tokify(`<div class="setup${setupOnline ? ' vs-online' : setupVsAi ? ' vs-ai' : ''}">
-      <div class="box-lid">
-        <img class="cover" src="${IMG}cover.webp" alt="Dinosaurs in fenced enclosures in a jungle park">
-        <div class="lid-title"><h1>Dino Board Game</h1><p class="tagline">Fence your land, feed your dinos, and build the best park in ${PROTO_ROUNDS} rounds.</p></div>
-        ${floaters}
-      </div>
-      <div class="parade">${parade}</div>
-      <div class="setup-card">
-        <h2>How do you want to play?</h2>
-        <div class="mode-pick" role="radiogroup">
-          <button class="mode-btn m-2p" data-act="setupMode" data-mode="2p" role="radio"><span>👥</span><b>Two players</b><small>Share this device</small></button>
-          <button class="mode-btn m-ai" data-act="setupMode" data-mode="ai" role="radio"><span>🤖</span><b>Vs computer</b><small>You play Red</small></button>
-          <button class="mode-btn m-online" data-act="setupMode" data-mode="online" role="radio"><span>🌐</span><b>Online</b><small id="ol-badge">Challenge a friend</small></button>
+    app.innerHTML = tokify(`<div class="setup gh${setupOnline ? ' vs-online' : setupVsAi ? ' vs-ai' : ''}">
+      ${homeTop()}
+      <div class="setup-card gh-card">
+        ${canResume ? '<div class="gh-resume"><div><b>Game in progress</b><span>Your last game is saved in this browser.</span></div><button class="btn" data-act="resumeLocal">▶ Continue</button></div>' : ''}
+        <h2>New game</h2>
+        <div class="gh-modes" role="radiogroup">
+          <button class="gh-mode mode-btn m-ai" data-act="setupMode" data-mode="ai" role="radio"><span>🤖</span><b>Computer</b><small>You play Red</small></button>
+          <button class="gh-mode mode-btn m-2p" data-act="setupMode" data-mode="2p" role="radio"><span>👥</span><b>Two players</b><small>Share this device</small></button>
+          <button class="gh-mode mode-btn m-online" data-act="setupMode" data-mode="online" role="radio"><span>🌐</span><b>Online</b><small id="ol-badge">Challenge a friend</small></button>
         </div>
         <div class="online-box only-online">
           <div class="ol-form">
@@ -3761,8 +3765,8 @@
           <button class="btn fb" data-act="setupStart" data-first="1"><span class="only-2p">🔵 Blue did!</span><span class="only-ai">🤖 Computer starts</span></button>
         </div>
         <div class="setup-foot">Everyone starts with 🪙5 and an empty park, buying dinos from a shared market. Your game saves in this browser.</div>
+        <div class="gh-links"><button class="btn ghost sm" data-act="rules">📜 How to play</button><a class="btn ghost sm" href="/dino-history.html">🏆 Game history</a>${isAdmin() ? '<button class="btn ghost sm" data-act="simOpen">🧪 Computer vs computer</button>' : ''}</div>
       </div>
-      <div class="setup-actions">${canResume ? '<button class="btn" data-act="resumeLocal">▶ Resume saved game</button>' : ''}<a class="btn ghost" href="/dino-history.html">🏆 Game history</a><button class="btn ghost" data-act="rules">📜 Read the rules</button>${isAdmin() ? '<button class="btn ghost" data-act="simOpen">🧪 Computer vs computer</button>' : ''}</div>
     </div>`);
     renderLobby();
   }
@@ -7022,12 +7026,9 @@
 
   function renderGate(app) {
     const back = encodeURIComponent(location.pathname.replace(/^\//, '') + location.search);
-    app.innerHTML = tokify(`<div class="setup gate">
-      <div class="box-lid">
-        <img class="cover" src="${IMG}cover.webp" alt="Dinosaurs in fenced enclosures in a jungle park">
-        <div class="lid-title"><h1>Dino Board Game</h1><p class="tagline">Fence your land, feed your dinos, and build the best park in ${PROTO_ROUNDS} rounds.</p></div>
-      </div>
-      <div class="setup-card">
+    app.innerHTML = tokify(`<div class="setup gh gate">
+      ${homeTop()}
+      <div class="setup-card gh-card">
         <h2>🔒 Sign in to play</h2>
         <p>You need an Ahrens Labs account to play — against the computer, with a friend on this device, or online against other Ahrens Labs players.</p>
         <a class="btn big" href="/account.html?return=${back}">Log in or sign up</a>
