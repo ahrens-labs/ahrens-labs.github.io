@@ -50,10 +50,11 @@ h1, h2 { font-family: "Lilita One", "Fredoka", sans-serif; font-weight: 400; let
 }
 .shine { position: absolute; inset: 0; background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.4) 48%, transparent 62%); transform: translateX(-120%); pointer-events: none; }
 .badge { position: absolute; top: 12px; right: -34px; transform: rotate(35deg); background: #b23a48; color: #fff; font-weight: 700; padding: 0.25rem 2.6rem; box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4); }
-.game:hover .lid, .game:focus-visible .lid { transform: rotate(0deg) translateY(-8px) scale(1.02); box-shadow: 0 0 0 4px var(--accent), 0 0 0 7px rgba(0, 0, 0, 0.55), 0 0 40px rgba(255, 210, 120, 0.45), 0 30px 50px rgba(0, 0, 0, 0.55); }
+.game:hover .lid, .lid-link:focus-visible .lid { transform: rotate(0deg) translateY(-8px) scale(1.02); box-shadow: 0 0 0 4px var(--accent), 0 0 0 7px rgba(0, 0, 0, 0.55), 0 0 40px rgba(255, 210, 120, 0.45), 0 30px 50px rgba(0, 0, 0, 0.55); }
 .game:hover .lid img { transform: scale(1.06); }
 .game:hover .shine { animation: shine 0.9s ease; }
-.game:focus-visible { outline: none; }
+.lid-link { display: block; text-decoration: none; color: inherit; }
+.lid-link:focus-visible { outline: none; }
 
 .info { background: linear-gradient(180deg, #fbf1d9, #efdfb8); color: #2b1d0e; border-radius: 16px; padding: 1rem 1.1rem 1.1rem; box-shadow: 0 0 0 3px #6b4a2a, 0 10px 22px rgba(0, 0, 0, 0.35); }
 .info h2 { margin: 0 0 0.3rem; font-size: 1.5rem; }
@@ -62,6 +63,10 @@ h1, h2 { font-family: "Lilita One", "Fredoka", sans-serif; font-weight: 400; let
 .chips li { background: #fffaf0; border-radius: 999px; padding: 0.2rem 0.6rem; font-size: 0.82rem; font-weight: 600; box-shadow: inset 0 0 0 2px #e6d3a6; }
 .play { display: inline-block; padding: 0.6rem 1.1rem; border-radius: 12px; font-weight: 700; background: linear-gradient(180deg, #ffd978, var(--accent)); box-shadow: 0 4px 0 rgba(0, 0, 0, 0.3); transition: transform 0.12s ease; }
 .game:hover .play { transform: translateY(-2px); }
+.play { color: inherit; text-decoration: none; }
+.actions { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+.tut { padding: 0.55rem 0.9rem; border-radius: 12px; border: 2px solid #6b4a2a; background: #fffaf0; color: #2b1d0e; font: 700 0.95rem Fredoka, system-ui, sans-serif; cursor: pointer; box-shadow: 0 3px 0 rgba(0, 0, 0, 0.2); transition: transform 0.12s ease; }
+.tut:hover { transform: translateY(-2px); background: #fff3d6; }
 
 .soon { opacity: 0.75; }
 .lid.sealed { display: grid; place-items: center; background: repeating-linear-gradient(45deg, #5a3a1e 0 14px, #4c3018 14px 28px); box-shadow: 0 0 0 4px #8a6a44, 0 0 0 7px rgba(0, 0, 0, 0.55), 0 24px 40px rgba(0, 0, 0, 0.5); }
