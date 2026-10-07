@@ -1,4 +1,4 @@
-/* Shared layout for the board games' home / new-game screens (Dino Board Game, Hearthhold).
+/* Shared layout for the board games' home / new-game screens (Dino Dynasty, Oakhaven).
    Load after the game's own stylesheet; each game sets the --gh-* colours. */
 .gh { max-width: 860px; margin: 0 auto; padding: 16px 18px 48px; display: flex; flex-direction: column; gap: 18px; text-align: left; }
 .gh-top { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; }

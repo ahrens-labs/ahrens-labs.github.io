@@ -4,10 +4,10 @@
 //   call AhrensTutorial.mount(container) after inserting it.
 (function () {
   const VIDEOS = {
-    dino: { title: 'Dino Board Game — video tutorial', base: '/video/dino-tutorial' },
-    hearthhold: { title: 'Hearthhold — video tutorial', base: '/video/hearthhold-tutorial' },
+    dino: { title: 'Dino Dynasty — video tutorial', base: '/video/dino-tutorial' },
+    hearthhold: { title: 'Oakhaven — video tutorial', base: '/video/hearthhold-tutorial' },
   };
-  const V = '?v=4';
+  const V = '?v=5';
   const CC_KEY = 'ahrensTutorial.cc';
 
   const css = `

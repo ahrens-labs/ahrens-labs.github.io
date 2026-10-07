@@ -151,7 +151,7 @@
           <div class="gh-shade"></div>
           <div class="hero-particles" aria-hidden="true">${particles('autumn', 10)}</div>
           <div class="gh-title">
-            <h1 class="display">Hearthhold</h1>
+            <h1 class="display">Oakhaven</h1>
             <p>Raise a village. Keep its people fed, warm and housed. Hold the walls when the dragons come.</p>
           </div>
         </div>
@@ -257,7 +257,7 @@
       <header class="topbar">
         <div class="brand">
           <img src="${IMG('keep')}" alt="" class="brand-logo">
-          <div><h1>Hearthhold</h1><small id="subtitle"></small></div>
+          <div><h1>Oakhaven</h1><small id="subtitle"></small></div>
         </div>
         <div class="top-mid">
           <div class="tracker" id="tracker"></div>
@@ -1421,7 +1421,7 @@
     $('#hist-new').onclick = () => showSetup();
     if (!sessionId()) {
       const back = encodeURIComponent(location.pathname.replace(/^\//, ''));
-      $('#hist-body').innerHTML = `<div class="ol-gate"><p>Sign in to keep a history of your Hearthhold games — against the computer, on one device, or online.</p><a class="btn big" href="/account.html?return=${back}">Log in or sign up</a></div>`;
+      $('#hist-body').innerHTML = `<div class="ol-gate"><p>Sign in to keep a history of your Oakhaven games — against the computer, on one device, or online.</p><a class="btn big" href="/account.html?return=${back}">Log in or sign up</a></div>`;
       return;
     }
     const r = await api('/api/hearthhold/history');
@@ -1605,7 +1605,7 @@
     if (!box) return;
     if (!sessionId()) {
       const back = encodeURIComponent(location.pathname.replace(/^\//, '') + location.search);
-      box.innerHTML = `<div class="ol-gate"><p>Play Hearthhold against another Ahrens Labs player. Each of you takes your turn whenever you like — the game waits.</p><a class="btn big" href="/account.html?return=${back}">Log in or sign up</a></div>`;
+      box.innerHTML = `<div class="ol-gate"><p>Play Oakhaven against another Ahrens Labs player — a quick game with a 2-minute turn clock, or a long game where you take your turn whenever you like.</p><a class="btn big" href="/account.html?return=${back}">Log in or sign up</a></div>`;
       return;
     }
     box.innerHTML = lobbyHtml(true);
@@ -2151,7 +2151,7 @@
   }
   function showRules(tab) {
     ui.rulesTab = tab || ui.rulesTab || 'basics';
-    const back = openModal(`<div class="rules"><h2>📜 How to play Hearthhold</h2><div class="rules-tabs">${RULE_TABS.map(([k, n]) => `<button class="rules-tab${k === ui.rulesTab ? ' on' : ''}" data-tab="${k}">${n}</button>`).join('')}</div><div class="rules-body">${rulesBody(ui.rulesTab)}</div></div>`, { cls: 'wide', onClose: G ? null : () => {} });
+    const back = openModal(`<div class="rules"><h2>📜 How to play Oakhaven</h2><div class="rules-tabs">${RULE_TABS.map(([k, n]) => `<button class="rules-tab${k === ui.rulesTab ? ' on' : ''}" data-tab="${k}">${n}</button>`).join('')}</div><div class="rules-body">${rulesBody(ui.rulesTab)}</div></div>`, { cls: 'wide', onClose: G ? null : () => {} });
     if (window.AhrensTutorial) window.AhrensTutorial.mount(back);
     back.addEventListener('click', (e) => {
       const t = e.target.closest('[data-tab]');

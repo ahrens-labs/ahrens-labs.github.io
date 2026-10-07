@@ -1,4 +1,4 @@
-// Dino Board Game — game history for the signed-in Ahrens Labs account.
+// Dino Dynasty — game history for the signed-in Ahrens Labs account.
 (() => {
   const API_BASE = window.AHRENS_LABS_API_BASE || 'https://chess-accounts.matthewahrens.workers.dev';
   const IMG = '/img/dino-game/';
@@ -114,13 +114,13 @@
 
   function render() {
     const head = `<header class="hist-top">
-      <a class="brand" href="/dino-board-game.html"><img class="brand-logo" src="${IMG}trex.webp" alt=""><div><h1>Dino Board Game</h1><small>Game history</small></div></a>
+      <a class="brand" href="/dino-board-game.html"><img class="brand-logo" src="${IMG}trex.webp" alt=""><div><h1>Dino Dynasty</h1><small>Game history</small></div></a>
       <a class="btn sm" href="/dino-board-game.html">🦖 Play</a>
     </header>`;
     if (signedOut) {
       const back = encodeURIComponent('dino-history.html');
       app.innerHTML = `${head}<main class="hist"><div class="hcard gate-card"><h2>🔒 Sign in to see your games</h2>
-        <p>Your Dino Board Game history is saved to your Ahrens Labs account.</p>
+        <p>Your Dino Dynasty history is saved to your Ahrens Labs account.</p>
         <a class="btn big" href="/account.html?return=${back}">Log in or sign up</a></div></main>`;
       return;
     }

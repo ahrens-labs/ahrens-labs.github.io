@@ -325,7 +325,7 @@ export async function handleHearthholdRequest(request, env, corsHeaders, path, {
     if (!res.ok) return jsonResponse({ error: 'Could not create the game' }, corsHeaders, 500);
     const created = await res.json();
     if (notifyChallenge && opp.email && opp.emailVerified) {
-      const send = notifyChallenge({ to: opp.email, recipientName: opp.username, challengerName: me.username, gameId });
+      const send = notifyChallenge({ to: opp.email, recipientName: opp.username, challengerName: me.username, gameId, mode: created.summary && created.summary.mode });
       if (executionCtx && executionCtx.waitUntil) executionCtx.waitUntil(Promise.resolve(send).catch(() => {}));
     }
     return jsonResponse({ success: true, game: created.summary }, corsHeaders);

@@ -2709,7 +2709,7 @@
     const evChip = E ? `<div class="pcard ev-chip" title="${esc(E.desc)}"><span class="pc-i">${E.icon}</span><span class="pc-t">${E.name}</span></div>` : '';
     const fresh = T && T.t === 'roundStart' ? ' fresh' : '';
     setHtml(el, `
-      <div class="brand"><img class="brand-logo" src="${IMG}trex.webp" alt=""><div><h1>Dino Board Game</h1><small>Build the best dino park in ${rounds()} rounds</small></div></div>
+      <div class="brand"><img class="brand-logo" src="${IMG}trex.webp" alt=""><div><h1>Dino Dynasty</h1><small>Build the best dino park in ${rounds()} rounds</small></div></div>
       <div class="top-mid">
         <div class="tracker"><span class="tracker-label">Round</span>${pips}</div>
         <div class="phase-row${fresh}" data-round="${state.round}">${evChip}${phases}</div>
@@ -3719,7 +3719,7 @@
         <img class="gh-hero-img" src="${IMG}cover.webp" alt="Dinosaurs in fenced enclosures in a jungle park">
         <div class="gh-shade"></div>
         ${floaters}
-        <div class="gh-title"><h1>Dino Board Game</h1><p>Fence your land, feed your dinos, and build the best park in ${PROTO_ROUNDS} rounds.</p></div>
+        <div class="gh-title"><h1>Dino Dynasty</h1><p>Fence your land, feed your dinos, and build the best park in ${PROTO_ROUNDS} rounds.</p></div>
       </div>`;
   }
 
@@ -3983,7 +3983,7 @@
     if (!RULE_TABS.some(([k]) => k === rulesTab)) rulesTab = 'basics';
     const panes = protoRulesPanes();
     const tabs = RULE_TABS.map(([k, label]) => `<button class="rules-tab${k === rulesTab ? ' on' : ''}" data-act="rulesTab" data-tab="${k}">${label}</button>`).join('');
-    openModal(`<div class="rules-top"><div class="modal-head"><h2>📜 How to play</h2><button class="x" data-act="closeModal" aria-label="Close">✕</button></div>
+    openModal(`<div class="rules-top"><div class="modal-head"><h2>📜 How to play Dino Dynasty</h2><button class="x" data-act="closeModal" aria-label="Close">✕</button></div>
       <nav class="rules-tabs">${tabs}</nav></div>
       ${RULE_TABS.map(([k]) => `<section class="rules-pane" data-pane="${k}"${k === rulesTab ? '' : ' hidden'}>${panes[k]}</section>`).join('')}`, 'rules');
     if (window.AhrensTutorial) window.AhrensTutorial.mount(document.querySelector('.modal.rules'));
@@ -4002,7 +4002,7 @@
   }
 
   function openRules() {
-    openModal(`<div class="modal-head"><h2>📜 How to play</h2><button class="x" data-act="closeModal" aria-label="Close">✕</button></div>
+    openModal(`<div class="modal-head"><h2>📜 How to play Dino Dynasty</h2><button class="x" data-act="closeModal" aria-label="Close">✕</button></div>
       <p>Two players each build a dino park on a 12×12 grid over <b>18 rounds</b>. Most points wins.</p>
       <h3>Setup</h3>
       <ul>
