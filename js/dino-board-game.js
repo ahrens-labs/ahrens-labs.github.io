@@ -147,7 +147,7 @@
   const PROTO_TREX_ROUNDS = 3;
   // A bred dino starts as an egg, hatches into a baby next round, and grows up after this many Feedings.
   const PROTO_BABY_FEEDS = 2;
-  // 15 end-game goal cards; each game uses 3, revealed at the start of these rounds.
+  // 14 end-game goal cards; each game uses 3, revealed at the start of these rounds.
   // "Enclosure" here means an active enclosure with at least one living dino.
   const PROTO_GOAL_ROUNDS = [1, 6, 11];
   const PROTO_GEM_PTS = 2;
@@ -161,7 +161,6 @@
     giants: { icon: '🦕', name: 'Giants', desc: '2 points per dino that takes 5 or more squares', pts: (c) => 2 * c.dinos.filter((sp) => spec(sp).space >= 5).length },
     little: { icon: '🐣', name: 'Little ones', desc: '1 point per dino that takes 4 or fewer squares, after your first', pts: (c) => Math.max(0, c.dinos.filter((sp) => spec(sp).space <= 4).length - 1) },
     water: { icon: '💧', name: 'Oasis', desc: '5 points per watering hole in an enclosure', pts: (c) => 5 * c.pens.reduce((s, x) => s + x.waters, 0) },
-    feeders: { icon: '🌾', name: 'Well stocked', desc: '3 points for every 2 feeder squares in enclosures', pts: (c) => Math.floor(1.5 * c.pens.reduce((s, x) => s + x.feeders, 0)) },
     pens: { icon: '🏰', name: 'Many pens', desc: '1 point per enclosure after your first', pts: (c) => Math.max(0, c.pens.length - 1) },
     herds: { icon: '🦖', name: 'Big herds', desc: '5 points per enclosure with 2 or more dinos', pts: (c) => 5 * c.pens.filter((x) => x.n >= 2).length },
     roomy: { icon: '🗺️', name: 'Wide open', desc: '3 points per enclosure of 9 or more squares', pts: (c) => 3 * c.pens.filter((x) => x.size >= 9).length },
@@ -1205,6 +1204,11 @@
       if (!PROTO_EVENTS[s.event]) s.event = 'heatwave';
     }
     if (s.proto && !Array.isArray(s.goals)) s.goals = shuffle(Object.keys(PROTO_GOALS)).slice(0, PROTO_GOAL_ROUNDS.length);
+    // Goals that were retired are swapped in place for an unused one, so the others keep their reveal rounds.
+    if (s.proto && s.goals.some((id) => !PROTO_GOALS[id])) {
+      const spare = shuffle(Object.keys(PROTO_GOALS).filter((id) => !s.goals.includes(id)));
+      s.goals = s.goals.map((id) => (PROTO_GOALS[id] ? id : spare.shift()));
+    }
     if (s.proto && s.goals.length > PROTO_GOAL_ROUNDS.length) s.goals = s.goals.slice(0, PROTO_GOAL_ROUNDS.length);
     if (s.proto && s.goals.length < PROTO_GOAL_ROUNDS.length) s.goals = s.goals.concat(shuffle(Object.keys(PROTO_GOALS).filter((id) => !s.goals.includes(id))).slice(0, PROTO_GOAL_ROUNDS.length - s.goals.length));
     (s.players || []).forEach((P) => {
@@ -6448,8 +6452,8 @@
     let best = null;
     an.comps.filter((cp) => cp.valid && !cp.dead && cp.living.length && cp.empty > 0).forEach((cp) => {
       const bill = enclosureCost(cp).total;
-      // Feeder squares beyond the bill save no food, but Well stocked still pays for them.
-      const size = Math.min(cp.empty, protoKnownGoals().includes('feeders') ? cp.empty : bill, Math.max(0, P.coins - x));
+      // Feeder squares beyond the bill save no food.
+      const size = Math.min(cp.empty, bill, Math.max(0, P.coins - x));
       if (size <= 0 || !canAfford(P, withExtra(feederCost(size), x))) return;
       const cells = aiFindCellsB(b, size, null, cp.key);
       if (!cells) return;
