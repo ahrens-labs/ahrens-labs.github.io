@@ -773,7 +773,7 @@
     const rate = E.tradeRate(p) === 1 ? '1:1' : '2:1';
     const open = E.freeLocs(s).length;
     const workerMsg = p.workers > 0
-      ? `Place ${plural(p.workers, 'worker')} on the locations above — placing one ends your turn.${E.freeLocs(s).length === E.OPEN_LOCS.length ? ' The five main spots are taken, but the always-open ones still have room.' : ''}`
+      ? `Place ${plural(p.workers, 'worker')} on the locations above — placing one ends your turn.${E.freeLocs(s).length === E.OPEN_LOCS.length ? ' The main spots are taken, but the always-open ones still have room.' : ''}`
       : 'All your workers are out. Finish your free actions, then end your round.';
     box.innerHTML = `
       <h3>Free actions <span class="muted">as many as you can pay for</span></h3>
@@ -799,9 +799,10 @@
       return E.RES.filter((r) => g[r]).map((r) => `${E.RES_ICON[r]}${g[r]}`).join(' ');
     };
     const cards = s.locs
+      .concat(E.FIXED_LOCS)
       .map((k) => {
         const L = E.LOC[k];
-        const grp = E.LOC_GROUPS.find((g) => g.k === L.group);
+        const grp = E.LOC_GROUPS.find((g) => g.k === L.group) || { icon: '🔨', name: 'Every game' };
         const who = s.spots[k];
         const why = who != null ? `${s.players[who].name}’s worker is here` : !can ? (s.phase === 'act' && myTurnHere() ? 'No workers left' : 'Not your turn') : null;
         const g = gainTxt(k);
@@ -810,7 +811,7 @@
           <span class="loc-art"><img src="${IMG(L.img)}" alt=""></span>
           <b class="loc-name">${L.name}</b>
           <span class="loc-text">${L.text}</span>
-          ${g && who == null ? `<span class="loc-now">You’d get ${g}</span>` : ''}
+          ${g && who == null ? `<span class="loc-now">You’d get ${g}${k === 'crew' ? ` · ${(() => { const n = ((p.flags && p.flags.site) || []).length + (p.flags && p.flags.siteCastle ? 1 : 0); return n ? `finish ${n} 🚧 now` : 'nothing under construction yet'; })()}` : ''}</span>` : ''}
           ${who != null ? `<span class="meeple" style="--pc:${PCOLOR[who]}" title="${esc(s.players[who].name)}">🧍</span>` : ''}
         </button>`;
       })
@@ -826,7 +827,7 @@
           ${crowd.length ? `<span class="crowd">${crowd.map((pi) => `<i style="--pc:${PCOLOR[pi]}" title="${esc(s.players[pi].name)}">🧍</i>`).join('')}</span>` : ''}
         </button>`;
     }).join('');
-    $('#locs').innerHTML = `<div class="locs-head"><h3>📍 Locations</h3><span class="muted">Each holds one worker per round — whoever gets there first. This game’s five are drawn from ${E.LOC_ORDER.length}.</span></div><div class="loc-row">${cards}</div>
+    $('#locs').innerHTML = `<div class="locs-head"><h3>📍 Locations</h3><span class="muted">Each holds one worker per round — whoever gets there first. This game’s five are drawn from ${E.LOC_ORDER.length}; the Work crew is in every game.</span></div><div class="loc-row">${cards}</div>
       <div class="locs-head open-head"><h4>Always open</h4><span class="muted">Weaker, but any number of workers fit — for a worker with nowhere better to go.</span></div><div class="loc-row extra">${extra}</div>`;
   }
 
@@ -1139,10 +1140,10 @@
       return b && E.canWork(v.k, b.b) ? `${E.BUILD[b.b].name}${E.canWork(v.k, b.b) === 'spec' ? ' ★' : ''}` : 'Idle';
     };
     const builders = p.vil.length
-      ? `<div class="builders"><b>🔨 Who builds it?</b> <span class="muted">They won’t work or defend tonight, and can’t build again until next season. The building opens next season.</span><div class="bchips">${p.vil
+      ? `<div class="builders"><b>🔨 Who builds it?</b> <span class="muted">They won’t work or defend tonight, and can’t build again until next season. The building opens next season — unless you then send a worker to the Work crew.</span><div class="bchips">${p.vil
           .map((v) => {
-            const isBusy = E.busy(p, v);
-            return `<button class="bchip${v.id === ui.builder ? ' on' : ''}" data-builder="${v.id}" ${isBusy ? 'disabled title="Already built this season"' : ''}><img src="${IMG(v.k)}" alt=""><span><b>${E.VIL[v.k].name}</b><small>${isBusy ? '🔨 building' : esc(vWhere(v))}</small></span></button>`;
+            const isBusy = E.hasBuilt(p, v);
+            return `<button class="bchip${v.id === ui.builder ? ' on' : ''}" data-builder="${v.id}" ${isBusy ? 'disabled title="Already built this season"' : ''}><img src="${IMG(v.k)}" alt=""><span><b>${E.VIL[v.k].name}</b><small>${isBusy ? (E.busy(p, v) ? '🔨 building' : '✓ built') : esc(vWhere(v))}</small></span></button>`;
           })
           .join('')}</div></div>`
       : '';
@@ -1196,7 +1197,7 @@
         <div>
           <h2>${b.b === 'keep' && p.castle ? 'Castle' : B.name}</h2>
           <p>${B.text}${b.b === 'keep' && p.castle ? ' ' + E.BUILD.castle.text : ''}</p>
-          ${underConstruction(p, b) ? `<p class="warn">🚧 <b>Under construction</b> — ${b.b === 'keep' ? 'the Castle’s beds and defense' : 'it'} can’t be used until next season: no work, beds, water or defense this round.</p>` : ''}
+          ${underConstruction(p, b) ? `<p class="warn">🚧 <b>Under construction</b> — ${b.b === 'keep' ? 'the Castle’s beds and defense' : 'it'} can’t be used until next season: no work, beds, water or defense this round. A worker at the Work crew finishes it now.</p>` : ''}
           <p><b>This round:</b> ${prodTxt}</p>
           ${E.RANGE[b.b] && p.rules >= 3 ? `<p><b>Defends:</b> ${[0, 1, 2, 3, 4, 5].filter((sd) => E.sideDepth(b.cell, sd) <= E.RANGE[b.b]).map((sd) => E.SIDES[sd].name).join(', ')} <small class="muted">(sides within ${E.RANGE[b.b]} rows)</small></p>` : ''}
           ${E.noisy(p, b) ? '<p class="warn">🔊 Next to a noisy building, so it sleeps 1 fewer.</p>' : ''}
@@ -2241,6 +2242,7 @@
         <li>Each place holds <b>one worker per round</b>, from either village. Whoever gets there first takes it; the other village can’t use it that round.</li>
         <li>You get the reward the moment you place the worker. The place card shows exactly what you would get right now.</li>
         <li>You can’t place two workers on the same place, and you never have to place all your workers.</li>
+        <li>The <b>Work crew</b> is in every game too, and holds one worker per round like the main places. It finishes every building you have under construction straight away and sends their builders back to work tonight — so build first, then send the worker. Anything you build after that is a normal building site again.</li>
         <li>Two <b>always-open places</b> are in every game as well. They give much less, but they have <b>no limit</b>: any number of workers from either village can go there, even several of yours in the same round. They’re there so a spare worker — say when you have 3 workers with a Steward and the five main places are full — still does something.</li>
       </ul>
       ${E.LOC_GROUPS.map(
@@ -2248,6 +2250,7 @@
           .map((k) => `<tr><td>${inGame && inGame.has(k) ? '✓ ' : ''}<b>${E.LOC[k].name}</b></td><td>${E.LOC[k].text}</td></tr>`)
           .join('')}</table>`,
       ).join('')}
+      <h4>🔨 In every game (one worker)</h4><table class="rules-table fixed">${E.FIXED_LOCS.map((k) => `<tr><td><b>${E.LOC[k].name}</b></td><td>${E.LOC[k].text}</td></tr>`).join('')}</table>
       <h4>♾️ Always open (every game, no limit)</h4><table class="rules-table fixed">${E.OPEN_LOCS.map((k) => `<tr><td><b>${E.LOC[k].name}</b></td><td>${E.LOC[k].text}</td></tr>`).join('')}</table>
       <h4>The fine print</h4>
       <ul>
@@ -2270,7 +2273,7 @@
       <p class="lead">Free actions don’t need a worker. On your turn you can do them <b>as often as you like</b> — before or after placing a worker — as long as you can pay.</p>
       <table class="rules-table">
         <tr><th>Action</th><th>Exactly what happens</th></tr>
-        <tr><td>🏗️ Build</td><td>Pay the cost, pick a <b>villager to build it</b>, and put the building on a free hex of the right land <b>next to one of your buildings</b>. The builder spends the rest of the round on the site: they don’t work or defend tonight, and can’t build again until next season — so each villager builds at most once a round. Idle villagers make the best builders. <b>New buildings are under construction 🚧 until next season</b>: they make nothing, add no beds, water or defense, and their workers don’t work yet. Build as many as you can afford, even several of the same kind. Wonders also need enough villagers and only one village can build each (see Buildings).</td></tr>
+        <tr><td>🏗️ Build</td><td>Pay the cost, pick a <b>villager to build it</b>, and put the building on a free hex of the right land <b>next to one of your buildings</b>. The builder spends the rest of the round on the site: they don’t work or defend tonight, and can’t build again until next season — so each villager builds at most once a round. Idle villagers make the best builders. <b>New buildings are under construction 🚧 until next season</b>: they make nothing, add no beds, water or defense, and their workers don’t work yet. A worker at the <b>Work crew</b> finishes them early and sends your builders back to work. Build as many as you can afford, even several of the same kind. Wonders also need enough villagers and only one village can build each (see Buildings).</td></tr>
         <tr><td>🧱 Wall</td><td>Each of your 6 sides can have a wall. A bare side becomes a <b>Palisade</b> (🪵2, 🛡️2); a Palisade becomes <b>Stone</b> (🪨3, 🛡️4 in total). A wall only defends against creatures on foot attacking <i>that side</i>.</td></tr>
         <tr><td>🧑‍🌾 Recruit</td><td>Take a traveller from the Crossroads and pay their 🪙 price (Knights also cost 🔩1). You need room: a free bed and free water. A Peasant for 🪙1 is always available.</td></tr>
         <tr><td>🎓 Train</td><td><b>Once a round</b>, one of your Peasants learns any trade you choose. Pay that trade’s full price plus 🪙${E.TRAIN_FEE} (Knights also cost 🔩1); discounts from the Tavern or Guild hall count. They need no new bed or water, and they move into their own building if you have one — an untrained worker there goes back to the fields.</td></tr>

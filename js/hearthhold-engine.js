@@ -140,9 +140,12 @@
     // In every game, with no worker limit — weak on purpose, for workers with nowhere better to go.
     commons: { name: 'Village commons', group: 'open', img: 'peasant', text: 'Take 🍞1. Any number of workers can go here.' },
     odd: { name: 'Odd jobs', group: 'open', img: 'workshop', text: 'Take 🪙1. Any number of workers can go here.' },
+    // In every game, one worker per round.
+    crew: { name: 'Work crew', group: 'fixed', img: 'carpenter', text: 'Finish everything you have under construction, so it works tonight, and send its builders back to work. Take 🪵1.' },
   };
   const OPEN_LOCS = ['commons', 'odd'];
-  const LOC_ORDER = Object.keys(LOC).filter((k) => LOC[k].group !== 'open');
+  const FIXED_LOCS = ['crew'];
+  const LOC_ORDER = Object.keys(LOC).filter((k) => LOC[k].group !== 'open' && LOC[k].group !== 'fixed');
 
   // Goal cards: three new ones each year, scored at the end of that year's Winter on what each village gained that year
   // (stock goals: what it has then). The village with the most gets ⭐4; a tie gives ⭐2 each; nobody scores at 0.
@@ -645,7 +648,7 @@
   }
 
   function freeLocs(state) {
-    return state.locs.filter((k) => state.spots[k] == null).concat(OPEN_LOCS);
+    return state.locs.concat(FIXED_LOCS).filter((k) => state.spots[k] == null).concat(OPEN_LOCS);
   }
   // Workers each player has on an always-open place this round.
   function crowdAt(state, k) {
@@ -690,7 +693,9 @@
   // no work or defense tonight, and they can't build again until next season.
   const busy = (p, v) => !!(p.flags && p.flags.busy && p.flags.busy.includes(v.id));
   const onDuty = (p) => workers(p).filter((w) => !busy(p, w.v) && ready(p, w.b));
-  const freeBuilders = (p) => p.vil.filter((v) => !busy(p, v));
+  // Each villager builds at most once a round, even if the Work crew sends them back to work.
+  const hasBuilt = (p, v) => busy(p, v) || !!(p.flags && p.flags.built && p.flags.built.includes(v.id));
+  const freeBuilders = (p) => p.vil.filter((v) => !hasBuilt(p, v));
   // Who builds if the player doesn't say: idle villagers first, then labourers, then the least valuable specialist.
   function builderFor(p) {
     const cost = (v) => {
@@ -961,7 +966,7 @@
         if (a.by != null) {
           const v = p.vil.find((x) => x.id === a.by);
           if (!v) return 'Pick a villager to build it.';
-          if (busy(p, v)) return `That ${VIL[v.k].name} has already built this season.`;
+          if (hasBuilt(p, v)) return `That ${VIL[v.k].name} has already built this season.`;
         } else if (!builderFor(p)) return 'Everyone has already built this season — nobody is free to build.';
         return null;
       }
@@ -979,7 +984,7 @@
       case 'train':
         return trainBlock(p, a.k);
       case 'place': {
-        if (!state.locs.includes(a.loc) && !OPEN_LOCS.includes(a.loc)) return 'That place isn’t in this game.';
+        if (!state.locs.includes(a.loc) && !FIXED_LOCS.includes(a.loc) && !OPEN_LOCS.includes(a.loc)) return 'That place isn’t in this game.';
         if (p.workers <= 0) return 'You have no workers left this round.';
         if (OPEN_LOCS.includes(a.loc)) return null;
         if (state.spots[a.loc] != null) return `${state.players[state.spots[a.loc]].name}’s worker is already there.`;
@@ -1071,6 +1076,7 @@
       case 'armory': return { iron: 1 };
       case 'commons': return { food: 1 };
       case 'odd': return { gold: 1 };
+      case 'crew': return { wood: 1 };
       default: return {};
     }
   }
@@ -1116,6 +1122,19 @@
         sides.forEach((i) => (p.walls[i] += 1));
         return sides.length ? `raised the ${sides.map((i) => SIDES[i].name.toLowerCase()).join(' and ')} walls` : 'found nothing left to wall';
       }
+      case 'crew': {
+        const sites = p.flags.site || [];
+        const n = sites.length + (p.flags.siteCastle ? 1 : 0);
+        p.flags.built = [...new Set((p.flags.built || []).concat(p.flags.busy || []))];
+        delete p.flags.site;
+        delete p.flags.siteCastle;
+        delete p.flags.busy;
+        sites.forEach((id) => {
+          const b = bldById(p, id);
+          if (b) fillBuilding(p, b);
+        });
+        return n ? `took ${got} and finished ${n === 1 ? 'a building' : `${n} buildings`} early` : `took ${got}`;
+      }
       case 'armory': {
         if (p.arms < ARMS_MAX) p.arms += 1;
         return `forged arms (${p.arms}/${ARMS_MAX}) and took ${got}`;
@@ -1140,6 +1159,7 @@
         const c = buildCost(p, a.b);
         pay(p, c);
         const by = (a.by != null && p.vil.find((x) => x.id === a.by)) || builderFor(p);
+        p.flags.built = (p.flags.built || []).concat(by.id);
         p.flags.busy = (p.flags.busy || []).concat(by.id);
         if (BUILD[a.b].wonder) state.wonders[a.b] = pi;
         if (BUILD[a.b].upgrade) {
@@ -1788,12 +1808,12 @@
   }
 
   const api = {
-    SAVE_V, ROUNDS, BASE_WORKERS, LOCS_PER_GAME, LOC, LOC_GROUPS, LOC_ORDER, OPEN_LOCS, ROW_SIZE, ARMS_MAX, RES, RES_ICON, RES_NAME, SEASONS, SEASON, SIDES, WALL, TERRAIN, LABOR,
+    SAVE_V, ROUNDS, BASE_WORKERS, LOCS_PER_GAME, LOC, LOC_GROUPS, LOC_ORDER, OPEN_LOCS, FIXED_LOCS, ROW_SIZE, ARMS_MAX, RES, RES_ICON, RES_NAME, SEASONS, SEASON, SIDES, WALL, TERRAIN, LABOR,
     BUILD, BUILD_ORDER, VIL, VIL_ORDER, DECK, BEAST, BEAST_ORDER, CELLS, NEIGH, mapRings,
     newGame, legal, apply, resolveDusk, score, winner, aiChoose, evaluate,
     seasonOf, yearOf, costText, beastText, beastKind, ringOf,
     beds, water, room, workers, production, defense, baseDefense, buildCost, wallCost, canPay, rowPrice, freeCells, buildBlock,
-    occupants, moveTargets, canWork, slotsOf, adjacent, hasMerchant, tradeRate, peasantPrice, busy, onDuty, ready, castleReady, freeBuilders, builderFor, trainPrice, trainBlock, trainee, TRAIN_FEE, squareAmount, locGain, masonSides, masonFirst, masonChoices, freeLocs, crowdAt, workerCount, musterAmount, foodNeed, woodNeed, upcoming, clone,
+    occupants, moveTargets, canWork, slotsOf, adjacent, hasMerchant, tradeRate, peasantPrice, busy, hasBuilt, onDuty, ready, castleReady, freeBuilders, builderFor, trainPrice, trainBlock, trainee, TRAIN_FEE, squareAmount, locGain, masonSides, masonFirst, masonChoices, freeLocs, crowdAt, workerCount, musterAmount, foodNeed, woodNeed, upcoming, clone,
     GOALS, GOAL_ORDER, GOAL_PTS, LEGACY_GOAL_PTS, GOALS_PER_YEAR, EVENTS, AI_LEVEL, WAGE, NOISY,
     newRules, threatView, threatsFor, maskThreats, scout, farSight, goalValue, goalPoints, goalGain, goalsOfYear, goalText, legacyGoals, wagesDue, roundsToWages,
     eventNow, eventPending, eventBlock, eventCost, noisy, aiHeadStart, AI_HEAD_START, sideDepth, RANGE, inRange,
