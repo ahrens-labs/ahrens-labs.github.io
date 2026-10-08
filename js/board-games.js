@@ -30,10 +30,15 @@
     }
   };
 
+  // Local games only count once a person has made a move; online games always count.
+  const hhMoved = (s) => (s.round || 1) > 1 || (s.log || []).some((e) => e && e.who != null && s.players[e.who] && !s.players[e.who].ai);
+  // Dino saves from before the moved flag existed keep showing.
+  const dinoMoved = (d) => d.moved !== false;
+
   function localGames() {
     const out = [];
     const hh = read('ahrensHearthhold.v1');
-    if (hh && hh.state && hh.state.phase !== 'over' && Array.isArray(hh.state.players) && (hh.mode === 'ai' || hh.mode === 'local')) {
+    if (hh && hh.state && hh.state.phase !== 'over' && Array.isArray(hh.state.players) && (hh.mode === 'ai' || hh.mode === 'local') && hhMoved(hh.state)) {
       const r = hh.state.round || 1;
       out.push({
         game: 'hearthhold',
@@ -44,7 +49,7 @@
       });
     }
     const dino = read('ahrensDinoBoardGame.v1');
-    if (dino && dino.v === 1 && Array.isArray(dino.queue) && !dino.sim && !dino.past && !(dino.queue[0] && dino.queue[0].t === 'gameOver') && Array.isArray(dino.players)) {
+    if (dino && dino.v === 1 && Array.isArray(dino.queue) && !dino.sim && !dino.past && !(dino.queue[0] && dino.queue[0].t === 'gameOver') && Array.isArray(dino.players) && dinoMoved(dino)) {
       const level = dino.aiCfg && LEVELS[dino.aiCfg.level];
       out.push({
         game: 'dino',

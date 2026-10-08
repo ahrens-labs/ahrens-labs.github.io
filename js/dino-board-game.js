@@ -1108,6 +1108,7 @@
       queue: [{ t: 'roundStart' }],
       log: [],
       celebrated: false,
+      moved: false,
     };
     if (proto) {
       state.proto = true;
@@ -1235,8 +1236,14 @@
     state.queue.unshift(...tasks);
   }
 
+  // The lobby only lists a saved game once a person has made a move in it.
+  function markMoved(T) {
+    if (T && !isAiTask(T) && !['roundStart', 'roundEnd', 'gameOver'].includes(T.t)) state.moved = true;
+  }
+
   function resolveCurrent(newTasks) {
     const T = state.queue.shift();
+    markMoved(T);
     pushFront(newTasks || [], T ? T.k : undefined);
     commit();
   }
@@ -1245,6 +1252,7 @@
     const T = cur();
     if (T.work && ui.space) state.spaces[ui.space] = spaceWorkers(ui.space).concat(T.p);
     T.remaining--;
+    markMoved(T);
     pushFront(newTasks || [], T.k);
     commit();
   }
