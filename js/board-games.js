@@ -34,32 +34,67 @@
   const hhMoved = (s) => (s.round || 1) > 1 || (s.log || []).some((e) => e && e.who != null && s.players[e.who] && !s.players[e.who].ai);
   // Dino saves from before the moved flag existed keep showing.
   const dinoMoved = (d) => d.moved !== false;
+  const BS = window.BoardSaves;
+  const randomId = (prefix) => {
+    const b = new Uint8Array(8);
+    crypto.getRandomValues(b);
+    return prefix + [...b].map((x) => x.toString(16).padStart(2, '0')).join('');
+  };
 
-  function localGames() {
-    const out = [];
+  // Games saved before the shared save list existed (one per game, in this browser only) join the list.
+  function adoptOldSaves() {
+    if (!BS) return;
     const hh = read('ahrensHearthhold.v1');
     if (hh && hh.state && hh.state.phase !== 'over' && Array.isArray(hh.state.players) && (hh.mode === 'ai' || hh.mode === 'local') && hhMoved(hh.state)) {
-      const r = hh.state.round || 1;
-      out.push({
-        game: 'hearthhold',
-        href: `${GAMES.hearthhold.page}?resume=local`,
-        who: hh.mode === 'ai' ? `vs Computer${LEVELS[hh.level] ? ` · ${LEVELS[hh.level]}` : ''}` : `${hh.state.players.map((p) => p.name).join(' vs ')} · same device`,
-        note: `${SEASONS[(r - 1) % 4]}, year ${Math.floor((r - 1) / 4) + 1} · round ${r} of 12`,
-        where: 'local',
-      });
+      if (!hh.gid) {
+        hh.gid = randomId('hl');
+        try {
+          localStorage.setItem('ahrensHearthhold.v1', JSON.stringify(hh));
+        } catch {
+          /* ignore */
+        }
+      }
+      if (!BS.getLocal('hearthhold', hh.gid) && !BS.list('hearthhold').some((m) => m.id === hh.gid)) {
+        BS.put('hearthhold', hh.gid, hh, { mode: hh.mode, level: hh.level, names: hh.state.players.map((p) => p.name), round: hh.state.round, rounds: 12, moved: true });
+      }
     }
     const dino = read('ahrensDinoBoardGame.v1');
     if (dino && dino.v === 1 && Array.isArray(dino.queue) && !dino.sim && !dino.past && !(dino.queue[0] && dino.queue[0].t === 'gameOver') && Array.isArray(dino.players) && dinoMoved(dino)) {
-      const level = dino.aiCfg && LEVELS[dino.aiCfg.level];
-      out.push({
-        game: 'dino',
-        href: GAMES.dino.page,
-        who: dino.ai != null ? `vs Computer${level ? ` · ${level}` : ''}` : `${dino.players.map((p) => p.name).join(' vs ')} · same device`,
-        note: `Round ${dino.round || 1} of ${dino.proto ? 15 : 18}`,
-        where: 'local',
-      });
+      if (!dino.gid) {
+        dino.gid = `g${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
+        try {
+          localStorage.setItem('ahrensDinoBoardGame.v1', JSON.stringify(dino));
+        } catch {
+          /* ignore */
+        }
+      }
+      if (!BS.getLocal('dino', dino.gid) && !BS.list('dino').some((m) => m.id === dino.gid)) {
+        BS.put('dino', dino.gid, dino, { mode: dino.ai != null ? 'ai' : 'local', level: dino.aiCfg && dino.aiCfg.level, names: dino.players.map((p) => p.name), round: dino.round || 1, rounds: dino.proto ? 15 : 18, moved: true });
+      }
     }
-    return out;
+  }
+
+  function savedItem(m) {
+    const s = m.summary || {};
+    const r = s.round || 1;
+    const names = (s.names || []).join(' vs ');
+    return {
+      game: m.game,
+      id: m.id,
+      href: `${GAMES[m.game].page}?local=${encodeURIComponent(m.id)}`,
+      who: s.mode === 'ai' ? `vs Computer${LEVELS[s.level] ? ` · ${LEVELS[s.level]}` : ''}` : `${names || 'Two players'} · same device`,
+      note: m.game === 'hearthhold'
+        ? `${SEASONS[(r - 1) % 4]}, year ${Math.floor((r - 1) / 4) + 1} · round ${r} of ${s.rounds || 12}`
+        : `Round ${r}${s.rounds ? ` of ${s.rounds}` : ''}`,
+      where: m.local === false ? 'cloud' : 'local',
+      updatedAt: m.updatedAt || 0,
+      removable: true,
+    };
+  }
+
+  function localGames() {
+    if (!BS) return [];
+    return BS.list().filter((m) => GAMES[m.game] && (!m.summary || m.summary.moved !== false)).map(savedItem);
   }
 
   function onlineItem(g) {
@@ -79,8 +114,9 @@
 
   function card(it) {
     const G = GAMES[it.game];
-    const tag = it.where === 'online' ? '🌐 Online' : '💾 This device';
-    return `<a class="mg-card${it.yours ? ' yours' : ''}" href="${it.href}">
+    const tag = it.where === 'online' ? '🌐 Online' : session() ? '☁️ Saved to your account' : '💾 This device';
+    const x = it.removable ? `<button class="mg-x" data-remove="${esc(it.game)}" data-id="${esc(it.id)}" title="Remove this saved game" aria-label="Remove this saved game">✕</button>` : '';
+    return `<div class="mg-item"><a class="mg-card${it.yours ? ' yours' : ''}" href="${it.href}">
       <img src="${G.img}" alt="" loading="lazy">
       <span class="mg-body">
         <span class="mg-game">${G.icon} ${G.name}<small>${tag}</small></span>
@@ -88,12 +124,36 @@
         <span class="mg-state">${it.noteHtml || esc(it.note)}</span>
       </span>
       ${it.yours ? '<span class="mg-flag">Your move</span>' : ''}
-    </a>`;
+    </a>${x}</div>`;
   }
 
+  // Removing a saved game takes two clicks, so a stray tap can't lose one.
+  let lastOnline = [];
+  let lastStatus = 'done';
+  list.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-remove]');
+    if (!b || !BS) return;
+    e.preventDefault();
+    if (!b.classList.contains('armed')) {
+      b.classList.add('armed');
+      b.textContent = 'Remove?';
+      setTimeout(() => {
+        if (b.isConnected) {
+          b.classList.remove('armed');
+          b.textContent = '✕';
+        }
+      }, 3500);
+      return;
+    }
+    BS.remove(b.dataset.remove, b.dataset.id);
+    render(lastOnline, lastStatus);
+  });
+
   function render(online, status) {
+    lastOnline = online;
+    lastStatus = status;
     const items = online.map(onlineItem).concat(localGames());
-    items.sort((a, b) => (b.yours ? 1 : 0) - (a.yours ? 1 : 0));
+    items.sort((a, b) => (b.yours ? 1 : 0) - (a.yours ? 1 : 0) || (b.updatedAt || 0) - (a.updatedAt || 0));
     list.innerHTML = items.map(card).join('');
     const waiting = items.filter((x) => x.yours).length;
     box.querySelector('.mg-count').textContent = waiting ? `${waiting} waiting on you` : '';
@@ -107,6 +167,7 @@
     box.hidden = !items.length && status !== 'loading' && !session();
   }
 
+  adoptOldSaves();
   const signedIn = !!session();
   let cached = [];
   try {
@@ -125,6 +186,7 @@
     })
     .then((data) => {
       const games = (data.games || []).filter((g) => GAMES[g.game]);
+      if (BS && data.saves) BS.merge(data.saves);
       try {
         sessionStorage.setItem(CACHE_KEY, JSON.stringify(games));
       } catch {

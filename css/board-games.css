@@ -98,6 +98,10 @@ h1, h2 { font-family: "Lilita One", "Fredoka", sans-serif; font-weight: 400; let
 .mg-card { position: relative; display: flex; gap: 0.75rem; align-items: center; padding: 0.6rem 0.75rem; border-radius: 12px; text-decoration: none; color: #2b1d0e; background: linear-gradient(180deg, #fbf1d9, #efdfb8); box-shadow: 0 0 0 3px #6b4a2a, 0 6px 14px rgba(0, 0, 0, 0.3); transition: transform 0.2s cubic-bezier(.34, 1.56, .64, 1), box-shadow 0.2s ease; }
 .mg-card:hover, .mg-card:focus-visible { transform: translateY(-3px); box-shadow: 0 0 0 3px #ffb300, 0 10px 20px rgba(0, 0, 0, 0.35); outline: none; }
 .mg-card.yours { box-shadow: 0 0 0 3px #b23a48, 0 6px 14px rgba(0, 0, 0, 0.3); }
+.mg-item { position: relative; display: grid; }
+.mg-x { position: absolute; top: -8px; right: -8px; z-index: 2; min-width: 26px; height: 26px; padding: 0 0.45rem; border: 0; border-radius: 13px; font: 700 0.8rem/26px Fredoka, sans-serif; color: #fff; background: #6b4a2a; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35); cursor: pointer; opacity: 0.85; transition: background 0.15s ease, opacity 0.15s ease; }
+.mg-x:hover, .mg-x:focus-visible { opacity: 1; background: #8a5a2e; outline: none; }
+.mg-x.armed, .mg-x.armed:hover, .mg-x.armed:focus-visible { background: #b23a48; opacity: 1; }
 .mg-card img { width: 72px; height: 54px; object-fit: cover; border-radius: 8px; flex: none; box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.25); }
 .mg-body { display: flex; flex-direction: column; min-width: 0; gap: 0.1rem; }
 .mg-game { font-size: 0.8rem; font-weight: 600; color: #6b4a2a; display: flex; flex-wrap: wrap; column-gap: 0.5rem; align-items: baseline; white-space: nowrap; }

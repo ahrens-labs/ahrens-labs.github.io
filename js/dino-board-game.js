@@ -1143,14 +1143,46 @@
     } catch {
       /* storage full or blocked */
     }
+    keepInSaves();
   }
 
+  // Local games also go to the shared save list (and the account), so several can be kept and resumed anywhere.
+  function keepInSaves() {
+    const BS = window.BoardSaves;
+    if (!BS || !state || state.sim || state.past) return;
+    if (!state.gid) state.gid = newGid();
+    if (state.queue[0] && state.queue[0].t === 'gameOver') {
+      if (BS.list('dino').some((m) => m.id === state.gid)) BS.remove('dino', state.gid);
+      return;
+    }
+    if (state.moved === false) return;
+    BS.put('dino', state.gid, state, {
+      mode: state.ai != null ? 'ai' : 'local',
+      level: state.aiCfg && state.aiCfg.level,
+      names: state.players.map((P) => P.name),
+      round: state.round || 1,
+      rounds: rounds(),
+      moved: true,
+    });
+  }
+  const validSave = (s) => s && s.v === 1 && Array.isArray(s.queue) && Array.isArray(s.players) && !s.sim && !s.past;
+
+  // The last game played here may since have been removed, or played further on another device.
+  const lastStatus = (gid) => (gid && window.BoardSaves ? window.BoardSaves.status('dino', gid) : 'here');
+  const lastGid = () => {
+    try {
+      return (JSON.parse(localStorage.getItem(SAVE_KEY) || 'null') || {}).gid || null;
+    } catch {
+      return null;
+    }
+  };
   function load() {
     try {
       const raw = localStorage.getItem(SAVE_KEY);
       if (!raw) return null;
       const s = JSON.parse(raw);
-      return s && s.v === 1 && Array.isArray(s.queue) ? repairFences(s) : null;
+      if (!s || s.v !== 1 || !Array.isArray(s.queue)) return null;
+      return lastStatus(s.gid) === 'here' ? repairFences(s) : null;
     } catch {
       return null;
     }
@@ -4191,17 +4223,13 @@
         location.href = '/dino-board-game.html';
         return;
       }
-      const T = cur();
-      const reset = () => {
-        localStorage.removeItem(SAVE_KEY);
-        state = null;
-        ui = freshUi();
-        resetFx();
-        closeModal();
-        render();
-      };
-      if (T && T.t !== 'gameOver') confirmModal('Start a new game?', 'This park and everything in it will be lost.', 'Yes, start over', reset);
-      else reset();
+      // The current park stays saved: it's listed under Your games in the game lobby.
+      if (window.BoardSaves) window.BoardSaves.flush();
+      state = null;
+      ui = freshUi();
+      resetFx();
+      closeModal();
+      render();
       return;
     }
     if (act === 'simAgain' && state.sim) { startSim(state.sim.levels, state.sim.speed, state.sim.proto); return; }
@@ -7686,7 +7714,22 @@
   const params = new URLSearchParams(location.search);
   const linkedGame = params.get('game');
   const pastGame = linkedGame ? null : params.get('past');
-  state = linkedGame || pastGame ? null : load();
+  let localId = linkedGame || pastGame ? null : params.get('local');
+  state = linkedGame || pastGame || localId ? null : load();
+  if (!state && !linkedGame && !pastGame && !localId && lastStatus(lastGid()) === 'elsewhere') localId = lastGid();
+  if (localId && history.replaceState) history.replaceState(null, '', location.pathname);
+  if (localId && /^[a-z0-9]{4,40}$/i.test(localId) && window.BoardSaves) {
+    window.BoardSaves.load('dino', localId).then((s) => {
+      if (validSave(s) && !(s.queue[0] && s.queue[0].t === 'gameOver')) {
+        state = repairFences(s);
+        save();
+        autoResolve();
+        ui = freshUi();
+        prepareUi();
+      } else toast('That game couldn’t be found — it may have finished or been removed.');
+      render();
+    });
+  }
   if (state) {
     autoResolve();
     prepareUi();

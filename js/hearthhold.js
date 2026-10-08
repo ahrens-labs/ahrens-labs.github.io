@@ -50,11 +50,37 @@
     } catch (e) {
       /* storage full or blocked: the game still works, it just won't resume */
     }
+    keepInSaves();
   }
+  // Local games also go to the shared save list (and the account), so several can be kept and resumed anywhere.
+  const playerMoved = (s) => s.round > 1 || (s.log || []).some((l) => l && l.who != null && s.players[l.who] && !s.players[l.who].ai);
+  function keepInSaves() {
+    const BS = window.BoardSaves;
+    if (!BS || !G || (G.mode !== 'ai' && G.mode !== 'local')) return;
+    G.gid = G.gid || newLocalId();
+    const s = G.state;
+    if (s.phase === 'over') {
+      if (BS.list('hearthhold').some((m) => m.id === G.gid)) BS.remove('hearthhold', G.gid);
+      return;
+    }
+    if (!playerMoved(s)) return;
+    BS.put('hearthhold', G.gid, G, { mode: G.mode, level: G.level, names: s.players.map((p) => p.name), round: s.round, rounds: E.ROUNDS, moved: true });
+  }
+  const validSave = (g) => g && g.state && g.state.v >= 2 && g.state.v <= E.SAVE_V && (g.mode === 'ai' || g.mode === 'local');
+  // The last game played here may since have been removed, or played further on another device.
+  const lastStatus = (gid) => (gid && window.BoardSaves ? window.BoardSaves.status('hearthhold', gid) : 'here');
+  const lastGid = () => {
+    try {
+      return (JSON.parse(localStorage.getItem(SAVE_KEY) || 'null') || {}).gid || null;
+    } catch (e) {
+      return null;
+    }
+  };
   function loadSave() {
     try {
       const g = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
-      return g && g.state && g.state.v >= 2 && g.state.v <= E.SAVE_V ? g : null;
+      if (!g || !g.state || g.state.v < 2 || g.state.v > E.SAVE_V) return null;
+      return lastStatus(g.gid) === 'here' ? g : null;
     } catch (e) {
       return null;
     }
@@ -162,7 +188,7 @@
           </div>
         </div>
         <div class="setup-card gh-card panel">
-          ${canResume ? `<div class="gh-resume"><div><b>Game in progress</b><span>${esc(saved.state.players.map((p) => p.name).join(' vs '))} · ${E.SEASON[E.seasonOf(saved.state.round)].name}, year ${E.yearOf(saved.state.round)}</span></div><button class="btn" id="resume">Continue</button></div>` : ''}
+          ${canResume ? `<div class="gh-resume"><div><b>Game in progress</b><span>${esc(saved.state.players.map((p) => p.name).join(' vs '))} · ${E.SEASON[E.seasonOf(saved.state.round)].name}, year ${E.yearOf(saved.state.round)}</span>${window.BoardSaves && window.BoardSaves.list('hearthhold').length > 1 ? '<a class="gh-more" href="/board-games.html#my-games">All your saved games →</a>' : ''}</div><button class="btn" id="resume">Continue</button></div>` : ''}
           <h2>New game</h2>
           <div class="gh-modes" id="mode">
             <button data-v="ai" class="gh-mode ${pr.mode !== 'local' && pr.mode !== 'online' ? 'on' : ''}"><span>🤖</span><b>Computer</b><small>You build one village</small></button>
@@ -1602,22 +1628,9 @@
   function newGame() {
     if (G.mode === 'online') return onlineMenu();
     if (G.mode === 'sim') return stopSim();
-    const go = () => {
-      try {
-        localStorage.removeItem(SAVE_KEY);
-      } catch (err) {
-        /* ignore */
-      }
-      showSetup();
-    };
-    if (st().phase === 'over') return go();
-    const back = openModal('<h2>🏰 Start a new game?</h2><p>This ends the current game. Your progress so far will be lost.</p><div class="btn-row"><button class="btn lava" data-yes>New game</button><button class="btn ghost" data-close>Keep playing</button></div>');
-    back.addEventListener('click', (e) => {
-      if (!e.target.closest('[data-yes]')) return;
-      ui.onClose = null;
-      closeModal();
-      go();
-    });
+    // The current game stays saved: it's listed under Your games in the game lobby.
+    if (window.BoardSaves) window.BoardSaves.flush();
+    showSetup();
   }
 
   // ---------------------------------------------------------------- game history
@@ -2461,8 +2474,19 @@
   const params = new URLSearchParams(location.search);
   const linked = params.get('game');
   const mem = savedOnline();
-  if (params.has('resume') && history.replaceState) history.replaceState(null, '', location.pathname);
-  if (saved && params.get('resume') === 'local') startFrom(saved);
+  let localId = params.get('local');
+  if (!saved && !localId && !linked && !(mem && sessionId()) && lastStatus(lastGid()) === 'elsewhere') localId = lastGid();
+  if ((params.has('resume') || localId) && history.replaceState) history.replaceState(null, '', location.pathname);
+  if (localId && /^[a-z0-9]{4,40}$/i.test(localId) && window.BoardSaves) {
+    $('#app').innerHTML = '<p class="loading-save">Loading your game…</p>';
+    window.BoardSaves.load('hearthhold', localId).then((g) => {
+      if (validSave(g) && g.state.phase !== 'over') startFrom(g);
+      else {
+        showSetup();
+        toast('That game couldn’t be found — it may have finished or been removed.', 'warn');
+      }
+    });
+  } else if (saved && params.get('resume') === 'local') startFrom(saved);
   else if (linked && /^hh[0-9a-f]{18}$/.test(linked)) {
     if (mem && mem.id === linked && sessionId()) openOnline(linked);
     else {

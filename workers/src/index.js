@@ -40,7 +40,7 @@ export { DeckShare } from './deck.js';
 import { handleDinoRequest } from './dino.js';
 export { DinoGame, DinoLobby } from './dino.js';
 import { handleHearthholdRequest } from './hearthhold.js';
-import { handleBoardGamesRequest } from './board-games.js';
+import { handleBoardGamesRequest, handleBoardSavesDO, deleteBoardSaves } from './board-games.js';
 export { HearthholdGame, HearthholdLobby } from './hearthhold.js';
 import { handleLinkRequest, handleLinkConsumeBridge, handleInternalUserProfile } from './link.js';
 import {
@@ -10438,6 +10438,8 @@ export class UserAccount {
     const path = url.pathname;
     
     try {
+      const boardSaves = await handleBoardSavesDO(this.storage, request, path);
+      if (boardSaves) return boardSaves;
       if (path === '/create' && request.method === 'POST') {
         const { email, password, username } = await request.json();
         const result = await this.create(email, password, username);
@@ -11475,6 +11477,7 @@ export class UserAccount {
       }
     }
     await this.storage.delete('userData');
+    await deleteBoardSaves(this.storage);
     return { success: true };
   }
 
