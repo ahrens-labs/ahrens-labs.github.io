@@ -14,7 +14,7 @@ const SAVE_ID_RE = /^[a-z0-9]{4,40}$/i;
 const SAVE_MAX_BYTES = 120 * 1024;
 const SAVES_MAX_LIVE = 30;
 const SAVE_OPS_MAX = 10;
-const TOMBSTONE_MS = 60 * 86400000;
+const TOMBSTONE_MS = 365 * 86400000;
 const INDEX_KEY = 'bgsIndex';
 const bodyKey = (game, id) => `bgs:${game}:${id}`;
 
@@ -135,7 +135,7 @@ export async function handleBoardGamesRequest(request, env, corsHeaders, path) {
     if (!ops.length) return jsonResponse({ ok: true, applied: 0 }, corsHeaders);
     const res = await accountStub(env, userId).fetch(new Request('http://do/boardSaves/apply', { method: 'POST', body: JSON.stringify({ ops }) }));
     const data = await res.json().catch(() => ({}));
-    return jsonResponse({ ok: true, applied: data.applied || 0 }, corsHeaders);
+    return jsonResponse({ ok: true, applied: data.applied || 0, removed: data.removed || [] }, corsHeaders);
   }
 
   return jsonResponse({ error: 'Not found' }, corsHeaders, 404);
@@ -164,15 +164,21 @@ export async function handleBoardSavesDO(storage, request, path) {
     let applied = 0;
     const puts = {};
     const dels = [];
+    // A removed game stays removed: a device that still has it open can't bring it back by saving.
+    const removed = [];
     for (const o of ops || []) {
       const k = `${o.game}:${o.id}`;
       const cur = index[k];
-      if (cur && cur.updatedAt > o.updatedAt) continue;
+      if (cur && cur.deleted) {
+        if (o.op === 'put') removed.push({ game: o.game, id: o.id, updatedAt: cur.updatedAt, deleted: true });
+        continue;
+      }
       if (o.op === 'del') {
-        index[k] = { game: o.game, id: o.id, updatedAt: o.updatedAt, deleted: true };
+        index[k] = { game: o.game, id: o.id, updatedAt: Math.max(o.updatedAt, cur ? cur.updatedAt : 0), deleted: true };
         dels.push(bodyKey(o.game, o.id));
         delete puts[bodyKey(o.game, o.id)];
       } else {
+        if (cur && cur.updatedAt > o.updatedAt) continue;
         index[k] = { game: o.game, id: o.id, updatedAt: o.updatedAt, summary: o.summary };
         puts[bodyKey(o.game, o.id)] = o.save;
       }
@@ -192,7 +198,7 @@ export async function handleBoardSavesDO(storage, request, path) {
     if (Object.keys(puts).length) await storage.put(puts);
     if (dels.length) await storage.delete(dels);
     await storage.put(INDEX_KEY, index);
-    return Response.json({ applied });
+    return Response.json({ applied, removed });
   }
   return Response.json({ error: 'Not found' }, { status: 404 });
 }

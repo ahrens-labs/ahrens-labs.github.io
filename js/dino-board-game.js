@@ -1165,6 +1165,9 @@
       moved: true,
     });
   }
+  addEventListener('boardsaves:removed', (e) => {
+    if (state && state.gid && e.detail.some((m) => m.game === 'dino' && m.id === state.gid)) toast('This game was removed from Your games on another device, so it won’t be saved any more.');
+  });
   const validSave = (s) => s && s.v === 1 && Array.isArray(s.queue) && Array.isArray(s.players) && !s.sim && !s.past;
 
   // The last game played here may since have been removed, or played further on another device.

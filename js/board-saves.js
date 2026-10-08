@@ -41,6 +41,7 @@
     if (!game || !id || !save) return;
     const ix = readIndex();
     const k = `${game}:${id}`;
+    if (ix[k] && ix[k].deleted) return;
     try {
       localStorage.setItem(bodyKey(game, id), JSON.stringify(save));
     } catch {
@@ -60,7 +61,17 @@
     }
     ix[`${game}:${id}`] = { game, id, updatedAt: Date.now(), deleted: true, dirty: true };
     writeIndex(ix);
-    schedule(500);
+    flush(document.visibilityState === 'hidden');
+  }
+
+  // Forget a game here for good (removed on this or another device).
+  function tombstone(ix, game, id, updatedAt) {
+    try {
+      localStorage.removeItem(bodyKey(game, id));
+    } catch {
+      /* ignore */
+    }
+    ix[`${game}:${id}`] = { game, id, updatedAt: updatedAt || Date.now(), deleted: true };
   }
 
   function getLocal(game, id) {
@@ -124,16 +135,12 @@
       if (!m || !m.game || !m.id) return;
       const k = `${m.game}:${m.id}`;
       const cur = ix[k];
-      if (cur && (cur.dirty || cur.updatedAt >= m.updatedAt)) return;
+      // Removals win over anything still unsent here.
       if (m.deleted) {
-        try {
-          localStorage.removeItem(bodyKey(m.game, m.id));
-        } catch {
-          /* ignore */
-        }
-        ix[k] = { game: m.game, id: m.id, updatedAt: m.updatedAt, deleted: true };
+        if (!(cur && cur.deleted)) tombstone(ix, m.game, m.id, m.updatedAt);
         return;
       }
+      if (cur && (cur.deleted || cur.dirty || cur.updatedAt >= m.updatedAt)) return;
       if (cur && cur.local) {
         // A newer copy exists elsewhere: drop ours so the next open fetches it.
         try {
@@ -168,13 +175,16 @@
       body,
       keepalive: !!leaving && body.length < KEEPALIVE_MAX,
     })
-      .then((r) => {
-        if (!r.ok) return;
+      .then((r) => (r.ok ? r.json().catch(() => ({})) : null))
+      .then((data) => {
+        if (!data) return;
         const now = readIndex();
         sent.forEach(([k, at]) => {
           if (now[k] && now[k].updatedAt === at) delete now[k].dirty;
         });
+        (data.removed || []).forEach((m) => tombstone(now, m.game, m.id, m.updatedAt));
         writeIndex(now);
+        if (data.removed && data.removed.length) dispatchEvent(new CustomEvent('boardsaves:removed', { detail: data.removed }));
         if (Object.values(now).some((m) => m.dirty)) schedule(1000);
       })
       .catch(() => {});

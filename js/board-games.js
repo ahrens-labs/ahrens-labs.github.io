@@ -196,21 +196,41 @@
   render(cached, signedIn ? 'loading' : 'done');
   if (!signedIn) return;
 
-  fetch(`${API_BASE}/api/board-games/current`, { headers: { Authorization: `Bearer ${session()}` } })
-    .then((r) => {
-      if (r.status === 401) return { games: [], signedOut: true };
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-      return r.json();
-    })
-    .then((data) => {
-      const games = (data.games || []).filter((g) => GAMES[g.game]);
-      if (BS && data.saves) BS.merge(data.saves);
-      try {
-        sessionStorage.setItem(CACHE_KEY, JSON.stringify(games));
-      } catch {
-        /* storage blocked */
-      }
-      render(games, 'done');
-    })
-    .catch(() => render(cached, 'error'));
+  // Coming back to this tab picks up games removed or played on other devices (at most every 20s).
+  let lastFetch = 0;
+  const refresh = () => {
+    if (!session() || Date.now() - lastFetch < 20000) return;
+    lastFetch = Date.now();
+    load();
+  };
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') refresh();
+  });
+  addEventListener('focus', refresh);
+  addEventListener('pageshow', (e) => {
+    if (e.persisted) refresh();
+  });
+  lastFetch = Date.now();
+  load();
+
+  function load() {
+    fetch(`${API_BASE}/api/board-games/current`, { headers: { Authorization: `Bearer ${session()}` } })
+      .then((r) => {
+        if (r.status === 401) return { games: [], signedOut: true };
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      })
+      .then((data) => {
+        const games = (data.games || []).filter((g) => GAMES[g.game]);
+        if (BS && data.saves) BS.merge(data.saves);
+        try {
+          sessionStorage.setItem(CACHE_KEY, JSON.stringify(games));
+        } catch {
+          /* storage blocked */
+        }
+        cached = games;
+        render(games, 'done');
+      })
+      .catch(() => render(cached, 'error'));
+  }
 })();

@@ -66,6 +66,9 @@
     if (!playerMoved(s)) return;
     BS.put('hearthhold', G.gid, G, { mode: G.mode, level: G.level, names: s.players.map((p) => p.name), round: s.round, rounds: E.ROUNDS, moved: true });
   }
+  addEventListener('boardsaves:removed', (e) => {
+    if (G && G.gid && e.detail.some((m) => m.game === 'hearthhold' && m.id === G.gid)) toast('This game was removed from Your games on another device, so it won’t be saved any more.', 'warn');
+  });
   const validSave = (g) => g && g.state && g.state.v >= 2 && g.state.v <= E.SAVE_V && (g.mode === 'ai' || g.mode === 'local');
   // The last game played here may since have been removed, or played further on another device.
   const lastStatus = (gid) => (gid && window.BoardSaves ? window.BoardSaves.status('hearthhold', gid) : 'here');
