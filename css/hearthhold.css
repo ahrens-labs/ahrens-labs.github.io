@@ -273,7 +273,10 @@ button { font-family: inherit; }
 .w1-stakes { stroke: #a0703f; stroke-width: 7; stroke-dasharray: 5 2.5; }
 .w2-base { stroke: #59626d; stroke-width: 14; }
 .w2-top { stroke: #b4bcc6; stroke-width: 9; stroke-dasharray: 10 4; }
-.wall.fresh { animation: fenceIn 0.6s var(--pop) both; transform-box: fill-box; transform-origin: center; }
+.w3-base { stroke: #2b3038; stroke-width: 16; }
+.w3-top { stroke: #8d9aa8; stroke-width: 10; stroke-dasharray: 4 3; }
+.bow-tag { font-size: 12px; text-anchor: middle; fill: #ffe082; font-weight: 700; paint-order: stroke; stroke: rgba(0, 0, 0, 0.6); stroke-width: 3px; }
+.wall.fresh, .bow-tag.fresh { animation: fenceIn 0.6s var(--pop) both; transform-box: fill-box; transform-origin: center; }
 .wall-tag { font-size: 12px; text-anchor: middle; fill: #fff; font-weight: 700; paint-order: stroke; stroke: rgba(0, 0, 0, 0.55); stroke-width: 3px; pointer-events: none; }
 .side-pick { cursor: pointer; }
 .side-hit { stroke: rgba(255, 224, 138, 0.35); stroke-width: 26; animation: canPulse 1.2s ease-in-out infinite; }

@@ -133,6 +133,8 @@ function cleanAction(a) {
       return { t: 'build', b: a.b, cell: a.cell == null ? null : a.cell, ...(a.by != null ? { by: a.by } : {}) };
     case 'wall':
       return isInt(a.side) && a.side < 6 ? { t: 'wall', side: a.side } : null;
+    case 'bow':
+      return isInt(a.side) && a.side < 6 ? { t: 'bow', side: a.side } : null;
     case 'recruit':
       if (a.peasant === true) return { t: 'recruit', peasant: true };
       return isInt(a.i) ? { t: 'recruit', i: a.i } : null;

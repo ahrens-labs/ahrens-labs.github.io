@@ -486,7 +486,7 @@
     const s = st();
     const p = me();
     const thr = tonight();
-    const sig = JSON.stringify([G.view, p.bld, p.walls, p.vil, p.castle, p.flags && p.flags.site, p.flags && p.flags.siteCastle, p.flags && p.flags.busy, p.flags && p.flags.by, ui.pick, s.round, s.phase, s.turn === G.view, [...ui.fresh], ui.freshSide]);
+    const sig = JSON.stringify([G.view, p.bld, p.walls, p.bows, p.vil, p.castle, p.flags && p.flags.site, p.flags && p.flags.siteCastle, p.flags && p.flags.busy, p.flags && p.flags.by, ui.pick, s.round, s.phase, s.turn === G.view, [...ui.fresh], ui.freshSide]);
     if (sig === ui.boardSig) return;
     ui.boardSig = sig;
     sizeBoard(s);
@@ -545,9 +545,14 @@
       if (lvl === 0) h += `<line class="wall w0" ${line}/>`;
       if (lvl === 1) h += `<g class="wall w1${fresh}"><line class="w1-base" ${line}/><line class="w1-stakes" ${line}/></g>`;
       if (lvl === 2) h += `<g class="wall w2${fresh}"><line class="w2-base" ${line}/><line class="w2-top" ${line}/></g>`;
+      if (lvl === 3) h += `<g class="wall w3${fresh}"><line class="w3-base" ${line}/><line class="w3-top" ${line}/></g>`;
       const [lx, ly] = polar(E.SIDES[i].ang, FACE + 18);
       const [tx, ty] = polar(E.SIDES[i].ang + 19, FACE + 14);
       if (lvl) h += `<text class="wall-tag" x="${tx.toFixed(1)}" y="${(ty + 4).toFixed(1)}">🛡️${E.WALL[lvl].def}</text>`;
+      if (E.hasBow(p, i)) {
+        const [bx, by] = polar(E.SIDES[i].ang - 19, FACE + 14);
+        h += `<text class="bow-tag${fresh}" x="${bx.toFixed(1)}" y="${(by + 4).toFixed(1)}"><title>Crossbow: 🛡️${E.BOW.def} against flyers on this side</title>🏹${E.BOW.def}</text>`;
+      }
       if (pick && pick.t === 'masons') {
         const first = E.masonFirst(s, p);
         const open = E.masonChoices(s, p).includes(i);
@@ -560,7 +565,13 @@
       if (pick && pick.t === 'wall') {
         const c = E.wallCost(p, i);
         h += `<g class="side-pick${c ? '' : ' maxed'}" data-side="${i}"><line class="side-hit" ${line}/>`;
-        h += `<text class="side-cost" x="${lx.toFixed(1)}" y="${(ly + 4).toFixed(1)}">${c ? `${lvl ? 'Stone' : 'Palisade'} ${E.costText(c)}` : 'Stone ✓'}</text></g>`;
+        h += `<text class="side-cost" x="${lx.toFixed(1)}" y="${(ly + 4).toFixed(1)}">${c ? `${E.WALL[lvl + 1].name.replace(' wall', '')} ${E.costText(c)}` : 'Iron ✓'}</text></g>`;
+      }
+      if (pick && pick.t === 'bow') {
+        const why = E.bowBlock(s, p, i);
+        const label = !why ? `🏹 ${E.costText(E.BOW.cost)}` : E.hasBow(p, i) ? '🏹 ✓' : 'needs a wall';
+        h += `<g class="side-pick${why ? ' maxed' : ''}" data-side="${i}"><line class="side-hit" ${line}/>`;
+        h += `<text class="side-cost" x="${lx.toFixed(1)}" y="${(ly + 4).toFixed(1)}">${label}</text></g>`;
       }
     }
     // tonight's creature
@@ -688,7 +699,9 @@
       : pk.t === 'build' ? `Pick a glowing spot for your <b>${E.BUILD[pk.b].name}</b> (${cost(E.buildCost(p, pk.b), p)}${(() => {
           const v = p.vil.find((x) => x.id === pk.by);
           return v ? `, built by your ${E.VIL[v.k].name}` : '';
-        })()})${p.rules >= 3 ? ' — it must touch your village' : ''}` : 'Pick a side to wall: a <b>Palisade</b> (🛡️2) or upgrade one to <b>Stone</b> (🛡️4)';
+        })()})${p.rules >= 3 ? ' — it must touch your village' : ''}`
+      : pk.t === 'bow' ? `Pick a wall for a <b>crossbow</b> (${cost(E.BOW.cost, p)}): 🛡️${E.BOW.def} against flyers coming from that side. It falls if the wall does.`
+      : 'Pick a side to wall: a <b>Palisade</b> (🛡️2), upgraded to <b>Stone</b> (🛡️4), then <b>Iron</b> (🛡️6)';
     bar.innerHTML = `<span>${msg}</span><button class="btn ghost sm" data-act="cancel-pick">Cancel</button>`;
   }
 
@@ -820,6 +833,9 @@
     }
     const anyBuild = E.BUILD_ORDER.some((b) => !E.buildBlock(s, pi, b) && E.canPay(p, E.buildCost(p, b)));
     const anyWall = [0, 1, 2, 3, 4, 5].some((i) => E.wallCost(p, i) && E.canPay(p, E.wallCost(p, i)));
+    const bowsOk = s.v >= 3;
+    const bowSpots = bowsOk ? [0, 1, 2, 3, 4, 5].filter((i) => !E.bowBlock(s, p, i)) : [];
+    const bowWhy = !bowsOk ? 'Not part of this older game' : !p.walls.some((w) => w) ? 'Build a wall first — crossbows stand on walls' : !bowSpots.length ? 'Every wall already has a crossbow' : !E.canPay(p, E.BOW.cost) ? `Crossbows cost ${E.costText(E.BOW.cost)}` : '';
     const rate = E.tradeRate(p) === 1 ? '1:1' : '2:1';
     const open = E.freeLocs(s).length;
     const workerMsg = p.workers > 0
@@ -829,7 +845,8 @@
       <h3>Free actions <span class="muted">as many as you can pay for</span></h3>
       <div class="acts-grid">
         <button class="act wide" data-act="build"${anyBuild ? '' : ' title="Nothing affordable yet — you can still look"'}><span class="ai">🏗️</span><span class="at">Build</span><span class="as">${!E.freeBuilders(p).length ? 'nobody free to build' : anyBuild ? 'a building' : 'browse buildings'}</span></button>
-        <button class="act" data-act="wall" ${anyWall ? '' : 'disabled title="Walls cost 🪵2 (palisade) or 🪨3 (stone)"'}><span class="ai">🧱</span><span class="at">Wall</span><span class="as">🪵2 / 🪨3</span></button>
+        <button class="act" data-act="wall" ${anyWall ? '' : 'disabled title="Walls cost 🪵2 (palisade), 🪨3 (stone) or 🪨1 🔩2 (iron)"'}><span class="ai">🧱</span><span class="at">Wall</span><span class="as">🪵2 / 🪨3 / 🔩2</span></button>
+        <button class="act" data-act="bow" ${bowWhy ? `disabled title="${esc(bowWhy)}"` : ''}><span class="ai">🏹</span><span class="at">Crossbow</span><span class="as">${bowsOk ? 'vs flyers · 🪵2 🔩1' : 'older game'}</span></button>
         <button class="act" data-act="recruit"><span class="ai">🧑‍🌾</span><span class="at">Recruit</span><span class="as">${E.room(p) > 0 ? 'from the Crossroads' : 'no room!'}</span></button>
         <button class="act" data-act="trade"><span class="ai">⚖️</span><span class="at">Trade</span><span class="as">${rate}, any number</span></button>
         <button class="act" data-act="train"${p.flags && p.flags.trained ? ' disabled title="You already trained someone this round"' : ''}><span class="ai">🎓</span><span class="at">Train</span><span class="as">${p.flags && p.flags.trained ? 'done this round' : E.trainee(p) ? 'a Peasant' : 'needs a Peasant'}</span></button>
@@ -989,8 +1006,8 @@
     if (!b || b.disabled) return;
     const what = b.dataset.act;
     if (what === 'build') showBuildPicker();
-    if (what === 'wall') {
-      ui.pick = { t: 'wall' };
+    if (what === 'wall' || what === 'bow') {
+      ui.pick = { t: what };
       render();
     }
     if (what === 'cancel-pick') {
@@ -1025,13 +1042,14 @@
       doAction(act);
       return;
     }
-    if (side && ui.pick && ui.pick.t === 'wall') {
+    if (side && ui.pick && (ui.pick.t === 'wall' || ui.pick.t === 'bow')) {
       const i = +side.dataset.side;
-      const why = E.legal(st(), G.view, { t: 'wall', side: i });
+      const act = { t: ui.pick.t, side: i };
+      const why = E.legal(st(), G.view, act);
       if (why) return toast(esc(why), 'bad');
       ui.pick = null;
       ui.freshSide = i;
-      doAction({ t: 'wall', side: i });
+      doAction(act);
       return;
     }
     const cell = e.target.closest('[data-cell]');
@@ -1123,7 +1141,7 @@
     }
     ui.aiFast = a.t !== 'place' && a.t !== 'end';
     if (a.t === 'build' && p.bld.length > before) ui.fresh.add(p.bld[p.bld.length - 1].id);
-    if (a.t === 'wall' && G.view === pi) ui.freshSide = a.side;
+    if ((a.t === 'wall' || a.t === 'bow') && G.view === pi) ui.freshSide = a.side;
     if (G.mode !== 'sim' || G.speed !== 'turbo') toast(`<span class="dot" style="--pc:${PCOLOR[pi]}"></span><b>${esc(p.name)}</b> ${esc(msg)}`, 'ai');
     afterAction();
   }
@@ -1196,14 +1214,14 @@
       return b && E.canWork(v.k, b.b) ? `${E.BUILD[b.b].name}${E.canWork(v.k, b.b) === 'spec' ? ' ★' : ''}` : 'Idle';
     };
     const builders = p.vil.length
-      ? `<div class="builders"><b>🔨 Who builds it?</b> <span class="muted">They leave their job — anyone idle steps into it — and won’t work, defend or build again until next season, when they take a free job. The building opens next season, unless you then send a worker to the Work crew.</span><div class="bchips">${p.vil
+      ? `<div class="builders"><b>🔨 Who builds it?</b> <span class="muted">They leave their job — anyone idle steps into it — and won’t work or defend until the building is finished. It opens next season, when they take a free job — or right away if you send a worker to the Work crew, which frees them to work or build again.</span><div class="bchips">${p.vil
           .map((v) => {
             const isBusy = E.hasBuilt(p, v);
-            return `<button class="bchip${v.id === ui.builder ? ' on' : ''}" data-builder="${v.id}" ${isBusy ? 'disabled title="Already built this season"' : ''}><img src="${IMG(v.k)}" alt=""><span><b>${E.VIL[v.k].name}</b><small>${isBusy ? (E.busy(p, v) ? '🔨 building' : '✓ built') : esc(vWhere(v))}</small></span></button>`;
+            return `<button class="bchip${v.id === ui.builder ? ' on' : ''}" data-builder="${v.id}" ${isBusy ? 'disabled title="Still building — free once that building is finished"' : ''}><img src="${IMG(v.k)}" alt=""><span><b>${E.VIL[v.k].name}</b><small>${isBusy ? '🔨 building' : esc(vWhere(v))}</small></span></button>`;
           })
           .join('')}</div></div>`
       : '';
-    const none = !free.length ? '<p class="b-why">Everyone has already built this season — nobody is free to build until next round.</p>' : '';
+    const none = !free.length ? '<p class="b-why">Everyone is busy building — nobody is free until those buildings are finished (next season, or now with the Work crew).</p>' : '';
     const back = openModal(`<h2>🏗️ Build</h2><p class="muted">Your stores: ${E.RES.map((r) => `${E.RES_ICON[r]}${p.res[r]}`).join(' ')}${E.tradeRate(p) === 1 ? ' · trades are 1:1 for you' : ' · short? Trading (2:1) is free.'}</p>${builders}${none}<div class="bgrid">${E.BUILD_ORDER.map(card).join('')}</div>`, { cls: 'wide' });
     back.addEventListener('click', (e) => {
       const bc = e.target.closest('[data-builder]');
@@ -1420,7 +1438,7 @@
         else {
           const bits = [];
           if (a.lost && Object.keys(a.lost).length) bits.push(lostLine(a.lost));
-          if (a.wallFrom != null && a.wallFrom !== a.wallTo) bits.push(`the ${sideName(rep.threat.side)} ${E.WALL[a.wallFrom].name.toLowerCase()} ${a.wallTo ? 'was damaged' : 'was destroyed'}`);
+          if (a.wallFrom != null && a.wallFrom !== a.wallTo) bits.push(`the ${sideName(rep.threat.side)} ${E.WALL[a.wallFrom].name.toLowerCase()} ${a.wallTo ? 'was damaged' : 'was destroyed'}${a.bowLost ? ', and its crossbow with it' : ''}`);
           if (a.left && a.left.length) bits.push(`${names(a.left)} ${B.fail.stone ? 'turned to stone' : 'carried off'}`);
           if (a.burned) bits.push(`the ${E.BUILD[a.burned].name} burned down`);
           if (a.renown) bits.push(`−${a.renown}⭐`);
@@ -1437,7 +1455,7 @@
             ${out}
           </div>
           <div class="dstep s3"><span class="dlabel">Supper</span>ate ${r.ate}🍞${r.burned ? ` · burned ${r.burned}🪵` : ''}${leftBits.length ? `<p class="bad">${leftBits.join('<br>')}</p>` : ' · <span class="good">everyone’s fed</span>'}</div>
-          ${r.frost && (r.frost.fixed || r.frost.fell.length) ? `<div class="dstep s4"><span class="dlabel">Frost</span>${r.frost.fixed ? `mended ${plural(r.frost.fixed, 'palisade')} (−${r.frost.fixed}🪵)` : ''}${r.frost.fell.length ? `<p class="bad">${r.frost.fell.map((i) => `the ${sideName(i)}`).join(', ')} palisade fell — no wood to mend it</p>` : ''}</div>` : ''}
+          ${r.frost && (r.frost.fixed || r.frost.fell.length) ? `<div class="dstep s4"><span class="dlabel">Frost</span>${r.frost.fixed ? `mended ${plural(r.frost.fixed, 'palisade')} (−${r.frost.fixed}🪵)` : ''}${r.frost.fell.length ? `<p class="bad">${r.frost.fell.map((i) => `the ${sideName(i)}`).join(', ')} palisade fell — no wood to mend it${r.frost.bows ? ` (${plural(r.frost.bows, 'crossbow')} fell with it)` : ''}</p>` : ''}</div>` : ''}
           ${r.wages ? `<div class="dstep s5"><span class="dlabel">Wages</span>paid 🪙${r.wages.paid}${r.wages.left.length ? `<p class="bad">${names(r.wages.left)} left unpaid (−${r.wages.left.length}⭐)</p>` : ' · <span class="good">everyone paid</span>'}</div>` : ''}
         </div>`;
       })
@@ -1507,7 +1525,7 @@
       ['⭐ Renown', 'renown'],
       ['🏠 Buildings & wonders', 'buildings'],
       ['👥 Villagers', 'villagers'],
-      ['🧱 Stone wall sections', 'walls'],
+      ['🧱 Stone & Iron wall sections', 'walls'],
       ['🏰 Fully walled', 'fortified'],
       ['🪙 Gold (1 per 5)', 'gold'],
       ['🎯 Goals', 'goals'],
@@ -1667,7 +1685,7 @@
     ['⭐ Renown', 'renown'],
     ['🏠 Buildings & wonders', 'buildings'],
     ['👥 Villagers', 'villagers'],
-    ['🧱 Stone wall sections', 'walls'],
+    ['🧱 Stone & Iron wall sections', 'walls'],
     ['🏰 Fully walled', 'fortified'],
     ['🪙 Gold', 'gold'],
     ['🎯 Goals', 'goals'],
@@ -2239,7 +2257,7 @@
         <tr><td>🍞 Food</td><td>Every villager eats 🍞1 every night.</td></tr>
         <tr><td>🪵 Wood</td><td>Buildings and Palisades. In Winter it is also firewood.</td></tr>
         <tr><td>🪨 Stone</td><td>Buildings, Wells and Stone walls.</td></tr>
-        <tr><td>🔩 Iron</td><td>Mines, Smithies, wonders, Knights, and the Blacksmith’s arms.</td></tr>
+        <tr><td>🔩 Iron</td><td>Mines, Smithies, wonders, Knights, Iron walls, crossbows, and the Blacksmith’s arms.</td></tr>
         <tr><td>🪙 Gold</td><td>Recruiting travellers, a few buildings and <b>wages</b>: as Spring begins in years 2 and 3, every villager with a job is paid 🪙1. Left-over gold scores ⭐1 per 🪙5.</td></tr></table>
       <p>There is no limit on how much you can store. You can never pay with resources you don’t have.</p>
       <h4>Room for villagers</h4>
@@ -2288,7 +2306,7 @@
         <li>Each place holds <b>one worker per round</b>, from either village. Whoever gets there first takes it; the other village can’t use it that round.</li>
         <li>You get the reward the moment you place the worker. The place card shows exactly what you would get right now.</li>
         <li>You can’t place two workers on the same place, and you never have to place all your workers.</li>
-        <li>The <b>Work crew</b> is in every game too, and holds one worker per round like the main places. It finishes every building you have under construction straight away and sends their builders back to work tonight — so build first, then send the worker. Anything you build after that is a normal building site again.</li>
+        <li>The <b>Work crew</b> is in every game too, and holds one worker per round like the main places. It finishes every building you have under construction straight away and sends their builders back to work tonight — free to build again, too. So build first, then send the worker. Anything you build after that is a normal building site again.</li>
         <li>Two <b>always-open places</b> are in every game as well. They give much less, but they have <b>no limit</b>: any number of workers from either village can go there, even several of yours in the same round. They’re there so a spare worker — say when you have 3 workers with a Steward and the five main places are full — still does something.</li>
       </ul>
       ${E.LOC_GROUPS.map(
@@ -2319,8 +2337,9 @@
       <p class="lead">Free actions don’t need a worker. On your turn you can do them <b>as often as you like</b> — before or after placing a worker — as long as you can pay.</p>
       <table class="rules-table">
         <tr><th>Action</th><th>Exactly what happens</th></tr>
-        <tr><td>🏗️ Build</td><td>Pay the cost, pick a <b>villager to build it</b>, and put the building on a free hex of the right land <b>next to one of your buildings</b>. The builder <b>leaves their job</b> (an idle villager steps into it if you have one) and spends the rest of the round on the site: they don’t work or defend tonight, and next season they take any free job, and can’t build again until next season — so each villager builds at most once a round. Idle villagers make the best builders. <b>New buildings are under construction 🚧 until next season</b>: they make nothing, add no beds, water or defense, and their workers don’t work yet. A worker at the <b>Work crew</b> finishes them early and sends your builders back to work. Build as many as you can afford, even several of the same kind. Wonders also need enough villagers and only one village can build each (see Buildings).</td></tr>
-        <tr><td>🧱 Wall</td><td>Each of your 6 sides can have a wall. A bare side becomes a <b>Palisade</b> (🪵2, 🛡️2); a Palisade becomes <b>Stone</b> (🪨3, 🛡️4 in total). A wall only defends against creatures on foot attacking <i>that side</i>.</td></tr>
+        <tr><td>🏗️ Build</td><td>Pay the cost, pick a <b>villager to build it</b>, and put the building on a free hex of the right land <b>next to one of your buildings</b>. The builder <b>leaves their job</b> (an idle villager steps into it if you have one) and spends the rest of the round on the site: they don’t work, defend or build anything else until it is finished, and next season they take any free job. Idle villagers make the best builders. <b>New buildings are under construction 🚧 until next season</b>: they make nothing, add no beds, water or defense, and their workers don’t work yet. A worker at the <b>Work crew</b> finishes them early and frees your builders to work — or build again — straight away. Build as many as you can afford, even several of the same kind. Wonders also need enough villagers and only one village can build each (see Buildings).</td></tr>
+        <tr><td>🧱 Wall</td><td>Each of your 6 sides can have a wall. A bare side becomes a <b>Palisade</b> (🪵2, 🛡️2); a Palisade becomes <b>Stone</b> (🪨3, 🛡️4 in total); Stone becomes <b>Iron</b> (🪨1 🔩2, 🛡️6 in total). A wall only defends against creatures on foot attacking <i>that side</i>.</td></tr>
+        <tr><td>🏹 Crossbow</td><td>Mount a crossbow on any wall (🪵2 🔩1, one per side): 🛡️4 against <b>flyers</b> attacking that side. If the wall is destroyed — or a Palisade falls to frost — its crossbow falls too.</td></tr>
         <tr><td>🧑‍🌾 Recruit</td><td>Take a traveller from the Crossroads and pay their 🪙 price (Knights also cost 🔩1). You need room: a free bed and free water. A Peasant for 🪙1 is always available.</td></tr>
         <tr><td>🎓 Train</td><td><b>Once a round</b>, one of your Peasants learns any trade you choose. Pay that trade’s full price plus 🪙${E.TRAIN_FEE} (Knights also cost 🔩1); discounts from the Tavern or Guild hall count. They need no new bed or water, and they move into their own building if you have one — an untrained worker there goes back to the fields.</td></tr>
         <tr><td>⚖️ Trade</td><td>Give 2 of any one resource for 1 of any other, as many times as you want. With a working Merchant, or after using the Trading post this round, it’s 1 for 1.</td></tr>
@@ -2351,7 +2370,7 @@
         <li><b>Attack.</b> Tonight’s creature attacks both villages. If your 🛡️ defense is <b>at least</b> its ⚔️ strength you drive it off: gain its ⭐ trophy and any 🪙 loot. Otherwise its damage happens.</li>
         <li><b>Supper.</b> Each villager eats 🍞1. For each 🍞 you are short, one villager leaves and you lose ⭐1.</li>
         <li><b>Firewood (Winter only).</b> Burn 🪵1 for every 3 villagers, rounded up (4 villagers burn 🪵2). For each 🪵 you are short, one villager leaves and you lose ⭐1.</li>
-        <li><b>Frost (Winter only).</b> Each Palisade needs 🪵1 of repairs, paid after firewood. With no wood left, it falls. Stone walls don’t need mending.</li>
+        <li><b>Frost (Winter only).</b> Each Palisade needs 🪵1 of repairs, paid after firewood. With no wood left, it falls. Stone and Iron walls don’t need mending. A crossbow on a fallen palisade falls with it.</li>
         <li><b>Wages (the night before Spring in years 2 and 3).</b> Every villager with a job is paid 🪙1, the most valuable first. Anyone you can’t pay leaves, and you lose ⭐1 for each.</li>
         <li><b>Goals (after Winter).</b> The year’s 3 goals are scored — see Goals &amp; events.</li>
         <li><b>Crossroads.</b> The traveller at the front moves on; new ones arrive until there are 5 again.</li>
@@ -2362,14 +2381,14 @@
         <li>Each Watchtower 🛡️2 and the Wizard’s Tower 🛡️1, even with nobody inside — but only against attacks from a side within <b>2 rows</b> (Watchtower) or <b>3 rows</b> (Wizard’s Tower) of the tower. A hex on the edge is 0 rows from that side; the Keep is 3 rows from every side. When you place a tower, the map shows which sides it would cover.</li>
         <li>Each set of arms 🛡️1.</li>
         <li>Working Guards 🛡️2 and Knights 🛡️4 on any side. Archers 🛡️2 (+3 against flyers) and the Wizard 🛡️3 (+4 against flyers and the undead) only on the sides their tower covers. Priests +4 against the undead only.</li>
-        <li>The wall on the side being attacked: Palisade 🛡️2, Stone 🛡️4. Flyers ignore walls, but they still come from one side, so towers must be in range.</li>
+        <li>The wall on the side being attacked: Palisade 🛡️2, Stone 🛡️4, Iron 🛡️6. Flyers ignore walls, but they still come from one side, so towers must be in range — and a crossbow on that side's wall adds 🛡️4 against them.</li>
         <li>Anything a place gave you for tonight (Militia yard, Watch post).</li>
       </ul>
       <h4>When a creature breaks through</h4>
       <table class="rules-table">
         <tr><th>Damage</th><th>Exactly what happens</th></tr>
         <tr><td>Lose resources</td><td>You lose up to the amount shown; you can’t go below 0.</td></tr>
-        <tr><td>Wall drops a level</td><td>Stone becomes a Palisade and a Palisade becomes bare, on the side attacked.</td></tr>
+        <tr><td>Wall drops a level</td><td>Iron becomes Stone, Stone becomes a Palisade and a Palisade becomes bare, on the side attacked. A crossbow falls if its wall does.</td></tr>
         <tr><td>Wall smashed</td><td>The wall on that side is gone completely.</td></tr>
         <tr><td>Villager carried off</td><td>Whoever works nearest the side attacked (idle villagers count as being at the Keep); on a tie the least valuable. No ⭐ lost unless the creature says so.</td></tr>
         <tr><td>Turned to stone</td><td>Your most valuable villager (price + points) is lost.</td></tr>
@@ -2434,8 +2453,8 @@
         <tr><td>⭐ Renown</td><td>Gained from trophies, working Bards, Priests and the Wizard (⭐1 each per round) and the Festival green. Lost when villagers leave hungry or cold (⭐1 each), to undead creatures and at the Moneylender. Can be negative.</td></tr>
         <tr><td>🏠 Buildings</td><td>The ⭐ printed on each building — job buildings only if someone works there. Castle ⭐6, Wizard’s Tower ⭐5, Cathedral ⭐10.</td></tr>
         <tr><td>👥 Villagers</td><td>Every villager still with you: Peasants ⭐1, most trades ⭐2, Knights and Stewards ⭐3, the Wizard ⭐4.</td></tr>
-        <tr><td>🧱 Stone walls</td><td>⭐1 per side with a Stone wall.</td></tr>
-        <tr><td>🏰 Fully walled</td><td>⭐3 if all 6 sides have a wall (Palisade or Stone).</td></tr>
+        <tr><td>🧱 Stone walls</td><td>⭐1 per side with a Stone or Iron wall.</td></tr>
+        <tr><td>🏰 Fully walled</td><td>⭐3 if all 6 sides have a wall (any kind).</td></tr>
         <tr><td>🪙 Gold</td><td>⭐1 per full 🪙5 left over (🪙9 = ⭐1).</td></tr>
         <tr><td>🎯 Goals</td><td>Everything scored on the 3 goals of each year: ⭐${E.GOAL_PTS} per goal to the village that did most that year, or ⭐${E.GOAL_PTS / 2} each on a tie (nobody scores if both did nothing).</td></tr>
       </table>
@@ -2443,7 +2462,7 @@
       <h4>Strategy tips</h4>
       <ul>
         <li>Food first: a Farm next to a Well with a Farmer makes 🍞4 in Spring and 🍞6 in Autumn. Save up before Winter, when Farms make nothing.</li>
-        <li>Check the threat track. A Palisade on the right side is cheap; flyers need Archers, Watchtowers, arms or a Wizard. Spread your towers so they cover different sides, and build one early to see where tomorrow’s creature comes from.</li>
+        <li>Check the threat track. A Palisade on the right side is cheap; flyers need Archers, Watchtowers, crossbows, arms or a Wizard. Spread your towers so they cover different sides, and build one early to see where tomorrow’s creature comes from.</li>
         <li>Keep gold for wages before each Spring, and wood for firewood and palisade repairs before each Winter.</li>
         <li>Watch each year’s goals: a small lead by the end of Winter is worth ⭐${E.GOAL_PTS}, and then the race starts again.</li>
         <li>Going first? Take the place your rival needs most.</li>

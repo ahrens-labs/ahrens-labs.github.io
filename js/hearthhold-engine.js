@@ -32,7 +32,10 @@
     { name: 'No wall', def: 0 },
     { name: 'Palisade', def: 2, cost: { wood: 2 } },
     { name: 'Stone wall', def: 4, cost: { stone: 3 } },
+    { name: 'Iron wall', def: 6, cost: { stone: 1, iron: 2 } },
   ];
+  // A crossbow mounted on a wall: extra defense against flyers coming from that side. It falls if the wall does.
+  const BOW = { def: 4, cost: { wood: 2, iron: 1 } };
 
   const TERRAIN = {
     plains: { name: 'Plains', icon: '🟫' },
@@ -141,7 +144,7 @@
     commons: { name: 'Village commons', group: 'open', img: 'peasant', text: 'Take 🍞1. Any number of workers can go here.' },
     odd: { name: 'Odd jobs', group: 'open', img: 'workshop', text: 'Take 🪙1. Any number of workers can go here.' },
     // In every game, one worker per round.
-    crew: { name: 'Work crew', group: 'fixed', img: 'carpenter', text: 'Finish everything you have under construction, so it works tonight, and send its builders back to work. Take 🪵1.' },
+    crew: { name: 'Work crew', group: 'fixed', img: 'carpenter', text: 'Finish everything you have under construction, so it works tonight, and free its builders to work or build again. Take 🪵1.' },
   };
   const OPEN_LOCS = ['commons', 'odd'];
   const FIXED_LOCS = ['crew'];
@@ -154,7 +157,7 @@
   const LEGACY_GOAL_PTS = 6;
   const GOALS = {
     farms: { name: 'Breadbasket', icon: '🌾', text: 'Most Farms built', old: 'Most Farms' },
-    stone: { name: 'Stonework', icon: '🧱', text: 'Most Stone walls raised', old: 'Most Stone walls' },
+    stone: { name: 'Stonework', icon: '🧱', text: 'Most Stone or Iron walls raised', old: 'Most Stone walls' },
     crowd: { name: 'Bustling town', icon: '👥', text: 'Most villagers gained', old: 'Most villagers' },
     trades: { name: 'Master crafts', icon: '🛠️', text: 'Most more villagers working in their own trade', old: 'Most villagers working in their own trade' },
     trophies: { name: 'Trophy hall', icon: '🏆', text: 'Most creatures driven off', old: 'Most creatures driven off' },
@@ -431,6 +434,7 @@
         arms: 0,
         muster: 0,
         walls: [0, 0, 0, 0, 0, 0],
+        bows: [0, 0, 0, 0, 0, 0],
         bld: [],
         vil: [],
         castle: false,
@@ -545,7 +549,7 @@
   function goalValue(state, p, g) {
     switch (g) {
       case 'farms': return count(p, 'farm');
-      case 'stone': return p.walls.filter((w) => w === 2).length;
+      case 'stone': return p.walls.filter((w) => w >= 2).length;
       case 'crowd': return p.vil.length;
       case 'trades': return workers(p).filter((w) => w.spec).length;
       case 'trophies': return p.trophies.length;
@@ -694,12 +698,11 @@
       if (how) out.push({ v, b, spec: how === 'spec' });
     });
     return out;
-  }  // Builders: every new building needs a villager to build it. They spend the rest of the round on the site —
-  // no work or defense tonight, and they can't build again until next season.
+  }  // Builders: every new building needs a villager to build it. They stay on the site until it is finished —
+  // no work or defense tonight. Once the Work crew finishes it they are free again, even to build.
   const busy = (p, v) => !!(p.flags && p.flags.busy && p.flags.busy.includes(v.id));
   const onDuty = (p) => workers(p).filter((w) => !busy(p, w.v) && ready(p, w.b));
-  // Each villager builds at most once a round, even if the Work crew sends them back to work.
-  const hasBuilt = (p, v) => busy(p, v) || !!(p.flags && p.flags.built && p.flags.built.includes(v.id));
+  const hasBuilt = busy;
   const freeBuilders = (p) => p.vil.filter((v) => !hasBuilt(p, v));
   // Who builds if the player doesn't say: idle villagers first, then labourers, then the least valuable specialist.
   function builderFor(p) {
@@ -785,6 +788,7 @@
       if (v.k === 'priest' && b && b.undead) d += 4;
     });
     if (b && b.kind !== 'fly' && side != null && side >= 0) d += WALL[p.walls[side]].def;
+    if (b && b.kind === 'fly' && side != null && side >= 0 && hasBow(p, side)) d += BOW.def;
     return d;
   }
   function baseDefense(p) {
@@ -853,10 +857,24 @@
   }
   function wallCost(p, side) {
     const lvl = p.walls[side];
-    if (lvl >= 2) return null;
+    if (lvl >= WALL.length - 1) return null;
     const c = Object.assign({}, WALL[lvl + 1].cost);
     if (c.wood && hasCarpenter(p)) c.wood -= 1;
     return c;
+  }
+  const hasBow = (p, side) => !!(p.bows && p.bows[side]);
+  function bowBlock(state, p, side) {
+    if (!newRules(state)) return 'Crossbows aren’t part of this older game.';
+    if (!Number.isInteger(side) || side < 0 || side > 5) return 'Pick a side.';
+    if (!p.walls[side]) return 'A crossbow needs a wall to stand on — build one on that side first.';
+    if (hasBow(p, side)) return 'That wall already has a crossbow.';
+    return null;
+  }
+  // A wall that falls takes its crossbow with it.
+  function dropBow(p, side) {
+    if (p.walls[side] || !hasBow(p, side)) return false;
+    p.bows[side] = 0;
+    return true;
   }
   function canPay(p, c) {
     return RES.every((r) => (p.res[r] || 0) >= (c[r] || 0));
@@ -972,14 +990,19 @@
         if (a.by != null) {
           const v = p.vil.find((x) => x.id === a.by);
           if (!v) return 'Pick a villager to build it.';
-          if (hasBuilt(p, v)) return `That ${VIL[v.k].name} has already built this season.`;
-        } else if (!builderFor(p)) return 'Everyone has already built this season — nobody is free to build.';
+          if (hasBuilt(p, v)) return `That ${VIL[v.k].name} is still building — they’re free once that building is finished.`;
+        } else if (!builderFor(p)) return 'Everyone is busy building — nobody is free until those buildings are finished.';
         return null;
       }
       case 'wall': {
         const c = wallCost(p, a.side);
-        if (!c) return 'That wall is already stone.';
+        if (!c) return 'That wall is already iron.';
         return canPay(p, c) ? null : 'You can’t afford it.';
+      }
+      case 'bow': {
+        const why = bowBlock(state, p, a.side);
+        if (why) return why;
+        return canPay(p, BOW.cost) ? null : 'You can’t afford it.';
       }
       case 'recruit': {
         if (room(p) <= 0) return beds(p) <= water(p) ? 'You need more beds — build a House.' : 'You need more water — build a Well.';
@@ -1197,6 +1220,13 @@
         msg = `built a ${WALL[p.walls[a.side]].name.toLowerCase()} on the ${SIDES[a.side].name.toLowerCase()} side`;
         break;
       }
+      case 'bow': {
+        pay(p, BOW.cost);
+        p.bows = (p.bows || [0, 0, 0, 0, 0, 0]).slice();
+        p.bows[a.side] = 1;
+        msg = `mounted a crossbow on the ${SIDES[a.side].name.toLowerCase()} wall`;
+        break;
+      }
       case 'recruit': {
         let k;
         if (a.peasant) {
@@ -1360,6 +1390,7 @@
           a.wallFrom = p.walls[threat.side];
           p.walls[threat.side] = f.wall === 2 ? 0 : Math.max(0, p.walls[threat.side] - 1);
           a.wallTo = p.walls[threat.side];
+          if (dropBow(p, threat.side)) a.bowLost = true;
         }
         if (f.leave) a.left = loseVillagers(p, f.leave, threat.side);
         if (f.stone) a.left = loseVillagers(p, 1, 'best');
@@ -1410,6 +1441,7 @@
           } else {
             p.walls[i] = 0;
             r.frost.fell.push(i);
+            if (dropBow(p, i)) r.frost.bows = (r.frost.bows || 0) + 1;
           }
         });
       }
@@ -1488,7 +1520,7 @@
     });
     if (p.castle) s.buildings += BUILD.castle.pts;
     p.vil.forEach((v) => (s.villagers += VIL[v.k].pts));
-    s.walls = p.walls.filter((w) => w === 2).length;
+    s.walls = p.walls.filter((w) => w >= 2).length;
     s.fortified = p.walls.every((w) => w > 0) ? 3 : 0;
     s.goals = 0;
     if (newRules(state)) {
@@ -1527,7 +1559,10 @@
     const f = BEAST[t.k].fail;
     let v = 0;
     if (f.res) RES.forEach((r) => (v += Math.min(p.res[r] + 4, f.res[r] || 0) * VAL[r]));
-    if (f.wall && t.side != null) v += p.walls[t.side] ? (f.wall === 2 ? p.walls[t.side] * 2 : 2) : 0;
+    if (f.wall && t.side != null) {
+      v += p.walls[t.side] ? (f.wall === 2 ? p.walls[t.side] * 2 : 2) : 0;
+      if (hasBow(p, t.side) && (f.wall === 2 || p.walls[t.side] === 1)) v += 2.5;
+    }
     if (f.leave) v += f.leave * 3.2;
     if (f.stone) v += 4.5;
     if (f.burn) {
@@ -1671,6 +1706,7 @@
       out.push({ t: 'build', b, cell });
     });
     for (let s = 0; s < 6; s++) out.push({ t: 'wall', side: s });
+    for (let s = 0; s < 6; s++) if (!bowBlock(state, p, s)) out.push({ t: 'bow', side: s });
     state.row.forEach((k, i) => out.push({ t: 'recruit', i }));
     out.push({ t: 'recruit', peasant: true });
     // training: only into trades with a free spot in their own building, to keep the search small
@@ -1688,6 +1724,7 @@
     let c;
     if (a.t === 'build') c = buildCost(p, a.b);
     else if (a.t === 'wall') c = wallCost(p, a.side);
+    else if (a.t === 'bow') c = BOW.cost;
     else if (a.t === 'recruit') c = a.peasant ? peasantPrice(p) : rowPrice(state, a.i, p);
     else if (a.t === 'train') c = trainPrice(p, a.k);
     if (!c) return null;
@@ -1829,7 +1866,7 @@
     BUILD, BUILD_ORDER, VIL, VIL_ORDER, DECK, BEAST, BEAST_ORDER, CELLS, NEIGH, mapRings,
     newGame, legal, apply, resolveDusk, score, winner, aiChoose, evaluate,
     seasonOf, yearOf, costText, beastText, beastKind, ringOf,
-    beds, water, room, workers, production, defense, baseDefense, buildCost, wallCost, canPay, rowPrice, freeCells, buildBlock,
+    beds, water, room, workers, production, defense, baseDefense, buildCost, wallCost, BOW, hasBow, bowBlock, canPay, rowPrice, freeCells, buildBlock,
     occupants, moveTargets, canWork, slotsOf, adjacent, hasMerchant, tradeRate, peasantPrice, busy, hasBuilt, onDuty, ready, castleReady, freeBuilders, builderFor, trainPrice, trainBlock, trainee, TRAIN_FEE, squareAmount, locGain, masonSides, masonFirst, masonChoices, freeLocs, crowdAt, workerCount, musterAmount, foodNeed, woodNeed, upcoming, clone,
     GOALS, GOAL_ORDER, GOAL_PTS, LEGACY_GOAL_PTS, GOALS_PER_YEAR, EVENTS, AI_LEVEL, WAGE, NOISY,
     newRules, threatView, threatsFor, maskThreats, scout, farSight, goalValue, goalPoints, goalGain, goalsOfYear, goalText, legacyGoals, wagesDue, roundsToWages,
