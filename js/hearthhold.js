@@ -338,9 +338,8 @@
     for (let r = 1; r <= E.ROUNDS; r++) {
       const cls = r < s.round ? 'done' : r === s.round ? 'now' : '';
       const sea = E.SEASON[E.seasonOf(r)];
-      const ev = s.events && s.events[r - 1];
-      const evName = ev && E.EVENTS[ev] ? E.EVENTS[ev].name : '';
-      const evTitle = ev ? (r <= s.round && evName ? ` · event: ${evName}` : ' · an event is coming') : '';
+      const ev = r <= s.round && s.events && E.EVENTS[s.events[r - 1]] ? s.events[r - 1] : null;
+      const evTitle = ev ? ` · event: ${E.EVENTS[ev].name}` : '';
       pips += `${r > 1 && (r - 1) % 4 === 0 ? '<span class="yr-gap"></span>' : ''}<span class="pip ${cls}${ev ? ' ev' : ''}" title="${sea.name}, year ${E.yearOf(r)}${esc(evTitle)}">${sea.icon}</span>`;
     }
     $('#tracker').innerHTML = pips;
@@ -522,6 +521,15 @@
       const [lx, ly] = polar(E.SIDES[i].ang, FACE + 18);
       const [tx, ty] = polar(E.SIDES[i].ang + 19, FACE + 14);
       if (lvl) h += `<text class="wall-tag" x="${tx.toFixed(1)}" y="${(ty + 4).toFixed(1)}">🛡️${E.WALL[lvl].def}</text>`;
+      if (pick && pick.t === 'masons') {
+        const first = E.masonFirst(s, p);
+        const open = E.masonChoices(s, p).includes(i);
+        const after = lvl + (i === first ? 1 : 0);
+        const label = open ? `${i === first ? 'Tonight ✓ + ' : ''}${after ? 'Stone' : 'Palisade'}` : i === first ? 'Tonight ✓' : 'Stone ✓';
+        const [mx, my] = i === first ? polar(E.SIDES[i].ang, FACE - 22) : [lx, ly];
+        h += `<g class="side-pick${open ? '' : ' maxed'}${i === first ? ' mason-first' : ''}" data-side="${i}"><line class="side-hit" ${line}/>`;
+        h += `<text class="side-cost" x="${mx.toFixed(1)}" y="${(my + 4).toFixed(1)}">${label}</text></g>`;
+      }
       if (pick && pick.t === 'wall') {
         const c = E.wallCost(p, i);
         h += `<g class="side-pick${c ? '' : ' maxed'}" data-side="${i}"><line class="side-hit" ${line}/>`;
@@ -612,7 +620,10 @@
     }
     bar.className = 'pickbar on';
     const p = me();
-    const msg = pk.t === 'build' ? `Pick a glowing spot for your <b>${E.BUILD[pk.b].name}</b> (${cost(E.buildCost(p, pk.b), p)})${p.rules >= 3 ? ' — it must touch your village' : ''}` : 'Pick a side to wall: a <b>Palisade</b> (🛡️2) or upgrade one to <b>Stone</b> (🛡️4)';
+    const first = pk.t === 'masons' ? E.masonFirst(st(), p) : null;
+    const msg = pk.t === 'masons'
+      ? `<b>Mason’s lodge:</b> the ${first != null ? sideName(first) : ''} wall goes up for free tonight — pick <b>one more side</b> to raise`
+      : pk.t === 'build' ? `Pick a glowing spot for your <b>${E.BUILD[pk.b].name}</b> (${cost(E.buildCost(p, pk.b), p)})${p.rules >= 3 ? ' — it must touch your village' : ''}` : 'Pick a side to wall: a <b>Palisade</b> (🛡️2) or upgrade one to <b>Stone</b> (🛡️4)';
     bar.innerHTML = `<span>${msg}</span><button class="btn ghost sm" data-act="cancel-pick">Cancel</button>`;
   }
 
@@ -687,19 +698,30 @@
   function renderGoals() {
     const box = $('#goals');
     const s = st();
-    if (!E.newRules(s) || !s.goals || !s.goals.length) {
+    const legacy = E.legacyGoals(s);
+    const year = E.yearOf(s.round);
+    const now = E.goalsOfYear(s, year);
+    if (!now.length) {
       box.hidden = true;
       return;
     }
     box.hidden = false;
-    box.innerHTML = `<h3>🎯 Goals <span class="muted">⭐${E.GOAL_PTS} to the village with the most at the end (⭐${E.GOAL_PTS / 2} each on a tie)</span></h3><ul class="goal-list">${s.goals
+    const pts = legacy ? E.LEGACY_GOAL_PTS : E.GOAL_PTS;
+    const head = legacy
+      ? `🎯 Goals <span class="muted">⭐${pts} to the village with the most at the end (⭐${pts / 2} each on a tie)</span>`
+      : `🎯 Year ${year} goals <span class="muted">⭐${pts} each to the village that does most this year, scored after Winter (⭐${pts / 2} each on a tie)</span>`;
+    const past = legacy ? [] : (s.goalLog || []).filter((y) => y.year < year || s.phase === 'over');
+    const pastHtml = past.length
+      ? `<div class="goal-past">${past.map((y) => `<span><b>Year ${y.year}:</b> ${s.players.map((p, i) => `<i style="--pc:${PCOLOR[i]}">${esc(p.name)} ⭐${y.list.reduce((t, x) => t + x.pts[i], 0)}</i>`).join(' ')}</span>`).join('')}</div>`
+      : '';
+    box.innerHTML = `<h3>${head}</h3><ul class="goal-list">${now
       .map((g) => {
         const G2 = E.GOALS[g];
-        const v = s.players.map((p) => E.goalValue(s, p, g));
+        const v = s.players.map((p) => E.goalGain(s, p, g));
         const lead = v[0] === v[1] ? -1 : v[0] > v[1] ? 0 : 1;
-        return `<li><span class="gl-ic">${G2.icon}</span><div><b>${esc(G2.name)}</b><small>${esc(G2.text)}</small></div><span class="gl-vals">${v.map((n, i) => `<i class="${lead === i ? 'lead' : ''}" style="--pc:${PCOLOR[i]}" title="${esc(s.players[i].name)}">${n}</i>`).join('')}</span></li>`;
+        return `<li><span class="gl-ic">${G2.icon}</span><div><b>${esc(G2.name)}</b><small>${esc(E.goalText(s, g))}${legacy ? '' : G2.stock ? '' : ' this year'}</small></div><span class="gl-vals">${v.map((n, i) => `<i class="${lead === i ? 'lead' : ''}" style="--pc:${PCOLOR[i]}" title="${esc(s.players[i].name)}">${n}</i>`).join('')}</span></li>`;
       })
-      .join('')}</ul>`;
+      .join('')}</ul>${pastHtml}`;
   }
 
   function renderActions() {
@@ -867,6 +889,12 @@
       const act = { t: 'place', loc: lc.dataset.loc };
       const why = E.legal(st(), G.view, act);
       if (why) return toast(esc(why), 'bad');
+      if (act.loc === 'masons' && E.masonChoices(st(), me()).length > 1) {
+        ui.pick = { t: 'masons' };
+        render();
+        $('#board').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+      }
       doAction(act);
       return;
     }
@@ -912,6 +940,17 @@
   function onBoardClick(e) {
     if (!G) return;
     const side = e.target.closest('[data-side]');
+    if (side && ui.pick && ui.pick.t === 'masons') {
+      const i = +side.dataset.side;
+      const act = { t: 'place', loc: 'masons', side: i };
+      const why = E.legal(st(), G.view, act);
+      if (why) return toast(esc(why), 'bad');
+      if (!E.masonChoices(st(), me()).includes(i)) return toast('That side will already be Stone.', 'bad');
+      ui.pick = null;
+      ui.freshSide = i;
+      doAction(act);
+      return;
+    }
     if (side && ui.pick && ui.pick.t === 'wall') {
       const i = +side.dataset.side;
       const why = E.legal(st(), G.view, { t: 'wall', side: i });
@@ -1279,6 +1318,11 @@
           <div><b>${B.name}</b> attacks${B.kind === 'fly' ? ` from the sky${rep.threat.side != null ? `, out of the ${sideName(rep.threat.side)}` : ''}` : ` from the ${sideName(rep.threat.side)}`}! <span class="muted">⚔️${B.str} · win ${bt.win}</span></div>
         </div>
         <div class="dcols">${cols}</div>
+        ${rep.goals ? `<div class="dusk-goals"><h3>🎯 Year ${rep.goals.year} goals</h3><ul>${rep.goals.list.map((x) => {
+          const G2 = E.GOALS[x.g];
+          const win = x.pts[0] === x.pts[1] ? (x.pts[0] ? 'Tie' : 'Nobody scores') : `${esc(s.players[x.pts[0] > x.pts[1] ? 0 : 1].name)} +⭐${Math.max(...x.pts)}`;
+          return `<li><span>${G2.icon} <b>${esc(G2.name)}</b></span><span class="gl-vals">${x.v.map((n, i) => `<i style="--pc:${PCOLOR[i]}">${n}</i>`).join('')}</span><span class="dg-win">${x.pts[0] === x.pts[1] && x.pts[0] ? `Tie · +⭐${x.pts[0]} each` : win}</span></li>`;
+        }).join('')}</ul></div>` : ''}
         <p class="crossroads muted">🛤️ ${crossroads}</p>
         <button class="btn big" data-close>${s.phase === 'over' ? 'See final scores' : `On to ${E.SEASON[E.seasonOf(s.round)].name} ${E.SEASON[E.seasonOf(s.round)].icon}`}</button>
       </div>`;
@@ -2101,7 +2145,7 @@
       <p>Each village gets its workers: <b>${E.BASE_WORKERS}</b>, plus 1 if a Steward works the Keep. Every place is empty again.</p>
       <h4>2. Day — take turns</h4>
       <ol class="steps">
-        <li>On your turn, do as many <b>free actions</b> as you like and can pay for, in any order: build, wall, recruit, trade and move villagers. In two seasons each year (marked 📰 on the season track) there is also a <b>season event</b> to answer (see Goals &amp; events) — you must choose before you end the round.</li>
+        <li>On your turn, do as many <b>free actions</b> as you like and can pay for, in any order: build, wall, recruit, trade and move villagers. In two seasons each year, kept secret until they arrive, there is also a <b>season event</b> to answer (see Goals &amp; events) — you must choose before you end the round.</li>
         <li>Then either <b>send one worker</b> to an empty place (or one of the always-open places) — you get its reward straight away and your turn ends — or press <b>End round</b>.</li>
         <li>If that was your <b>last</b> worker, your turn doesn’t end: finish any free actions (you can use what the place just gave you) and then press End round.</li>
         <li>Once you end the round you can’t do anything more until tomorrow. Any workers you didn’t place are wasted. Your rival keeps taking turns until they end too.</li>
@@ -2143,7 +2187,7 @@
         <li><b>Town crier</b>: the Peasant needs a bed and water like anyone else, and takes a free labor job if there is one.</li>
         <li><b>Festival green</b> counts every Inn you have, worked or not.</li>
         <li><b>Militia yard</b> counts your villagers when you place the worker.</li>
-        <li><b>Mason’s lodge</b> never goes above Stone. If tonight’s creature flies, both raises go to your weakest sides. If every side is already Stone, nothing happens.</li>
+        <li><b>Mason’s lodge</b> raises tonight’s side for free, then you pick one more side (it can be the same side, to take it from bare to Stone). It never goes above Stone. If tonight’s creature flies, or its side is already Stone, the free raise goes to your weakest side instead. If every side is already Stone, nothing happens.</li>
         <li><b>Armory</b> still gives 🔩1 when you already have 6 sets of arms.</li>
       </ul>`;
     }
@@ -2185,6 +2229,7 @@
         <li><b>Firewood (Winter only).</b> Burn 🪵1 for every 3 villagers, rounded up (4 villagers burn 🪵2). For each 🪵 you are short, one villager leaves and you lose ⭐1.</li>
         <li><b>Frost (Winter only).</b> Each Palisade needs 🪵1 of repairs, paid after firewood. With no wood left, it falls. Stone walls don’t need mending.</li>
         <li><b>Wages (the night before Spring in years 2 and 3).</b> Every villager with a job is paid 🪙1, the most valuable first. Anyone you can’t pay leaves, and you lose ⭐1 for each.</li>
+        <li><b>Goals (after Winter).</b> The year’s 3 goals are scored — see Goals &amp; events.</li>
         <li><b>Crossroads.</b> The traveller at the front moves on; new ones arrive until there are 5 again.</li>
       </ol>
       <h4>Your defense tonight</h4>
@@ -2211,10 +2256,11 @@
     if (tab === 'goals')
       return `
       <h4>🎯 Goals</h4>
-      <p>Every game draws <b>3 goals</b> from the ${E.GOAL_ORDER.length} below. They are shown beside the map all game, with each village’s current count. At the end the village with the most of each scores ⭐${E.GOAL_PTS}; a tie gives ⭐${E.GOAL_PTS / 2} each, and nobody scores if both have none.${G && st().goals ? ` This game’s goals are marked <b>✓</b>.` : ''}</p>
-      <table class="rules-table">${E.GOAL_ORDER.map((g) => `<tr><td>${G && (st().goals || []).includes(g) ? '✓ ' : ''}${E.GOALS[g].icon} <b>${E.GOALS[g].name}</b></td><td>${E.GOALS[g].text}</td></tr>`).join('')}</table>
+      <p>Each year brings <b>3 new goals</b>, drawn from the ${E.GOAL_ORDER.length} below, so a game uses 9 different ones. A year’s goals are revealed when its Spring begins and shown beside the map, with what each village has done towards them so far.</p>
+      <p>Goals count only what you do <b>during that year</b>: Farms built, villagers gained, creatures driven off and so on, counted from the start of Spring. Fat purse and Full larder look at what you have when the year ends. Right after Winter’s night, the village that did most on each goal scores ⭐${E.GOAL_PTS}; a tie gives ⭐${E.GOAL_PTS / 2} each, and nobody scores if both did nothing.${G && E.goalsOfYear(st(), E.yearOf(st().round)).length && !E.legacyGoals(st()) ? ' This year’s goals are marked <b>✓</b>.' : ''}</p>
+      <table class="rules-table">${E.GOAL_ORDER.map((g) => `<tr><td>${G && E.goalsOfYear(st(), E.yearOf(st().round)).includes(g) ? '✓ ' : ''}${E.GOALS[g].icon} <b>${E.GOALS[g].name}</b></td><td>${E.GOALS[g].text}${E.GOALS[g].stock ? '' : ' this year'}</td></tr>`).join('')}</table>
       <h4>📰 Season events</h4>
-      <p><b>Two seasons each year</b>, picked at random when the game starts (never the very first round), bring an <b>event</b> that both villages face. The season track at the top marks them with 📰, but which event it is stays secret until that round. Each village picks one of its options on its own turn, and must do so before ending the round. Effects happen at once, or tonight if they say so. If you can’t pay for an option, you can’t pick it — there is always one you can. Events never repeat in a game, and some only happen in certain seasons.</p>
+      <p><b>Two seasons each year</b>, picked at random when the game starts (never the very first round), bring an <b>event</b> that both villages face. Which seasons they are, and which event it is, stay secret until that round begins; past events are marked 📰 on the season track. Each village picks one of its options on its own turn, and must do so before ending the round. Effects happen at once, or tonight if they say so. If you can’t pay for an option, you can’t pick it — there is always one you can. Events never repeat in a game, and some only happen in certain seasons.</p>
       <div class="gallery">${Object.keys(E.EVENTS).map((k) => {
         const ev = E.EVENTS[k];
         return `<div class="gcard ev"><span class="ev-icon">${ev.icon}</span><div><b>${esc(ev.name)}</b>${ev.when ? `<div class="g-cost">${ev.when.map((w) => E.SEASON[w].name).join(' or ')} only</div>` : ''}<p class="muted">${esc(ev.text)}</p><ul>${ev.opts.map((o) => `<li><b>${esc(o.label)}:</b> ${o.text}</li>`).join('')}</ul></div></div>`;
@@ -2267,7 +2313,7 @@
         <tr><td>🧱 Stone walls</td><td>⭐1 per side with a Stone wall.</td></tr>
         <tr><td>🏰 Fully walled</td><td>⭐3 if all 6 sides have a wall (Palisade or Stone).</td></tr>
         <tr><td>🪙 Gold</td><td>⭐1 per full 🪙5 left over (🪙9 = ⭐1).</td></tr>
-        <tr><td>🎯 Goals</td><td>Each of the game’s 3 goals gives ⭐${E.GOAL_PTS} to the village with the most, or ⭐${E.GOAL_PTS / 2} each on a tie (nobody scores if both have none).</td></tr>
+        <tr><td>🎯 Goals</td><td>Everything scored on the 3 goals of each year: ⭐${E.GOAL_PTS} per goal to the village that did most that year, or ⭐${E.GOAL_PTS / 2} each on a tie (nobody scores if both did nothing).</td></tr>
       </table>
       <p>Most ⭐ wins. On a tie, the village with more villagers wins; if that’s tied too, it’s a draw.</p>
       <h4>Strategy tips</h4>
@@ -2275,7 +2321,7 @@
         <li>Food first: a Farm next to a Well with a Farmer makes 🍞4 in Spring and 🍞6 in Autumn. Save up before Winter, when Farms make nothing.</li>
         <li>Check the threat track. A Palisade on the right side is cheap; flyers need Archers, Watchtowers, arms or a Wizard. Spread your towers so they cover different sides, and build one early to see where tomorrow’s creature comes from.</li>
         <li>Keep gold for wages before each Spring, and wood for firewood and palisade repairs before each Winter.</li>
-        <li>Watch the goals: a small lead in the right place is worth ⭐${E.GOAL_PTS}.</li>
+        <li>Watch each year’s goals: a small lead by the end of Winter is worth ⭐${E.GOAL_PTS}, and then the race starts again.</li>
         <li>Going first? Take the place your rival needs most.</li>
         <li>Grab the first traveller at the Crossroads: they’re cheapest and leave tonight anyway.</li>
         <li>A Steward early gives you an extra worker every round for the rest of the game.</li>

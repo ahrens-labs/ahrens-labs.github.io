@@ -136,7 +136,9 @@ function cleanAction(a) {
       if (a.peasant === true) return { t: 'recruit', peasant: true };
       return isInt(a.i) ? { t: 'recruit', i: a.i } : null;
     case 'place':
-      return Object.prototype.hasOwnProperty.call(E.LOC, a.loc) ? { t: 'place', loc: a.loc } : null;
+      if (!Object.prototype.hasOwnProperty.call(E.LOC, a.loc)) return null;
+      if (a.loc === 'masons' && isInt(a.side) && a.side < 6) return { t: 'place', loc: a.loc, side: a.side };
+      return { t: 'place', loc: a.loc };
     case 'trade': {
       if (!Array.isArray(a.trades) || !a.trades.length || a.trades.length > MAX_TRADES) return null;
       const trades = a.trades.map((x) => (Array.isArray(x) && RES.has(x[0]) && RES.has(x[1]) ? [x[0], x[1]] : null));
@@ -154,8 +156,8 @@ function cleanAction(a) {
   }
 }
 
-// What a player may see: the deck order, the random seed, which later events are coming (only that one
-// is, as '?') and any creature (or side) this village can't see yet stay on the server.
+// What a player may see: the deck order, the random seed, later events, later years' goals and any creature
+// (or side) this village can't see yet stay on the server.
 function publicState(state, me) {
   if (!state) return null;
   const s = E.clone(state);
@@ -163,7 +165,8 @@ function publicState(state, me) {
   s.seed = 0;
   if (E.newRules(state) && state.phase !== 'over') {
     s.threats = E.maskThreats(state, me);
-    if (s.events) s.events = s.events.map((k, i) => (i < state.round || !k ? k : '?'));
+    if (s.events) s.events = s.events.map((k, i) => (i < state.round ? k : null));
+    if (Array.isArray(s.goals) && Array.isArray(s.goals[0])) s.goals = s.goals.map((g, i) => (i < E.yearOf(state.round) ? g : null));
   } else s.threats = s.threats.map((t, i) => (i < state.round - 1 + 3 ? t : null));
   return s;
 }

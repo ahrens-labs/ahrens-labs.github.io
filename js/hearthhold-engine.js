@@ -134,7 +134,7 @@
     festival: { name: 'Festival green', group: 'folk', img: 'bard', text: 'Gain ⭐2, plus ⭐1 for each Inn you have.' },
     crier: { name: 'Town crier', group: 'folk', img: 'peasant', text: 'A Peasant joins you for free if you have room for them (otherwise take 🪙2). Also take 🍞1.' },
     militia: { name: 'Militia yard', group: 'guard', img: 'guard', text: 'Tonight you get 🛡️2 on every side, plus 🛡️1 for every 3 villagers.' },
-    masons: { name: 'Mason’s lodge', group: 'guard', img: 'wall', text: 'Raise the walls on 2 sides by one level for free — tonight’s side first, then your weakest. A bare side gets a Palisade, a Palisade becomes Stone.' },
+    masons: { name: 'Mason’s lodge', group: 'guard', img: 'wall', text: 'Raise tonight’s wall by one level for free, plus one more side of your choice. A bare side gets a Palisade, a Palisade becomes Stone.' },
     watch: { name: 'Watch post', group: 'guard', img: 'tower', text: 'Tonight you get 🛡️3 on every side, or 🛡️5 if tonight’s creature flies.' },
     armory: { name: 'Armory', group: 'guard', img: 'smithy', text: 'Forge 1 set of arms for free (🛡️1 on every side for the rest of the game, max 6) and take 🔩1.' },
     // In every game, with no worker limit — weak on purpose, for workers with nowhere better to go.
@@ -144,24 +144,27 @@
   const OPEN_LOCS = ['commons', 'odd'];
   const LOC_ORDER = Object.keys(LOC).filter((k) => LOC[k].group !== 'open');
 
-  // Goal cards: three per game, scored at the end. The village with the most gets ⭐6; a tie gives ⭐3 each; nobody scores at 0.
-  const GOAL_PTS = 6;
+  // Goal cards: three new ones each year, scored at the end of that year's Winter on what each village gained that year
+  // (stock goals: what it has then). The village with the most gets ⭐4; a tie gives ⭐2 each; nobody scores at 0.
+  // Games started before yearly goals keep three goals for the whole game, scored at the end (⭐6 / ⭐3).
+  const GOAL_PTS = 4;
+  const LEGACY_GOAL_PTS = 6;
   const GOALS = {
-    farms: { name: 'Breadbasket', icon: '🌾', text: 'Most Farms' },
-    stone: { name: 'Stonework', icon: '🧱', text: 'Most Stone walls' },
-    crowd: { name: 'Bustling town', icon: '👥', text: 'Most villagers' },
-    trades: { name: 'Master crafts', icon: '🛠️', text: 'Most villagers working in their own trade' },
-    trophies: { name: 'Trophy hall', icon: '🏆', text: 'Most creatures driven off' },
-    purse: { name: 'Fat purse', icon: '💰', text: 'Most gold left' },
-    homes: { name: 'Hearth and home', icon: '🏠', text: 'Most Houses and Inns' },
-    kinds: { name: 'Melting pot', icon: '🎭', text: 'Most different kinds of villager' },
-    variety: { name: 'Master builder', icon: '🏗️', text: 'Most different kinds of building' },
-    arms: { name: 'Armed to the teeth', icon: '⚔️', text: 'Most sets of arms' },
-    wells: { name: 'Green fields', icon: '💧', text: 'Most Farms next to a Well' },
-    larder: { name: 'Full larder', icon: '🧺', text: 'Most food left' },
+    farms: { name: 'Breadbasket', icon: '🌾', text: 'Most Farms built', old: 'Most Farms' },
+    stone: { name: 'Stonework', icon: '🧱', text: 'Most Stone walls raised', old: 'Most Stone walls' },
+    crowd: { name: 'Bustling town', icon: '👥', text: 'Most villagers gained', old: 'Most villagers' },
+    trades: { name: 'Master crafts', icon: '🛠️', text: 'Most more villagers working in their own trade', old: 'Most villagers working in their own trade' },
+    trophies: { name: 'Trophy hall', icon: '🏆', text: 'Most creatures driven off', old: 'Most creatures driven off' },
+    purse: { name: 'Fat purse', icon: '💰', text: 'Most gold at the end of the year', old: 'Most gold left', stock: true },
+    homes: { name: 'Hearth and home', icon: '🏠', text: 'Most Houses and Inns built', old: 'Most Houses and Inns' },
+    kinds: { name: 'Melting pot', icon: '🎭', text: 'Most new kinds of villager', old: 'Most different kinds of villager' },
+    variety: { name: 'Master builder', icon: '🏗️', text: 'Most new kinds of building', old: 'Most different kinds of building' },
+    arms: { name: 'Armed to the teeth', icon: '⚔️', text: 'Most sets of arms gained', old: 'Most sets of arms' },
+    wells: { name: 'Green fields', icon: '💧', text: 'Most new Farms next to a Well', old: 'Most Farms next to a Well' },
+    larder: { name: 'Full larder', icon: '🧺', text: 'Most food at the end of the year', old: 'Most food left', stock: true },
   };
   const GOAL_ORDER = Object.keys(GOALS);
-  const GOALS_PER_GAME = 3;
+  const GOALS_PER_YEAR = 3;
 
   // Season events: two random seasons each year (never round 1). Both villages answer the same event, each choosing an option.
   // when: seasons it can come up in (any if missing). Options: can(state, p) says if it's possible; do(state, p) returns a log line.
@@ -451,7 +454,8 @@
     const order = ['wolves'].concat(tier(1), tier(2), tier(3));
     // Flyers ignore walls, but they still come from one direction, which matters for towers.
     state.threats = order.map((k) => ({ k, side: BEAST[k].kind === 'fly' && SAVE_V < 3 ? null : Math.floor(rng(state) * 6) }));
-    state.goals = shuffle(state, GOAL_ORDER.slice()).slice(0, GOALS_PER_GAME);
+    const goalDeck = shuffle(state, GOAL_ORDER.slice());
+    state.goals = [0, 1, 2].map((y) => goalDeck.slice(y * GOALS_PER_YEAR, (y + 1) * GOALS_PER_YEAR));
     const left = shuffle(state, EVENT_ORDER.slice());
     state.events = Array(ROUNDS).fill(null);
     for (let y = 0; y < ROUNDS / 4; y++) {
@@ -478,6 +482,7 @@
       p.flags = {};
       p.muster = 0;
     });
+    if (state.round % 4 === 1) setGoalBase(state);
     state.turn = state.first;
   }
   // Games started before rules v3 keep the old rules: no goals, events, wages, frost or hidden threats.
@@ -541,11 +546,50 @@
       default: return 0;
     }
   }
-  // Points each player would get from goal g right now.
+  // Whole-game goals (a flat list) from games started before yearly goals.
+  const legacyGoals = (state) => Array.isArray(state.goals) && typeof state.goals[0] === 'string';
+  // The goals in play in year y (1-3); null for a year not revealed yet (online).
+  function goalsOfYear(state, y) {
+    if (!newRules(state) || !Array.isArray(state.goals)) return [];
+    if (legacyGoals(state)) return state.goals;
+    return state.goals[y - 1] || [];
+  }
+  function goalText(state, g) {
+    return legacyGoals(state) ? GOALS[g].old : GOALS[g].text;
+  }
+  // What a village has achieved towards goal g so far this year.
+  function goalGain(state, p, g) {
+    const v = goalValue(state, p, g);
+    if (legacyGoals(state) || GOALS[g].stock) return v;
+    const base = p.goalBase && p.goalBase[g] != null ? p.goalBase[g] : v;
+    return Math.max(0, v - base);
+  }
+  // Points each player would get from goal g if the year ended now.
   function goalPoints(state, g) {
-    const v = state.players.map((p) => goalValue(state, p, g));
-    if (v[0] === v[1]) return v[0] > 0 ? [GOAL_PTS / 2, GOAL_PTS / 2] : [0, 0];
-    return v[0] > v[1] ? [GOAL_PTS, 0] : [0, GOAL_PTS];
+    const pts = legacyGoals(state) ? LEGACY_GOAL_PTS : GOAL_PTS;
+    const v = state.players.map((p) => goalGain(state, p, g));
+    if (v[0] === v[1]) return v[0] > 0 ? [pts / 2, pts / 2] : [0, 0];
+    return v[0] > v[1] ? [pts, 0] : [0, pts];
+  }
+  function setGoalBase(state) {
+    if (legacyGoals(state)) return;
+    const gs = goalsOfYear(state, yearOf(state.round));
+    state.players.forEach((p) => {
+      p.goalBase = {};
+      gs.forEach((g) => (p.goalBase[g] = goalValue(state, p, g)));
+    });
+  }
+  // End of a year: award this year's goals.
+  function scoreGoals(state) {
+    const year = yearOf(state.round);
+    const list = goalsOfYear(state, year).map((g) => {
+      const v = state.players.map((p) => goalGain(state, p, g));
+      const pts = goalPoints(state, g);
+      state.players.forEach((p, i) => (p.goalPts = (p.goalPts || 0) + pts[i]));
+      return { g, v, pts };
+    });
+    state.goalLog = (state.goalLog || []).concat([{ year, list }]);
+    return { year, list };
   }
 
   // ---- wages
@@ -882,6 +926,11 @@
         if (p.workers <= 0) return 'You have no workers left this round.';
         if (OPEN_LOCS.includes(a.loc)) return null;
         if (state.spots[a.loc] != null) return `${state.players[state.spots[a.loc]].name}’s worker is already there.`;
+        if (a.loc === 'masons' && a.side != null) {
+          const open = masonChoices(state, p);
+          if (!Number.isInteger(a.side) || a.side < 0 || a.side > 5) return 'Pick a side.';
+          if (open.length && !open.includes(a.side)) return 'That side will already be Stone.';
+        }
         return null;
       }
       case 'trade': {
@@ -915,12 +964,35 @@
   function gain(p, c) {
     RES.forEach((r) => (p.res[r] += c[r] || 0));
   }
-  // Sides the Mason's lodge raises: tonight's side first (for creatures on foot), then the weakest.
-  function masonSides(state, p) {
+  // Mason's lodge: tonight's side is raised for free (your weakest instead if tonight's creature flies or that side
+  // is already Stone), then one more side the player picks.
+  const weakestSides = (walls) => [0, 1, 2, 3, 4, 5].filter((i) => walls[i] < 2).sort((a, b) => walls[a] - walls[b] || a - b);
+  function masonFirst(state, p) {
     const t = state.threats[state.round - 1];
-    const order = [0, 1, 2, 3, 4, 5].filter((i) => p.walls[i] < 2).sort((a, b) => p.walls[a] - p.walls[b] || a - b);
-    if (t && t.side != null && BEAST[t.k].kind !== 'fly' && p.walls[t.side] < 2) order.splice(order.indexOf(t.side), 1), order.unshift(t.side);
-    return order.slice(0, 2);
+    if (t && t.side != null && BEAST[t.k].kind !== 'fly' && p.walls[t.side] < 2) return t.side;
+    const order = weakestSides(p.walls);
+    return order.length ? order[0] : null;
+  }
+  // Sides that can still take the second raise, after the first.
+  function masonChoices(state, p) {
+    const first = masonFirst(state, p);
+    if (first == null) return [];
+    const after = p.walls.slice();
+    after[first] += 1;
+    return weakestSides(after);
+  }
+  // The sides raised, in order. Without a choice: tomorrow's side if this village can see it, else the weakest.
+  function masonSides(state, p, choice) {
+    const first = masonFirst(state, p);
+    if (first == null) return [];
+    const open = masonChoices(state, p);
+    let second = choice != null && open.includes(choice) ? choice : null;
+    if (second == null && open.length) {
+      const pi = state.players.indexOf(p);
+      const next = pi >= 0 ? threatView(state, pi, 1) : null;
+      second = next && next.side >= 0 && next.kind !== 'fly' && open.includes(next.side) ? next.side : open[0];
+    }
+    return second == null ? [first] : [first, second];
   }
   // What a location would give player p right now, as a short description.
   function locGain(state, p, k) {
@@ -945,7 +1017,7 @@
       default: return {};
     }
   }
-  function useLoc(state, pi, k) {
+  function useLoc(state, pi, k, a) {
     const p = state.players[pi];
     const g = locGain(state, p, k);
     gain(p, g);
@@ -983,7 +1055,7 @@
         return `manned the watch post (🛡️+${n} tonight)`;
       }
       case 'masons': {
-        const sides = masonSides(state, p);
+        const sides = masonSides(state, p, a && a.side);
         sides.forEach((i) => (p.walls[i] += 1));
         return sides.length ? `raised the ${sides.map((i) => SIDES[i].name.toLowerCase()).join(' and ')} walls` : 'found nothing left to wall';
       }
@@ -1049,7 +1121,7 @@
           (state.crowd[a.loc] = state.crowd[a.loc] || []).push(pi);
         } else state.spots[a.loc] = pi;
         p.workers -= 1;
-        msg = `sent a worker to the ${LOC[a.loc].name} and ${useLoc(state, pi, a.loc)}`;
+        msg = `sent a worker to the ${LOC[a.loc].name} and ${useLoc(state, pi, a.loc, a)}`;
         break;
       }
       case 'trade': {
@@ -1228,7 +1300,15 @@
       rep.players.push(r);
       log(state, duskLine(p, threat, a, r), pi);
     });
-    // 6. the crossroads: the longest-waiting traveller moves on, newcomers arrive
+    // 6. the year's goals are scored after Winter
+    if (newRules(state) && !legacyGoals(state) && season === 'winter') {
+      rep.goals = scoreGoals(state);
+      state.players.forEach((p, pi) => {
+        const won = rep.goals.list.filter((x) => x.pts[pi] > 0);
+        if (won.length) log(state, `${p.name} scored year ${rep.goals.year} goals: ${won.map((x) => `${GOALS[x.g].icon} ${GOALS[x.g].name} ⭐${x.pts[pi]}`).join(', ')}.`, pi);
+      });
+    }
+    // 7. the crossroads: the longest-waiting traveller moves on, newcomers arrive
     if (state.row.length) {
       rep.leftRow = state.row.shift();
       // they travel on, and may come back later
@@ -1297,7 +1377,9 @@
       // Each House next to a Chapel scores ⭐1.
       s.buildings += p.bld.filter((b) => b.b === 'house' && adjacent(p, b.cell, 'chapel')).length;
       const pi = state.players.indexOf(p);
-      if (pi >= 0) (state.goals || []).forEach((g) => (s.goals += goalPoints(state, g)[pi]));
+      if (legacyGoals(state)) {
+        if (pi >= 0) state.goals.forEach((g) => (s.goals += goalPoints(state, g)[pi]));
+      } else s.goals = p.goalPts || 0;
     }
     s.total = s.renown + s.buildings + s.villagers + s.walls + s.gold + s.fortified + s.goals;
     return s;
@@ -1408,8 +1490,12 @@
         const short = wagesDue(p) - (p.res.gold + income.gold * (toPay - 1));
         if (short > 0) v -= short * (toPay === 1 ? 2.2 : 1.4);
       }
-      // goals are already in the score; a lead early on is only worth part of the prize
-      v -= sc.goals * 0.5 * later;
+      if (legacyGoals(state)) v -= sc.goals * 0.5 * later;
+      else {
+        // banked goal points are in the score; this year's lead only counts for part of the prize until Winter
+        const into = ((state.round - 1) % 4) / 4;
+        goalsOfYear(state, yearOf(state.round)).forEach((g) => (v += goalPoints(state, g)[pi] * (0.35 + 0.5 * into)));
+      }
     }
     // later creatures hit harder: keep building towards them
     const aim = state.round >= 8 ? 11 : state.round >= 4 ? 7 : 4;
@@ -1610,9 +1696,9 @@
     newGame, legal, apply, resolveDusk, score, winner, aiChoose, evaluate,
     seasonOf, yearOf, costText, beastText, beastKind, ringOf,
     beds, water, room, workers, production, defense, baseDefense, buildCost, wallCost, canPay, rowPrice, freeCells, buildBlock,
-    occupants, moveTargets, canWork, slotsOf, adjacent, hasMerchant, tradeRate, peasantPrice, squareAmount, locGain, masonSides, freeLocs, crowdAt, workerCount, musterAmount, foodNeed, woodNeed, upcoming, clone,
-    GOALS, GOAL_ORDER, GOAL_PTS, EVENTS, AI_LEVEL, WAGE, NOISY,
-    newRules, threatView, threatsFor, maskThreats, scout, farSight, goalValue, goalPoints, wagesDue, roundsToWages,
+    occupants, moveTargets, canWork, slotsOf, adjacent, hasMerchant, tradeRate, peasantPrice, squareAmount, locGain, masonSides, masonFirst, masonChoices, freeLocs, crowdAt, workerCount, musterAmount, foodNeed, woodNeed, upcoming, clone,
+    GOALS, GOAL_ORDER, GOAL_PTS, LEGACY_GOAL_PTS, GOALS_PER_YEAR, EVENTS, AI_LEVEL, WAGE, NOISY,
+    newRules, threatView, threatsFor, maskThreats, scout, farSight, goalValue, goalPoints, goalGain, goalsOfYear, goalText, legacyGoals, wagesDue, roundsToWages,
     eventNow, eventPending, eventBlock, eventCost, noisy, aiHeadStart, AI_HEAD_START, sideDepth, RANGE, inRange,
   };
   if (typeof module === 'object' && module.exports) module.exports = api;
