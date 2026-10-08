@@ -46,18 +46,18 @@
 
   const BUILD = {
     keep: { name: 'Keep', start: true, beds: 3, water: 3, def: 1, slots: 1, pts: 0, color: '#8d6e63', text: 'Your village’s heart. Sleeps 3, has a spring for 3, and adds 🛡️1 on every side. A Steward can work here.' },
-    house: { name: 'House', cost: { wood: 2 }, on: OPEN, beds: 3, pts: 0, color: '#f4a261', text: 'Sleeps 3 villagers — only 2 next to a Smithy, Barracks or Market. Scores ⭐1 next to a Chapel.' },
-    well: { name: 'Well', cost: { stone: 2 }, on: OPEN, water: 4, pts: 0, color: '#4fc3f7', text: 'Water for 4 more villagers. Each Farm next to a Well makes +1 food.' },
+    house: { name: 'House', cost: { wood: 2 }, on: OPEN, beds: 4, pts: 0, color: '#f4a261', text: 'Sleeps 4 villagers — only 3 next to a Smithy, Barracks or Market. Scores ⭐1 next to a Chapel.' },
+    well: { name: 'Well', cost: { stone: 2 }, on: OPEN, water: 5, pts: 0, color: '#4fc3f7', text: 'Water for 5 more villagers. Each Farm next to a Well makes +1 food.' },
     farm: { name: 'Farm', cost: { wood: 1 }, on: ['meadow'], slots: 1, pts: 1, color: '#c0ca33', text: 'Worked by a Farmer: 🍞3. Anyone else: 🍞2. +1 next to a Well. Summer +1, Autumn +2, nothing in Winter.' },
-    lumber: { name: 'Lumber camp', cost: { wood: 1 }, on: ['forest'], slots: 1, pts: 1, color: '#66bb6a', text: 'Worked by a Woodcutter: 🪵3. Anyone else: 🪵2.' },
-    quarry: { name: 'Quarry', cost: { wood: 2 }, on: ['hills'], slots: 1, pts: 1, color: '#9e9e9e', text: 'Worked by a Stonecutter: 🪨3. Anyone else: 🪨2.' },
+    lumber: { name: 'Lumber camp', cost: { wood: 1 }, on: ['forest'], slots: 1, pts: 1, color: '#66bb6a', text: 'Worked by a Woodcutter: 🪵4. Anyone else: 🪵2.' },
+    quarry: { name: 'Quarry', cost: { wood: 2 }, on: ['hills'], slots: 1, pts: 1, color: '#9e9e9e', text: 'Worked by a Stonecutter: 🪨4. Anyone else: 🪨2.' },
     mine: { name: 'Mine', cost: { wood: 2, stone: 1 }, on: ['mountain'], slots: 1, pts: 1, color: '#607d8b', text: 'Worked by a Miner: 🔩2. Anyone else: 🔩1.' },
-    inn: { name: 'Inn', cost: { wood: 3, stone: 1 }, on: OPEN, beds: 2, slots: 1, pts: 2, color: '#ffb74d', text: 'Sleeps 2 (1 next to a Smithy, Barracks or Market). A Chef or Bard can work here.' },
-    workshop: { name: 'Workshop', cost: { wood: 2, stone: 1 }, on: OPEN, slots: 1, pts: 1, color: '#d7a86e', text: 'A Carpenter works here.' },
+    inn: { name: 'Inn', cost: { wood: 3, stone: 1 }, on: OPEN, beds: 3, slots: 1, pts: 2, color: '#ffb74d', text: 'Sleeps 3 (2 next to a Smithy, Barracks or Market). A Chef or Bard can work here.' },
+    workshop: { name: 'Workshop', cost: { wood: 2, stone: 1 }, on: OPEN, slots: 1, pts: 1, color: '#d7a86e', text: 'A Carpenter works here: 🪵2 every round.' },
     smithy: { name: 'Smithy', cost: { stone: 2, iron: 1 }, on: OPEN, slots: 1, pts: 2, color: '#ff7043', text: 'A Blacksmith works here. Noisy: Houses and Inns next to it sleep 1 fewer.' },
     bakery: { name: 'Bakery', cost: { wood: 2, stone: 1 }, on: OPEN, slots: 1, pts: 1, color: '#ffcc80', text: 'A Baker works here.' },
-    barracks: { name: 'Barracks', cost: { wood: 2, stone: 2 }, on: OPEN, beds: 1, slots: 2, pts: 1, color: '#e57373', text: 'Sleeps 1. Two Guards or Knights can work here. Noisy: Houses and Inns next to it sleep 1 fewer.' },
-    tower: { name: 'Watchtower', cost: { wood: 1, stone: 3 }, on: OPEN, def: 1, slots: 1, pts: 1, color: '#64b5f6', text: 'Adds 🛡️1 against attacks from sides within 2 rows of it, and shows where tomorrow’s creature attacks. An Archer can work here.' },
+    barracks: { name: 'Barracks', cost: { wood: 2, stone: 2 }, on: OPEN, beds: 2, slots: 2, pts: 1, color: '#e57373', text: 'Sleeps 2. Two Guards or Knights can work here. Noisy: Houses and Inns next to it sleep 1 fewer.' },
+    tower: { name: 'Watchtower', cost: { wood: 1, stone: 3 }, on: OPEN, def: 2, slots: 1, pts: 1, color: '#64b5f6', text: 'Adds 🛡️2 against attacks from sides within 2 rows of it, and shows where tomorrow’s creature attacks. An Archer can work here.' },
     market: { name: 'Market', cost: { wood: 2, stone: 2 }, on: OPEN, slots: 1, pts: 1, color: '#ffd54f', text: 'Makes 🪙1 every round (+1 more next to an Inn). A Merchant can work here. Noisy: Houses and Inns next to it sleep 1 fewer.' },
     chapel: { name: 'Chapel', cost: { stone: 3, gold: 2 }, on: OPEN, slots: 1, pts: 3, color: '#b39ddb', text: 'A Priest can work here. Each House next to it scores ⭐1.' },
     cathedral: { name: 'Cathedral', wonder: true, need: 7, cost: { wood: 2, stone: 7, gold: 5 }, on: OPEN, pts: 10, color: '#80cbc4', text: 'Wonder — only one village can build it, and you need 7 villagers. Worth ⭐10.' },
@@ -69,15 +69,15 @@
   const VIL = {
     peasant: { name: 'Peasant', cost: 1, at: null, pts: 1, text: 'Can work any Farm, Lumber camp, Quarry or Mine.' },
     farmer: { name: 'Farmer', cost: 2, at: 'farm', pts: 2, text: 'Farm: 🍞3 instead of 🍞2.' },
-    woodcutter: { name: 'Woodcutter', cost: 2, at: 'lumber', pts: 2, text: 'Lumber camp: 🪵3 instead of 🪵2.' },
-    stonecutter: { name: 'Stonecutter', cost: 3, at: 'quarry', pts: 2, text: 'Quarry: 🪨3 instead of 🪨2.' },
+    woodcutter: { name: 'Woodcutter', cost: 2, at: 'lumber', pts: 2, text: 'Lumber camp: 🪵4 instead of 🪵2.' },
+    stonecutter: { name: 'Stonecutter', cost: 3, at: 'quarry', pts: 2, text: 'Quarry: 🪨4 instead of 🪨2.' },
     miner: { name: 'Miner', cost: 3, at: 'mine', pts: 2, text: 'Mine: 🔩2 instead of 🔩1.' },
     chef: { name: 'Chef', cost: 3, at: 'inn', pts: 2, text: 'Inn: cooks 🍞2 and earns 🪙2 every round.' },
     bard: { name: 'Bard', cost: 3, at: 'inn', pts: 2, text: 'Inn: ⭐1 every round.' },
     baker: { name: 'Baker', cost: 2, at: 'bakery', pts: 2, text: 'Bakery: 🍞1 per Farm you have (at least 🍞2) every round — even in Winter.' },
-    carpenter: { name: 'Carpenter', cost: 3, at: 'workshop', pts: 2, text: 'Workshop: 🪵1 every round, and everything you build costs 🪵1 less.' },
+    carpenter: { name: 'Carpenter', cost: 3, at: 'workshop', pts: 2, text: 'Workshop: 🪵2 every round, and everything you build costs 🪵1 less.' },
     blacksmith: { name: 'Blacksmith', cost: 3, at: 'smithy', pts: 2, text: 'Smithy: forges 🔩1 into 1 set of arms every round. Each set adds 🛡️1 on every side (max 6).' },
-    merchant: { name: 'Merchant', cost: 3, at: 'market', pts: 2, text: 'Market: 🪙2 every round, and your trades are 1 for 1.' },
+    merchant: { name: 'Merchant', cost: 3, at: 'market', pts: 2, text: 'Market: 🪙3 every round, and your trades are 1 for 1.' },
     priest: { name: 'Priest', cost: 3, at: 'chapel', pts: 2, text: 'Chapel: ⭐1 every round and 🛡️4 against the undead.' },
     guard: { name: 'Guard', cost: 2, at: 'barracks', pts: 2, text: 'Barracks: 🛡️2 on every side.' },
     knight: { name: 'Knight', cost: 4, iron: 1, at: 'barracks', pts: 3, text: 'Barracks: 🛡️4 on every side.' },
@@ -810,16 +810,16 @@
           add(b.id, 'food', n);
           break;
         }
-        case 'lumber': add(b.id, 'wood', spec ? 3 : 2); break;
-        case 'quarry': add(b.id, 'stone', spec ? 3 : 2); break;
+        case 'lumber': add(b.id, 'wood', spec ? 4 : 2); break;
+        case 'quarry': add(b.id, 'stone', spec ? 4 : 2); break;
         case 'mine': add(b.id, 'iron', spec ? 2 : 1); break;
         case 'inn':
           if (v.k === 'chef') { add(b.id, 'food', 2); add(b.id, 'gold', 2); }
           if (v.k === 'bard') add(b.id, 'renown', 1);
           break;
-        case 'workshop': add(b.id, 'wood', 1); break;
+        case 'workshop': add(b.id, 'wood', 2); break;
         case 'smithy': out.forge += 1; (out.by[b.id] = out.by[b.id] || {}).forge = 1; break;
-        case 'market': add(b.id, 'gold', 2); break;
+        case 'market': add(b.id, 'gold', 3); break;
         case 'chapel': add(b.id, 'renown', 1); break;
         case 'bakery': add(b.id, 'food', Math.max(2, farms)); break;
         case 'wizardtower': add(b.id, 'renown', 1); break;

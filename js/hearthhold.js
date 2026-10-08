@@ -2198,7 +2198,7 @@
       <h4>Room for villagers</h4>
       <ul>
         <li>Every villager needs a <b>bed</b> 🛏️ and <b>water</b> 💧. Your room is the smaller of your beds and your water, minus the villagers you already have. With no room you can’t take anyone in.</li>
-        <li>Beds: Keep 3, House 3, Inn 2, Barracks 1, Castle +3 — a House or Inn next to a Smithy, Barracks or Market sleeps 1 fewer. Water: Keep 3, Well 4.</li>
+        <li>Beds: Keep 3, House 4, Inn 3, Barracks 2, Castle +3 — a House or Inn next to a Smithy, Barracks or Market sleeps 1 fewer. Water: Keep 3, Well 5.</li>
         <li>Villagers who aren’t working a building are <b>idle</b>: they make nothing but still eat.</li>
       </ul>
       <h4>How you start</h4>
@@ -2310,7 +2310,7 @@
       <h4>Your defense tonight</h4>
       <ul>
         <li>Keep 🛡️1, plus 🛡️3 with the Castle.</li>
-        <li>Each Watchtower 🛡️1 and the Wizard’s Tower 🛡️1, even with nobody inside — but only against attacks from a side within <b>2 rows</b> (Watchtower) or <b>3 rows</b> (Wizard’s Tower) of the tower. A hex on the edge is 0 rows from that side; the Keep is 3 rows from every side. When you place a tower, the map shows which sides it would cover.</li>
+        <li>Each Watchtower 🛡️2 and the Wizard’s Tower 🛡️1, even with nobody inside — but only against attacks from a side within <b>2 rows</b> (Watchtower) or <b>3 rows</b> (Wizard’s Tower) of the tower. A hex on the edge is 0 rows from that side; the Keep is 3 rows from every side. When you place a tower, the map shows which sides it would cover.</li>
         <li>Each set of arms 🛡️1.</li>
         <li>Working Guards 🛡️2 and Knights 🛡️4 on any side. Archers 🛡️2 (+3 against flyers) and the Wizard 🛡️3 (+4 against flyers and the undead) only on the sides their tower covers. Priests +4 against the undead only.</li>
         <li>The wall on the side being attacked: Palisade 🛡️2, Stone 🛡️4. Flyers ignore walls, but they still come from one side, so towers must be in range.</li>
