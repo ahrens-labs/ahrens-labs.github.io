@@ -849,7 +849,7 @@
         <button class="act" data-act="bow" ${bowWhy ? `disabled title="${esc(bowWhy)}"` : ''}><span class="ai">🏹</span><span class="at">Crossbow</span><span class="as">${bowsOk ? 'vs flyers · 🪵2 🔩1' : 'older game'}</span></button>
         <button class="act" data-act="recruit"><span class="ai">🧑‍🌾</span><span class="at">Recruit</span><span class="as">${E.room(p) > 0 ? 'from the Crossroads' : 'no room!'}</span></button>
         <button class="act" data-act="trade"><span class="ai">⚖️</span><span class="at">Trade</span><span class="as">${rate}, any number</span></button>
-        <button class="act" data-act="train"${p.flags && p.flags.trained ? ' disabled title="You already trained someone this round"' : ''}><span class="ai">🎓</span><span class="at">Train</span><span class="as">${p.flags && p.flags.trained ? 'done this round' : E.trainee(p) ? 'a Peasant' : 'needs a Peasant'}</span></button>
+        <button class="act" data-act="train"><span class="ai">🎓</span><span class="at">Train</span><span class="as">${E.trainee(p) ? 'a Peasant' : 'needs a Peasant'}</span></button>
       </div>
       <p class="tip">🧍 ${workerMsg}</p>
       <button class="btn ${p.workers > 0 && open ? 'ghost' : 'big'} end-btn" data-act="end">⏭️ End round${p.workers > 0 && open ? ` <small>(${plural(p.workers, 'worker')} unused)</small>` : ''}</button>
@@ -1168,9 +1168,7 @@
     };
     const lead = !v
       ? 'You need a Peasant to train. A Peasant from the Crossroads costs 🪙1.'
-      : p.flags && p.flags.trained
-        ? 'You’ve already trained someone this round.'
-        : `Once a round, one of your Peasants can learn any trade. It costs the trade’s full price plus 🪙${E.TRAIN_FEE}, and needs no new bed or water. They move into their own building if you have one.`;
+      : `Any of your Peasants can learn a trade, as many as you can pay for. It costs the trade’s full price plus 🪙${E.TRAIN_FEE}, and needs no new bed or water. They move into their own building if you have one.`;
     const back = openModal(`<h2>🎓 Train a Peasant</h2><p class="muted">${lead} Your stores: ${E.RES.map((r) => `${E.RES_ICON[r]}${p.res[r]}`).join(' ')}</p><div class="bgrid">${E.VIL_ORDER.filter((k) => k !== 'peasant').map(card).join('')}</div>`, { cls: 'wide' });
     back.addEventListener('click', (e) => {
       const c = e.target.closest('[data-train]');
@@ -2341,7 +2339,7 @@
         <tr><td>🧱 Wall</td><td>Each of your 6 sides can have a wall. A bare side becomes a <b>Palisade</b> (🪵2, 🛡️2); a Palisade becomes <b>Stone</b> (🪨3, 🛡️4 in total); Stone becomes <b>Iron</b> (🪨1 🔩2, 🛡️6 in total). A wall only defends against creatures on foot attacking <i>that side</i>.</td></tr>
         <tr><td>🏹 Crossbow</td><td>Mount a crossbow on any wall (🪵2 🔩1, one per side): 🛡️4 against <b>flyers</b> attacking that side. If the wall is destroyed — or a Palisade falls to frost — its crossbow falls too.</td></tr>
         <tr><td>🧑‍🌾 Recruit</td><td>Take a traveller from the Crossroads and pay their 🪙 price (Knights also cost 🔩1). You need room: a free bed and free water. A Peasant for 🪙1 is always available.</td></tr>
-        <tr><td>🎓 Train</td><td><b>Once a round</b>, one of your Peasants learns any trade you choose. Pay that trade’s full price plus 🪙${E.TRAIN_FEE} (Knights also cost 🔩1); discounts from the Tavern or Guild hall count. They need no new bed or water, and they move into their own building if you have one — an untrained worker there goes back to the fields.</td></tr>
+        <tr><td>🎓 Train</td><td>A Peasant learns any trade you choose. Train <b>as many as you can pay for</b> — there’s no limit per round. Pay that trade’s full price plus 🪙${E.TRAIN_FEE} (Knights also cost 🔩1); discounts from the Tavern or Guild hall count. They need no new bed or water, and they move into their own building if you have one — an untrained worker there goes back to the fields.</td></tr>
         <tr><td>⚖️ Trade</td><td>Give 2 of any one resource for 1 of any other, as many times as you want. With a working Merchant, or after using the Trading post this round, it’s 1 for 1.</td></tr>
         <tr><td>🔁 Move</td><td>Move a villager to another building they can work that has a free job, or make them idle. Click a villager in the list or a building on the map.</td></tr>
         <tr><td>⏭️ End round</td><td>You’re done for today. Unplaced workers are lost.</td></tr>
