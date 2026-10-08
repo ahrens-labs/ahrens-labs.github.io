@@ -246,6 +246,14 @@ button { font-family: inherit; }
 .bld-ring { fill: none; stroke: #fff; stroke-width: 2.5; }
 .bld.fresh { animation: pieceDrop 0.6s var(--pop) both; transform-box: fill-box; }
 .bld.unstaffed image { opacity: 0.6; }
+.bld.site image { opacity: 0.8; filter: grayscale(0.35); }
+.bld.site .smoke { display: none; }
+.site-hatch { pointer-events: none; opacity: 0.4; }
+.site-ring { fill: none; stroke: #ffb300; stroke-width: 3; stroke-dasharray: 6 4; pointer-events: none; animation: site-spin 6s linear infinite; }
+.site-tag { pointer-events: none; }
+.site-tag rect { fill: #3e2723; stroke: #ffb300; stroke-width: 1.5; }
+.site-tag text { fill: #ffe082; font: 700 9.5px Fredoka, sans-serif; text-anchor: middle; }
+@keyframes site-spin { to { stroke-dashoffset: -40; } }
 .bld:hover .bld-ring { stroke: #ffe08a; stroke-width: 3.5; }
 .slot { stroke: #fff; stroke-width: 2; }
 .slot.full { fill: #fff; }

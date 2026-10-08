@@ -268,7 +268,7 @@ export async function handleHearthholdRequest(request, env, corsHeaders, path, {
   }
   const url = new URL(request.url);
 
-  if (path === '/api/hearthhold/live') {
+  if (path === '/api/oakhaven/live') {
     const userId = await userIdForSession(env, String(url.searchParams.get('session') || '').trim() || null);
     if (!userId) return jsonResponse({ error: 'Not authenticated' }, corsHeaders, 401);
     if (request.headers.get('Upgrade') !== 'websocket') return jsonResponse({ error: 'Expected WebSocket upgrade' }, corsHeaders, 426);
@@ -282,12 +282,12 @@ export async function handleHearthholdRequest(request, env, corsHeaders, path, {
   const userId = await userIdForSession(env, bearerSession(request));
   if (!userId) return jsonResponse({ error: 'Not authenticated' }, corsHeaders, 401);
 
-  if (path === '/api/hearthhold/games' && request.method === 'GET') {
+  if (path === '/api/oakhaven/games' && request.method === 'GET') {
     const res = await lobbyStub(env, userId).fetch(new Request('http://do/list'));
     return jsonResponse(await res.json(), corsHeaders);
   }
 
-  if (path === '/api/hearthhold/history' && request.method === 'GET') {
+  if (path === '/api/oakhaven/history' && request.method === 'GET') {
     const res = await lobbyStub(env, userId).fetch(new Request('http://do/history'));
     return jsonResponse(await res.json(), corsHeaders);
   }
@@ -301,14 +301,14 @@ export async function handleHearthholdRequest(request, env, corsHeaders, path, {
     }
   }
 
-  if (path === '/api/hearthhold/history/record' && request.method === 'POST') {
+  if (path === '/api/oakhaven/history/record' && request.method === 'POST') {
     const item = localHistoryItem(body);
     if (!item) return jsonResponse({ error: 'Invalid game record' }, corsHeaders, 400);
     const res = await lobbyStub(env, userId).fetch(new Request('http://do/record', { method: 'POST', body: JSON.stringify(item) }));
     return jsonResponse(await res.json(), corsHeaders, res.status);
   }
 
-  if (path === '/api/hearthhold/challenge' && request.method === 'POST') {
+  if (path === '/api/oakhaven/challenge' && request.method === 'POST') {
     const [me, target, lobbyRes] = await Promise.all([
       fetchProfile(env, userId),
       resolveOpponent(env, body.opponent),
@@ -355,10 +355,10 @@ export async function handleHearthholdRequest(request, env, corsHeaders, path, {
     return jsonResponse(await res.json(), corsHeaders, res.status);
   };
 
-  if (path === '/api/hearthhold/game' && request.method === 'GET') return forward('get', { since: Number(url.searchParams.get('v')) || 0 });
-  if (path === '/api/hearthhold/respond' && request.method === 'POST') return forward('respond', { accept: body.accept === true });
-  if (path === '/api/hearthhold/act' && request.method === 'POST') return forward('act', { base: body.base, a: body.a });
-  if (path === '/api/hearthhold/resign' && request.method === 'POST') return forward('resign', {});
+  if (path === '/api/oakhaven/game' && request.method === 'GET') return forward('get', { since: Number(url.searchParams.get('v')) || 0 });
+  if (path === '/api/oakhaven/respond' && request.method === 'POST') return forward('respond', { accept: body.accept === true });
+  if (path === '/api/oakhaven/act' && request.method === 'POST') return forward('act', { base: body.base, a: body.a });
+  if (path === '/api/oakhaven/resign' && request.method === 'POST') return forward('resign', {});
 
   return jsonResponse({ error: 'Not found' }, corsHeaders, 404);
 }

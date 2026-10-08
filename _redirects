@@ -2,3 +2,5 @@
 /open-link /link/dashboard 302
 /deck.html /deck 301
 /classify.html /classify 301
+/hearthhold.html /oakhaven.html 301
+/hearthhold /oakhaven 301

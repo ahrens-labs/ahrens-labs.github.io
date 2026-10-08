@@ -460,7 +460,7 @@
     const s = st();
     const p = me();
     const thr = tonight();
-    const sig = JSON.stringify([G.view, p.bld, p.walls, p.vil, p.castle, ui.pick, s.round, s.phase, s.turn === G.view, [...ui.fresh], ui.freshSide]);
+    const sig = JSON.stringify([G.view, p.bld, p.walls, p.vil, p.castle, p.flags && p.flags.site, p.flags && p.flags.siteCastle, ui.pick, s.round, s.phase, s.turn === G.view, [...ui.fresh], ui.freshSide]);
     if (sig === ui.boardSig) return;
     ui.boardSig = sig;
     sizeBoard(s);
@@ -482,6 +482,7 @@
       <clipPath id="clip-b"><circle r="${S * 0.72}"/></clipPath>
       <clipPath id="clip-v"><circle r="8"/></clipPath>
       <clipPath id="clip-t"><circle r="21"/></clipPath>
+      <pattern id="p-site" patternUnits="userSpaceOnUse" width="12" height="12" patternTransform="rotate(45)"><rect width="6" height="12" fill="rgba(255,193,7,.55)"/><rect x="6" width="6" height="12" fill="rgba(33,33,33,.35)"/></pattern>
     </defs>`;
     // ground and the ring road
     const big = [0, 60, 120, 180, 240, 300].map((a) => polar(a, RAD + 10).map((n) => n.toFixed(1)).join(',')).join(' ');
@@ -560,22 +561,32 @@
     return `<circle r="23" class="foe-ring"/><image href="${IMG(k)}" x="-25" y="-25" width="50" height="50" clip-path="url(#clip-t)"/><g transform="translate(17,17)"><circle r="12" class="foe-badge"/><text class="foe-str" y="4">${str}</text></g>`;
   }
 
+  // Built this round, so it does nothing until next season.
+  function underConstruction(p, b) {
+    if (st().phase === 'over') return false;
+    return b.b === 'keep' ? p.castle && !E.castleReady(p) : !E.ready(p, b);
+  }
   function buildingSvg(p, b, x, y) {
     const B = E.BUILD[b.b];
     const k = b.b === 'keep' && p.castle ? 'castle' : b.b;
     const occ = E.occupants(p, b.id);
     const slots = E.slotsOf(b.b);
+    const site = underConstruction(p, b);
     const worked = !slots || occ.some((v) => E.canWork(v.k, b.b));
     const r = S * 0.78;
     // Position lives on an outer group: the drop-in animation's CSS transform would replace an SVG transform attribute.
-    let h = `<g transform="translate(${x.toFixed(1)},${y.toFixed(1)})"><g class="bld b-${b.b}${ui.fresh.has(b.id) ? ' fresh' : ''}${worked ? '' : ' unstaffed'}" data-cell="${b.cell}" data-bld="${b.id}">`;
+    let h = `<g transform="translate(${x.toFixed(1)},${y.toFixed(1)})"><g class="bld b-${b.b}${ui.fresh.has(b.id) ? ' fresh' : ''}${worked || site ? '' : ' unstaffed'}${site ? ' site' : ''}" data-cell="${b.cell}" data-bld="${b.id}">`;
     h += `<title>${esc(bldTitle(p, b))}</title>`;
     h += `<circle r="${r}" class="bld-bg" fill="${B.color}"/>`;
     h += `<image href="${IMG(k)}" x="${-S * 0.95}" y="${-S * 0.95}" width="${S * 1.9}" height="${S * 1.9}" clip-path="url(#clip-b)" preserveAspectRatio="xMidYMid slice"/>`;
     h += `<circle r="${S * 0.72}" class="bld-ring"/>`;
     if (b.b === 'keep') h += `<g class="flag" transform="translate(${S * 0.42},${-S * 0.98})"><line y1="0" y2="16" class="pole"/><path class="pennant" d="M0,0 L15,4 L0,8 Z" fill="${PCOLOR[st().players.indexOf(p)]}"/></g>`;
     if (SMOKY.includes(b.b)) h += `<g class="smoke" transform="translate(${S * 0.3},${-S * 0.62})"><circle r="3.5"/><circle r="4.5"/><circle r="5.5"/></g>`;
-    if (b.b === 'well') h += `<circle r="${S * 0.72}" class="shimmer"/>`;
+    if (b.b === 'well' && !site) h += `<circle r="${S * 0.72}" class="shimmer"/>`;
+    if (site) {
+      h += `<circle r="${S * 0.72}" class="site-hatch" fill="url(#p-site)"/><circle r="${S * 0.72}" class="site-ring"/>`;
+      h += `<g class="site-tag" transform="translate(0,${(-S * 0.18).toFixed(1)})"><rect x="-27" y="-9" width="54" height="17" rx="8.5"/><text y="4">🚧 Building</text></g>`;
+    }
     if (slots) {
       for (let j = 0; j < slots; j++) {
         const vx = (j - (slots - 1) / 2) * 18;
@@ -593,6 +604,7 @@
     const B = E.BUILD[b.b];
     const pr = E.production(p, season()).by[b.id];
     let t = `${B.name}${b.b === 'keep' && p.castle ? ' (Castle)' : ''}`;
+    if (underConstruction(p, b)) return `${t} — 🚧 under construction, ready next season`;
     if (pr) t += ` — makes ${Object.entries(pr).map(([r, n]) => (r === 'forge' ? '⚒️ arms' : `${r === 'renown' ? '⭐' : E.RES_ICON[r]}${n}`)).join(' ')} this round`;
     return t;
   }
@@ -1127,7 +1139,7 @@
       return b && E.canWork(v.k, b.b) ? `${E.BUILD[b.b].name}${E.canWork(v.k, b.b) === 'spec' ? ' ★' : ''}` : 'Idle';
     };
     const builders = p.vil.length
-      ? `<div class="builders"><b>🔨 Who builds it?</b> <span class="muted">They won’t work or defend tonight, and can’t build again until next season.</span><div class="bchips">${p.vil
+      ? `<div class="builders"><b>🔨 Who builds it?</b> <span class="muted">They won’t work or defend tonight, and can’t build again until next season. The building opens next season.</span><div class="bchips">${p.vil
           .map((v) => {
             const isBusy = E.busy(p, v);
             return `<button class="bchip${v.id === ui.builder ? ' on' : ''}" data-builder="${v.id}" ${isBusy ? 'disabled title="Already built this season"' : ''}><img src="${IMG(v.k)}" alt=""><span><b>${E.VIL[v.k].name}</b><small>${isBusy ? '🔨 building' : esc(vWhere(v))}</small></span></button>`;
@@ -1184,6 +1196,7 @@
         <div>
           <h2>${b.b === 'keep' && p.castle ? 'Castle' : B.name}</h2>
           <p>${B.text}${b.b === 'keep' && p.castle ? ' ' + E.BUILD.castle.text : ''}</p>
+          ${underConstruction(p, b) ? `<p class="warn">🚧 <b>Under construction</b> — ${b.b === 'keep' ? 'the Castle’s beds and defense' : 'it'} can’t be used until next season: no work, beds, water or defense this round.</p>` : ''}
           <p><b>This round:</b> ${prodTxt}</p>
           ${E.RANGE[b.b] && p.rules >= 3 ? `<p><b>Defends:</b> ${[0, 1, 2, 3, 4, 5].filter((sd) => E.sideDepth(b.cell, sd) <= E.RANGE[b.b]).map((sd) => E.SIDES[sd].name).join(', ')} <small class="muted">(sides within ${E.RANGE[b.b]} rows)</small></p>` : ''}
           ${E.noisy(p, b) ? '<p class="warn">🔊 Next to a noisy building, so it sleeps 1 fewer.</p>' : ''}
@@ -1588,7 +1601,7 @@
     g.gid = g.gid || newLocalId();
     g.recorded = true;
     save();
-    api('/api/hearthhold/history/record', {
+    api('/api/oakhaven/history/record', {
       id: g.gid,
       kind: g.mode,
       level: g.level,
@@ -1632,7 +1645,7 @@
       $('#hist-body').innerHTML = `<div class="ol-gate"><p>Sign in to keep a history of your Oakhaven games — against the computer, on one device, or online.</p><a class="btn big" href="/account.html?return=${back}">Log in or sign up</a></div>`;
       return;
     }
-    const r = await api('/api/hearthhold/history');
+    const r = await api('/api/oakhaven/history');
     if (!$('#hist-body')) return;
     if (r.status === 401) {
       try {
@@ -1819,7 +1832,7 @@
       return;
     }
     box.innerHTML = lobbyHtml(true);
-    const r = await api('/api/hearthhold/games');
+    const r = await api('/api/oakhaven/games');
     if (!$('#online-box')) return;
     if (r.status === 401) {
       try {
@@ -1888,7 +1901,7 @@
     const pick = $('#ol-mode .on');
     const mode = pick ? pick.dataset.v : 'quick';
     savePrefs(Object.assign(prefs(), { olMode: mode }));
-    const r = await api('/api/hearthhold/challenge', { opponent, mode });
+    const r = await api('/api/oakhaven/challenge', { opponent, mode });
     btn.disabled = false;
     if (!r.ok) return toast(esc(r.data.error || 'Couldn’t send the challenge.'), 'bad');
     toast(`Challenge sent to <b>${esc(r.data.game.opp)}</b>.`);
@@ -1904,7 +1917,7 @@
     if (what === 'open') return openOnline(id);
     b.disabled = true;
     if (what === 'accept' || what === 'decline') {
-      const r = await api('/api/hearthhold/respond', { id, accept: what === 'accept' });
+      const r = await api('/api/oakhaven/respond', { id, accept: what === 'accept' });
       if (!r.ok) {
         b.disabled = false;
         toast(esc(r.data.error || 'That didn’t work.'), 'bad');
@@ -1914,7 +1927,7 @@
       return showLobby();
     }
     if (what === 'cancel') {
-      await api('/api/hearthhold/resign', { id });
+      await api('/api/oakhaven/resign', { id });
       showLobby();
     }
   });
@@ -1922,7 +1935,7 @@
   // ---- an online game
   async function openOnline(id) {
     if (!G && !$('.setup')) $('#app').innerHTML = '<p class="ol-loading">Loading your game…</p>';
-    const r = await api(`/api/hearthhold/game?id=${encodeURIComponent(id)}`);
+    const r = await api(`/api/oakhaven/game?id=${encodeURIComponent(id)}`);
     if (!r.ok || !r.data.state) {
       forgetOnline();
       toast(esc(r.data.error || 'Couldn’t open that game.'), 'bad');
@@ -1991,7 +2004,7 @@
       }
       if (b.dataset.m === 'resign') {
         b.disabled = true;
-        const r = await api('/api/hearthhold/resign', { id: G.id });
+        const r = await api('/api/oakhaven/resign', { id: G.id });
         ui.onClose = null;
         closeModal();
         if (r.ok) applyView(r.data);
@@ -2014,7 +2027,7 @@
     } else actViaHttp(msg);
   }
   async function actViaHttp(msg) {
-    const r = await api('/api/hearthhold/act', { id: msg.id, base: msg.base, a: msg.a });
+    const r = await api('/api/oakhaven/act', { id: msg.id, base: msg.base, a: msg.a });
     if (!G || G.id !== msg.id) return;
     if (!r.ok && r.data.error) toast(esc(r.data.error), 'bad');
     if (r.data.state || r.data.version) applyView(r.data);
@@ -2076,7 +2089,7 @@
   function connectSock() {
     if (!G || G.mode !== 'online' || net.sock || G.status !== 'active') return;
     const id = G.id;
-    const url = `${API_BASE.replace(/^http/, 'ws')}/api/hearthhold/live?id=${encodeURIComponent(id)}&session=${encodeURIComponent(sessionId())}`;
+    const url = `${API_BASE.replace(/^http/, 'ws')}/api/oakhaven/live?id=${encodeURIComponent(id)}&session=${encodeURIComponent(sessionId())}`;
     let ws;
     try {
       ws = new WebSocket(url);
@@ -2125,7 +2138,7 @@
     if (net.poll) return;
     net.poll = setInterval(async () => {
       if (!G || G.mode !== 'online' || document.hidden || net.sock) return;
-      const r = await api(`/api/hearthhold/game?id=${encodeURIComponent(G.id)}&v=${G.version}`);
+      const r = await api(`/api/oakhaven/game?id=${encodeURIComponent(G.id)}&v=${G.version}`);
       if (r.ok && !r.data.unchanged) applyView(r.data);
     }, 20000);
   }
@@ -2257,7 +2270,7 @@
       <p class="lead">Free actions don’t need a worker. On your turn you can do them <b>as often as you like</b> — before or after placing a worker — as long as you can pay.</p>
       <table class="rules-table">
         <tr><th>Action</th><th>Exactly what happens</th></tr>
-        <tr><td>🏗️ Build</td><td>Pay the cost, pick a <b>villager to build it</b>, and put the building on a free hex of the right land <b>next to one of your buildings</b>. The builder spends the rest of the round on the site: they don’t work or defend tonight, and can’t build again until next season — so each villager builds at most once a round. Idle villagers make the best builders. Build as many as you can afford, even several of the same kind. Wonders also need enough villagers and only one village can build each (see Buildings).</td></tr>
+        <tr><td>🏗️ Build</td><td>Pay the cost, pick a <b>villager to build it</b>, and put the building on a free hex of the right land <b>next to one of your buildings</b>. The builder spends the rest of the round on the site: they don’t work or defend tonight, and can’t build again until next season — so each villager builds at most once a round. Idle villagers make the best builders. <b>New buildings are under construction 🚧 until next season</b>: they make nothing, add no beds, water or defense, and their workers don’t work yet. Build as many as you can afford, even several of the same kind. Wonders also need enough villagers and only one village can build each (see Buildings).</td></tr>
         <tr><td>🧱 Wall</td><td>Each of your 6 sides can have a wall. A bare side becomes a <b>Palisade</b> (🪵2, 🛡️2); a Palisade becomes <b>Stone</b> (🪨3, 🛡️4 in total). A wall only defends against creatures on foot attacking <i>that side</i>.</td></tr>
         <tr><td>🧑‍🌾 Recruit</td><td>Take a traveller from the Crossroads and pay their 🪙 price (Knights also cost 🔩1). You need room: a free bed and free water. A Peasant for 🪙1 is always available.</td></tr>
         <tr><td>🎓 Train</td><td><b>Once a round</b>, one of your Peasants learns any trade you choose. Pay that trade’s full price plus 🪙${E.TRAIN_FEE} (Knights also cost 🔩1); discounts from the Tavern or Guild hall count. They need no new bed or water, and they move into their own building if you have one — an untrained worker there goes back to the fields.</td></tr>

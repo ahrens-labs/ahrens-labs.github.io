@@ -243,7 +243,7 @@
       name: 'Pilgrims', icon: '🙏', text: 'Pilgrims on the road ask for a meal and a bed.',
       opts: [
         { label: 'Host them', cost: { food: 3 }, text: 'Pay 🍞3. Gain ⭐2, plus ⭐1 for each Inn and Chapel you have.', do: (s, p) => {
-          const n = 2 + count(p, 'inn') + count(p, 'chapel');
+          const n = 2 + countReady(p, 'inn') + countReady(p, 'chapel');
           p.renown += n;
           return `hosted the pilgrims (+⭐${n})`;
         } },
@@ -280,7 +280,7 @@
       opts: [
         { label: 'Hold a contest', cost: { food: 4 }, text: 'Pay 🍞4. Gain ⭐4.', renown: 4 },
         { label: 'Sell at the stalls', text: 'Take 🪙3, plus 🪙1 for each Market and Inn you have.', do: (s, p) => {
-          const n = 3 + count(p, 'market') + count(p, 'inn');
+          const n = 3 + countReady(p, 'market') + countReady(p, 'inn');
           p.res.gold += n;
           return `sold at the fair (+🪙${n})`;
         } },
@@ -477,9 +477,14 @@
     state.spots = {};
     state.crowd = {};
     state.players.forEach((p) => {
+      // Last round's building sites open: their specialists move in.
+      ((p.flags && p.flags.site) || []).forEach((id) => {
+        const b = bldById(p, id);
+        if (b) fillBuilding(p, b);
+      });
+      p.flags = {};
       p.workers = workerCount(p);
       p.done = false;
-      p.flags = {};
       p.muster = 0;
     });
     if (state.round % 4 === 1) setGoalBase(state);
@@ -492,8 +497,8 @@
   // Tonight's creature is always known. Tomorrow's is known, but its side only with a Watchtower.
   // The one after shows only whether it flies; an Archer working a Watchtower reveals it.
   // A scholar's reading (event) shows everything for the round.
-  const scout = (p) => p.bld.some((b) => b.b === 'tower');
-  const farSight = (p) => workers(p).some((w) => w.v.k === 'archer' && w.spec);
+  const scout = (p) => p.bld.some((b) => b.b === 'tower' && ready(p, b));
+  const farSight = (p) => onDuty(p).some((w) => w.v.k === 'archer' && w.spec);
   function threatView(state, pi, j) {
     const t = state.threats[state.round - 1 + j];
     if (!t) return null;
@@ -654,6 +659,11 @@
   function count(p, b) {
     return p.bld.filter((x) => x.b === b).length;
   }
+  // A building finished this round is still under construction: it does nothing until next round.
+  const ready = (p, b) => !(p.flags && p.flags.site && p.flags.site.includes(b.id));
+  const castleReady = (p) => p.castle && !(p.flags && p.flags.siteCastle);
+  const countReady = (p, b) => p.bld.filter((x) => x.b === b && ready(p, x)).length;
+  const nearReady = (p, cell, b) => NEIGH[cell].some((c) => p.bld.some((x) => x.cell === c && x.b === b && ready(p, x)));
   function slotsOf(b) {
     return BUILD[b].slots || 0;
   }
@@ -679,7 +689,7 @@
   }  // Builders: every new building needs a villager to build it. They spend the rest of the round on the site —
   // no work or defense tonight, and they can't build again until next season.
   const busy = (p, v) => !!(p.flags && p.flags.busy && p.flags.busy.includes(v.id));
-  const onDuty = (p) => workers(p).filter((w) => !busy(p, w.v));
+  const onDuty = (p) => workers(p).filter((w) => !busy(p, w.v) && ready(p, w.b));
   const freeBuilders = (p) => p.vil.filter((v) => !busy(p, v));
   // Who builds if the player doesn't say: idle villagers first, then labourers, then the least valuable specialist.
   function builderFor(p) {
@@ -699,31 +709,36 @@
   function noisy(p, b) {
     return p.rules >= 3 && HOMES.includes(b.b) && NOISY.some((x) => adjacent(p, b.cell, x));
   }
-  function beds(p) {
+  // all: count buildings still under construction (for planning beyond this round).
+  function beds(p, all) {
     let n = 0;
-    p.bld.forEach((b) => (n += (BUILD[b.b].beds || 0) - (noisy(p, b) ? 1 : 0)));
-    if (p.castle) n += BUILD.castle.beds;
+    p.bld.forEach((b) => {
+      if (all || ready(p, b)) n += (BUILD[b.b].beds || 0) - (noisy(p, b) ? 1 : 0);
+    });
+    if (all ? p.castle : castleReady(p)) n += BUILD.castle.beds;
     return n;
   }
-  function water(p) {
+  function water(p, all) {
     let n = 0;
-    p.bld.forEach((b) => (n += BUILD[b.b].water || 0));
+    p.bld.forEach((b) => {
+      if (all || ready(p, b)) n += BUILD[b.b].water || 0;
+    });
     return n;
   }
-  function room(p) {
-    return Math.min(beds(p), water(p)) - p.vil.length;
+  function room(p, all) {
+    return Math.min(beds(p, all), water(p, all)) - p.vil.length;
   }
   function adjacent(p, cell, b) {
     return NEIGH[cell].some((c) => p.bld.some((x) => x.cell === c && x.b === b));
   }
   function hasMerchant(p) {
-    return workers(p).some((w) => w.v.k === 'merchant' && w.spec);
+    return onDuty(p).some((w) => w.v.k === 'merchant' && w.spec);
   }
   function tradeRate(p) {
     return hasMerchant(p) || (p.flags && p.flags.post) ? 1 : 2;
   }
   function hasCarpenter(p) {
-    return workers(p).some((w) => w.v.k === 'carpenter' && w.spec);
+    return onDuty(p).some((w) => w.v.k === 'carpenter' && w.spec);
   }
 
   // How many rows of hexes lie between a cell and a side of the village: 0 on that edge, up to 6 on the far edge.
@@ -745,9 +760,9 @@
   // Muster only counts against this round's creature (k given, later not set).
   function defense(p, k, side, later) {
     const b = BEAST[k];
-    let d = BUILD.keep.def + (p.castle ? BUILD.castle.def : 0) + p.arms + (k && !later ? p.muster || 0 : 0);
+    let d = BUILD.keep.def + ((later ? p.castle : castleReady(p)) ? BUILD.castle.def : 0) + p.arms + (k && !later ? p.muster || 0 : 0);
     p.bld.forEach((x) => {
-      if (x.b !== 'keep' && BUILD[x.b].def && inRange(p, x, side)) d += BUILD[x.b].def;
+      if (x.b !== 'keep' && BUILD[x.b].def && (later || ready(p, x)) && inRange(p, x, side)) d += BUILD[x.b].def;
     });
     const levy = !later && p.flags && p.flags.levy;
     (later ? workers(p) : onDuty(p)).forEach(({ v, b: at, spec }) => {
@@ -763,7 +778,7 @@
     return d;
   }
   function baseDefense(p) {
-    return defense(p, null, null);
+    return defense(p, null, null, true);
   }
 
   // What each worked building makes this round. Returns totals plus per-building notes for the UI.
@@ -775,9 +790,10 @@
       out[r] += n;
       (out.by[bid] = out.by[bid] || {})[r] = (out.by[bid][r] || 0) + n;
     };
-    const farms = count(p, 'farm');
+    const near = all ? adjacent : nearReady;
+    const farms = all ? count(p, 'farm') : countReady(p, 'farm');
     p.bld.forEach((b) => {
-      if (b.b === 'market') add(b.id, 'gold', 1 + (adjacent(p, b.cell, 'inn') ? 1 : 0));
+      if (b.b === 'market' && (all || ready(p, b))) add(b.id, 'gold', 1 + (near(p, b.cell, 'inn') ? 1 : 0));
     });
     (all ? workers(p) : onDuty(p)).forEach(({ v, b, spec }) => {
       switch (b.b) {
@@ -790,7 +806,7 @@
           let n = (spec ? 3 : 2) + granary - (p.flags && p.flags.drought ? 2 : 0);
           if (season === 'summer') n += 1;
           if (season === 'autumn') n += 2;
-          if (adjacent(p, b.cell, 'well')) n += 1;
+          if (near(p, b.cell, 'well')) n += 1;
           add(b.id, 'food', n);
           break;
         }
@@ -898,12 +914,13 @@
     v.at = spot ? spot.id : null;
   }
   // After building: idle villagers who belong here move in.
-  function fillBuilding(p, bld) {
+  // idleOnly: the building is still going up, so don't pull anyone off a job they're working tonight.
+  function fillBuilding(p, bld, idleOnly) {
     const cap = slotsOf(bld.b);
     const idle = p.vil.filter((v) => v.at == null);
     const pick = idle.filter((v) => VIL[v.k].at === bld.b).concat(LABOR.includes(bld.b) ? idle.filter((v) => VIL[v.k].at !== bld.b) : []);
     // Also pull specialists out of labor jobs into their own building.
-    p.vil.forEach((v) => {
+    if (!idleOnly) p.vil.forEach((v) => {
       if (v.at != null && VIL[v.k].at === bld.b && !pick.includes(v)) {
         const cur = bldById(p, v.at);
         if (cur && canWork(v.k, cur.b) !== 'spec') pick.push(v);
@@ -1037,7 +1054,7 @@
   // What a location would give player p right now, as a short description.
   function locGain(state, p, k) {
     switch (k) {
-      case 'mill': return { food: 3 + Math.min(3, count(p, 'farm')) };
+      case 'mill': return { food: 3 + Math.min(3, countReady(p, 'farm')) };
       case 'pier': return { food: 5 };
       case 'hunt': return { food: 3, wood: 2 };
       case 'granary': return { food: 2 };
@@ -1075,7 +1092,7 @@
         return 'called new travellers to the Crossroads — recruits cost 🪙1 less this round';
       }
       case 'festival': {
-        const n = 2 + count(p, 'inn');
+        const n = 2 + countReady(p, 'inn');
         p.renown += n;
         return `held a festival (+⭐${n})`;
       }
@@ -1127,10 +1144,12 @@
         if (BUILD[a.b].wonder) state.wonders[a.b] = pi;
         if (BUILD[a.b].upgrade) {
           p.castle = true;
+          p.flags.siteCastle = true;
         } else {
           const nb = { id: state.nextId++, b: a.b, cell: a.cell };
           p.bld.push(nb);
-          fillBuilding(p, nb);
+          p.flags.site = (p.flags.site || []).concat(nb.id);
+          fillBuilding(p, nb, true);
         }
         msg = `built ${BUILD[a.b].wonder ? 'the ' : 'a '}${BUILD[a.b].name} (a ${VIL[by.k].name} built it)`;
         break;
@@ -1523,11 +1542,11 @@
       v -= Math.max(0, wneed - wHave) * 2;
     }
     // room to grow
-    const rm = room(p);
+    const rm = room(p, true);
     if (R > 1) {
       const n = p.vil.length;
       // capacity is worth having; filling it never counts against you
-      v += 0.9 * Math.min(beds(p), n + 3) + 0.9 * Math.min(water(p), n + 3) + (rm > 0 ? 0.6 : 0);
+      v += 0.9 * Math.min(beds(p, true), n + 3) + 0.9 * Math.min(water(p, true), n + 3) + (rm > 0 ? 0.6 : 0);
     }
     // empty job buildings are worth something if someone for them is on offer
     p.bld.forEach((b) => {
@@ -1774,7 +1793,7 @@
     newGame, legal, apply, resolveDusk, score, winner, aiChoose, evaluate,
     seasonOf, yearOf, costText, beastText, beastKind, ringOf,
     beds, water, room, workers, production, defense, baseDefense, buildCost, wallCost, canPay, rowPrice, freeCells, buildBlock,
-    occupants, moveTargets, canWork, slotsOf, adjacent, hasMerchant, tradeRate, peasantPrice, busy, onDuty, freeBuilders, builderFor, trainPrice, trainBlock, trainee, TRAIN_FEE, squareAmount, locGain, masonSides, masonFirst, masonChoices, freeLocs, crowdAt, workerCount, musterAmount, foodNeed, woodNeed, upcoming, clone,
+    occupants, moveTargets, canWork, slotsOf, adjacent, hasMerchant, tradeRate, peasantPrice, busy, onDuty, ready, castleReady, freeBuilders, builderFor, trainPrice, trainBlock, trainee, TRAIN_FEE, squareAmount, locGain, masonSides, masonFirst, masonChoices, freeLocs, crowdAt, workerCount, musterAmount, foodNeed, woodNeed, upcoming, clone,
     GOALS, GOAL_ORDER, GOAL_PTS, LEGACY_GOAL_PTS, GOALS_PER_YEAR, EVENTS, AI_LEVEL, WAGE, NOISY,
     newRules, threatView, threatsFor, maskThreats, scout, farSight, goalValue, goalPoints, goalGain, goalsOfYear, goalText, legacyGoals, wagesDue, roundsToWages,
     eventNow, eventPending, eventBlock, eventCost, noisy, aiHeadStart, AI_HEAD_START, sideDepth, RANGE, inRange,

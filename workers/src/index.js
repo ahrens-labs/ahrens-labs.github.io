@@ -260,8 +260,8 @@ export default {
         });
       } else if (path.startsWith('/api/board-games/')) {
         return handleBoardGamesRequest(request, env, corsHeaders, path);
-      } else if (path.startsWith('/api/hearthhold/')) {
-        return handleHearthholdRequest(request, env, corsHeaders, path, {
+      } else if (path.startsWith('/api/oakhaven/') || path.startsWith('/api/hearthhold/')) {
+        return handleHearthholdRequest(request, env, corsHeaders, path.replace(/^\/api\/hearthhold\//, '/api/oakhaven/'), {
           executionCtx,
           notifyChallenge: (notice) => sendHearthholdChallengeEmail(env, notice),
         });
@@ -9301,7 +9301,7 @@ async function sendHearthholdChallengeEmail(env, { to, recipientName, challenger
   if (!to || !isLikelyRealEmail(to)) return;
   const challenger = String(challengerName || '').replace(/\s+/g, ' ').trim().slice(0, 40) || 'Someone';
   const recipient = String(recipientName || '').replace(/\s+/g, ' ').trim().slice(0, 40) || 'there';
-  const gameUrl = `${sitePublicBase(env)}/hearthhold.html?game=${encodeURIComponent(gameId)}`;
+  const gameUrl = `${sitePublicBase(env)}/oakhaven.html?game=${encodeURIComponent(gameId)}`;
   const urlHtml = escapeHtmlEmail(gameUrl);
   const quick = mode === 'quick';
   const pace = quick
