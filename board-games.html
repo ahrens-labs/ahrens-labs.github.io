@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Lilita+One&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/css/board-games.css?v=3">
+  <link rel="stylesheet" href="/css/board-games.css?v=4">
   <link rel="stylesheet" href="/css/emoji.css">
 </head>
 <body>
@@ -25,6 +25,11 @@
   </header>
 
   <main class="shelf-wrap">
+    <section class="my-games" id="my-games" aria-labelledby="mg-title" hidden>
+      <div class="mg-head"><h2 id="mg-title">Your games</h2><span class="mg-count"></span></div>
+      <div class="mg-list"></div>
+      <p class="mg-note"></p>
+    </section>
     <section class="shelf" aria-label="Games">
       <article class="game" style="--accent:#ffb300;--accent-2:#2f6b3a">
         <a class="lid-link" href="/dino-board-game.html" aria-label="Play Dino Dynasty">
@@ -99,6 +104,7 @@
     <div class="plank" aria-hidden="true"></div>
   </main>
 
+  <script src="/js/board-games.js?v=1"></script>
   <script src="/js/tutorial-video.js?v=5"></script>
   <script>
     // Tilt each box toward the pointer.

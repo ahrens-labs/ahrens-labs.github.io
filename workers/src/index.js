@@ -40,6 +40,7 @@ export { DeckShare } from './deck.js';
 import { handleDinoRequest } from './dino.js';
 export { DinoGame, DinoLobby } from './dino.js';
 import { handleHearthholdRequest } from './hearthhold.js';
+import { handleBoardGamesRequest } from './board-games.js';
 export { HearthholdGame, HearthholdLobby } from './hearthhold.js';
 import { handleLinkRequest, handleLinkConsumeBridge, handleInternalUserProfile } from './link.js';
 import {
@@ -257,6 +258,8 @@ export default {
           executionCtx,
           notifyChallenge: (notice) => sendDinoChallengeEmail(env, notice),
         });
+      } else if (path.startsWith('/api/board-games/')) {
+        return handleBoardGamesRequest(request, env, corsHeaders, path);
       } else if (path.startsWith('/api/hearthhold/')) {
         return handleHearthholdRequest(request, env, corsHeaders, path, {
           executionCtx,

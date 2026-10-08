@@ -2301,9 +2301,12 @@
 
   // ---------------------------------------------------------------- boot
   const saved = loadSave();
-  const linked = new URLSearchParams(location.search).get('game');
+  const params = new URLSearchParams(location.search);
+  const linked = params.get('game');
   const mem = savedOnline();
-  if (linked && /^hh[0-9a-f]{18}$/.test(linked)) {
+  if (params.has('resume') && history.replaceState) history.replaceState(null, '', location.pathname);
+  if (saved && params.get('resume') === 'local') startFrom(saved);
+  else if (linked && /^hh[0-9a-f]{18}$/.test(linked)) {
     if (mem && mem.id === linked && sessionId()) openOnline(linked);
     else {
       net.autoOpen = linked;
