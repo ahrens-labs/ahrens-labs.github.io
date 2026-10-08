@@ -360,6 +360,7 @@
   })();
   let setupLevel = prefs.level || 'medium';
   let setupPace = prefs.pace || 'medium';
+  let setupFirst = '0';
   let aiTimer = null;
   let aiPending = false;
   const fxSeen = new Map();
@@ -3771,11 +3772,15 @@
           ${segGroup('Difficulty', 'setupOpt', 'level', AI_LEVELS, AI_LEVEL_HELP, setupLevel)}
           ${segGroup('Computer speed', 'setupOpt', 'pace', AI_PACES, AI_PACE_HELP, setupPace)}
         </div>
-        <div class="first-q">🎬 Who watched a dino movie most recently? They go first.</div>
-        <div class="first-btns">
-          <button class="btn fr" data-act="setupStart" data-first="0"><span class="only-2p">🔴 Red did!</span><span class="only-ai">🔴 I did!</span></button>
-          <button class="btn fb" data-act="setupStart" data-first="1"><span class="only-2p">🔵 Blue did!</span><span class="only-ai">🤖 Computer starts</span></button>
+        <div class="seg-group first-pick">
+          <div class="seg-label">Who goes first?</div>
+          <div class="seg" role="radiogroup">
+            <button class="seg-btn${setupFirst === '0' ? ' on' : ''}" data-act="setupFirst" data-v="0"><b><span class="only-2p">🔴 Red</span><span class="only-ai">🔴 You</span></b></button>
+            <button class="seg-btn${setupFirst === '1' ? ' on' : ''}" data-act="setupFirst" data-v="1"><b><span class="only-2p">🔵 Blue</span><span class="only-ai">🤖 Computer</span></b></button>
+            <button class="seg-btn${setupFirst === 'r' ? ' on' : ''}" data-act="setupFirst" data-v="r"><b>🎲 Random</b></button>
+          </div>
         </div>
+        <button class="btn big start-game" data-act="setupStart" data-first="${setupFirst}">Start game</button>
         <div class="setup-foot">Everyone starts with 🪙5 and an empty park, buying dinos from a shared market. Your game saves in this browser.</div>
         <div class="gh-links"><button class="btn ghost sm" data-act="rules">📜 How to play</button><a class="btn ghost sm" href="/dino-history.html">🏆 Game history</a>${isAdmin() ? '<button class="btn ghost sm" data-act="simOpen">🧪 Computer vs computer</button>' : ''}</div>
       </div>
@@ -3861,7 +3866,7 @@
           <li>Each player gets an empty park, 🪙5, no food and no diamonds.</li>
           <li>The dino deck is shuffled and ${PROTO_MARKET} cards are dealt face up as a shared market.</li>
           <li>${PROTO_GOAL_ROUNDS.length} of ${Object.keys(PROTO_GOALS).length} goal cards are picked at random: ${sched}. Hidden goals still score.</li>
-          <li>Whoever most recently watched a dino movie goes first in round 1.</li>
+          <li>Pick who goes first in round 1 when you start the game, or let it be random.</li>
         </ul>
         <h3>A round at a glance</h3>
         <ol class="rules-steps">
@@ -4020,7 +4025,7 @@
       <ul>
         <li>Each player gets a park, 🪙5, and a dino book (red or blue — both have the same 8 dinos).</li>
         <li>The dino cards are shuffled and 2 are placed face-up next to the deck.</li>
-        <li>Whoever most recently saw a movie with a dino in it goes first in round 1.</li>
+        <li>Pick who goes first in round 1 when you start the game, or let it be random.</li>
         <li><b>The first player switches every round</b> (look for the <b>1st</b> tag).</li>
       </ul>
       <h3>Each round</h3>
@@ -4141,7 +4146,15 @@
     if (act === 'setupStart') {
       const n0 = (document.getElementById('name0').value || '').trim() || 'Red';
       const n1 = setupVsAi ? 'Computer' : (document.getElementById('name1').value || '').trim() || 'Blue';
-      newGame([n0, n1], +ds.first, setupVsAi ? 1 : null, setupLevel, setupPace, true);
+      const first = ds.first === 'r' ? (Math.random() < 0.5 ? 0 : 1) : +ds.first;
+      newGame([n0, n1], first, setupVsAi ? 1 : null, setupLevel, setupPace, true);
+      return;
+    }
+    if (act === 'setupFirst') {
+      setupFirst = ds.v;
+      el.parentElement.querySelectorAll('.seg-btn').forEach((b) => b.classList.toggle('on', b === el));
+      const go = document.querySelector('[data-act="setupStart"]');
+      if (go) go.dataset.first = setupFirst;
       return;
     }
     if (act === 'simOpen') { if (isAdmin()) openSimSetup(); return; }

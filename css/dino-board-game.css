@@ -730,13 +730,14 @@ button { font-family: inherit; }
 .first-btns .btn { padding: 1rem; font-size: 1.1rem; }
 .first-btns .btn.fr { background: linear-gradient(180deg, #ef7370, var(--red)); color: #fff; box-shadow: 0 4px 0 #9a1f1c; }
 .first-btns .btn.fb { background: linear-gradient(180deg, #64b5f6, var(--blue)); color: #fff; box-shadow: 0 4px 0 #0d4f8f; }
+.start-game { display: block; width: 100%; padding: 1rem; font-size: 1.2rem; }
 .setup-foot { margin-top: 1.2rem; font-size: 0.9rem; color: var(--muted); }
 .setup-foot .tk { width: 1.5em; height: 1.5em; }
 
 .setup:not(.vs-ai):not(.vs-online) .gh-modes .m-2p, .setup.vs-ai .gh-modes .m-ai, .setup.vs-online .gh-modes .m-online { border-color: var(--gh-accent); background: #fff8e1; box-shadow: 0 0 0 3px var(--gh-accent-soft); }
 .setup:not(.vs-ai) .only-ai, .setup.vs-ai .only-2p { display: none; }
 .setup:not(.vs-online) .only-online { display: none; }
-.setup.vs-online .name-row, .setup.vs-online .ai-opts, .setup.vs-online .first-q, .setup.vs-online .first-btns, .setup.vs-online .setup-foot { display: none; }
+.setup.vs-online .name-row, .setup.vs-online .ai-opts, .setup.vs-online .first-pick, .setup.vs-online .start-game, .setup.vs-online .setup-foot { display: none; }
 .online-box { display: grid; gap: 1rem; }
 .ol-form { display: grid; gap: 0.55rem; }
 .ol-form label { font-weight: 700; }

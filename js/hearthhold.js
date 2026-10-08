@@ -188,7 +188,7 @@
               <button data-v="r">🎲 Random</button>
             </div>
           </div>
-          <button class="btn big offline-only" id="start">Found your village</button>
+          <button class="btn big offline-only" id="start">Start game</button>
           <div class="gh-links">
             <button class="btn ghost sm" id="how">📜 How to play</button>
             <button class="btn ghost sm" id="hist">🏆 Game history</button>
