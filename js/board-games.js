@@ -127,32 +127,50 @@
     </a>${x}</div>`;
   }
 
-  // Removing a saved game takes two clicks, so a stray tap can't lose one.
   let lastOnline = [];
   let lastStatus = 'done';
+  let lastItems = [];
+  let dialog = null;
+  function confirmRemove(it) {
+    if (!dialog) {
+      dialog = document.createElement('dialog');
+      dialog.className = 'mg-dialog';
+      document.body.appendChild(dialog);
+      dialog.addEventListener('click', (e) => {
+        if (e.target === dialog) dialog.close('cancel');
+      });
+      dialog.addEventListener('close', () => {
+        const target = dialog.target;
+        dialog.target = null;
+        if (dialog.returnValue !== 'remove' || !target) return;
+        BS.remove(target.game, target.id);
+        render(lastOnline, lastStatus);
+      });
+    }
+    const G = GAMES[it.game];
+    dialog.target = { game: it.game, id: it.id };
+    dialog.returnValue = '';
+    dialog.innerHTML = `<form method="dialog">
+      <h2>Remove this game?</h2>
+      <div class="mg-dialog-game"><img src="${G.img}" alt=""><span><b>${G.icon} ${G.name}</b><span>${esc(it.who)}</span><small>${esc(it.note)}</small></span></div>
+      <p>It will be gone from Your games${session() ? ' on all your devices' : ''}. This can’t be undone.</p>
+      <div class="mg-dialog-btns"><button value="cancel" class="mg-keep" autofocus>Keep it</button><button value="remove" class="mg-remove">Remove game</button></div>
+    </form>`;
+    dialog.showModal();
+  }
   list.addEventListener('click', (e) => {
     const b = e.target.closest('[data-remove]');
     if (!b || !BS) return;
     e.preventDefault();
-    if (!b.classList.contains('armed')) {
-      b.classList.add('armed');
-      b.textContent = 'Remove?';
-      setTimeout(() => {
-        if (b.isConnected) {
-          b.classList.remove('armed');
-          b.textContent = '✕';
-        }
-      }, 3500);
-      return;
-    }
-    BS.remove(b.dataset.remove, b.dataset.id);
-    render(lastOnline, lastStatus);
+    const it = lastItems.find((x) => x.game === b.dataset.remove && x.id === b.dataset.id);
+    if (it) confirmRemove(it);
   });
 
   function render(online, status) {
     lastOnline = online;
     lastStatus = status;
     const items = online.map(onlineItem).concat(localGames());
+    lastItems = items;
     items.sort((a, b) => (b.yours ? 1 : 0) - (a.yours ? 1 : 0) || (b.updatedAt || 0) - (a.updatedAt || 0));
     list.innerHTML = items.map(card).join('');
     const waiting = items.filter((x) => x.yours).length;

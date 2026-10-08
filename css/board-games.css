@@ -101,7 +101,24 @@ h1, h2 { font-family: "Lilita One", "Fredoka", sans-serif; font-weight: 400; let
 .mg-item { position: relative; display: grid; }
 .mg-x { position: absolute; top: -8px; right: -8px; z-index: 2; min-width: 26px; height: 26px; padding: 0 0.45rem; border: 0; border-radius: 13px; font: 700 0.8rem/26px Fredoka, sans-serif; color: #fff; background: #6b4a2a; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35); cursor: pointer; opacity: 0.85; transition: background 0.15s ease, opacity 0.15s ease; }
 .mg-x:hover, .mg-x:focus-visible { opacity: 1; background: #8a5a2e; outline: none; }
-.mg-x.armed, .mg-x.armed:hover, .mg-x.armed:focus-visible { background: #b23a48; opacity: 1; }
+.mg-dialog { width: min(400px, calc(100vw - 2rem)); padding: 1.2rem 1.3rem; border: 0; border-radius: 16px; color: #2b1d0e; background: linear-gradient(180deg, #fbf1d9, #efdfb8); box-shadow: 0 0 0 4px #6b4a2a, 0 18px 40px rgba(0, 0, 0, 0.5); font-family: Fredoka, system-ui, sans-serif; }
+.mg-dialog[open] { animation: mgPop 0.22s cubic-bezier(.34, 1.56, .64, 1); }
+.mg-dialog::backdrop { background: rgba(20, 12, 4, 0.6); }
+.mg-dialog h2 { margin: 0 0 0.8rem; font-size: 1.5rem; color: #6b2a1a; }
+.mg-dialog p { margin: 0.8rem 0 1rem; font-size: 0.95rem; }
+.mg-dialog-game { display: flex; gap: 0.7rem; align-items: center; padding: 0.55rem; border-radius: 10px; background: rgba(255, 255, 255, 0.55); box-shadow: inset 0 0 0 2px rgba(107, 74, 42, 0.25); }
+.mg-dialog-game img { width: 64px; height: 48px; object-fit: cover; border-radius: 8px; flex: none; }
+.mg-dialog-game > span { display: flex; flex-direction: column; line-height: 1.25; }
+.mg-dialog-game small { color: #6b5636; }
+.mg-dialog-btns { display: flex; gap: 0.6rem; justify-content: flex-end; }
+.mg-dialog-btns button { padding: 0.55rem 1rem; border-radius: 12px; font: 700 0.95rem Fredoka, system-ui, sans-serif; cursor: pointer; box-shadow: 0 3px 0 rgba(0, 0, 0, 0.25); transition: transform 0.12s ease; }
+.mg-dialog-btns button:hover, .mg-dialog-btns button:focus-visible { transform: translateY(-2px); outline: none; }
+.mg-keep { border: 2px solid #6b4a2a; background: #fffaf0; color: #2b1d0e; }
+.mg-remove { border: 2px solid #7d1f2c; background: #b23a48; color: #fff; }
+.mg-keep:focus-visible { box-shadow: 0 0 0 3px #ffb300, 0 3px 0 rgba(0, 0, 0, 0.25); }
+.mg-remove:focus-visible { box-shadow: 0 0 0 3px #ffb300, 0 3px 0 rgba(0, 0, 0, 0.25); }
+@keyframes mgPop { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .mg-dialog[open] { animation: none; } }
 .mg-card img { width: 72px; height: 54px; object-fit: cover; border-radius: 8px; flex: none; box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.25); }
 .mg-body { display: flex; flex-direction: column; min-width: 0; gap: 0.1rem; }
 .mg-game { font-size: 0.8rem; font-weight: 600; color: #6b4a2a; display: flex; flex-wrap: wrap; column-gap: 0.5rem; align-items: baseline; white-space: nowrap; }
