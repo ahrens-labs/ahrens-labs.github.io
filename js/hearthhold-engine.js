@@ -1129,6 +1129,7 @@
         delete p.flags.site;
         delete p.flags.siteCastle;
         delete p.flags.busy;
+        delete p.flags.by;
         sites.forEach((id) => {
           const b = bldById(p, id);
           if (b) fillBuilding(p, b);
@@ -1162,6 +1163,7 @@
         p.flags.built = (p.flags.built || []).concat(by.id);
         p.flags.busy = (p.flags.busy || []).concat(by.id);
         if (BUILD[a.b].wonder) state.wonders[a.b] = pi;
+        let site = 'castle';
         if (BUILD[a.b].upgrade) {
           p.castle = true;
           p.flags.siteCastle = true;
@@ -1170,7 +1172,10 @@
           p.bld.push(nb);
           p.flags.site = (p.flags.site || []).concat(nb.id);
           fillBuilding(p, nb, true);
+          site = nb.id;
         }
+        // Which villager is building which site (shown on the board until the round ends).
+        p.flags.by = Object.assign({}, p.flags.by, { [site]: by.id });
         msg = `built ${BUILD[a.b].wonder ? 'the ' : 'a '}${BUILD[a.b].name} (a ${VIL[by.k].name} built it)`;
         break;
       }

@@ -460,7 +460,7 @@
     const s = st();
     const p = me();
     const thr = tonight();
-    const sig = JSON.stringify([G.view, p.bld, p.walls, p.vil, p.castle, p.flags && p.flags.site, p.flags && p.flags.siteCastle, ui.pick, s.round, s.phase, s.turn === G.view, [...ui.fresh], ui.freshSide]);
+    const sig = JSON.stringify([G.view, p.bld, p.walls, p.vil, p.castle, p.flags && p.flags.site, p.flags && p.flags.siteCastle, p.flags && p.flags.busy, p.flags && p.flags.by, ui.pick, s.round, s.phase, s.turn === G.view, [...ui.fresh], ui.freshSide]);
     if (sig === ui.boardSig) return;
     ui.boardSig = sig;
     sizeBoard(s);
@@ -561,6 +561,20 @@
     return `<circle r="23" class="foe-ring"/><image href="${IMG(k)}" x="-25" y="-25" width="50" height="50" clip-path="url(#clip-t)"/><g transform="translate(17,17)"><circle r="12" class="foe-badge"/><text class="foe-str" y="4">${str}</text></g>`;
   }
 
+  // Who is building this site this round (builders are off their usual job until next season).
+  function builderOf(p, b) {
+    const by = (p.flags && p.flags.by) || {};
+    const id = by[b.b === 'keep' ? 'castle' : b.id];
+    return id == null ? null : p.vil.find((v) => v.id === id) || null;
+  }
+  function siteName(p, v) {
+    const by = (p.flags && p.flags.by) || {};
+    const k = Object.keys(by).find((x) => by[x] === v.id);
+    if (k == null) return null;
+    if (k === 'castle') return 'Castle';
+    const b = p.bld.find((x) => String(x.id) === k);
+    return b ? E.BUILD[b.b].name : null;
+  }
   // Built this round, so it does nothing until next season.
   function underConstruction(p, b) {
     if (st().phase === 'over') return false;
@@ -586,6 +600,8 @@
     if (site) {
       h += `<circle r="${S * 0.72}" class="site-hatch" fill="url(#p-site)"/><circle r="${S * 0.72}" class="site-ring"/>`;
       h += `<g class="site-tag" transform="translate(0,${(-S * 0.18).toFixed(1)})"><rect x="-27" y="-9" width="54" height="17" rx="8.5"/><text y="4">🚧 Building</text></g>`;
+      const bv = builderOf(p, b);
+      if (bv) h += `<g class="site-builder" transform="translate(0,${(-S * 0.62).toFixed(1)})"><circle r="10.5" class="slot full"/><image href="${IMG(bv.k)}" x="-12" y="-12" width="24" height="24" clip-path="url(#clip-v)"/><g transform="translate(9,-8)"><circle r="7" class="away-badge"/><text class="away-ico" y="3.5">🔨</text></g></g>`;
     }
     if (slots) {
       for (let j = 0; j < slots; j++) {
@@ -593,7 +609,8 @@
         const vy = S * 0.64;
         const v = occ[j];
         h += `<g transform="translate(${vx},${vy})">`;
-        h += v ? `<circle r="9.5" class="slot full${E.canWork(v.k, b.b) === 'spec' ? ' spec' : ''}"/><image href="${IMG(v.k)}" x="-11" y="-11" width="22" height="22" clip-path="url(#clip-v)"/>` : '<circle r="8.5" class="slot empty"/><text class="slot-q" y="4">+</text>';
+        const away = v && E.busy(p, v);
+        h += v ? `<g class="${away ? 'away' : ''}"><circle r="9.5" class="slot full${E.canWork(v.k, b.b) === 'spec' ? ' spec' : ''}"/><image href="${IMG(v.k)}" x="-11" y="-11" width="22" height="22" clip-path="url(#clip-v)"/></g>${away ? '<g transform="translate(8,-8)"><circle r="6.5" class="away-badge"/><text class="away-ico" y="3">🔨</text></g>' : ''}` : '<circle r="8.5" class="slot empty"/><text class="slot-q" y="4">+</text>';
         h += '</g>';
       }
     }
@@ -604,7 +621,12 @@
     const B = E.BUILD[b.b];
     const pr = E.production(p, season()).by[b.id];
     let t = `${B.name}${b.b === 'keep' && p.castle ? ' (Castle)' : ''}`;
-    if (underConstruction(p, b)) return `${t} — 🚧 under construction, ready next season`;
+    if (underConstruction(p, b)) {
+      const bv = builderOf(p, b);
+      return `${t} — 🚧 under construction${bv ? ` (your ${E.VIL[bv.k].name} is building it)` : ''}, ready next season`;
+    }
+    const away = E.occupants(p, b.id).filter((v) => E.busy(p, v));
+    if (away.length) t += ` — 🔨 ${away.map((v) => E.VIL[v.k].name).join(', ')} off building, not working here tonight`;
     if (pr) t += ` — makes ${Object.entries(pr).map(([r, n]) => (r === 'forge' ? '⚒️ arms' : `${r === 'renown' ? '⭐' : E.RES_ICON[r]}${n}`)).join(' ')} this round`;
     return t;
   }
@@ -872,8 +894,14 @@
       .map((v) => {
         const b = v.at != null && p.bld.find((x) => x.id === v.at);
         const how = b && E.canWork(v.k, b.b);
-        const where = `${b ? `${E.BUILD[b.b].name}${how === 'spec' ? ' ★' : ''}` : 'Idle'}${E.busy(p, v) ? ' · 🔨 building' : ''}`;
-        return `<button class="pchip${b ? '' : ' idle'}${E.busy(p, v) ? ' busy' : ''}${how === 'spec' ? ' spec' : ''}" data-vil="${v.id}" ${own ? '' : 'disabled'}><img src="${IMG(v.k)}" alt=""><span><b>${E.VIL[v.k].name}</b><small>${where}</small></span></button>`;
+        const job = b ? `${E.BUILD[b.b].name}${how === 'spec' ? ' ★' : ''}` : 'Idle';
+        const away = E.busy(p, v);
+        const waiting = !away && b && how && underConstruction(p, b);
+        const site = away && siteName(p, v);
+        const where = away
+          ? `<span class="away-note">🔨 Building${site ? ` the ${site}` : ''} — off work tonight</span>${b && how ? `<span class="usual">usually: ${job}</span>` : ''}`
+          : waiting ? `${job} <span class="wait-note">🚧 opens next season</span>` : job;
+        return `<button class="pchip${b ? '' : ' idle'}${away ? ' busy' : ''}${waiting ? ' waiting' : ''}${how === 'spec' ? ' spec' : ''}" data-vil="${v.id}" ${own ? '' : 'disabled'}><img src="${IMG(v.k)}" alt=""><span><b>${E.VIL[v.k].name}</b><small>${where}</small></span></button>`;
       })
       .join('');
     $('#people').innerHTML = `<h3>👥 Villagers <span class="muted">${p.vil.length} · ★ = their own trade</span></h3><div class="pchips">${chips || '<p class="muted">Nobody lives here any more…</p>'}</div>${p.trophies.length ? `<div class="trophies"><span class="muted">Trophies:</span> ${p.trophies.map((k) => `<img src="${IMG(k)}" alt="${E.BEAST[k].name}" title="${E.BEAST[k].name}">`).join('')}</div>` : ''}`;
@@ -1197,11 +1225,13 @@
         <div>
           <h2>${b.b === 'keep' && p.castle ? 'Castle' : B.name}</h2>
           <p>${B.text}${b.b === 'keep' && p.castle ? ' ' + E.BUILD.castle.text : ''}</p>
+          ${underConstruction(p, b) && builderOf(p, b) ? `<p class="warn">🔨 Your <b>${E.VIL[builderOf(p, b).k].name}</b> is building it, so they’re off their usual work tonight.</p>` : ''}
+          ${occ.some((v) => E.busy(p, v)) ? `<p class="warn">🔨 ${occ.filter((v) => E.busy(p, v)).map((v) => `Your <b>${E.VIL[v.k].name}</b>`).join(' and ')} ${occ.filter((v) => E.busy(p, v)).length > 1 ? 'are' : 'is'} off building this round, so they don’t work here or defend tonight. Back next season.</p>` : ''}
           ${underConstruction(p, b) ? `<p class="warn">🚧 <b>Under construction</b> — ${b.b === 'keep' ? 'the Castle’s beds and defense' : 'it'} can’t be used until next season: no work, beds, water or defense this round. A worker at the Work crew finishes it now.</p>` : ''}
           <p><b>This round:</b> ${prodTxt}</p>
           ${E.RANGE[b.b] && p.rules >= 3 ? `<p><b>Defends:</b> ${[0, 1, 2, 3, 4, 5].filter((sd) => E.sideDepth(b.cell, sd) <= E.RANGE[b.b]).map((sd) => E.SIDES[sd].name).join(', ')} <small class="muted">(sides within ${E.RANGE[b.b]} rows)</small></p>` : ''}
           ${E.noisy(p, b) ? '<p class="warn">🔊 Next to a noisy building, so it sleeps 1 fewer.</p>' : ''}
-          ${slots ? `<p><b>Workers (${occ.length}/${slots}):</b> ${occ.map((v) => `<button class="pchip sm" data-move="${v.id}" ${own ? '' : 'disabled'}><img src="${IMG(v.k)}" alt=""><span><b>${E.VIL[v.k].name}</b><small>${E.canWork(v.k, b.b) === 'spec' ? 'own trade ★' : 'labor'}</small></span></button>`).join(' ') || '<span class="muted">nobody — it earns no points until someone works here</span>'}</p>` : ''}
+          ${slots ? `<p><b>Workers (${occ.length}/${slots}):</b> ${occ.map((v) => `<button class="pchip sm" data-move="${v.id}" ${own ? '' : 'disabled'}><img src="${IMG(v.k)}" alt=""><span><b>${E.VIL[v.k].name}</b><small>${E.busy(p, v) ? '🔨 off building' : E.canWork(v.k, b.b) === 'spec' ? 'own trade ★' : 'labor'}</small></span></button>`).join(' ') || '<span class="muted">nobody — it earns no points until someone works here</span>'}</p>` : ''}
           ${movers.length ? `<p><b>Move someone here (free):</b></p><div class="pchips">${movers.map((v) => `<button class="pchip sm" data-movehere="${v.id}"><img src="${IMG(v.k)}" alt=""><span><b>${E.VIL[v.k].name}</b><small>${whereOf(p, v)}</small></span></button>`).join('')}</div>` : ''}
         </div>
       </div>`);

@@ -750,4 +750,15 @@ button.ev-opt:hover:not(:disabled) { background: #fff1c9; box-shadow: inset 0 0 
 .bchip small { color: var(--ink-2, #6b5a44); font-size: 0.75rem; }
 .bchip.on { box-shadow: inset 0 0 0 3px var(--gold, #f2c14e); background: #fff3c4; }
 .bchip:disabled { opacity: 0.45; cursor: not-allowed; }
-.pchip.busy { opacity: 0.7; box-shadow: inset 0 0 0 2px #d9a441; }
+.pchip.busy { background: repeating-linear-gradient(135deg, #fff3cd 0 8px, #ffe8a3 8px 16px); box-shadow: inset 0 0 0 2px #e0a100; }
+.pchip.busy img { filter: grayscale(0.4); opacity: 0.8; }
+.pchip .away-note { display: block; color: #8a5a00; font-weight: 700; }
+.pchip .usual { display: block; color: var(--muted, #7a6a58); }
+.pchip.waiting { box-shadow: inset 0 0 0 2px #ffb300; }
+.pchip .wait-note { color: #8a5a00; font-weight: 700; }
+.away image { opacity: 0.45; filter: grayscale(0.8); }
+.away .slot { stroke-dasharray: 3 2; stroke: #ffb300; }
+.away-badge { fill: #3e2723; stroke: #ffb300; stroke-width: 1.5; }
+.away-ico { font-size: 8px; text-anchor: middle; pointer-events: none; }
+.site-builder { pointer-events: none; }
+.site-builder .away-ico { font-size: 9px; }
