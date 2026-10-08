@@ -135,6 +135,8 @@ function cleanAction(a) {
     case 'recruit':
       if (a.peasant === true) return { t: 'recruit', peasant: true };
       return isInt(a.i) ? { t: 'recruit', i: a.i } : null;
+    case 'train':
+      return typeof a.k === 'string' && a.k !== 'peasant' && Object.prototype.hasOwnProperty.call(E.VIL, a.k) ? { t: 'train', k: a.k } : null;
     case 'place':
       if (!Object.prototype.hasOwnProperty.call(E.LOC, a.loc)) return null;
       if (a.loc === 'masons' && isInt(a.side) && a.side < 6) return { t: 'place', loc: a.loc, side: a.side };

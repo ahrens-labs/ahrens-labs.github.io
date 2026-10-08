@@ -767,6 +767,7 @@
         <button class="act" data-act="wall" ${anyWall ? '' : 'disabled title="Walls cost 🪵2 (palisade) or 🪨3 (stone)"'}><span class="ai">🧱</span><span class="at">Wall</span><span class="as">🪵2 / 🪨3</span></button>
         <button class="act" data-act="recruit"><span class="ai">🧑‍🌾</span><span class="at">Recruit</span><span class="as">${E.room(p) > 0 ? 'from the Crossroads' : 'no room!'}</span></button>
         <button class="act" data-act="trade"><span class="ai">⚖️</span><span class="at">Trade</span><span class="as">${rate}, any number</span></button>
+        <button class="act" data-act="train"${p.flags && p.flags.trained ? ' disabled title="You already trained someone this round"' : ''}><span class="ai">🎓</span><span class="at">Train</span><span class="as">${p.flags && p.flags.trained ? 'done this round' : E.trainee(p) ? 'a Peasant' : 'needs a Peasant'}</span></button>
       </div>
       <p class="tip">🧍 ${workerMsg}</p>
       <button class="btn ${p.workers > 0 && open ? 'ghost' : 'big'} end-btn" data-act="end">⏭️ End round${p.workers > 0 && open ? ` <small>(${plural(p.workers, 'worker')} unused)</small>` : ''}</button>
@@ -932,6 +933,7 @@
       row.classList.add('flash');
     }
     if (what === 'trade') showTrade();
+    if (what === 'train') showTrain();
     if (what === 'end') confirmEnd();
     if (what === 'show-final') showGameOver(true);
     if (what === 'lobby') showSetup(G.id);
@@ -1055,6 +1057,40 @@
   }
 
   // ---------------------------------------------------------------- build picker
+  function showTrain() {
+    const p = me();
+    const v = E.trainee(p);
+    const card = (k) => {
+      const V = E.VIL[k];
+      const why = E.trainBlock(p, k);
+      const home = V.at ? E.BUILD[V.at] : null;
+      const has = home && p.bld.some((b) => b.b === V.at);
+      return `<button class="bcard${why ? ' off' : ''}" data-train="${k}" ${why ? `title="${esc(why)}"` : ''}>
+        <div class="b-art" style="--bc:${home ? home.color : '#8d6e63'}"><img src="${IMG(k)}" alt=""></div>
+        <div class="b-body">
+          <div class="b-name">${V.name}</div>
+          <div class="b-cost">${cost(E.trainPrice(p, k), p)}</div>
+          <div class="b-text">${V.text}</div>
+          <div class="b-foot"><span>${home ? (has ? `Works in your ${home.name}` : `<span class="warn">No ${home.name} yet</span>`) : ''}</span><span>⭐${V.pts}</span></div>
+          ${why ? `<div class="b-why">${esc(why)}</div>` : ''}
+        </div>
+      </button>`;
+    };
+    const lead = !v
+      ? 'You need a Peasant to train. A Peasant from the Crossroads costs 🪙1.'
+      : p.flags && p.flags.trained
+        ? 'You’ve already trained someone this round.'
+        : `Once a round, one of your Peasants can learn any trade. It costs the trade’s full price plus 🪙${E.TRAIN_FEE}, and needs no new bed or water. They move into their own building if you have one.`;
+    const back = openModal(`<h2>🎓 Train a Peasant</h2><p class="muted">${lead} Your stores: ${E.RES.map((r) => `${E.RES_ICON[r]}${p.res[r]}`).join(' ')}</p><div class="bgrid">${E.VIL_ORDER.filter((k) => k !== 'peasant').map(card).join('')}</div>`, { cls: 'wide' });
+    back.addEventListener('click', (e) => {
+      const c = e.target.closest('[data-train]');
+      if (!c || c.classList.contains('off')) return;
+      if (!myTurnHere()) return;
+      closeModal();
+      doAction({ t: 'train', k: c.dataset.train });
+    });
+  }
+
   function showBuildPicker() {
     const s = st();
     const pi = G.view;
@@ -2145,7 +2181,7 @@
       <p>Each village gets its workers: <b>${E.BASE_WORKERS}</b>, plus 1 if a Steward works the Keep. Every place is empty again.</p>
       <h4>2. Day — take turns</h4>
       <ol class="steps">
-        <li>On your turn, do as many <b>free actions</b> as you like and can pay for, in any order: build, wall, recruit, trade and move villagers. In two seasons each year, kept secret until they arrive, there is also a <b>season event</b> to answer (see Goals &amp; events) — you must choose before you end the round.</li>
+        <li>On your turn, do as many <b>free actions</b> as you like and can pay for, in any order: build, wall, recruit, train, trade and move villagers. In two seasons each year, kept secret until they arrive, there is also a <b>season event</b> to answer (see Goals &amp; events) — you must choose before you end the round.</li>
         <li>Then either <b>send one worker</b> to an empty place (or one of the always-open places) — you get its reward straight away and your turn ends — or press <b>End round</b>.</li>
         <li>If that was your <b>last</b> worker, your turn doesn’t end: finish any free actions (you can use what the place just gave you) and then press End round.</li>
         <li>Once you end the round you can’t do anything more until tomorrow. Any workers you didn’t place are wasted. Your rival keeps taking turns until they end too.</li>
@@ -2199,6 +2235,7 @@
         <tr><td>🏗️ Build</td><td>Pay the cost and put the building on a free hex of the right land <b>next to one of your buildings</b>. Build as many as you can afford, even several of the same kind. Wonders also need enough villagers and only one village can build each (see Buildings).</td></tr>
         <tr><td>🧱 Wall</td><td>Each of your 6 sides can have a wall. A bare side becomes a <b>Palisade</b> (🪵2, 🛡️2); a Palisade becomes <b>Stone</b> (🪨3, 🛡️4 in total). A wall only defends against creatures on foot attacking <i>that side</i>.</td></tr>
         <tr><td>🧑‍🌾 Recruit</td><td>Take a traveller from the Crossroads and pay their 🪙 price (Knights also cost 🔩1). You need room: a free bed and free water. A Peasant for 🪙1 is always available.</td></tr>
+        <tr><td>🎓 Train</td><td><b>Once a round</b>, one of your Peasants learns any trade you choose. Pay that trade’s full price plus 🪙${E.TRAIN_FEE} (Knights also cost 🔩1); discounts from the Tavern or Guild hall count. They need no new bed or water, and they move into their own building if you have one — an untrained worker there goes back to the fields.</td></tr>
         <tr><td>⚖️ Trade</td><td>Give 2 of any one resource for 1 of any other, as many times as you want. With a working Merchant, or after using the Trading post this round, it’s 1 for 1.</td></tr>
         <tr><td>🔁 Move</td><td>Move a villager to another building they can work that has a free job, or make them idle. Click a villager in the list or a building on the map.</td></tr>
         <tr><td>⏭️ End round</td><td>You’re done for today. Unplaced workers are lost.</td></tr>

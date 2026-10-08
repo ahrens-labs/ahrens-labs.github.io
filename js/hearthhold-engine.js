@@ -831,6 +831,22 @@
   function peasantPrice(p) {
     return { gold: Math.max(0, VIL.peasant.cost - ((p && p.flags && p.flags.disc) || 0)) };
   }
+  // Training: once a round, a Peasant you already have learns any trade for its full price plus 🪙2.
+  const TRAIN_FEE = 2;
+  function trainPrice(p, k) {
+    return { gold: Math.max(0, VIL[k].cost + TRAIN_FEE - ((p && p.flags && p.flags.disc) || 0)), iron: VIL[k].iron || 0 };
+  }
+  // The Peasant who would be trained: an idle one first.
+  function trainee(p) {
+    const ps = p.vil.filter((v) => v.k === 'peasant');
+    return ps.find((v) => v.at == null) || ps[0] || null;
+  }
+  function trainBlock(p, k) {
+    if (!VIL[k] || k === 'peasant') return 'Pick a trade.';
+    if (p.flags && p.flags.trained) return 'You can only train one villager per round.';
+    if (!trainee(p)) return 'You need a Peasant to train.';
+    return canPay(p, trainPrice(p, k)) ? null : 'You can’t afford it.';
+  }
 
   function freeCells(state, p, b) {
     const on = BUILD[b].on;
@@ -921,6 +937,8 @@
         if (!price) return 'Nobody there.';
         return canPay(p, price) ? null : 'You can’t afford them.';
       }
+      case 'train':
+        return trainBlock(p, a.k);
       case 'place': {
         if (!state.locs.includes(a.loc) && !OPEN_LOCS.includes(a.loc)) return 'That place isn’t in this game.';
         if (p.workers <= 0) return 'You have no workers left this round.';
@@ -1113,6 +1131,26 @@
         p.vil.push(v);
         placeVillager(p, v);
         msg = `took in a ${VIL[k].name}`;
+        break;
+      }
+      case 'train': {
+        pay(p, trainPrice(p, a.k));
+        const v = trainee(p);
+        v.k = a.k;
+        v.at = null;
+        // they take over their own trade's building, sending an untrained worker there back to the fields
+        const home = p.bld.filter((x) => x.b === VIL[a.k].at);
+        const free = home.find((x) => occupants(p, x.id).length < slotsOf(x.b));
+        const swap = free ? null : home.find((x) => occupants(p, x.id).some((o) => canWork(o.k, x.b) !== 'spec'));
+        if (free) v.at = free.id;
+        else if (swap) {
+          const o = occupants(p, swap.id).find((x) => canWork(x.k, swap.b) !== 'spec');
+          o.at = null;
+          v.at = swap.id;
+          placeVillager(p, o);
+        } else placeVillager(p, v);
+        p.flags.trained = true;
+        msg = `trained a Peasant as a ${VIL[a.k].name}`;
         break;
       }
       case 'place': {
@@ -1547,6 +1585,13 @@
     for (let s = 0; s < 6; s++) out.push({ t: 'wall', side: s });
     state.row.forEach((k, i) => out.push({ t: 'recruit', i }));
     out.push({ t: 'recruit', peasant: true });
+    // training: only into trades with a free spot in their own building, to keep the search small
+    if (!(p.flags && p.flags.trained) && trainee(p)) {
+      VIL_ORDER.forEach((k) => {
+        if (k === 'peasant') return;
+        if (p.bld.some((b) => b.b === VIL[k].at && occupants(p, b.id).filter((v) => canWork(v.k, b.b) === 'spec').length < slotsOf(b.b))) out.push({ t: 'train', k });
+      });
+    }
     return out;
   }
 
@@ -1556,6 +1601,7 @@
     if (a.t === 'build') c = buildCost(p, a.b);
     else if (a.t === 'wall') c = wallCost(p, a.side);
     else if (a.t === 'recruit') c = a.peasant ? peasantPrice(p) : rowPrice(state, a.i, p);
+    else if (a.t === 'train') c = trainPrice(p, a.k);
     if (!c) return null;
     const rate = tradeRate(p);
     const res = Object.assign({}, p.res);
@@ -1696,7 +1742,7 @@
     newGame, legal, apply, resolveDusk, score, winner, aiChoose, evaluate,
     seasonOf, yearOf, costText, beastText, beastKind, ringOf,
     beds, water, room, workers, production, defense, baseDefense, buildCost, wallCost, canPay, rowPrice, freeCells, buildBlock,
-    occupants, moveTargets, canWork, slotsOf, adjacent, hasMerchant, tradeRate, peasantPrice, squareAmount, locGain, masonSides, masonFirst, masonChoices, freeLocs, crowdAt, workerCount, musterAmount, foodNeed, woodNeed, upcoming, clone,
+    occupants, moveTargets, canWork, slotsOf, adjacent, hasMerchant, tradeRate, peasantPrice, trainPrice, trainBlock, trainee, TRAIN_FEE, squareAmount, locGain, masonSides, masonFirst, masonChoices, freeLocs, crowdAt, workerCount, musterAmount, foodNeed, woodNeed, upcoming, clone,
     GOALS, GOAL_ORDER, GOAL_PTS, LEGACY_GOAL_PTS, GOALS_PER_YEAR, EVENTS, AI_LEVEL, WAGE, NOISY,
     newRules, threatView, threatsFor, maskThreats, scout, farSight, goalValue, goalPoints, goalGain, goalsOfYear, goalText, legacyGoals, wagesDue, roundsToWages,
     eventNow, eventPending, eventBlock, eventCost, noisy, aiHeadStart, AI_HEAD_START, sideDepth, RANGE, inRange,
