@@ -18,6 +18,9 @@ yarn-error.log*
 workers/node_modules/
 workers/.wrangler/
 workers/dist/
+.wrangler/
+# Local one-off debug Workers (can read user data; never commit)
+workers/tools/
 
 # IDE
 .vscode/
