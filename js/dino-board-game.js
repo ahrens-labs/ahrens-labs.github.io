@@ -7025,8 +7025,11 @@
     return { ok: res.ok, status: res.status, data };
   }
 
+  // Not Math.random: drawing from it here would shift the game's own shuffles.
   function newGid() {
-    return `g${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
+    const b = new Uint8Array(5);
+    crypto.getRandomValues(b);
+    return `g${Date.now().toString(36)}${[...b].map((x) => x.toString(36).padStart(2, '0')).join('')}`;
   }
 
   // Vs-computer and same-device games go into the account's game history once they end.
