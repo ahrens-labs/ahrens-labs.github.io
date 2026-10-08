@@ -623,7 +623,10 @@
     const first = pk.t === 'masons' ? E.masonFirst(st(), p) : null;
     const msg = pk.t === 'masons'
       ? `<b>Mason’s lodge:</b> the ${first != null ? sideName(first) : ''} wall goes up for free tonight — pick <b>one more side</b> to raise`
-      : pk.t === 'build' ? `Pick a glowing spot for your <b>${E.BUILD[pk.b].name}</b> (${cost(E.buildCost(p, pk.b), p)})${p.rules >= 3 ? ' — it must touch your village' : ''}` : 'Pick a side to wall: a <b>Palisade</b> (🛡️2) or upgrade one to <b>Stone</b> (🛡️4)';
+      : pk.t === 'build' ? `Pick a glowing spot for your <b>${E.BUILD[pk.b].name}</b> (${cost(E.buildCost(p, pk.b), p)}${(() => {
+          const v = p.vil.find((x) => x.id === pk.by);
+          return v ? `, built by your ${E.VIL[v.k].name}` : '';
+        })()})${p.rules >= 3 ? ' — it must touch your village' : ''}` : 'Pick a side to wall: a <b>Palisade</b> (🛡️2) or upgrade one to <b>Stone</b> (🛡️4)';
     bar.innerHTML = `<span>${msg}</span><button class="btn ghost sm" data-act="cancel-pick">Cancel</button>`;
   }
 
@@ -763,7 +766,7 @@
     box.innerHTML = `
       <h3>Free actions <span class="muted">as many as you can pay for</span></h3>
       <div class="acts-grid">
-        <button class="act wide" data-act="build"${anyBuild ? '' : ' title="Nothing affordable yet — you can still look"'}><span class="ai">🏗️</span><span class="at">Build</span><span class="as">${anyBuild ? 'a building' : 'browse buildings'}</span></button>
+        <button class="act wide" data-act="build"${anyBuild ? '' : ' title="Nothing affordable yet — you can still look"'}><span class="ai">🏗️</span><span class="at">Build</span><span class="as">${!E.freeBuilders(p).length ? 'nobody free to build' : anyBuild ? 'a building' : 'browse buildings'}</span></button>
         <button class="act" data-act="wall" ${anyWall ? '' : 'disabled title="Walls cost 🪵2 (palisade) or 🪨3 (stone)"'}><span class="ai">🧱</span><span class="at">Wall</span><span class="as">🪵2 / 🪨3</span></button>
         <button class="act" data-act="recruit"><span class="ai">🧑‍🌾</span><span class="at">Recruit</span><span class="as">${E.room(p) > 0 ? 'from the Crossroads' : 'no room!'}</span></button>
         <button class="act" data-act="trade"><span class="ai">⚖️</span><span class="at">Trade</span><span class="as">${rate}, any number</span></button>
@@ -856,8 +859,8 @@
       .map((v) => {
         const b = v.at != null && p.bld.find((x) => x.id === v.at);
         const how = b && E.canWork(v.k, b.b);
-        const where = b ? `${E.BUILD[b.b].name}${how === 'spec' ? ' ★' : ''}` : 'Idle';
-        return `<button class="pchip${b ? '' : ' idle'}${how === 'spec' ? ' spec' : ''}" data-vil="${v.id}" ${own ? '' : 'disabled'}><img src="${IMG(v.k)}" alt=""><span><b>${E.VIL[v.k].name}</b><small>${where}</small></span></button>`;
+        const where = `${b ? `${E.BUILD[b.b].name}${how === 'spec' ? ' ★' : ''}` : 'Idle'}${E.busy(p, v) ? ' · 🔨 building' : ''}`;
+        return `<button class="pchip${b ? '' : ' idle'}${E.busy(p, v) ? ' busy' : ''}${how === 'spec' ? ' spec' : ''}" data-vil="${v.id}" ${own ? '' : 'disabled'}><img src="${IMG(v.k)}" alt=""><span><b>${E.VIL[v.k].name}</b><small>${where}</small></span></button>`;
       })
       .join('');
     $('#people').innerHTML = `<h3>👥 Villagers <span class="muted">${p.vil.length} · ★ = their own trade</span></h3><div class="pchips">${chips || '<p class="muted">Nobody lives here any more…</p>'}</div>${p.trophies.length ? `<div class="trophies"><span class="muted">Trophies:</span> ${p.trophies.map((k) => `<img src="${IMG(k)}" alt="${E.BEAST[k].name}" title="${E.BEAST[k].name}">`).join('')}</div>` : ''}`;
@@ -966,7 +969,7 @@
     if (!cell) return;
     const i = +cell.dataset.cell;
     if (ui.pick && ui.pick.t === 'build') {
-      const a = { t: 'build', b: ui.pick.b, cell: i };
+      const a = { t: 'build', b: ui.pick.b, cell: i, by: ui.pick.by };
       const why = E.legal(st(), G.view, a);
       if (why) return toast(esc(why), 'bad');
       ui.pick = null;
@@ -1100,7 +1103,7 @@
       const c = E.buildCost(p, b);
       const block = E.buildBlock(s, pi, b);
       const afford = E.canPay(p, c);
-      const why = block || (afford ? null : 'Not enough resources');
+      const why = block || (afford ? null : 'Not enough resources') || (E.freeBuilders(p).length ? null : 'Nobody is free to build');
       const where = B.upgrade ? 'Upgrades your Keep' : `On ${B.on.map((t) => E.TERRAIN[t].name.toLowerCase()).join(' or ')}`;
       const pts = B.pts ? (B.wonder ? `⭐${B.pts}` : B.slots ? `⭐${B.pts} while staffed` : `⭐${B.pts}`) : 'no points';
       const n = p.bld.filter((x) => x.b === b).length;
@@ -1116,8 +1119,30 @@
         </div>
       </button>`;
     };
-    const back = openModal(`<h2>🏗️ Build</h2><p class="muted">Your stores: ${E.RES.map((r) => `${E.RES_ICON[r]}${p.res[r]}`).join(' ')}${E.tradeRate(p) === 1 ? ' · trades are 1:1 for you' : ' · short? Trading (2:1) is free.'}</p><div class="bgrid">${E.BUILD_ORDER.map(card).join('')}</div>`, { cls: 'wide' });
+    const free = E.freeBuilders(p);
+    const sugg = E.builderFor(p);
+    if (!free.some((v) => v.id === ui.builder)) ui.builder = sugg ? sugg.id : null;
+    const vWhere = (v) => {
+      const b = v.at != null && p.bld.find((x) => x.id === v.at);
+      return b && E.canWork(v.k, b.b) ? `${E.BUILD[b.b].name}${E.canWork(v.k, b.b) === 'spec' ? ' ★' : ''}` : 'Idle';
+    };
+    const builders = p.vil.length
+      ? `<div class="builders"><b>🔨 Who builds it?</b> <span class="muted">They won’t work or defend tonight, and can’t build again until next season.</span><div class="bchips">${p.vil
+          .map((v) => {
+            const isBusy = E.busy(p, v);
+            return `<button class="bchip${v.id === ui.builder ? ' on' : ''}" data-builder="${v.id}" ${isBusy ? 'disabled title="Already built this season"' : ''}><img src="${IMG(v.k)}" alt=""><span><b>${E.VIL[v.k].name}</b><small>${isBusy ? '🔨 building' : esc(vWhere(v))}</small></span></button>`;
+          })
+          .join('')}</div></div>`
+      : '';
+    const none = !free.length ? '<p class="b-why">Everyone has already built this season — nobody is free to build until next round.</p>' : '';
+    const back = openModal(`<h2>🏗️ Build</h2><p class="muted">Your stores: ${E.RES.map((r) => `${E.RES_ICON[r]}${p.res[r]}`).join(' ')}${E.tradeRate(p) === 1 ? ' · trades are 1:1 for you' : ' · short? Trading (2:1) is free.'}</p>${builders}${none}<div class="bgrid">${E.BUILD_ORDER.map(card).join('')}</div>`, { cls: 'wide' });
     back.addEventListener('click', (e) => {
+      const bc = e.target.closest('[data-builder]');
+      if (bc && !bc.disabled) {
+        ui.builder = +bc.dataset.builder;
+        back.querySelectorAll('[data-builder]').forEach((x) => x.classList.toggle('on', x === bc));
+        return;
+      }
       const c = e.target.closest('[data-pick]');
       if (!c || c.classList.contains('off')) return;
       const b = c.dataset.pick;
@@ -1125,10 +1150,10 @@
       ui.onClose = null;
       closeModal();
       if (E.BUILD[b].upgrade) {
-        doAction({ t: 'build', b, cell: null });
+        doAction({ t: 'build', b, cell: null, by: ui.builder });
         return;
       }
-      ui.pick = { t: 'build', b };
+      ui.pick = { t: 'build', b, by: ui.builder };
       render();
       $('#board').scrollIntoView({ behavior: 'smooth', block: 'center' });
     });
@@ -2232,7 +2257,7 @@
       <p class="lead">Free actions don’t need a worker. On your turn you can do them <b>as often as you like</b> — before or after placing a worker — as long as you can pay.</p>
       <table class="rules-table">
         <tr><th>Action</th><th>Exactly what happens</th></tr>
-        <tr><td>🏗️ Build</td><td>Pay the cost and put the building on a free hex of the right land <b>next to one of your buildings</b>. Build as many as you can afford, even several of the same kind. Wonders also need enough villagers and only one village can build each (see Buildings).</td></tr>
+        <tr><td>🏗️ Build</td><td>Pay the cost, pick a <b>villager to build it</b>, and put the building on a free hex of the right land <b>next to one of your buildings</b>. The builder spends the rest of the round on the site: they don’t work or defend tonight, and can’t build again until next season — so each villager builds at most once a round. Idle villagers make the best builders. Build as many as you can afford, even several of the same kind. Wonders also need enough villagers and only one village can build each (see Buildings).</td></tr>
         <tr><td>🧱 Wall</td><td>Each of your 6 sides can have a wall. A bare side becomes a <b>Palisade</b> (🪵2, 🛡️2); a Palisade becomes <b>Stone</b> (🪨3, 🛡️4 in total). A wall only defends against creatures on foot attacking <i>that side</i>.</td></tr>
         <tr><td>🧑‍🌾 Recruit</td><td>Take a traveller from the Crossroads and pay their 🪙 price (Knights also cost 🔩1). You need room: a free bed and free water. A Peasant for 🪙1 is always available.</td></tr>
         <tr><td>🎓 Train</td><td><b>Once a round</b>, one of your Peasants learns any trade you choose. Pay that trade’s full price plus 🪙${E.TRAIN_FEE} (Knights also cost 🔩1); discounts from the Tavern or Guild hall count. They need no new bed or water, and they move into their own building if you have one — an untrained worker there goes back to the fields.</td></tr>

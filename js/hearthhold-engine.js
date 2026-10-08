@@ -676,7 +676,23 @@
       if (how) out.push({ v, b, spec: how === 'spec' });
     });
     return out;
+  }  // Builders: every new building needs a villager to build it. They spend the rest of the round on the site —
+  // no work or defense tonight, and they can't build again until next season.
+  const busy = (p, v) => !!(p.flags && p.flags.busy && p.flags.busy.includes(v.id));
+  const onDuty = (p) => workers(p).filter((w) => !busy(p, w.v));
+  const freeBuilders = (p) => p.vil.filter((v) => !busy(p, v));
+  // Who builds if the player doesn't say: idle villagers first, then labourers, then the least valuable specialist.
+  function builderFor(p) {
+    const cost = (v) => {
+      if (v.at == null) return 0;
+      const b = bldById(p, v.at);
+      const how = b && canWork(v.k, b.b);
+      if (!how) return 0;
+      return how === 'spec' ? 10 + villagerValue(v) : 5;
+    };
+    return freeBuilders(p).sort((a, b) => cost(a) - cost(b) || a.id - b.id)[0] || null;
   }
+
   // A House or Inn next to a noisy building (rules v3 villages) sleeps 1 fewer.
   const NOISY = ['smithy', 'barracks', 'market'];
   const HOMES = ['house', 'inn'];
@@ -734,7 +750,7 @@
       if (x.b !== 'keep' && BUILD[x.b].def && inRange(p, x, side)) d += BUILD[x.b].def;
     });
     const levy = !later && p.flags && p.flags.levy;
-    workers(p).forEach(({ v, b: at, spec }) => {
+    (later ? workers(p) : onDuty(p)).forEach(({ v, b: at, spec }) => {
       if (!spec) return;
       if (levy && ['guard', 'knight', 'archer'].includes(v.k)) return;
       if (v.k === 'guard') d += 2;
@@ -751,7 +767,8 @@
   }
 
   // What each worked building makes this round. Returns totals plus per-building notes for the UI.
-  function production(p, season) {
+  // all: count builders too (their usual output, for planning beyond tonight).
+  function production(p, season, all) {
     const out = { food: 0, wood: 0, stone: 0, iron: 0, gold: 0, renown: 0, forge: 0, by: {} };
     const add = (bid, r, n) => {
       if (!n) return;
@@ -762,7 +779,7 @@
     p.bld.forEach((b) => {
       if (b.b === 'market') add(b.id, 'gold', 1 + (adjacent(p, b.cell, 'inn') ? 1 : 0));
     });
-    workers(p).forEach(({ v, b, spec }) => {
+    (all ? workers(p) : onDuty(p)).forEach(({ v, b, spec }) => {
       switch (b.b) {
         case 'farm': {
           const granary = p.flags && p.flags.granary ? 2 : 0;
@@ -924,6 +941,11 @@
         if (why) return why;
         if (!B.upgrade && !freeCells(state, p, a.b).includes(a.cell)) return 'You can’t build that there.';
         if (!canPay(p, buildCost(p, a.b))) return 'You can’t afford it.';
+        if (a.by != null) {
+          const v = p.vil.find((x) => x.id === a.by);
+          if (!v) return 'Pick a villager to build it.';
+          if (busy(p, v)) return `That ${VIL[v.k].name} has already built this season.`;
+        } else if (!builderFor(p)) return 'Everyone has already built this season — nobody is free to build.';
         return null;
       }
       case 'wall': {
@@ -1100,6 +1122,8 @@
       case 'build': {
         const c = buildCost(p, a.b);
         pay(p, c);
+        const by = (a.by != null && p.vil.find((x) => x.id === a.by)) || builderFor(p);
+        p.flags.busy = (p.flags.busy || []).concat(by.id);
         if (BUILD[a.b].wonder) state.wonders[a.b] = pi;
         if (BUILD[a.b].upgrade) {
           p.castle = true;
@@ -1108,7 +1132,7 @@
           p.bld.push(nb);
           fillBuilding(p, nb);
         }
-        msg = `built ${BUILD[a.b].wonder ? 'the ' : 'a '}${BUILD[a.b].name}`;
+        msg = `built ${BUILD[a.b].wonder ? 'the ' : 'a '}${BUILD[a.b].name} (a ${VIL[by.k].name} built it)`;
         break;
       }
       case 'wall': {
@@ -1464,7 +1488,13 @@
     const sc = score(state, p);
     let v = sc.total - sc.gold;
     const later = Math.max(0, Math.min(1, (R - 1) / 3));
-    const income = production(p, 'spring');
+    const income = production(p, 'spring', true);
+    // builders on site lose tonight's work once
+    const season = seasonOf(state.round);
+    const now = production(p, season);
+    const full = production(p, season, true);
+    RES.forEach((r) => (v -= Math.max(0, full[r] - now[r]) * (VAL[r] || 0.3)));
+    v -= Math.max(0, full.renown - now.renown);
     const winterNext = (() => {
       for (let r = state.round; r <= ROUNDS; r++) if (seasonOf(r) === 'winter') return r - state.round;
       return -1;
@@ -1485,6 +1515,8 @@
     const horizon = Math.min(R, 3);
     const foodShort = Math.max(0, -(p.res.food + netFood * horizon - (winterNext >= 0 && winterNext < horizon ? income.food : 0)));
     v -= foodShort * 3.5;
+    // tonight's supper, with builders off work
+    v -= Math.max(0, p.vil.length - (p.res.food + now.food)) * 4;
     if (winterNext >= 0 && winterNext <= 2) {
       const wneed = Math.ceil((p.vil.length + 1) / 3) + (newRules(state) ? p.walls.filter((x) => x === 1).length : 0);
       const wHave = p.res.wood + income.wood * winterNext;
@@ -1742,7 +1774,7 @@
     newGame, legal, apply, resolveDusk, score, winner, aiChoose, evaluate,
     seasonOf, yearOf, costText, beastText, beastKind, ringOf,
     beds, water, room, workers, production, defense, baseDefense, buildCost, wallCost, canPay, rowPrice, freeCells, buildBlock,
-    occupants, moveTargets, canWork, slotsOf, adjacent, hasMerchant, tradeRate, peasantPrice, trainPrice, trainBlock, trainee, TRAIN_FEE, squareAmount, locGain, masonSides, masonFirst, masonChoices, freeLocs, crowdAt, workerCount, musterAmount, foodNeed, woodNeed, upcoming, clone,
+    occupants, moveTargets, canWork, slotsOf, adjacent, hasMerchant, tradeRate, peasantPrice, busy, onDuty, freeBuilders, builderFor, trainPrice, trainBlock, trainee, TRAIN_FEE, squareAmount, locGain, masonSides, masonFirst, masonChoices, freeLocs, crowdAt, workerCount, musterAmount, foodNeed, woodNeed, upcoming, clone,
     GOALS, GOAL_ORDER, GOAL_PTS, LEGACY_GOAL_PTS, GOALS_PER_YEAR, EVENTS, AI_LEVEL, WAGE, NOISY,
     newRules, threatView, threatsFor, maskThreats, scout, farSight, goalValue, goalPoints, goalGain, goalsOfYear, goalText, legacyGoals, wagesDue, roundsToWages,
     eventNow, eventPending, eventBlock, eventCost, noisy, aiHeadStart, AI_HEAD_START, sideDepth, RANGE, inRange,

@@ -129,7 +129,8 @@ function cleanAction(a) {
     case 'build':
       if (!Object.prototype.hasOwnProperty.call(E.BUILD, a.b)) return null;
       if (a.cell != null && !isInt(a.cell)) return null;
-      return { t: 'build', b: a.b, cell: a.cell == null ? null : a.cell };
+      if (a.by != null && !isInt(a.by)) return null;
+      return { t: 'build', b: a.b, cell: a.cell == null ? null : a.cell, ...(a.by != null ? { by: a.by } : {}) };
     case 'wall':
       return isInt(a.side) && a.side < 6 ? { t: 'wall', side: a.side } : null;
     case 'recruit':
