@@ -601,7 +601,7 @@
       h += `<circle r="${S * 0.72}" class="site-hatch" fill="url(#p-site)"/><circle r="${S * 0.72}" class="site-ring"/>`;
       h += `<g class="site-tag" transform="translate(0,${(-S * 0.18).toFixed(1)})"><rect x="-27" y="-9" width="54" height="17" rx="8.5"/><text y="4">🚧 Building</text></g>`;
       const bv = builderOf(p, b);
-      if (bv) h += `<g class="site-builder" transform="translate(0,${(-S * 0.62).toFixed(1)})"><circle r="10.5" class="slot full"/><image href="${IMG(bv.k)}" x="-12" y="-12" width="24" height="24" clip-path="url(#clip-v)"/><g transform="translate(9,-8)"><circle r="7" class="away-badge"/><text class="away-ico" y="3.5">🔨</text></g></g>`;
+      if (bv && !occ.includes(bv)) h += `<g class="site-builder" transform="translate(0,${(-S * 0.62).toFixed(1)})"><circle r="10.5" class="slot full"/><image href="${IMG(bv.k)}" x="-12" y="-12" width="24" height="24" clip-path="url(#clip-v)"/><g transform="translate(9,-8)"><circle r="7" class="away-badge"/><text class="away-ico" y="3.5">🔨</text></g></g>`;
     }
     if (slots) {
       for (let j = 0; j < slots; j++) {
@@ -609,8 +609,10 @@
         const vy = S * 0.64;
         const v = occ[j];
         h += `<g transform="translate(${vx},${vy})">`;
-        const away = v && E.busy(p, v);
-        h += v ? `<g class="${away ? 'away' : ''}"><circle r="9.5" class="slot full${E.canWork(v.k, b.b) === 'spec' ? ' spec' : ''}"/><image href="${IMG(v.k)}" x="-11" y="-11" width="22" height="22" clip-path="url(#clip-v)"/></g>${away ? '<g transform="translate(8,-8)"><circle r="6.5" class="away-badge"/><text class="away-ico" y="3">🔨</text></g>' : ''}` : '<circle r="8.5" class="slot empty"/><text class="slot-q" y="4">+</text>';
+        // Someone already in the slot of the site they're building is shown once, with the hammer, not greyed out.
+        const onSite = v && site && builderOf(p, b) === v;
+        const away = v && E.busy(p, v) && !onSite;
+        h += v ? `<g class="${away ? 'away' : ''}"><circle r="9.5" class="slot full${E.canWork(v.k, b.b) === 'spec' ? ' spec' : ''}"/><image href="${IMG(v.k)}" x="-11" y="-11" width="22" height="22" clip-path="url(#clip-v)"/></g>${away || onSite ? '<g transform="translate(8,-8)"><circle r="6.5" class="away-badge"/><text class="away-ico" y="3">🔨</text></g>' : ''}` : '<circle r="8.5" class="slot empty"/><text class="slot-q" y="4">+</text>';
         h += '</g>';
       }
     }
@@ -899,7 +901,7 @@
         const waiting = !away && b && how && underConstruction(p, b);
         const site = away && siteName(p, v);
         const where = away
-          ? `<span class="away-note">🔨 Building${site ? ` the ${site}` : ''} — off work tonight</span>${b && how ? `<span class="usual">usually: ${job}</span>` : ''}`
+          ? `<span class="away-note">🔨 Building${site ? ` the ${site}` : ''} — off work tonight</span>${b && how ? `<span class="usual">${underConstruction(p, b) && builderOf(p, b) === v ? 'works there once it opens' : `usually: ${job}`}</span>` : ''}`
           : waiting ? `${job} <span class="wait-note">🚧 opens next season</span>` : job;
         return `<button class="pchip${b ? '' : ' idle'}${away ? ' busy' : ''}${waiting ? ' waiting' : ''}${how === 'spec' ? ' spec' : ''}" data-vil="${v.id}" ${own ? '' : 'disabled'}><img src="${IMG(v.k)}" alt=""><span><b>${E.VIL[v.k].name}</b><small>${where}</small></span></button>`;
       })
