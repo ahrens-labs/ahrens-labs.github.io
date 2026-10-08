@@ -1170,7 +1170,7 @@
       return b && E.canWork(v.k, b.b) ? `${E.BUILD[b.b].name}${E.canWork(v.k, b.b) === 'spec' ? ' ★' : ''}` : 'Idle';
     };
     const builders = p.vil.length
-      ? `<div class="builders"><b>🔨 Who builds it?</b> <span class="muted">They won’t work or defend tonight, and can’t build again until next season. The building opens next season — unless you then send a worker to the Work crew.</span><div class="bchips">${p.vil
+      ? `<div class="builders"><b>🔨 Who builds it?</b> <span class="muted">They leave their job — anyone idle steps into it — and won’t work, defend or build again until next season, when they take a free job. The building opens next season, unless you then send a worker to the Work crew.</span><div class="bchips">${p.vil
           .map((v) => {
             const isBusy = E.hasBuilt(p, v);
             return `<button class="bchip${v.id === ui.builder ? ' on' : ''}" data-builder="${v.id}" ${isBusy ? 'disabled title="Already built this season"' : ''}><img src="${IMG(v.k)}" alt=""><span><b>${E.VIL[v.k].name}</b><small>${isBusy ? (E.busy(p, v) ? '🔨 building' : '✓ built') : esc(vWhere(v))}</small></span></button>`;
@@ -1219,7 +1219,7 @@
     const pr = E.production(p, season()).by[b.id];
     const own = canManage();
     const slots = E.slotsOf(b.b);
-    const movers = own && slots && occ.length < slots ? p.vil.filter((v) => v.at !== b.id && E.canWork(v.k, b.b)) : [];
+    const movers = own && slots && occ.length < slots ? p.vil.filter((v) => v.at !== b.id && E.canWork(v.k, b.b) && !E.busy(p, v)) : [];
     const prodTxt = pr ? Object.entries(pr).map(([r, n]) => (r === 'forge' ? '⚒️ forges arms' : `${r === 'renown' ? '⭐' : E.RES_ICON[r]}${n}`)).join(' ') : 'nothing this round';
     const back = openModal(`
       <div class="binfo">
@@ -1263,7 +1263,8 @@
     const v = p.vil.find((x) => x.id === vid);
     if (!v) return;
     const V = E.VIL[v.k];
-    const targets = E.moveTargets(p, v);
+    const away = E.busy(p, v);
+    const targets = away ? [] : E.moveTargets(p, v);
     const back = openModal(`
       <div class="binfo">
         <div class="b-art big v"><img src="${IMG(v.k)}" alt=""></div>
@@ -1271,10 +1272,10 @@
           <h2>${V.name}</h2>
           <p>${V.text}</p>
           <p class="muted">Now: ${whereOf(p, v)} · worth ⭐${V.pts}</p>
-          <p><b>Move to (free):</b></p>
+          ${away ? `<p class="warn">🔨 Building${siteName(p, v) ? ` the ${siteName(p, v)}` : ''} this round, so they can’t take a job until next season. They’ll find one on their own then.</p>` : '<p><b>Move to (free):</b></p>'}
           <div class="pchips">
             ${targets.map((b) => `<button class="pchip sm${E.canWork(v.k, b.b) === 'spec' ? ' spec' : ''}" data-to="${b.id}"><img src="${IMG(b.b)}" alt=""><span><b>${E.BUILD[b.b].name}</b><small>${E.canWork(v.k, b.b) === 'spec' ? 'own trade ★' : 'labor'}</small></span></button>`).join('') || '<span class="muted">No free job they can do. Build one first.</span>'}
-            ${v.at != null ? '<button class="pchip sm idle" data-to="idle"><span><b>Rest</b><small>make idle</small></span></button>' : ''}
+            ${v.at != null && !away ? '<button class="pchip sm idle" data-to="idle"><span><b>Rest</b><small>make idle</small></span></button>' : ''}
           </div>
         </div>
       </div>`);
@@ -2305,7 +2306,7 @@
       <p class="lead">Free actions don’t need a worker. On your turn you can do them <b>as often as you like</b> — before or after placing a worker — as long as you can pay.</p>
       <table class="rules-table">
         <tr><th>Action</th><th>Exactly what happens</th></tr>
-        <tr><td>🏗️ Build</td><td>Pay the cost, pick a <b>villager to build it</b>, and put the building on a free hex of the right land <b>next to one of your buildings</b>. The builder spends the rest of the round on the site: they don’t work or defend tonight, and can’t build again until next season — so each villager builds at most once a round. Idle villagers make the best builders. <b>New buildings are under construction 🚧 until next season</b>: they make nothing, add no beds, water or defense, and their workers don’t work yet. A worker at the <b>Work crew</b> finishes them early and sends your builders back to work. Build as many as you can afford, even several of the same kind. Wonders also need enough villagers and only one village can build each (see Buildings).</td></tr>
+        <tr><td>🏗️ Build</td><td>Pay the cost, pick a <b>villager to build it</b>, and put the building on a free hex of the right land <b>next to one of your buildings</b>. The builder <b>leaves their job</b> (an idle villager steps into it if you have one) and spends the rest of the round on the site: they don’t work or defend tonight, and next season they take any free job, and can’t build again until next season — so each villager builds at most once a round. Idle villagers make the best builders. <b>New buildings are under construction 🚧 until next season</b>: they make nothing, add no beds, water or defense, and their workers don’t work yet. A worker at the <b>Work crew</b> finishes them early and sends your builders back to work. Build as many as you can afford, even several of the same kind. Wonders also need enough villagers and only one village can build each (see Buildings).</td></tr>
         <tr><td>🧱 Wall</td><td>Each of your 6 sides can have a wall. A bare side becomes a <b>Palisade</b> (🪵2, 🛡️2); a Palisade becomes <b>Stone</b> (🪨3, 🛡️4 in total). A wall only defends against creatures on foot attacking <i>that side</i>.</td></tr>
         <tr><td>🧑‍🌾 Recruit</td><td>Take a traveller from the Crossroads and pay their 🪙 price (Knights also cost 🔩1). You need room: a free bed and free water. A Peasant for 🪙1 is always available.</td></tr>
         <tr><td>🎓 Train</td><td><b>Once a round</b>, one of your Peasants learns any trade you choose. Pay that trade’s full price plus 🪙${E.TRAIN_FEE} (Knights also cost 🔩1); discounts from the Tavern or Guild hall count. They need no new bed or water, and they move into their own building if you have one — an untrained worker there goes back to the fields.</td></tr>

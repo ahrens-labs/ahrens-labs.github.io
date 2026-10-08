@@ -485,6 +485,11 @@
         const b = bldById(p, id);
         if (b) fillBuilding(p, b);
       });
+      // Builders who are still without a job find one.
+      ((p.flags && p.flags.built) || []).forEach((id) => {
+        const v = p.vil.find((x) => x.id === id);
+        if (v && v.at == null) placeVillager(p, v);
+      });
       p.flags = {};
       p.workers = workerCount(p);
       p.done = false;
@@ -922,7 +927,7 @@
   // idleOnly: the building is still going up, so don't pull anyone off a job they're working tonight.
   function fillBuilding(p, bld, idleOnly) {
     const cap = slotsOf(bld.b);
-    const idle = p.vil.filter((v) => v.at == null);
+    const idle = p.vil.filter((v) => v.at == null && !busy(p, v));
     const pick = idle.filter((v) => VIL[v.k].at === bld.b).concat(LABOR.includes(bld.b) ? idle.filter((v) => VIL[v.k].at !== bld.b) : []);
     // Also pull specialists out of labor jobs into their own building.
     if (!idleOnly) p.vil.forEach((v) => {
@@ -933,7 +938,7 @@
     });
     pick.slice(0, cap - occupants(p, bld.id).length).forEach((v) => (v.at = bld.id));
     // Anyone who just left a labor job leaves room for an idle villager.
-    p.vil.filter((v) => v.at == null).forEach((v) => placeVillager(p, v));
+    p.vil.filter((v) => v.at == null && !busy(p, v)).forEach((v) => placeVillager(p, v));
   }
 
   function moveTargets(p, v) {
@@ -948,6 +953,7 @@
       const v = p.vil.find((x) => x.id === a.v);
       if (!v) return 'No such villager.';
       if (a.to == null) return null;
+      if (busy(p, v)) return `That ${VIL[v.k].name} is building this round — they take a job again next season.`;
       const b = bldById(p, a.to);
       if (!b || !canWork(v.k, b.b)) return 'They can’t work there.';
       if (b.id !== v.at && occupants(p, b.id).length >= slotsOf(b.b)) return 'That building is full.';
@@ -1134,6 +1140,7 @@
           const b = bldById(p, id);
           if (b) fillBuilding(p, b);
         });
+        p.vil.filter((v) => v.at == null).forEach((v) => placeVillager(p, v));
         return n ? `took ${got} and finished ${n === 1 ? 'a building' : `${n} buildings`} early` : `took ${got}`;
       }
       case 'armory': {
@@ -1163,6 +1170,9 @@
         p.flags.built = (p.flags.built || []).concat(by.id);
         p.flags.busy = (p.flags.busy || []).concat(by.id);
         if (BUILD[a.b].wonder) state.wonders[a.b] = pi;
+        // The builder leaves their job, and anyone idle steps into it tonight.
+        by.at = null;
+        p.vil.filter((v) => v.at == null && !busy(p, v)).forEach((v) => placeVillager(p, v));
         let site = 'castle';
         if (BUILD[a.b].upgrade) {
           p.castle = true;
@@ -1174,6 +1184,8 @@
           fillBuilding(p, nb, true);
           site = nb.id;
         }
+        // A builder of the new building's own trade will work there once it opens.
+        if (site !== 'castle' && VIL[by.k].at === a.b && occupants(p, site).length < slotsOf(a.b)) by.at = site;
         // Which villager is building which site (shown on the board until the round ends).
         p.flags.by = Object.assign({}, p.flags.by, { [site]: by.id });
         msg = `built ${BUILD[a.b].wonder ? 'the ' : 'a '}${BUILD[a.b].name} (a ${VIL[by.k].name} built it)`;
