@@ -892,7 +892,7 @@
   function peasantPrice(p) {
     return { gold: Math.max(0, VIL.peasant.cost - ((p && p.flags && p.flags.disc) || 0)) };
   }
-  // Training: a Peasant you already have learns any trade for its full price plus 🪙2, as often as you can pay.
+  // Training: once a round, a Peasant you already have learns any trade for its full price plus 🪙2.
   const TRAIN_FEE = 2;
   function trainPrice(p, k) {
     return { gold: Math.max(0, VIL[k].cost + TRAIN_FEE - ((p && p.flags && p.flags.disc) || 0)), iron: VIL[k].iron || 0 };
@@ -904,6 +904,7 @@
   }
   function trainBlock(p, k) {
     if (!VIL[k] || k === 'peasant') return 'Pick a trade.';
+    if (p.flags && p.flags.trained) return 'You can only train one villager per round.';
     if (!trainee(p)) return 'You need a Peasant to train.';
     return canPay(p, trainPrice(p, k)) ? null : 'You can’t afford it.';
   }
@@ -1258,6 +1259,7 @@
           v.at = swap.id;
           placeVillager(p, o);
         } else placeVillager(p, v);
+        p.flags.trained = true;
         msg = `trained a Peasant as a ${VIL[a.k].name}`;
         break;
       }
@@ -1708,7 +1710,7 @@
     state.row.forEach((k, i) => out.push({ t: 'recruit', i }));
     out.push({ t: 'recruit', peasant: true });
     // training: only into trades with a free spot in their own building, to keep the search small
-    if (trainee(p)) {
+    if (!(p.flags && p.flags.trained) && trainee(p)) {
       VIL_ORDER.forEach((k) => {
         if (k === 'peasant') return;
         if (p.bld.some((b) => b.b === VIL[k].at && occupants(p, b.id).filter((v) => canWork(v.k, b.b) === 'spec').length < slotsOf(b.b))) out.push({ t: 'train', k });
