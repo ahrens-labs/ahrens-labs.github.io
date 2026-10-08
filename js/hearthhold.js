@@ -2493,8 +2493,11 @@
   const mem = savedOnline();
   let localId = params.get('local');
   if (!saved && !localId && !linked && !(mem && sessionId()) && lastStatus(lastGid()) === 'elsewhere') localId = lastGid();
-  if ((params.has('resume') || localId) && history.replaceState) history.replaceState(null, '', location.pathname);
-  if (localId && /^[a-z0-9]{4,40}$/i.test(localId) && window.BoardSaves) {
+  // ?home (from the game shelf): the start screen, not whatever was played last.
+  const home = params.has('home') && !localId && !linked;
+  if ((params.has('resume') || params.has('home') || localId) && history.replaceState) history.replaceState(null, '', location.pathname);
+  if (home) showSetup();
+  else if (localId && /^[a-z0-9]{4,40}$/i.test(localId) && window.BoardSaves) {
     $('#app').innerHTML = '<p class="loading-save">Loading your game…</p>';
     window.BoardSaves.load('hearthhold', localId).then((g) => {
       if (validSave(g) && g.state.phase !== 'over') startFrom(g);
