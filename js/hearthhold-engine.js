@@ -704,13 +704,14 @@
   const onDuty = (p) => workers(p).filter((w) => !busy(p, w.v) && ready(p, w.b));
   const hasBuilt = busy;
   const freeBuilders = (p) => p.vil.filter((v) => !hasBuilt(p, v));
-  // Who builds if the player doesn't say: idle villagers first, then labourers, then the least valuable specialist.
+  // Who builds if the player doesn't say: a Peasant if there is one (idle first), then other idle villagers,
+  // then labourers, then the least valuable specialist.
   function builderFor(p) {
     const cost = (v) => {
-      if (v.at == null) return 0;
-      const b = bldById(p, v.at);
+      const b = v.at != null && bldById(p, v.at);
       const how = b && canWork(v.k, b.b);
-      if (!how) return 0;
+      if (v.k === 'peasant') return how ? 1 : 0;
+      if (!how) return 2;
       return how === 'spec' ? 10 + villagerValue(v) : 5;
     };
     return freeBuilders(p).sort((a, b) => cost(a) - cost(b) || a.id - b.id)[0] || null;
@@ -928,8 +929,9 @@
   }
 
   // Put a villager in the best free spot: its own trade first, then a labor job, else idle.
-  function placeVillager(p, v) {
-    const free = (b) => occupants(p, b.id).length < slotsOf(b.b);
+  // readyOnly: skip buildings still under construction (for someone who should work tonight).
+  function placeVillager(p, v, readyOnly) {
+    const free = (b) => occupants(p, b.id).length < slotsOf(b.b) && (!readyOnly || ready(p, b));
     let spot = p.bld.find((b) => VIL[v.k].at === b.b && free(b));
     if (!spot) {
       const order = ['farm', 'lumber', 'quarry', 'mine'];
@@ -992,6 +994,15 @@
           if (!v) return 'Pick a villager to build it.';
           if (hasBuilt(p, v)) return `That ${VIL[v.k].name} is still building — they’re free once that building is finished.`;
         } else if (!builderFor(p)) return 'Everyone is busy building — nobody is free until those buildings are finished.';
+        return null;
+      }
+      case 'builder': {
+        const by = (p.flags && p.flags.by) || {};
+        if (by[a.site] == null) return 'Nothing is being built there.';
+        const v = p.vil.find((x) => x.id === a.v);
+        if (!v) return 'Pick a villager to build it.';
+        if (v.id === by[a.site]) return 'They are already building it.';
+        if (busy(p, v)) return `That ${VIL[v.k].name} is busy building something else.`;
         return null;
       }
       case 'wall': {
@@ -1212,6 +1223,26 @@
         // Which villager is building which site (shown on the board until the round ends).
         p.flags.by = Object.assign({}, p.flags.by, { [site]: by.id });
         msg = `built ${BUILD[a.b].wonder ? 'the ' : 'a '}${BUILD[a.b].name} (a ${VIL[by.k].name} built it)`;
+        break;
+      }
+      case 'builder': {
+        // Swap who builds a site: the new builder leaves their job, the old one goes back to work tonight.
+        const old = p.vil.find((x) => x.id === p.flags.by[a.site]);
+        const nv = p.vil.find((x) => x.id === a.v);
+        const swap = (list) => (list || []).filter((id) => id !== (old && old.id)).concat(nv.id);
+        p.flags.busy = swap(p.flags.busy);
+        p.flags.built = swap(p.flags.built);
+        p.flags.by = Object.assign({}, p.flags.by, { [a.site]: nv.id });
+        nv.at = null;
+        if (old) {
+          old.at = null;
+          placeVillager(p, old, true);
+        }
+        p.vil.filter((v) => v.at == null && !busy(p, v)).forEach((v) => placeVillager(p, v, true));
+        const bld = a.site === 'castle' ? null : bldById(p, +a.site);
+        if (bld && VIL[nv.k].at === bld.b && occupants(p, bld.id).length < slotsOf(bld.b)) nv.at = bld.id;
+        const what = bld ? BUILD[bld.b].name : 'Castle';
+        msg = old && old.k === nv.k ? `swapped which ${VIL[nv.k].name} is building the ${what}` : `put a ${VIL[nv.k].name} on building the ${what}${old ? ` instead of the ${VIL[old.k].name}` : ''}`;
         break;
       }
       case 'wall': {

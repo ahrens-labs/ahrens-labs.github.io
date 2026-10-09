@@ -1217,7 +1217,7 @@
       return b && E.canWork(v.k, b.b) ? `${E.BUILD[b.b].name}${E.canWork(v.k, b.b) === 'spec' ? ' ★' : ''}` : 'Idle';
     };
     const builders = p.vil.length
-      ? `<div class="builders"><b>🔨 Who builds it?</b> <span class="muted">They leave their job — anyone idle steps into it — and won’t work or defend until the building is finished. It opens next season, when they take a free job — or right away if you send a worker to the Work crew, which frees them to work or build again.</span><div class="bchips">${p.vil
+      ? `<div class="builders"><b>🔨 Who builds it?</b> <span class="muted">They leave their job — anyone idle steps into it — and won’t work or defend until the building is finished. It opens next season, when they take a free job — or right away if you send a worker to the Work crew, which frees them to work or build again. A free Peasant is picked first, and you can swap the builder later by clicking the building site.</span><div class="bchips">${p.vil
           .map((v) => {
             const isBusy = E.hasBuilt(p, v);
             return `<button class="bchip${v.id === ui.builder ? ' on' : ''}" data-builder="${v.id}" ${isBusy ? 'disabled title="Still building — free once that building is finished"' : ''}><img src="${IMG(v.k)}" alt=""><span><b>${E.VIL[v.k].name}</b><small>${isBusy ? '🔨 building' : esc(vWhere(v))}</small></span></button>`;
@@ -1267,6 +1267,9 @@
     const own = canManage();
     const slots = E.slotsOf(b.b);
     const movers = own && slots && occ.length < slots ? p.vil.filter((v) => v.at !== b.id && E.canWork(v.k, b.b) && !E.busy(p, v)) : [];
+    const site = b.b === 'keep' ? 'castle' : String(b.id);
+    const builder = underConstruction(p, b) ? builderOf(p, b) : null;
+    const rebuilders = builder && own && myTurnHere() ? E.freeBuilders(p) : [];
     const prodTxt = pr ? Object.entries(pr).map(([r, n]) => (r === 'forge' ? '⚒️ forges arms' : `${r === 'renown' ? '⭐' : E.RES_ICON[r]}${n}`)).join(' ') : 'nothing this round';
     const back = openModal(`
       <div class="binfo">
@@ -1274,7 +1277,8 @@
         <div>
           <h2>${b.b === 'keep' && p.castle ? 'Castle' : B.name}</h2>
           <p>${B.text}${b.b === 'keep' && p.castle ? ' ' + E.BUILD.castle.text : ''}</p>
-          ${underConstruction(p, b) && builderOf(p, b) ? `<p class="warn">🔨 Your <b>${E.VIL[builderOf(p, b).k].name}</b> is building it, so they’re off their usual work tonight.</p>` : ''}
+          ${builder ? `<p class="warn">🔨 Your <b>${E.VIL[builder.k].name}</b> is building it, so they’re off their usual work tonight.</p>` : ''}
+          ${rebuilders.length ? `<p><b>Change who builds it (free):</b> <span class="muted">the new builder leaves their job, and your ${E.VIL[builder.k].name} goes back to work tonight.</span></p><div class="pchips">${rebuilders.map((v) => `<button class="pchip sm" data-rebuild="${v.id}"><img src="${IMG(v.k)}" alt=""><span><b>${E.VIL[v.k].name}</b><small>${whereOf(p, v)}</small></span></button>`).join('')}</div>` : ''}
           ${occ.some((v) => E.busy(p, v)) ? `<p class="warn">🔨 ${occ.filter((v) => E.busy(p, v)).map((v) => `Your <b>${E.VIL[v.k].name}</b>`).join(' and ')} ${occ.filter((v) => E.busy(p, v)).length > 1 ? 'are' : 'is'} off building this round, so they don’t work here or defend tonight. Back next season.</p>` : ''}
           ${underConstruction(p, b) ? `<p class="warn">🚧 <b>Under construction</b> — ${b.b === 'keep' ? 'the Castle’s beds and defense' : 'it'} can’t be used until next season: no work, beds, water or defense this round. A worker at the Work crew finishes it now.</p>` : ''}
           <p><b>This round:</b> ${prodTxt}</p>
@@ -1285,6 +1289,16 @@
         </div>
       </div>`);
     back.addEventListener('click', (e) => {
+      const rb = e.target.closest('[data-rebuild]');
+      if (rb) {
+        const act = { t: 'builder', site, v: +rb.dataset.rebuild };
+        const why = E.legal(st(), G.view, act);
+        if (why) return toast(esc(why), 'bad');
+        ui.onClose = null;
+        closeModal();
+        doAction(act);
+        return;
+      }
       const mh = e.target.closest('[data-movehere]');
       if (mh) {
         ui.onClose = null;
@@ -2340,7 +2354,7 @@
       <p class="lead">Free actions don’t need a worker. On your turn you can do them <b>as often as you like</b> — before or after placing a worker — as long as you can pay.</p>
       <table class="rules-table">
         <tr><th>Action</th><th>Exactly what happens</th></tr>
-        <tr><td>🏗️ Build</td><td>Pay the cost, pick a <b>villager to build it</b>, and put the building on a free hex of the right land <b>next to one of your buildings</b>. The builder <b>leaves their job</b> (an idle villager steps into it if you have one) and spends the rest of the round on the site: they don’t work, defend or build anything else until it is finished, and next season they take any free job. Idle villagers make the best builders. <b>New buildings are under construction 🚧 until next season</b>: they make nothing, add no beds, water or defense, and their workers don’t work yet. A worker at the <b>Work crew</b> finishes them early and frees your builders to work — or build again — straight away. Build as many as you can afford, even several of the same kind. Wonders also need enough villagers and only one village can build each (see Buildings).</td></tr>
+        <tr><td>🏗️ Build</td><td>Pay the cost, pick a <b>villager to build it</b>, and put the building on a free hex of the right land <b>next to one of your buildings</b>. The builder <b>leaves their job</b> (an idle villager steps into it if you have one) and spends the rest of the round on the site: they don’t work, defend or build anything else until it is finished, and next season they take any free job. Idle villagers make the best builders, and the game picks a free Peasant if you have one. Changed your mind? Click the building site to swap in another free villager — the first builder goes back to work tonight. <b>New buildings are under construction 🚧 until next season</b>: they make nothing, add no beds, water or defense, and their workers don’t work yet. A worker at the <b>Work crew</b> finishes them early and frees your builders to work — or build again — straight away. Build as many as you can afford, even several of the same kind. Wonders also need enough villagers and only one village can build each (see Buildings).</td></tr>
         <tr><td>🧱 Wall</td><td>Each of your 6 sides can have a wall. A bare side becomes a <b>Palisade</b> (🪵2, 🛡️2); a Palisade becomes <b>Stone</b> (🪨3, 🛡️4 in total); Stone becomes <b>Iron</b> (🪨1 🔩2, 🛡️6 in total). A wall only defends against creatures on foot attacking <i>that side</i>.</td></tr>
         <tr><td>🏹 Crossbow</td><td>Mount a crossbow on any wall (🪵2 🔩1, one per side): 🛡️4 against <b>flyers</b> attacking that side. If the wall is destroyed — or a Palisade falls to frost — its crossbow falls too.</td></tr>
         <tr><td>🧑‍🌾 Recruit</td><td>Take a traveller from the Crossroads and pay their 🪙 price (Knights also cost 🔩1). You need room: a free bed and free water. A Peasant for 🪙1 is always available.</td></tr>
