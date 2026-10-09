@@ -80,7 +80,7 @@
     baker: { name: 'Baker', cost: 2, at: 'bakery', pts: 2, text: 'Bakery: 🍞1 per Farm you have (at least 🍞2) every round — even in Winter.' },
     carpenter: { name: 'Carpenter', cost: 3, at: 'workshop', pts: 2, text: 'Workshop: 🪵2 every round, and everything you build costs 🪵1 less.' },
     blacksmith: { name: 'Blacksmith', cost: 3, at: 'smithy', pts: 2, text: 'Smithy: forges 🔩1 into 1 set of arms every round. Each set adds 🛡️1 on every side (max 6).' },
-    merchant: { name: 'Merchant', cost: 3, at: 'market', pts: 2, text: 'Market: 🪙3 every round, and your trades are 1 for 1.' },
+    merchant: { name: 'Merchant', cost: 3, at: 'market', pts: 2, text: 'Market: 🪙3 every round, and your trades are 2 for 1 instead of 3 for 1.' },
     priest: { name: 'Priest', cost: 3, at: 'chapel', pts: 2, text: 'Chapel: ⭐1 every round and 🛡️4 against the undead.' },
     guard: { name: 'Guard', cost: 2, at: 'barracks', pts: 2, text: 'Barracks: 🛡️2 on every side.' },
     knight: { name: 'Knight', cost: 4, iron: 1, at: 'barracks', pts: 3, text: 'Barracks: 🛡️4 on every side.' },
@@ -129,7 +129,7 @@
     yard: { name: 'Builders’ yard', group: 'goods', img: 'workshop', text: 'Take 🪵2 and 🪨2.' },
     ruins: { name: 'Old ruins', group: 'goods', img: 'castle', text: 'Take 🪵1, 🪨1, 🔩1 and 🪙1.' },
     square: { name: 'Market square', group: 'gold', img: 'market', text: 'Take 🪙2, plus 🪙1 for every 2 villagers you have.' },
-    post: { name: 'Trading post', group: 'gold', img: 'merchant', text: 'Take 🪙1. For the rest of this round all your trades are 1 for 1.' },
+    post: { name: 'Trading post', group: 'gold', img: 'merchant', text: 'Take 🪙1. For the rest of this round all your trades are 2 for 1 instead of 3 for 1.' },
     vein: { name: 'Silver vein', group: 'gold', img: 'mine', text: 'Take 🔩2 and 🪙2.' },
     lender: { name: 'Moneylender', group: 'gold', img: 'steward', text: 'Take 🪙5, but lose ⭐1.' },
     tavern: { name: 'Tavern', group: 'folk', img: 'inn', text: 'Take 🍞1. For the rest of this round your recruits cost 🪙2 less (never below 🪙0).' },
@@ -748,8 +748,11 @@
   function hasMerchant(p) {
     return onDuty(p).some((w) => w.v.k === 'merchant' && w.spec);
   }
+  // Trades: 3 of one resource for 1 of another, or 2 for 1 with a working Merchant or the Trading post.
+  const TRADE_RATE = 3;
+  const TRADE_RATE_GOOD = 2;
   function tradeRate(p) {
-    return hasMerchant(p) || (p.flags && p.flags.post) ? 1 : 2;
+    return hasMerchant(p) || (p.flags && p.flags.post) ? TRADE_RATE_GOOD : TRADE_RATE;
   }
   function hasCarpenter(p) {
     return onDuty(p).some((w) => w.v.k === 'carpenter' && w.spec);
@@ -1128,7 +1131,7 @@
     const t = state.threats[state.round - 1];
     switch (k) {
       case 'granary': p.flags.granary = true; return `took ${got} and filled the Granary`;
-      case 'post': p.flags.post = true; return `took ${got} — trades are 1 for 1 this round`;
+      case 'post': p.flags.post = true; return `took ${got} — trades are 2 for 1 this round`;
       case 'lender': p.renown -= 1; return `borrowed ${got} (−⭐1)`;
       case 'tavern': p.flags.disc = (p.flags.disc || 0) + 2; return `took ${got} — recruits cost 🪙2 less this round`;
       case 'guild': {
@@ -1898,7 +1901,7 @@
     newGame, legal, apply, resolveDusk, score, winner, aiChoose, evaluate,
     seasonOf, yearOf, costText, beastText, beastKind, ringOf,
     beds, water, room, workers, production, defense, baseDefense, buildCost, wallCost, BOW, hasBow, bowBlock, canPay, rowPrice, freeCells, buildBlock,
-    occupants, moveTargets, canWork, slotsOf, adjacent, hasMerchant, tradeRate, peasantPrice, busy, hasBuilt, onDuty, ready, castleReady, freeBuilders, builderFor, trainPrice, trainBlock, trainee, TRAIN_FEE, squareAmount, locGain, masonSides, masonFirst, masonChoices, freeLocs, crowdAt, workerCount, musterAmount, foodNeed, woodNeed, upcoming, clone,
+    occupants, moveTargets, canWork, slotsOf, adjacent, hasMerchant, tradeRate, TRADE_RATE, TRADE_RATE_GOOD, peasantPrice, busy, hasBuilt, onDuty, ready, castleReady, freeBuilders, builderFor, trainPrice, trainBlock, trainee, TRAIN_FEE, squareAmount, locGain, masonSides, masonFirst, masonChoices, freeLocs, crowdAt, workerCount, musterAmount, foodNeed, woodNeed, upcoming, clone,
     GOALS, GOAL_ORDER, GOAL_PTS, LEGACY_GOAL_PTS, GOALS_PER_YEAR, EVENTS, AI_LEVEL, WAGE, NOISY,
     newRules, threatView, threatsFor, maskThreats, scout, farSight, goalValue, goalPoints, goalGain, goalsOfYear, goalText, legacyGoals, wagesDue, roundsToWages,
     eventNow, eventPending, eventBlock, eventCost, noisy, aiHeadStart, AI_HEAD_START, sideDepth, RANGE, inRange,

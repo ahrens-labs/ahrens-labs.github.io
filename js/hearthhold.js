@@ -839,7 +839,7 @@
     const bowsOk = s.v >= 3;
     const bowSpots = bowsOk ? [0, 1, 2, 3, 4, 5].filter((i) => !E.bowBlock(s, p, i)) : [];
     const bowWhy = !bowsOk ? 'Not part of this older game' : !p.walls.some((w) => w) ? 'Build a wall first — crossbows stand on walls' : !bowSpots.length ? 'Every wall already has a crossbow' : !E.canPay(p, E.BOW.cost) ? `Crossbows cost ${E.costText(E.BOW.cost)}` : '';
-    const rate = E.tradeRate(p) === 1 ? '1:1' : '2:1';
+    const rate = `${E.tradeRate(p)}:1`;
     const open = E.freeLocs(s).length;
     const workerMsg = p.workers > 0
       ? `Place ${plural(p.workers, 'worker')} on the locations above — placing one ends your turn.${E.freeLocs(s).length === E.OPEN_LOCS.length ? ' The main spots are taken, but the always-open ones still have room.' : ''}`
@@ -1225,7 +1225,7 @@
           .join('')}</div></div>`
       : '';
     const none = !free.length ? '<p class="b-why">Everyone is busy building — nobody is free until those buildings are finished (next season, or now with the Work crew).</p>' : '';
-    const back = openModal(`<h2>🏗️ Build</h2><p class="muted">Your stores: ${E.RES.map((r) => `${E.RES_ICON[r]}${p.res[r]}`).join(' ')}${E.tradeRate(p) === 1 ? ' · trades are 1:1 for you' : ' · short? Trading (2:1) is free.'}</p>${builders}${none}<div class="bgrid">${E.BUILD_ORDER.map(card).join('')}</div>`, { cls: 'wide' });
+    const back = openModal(`<h2>🏗️ Build</h2><p class="muted">Your stores: ${E.RES.map((r) => `${E.RES_ICON[r]}${p.res[r]}`).join(' ')}${E.tradeRate(p) === E.TRADE_RATE_GOOD ? ` · trades are ${E.TRADE_RATE_GOOD}:1 for you` : ` · short? Trading (${E.TRADE_RATE}:1) is free.`}</p>${builders}${none}<div class="bgrid">${E.BUILD_ORDER.map(card).join('')}</div>`, { cls: 'wide' });
     back.addEventListener('click', (e) => {
       const bc = e.target.closest('[data-builder]');
       if (bc && !bc.disabled) {
@@ -1365,7 +1365,7 @@
       const box = $('.trade');
       box.innerHTML = `
         <h2>⚖️ Trade at the market</h2>
-        <p class="muted">Give ${rate} of one thing for 1 of another, as many times as you like. Trading is a free action.${rate === 2 ? ' A working Merchant (or the Trading post this round) makes it 1 for 1.' : ''}</p>
+        <p class="muted">Give ${rate} of one thing for 1 of another, as many times as you like. Trading is a free action.${rate === E.TRADE_RATE ? ` A working Merchant (or the Trading post this round) makes it ${E.TRADE_RATE_GOOD} for 1.` : ''}</p>
         <div class="tr-step"><b>1. Give ${rate}:</b> ${E.RES.map((r) => `<button class="rbtn${give === r ? ' on' : ''}" data-give="${r}" ${res[r] < rate ? 'disabled' : ''}>${E.RES_ICON[r]}<small>${res[r]}</small></button>`).join('')}</div>
         <div class="tr-step"><b>2. Get 1:</b> ${E.RES.map((r) => `<button class="rbtn" data-get="${r}" ${!give || give === r ? 'disabled' : ''}>${E.RES_ICON[r]}</button>`).join('')}</div>
         <div class="tr-list">${trades.map(([g, t], i) => `<span class="tr-item">${E.RES_ICON[g]}${rate} → ${E.RES_ICON[t]}1 <button class="link" data-undo="${i}">✕</button></span>`).join('') || '<span class="muted">No trades yet.</span>'}</div>
@@ -2338,7 +2338,7 @@
         <li><b>Mill fields</b> counts every Farm you have built, worked or not.</li>
         <li><b>Granary</b> only helps Farms that someone works tonight.</li>
         <li><b>Market square</b> counts all your villagers, working or idle (2 villagers = 🪙3, 4 = 🪙4…).</li>
-        <li><b>Trading post</b> makes trades 1 for 1 from then until the round ends.</li>
+        <li><b>Trading post</b> makes trades 2 for 1 (instead of 3 for 1) from then until the round ends.</li>
         <li><b>Moneylender</b> can take your ⭐ below zero.</li>
         <li><b>Tavern</b> and <b>Guild hall</b> discounts add up and come off after the Crossroads discount. They work on Peasants too, and a recruit can become free.</li>
         <li><b>Guild hall</b> sends all the travellers at the Crossroads back to the bottom of the deck and draws 5 new ones.</li>
@@ -2359,7 +2359,7 @@
         <tr><td>🏹 Crossbow</td><td>Mount a crossbow on any wall (🪵2 🔩1, one per side): 🛡️4 against <b>flyers</b> attacking that side. If the wall is destroyed — or a Palisade falls to frost — its crossbow falls too.</td></tr>
         <tr><td>🧑‍🌾 Recruit</td><td>Take a traveller from the Crossroads and pay their 🪙 price (Knights also cost 🔩1). You need room: a free bed and free water. A Peasant for 🪙1 is always available.</td></tr>
         <tr><td>🎓 Train</td><td><b>Once a round</b>, one of your Peasants learns any trade you choose. Pay that trade’s full price plus 🪙${E.TRAIN_FEE} (Knights also cost 🔩1); discounts from the Tavern or Guild hall count. They need no new bed or water, and they move into their own building if you have one — an untrained worker there goes back to the fields.</td></tr>
-        <tr><td>⚖️ Trade</td><td>Give 2 of any one resource for 1 of any other, as many times as you want. With a working Merchant, or after using the Trading post this round, it’s 1 for 1.</td></tr>
+        <tr><td>⚖️ Trade</td><td>Give 3 of any one resource for 1 of any other, as many times as you want. With a working Merchant, or after using the Trading post this round, it’s 2 for 1.</td></tr>
         <tr><td>🔁 Move</td><td>Move a villager to another building they can work that has a free job, or make them idle. Click a villager in the list or a building on the map.</td></tr>
         <tr><td>⏭️ End round</td><td>You’re done for today. Unplaced workers are lost.</td></tr>
       </table>
