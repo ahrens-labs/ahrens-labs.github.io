@@ -1,530 +1,734 @@
 WEBVTT
 
 1
-00:00:02.240 --> 00:00:03.927
+00:00:02.040 --> 00:00:03.727
 Welcome to Oakhaven!
 
 2
-00:00:03.927 --> 00:00:09.895
+00:00:03.727 --> 00:00:09.695
 In this video you will learn how to play by watching a real game against the computer, step by step.
 
 3
-00:00:11.040 --> 00:00:15.500
+00:00:10.880 --> 00:00:15.340
 Two villages grow side by side for three years, one round per season.
 
 4
-00:00:15.500 --> 00:00:19.811
-You build, take in travellers, and keep everyone fed, housed and warm.
+00:00:15.340 --> 00:00:21.187
+You build outward from your Keep, take in travellers, and keep everyone fed, housed, warm and paid.
 
 5
-00:00:19.811 --> 00:00:22.628
+00:00:21.187 --> 00:00:24.004
 Every night a creature attacks both villages.
 
 6
-00:00:22.628 --> 00:00:26.292
+00:00:24.004 --> 00:00:27.668
 After twelve rounds, the village with the most points wins.
 
 7
-00:00:29.280 --> 00:00:30.924
+00:00:30.920 --> 00:00:32.564
 This is the home page.
 
 8
-00:00:30.924 --> 00:00:35.441
+00:00:32.564 --> 00:00:37.081
 The Game lobby button at the top left takes you back to all the board games.
 
 9
-00:00:36.400 --> 00:00:41.479
+00:00:38.040 --> 00:00:43.119
 First pick your opponent: the computer, a friend on the same device, or Online,
 
 10
-00:00:41.479 --> 00:00:44.275
+00:00:43.119 --> 00:00:45.915
 where you challenge another Ahrens Labs player.
 
 11
-00:00:44.275 --> 00:00:50.307
+00:00:45.915 --> 00:00:51.947
 Online games can be quick, with two minutes per turn, or long, where you take your turn whenever you like.
 
 12
-00:00:52.320 --> 00:00:56.908
-Choose how strong the computer is, name your village, and pick who goes first.
+00:00:53.960 --> 00:01:00.724
+Choose how strong the computer is, from Easy up to Brutal, where the computer also starts with extra supplies.
 
 13
-00:00:56.908 --> 00:00:58.439
-We will go first.
+00:01:00.724 --> 00:01:04.601
+Then name your village and pick who goes first. We will go first.
 
 14
-00:01:04.560 --> 00:01:09.013
+00:01:11.360 --> 00:01:15.713
 Across the top you can see the twelve seasons. We are in Spring of year one.
 
 15
-00:01:09.760 --> 00:01:13.345
-Below that are the threats: tonight’s creature and the next two.
+00:01:15.713 --> 00:01:21.404
+Two seasons each year bring an event, but which ones stays a secret until the event arrives.
 
 16
-00:01:13.345 --> 00:01:17.123
-Tonight a Wolf pack, strength three, attacks our south-west side.
+00:01:22.880 --> 00:01:28.065
+Below that are the threats. Tonight a Wolf pack, strength three, attacks our south side.
 
 17
-00:01:17.123 --> 00:01:21.043
-Our defense is only one, so right now we would lose three food.
+00:01:28.065 --> 00:01:31.431
+Our defense is only one, so right now we would lose.
 
 18
-00:01:22.640 --> 00:01:24.305
-These are the locations.
+00:01:32.720 --> 00:01:35.047
+You can only see part of what is coming.
 
 19
-00:01:24.305 --> 00:01:29.192
-Each game uses five, drawn from twenty, so every game is a little different.
+00:01:35.047 --> 00:01:40.360
+Next round’s creature is shown, but not which side it will hit, unless you have a Watchtower.
 
 20
-00:01:29.192 --> 00:01:33.965
-Each one holds just one worker per round, so whoever gets there first takes it.
+00:01:40.360 --> 00:01:44.877
+The one after that is a mystery card until an Archer works in your tower.
 
 21
-00:01:35.680 --> 00:01:40.652
-Below them are two always-open places, the Village commons and Odd jobs.
+00:01:46.680 --> 00:01:48.345
+These are the locations.
 
 22
-00:01:40.652 --> 00:01:46.364
-They give much less, but any number of workers can go there, so a spare worker is never wasted.
+00:01:48.345 --> 00:01:53.232
+Each game uses five, drawn from twenty, so every game is a little different.
 
 23
-00:01:47.960 --> 00:01:54.233
-This is your village: thirty-seven hexes in three rings around your Keep, so there is plenty of room to grow.
+00:01:53.232 --> 00:01:58.005
+Each one holds just one worker per round, so whoever gets there first takes it.
 
 24
-00:01:54.233 --> 00:02:01.104
-Meadows take farms or town buildings, forests take lumber camps, hills take quarries and mountains take mines.
+00:01:59.720 --> 00:02:02.623
+The sixth one, the Work crew, is in every game.
 
 25
-00:02:01.104 --> 00:02:03.979
-You start with a Keep, a Farm and two Peasants.
+00:02:02.623 --> 00:02:07.147
+It finishes everything you have under construction straight away, so it works tonight,
 
 26
-00:02:06.240 --> 00:02:10.529
-Your stores are on the right: food, wood, stone, iron and gold.
+00:02:07.147 --> 00:02:09.787
+and frees your builders to work or build again.
 
 27
-00:02:10.529 --> 00:02:15.245
-The panel also warns you if supper or tonight’s fight is going to go badly.
+00:02:11.320 --> 00:02:16.292
+Below them are two always-open places, the Village commons and Odd jobs.
 
 28
-00:02:15.245 --> 00:02:17.864
-Scores stay secret until the very end.
+00:02:16.292 --> 00:02:22.004
+They give much less, but any number of workers can go there, so a spare worker is never wasted.
 
 29
-00:02:19.600 --> 00:02:21.500
-Each round you get two workers.
+00:02:23.520 --> 00:02:29.793
+This is your village: thirty-seven hexes in three rings around your Keep, so there is plenty of room to grow.
 
 30
-00:02:21.500 --> 00:02:27.112
-On your turn you send one worker to an empty location and get its reward right away.
+00:02:29.793 --> 00:02:36.664
+Meadows take farms or town buildings, forests take lumber camps, hills take quarries and mountains take mines.
 
 31
-00:02:27.112 --> 00:02:32.419
-That ends your turn. Let’s send one to the Hunting grounds for three food and two wood.
+00:02:36.664 --> 00:02:39.887
+You start with a Keep in the middle, a Farm and two Peasants.
 
 32
-00:02:35.000 --> 00:02:38.713
-Now the computer takes its turn, and it places a worker too.
+00:02:39.887 --> 00:02:45.343
+Every new building must touch one you already have, so your village grows from the inside out.
 
 33
-00:02:38.713 --> 00:02:42.676
-Watch the locations and the chronicle at the bottom of the page.
+00:02:48.440 --> 00:02:52.729
+Your stores are on the right: food, wood, stone, iron and gold.
 
 34
-00:02:43.880 --> 00:02:49.187
-The computer went to the Festival green. That spot is now blocked for us this round.
+00:02:52.729 --> 00:02:58.064
+The panel also warns you if supper, wages or tonight’s fight are going to go badly.
 
 35
-00:02:50.000 --> 00:02:54.865
-Besides workers, you have free actions. You can do as many as you can pay for,
+00:02:58.064 --> 00:03:00.683
+Scores stay secret until the very end.
 
 36
-00:02:54.865 --> 00:03:00.385
-before or after placing a worker: build, put up walls, recruit travellers and trade.
+00:03:02.440 --> 00:03:04.489
+Each year also has three goals.
 
 37
-00:03:01.960 --> 00:03:07.273
-First, the wolves. A Palisade costs two wood and adds two defense on one side.
+00:03:04.489 --> 00:03:08.373
+This year they are Full larder, Green fields and Armed to the teeth.
 
 38
-00:03:07.273 --> 00:03:11.449
-On the south-west side, that makes three, and we drive the wolves off.
+00:03:08.373 --> 00:03:10.551
+They only count what you do this year,
 
 39
-00:03:12.840 --> 00:03:17.919
-Next, more food. Click Build to see every building, what it costs and what it does.
+00:03:10.551 --> 00:03:15.096
+and after Winter the village that did the most on each one scores four points.
 
 40
-00:03:17.919 --> 00:03:20.068
-A Farm costs just one wood.
+00:03:15.096 --> 00:03:18.013
+Then three new goals are revealed for the next year.
 
 41
-00:03:21.280 --> 00:03:26.288
-Pick it, then choose a glowing meadow. Farms next to a Well make one more food.
+00:03:20.280 --> 00:03:22.180
+Each round you get two workers.
 
 42
-00:03:27.040 --> 00:03:30.924
-Down here is the Crossroads, where travellers wait for a new home.
+00:03:22.180 --> 00:03:27.792
+On your turn you send one worker to an empty location and get its reward right away.
 
 43
-00:03:30.924 --> 00:03:33.912
-The first in line is cheapest but leaves tonight.
+00:03:27.792 --> 00:03:33.099
+That ends your turn. Let’s send one to the Hunting grounds for three food and two wood.
 
 44
-00:03:33.912 --> 00:03:38.920
-This Farmer costs only one gold, and makes more food than a Peasant on a Farm.
+00:03:35.600 --> 00:03:39.313
+Now the computer takes its turn, and it places a worker too.
 
 45
-00:03:40.640 --> 00:03:43.265
-Every villager needs a bed and water.
+00:03:39.313 --> 00:03:43.276
+Watch the locations and the chronicle at the bottom of the page.
 
 46
-00:03:43.265 --> 00:03:46.488
-We have room for one more, so let’s take the Farmer in.
+00:03:44.440 --> 00:03:49.213
+The computer went to the Work crew. That spot is now blocked for us this round.
 
 47
-00:03:46.488 --> 00:03:49.597
-New villagers get to work on a Farm right away.
+00:03:50.000 --> 00:03:54.865
+Besides workers, you have free actions. You can do as many as you can pay for,
 
 48
-00:03:50.960 --> 00:03:52.327
-Short of something?
+00:03:54.865 --> 00:03:59.603
+before or after placing a worker: build, put up walls, mount crossbows,
 
 49
-00:03:52.327 --> 00:03:57.277
-Trading is free too: two of anything for one of anything else, as often as you like.
+00:03:59.603 --> 00:04:02.563
+recruit travellers, train villagers and trade.
 
 50
-00:03:57.277 --> 00:04:00.643
-A Merchant, or the Trading post, makes it one for one.
+00:04:04.440 --> 00:04:09.903
+First, the wolf pack. A Palisade costs two wood and adds two defense on one side.
 
 51
-00:04:02.840 --> 00:04:05.977
-Now our second worker. We’ll take the Militia yard.
+00:04:09.903 --> 00:04:13.396
+On the south side, that makes three, and we drive them off.
 
 52
-00:04:05.977 --> 00:04:12.585
-Because it is our last worker, our turn doesn’t end: we can still use free actions, and then press End round.
+00:04:14.760 --> 00:04:19.839
+Next, more food. Click Build to see every building, what it costs and what it does.
 
 53
-00:04:14.040 --> 00:04:19.475
-When you are done, press End round. Any worker you didn’t place is lost, so use them both!
+00:04:19.839 --> 00:04:21.888
+At the top you choose who builds it.
 
 54
-00:04:21.320 --> 00:04:24.479
-Once both villages have ended the round, night falls.
+00:04:21.888 --> 00:04:25.772
+The builder leaves their job, and an idle villager steps into it.
 
 55
-00:04:24.479 --> 00:04:29.344
-First every worked building produces. Then the creature attacks both villages.
+00:04:25.772 --> 00:04:31.661
+Builders don’t work or defend until their building is finished, so the game suggests our idle Peasant.
 
 56
-00:04:29.344 --> 00:04:35.056
-With the palisade and the militia our defense held, so we win the wolves’ trophy, worth one point.
+00:04:31.661 --> 00:04:33.811
+A Farm costs just one wood.
 
 57
-00:04:37.000 --> 00:04:39.903
-Then supper: every villager eats one food.
+00:04:36.760 --> 00:04:41.433
+Pick it, then choose a glowing meadow. Only spots touching your village glow.
 
 58
-00:04:39.903 --> 00:04:43.061
-If you are short, villagers leave and you lose points.
+00:04:41.433 --> 00:04:45.424
+Where you build matters: Farms next to a Well make one more food,
 
 59
-00:04:43.061 --> 00:04:47.600
-In Winter, farms rest and every three villagers also burn one wood.
+00:04:45.424 --> 00:04:49.536
+and valuable buildings are safer in the middle, away from the walls.
 
 60
-00:04:49.200 --> 00:04:53.397
-Finally the front traveller leaves the Crossroads, and new ones arrive.
+00:04:51.360 --> 00:04:55.863
+See the hammer sign? New buildings are under construction until next season.
 
 61
-00:04:59.080 --> 00:05:03.668
-In Summer the computer goes first, because the first player switches every round.
+00:04:55.863 --> 00:04:59.533
+They make nothing yet, and add no beds, water or defense.
 
 62
-00:05:03.668 --> 00:05:05.781
-Next come two flying creatures.
+00:04:59.533 --> 00:05:02.408
+The builder’s portrait shows who is working on it.
 
 63
-00:05:05.781 --> 00:05:11.045
-Walls don’t stop flyers, so you will need Archers, a Watchtower or the Militia yard.
+00:05:04.000 --> 00:05:07.884
+Down here is the Crossroads, where travellers wait for a new home.
 
 64
-00:05:12.840 --> 00:05:14.847
-Now let’s go through every rule.
+00:05:07.884 --> 00:05:10.872
+The first in line is cheapest but leaves tonight.
 
 65
-00:05:14.847 --> 00:05:19.328
-The rules are always one click away, from the Rules button in the top bar.
+00:05:10.872 --> 00:05:15.880
+This Farmer costs only one gold, and makes more food than a Peasant on a Farm.
 
 66
-00:05:19.328 --> 00:05:23.248
-The first tab is this video, so you can come back to it any time.
+00:05:17.680 --> 00:05:20.305
+Every villager needs a bed and water.
 
 67
-00:05:24.880 --> 00:05:26.737
-Each round has three parts.
+00:05:20.305 --> 00:05:23.528
+We have room for one more, so let’s take the Farmer in.
 
 68
-00:05:26.737 --> 00:05:32.264
-In the morning each village gets its workers: two, or three once a Steward works your Keep.
+00:05:23.528 --> 00:05:28.131
+New villagers take a free job right away, and a Farmer heads for a Farm.
 
 69
-00:05:32.264 --> 00:05:36.973
-In the day you take turns. At dusk the night plays out for both villages.
+00:05:29.640 --> 00:05:32.244
+Can’t find the person you want at the Crossroads?
 
 70
-00:05:38.760 --> 00:05:44.287
-On your turn you can do any number of free actions, then place one worker, or press End round.
+00:05:32.244 --> 00:05:35.829
+Once a round, you can train one of your Peasants into any trade.
 
 71
-00:05:44.287 --> 00:05:49.316
-Once you end the round you are done until tomorrow, and unplaced workers are wasted.
+00:05:35.829 --> 00:05:40.204
+It costs that trade’s full price plus two gold, but they already have a bed,
 
 72
-00:05:50.880 --> 00:05:53.911
-Anything a place gives you for tonight or this round,
+00:05:40.204 --> 00:05:42.631
+and they move straight into their own building.
 
 73
-00:05:53.911 --> 00:05:57.219
-like the Militia yard’s defense or the Tavern’s discount,
+00:05:45.120 --> 00:05:46.487
+Short of something?
 
 74
-00:05:57.219 --> 00:05:59.475
-wears off when the next round starts.
+00:05:46.487 --> 00:05:51.437
+Trading is free too: two of anything for one of anything else, as often as you like.
 
 75
-00:06:00.760 --> 00:06:06.244
-The seasons matter. In Summer worked farms make one more food, and in Autumn two more.
+00:05:51.437 --> 00:05:54.803
+A Merchant, or the Trading post, makes it one for one.
 
 76
-00:06:06.244 --> 00:06:11.572
-In Winter farms make nothing, and every three villagers burn one wood to stay warm.
+00:05:56.920 --> 00:06:00.057
+Now our second worker. We’ll take the Militia yard.
 
 77
-00:06:13.200 --> 00:06:18.940
-Workers and places lists all twenty main places in five groups: food, materials,
+00:06:00.057 --> 00:06:06.665
+Because it is our last worker, our turn doesn’t end: we can still use free actions, and then press End round.
 
 78
-00:06:18.940 --> 00:06:22.035
-coin and trade, people and renown, and defense.
+00:06:08.120 --> 00:06:13.555
+When you are done, press End round. Any worker you didn’t place is lost, so use them both!
 
 79
-00:06:22.035 --> 00:06:25.677
-Each game uses one from every group, marked with a tick.
+00:06:17.360 --> 00:06:20.519
+Once both villages have ended the round, night falls.
 
 80
-00:06:27.560 --> 00:06:31.337
-Each main place holds one worker per round, from either village.
+00:06:20.519 --> 00:06:25.384
+First every worked building produces. Then the creature attacks both villages.
 
 81
-00:06:31.337 --> 00:06:34.169
-You get the reward the moment you place the worker.
+00:06:25.384 --> 00:06:31.096
+With the palisade and the militia our defense held, so we win the wolves’ trophy, worth one point.
 
 82
-00:06:35.160 --> 00:06:40.345
-At the bottom are the two always-open places, the Village commons and Odd jobs.
+00:06:33.400 --> 00:06:36.303
+Then supper: every villager eats one food.
 
 83
-00:06:40.345 --> 00:06:46.569
-They give just one food or one gold, but there is no limit, even for several of your own workers.
+00:06:36.303 --> 00:06:41.168
+If you are short, villagers leave and you lose points. In Winter, farms rest,
 
 84
-00:06:48.240 --> 00:06:51.057
-The fine print covers every special case,
+00:06:41.168 --> 00:06:43.473
+every three villagers burn one wood,
 
 85
-00:06:51.057 --> 00:06:54.003
-like the Moneylender taking your points below zero,
+00:06:43.473 --> 00:06:47.208
+and each palisade needs one wood of repairs or it falls.
 
 86
-00:06:54.003 --> 00:06:57.475
-or the Mason’s lodge never building higher than stone.
+00:06:47.208 --> 00:06:53.581
+And on the night before each Spring, you pay every working villager one gold, and the year’s goals are scored.
 
 87
-00:06:58.840 --> 00:07:00.911
-Free actions need no worker.
+00:06:56.440 --> 00:07:00.637
+Finally the front traveller leaves the Crossroads, and new ones arrive.
 
 88
-00:07:00.911 --> 00:07:05.392
-Build as many buildings as you can pay for, on a free hex of the right land.
+00:07:06.360 --> 00:07:10.948
+In Summer the computer goes first, because the first player switches every round.
 
 89
-00:07:05.392 --> 00:07:10.577
-Walls defend only their own side: a palisade costs two wood for two defense,
+00:07:10.948 --> 00:07:15.024
+Now tonight’s creature shows its side, and the next card moves up.
 
 90
-00:07:10.577 --> 00:07:13.665
-and stone costs three stone more for four in total.
+00:07:15.024 --> 00:07:20.188
+Flying creatures come over the walls, so against them you need Archers, a Watchtower,
 
 91
-00:07:15.840 --> 00:07:18.977
-You can also trade two of anything for one of anything else,
+00:07:20.188 --> 00:07:22.423
+the Militia yard, or crossbows.
 
 92
-00:07:18.977 --> 00:07:22.364
-and move villagers between jobs at any time on your turn.
+00:07:24.760 --> 00:07:28.729
+A crossbow, for two wood and one iron, sits on one of your walls.
 
 93
-00:07:23.400 --> 00:07:29.567
-At the Crossroads, the first traveller costs two gold less, and the second one less, but never below one.
+00:07:28.729 --> 00:07:34.021
+It adds four defense against flyers coming from that side, but it falls if its wall does.
 
 94
-00:07:29.567 --> 00:07:31.680
-Taking someone moves the line up.
+00:07:34.021 --> 00:07:38.859
+And once a side has a Stone wall, you can upgrade it to Iron for six defense.
 
 95
-00:07:31.680 --> 00:07:35.521
-It only refills at night, when the front traveller leaves for good.
+00:07:40.920 --> 00:07:46.020
+This is one of the event seasons. Both villages face the same event, Pilgrims,
 
 96
-00:07:35.521 --> 00:07:38.417
-A Peasant for one gold is always available.
+00:07:46.020 --> 00:07:50.203
+but each makes its own choice, and you must choose before you can end the round.
 
 97
-00:07:40.600 --> 00:07:44.292
-Each traveller has a trade and works best in their own building.
+00:07:50.203 --> 00:07:54.656
+There is always at least one option you can afford. We’ll pick Ask a tithe.
 
 98
-00:07:44.292 --> 00:07:47.813
-Anyone can work a farm, lumber camp, quarry or mine.
+00:07:56.640 --> 00:07:58.647
+Now let’s go through every rule.
 
 99
-00:07:47.813 --> 00:07:51.797
-Each building holds one worker, except the Barracks, which holds two.
+00:07:58.647 --> 00:08:03.128
+The rules are always one click away, from the Rules button in the top bar.
 
 100
-00:07:53.440 --> 00:07:58.263
-At night, in order: buildings work, Blacksmiths forge arms, the creature attacks,
+00:08:03.128 --> 00:08:07.048
+The first tab is this video, so you can come back to it any time.
 
 101
-00:07:58.263 --> 00:08:03.469
-everyone eats supper, in Winter you burn firewood, and then the Crossroads changes.
+00:08:08.640 --> 00:08:13.953
+The Basics tab explains where you build. Every building must touch one you already have,
 
 102
-00:08:03.469 --> 00:08:08.008
-For every food or wood you are short, a villager leaves and you lose a point.
+00:08:13.953 --> 00:08:17.731
+and distance matters: towers only guard the sides near them,
 
 103
-00:08:10.120 --> 00:08:15.007
-Your defense adds up: one from the Keep, one per set of arms, your Guards, Knights,
+00:08:17.731 --> 00:08:21.971
+and a creature that breaks through burns whatever is closest to its side.
 
 104
-00:08:15.007 --> 00:08:18.421
-Archers and Wizard, the wall on the side being attacked,
+00:08:23.920 --> 00:08:25.777
+Each round has three parts.
 
 105
-00:08:18.421 --> 00:08:22.448
-and anything tonight’s places gave you. Flyers ignore walls.
+00:08:25.777 --> 00:08:31.304
+In the morning each village gets its workers: two, or three once a Steward works your Keep.
 
 106
-00:08:24.280 --> 00:08:29.103
-If your defense is at least the creature’s strength, you drive it off and win its trophy.
+00:08:31.304 --> 00:08:36.013
+In the day you take turns. At dusk the night plays out for both villages.
 
 107
-00:08:29.103 --> 00:08:33.648
-If not, it might take resources, knock down a wall, carry off a villager,
+00:08:37.760 --> 00:08:43.287
+On your turn you can do any number of free actions, then place one worker, or press End round.
 
 108
-00:08:33.648 --> 00:08:38.315
-turn one to stone, or burn a building. This table explains each one.
+00:08:43.287 --> 00:08:48.316
+Once you end the round you are done until tomorrow, and unplaced workers are wasted.
 
 109
-00:08:40.400 --> 00:08:45.009
-The Buildings tab shows every building, its cost, its land and its points.
+00:08:49.880 --> 00:08:52.911
+Anything a place gives you for tonight or this round,
 
 110
-00:08:45.009 --> 00:08:48.360
-Buildings with a job only score while someone works there.
+00:08:52.911 --> 00:08:56.219
+like the Militia yard’s defense or the Tavern’s discount,
 
 111
-00:08:48.360 --> 00:08:52.515
-Houses sleep three, and Wells give water for four more villagers.
+00:08:56.219 --> 00:08:58.475
+wears off when the next round starts.
 
 112
-00:08:54.320 --> 00:08:59.015
-Three buildings are wonders: the Castle, the Wizard’s Tower and the Cathedral.
+00:08:59.760 --> 00:09:05.244
+The seasons matter. In Summer worked farms make one more food, and in Autumn two more.
 
 113
-00:08:59.015 --> 00:09:03.809
-Only one village can build each, and you need five or seven villagers first.
+00:09:05.244 --> 00:09:12.193
+In Winter farms make nothing, every three villagers burn one wood to stay warm, and palisades need mending.
 
 114
-00:09:05.240 --> 00:09:10.233
-The Villagers tab shows all seventeen kinds of traveller: their price, what they do,
+00:09:14.040 --> 00:09:19.780
+Workers and places lists all twenty main places in five groups: food, materials,
 
 115
-00:09:10.233 --> 00:09:15.113
-where they work and their points. A Steward gives you an extra worker every round.
+00:09:19.780 --> 00:09:22.875
+coin and trade, people and renown, and defense.
 
 116
-00:09:16.600 --> 00:09:21.039
-Round one is always the Wolf pack. Creatures get stronger every year:
+00:09:22.875 --> 00:09:27.520
+Each game uses one from every group, marked with a tick, plus the Work crew.
 
 117
-00:09:21.039 --> 00:09:24.731
-strength three or four in year one, seven to nine in year two,
+00:09:29.440 --> 00:09:33.217
+Each main place holds one worker per round, from either village.
 
 118
-00:09:24.731 --> 00:09:27.157
-and thirteen or fourteen in year three.
+00:09:33.217 --> 00:09:36.049
+You get the reward the moment you place the worker.
 
 119
-00:09:28.720 --> 00:09:33.649
-Creatures on foot attack one side, shown on the map. Flyers come over the walls.
+00:09:37.080 --> 00:09:42.265
+At the bottom are the two always-open places, the Village commons and Odd jobs.
 
 120
-00:09:33.649 --> 00:09:38.465
-Each card shows the trophy for driving it off, and the damage if it breaks through.
+00:09:42.265 --> 00:09:48.489
+They give just one food or one gold, but there is no limit, even for several of your own workers.
 
 121
-00:09:39.960 --> 00:09:45.103
-At the end, points come from renown, staffed buildings, villagers, one per stone wall,
+00:09:50.200 --> 00:09:53.017
+The fine print covers every special case,
 
 122
-00:09:45.103 --> 00:09:49.499
-three for walls on all six sides, and one per five leftover gold.
+00:09:53.017 --> 00:09:55.963
+like the Moneylender taking your points below zero,
 
 123
-00:09:49.499 --> 00:09:52.693
-On a tie, the village with more villagers wins.
+00:09:55.963 --> 00:10:01.269
+or how the Mason’s lodge raises tonight’s wall and then one more side of your choice.
 
 124
-00:09:54.520 --> 00:09:58.035
-And at the bottom are some strategy tips to get you started.
+00:10:02.920 --> 00:10:04.991
+Free actions need no worker.
 
 125
-00:09:59.161 --> 00:10:01.530
-Let’s skip ahead to the end of year three.
+00:10:04.991 --> 00:10:09.408
+Build as many buildings as you can pay for and have free villagers to build,
 
 126
-00:10:01.530 --> 00:10:06.986
-Scores stay hidden all game, so the end is a big reveal, one category at a time.
+00:10:09.408 --> 00:10:12.972
+on a free hex of the right land, next to one of your buildings.
 
 127
-00:10:14.120 --> 00:10:18.964
-Each category is added up for both villages, and the winner is crowned at the end.
+00:10:12.972 --> 00:10:18.157
+Walls defend only their own side: a palisade costs two wood for two defense,
 
 128
-00:10:18.964 --> 00:10:22.692
-From here you can start a new game, or go back to the lobby.
+00:10:18.157 --> 00:10:20.953
+stone costs three stone more for four in total,
 
 129
-00:10:24.840 --> 00:10:30.132
-Remember: watch tonight’s threat, keep food for Winter, and use every worker each round.
+00:10:20.953 --> 00:10:24.453
+and iron costs one stone and two iron more for six.
 
 130
-00:10:30.132 --> 00:10:33.803
-Your game saves in your browser, so you can come back any time.
+00:10:24.453 --> 00:10:28.288
+A crossbow on a wall adds four against flyers from that side.
 
 131
-00:10:33.803 --> 00:10:37.537
-To play a friend online, pick Online when you start a new game.
+00:10:31.840 --> 00:10:36.791
+You can also train one Peasant a round, trade two of anything for one of anything else,
 
 132
-00:10:37.537 --> 00:10:40.199
+00:10:36.791 --> 00:10:40.177
+and move villagers between jobs at any time on your turn.
+
+133
+00:10:41.440 --> 00:10:47.607
+At the Crossroads, the first traveller costs two gold less, and the second one less, but never below one.
+
+134
+00:10:47.607 --> 00:10:49.720
+Taking someone moves the line up.
+
+135
+00:10:49.720 --> 00:10:53.561
+It only refills at night, when the front traveller leaves for good.
+
+136
+00:10:53.561 --> 00:10:56.457
+A Peasant for one gold is always available.
+
+137
+00:10:58.640 --> 00:11:02.332
+Each traveller has a trade and works best in their own building.
+
+138
+00:11:02.332 --> 00:11:05.853
+Anyone can work a farm, lumber camp, quarry or mine.
+
+139
+00:11:05.853 --> 00:11:09.837
+Each building holds one worker, except the Barracks, which holds two.
+
+140
+00:11:11.480 --> 00:11:16.303
+At night, in order: buildings work, Blacksmiths forge arms, the creature attacks,
+
+141
+00:11:16.303 --> 00:11:20.613
+everyone eats supper, in Winter you burn firewood and mend palisades,
+
+142
+00:11:20.613 --> 00:11:24.476
+before Spring you pay wages, and then the Crossroads changes.
+
+143
+00:11:24.476 --> 00:11:29.633
+For every food, wood or gold you are short, a villager leaves and you lose a point.
+
+144
+00:11:32.280 --> 00:11:37.295
+Your defense adds up: one from the Keep, one per set of arms, your Guards and Knights,
+
+145
+00:11:37.295 --> 00:11:42.736
+the wall on the side being attacked, and anything tonight’s places gave you. Watchtowers,
+
+146
+00:11:42.736 --> 00:11:49.671
+the Wizard’s Tower and the Archers and Wizard inside them only count if the attack comes from a side close enough.
+
+147
+00:11:49.671 --> 00:11:53.100
+Flyers ignore walls, but not the crossbows on them.
+
+148
+00:11:56.040 --> 00:12:00.863
+If your defense is at least the creature’s strength, you drive it off and win its trophy.
+
+149
+00:12:00.863 --> 00:12:05.408
+If not, it might take resources, knock down a wall, carry off a villager,
+
+150
+00:12:05.408 --> 00:12:10.075
+turn one to stone, or burn a building. This table explains each one.
+
+151
+00:12:12.120 --> 00:12:14.255
+Goals and events have their own tab.
+
+152
+00:12:14.255 --> 00:12:20.073
+It lists all twelve goals, with this year’s three ticked, and every event with all of its choices.
+
+153
+00:12:21.320 --> 00:12:25.929
+The Buildings tab shows every building, its cost, its land and its points.
+
+154
+00:12:25.929 --> 00:12:29.280
+Buildings with a job only score while someone works there.
+
+155
+00:12:29.280 --> 00:12:34.679
+Houses sleep four, and Wells give water for five more villagers. Neighbours matter too:
+
+156
+00:12:34.679 --> 00:12:39.139
+a House next to a Chapel scores a point, but next to a noisy Smithy,
+
+157
+00:12:39.139 --> 00:12:41.672
+Barracks or Market it sleeps one fewer.
+
+158
+00:12:44.600 --> 00:12:49.295
+Three buildings are wonders: the Castle, the Wizard’s Tower and the Cathedral.
+
+159
+00:12:49.295 --> 00:12:54.089
+Only one village can build each, and you need five or seven villagers first.
+
+160
+00:12:55.520 --> 00:13:00.513
+The Villagers tab shows all seventeen kinds of traveller: their price, what they do,
+
+161
+00:13:00.513 --> 00:13:05.393
+where they work and their points. A Steward gives you an extra worker every round.
+
+162
+00:13:06.840 --> 00:13:11.279
+Round one is always the Wolf pack. Creatures get stronger every year:
+
+163
+00:13:11.279 --> 00:13:14.971
+strength three or four in year one, seven to nine in year two,
+
+164
+00:13:14.971 --> 00:13:17.397
+and thirteen or fourteen in year three.
+
+165
+00:13:19.000 --> 00:13:23.247
+Every creature attacks from one side, shown on the map once you can see it.
+
+166
+00:13:23.247 --> 00:13:27.259
+Flyers come over the walls, so only a crossbow on that wall helps.
+
+167
+00:13:27.259 --> 00:13:32.075
+Each card shows the trophy for driving it off, and the damage if it breaks through.
+
+168
+00:13:34.080 --> 00:13:38.049
+At the end, points come from renown, staffed buildings, villagers,
+
+169
+00:13:38.049 --> 00:13:44.429
+one per stone or iron wall, three for walls on all six sides, one per five leftover gold,
+
+170
+00:13:44.429 --> 00:13:47.033
+and everything you won from the yearly goals.
+
+171
+00:13:47.033 --> 00:13:50.228
+On a tie, the village with more villagers wins.
+
+172
+00:13:52.520 --> 00:13:56.035
+And at the bottom are some strategy tips to get you started.
+
+173
+00:13:59.040 --> 00:14:01.409
+Let’s skip ahead to the end of year three.
+
+174
+00:14:01.409 --> 00:14:06.865
+Scores stay hidden all game, so the end is a big reveal, one category at a time.
+
+175
+00:14:12.200 --> 00:14:17.044
+Each category is added up for both villages, and the winner is crowned at the end.
+
+176
+00:14:17.044 --> 00:14:20.772
+From here you can start a new game, or go back to the lobby.
+
+177
+00:14:22.880 --> 00:14:27.617
+Remember: watch tonight’s threat, keep food for Winter and gold for wages,
+
+178
+00:14:27.617 --> 00:14:33.123
+build outward with care, and use every worker each round. Your game saves as you play,
+
+179
+00:14:33.123 --> 00:14:35.876
+and when you are signed in it is kept in your account,
+
+180
+00:14:35.876 --> 00:14:38.160
+so you can carry on from any device.
+
+181
+00:14:38.160 --> 00:14:42.343
+You can keep several games going from Your games on the Board Game Shelf.
+
+182
+00:14:42.343 --> 00:14:46.077
+To play a friend online, pick Online when you start a new game.
+
+183
+00:14:46.077 --> 00:14:48.739
 Good luck, and have fun building your village!
 
