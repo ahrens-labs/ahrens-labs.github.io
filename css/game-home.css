@@ -45,4 +45,4 @@
   .gh-title { left: 1rem; right: 1rem; bottom: 0.8rem; }
 }
 
-.gh-dice { width: 1.25rem; height: 1.25rem; border-radius: 22%; box-shadow: 0 0 0 1.5px rgba(255, 224, 138, 0.6); }
+.gh-dice { width: 1.3rem; height: 1.3rem; filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.4)); }

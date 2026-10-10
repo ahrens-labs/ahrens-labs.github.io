@@ -335,9 +335,10 @@ button { font-family: inherit; }
 .warn-pill { background: #ffe1dc; color: #8e1c12; }
 .ok-pill { background: #e5f5dc; color: var(--good); }
 #row.flash { animation: flash 1s ease; }
-.vrow { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0.9rem 0.7rem; padding-top: 0.4rem; }
-.vwrap { display: grid; grid-template-columns: minmax(150px, 180px) minmax(0, 1fr); gap: 0.9rem; align-items: start; }
-.vpeasant { display: grid; padding: 0.4rem 0.9rem 0 0; border-right: 3px dashed #d9c08a; align-self: stretch; }
+/* Every Crossroads card, the Peasant included, is the same width; one row so they share a height too. */
+.vwrap { --vcw: 172px; display: grid; grid-template-columns: calc(var(--vcw) + 0.9rem + 3px) minmax(0, 1fr); gap: 0.7rem; align-items: stretch; }
+.vrow { display: grid; grid-auto-flow: column; grid-auto-columns: var(--vcw); gap: 0.7rem; overflow-x: auto; padding: 0.6rem 0.2rem 0.4rem; }
+.vpeasant { display: grid; padding: 0.6rem 0.9rem 0.4rem 0; border-right: 3px dashed #d9c08a; }
 .vcard {
   position: relative; border-radius: 14px; padding: 0.5rem 0.55rem 0.6rem; cursor: pointer;
   background: linear-gradient(180deg, #fffdf6, #f3e3bd); box-shadow: 0 0 0 2px #d9c08a, 0 6px 12px rgba(0, 0, 0, 0.18);
@@ -568,9 +569,8 @@ button { font-family: inherit; }
   #svg { max-height: none; }
   #row { margin: 0 0.8rem 1rem; }
   .lower { padding: 0 0.8rem 2rem; }
-  .vrow { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 82%; overflow-x: auto; padding: 0.6rem 0.2rem 0.3rem; }
-  .vwrap { grid-template-columns: 40% minmax(0, 1fr); gap: 0.55rem; }
-  .vpeasant { padding: 0.6rem 0.55rem 0 0; }
+  .vwrap { --vcw: 42vw; grid-template-columns: calc(var(--vcw) + 0.55rem + 3px) minmax(0, 1fr); gap: 0.55rem; }
+  .vpeasant { padding-right: 0.55rem; }
   .acts-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .names { grid-template-columns: 1fr; }
   .dcols { grid-template-columns: 1fr; }
@@ -872,3 +872,15 @@ table.lg-end td b, table.lg-end td small { display: block; margin: 0; }
 .meeple .mp { width: 1.45rem; height: 1.45rem; }
 .crowd i .mp { width: 1.1rem; height: 1.1rem; }
 .mp.tipm { width: 1.1em; height: 1.1em; }
+
+/* Gold coin (replaces the 🪙 emoji, which some systems draw silver). */
+.gc { display: inline-block; width: 0.95em; height: 0.95em; margin: 0 0.04em; border-radius: 50%; vertical-align: -0.13em;
+  background: radial-gradient(circle at 34% 30%, #fff6b8 0 10%, #ffd84a 34%, #f0b000 66%, #b97a00 100%);
+  box-shadow: inset 0 0 0 0.07em #9a6400, inset 0 0 0 0.15em #ffe27a, 0 0.05em 0.08em rgba(0, 0, 0, 0.35); }
+
+/* Phones: the turn line shows only each player's meeples. */
+@media (max-width: 720px) {
+  #banner .who .wn, #banner .who > i, #banner .acts { display: none; }
+  #banner .who { letter-spacing: 0; gap: 0.1rem; padding: 0.1rem 0.4rem; border-radius: 999px; background: rgba(0, 0, 0, 0.25); }
+  #banner .who .mp { width: 1.05rem; height: 1.05rem; }
+}

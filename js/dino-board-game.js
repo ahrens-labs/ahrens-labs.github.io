@@ -3788,7 +3788,7 @@
     const floaters = ['coin', 'diamond', 'meat', 'plant', 'coin', 'fence', 'water', 'diamond']
       .map((t, i) => `<img class="floater f${i}" src="${IMG}${t}.webp" alt="">`)
       .join('');
-    return `<div class="gh-top"><a class="gh-lobby" href="/board-games.html" title="Back to the game lobby">← <img class="gh-dice" src="/img/board-games-icon-32.png?v=1" alt="" width="20" height="20"> Game lobby</a></div>
+    return `<div class="gh-top"><a class="gh-lobby" href="/board-games.html" title="Back to the game lobby">← <img class="gh-dice" src="/img/board-games-favicon-48.png?v=2" alt="" width="20" height="20"> Game lobby</a></div>
       <div class="gh-hero">
         <img class="gh-hero-img" src="${IMG}cover.webp" alt="Dinosaurs in fenced enclosures in a jungle park">
         <div class="gh-shade"></div>

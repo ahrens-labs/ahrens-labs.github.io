@@ -180,7 +180,7 @@
     const back = encodeURIComponent(location.pathname.replace(/^\//, '') + location.search);
     $('#app').innerHTML = `
       <div class="setup gh">
-        <div class="gh-top"><a class="gh-lobby" href="/board-games.html" title="Back to the game lobby">← <img class="gh-dice" src="/img/board-games-icon-32.png?v=1" alt="" width="20" height="20"> Game lobby</a></div>
+        <div class="gh-top"><a class="gh-lobby" href="/board-games.html" title="Back to the game lobby">← <img class="gh-dice" src="/img/board-games-favicon-48.png?v=2" alt="" width="20" height="20"> Game lobby</a></div>
         <div class="gh-hero">
           <img src="${IMG('cover')}" alt="" class="gh-hero-img">
           <div class="gh-shade"></div>
@@ -214,7 +214,7 @@
     document.body.className = 'setup-mode';
     $('#app').innerHTML = `
       <div class="setup gh">
-        <div class="gh-top"><a class="gh-lobby" href="/board-games.html" title="Back to the game lobby">← <img class="gh-dice" src="/img/board-games-icon-32.png?v=1" alt="" width="20" height="20"> Game lobby</a></div>
+        <div class="gh-top"><a class="gh-lobby" href="/board-games.html" title="Back to the game lobby">← <img class="gh-dice" src="/img/board-games-favicon-48.png?v=2" alt="" width="20" height="20"> Game lobby</a></div>
         <div class="gh-hero">
           <img src="${IMG('cover')}" alt="" class="gh-hero-img">
           <div class="gh-shade"></div>
@@ -429,7 +429,7 @@
     else {
       const p = s.players[s.turn];
       const dots = s.players
-        .map((q, i) => `<span class="who" style="--pc:${PCOLOR[i]}" title="Workers left"><i></i>${esc(q.name)} ${q.done ? '<small>done</small>' : meeple(PCOLOR[i]).repeat(Math.max(0, q.workers)) || '<small>no workers</small>'}</span>`)
+        .map((q, i) => `<span class="who" style="--pc:${PCOLOR[i]}" title="${esc(q.name)}: workers left"><i></i><span class="wn">${esc(q.name)}</span> ${q.done ? '<small>done</small>' : meeple(PCOLOR[i]).repeat(Math.max(0, q.workers)) || '<small>no workers</small>'}</span>`)
         .join('');
       const what = p.workers > 0 ? `${plural(p.workers, 'worker')} to place` : 'free actions, then End round';
       b = p.ai
@@ -2136,7 +2136,7 @@
     document.body.className = 'setup-mode';
     $('#app').innerHTML = `
       <div class="setup gh">
-        <div class="gh-top"><a class="gh-lobby" href="/board-games.html" title="Back to the game lobby">← <img class="gh-dice" src="/img/board-games-icon-32.png?v=1" alt="" width="20" height="20"> Game lobby</a><button class="btn ghost sm" id="hist-new">🏰 New game</button></div>
+        <div class="gh-top"><a class="gh-lobby" href="/board-games.html" title="Back to the game lobby">← <img class="gh-dice" src="/img/board-games-favicon-48.png?v=2" alt="" width="20" height="20"> Game lobby</a><button class="btn ghost sm" id="hist-new">🏰 New game</button></div>
         <div class="setup-card gh-card panel hist">
           <h2>🏆 Game history</h2>
           <div id="hist-body"><p class="muted">Loading your games…</p></div>
@@ -2922,6 +2922,35 @@
 
   // ---------------------------------------------------------------- boot
   const saved = loadSave();
+  // Some systems draw the 🪙 emoji silver; gold is always shown as a drawn gold coin.
+  const COIN = '🪙';
+  function goldify(root) {
+    const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, { acceptNode: (n) => (n.nodeValue.includes(COIN) && !n.parentNode.closest('textarea, input, script, style') ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP) });
+    const hits = [];
+    while (w.nextNode()) hits.push(w.currentNode);
+    for (const n of hits) {
+      const frag = document.createDocumentFragment();
+      n.nodeValue.split(COIN).forEach((part, i) => {
+        if (i) {
+          const c = document.createElement('span');
+          c.className = 'gc';
+          c.setAttribute('role', 'img');
+          c.setAttribute('aria-label', 'gold');
+          frag.appendChild(c);
+        }
+        if (part) frag.appendChild(document.createTextNode(part));
+      });
+      n.parentNode.replaceChild(frag, n);
+    }
+  }
+  goldify(document.body);
+  new MutationObserver((muts) => {
+    for (const m of muts) {
+      if (m.type === 'characterData') { if (m.target.parentNode && m.target.nodeValue.includes(COIN)) goldify(m.target.parentNode); continue; }
+      m.addedNodes.forEach((n) => { if (n.nodeType === 1) goldify(n); else if (n.nodeType === 3 && n.parentNode && n.nodeValue.includes(COIN)) goldify(n.parentNode); });
+    }
+  }).observe(document.body, { childList: true, subtree: true, characterData: true });
+
   const params = new URLSearchParams(location.search);
   const linked = params.get('game');
   const mem = savedOnline();

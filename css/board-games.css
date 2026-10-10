@@ -1,16 +1,16 @@
 * { box-sizing: border-box; }
 html, body { margin: 0; min-height: 100%; }
-html { background: #24122a; }
+html { background: #0f2a1f; }
 body {
   min-height: 100vh;
   font-family: "Fredoka", system-ui, sans-serif;
   color: #fbf1d9;
   background:
-    radial-gradient(ellipse at 50% -10%, rgba(255, 196, 140, 0.22), transparent 60%),
+    radial-gradient(ellipse at 50% -10%, rgba(255, 226, 160, 0.2), transparent 60%),
     radial-gradient(ellipse at 50% 120%, rgba(0, 0, 0, 0.55), transparent 65%),
-    repeating-linear-gradient(45deg, rgba(255, 224, 138, 0.045) 0 1.5px, transparent 1.5px 34px),
-    repeating-linear-gradient(-45deg, rgba(255, 224, 138, 0.045) 0 1.5px, transparent 1.5px 34px),
-    linear-gradient(180deg, #4a2350, #3a1d40 55%, #24122a);
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.018) 0 1px, transparent 1px 4px),
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.05) 0 1px, transparent 1px 5px),
+    linear-gradient(180deg, #2a6047, #1e4d39 55%, #0f2a1f);
   background-attachment: fixed;
   -webkit-font-smoothing: antialiased;
 }
@@ -20,7 +20,7 @@ h1, h2 { font-family: "Lilita One", "Fredoka", sans-serif; font-weight: 400; let
 .back { color: #ffe08a; text-decoration: none; font-weight: 600; font-size: 0.95rem; }
 .back:hover { text-decoration: underline; }
 .lobby-title { display: flex; align-items: center; gap: 1rem; margin-top: 0.8rem; }
-.dice { width: 4rem; height: 4rem; border-radius: 22%; box-shadow: 0 0 0 3px rgba(255, 224, 138, 0.55), 0 8px 18px rgba(0, 0, 0, 0.45); animation: roll 4s ease-in-out infinite; display: inline-block; flex: 0 0 auto; }
+.dice { width: 4.2rem; height: 4.2rem; filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.5)); animation: roll 4s ease-in-out infinite; display: inline-block; flex: 0 0 auto; }
 .lobby-title h1 { margin: 0; font-size: clamp(2rem, 5vw, 3rem); color: #ffe08a; text-shadow: 0 4px 0 rgba(0, 0, 0, 0.45); }
 .lobby-title p { margin: 0.2rem 0 0; color: rgba(251, 241, 217, 0.85); font-size: 1.05rem; }
 
