@@ -738,6 +738,19 @@ button.ev-opt:hover:not(:disabled) { background: #fff1c9; box-shadow: inset 0 0 
 .gcard.ev ul { margin: 0.3rem 0 0; padding-left: 1.1rem; font-size: 0.85rem; }
 .goal-past { display: flex; flex-wrap: wrap; gap: 0.3rem 0.9rem; margin-top: 0.5rem; font-size: 0.82rem; color: var(--ink-2, #5a4630); }
 .goal-past i { font-style: normal; margin-left: 0.3rem; padding: 0 0.35rem; border-radius: 999px; box-shadow: inset 0 0 0 2px var(--pc); }
+.dusk [hidden] { display: none !important; }
+.dnav { position: relative; display: flex; flex-wrap: wrap; gap: 0.3rem; list-style: none; margin: 0.2rem 0 0.4rem; padding: 0; }
+.dnav li { font-size: 0.78rem; font-weight: 700; padding: 0.15rem 0.6rem; border-radius: 999px; background: rgba(255, 255, 255, 0.12); color: rgba(255, 255, 255, 0.55); }
+.dnav li.done { color: rgba(255, 255, 255, 0.85); }
+.dnav li.on { background: #ffe08a; color: #3a2a12; }
+.dnote { position: relative; margin: 0 0 0.6rem; color: #fff; font-size: 0.95rem; max-width: 40rem; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5); }
+.dnext { justify-content: flex-end; margin-top: 0.8rem; }
+.dusk.stepped .dstep, .dusk.stepped .dusk-goals, .dusk.stepped .crossroads { animation: rise 0.35s ease both; animation-delay: 0s; }
+.dusk.stepped .gain { animation-delay: 0.3s; }
+.dusk.stepped .bar span { animation-delay: 0.4s; }
+.dusk.stepped .stamp { animation-delay: 1.1s; }
+.dusk.stepped .dcol.breach { animation-delay: 1.2s; }
+.dusk.stepped.shake { animation-delay: 1.1s; }
 .dusk-goals { margin: 0.8rem 0 0; padding: 0.6rem 0.8rem; border-radius: 12px; background: rgba(255, 248, 230, 0.92); color: #2b1d0e; }
 .dusk-goals h3 { margin: 0 0 0.4rem; font-size: 1rem; }
 .dusk-goals ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.3rem; }
@@ -753,6 +766,11 @@ button.ev-opt:hover:not(:disabled) { background: #fff1c9; box-shadow: inset 0 0 
 .bchip small { color: var(--ink-2, #6b5a44); font-size: 0.75rem; }
 .bchip.on { box-shadow: inset 0 0 0 3px var(--gold, #f2c14e); background: #fff3c4; }
 .bchip:disabled { opacity: 0.45; cursor: not-allowed; }
+.bchip:not(:disabled):hover { box-shadow: inset 0 0 0 3px var(--gold, #f2c14e); }
+.bchip.sugg { box-shadow: inset 0 0 0 3px var(--gold, #f2c14e); background: #fff3c4; }
+.bchip small.good { color: #2e7d32; }
+.bchip small.warn { color: #b26a00; }
+.b-sugg { font-style: normal; font-size: 0.68rem; font-weight: 700; color: #8a6100; text-transform: uppercase; letter-spacing: 0.04em; }
 .pchip.busy { background: repeating-linear-gradient(135deg, #fff3cd 0 8px, #ffe8a3 8px 16px); box-shadow: inset 0 0 0 2px #e0a100; }
 .pchip.busy img { filter: grayscale(0.4); opacity: 0.8; }
 .pchip .away-note { display: block; color: #8a5a00; font-weight: 700; }
@@ -765,3 +783,19 @@ button.ev-opt:hover:not(:disabled) { background: #fff1c9; box-shadow: inset 0 0 
 .away-ico { font-size: 8px; text-anchor: middle; pointer-events: none; }
 .site-builder { pointer-events: none; }
 .site-builder .away-ico { font-size: 9px; }
+
+/* ---------- dusk, step by step ---------- */
+.dusk [hidden] { display: none !important; }
+.dnav { display: flex; flex-wrap: wrap; gap: 0.3rem; list-style: none; margin: 0.4rem 0 0; padding: 0; position: relative; }
+.dnav li { font-size: 0.78rem; font-weight: 700; padding: 0.2rem 0.6rem; border-radius: 999px; background: rgba(255, 255, 255, 0.14); color: rgba(255, 255, 255, 0.6); }
+.dnav li.done { color: rgba(255, 255, 255, 0.85); }
+.dnav li.on { background: #ffe08a; color: #3a2a12; box-shadow: 0 0 12px rgba(255, 224, 138, 0.6); }
+.dnote { position: relative; color: #fff; margin: 0.5rem 0 0.2rem; min-height: 2.6em; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5); }
+.dusk.stepped .dstep { animation-delay: 0s; }
+.dusk.stepped .gain { animation-delay: 0.3s; }
+.dusk.stepped .bar span { animation-delay: 0.4s; }
+.dusk.stepped .stamp { animation-delay: 1s; }
+.dusk.stepped .dcol.breach { animation-delay: 1.1s; }
+.dusk.stepped.shake { animation-delay: 0.9s; }
+.dusk .dnext { justify-content: flex-end; margin-top: 0.9rem; }
+.dusk > [data-close] { display: block; margin: 0.9rem 0 0 auto; }

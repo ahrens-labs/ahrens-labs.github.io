@@ -149,9 +149,6 @@ function cleanAction(a) {
       const trades = a.trades.map((x) => (Array.isArray(x) && RES.has(x[0]) && RES.has(x[1]) ? [x[0], x[1]] : null));
       return trades.every(Boolean) ? { t: 'trade', trades } : null;
     }
-    case 'builder':
-      if (!isInt(a.v) || !(a.site === 'castle' || isInt(+a.site))) return null;
-      return { t: 'builder', site: a.site === 'castle' ? 'castle' : String(+a.site), v: a.v };
     case 'move':
       if (!isInt(a.v) || (a.to != null && !isInt(a.to))) return null;
       return { t: 'move', v: a.v, to: a.to == null ? null : a.to };

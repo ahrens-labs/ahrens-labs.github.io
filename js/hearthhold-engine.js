@@ -80,7 +80,7 @@
     baker: { name: 'Baker', cost: 2, at: 'bakery', pts: 2, text: 'Bakery: 🍞1 per Farm you have (at least 🍞2) every round — even in Winter.' },
     carpenter: { name: 'Carpenter', cost: 3, at: 'workshop', pts: 2, text: 'Workshop: 🪵2 every round, and everything you build costs 🪵1 less.' },
     blacksmith: { name: 'Blacksmith', cost: 3, at: 'smithy', pts: 2, text: 'Smithy: forges 🔩1 into 1 set of arms every round. Each set adds 🛡️1 on every side (max 6).' },
-    merchant: { name: 'Merchant', cost: 3, at: 'market', pts: 2, text: 'Market: 🪙3 every round, and your trades are 2 for 1 instead of 3 for 1.' },
+    merchant: { name: 'Merchant', cost: 3, at: 'market', pts: 2, text: 'Market: 🪙2 every round, and your trades are 2 for 1 instead of 3 for 1.' },
     priest: { name: 'Priest', cost: 3, at: 'chapel', pts: 2, text: 'Chapel: ⭐1 every round and 🛡️4 against the undead.' },
     guard: { name: 'Guard', cost: 2, at: 'barracks', pts: 2, text: 'Barracks: 🛡️2 on every side.' },
     knight: { name: 'Knight', cost: 4, iron: 1, at: 'barracks', pts: 3, text: 'Barracks: 🛡️4 on every side.' },
@@ -837,7 +837,7 @@
           break;
         case 'workshop': add(b.id, 'wood', 2); break;
         case 'smithy': out.forge += 1; (out.by[b.id] = out.by[b.id] || {}).forge = 1; break;
-        case 'market': add(b.id, 'gold', 3); break;
+        case 'market': add(b.id, 'gold', 2); break;
         case 'chapel': add(b.id, 'renown', 1); break;
         case 'bakery': add(b.id, 'food', Math.max(2, farms)); break;
         case 'wizardtower': add(b.id, 'renown', 1); break;
@@ -997,15 +997,6 @@
           if (!v) return 'Pick a villager to build it.';
           if (hasBuilt(p, v)) return `That ${VIL[v.k].name} is still building — they’re free once that building is finished.`;
         } else if (!builderFor(p)) return 'Everyone is busy building — nobody is free until those buildings are finished.';
-        return null;
-      }
-      case 'builder': {
-        const by = (p.flags && p.flags.by) || {};
-        if (by[a.site] == null) return 'Nothing is being built there.';
-        const v = p.vil.find((x) => x.id === a.v);
-        if (!v) return 'Pick a villager to build it.';
-        if (v.id === by[a.site]) return 'They are already building it.';
-        if (busy(p, v)) return `That ${VIL[v.k].name} is busy building something else.`;
         return null;
       }
       case 'wall': {
@@ -1226,26 +1217,6 @@
         // Which villager is building which site (shown on the board until the round ends).
         p.flags.by = Object.assign({}, p.flags.by, { [site]: by.id });
         msg = `built ${BUILD[a.b].wonder ? 'the ' : 'a '}${BUILD[a.b].name} (a ${VIL[by.k].name} built it)`;
-        break;
-      }
-      case 'builder': {
-        // Swap who builds a site: the new builder leaves their job, the old one goes back to work tonight.
-        const old = p.vil.find((x) => x.id === p.flags.by[a.site]);
-        const nv = p.vil.find((x) => x.id === a.v);
-        const swap = (list) => (list || []).filter((id) => id !== (old && old.id)).concat(nv.id);
-        p.flags.busy = swap(p.flags.busy);
-        p.flags.built = swap(p.flags.built);
-        p.flags.by = Object.assign({}, p.flags.by, { [a.site]: nv.id });
-        nv.at = null;
-        if (old) {
-          old.at = null;
-          placeVillager(p, old, true);
-        }
-        p.vil.filter((v) => v.at == null && !busy(p, v)).forEach((v) => placeVillager(p, v, true));
-        const bld = a.site === 'castle' ? null : bldById(p, +a.site);
-        if (bld && VIL[nv.k].at === bld.b && occupants(p, bld.id).length < slotsOf(bld.b)) nv.at = bld.id;
-        const what = bld ? BUILD[bld.b].name : 'Castle';
-        msg = old && old.k === nv.k ? `swapped which ${VIL[nv.k].name} is building the ${what}` : `put a ${VIL[nv.k].name} on building the ${what}${old ? ` instead of the ${VIL[old.k].name}` : ''}`;
         break;
       }
       case 'wall': {

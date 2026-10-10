@@ -1080,6 +1080,7 @@
     const s = st();
     const pi = a.t === 'move' ? G.view : s.turn;
     const before = s.players[pi].bld.length;
+    const vilBefore = s.players[pi].vil.map((v) => ({ id: v.id, k: v.k }));
     try {
       E.apply(s, pi, a);
     } catch (err) {
@@ -1088,9 +1089,82 @@
     }
     const p = s.players[pi];
     if (a.t === 'build' && p.bld.length > before) ui.fresh.add(p.bld[p.bld.length - 1].id);
-    if (a.t === 'recruit') toast(`${esc(p.name)} took in a <b>${E.VIL[p.vil[p.vil.length - 1].k].name}</b>.`);
     if (a.t === 'place') toast(`🧍 ${esc(s.log[s.log.length - 1].text)}`);
+    const fresh = p.ai || G.mode === 'sim' ? [] : newcomers(vilBefore, p);
+    if (fresh.length) {
+      save();
+      render();
+      askPlacement(pi, fresh, afterAction);
+      return;
+    }
+    if (a.t === 'recruit') toast(`${esc(p.name)} took in a <b>${E.VIL[p.vil[p.vil.length - 1].k].name}</b>.`);
     afterAction();
+  }
+
+  // Villagers who just joined (or learned a new trade) since `before`.
+  function newcomers(before, p) {
+    const old = new Map(before.map((v) => [v.id, v.k]));
+    return p.vil.filter((v) => old.get(v.id) !== v.k).map((v) => v.id);
+  }
+
+  // Ask where each newcomer should work, one at a time, then carry on with `done`.
+  function askPlacement(pi, ids, done) {
+    const s = st();
+    const p = s.players[pi];
+    const v = p.vil.find((x) => x.id === ids[0]);
+    const next = () => (ids.length > 1 ? askPlacement(pi, ids.slice(1), done) : done());
+    if (!v || E.busy(p, v)) return next();
+    const V = E.VIL[v.k];
+    const here = v.at != null && p.bld.find((b) => b.id === v.at);
+    const how = (b) => (E.canWork(v.k, b.b) === 'spec' ? 'own trade ★' : 'labor');
+    const yields = (b) => {
+      const t = E.clone(p);
+      t.vil.find((x) => x.id === v.id).at = b ? b.id : null;
+      const pr = E.production(t, season()).by;
+      const out = b && pr[b.id];
+      return out ? Object.entries(out).map(([r, n]) => (r === 'forge' ? '⚒️' : `${r === 'renown' ? '⭐' : E.RES_ICON[r]}${n}`)).join(' ') : '';
+    };
+    const chip = (b, on) => {
+      const y = yields(b);
+      return `<button class="pchip${on ? ' on' : ''}${b && E.canWork(v.k, b.b) === 'spec' ? ' spec' : ''}" data-to="${b ? b.id : 'idle'}">${b ? `<img src="${IMG(b.b)}" alt="">` : ''}<span><b>${b ? E.BUILD[b.b].name : 'Rest'}</b><small>${b ? `${how(b)}${y ? ` · ${y} a round` : ''}` : 'stay idle'}</small></span></button>`;
+    };
+    const targets = E.moveTargets(p, v);
+    const back = openModal(`
+      <div class="binfo">
+        <div class="b-art big v"><img src="${IMG(v.k)}" alt=""></div>
+        <div>
+          <h2>🏡 Where should your ${V.name} work?</h2>
+          <p>${V.text}</p>
+          <p class="muted">${here ? `They’d start at the <b>${E.BUILD[here.b].name}</b> — keep that or pick another job.` : 'They have no job yet — pick one, or let them rest.'} You can move villagers for free any time on your turn.</p>
+          <div class="pchips">
+            ${here ? chip(here, true) : ''}
+            ${targets.map((b) => chip(b, false)).join('')}
+            ${chip(null, !here)}
+          </div>
+        </div>
+      </div>`, { onClose: next });
+    back.addEventListener('click', (e) => {
+      const t = e.target.closest('[data-to]');
+      if (!t) return;
+      const to = t.dataset.to === 'idle' ? null : +t.dataset.to;
+      ui.onClose = null;
+      closeModal();
+      if (to === (v.at == null ? null : v.at)) return next();
+      const a = { t: 'move', v: v.id, to };
+      if (G.mode === 'online') {
+        sendOnline(a);
+        const wait = () => (net.pending ? setTimeout(wait, 150) : next());
+        return wait();
+      }
+      try {
+        E.apply(st(), pi, a);
+      } catch (err) {
+        toast(esc(err.message), 'bad');
+      }
+      save();
+      render();
+      next();
+    });
   }
 
   function afterAction() {
@@ -1209,41 +1283,64 @@
         </div>
       </button>`;
     };
-    const free = E.freeBuilders(p);
-    const sugg = E.builderFor(p);
-    if (!free.some((v) => v.id === ui.builder)) ui.builder = sugg ? sugg.id : null;
-    const vWhere = (v) => {
-      const b = v.at != null && p.bld.find((x) => x.id === v.at);
-      return b && E.canWork(v.k, b.b) ? `${E.BUILD[b.b].name}${E.canWork(v.k, b.b) === 'spec' ? ' ★' : ''}` : 'Idle';
-    };
-    const builders = p.vil.length
-      ? `<div class="builders"><b>🔨 Who builds it?</b> <span class="muted">They leave their job — anyone idle steps into it — and won’t work or defend until the building is finished. It opens next season, when they take a free job — or right away if you send a worker to the Work crew, which frees them to work or build again. A free Peasant is picked first, and you can swap the builder later by clicking the building site.</span><div class="bchips">${p.vil
-          .map((v) => {
-            const isBusy = E.hasBuilt(p, v);
-            return `<button class="bchip${v.id === ui.builder ? ' on' : ''}" data-builder="${v.id}" ${isBusy ? 'disabled title="Still building — free once that building is finished"' : ''}><img src="${IMG(v.k)}" alt=""><span><b>${E.VIL[v.k].name}</b><small>${isBusy ? '🔨 building' : esc(vWhere(v))}</small></span></button>`;
-          })
-          .join('')}</div></div>`
-      : '';
-    const none = !free.length ? '<p class="b-why">Everyone is busy building — nobody is free until those buildings are finished (next season, or now with the Work crew).</p>' : '';
-    const back = openModal(`<h2>🏗️ Build</h2><p class="muted">Your stores: ${E.RES.map((r) => `${E.RES_ICON[r]}${p.res[r]}`).join(' ')}${E.tradeRate(p) === E.TRADE_RATE_GOOD ? ` · trades are ${E.TRADE_RATE_GOOD}:1 for you` : ` · short? Trading (${E.TRADE_RATE}:1) is free.`}</p>${builders}${none}<div class="bgrid">${E.BUILD_ORDER.map(card).join('')}</div>`, { cls: 'wide' });
+    const none = !E.freeBuilders(p).length ? '<p class="b-why">Everyone is busy building — nobody is free until those buildings are finished (next season, or now with the Work crew).</p>' : '';
+    const back = openModal(`<h2>🏗️ Build</h2><p class="muted">Your stores: ${E.RES.map((r) => `${E.RES_ICON[r]}${p.res[r]}`).join(' ')}${E.tradeRate(p) === E.TRADE_RATE_GOOD ? ` · trades are ${E.TRADE_RATE_GOOD}:1 for you` : ` · short? Trading (${E.TRADE_RATE}:1) is free.`}</p>${none}<div class="bgrid">${E.BUILD_ORDER.map(card).join('')}</div>`, { cls: 'wide' });
     back.addEventListener('click', (e) => {
-      const bc = e.target.closest('[data-builder]');
-      if (bc && !bc.disabled) {
-        ui.builder = +bc.dataset.builder;
-        back.querySelectorAll('[data-builder]').forEach((x) => x.classList.toggle('on', x === bc));
-        return;
-      }
       const c = e.target.closest('[data-pick]');
       if (!c || c.classList.contains('off')) return;
-      const b = c.dataset.pick;
       if (!myTurnHere()) return;
       ui.onClose = null;
       closeModal();
-      if (E.BUILD[b].upgrade) {
-        doAction({ t: 'build', b, cell: null, by: ui.builder });
+      showBuilderPick(c.dataset.pick);
+    });
+  }
+
+  // Step two of building: choose who builds it. The choice is final once the building is placed.
+  function showBuilderPick(b) {
+    const p = me();
+    const B = E.BUILD[b];
+    const sugg = E.builderFor(p);
+    const job = (v) => {
+      const at = v.at != null && p.bld.find((x) => x.id === v.at);
+      const how = at && E.canWork(v.k, at.b);
+      if (!how) return { txt: 'Idle — loses nothing', cls: 'good' };
+      return { txt: `Leaves the ${E.BUILD[at.b].name}${how === 'spec' ? ' ★' : ''}`, cls: how === 'spec' ? 'warn' : '' };
+    };
+    const chips = p.vil
+      .map((v) => {
+        const isBusy = E.hasBuilt(p, v);
+        const j = job(v);
+        return `<button class="bchip${sugg && v.id === sugg.id ? ' sugg' : ''}" data-builder="${v.id}" ${isBusy ? 'disabled title="Still building — free once that building is finished"' : ''}><img src="${IMG(v.k)}" alt=""><span><b>${E.VIL[v.k].name}</b><small class="${isBusy ? '' : j.cls}">${isBusy ? '🔨 already building' : esc(j.txt)}</small>${sugg && v.id === sugg.id ? '<em class="b-sugg">Suggested</em>' : ''}</span></button>`;
+      })
+      .join('');
+    const back = openModal(`
+      <div class="binfo">
+        <div class="b-art big" style="--bc:${B.color}"><img src="${IMG(b)}" alt=""></div>
+        <div>
+          <h2>🔨 Who builds the ${B.name}?</h2>
+          <p class="muted">The builder leaves their job — anyone idle steps into it — and spends the rest of the round on the site: no work, no defending, and no other building until it’s finished. It opens next season, or right away if you send a worker to the Work crew. Idle Peasants make the cheapest builders.</p>
+          <p class="warn">You can’t change the builder once building starts.</p>
+        </div>
+      </div>
+      <div class="bchips">${chips}</div>
+      <div class="btn-row"><button class="btn ghost" data-back>← Pick another building</button></div>`, { cls: 'wide' });
+    back.addEventListener('click', (e) => {
+      if (e.target.closest('[data-back]')) {
+        ui.onClose = null;
+        closeModal();
+        showBuildPicker();
         return;
       }
-      ui.pick = { t: 'build', b, by: ui.builder };
+      const bc = e.target.closest('[data-builder]');
+      if (!bc || bc.disabled || !myTurnHere()) return;
+      const by = +bc.dataset.builder;
+      ui.onClose = null;
+      closeModal();
+      if (B.upgrade) {
+        doAction({ t: 'build', b, cell: null, by });
+        return;
+      }
+      ui.pick = { t: 'build', b, by };
       render();
       $('#board').scrollIntoView({ behavior: 'smooth', block: 'center' });
     });
@@ -1267,9 +1364,7 @@
     const own = canManage();
     const slots = E.slotsOf(b.b);
     const movers = own && slots && occ.length < slots ? p.vil.filter((v) => v.at !== b.id && E.canWork(v.k, b.b) && !E.busy(p, v)) : [];
-    const site = b.b === 'keep' ? 'castle' : String(b.id);
     const builder = underConstruction(p, b) ? builderOf(p, b) : null;
-    const rebuilders = builder && own && myTurnHere() ? E.freeBuilders(p) : [];
     const prodTxt = pr ? Object.entries(pr).map(([r, n]) => (r === 'forge' ? '⚒️ forges arms' : `${r === 'renown' ? '⭐' : E.RES_ICON[r]}${n}`)).join(' ') : 'nothing this round';
     const back = openModal(`
       <div class="binfo">
@@ -1278,7 +1373,6 @@
           <h2>${b.b === 'keep' && p.castle ? 'Castle' : B.name}</h2>
           <p>${B.text}${b.b === 'keep' && p.castle ? ' ' + E.BUILD.castle.text : ''}</p>
           ${builder ? `<p class="warn">🔨 Your <b>${E.VIL[builder.k].name}</b> is building it, so they’re off their usual work tonight.</p>` : ''}
-          ${rebuilders.length ? `<p><b>Change who builds it (free):</b> <span class="muted">the new builder leaves their job, and your ${E.VIL[builder.k].name} goes back to work tonight.</span></p><div class="pchips">${rebuilders.map((v) => `<button class="pchip sm" data-rebuild="${v.id}"><img src="${IMG(v.k)}" alt=""><span><b>${E.VIL[v.k].name}</b><small>${whereOf(p, v)}</small></span></button>`).join('')}</div>` : ''}
           ${occ.some((v) => E.busy(p, v)) ? `<p class="warn">🔨 ${occ.filter((v) => E.busy(p, v)).map((v) => `Your <b>${E.VIL[v.k].name}</b>`).join(' and ')} ${occ.filter((v) => E.busy(p, v)).length > 1 ? 'are' : 'is'} off building this round, so they don’t work here or defend tonight. Back next season.</p>` : ''}
           ${underConstruction(p, b) ? `<p class="warn">🚧 <b>Under construction</b> — ${b.b === 'keep' ? 'the Castle’s beds and defense' : 'it'} can’t be used until next season: no work, beds, water or defense this round. A worker at the Work crew finishes it now.</p>` : ''}
           <p><b>This round:</b> ${prodTxt}</p>
@@ -1289,16 +1383,6 @@
         </div>
       </div>`);
     back.addEventListener('click', (e) => {
-      const rb = e.target.closest('[data-rebuild]');
-      if (rb) {
-        const act = { t: 'builder', site, v: +rb.dataset.rebuild };
-        const why = E.legal(st(), G.view, act);
-        if (why) return toast(esc(why), 'bad');
-        ui.onClose = null;
-        closeModal();
-        doAction(act);
-        return;
-      }
       const mh = e.target.closest('[data-movehere]');
       if (mh) {
         ui.onClose = null;
@@ -1444,6 +1528,20 @@
     const lostLine = (o) => (o ? E.RES.filter((r) => o[r]).map((r) => `−${o[r]}${E.RES_ICON[r]}`).join(' ') : '');
     const names = (list) => list.map((k) => E.VIL[k].name).join(', ');
     const anyBreach = rep.players.some((r) => !r.attack.won);
+    const hasFrost = rep.players.some((r) => r.frost && (r.frost.fixed || r.frost.fell.length));
+    const hasWages = rep.players.some((r) => r.wages);
+    const foeFrom = B.kind === 'fly' ? `from the sky${rep.threat.side != null ? `, out of the ${sideName(rep.threat.side)}` : ''}` : `from the ${sideName(rep.threat.side)}`;
+    const steps = [
+      { k: 'work', label: '⚒️ Work', note: 'Everyone at work brings in what their building makes. Builders and idle villagers make nothing.' },
+      { k: 'night', label: '🌙 Night', note: `Night falls and the ${esc(B.name)} attacks ${foeFrom}. Each village’s defense 🛡️ meets its strength ⚔️${B.str} — match or beat it to drive it off.` },
+      { k: 'supper', label: '🍲 Supper', note: 'Every villager eats. Anyone who can’t be fed — or, in winter, kept warm — leaves the village.' },
+      hasFrost && { k: 'frost', label: '❄️ Frost', note: 'Winter frost: every palisade needs 🪵1 to mend, or it falls.' },
+      hasWages && { k: 'wages', label: '🪙 Wages', note: 'Payday: villagers want their wages. Anyone who isn’t paid leaves.' },
+      rep.goals && { k: 'goals', label: '🎯 Goals', note: `Year ${rep.goals.year} is over — the year’s goals are scored.` },
+      { k: 'morning', label: '🌅 Morning', note: 'A new season begins, and travellers come and go at the Crossroads.' },
+    ].filter(Boolean);
+    const at = (k) => steps.findIndex((x) => x.k === k);
+    const stepped = G.mode !== 'sim';
     const cols = rep.players
       .map((r, i) => {
         const p = s.players[i];
@@ -1464,36 +1562,39 @@
         const leftBits = [];
         if (r.hungry.length) leftBits.push(`${names(r.hungry)} left hungry (−${r.hungry.length}⭐)`);
         if (r.cold.length) leftBits.push(`${names(r.cold)} left — too cold (−${r.cold.length}⭐)`);
-        return `<div class="dcol${a.won ? '' : ' breach'}" style="--pc:${PCOLOR[i]}">
+        return `<div class="dcol${a.won ? '' : stepped ? ' breach-later' : ' breach'}" style="--pc:${PCOLOR[i]}">
           <h3><i></i>${esc(p.name)}</h3>
-          <div class="dstep s1"><span class="dlabel">Work</span>${resLine(r.prod)}${r.forged ? ` <span class="gain">+${r.forged}⚒️</span>` : ''}</div>
-          <div class="dstep s2"><span class="dlabel">Night</span>
+          <div class="dstep s1" data-st="${at('work')}"><span class="dlabel">Work</span>${resLine(r.prod)}${r.forged ? ` <span class="gain">+${r.forged}⚒️</span>` : ''}</div>
+          <div class="dstep s2" data-st="${at('night')}"><span class="dlabel">Night</span>
             <div class="bars"><div class="bar def"><span style="width:${pct}%"></span><b>🛡️${a.def}</b></div><div class="bar str"><span style="width:${spct}%"></span><b>⚔️${a.str}</b></div></div>
             ${out}
           </div>
-          <div class="dstep s3"><span class="dlabel">Supper</span>ate ${r.ate}🍞${r.burned ? ` · burned ${r.burned}🪵` : ''}${leftBits.length ? `<p class="bad">${leftBits.join('<br>')}</p>` : ' · <span class="good">everyone’s fed</span>'}</div>
-          ${r.frost && (r.frost.fixed || r.frost.fell.length) ? `<div class="dstep s4"><span class="dlabel">Frost</span>${r.frost.fixed ? `mended ${plural(r.frost.fixed, 'palisade')} (−${r.frost.fixed}🪵)` : ''}${r.frost.fell.length ? `<p class="bad">${r.frost.fell.map((i) => `the ${sideName(i)}`).join(', ')} palisade fell — no wood to mend it${r.frost.bows ? ` (${plural(r.frost.bows, 'crossbow')} fell with it)` : ''}</p>` : ''}</div>` : ''}
-          ${r.wages ? `<div class="dstep s5"><span class="dlabel">Wages</span>paid 🪙${r.wages.paid}${r.wages.left.length ? `<p class="bad">${names(r.wages.left)} left unpaid (−${r.wages.left.length}⭐)</p>` : ' · <span class="good">everyone paid</span>'}</div>` : ''}
+          <div class="dstep s3" data-st="${at('supper')}"><span class="dlabel">Supper</span>ate ${r.ate}🍞${r.burned ? ` · burned ${r.burned}🪵` : ''}${leftBits.length ? `<p class="bad">${leftBits.join('<br>')}</p>` : ' · <span class="good">everyone’s fed</span>'}</div>
+          ${r.frost && (r.frost.fixed || r.frost.fell.length) ? `<div class="dstep s4" data-st="${at('frost')}"><span class="dlabel">Frost</span>${r.frost.fixed ? `mended ${plural(r.frost.fixed, 'palisade')} (−${r.frost.fixed}🪵)` : ''}${r.frost.fell.length ? `<p class="bad">${r.frost.fell.map((i) => `the ${sideName(i)}`).join(', ')} palisade fell — no wood to mend it${r.frost.bows ? ` (${plural(r.frost.bows, 'crossbow')} fell with it)` : ''}</p>` : ''}</div>` : ''}
+          ${r.wages ? `<div class="dstep s5" data-st="${at('wages')}"><span class="dlabel">Wages</span>paid 🪙${r.wages.paid}${r.wages.left.length ? `<p class="bad">${names(r.wages.left)} left unpaid (−${r.wages.left.length}⭐)</p>` : ' · <span class="good">everyone paid</span>'}</div>` : ''}
         </div>`;
       })
       .join('');
     const crossroads = `${rep.leftRow ? `The ${E.VIL[rep.leftRow].name} moved on.` : ''} ${arrived.length ? `Arriving: ${arrived.map((k) => E.VIL[k].name).join(', ')}.` : ''}`;
+    const last = steps.length - 1;
     const html = `
-      <div class="dusk${anyBreach ? ' shake' : ''}">
+      <div class="dusk${stepped ? ' stepped' : anyBreach ? ' shake' : ''}">
         <div class="dusk-sky"><div class="moon"></div>${'<i class="star"></i>'.repeat(14)}</div>
         <h2>${sea.icon} Dusk — ${sea.name}, year ${E.yearOf(rep.round)}</h2>
-        <div class="dusk-foe ${B.kind === 'fly' ? 'swoop' : 'charge'}">
+        ${stepped ? `<ol class="dnav">${steps.map((x, i) => `<li data-nav="${i}">${x.label}</li>`).join('')}</ol><p class="dnote"></p>` : ''}
+        <div class="dusk-foe ${B.kind === 'fly' ? 'swoop' : 'charge'}" data-st="${at('night')}">
           <img src="${IMG(rep.threat.k)}" alt="">
-          <div><b>${B.name}</b> attacks${B.kind === 'fly' ? ` from the sky${rep.threat.side != null ? `, out of the ${sideName(rep.threat.side)}` : ''}` : ` from the ${sideName(rep.threat.side)}`}! <span class="muted">⚔️${B.str} · win ${bt.win}</span></div>
+          <div><b>${B.name}</b> attacks ${foeFrom}! <span class="muted">⚔️${B.str} · win ${bt.win}</span></div>
         </div>
         <div class="dcols">${cols}</div>
-        ${rep.goals ? `<div class="dusk-goals"><h3>🎯 Year ${rep.goals.year} goals</h3><ul>${rep.goals.list.map((x) => {
+        ${rep.goals ? `<div class="dusk-goals" data-st="${at('goals')}"><h3>🎯 Year ${rep.goals.year} goals</h3><ul>${rep.goals.list.map((x) => {
           const G2 = E.GOALS[x.g];
           const win = x.pts[0] === x.pts[1] ? (x.pts[0] ? 'Tie' : 'Nobody scores') : `${esc(s.players[x.pts[0] > x.pts[1] ? 0 : 1].name)} +⭐${Math.max(...x.pts)}`;
           return `<li><span>${G2.icon} <b>${esc(G2.name)}</b></span><span class="gl-vals">${x.v.map((n, i) => `<i style="--pc:${PCOLOR[i]}">${n}</i>`).join('')}</span><span class="dg-win">${x.pts[0] === x.pts[1] && x.pts[0] ? `Tie · +⭐${x.pts[0]} each` : win}</span></li>`;
         }).join('')}</ul></div>` : ''}
-        <p class="crossroads muted">🛤️ ${crossroads}</p>
-        <button class="btn big" data-close>${s.phase === 'over' ? 'See final scores' : `On to ${E.SEASON[E.seasonOf(s.round)].name} ${E.SEASON[E.seasonOf(s.round)].icon}`}</button>
+        <p class="crossroads muted" data-st="${last}">🛤️ ${crossroads.trim() || 'Nobody new at the Crossroads.'}</p>
+        ${stepped ? '<div class="btn-row dnext"><button class="btn ghost" data-skip>Show it all</button><button class="btn big" data-next></button></div>' : ''}
+        <button class="btn big" data-close data-st="${last}">${s.phase === 'over' ? 'See final scores' : `On to ${E.SEASON[E.seasonOf(s.round)].name} ${E.SEASON[E.seasonOf(s.round)].icon}`}</button>
       </div>`;
     render();
     openModal(html, {
@@ -1517,7 +1618,36 @@
       ui.simTimer = setTimeout(() => {
         if ($('.dusk-back')) closeModal();
       }, SIM_SPEEDS[G.speed].dusk);
+      return;
     }
+    // Step through the night one part at a time.
+    const box = $('.dusk');
+    const show = (n) => {
+      box.querySelectorAll('[data-st]').forEach((el) => {
+        el.hidden = +el.dataset.st > n || +el.dataset.st < 0;
+      });
+      box.querySelectorAll('[data-nav]').forEach((el) => {
+        el.className = +el.dataset.nav === n ? 'on' : +el.dataset.nav < n ? 'done' : '';
+      });
+      box.querySelector('.dnote').innerHTML = steps[n].note;
+      if (n >= at('night')) {
+        box.querySelectorAll('.breach-later').forEach((el) => el.classList.add('breach'));
+        if (anyBreach && n === at('night')) box.classList.add('shake');
+      }
+      const next = box.querySelector('[data-next]');
+      box.querySelector('.dnext').hidden = n >= last;
+      if (n < last) {
+        next.textContent = `Next: ${steps[n + 1].label} ▸`;
+        next.dataset.next = n + 1;
+        next.focus();
+      } else box.querySelector('[data-close]').focus();
+    };
+    box.addEventListener('click', (e) => {
+      const nx = e.target.closest('[data-next]');
+      if (nx) return show(+nx.dataset.next);
+      if (e.target.closest('[data-skip]')) show(last);
+    });
+    show(0);
   }
 
   function seasonBanner() {
@@ -2147,12 +2277,20 @@
     ui.pick = null;
     save();
     render();
-    if (s.dusk && s.dusk.round > (G.duskSeen || 0)) {
+    const fresh = s.phase === 'act' && G.status === 'active' ? newcomers(prev.players[G.me].vil, s.players[G.me]) : [];
+    const rest = () => {
+      if (st().dusk && st().dusk.round > (G.duskSeen || 0)) {
+        if (ui.modal) closeModal();
+        return showOnlineDusk();
+      }
+      if (G.status === 'over' && st().phase !== 'over' && !G.revealed) return showResigned();
+      if (prev.turn !== s.turn && s.turn === G.me && s.phase === 'act') handoff();
+    };
+    if (fresh.length) {
       if (ui.modal) closeModal();
-      return showOnlineDusk();
+      return askPlacement(G.me, fresh, rest);
     }
-    if (G.status === 'over' && s.phase !== 'over' && !G.revealed) return showResigned();
-    if (prev.turn !== s.turn && s.turn === G.me && s.phase === 'act') handoff();
+    rest();
   }
 
   // Quick online games: count down the current turn's time limit (the server enforces it).
@@ -2354,7 +2492,7 @@
       <p class="lead">Free actions don’t need a worker. On your turn you can do them <b>as often as you like</b> — before or after placing a worker — as long as you can pay.</p>
       <table class="rules-table">
         <tr><th>Action</th><th>Exactly what happens</th></tr>
-        <tr><td>🏗️ Build</td><td>Pay the cost, pick a <b>villager to build it</b>, and put the building on a free hex of the right land <b>next to one of your buildings</b>. The builder <b>leaves their job</b> (an idle villager steps into it if you have one) and spends the rest of the round on the site: they don’t work, defend or build anything else until it is finished, and next season they take any free job. Idle villagers make the best builders, and the game picks a free Peasant if you have one. Changed your mind? Click the building site to swap in another free villager — the first builder goes back to work tonight. <b>New buildings are under construction 🚧 until next season</b>: they make nothing, add no beds, water or defense, and their workers don’t work yet. A worker at the <b>Work crew</b> finishes them early and frees your builders to work — or build again — straight away. Build as many as you can afford, even several of the same kind. Wonders also need enough villagers and only one village can build each (see Buildings).</td></tr>
+        <tr><td>🏗️ Build</td><td>Pay the cost, pick a <b>villager to build it</b>, and put the building on a free hex of the right land <b>next to one of your buildings</b>. The builder <b>leaves their job</b> (an idle villager steps into it if you have one) and spends the rest of the round on the site: they don’t work, defend or build anything else until it is finished, and next season they take any free job. After you pick the building, a window asks who builds it; idle Peasants make the cheapest builders. <b>The builder can’t be changed once building starts.</b> <b>New buildings are under construction 🚧 until next season</b>: they make nothing, add no beds, water or defense, and their workers don’t work yet. A worker at the <b>Work crew</b> finishes them early and frees your builders to work — or build again — straight away. Build as many as you can afford, even several of the same kind. Wonders also need enough villagers and only one village can build each (see Buildings).</td></tr>
         <tr><td>🧱 Wall</td><td>Each of your 6 sides can have a wall. A bare side becomes a <b>Palisade</b> (🪵2, 🛡️2); a Palisade becomes <b>Stone</b> (🪨3, 🛡️4 in total); Stone becomes <b>Iron</b> (🪨1 🔩2, 🛡️6 in total). A wall only defends against creatures on foot attacking <i>that side</i>.</td></tr>
         <tr><td>🏹 Crossbow</td><td>Mount a crossbow on any wall (🪵2 🔩1, one per side): 🛡️4 against <b>flyers</b> attacking that side. If the wall is destroyed — or a Palisade falls to frost — its crossbow falls too.</td></tr>
         <tr><td>🧑‍🌾 Recruit</td><td>Take a traveller from the Crossroads and pay their 🪙 price (Knights also cost 🔩1). You need room: a free bed and free water. A Peasant for 🪙1 is always available.</td></tr>
