@@ -2806,6 +2806,7 @@
         ${state.past ? '' : '<button class="btn sm ghost log-btn" data-act="fullLog" title="What happened" aria-label="What happened">🗒️<span class="lb-t"> What happened</span></button>'}
         ${state.aiCfg && !online && !state.past ? `<button class="btn sm ghost" data-act="aiSettings" title="Computer settings" aria-label="Computer settings">🤖<span class="lb-t"> ${AI_LEVELS[state.aiCfg.level]} · ${AI_PACES[state.aiCfg.pace]}</span></button>` : ''}
         ${!online && !state.sim && !state.past && isAdmin() ? '<button class="btn sm ghost" data-act="simOpen" title="Computer vs computer (admin)" aria-label="Computer vs computer (admin)">🧪</button>' : ''}
+        ${window.GameMusic ? GameMusic.buttonHtml('btn sm ghost', 'lb-t') : ''}
         ${state.sim ? `<button class="btn sm ghost" data-act="simSpeed" title="Change simulation speed">${SIM_SPEEDS[state.sim.speed].icon} ${SIM_SPEEDS[state.sim.speed].name}</button>` : '<button class="btn sm ghost" data-act="rules" aria-label="Rules">📜<span class="lb-t"> Rules</span></button>'}
         ${online
     ? `<button class="btn sm ghost" data-act="onlineLeave" aria-label="My games">🏠<span class="lb-t"> My games</span></button>${online.status === 'active' ? '<button class="btn sm ghost" data-act="onlineResign" aria-label="Resign">🏳️<span class="lb-t"> Resign</span></button>' : ''}`

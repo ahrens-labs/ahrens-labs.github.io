@@ -887,3 +887,12 @@ table.lg-end td b, table.lg-end td small { display: block; margin: 0; }
   #banner .who { letter-spacing: 0; gap: 0.1rem; padding: 0.1rem 0.4rem; border-radius: 999px; background: rgba(0, 0, 0, 0.25); }
   #banner .who .mp { width: 1.05rem; height: 1.05rem; }
 }
+
+.music-btn.off { opacity: 0.6; }
+@media (max-width: 380px) {
+  .topbar { gap: 0.6rem 0.5rem; padding-left: 0.6rem; padding-right: 0.6rem; }
+  .brand { gap: 0.45rem; }
+  .brand-logo { width: 32px; height: 32px; }
+  .top-actions { gap: 0.25rem; }
+  .top-actions .btn { min-width: 34px; min-height: 34px; padding: 0.25rem; font-size: 0.95rem; }
+}

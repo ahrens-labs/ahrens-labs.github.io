@@ -1411,3 +1411,5 @@ a.btn { display: inline-block; text-align: center; text-decoration: none; }
 .feed-need .fn-n { padding: 1px 6px; border-radius: 999px; background: rgba(255, 255, 255, 0.14); color: #f6e7c8; font-size: 0.72rem; font-weight: 700; white-space: nowrap; }
 .feed-need .fn-n.warn { background: #22305a; color: #fff; }
 .feed-need .fn-n.ev { flex-basis: 100%; width: max-content; flex-grow: 0; background: rgba(255, 213, 79, 0.2); color: #ffe08a; }
+
+.music-btn.off { opacity: 0.6; }
