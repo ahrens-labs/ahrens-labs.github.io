@@ -2835,7 +2835,7 @@
     const h = homePlayer();
     const P = state.players[h];
     const mine = T && T.t !== 'gameOver' && !theirTurn(T) && !state.sim;
-    setHtml(el, `<div class="ms-res pl-${P.color}">${RES.map(([k, img, label]) => chip(tok(img), P[k], label)).join('')}</div>
+    setHtml(el, `<div class="ms-res pl-${P.color}">${RES.map(([k, img, label]) => chip(tok(img), P[k], label, k)).join('')}</div>
       <button class="btn sm ghost" data-jump="park" aria-label="Park">🏞️<span class="ms-t"> Park</span></button><button class="btn sm${mine ? ' due' : ' ghost'}" data-jump="panel" aria-label="Controls">🎮<span class="ms-t"> Controls</span></button>`);
   }
 
@@ -2892,8 +2892,8 @@
             <div class="p-name"><img class="p-mascot" src="${IMG}${MASCOT[p]}.webp" alt="">${esc(P.name)}${p === state.first ? ' <span class="tag">1st</span>' : ''}${p === activeP ? ' <span class="tag turn-tag">TURN</span>' : ''}${p === target ? ' <span class="tag target-tag">TARGET</span>' : ''}</div>
             ${over ? `<div class="p-score" title="Final score">⭐ ${scorePlayer(p).total}</div>` : ''}
           </div>
-          <div class="res">
-            ${chips}
+          <div class="res${P.triPlants || bonus ? '' : ' only-base'}">
+            <span class="res-base">${chips}</span>
             ${P.triPlants ? chip(`${dz('triceratops')}🌿`, P.triPlants, 'Plants on your Triceratops page', 'triPlants', resFx[p].triPlants) : ''}
             ${bonus ? chip('⏩', bonus, state.proto ? 'Dino bonus: extra worker next round' : 'Gigantoraptor: do a phase twice next round') : ''}
           </div>
@@ -2906,7 +2906,10 @@
       })
       .join(''));
     if (!changed || !changes.length) return;
-    const chipEl = (p, k) => el.querySelector(`[data-player="${p}"] [data-r="${k}"]`);
+    const chipEl = (p, k) => {
+      const e = el.querySelector(`[data-player="${p}"] [data-r="${k}"]`);
+      return (e && e.offsetParent) || p !== homePlayer() ? e : document.querySelector(`#mstrip [data-r="${k}"]`) || e;
+    };
     const panel = document.getElementById('panel');
     const fallback = panel ? panel.getBoundingClientRect() : null;
     changes.filter((c) => c.d > 0).forEach((c) => {
@@ -3047,7 +3050,7 @@
       : breeding ? `Tap a 🥚 dino: one of its adult pairs has a baby in their enclosure (${price ? `🪙${price}` : 'free'})`
       : buying && T.off ? `Oviraptor: tap a market card or one from your opponent’s reserved hand — 🪙${T.off} off`
       : buying ? `Tap a dino to buy it, then place it in your park${T.t !== 'freePlay' && spaceExtra() ? ` (costs 🪙${spaceExtra()} extra on this space)` : ''}`
-        : 'Tap any card for details. Buy with a 🦖 Play a dino worker, or 🥚 Breed dinos you have a pair of.';
+        : '';
     const viewer = buying || picking ? T.p : state.ai != null ? other(state.ai) : T.p != null ? T.p : state.first;
     const P = state.players[viewer];
     const hand = P.hand.length
@@ -3058,7 +3061,7 @@
       ? `<div class="bm-hand pl-${O.color}"><div class="bm-sub">🥚 ${esc(O.name)}’s reserved hand <small>Oviraptor can take one of these</small></div><div class="bm-row">${O.hand.map((sp, i) => card(sp, 'o', i)).join('')}</div></div>`
       : '';
     const stack = Math.min(state.deck.length, 4);
-    setHtml(el, `<div class="bm-head"><div class="bm-sub bm-shop-sub">Market</div><span class="bm-hint${picking || buying ? ' live' : ''}">${hint}</span></div>
+    setHtml(el, `<div class="bm-head"><div class="bm-sub bm-shop-sub">Face-up cards anyone can buy</div>${picking || buying || breeding ? `<span class="bm-hint live">${hint}</span>` : ''}</div>
       <div class="bm-row">
         <div class="deck-back bm-deck ${deckOk ? 'pick' : ''} ${state.deck.length ? '' : 'gone'}" ${deckOk ? 'data-act="take" data-from="deck"' : ''} title="Top of the deck (face down)" style="--stack:${stack}"><b>${state.deck.length}</b><small>deck</small></div>
         ${state.faceUp.map((sp, i) => card(sp, 'm', i)).join('')}
@@ -3170,7 +3173,7 @@
 
   function rollHtml() {
     return `<h3>🎲 Gain Food / Draw Fences</h3>
-      <p><b>Both players</b> split the number rolled between food and fences.</p>
+      <p class="xtra"><b>Both players</b> split the number rolled between food and fences.</p>
       <div class="die-wrap">${dieHtml(state.lastRoll || 6)}</div>
       <button class="btn big" data-act="roll">Roll the die</button>`;
   }
@@ -3194,13 +3197,13 @@
       slots.push(`<span class="slot ${icon ? 'full' : ''}">${icon}</span>`);
     }
     const canFence = legalEdges(T.p).length > 0;
-    return `<div class="die-inline">${dieHtml(T.amount, true)}<div><b>Rolled ${T.amount}.</b><br><span class="muted">Split it between food and fences.</span></div></div>
+    return `<div class="die-inline">${dieHtml(T.amount, true)}<div><b>Rolled ${T.amount}.</b><span class="xtra"><br><span class="muted">Split it between food and fences.</span></span></div></div>
       <div class="budget">${slots.join('')}</div>
       ${stepper('meat', '🍖 Meat', ui.meat, ui.meat > 0, left > 0)}
       ${stepper('plant', '🌿 Plants', ui.plant, ui.plant > 0, left > 0)}
-      <div class="fence-line">🪵 Fences: <b>${fences}</b> <span class="muted">— ${canFence ? 'tap the lines between squares on your board' : 'no legal edges left'}</span></div>
+      <div class="fence-line">🪵 Fences: <b>${fences}</b> <span class="muted${canFence ? ' xtra' : ''}">— ${canFence ? 'tap the dotted edges on your board' : 'no legal edges left'}</span></div>
       ${fenceUndoHtml()}
-      <div class="hint">Close off an area with fences to make an enclosure. The board edge can count for <b>up to 2 sides</b>.</div>
+      <div class="hint xtra">Close off an area with fences to make an enclosure. The board edge can count for <b>up to 2 sides</b>.</div>
       <button class="btn big" data-act="confirmGain">${left > 0 ? `Confirm (${left} unused)` : 'Confirm'}</button>`;
   }
 
@@ -3257,7 +3260,7 @@
       else warns.push(`<div>💤 ${cp.name} marker moves to ${cp.inactive + 1}/4.</div>`);
     });
     return `<h3>🍖 Feed your dinos</h3>
-      <p>Tap an enclosure to feed it. Unfed dinos go inactive.</p>
+      <p>Tap an enclosure to feed it.<span class="xtra"> Unfed dinos go inactive.</span></p>
       <div class="pay-line">You have <span class="fc meat">🍖${P.meat}</span><span class="fc plant">🌿${P.plants}</span></div>
       ${rows}
       ${flexHtml}
@@ -3420,7 +3423,7 @@
     if (ui.mode === 'shop') return (ui.shopItem ? `<div class="act-top">${backBtn('shopBack', 'Builder')}${count}</div>${onSpace}` : backHead('Pick up worker')) + shopHtml(P);
     return `<div class="act-top">${count}<button class="btn sm ghost" data-act="endTurn">Pass ▸</button></div>
       ${eventNote()}
-      <p class="act-help">Drag a worker from your supply onto an open space, or tap the space. Top spaces hold one worker per round; ∞ spaces take any number.</p>
+      <p class="act-help xtra">Drag a worker from your supply onto an open space, or tap the space. Top spaces hold one worker per round; ∞ spaces take any number.</p>
       ${protoBoardHtml(T, true)}`;
   }
 
@@ -3453,7 +3456,7 @@
     }
     if (ui.mode === 'fences2') {
       const n = ui.sel ? ui.sel.edges.size : 0;
-      return `${backHead()}<h3>🪵 Build 2 fences</h3><p>Tap the lines between squares on your board.</p>
+      return `${backHead()}<h3>🪵 Build 2 fences</h3><p>Tap the dotted lines on your board.</p>
         <div class="fence-line">Fences selected: <b>${n}</b> / 2</div>
         ${fenceUndoHtml()}
         <button class="btn big" data-act="confirmFences" ${n ? '' : 'disabled'}>Build fences</button>`;
@@ -3485,7 +3488,7 @@
       <div class="pb-title">${title}</div>
       <div class="pb-count">Selected <b>${n}</b>${s.need ? ` / ${s.need}` : ''} square${n === 1 && !s.need ? '' : 's'}</div>
       <div class="pb-msg ${v.ok ? 'ok' : 'bad'}">${v.msg}</div>
-      <div class="muted" style="margin-top:.4rem">Drag across squares to select. Tap one again to remove it.</div>
+      <div class="muted xtra" style="margin-top:.4rem">Drag across squares to select. Tap one again to remove it.</div>
     </div>`;
   }
 
@@ -3527,7 +3530,7 @@
       const v = validateSel();
       return `<h3>${isFeeder ? '🌾 Place a feeder' : '💧 Place a watering hole'} · ${costText(cost)}</h3>
         ${placementBox(isFeeder ? 'Select any number of connected squares in one enclosure' : 'Select 6 connected squares in one enclosure')}
-        ${isFeeder ? `<p class="muted">Each square takes 1 food off that enclosure’s total each Feeding. ${state.proto ? `Costs ${feederRate(spaceExtra())}.` : 'Over 5 squares costs +🪙2 each.'}</p>` : '<p class="muted">Lets one additional dino species share this enclosure.</p>'}
+        ${isFeeder ? `<p class="muted xtra">Each square takes 1 food off that enclosure’s total each Feeding. ${state.proto ? `Costs ${feederRate(spaceExtra())}.` : 'Over 5 squares costs +🪙2 each.'}</p>` : '<p class="muted xtra">Lets one additional dino species share this enclosure.</p>'}
         <button class="btn big" data-act="place" ${v.ok ? '' : 'disabled'}>Buy &amp; place</button>
 `;
     }
@@ -3570,7 +3573,7 @@
   function drawFencesHtml(T) {
     const n = ui.sel ? ui.sel.edges.size : 0;
     return `<h3>${esc(T.title)}</h3>
-      <p>Tap the lines between squares on your board (tap again to undo).</p>
+      <p>Tap dotted edges on your board (tap again to undo).</p>
       <div class="fence-line">Fences selected: <b>${n}</b> / ${T.count}</div>
       ${fenceUndoHtml()}
       <button class="btn big" data-act="confirmFences">${n < T.count ? `Done (${T.count - n} unused)` : 'Build fences'}</button>`;
@@ -3581,7 +3584,7 @@
     const s = ui.sel;
     const v = validateSel();
     return `<h3>${esc(T.title)}</h3>
-      <p>Tap <b>${esc(O.name)}’s</b> board (glowing orange) to fill in ${plural(s.need, 'empty square')}. Filled squares can’t be used for anything.</p>
+      <p>Tap <b>${esc(O.name)}’s</b> board (glowing orange) to fill in ${plural(s.need, 'empty square')}.<span class="xtra"> Filled squares can’t be used for anything.</span></p>
       <div class="place-box"><div class="pb-count">Selected <b>${s.cells.size}</b> / ${s.need}</div><div class="pb-msg ${v.ok ? 'ok' : 'bad'}">${v.msg}</div></div>
       <button class="btn big lava" data-act="place" ${v.ok ? '' : 'disabled'}>Fill in squares</button>`;
   }
@@ -3683,7 +3686,7 @@
     const P = state.players[T.p];
     const need = sumCosts(feedables(analyze(P.board)).map(enclosureCost)).plant;
     const n = triPay(T);
-    return `<p>You have 🌿${P.plants}; this round’s Feeding needs 🌿${need}. Each plant on the page is worth 1½ points at the end.</p>
+    return `<p>You have 🌿${P.plants}; this round’s Feeding needs 🌿${need}.<span class="xtra"> Each plant on the page is worth 1½ points at the end.</span></p>
       ${triMax(T) > 0 ? stepper('triPay', '🌿 Plants to pay', n, n > 0, n < triMax(T)) : ''}`;
   }
 
