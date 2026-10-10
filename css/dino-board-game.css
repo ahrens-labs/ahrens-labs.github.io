@@ -1402,7 +1402,16 @@ a.btn { display: inline-block; text-align: center; text-decoration: none; }
 }
 .big-market .goal-strip { margin-top: 14px; padding-top: 10px; border-top: 2px dashed var(--bone-dark); }
 .feed-need { margin-top: 8px; padding: 6px 10px 4px; border-radius: 12px; background: rgba(0, 0, 0, 0.25); font-size: 0.85rem; color: #f6e7c8; }
-.feed-need .fn-h { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 8px; padding-bottom: 4px; border-bottom: 1px solid rgba(246, 231, 200, 0.25); }
+.feed-need .fn-h { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; width: 100%; margin: 0; padding: 2px 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.feed-need.open .fn-h { padding-bottom: 5px; border-bottom: 1px solid rgba(246, 231, 200, 0.25); }
+.feed-need .fn-h .fn-n.ev { margin-left: auto; }
+.feed-need .fn-sum { display: inline-flex; flex-wrap: wrap; gap: 3px; margin-left: auto; }
+.feed-need .fn-n.ev + .fn-sum { margin-left: 0; }
+.feed-need .fn-arrow { display: inline-grid; place-items: center; width: 22px; height: 22px; margin-left: auto; border-radius: 50%; background: rgba(255, 255, 255, 0.14); font-size: 0.8rem; transition: transform 0.15s; }
+.feed-need .fn-sum + .fn-arrow, .feed-need .fn-n.ev + .fn-arrow { margin-left: 0; }
+.feed-need.open .fn-arrow { transform: rotate(180deg); }
+.feed-need { padding-bottom: 6px; }
+.feed-need.open { padding-bottom: 4px; }
 .feed-need .fn-t { font-weight: 700; }
 .feed-need .fn-tab { display: grid; grid-template-columns: auto 1fr auto; }
 .feed-need .fn-r { display: contents; }
@@ -1423,3 +1432,7 @@ a.btn { display: inline-block; text-align: center; text-decoration: none; }
 .feed-need .fn-tot .fn-k { margin: 0; height: auto; padding: 0; border-radius: 0; background: none; box-shadow: none; color: #f6e7c8; font-size: 0.8rem; justify-content: flex-start; align-self: stretch; }
 
 .music-btn.off { opacity: 0.6; }
+.feed-need .fn-h { flex-wrap: nowrap; }
+.feed-need .fn-t, .feed-need .fn-sum { flex-shrink: 0; white-space: nowrap; }
+.feed-need .fn-h .fn-n.ev { min-width: 0; white-space: normal; text-align: right; }
+.feed-need .fn-arrow { flex-shrink: 0; }

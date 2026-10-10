@@ -3114,6 +3114,8 @@
 
   // What each enclosure with dinos eats at the next Feeding, under every park: inactive enclosures
   // eat more, feeders take some off, and this round's event counts until this round's Feeding is over.
+  let feedOpen = localStorage.getItem('dino_feed_open') === '1';
+
   function feedNeedHtml(P) {
     const list = feedables(analyze(P.board)).sort((a, b) => String(a.name).localeCompare(String(b.name)));
     if (!list.length) return '';
@@ -3133,8 +3135,11 @@
     }).join('');
     const tot = list.length > 1 ? `<div class="fn-r fn-tot"><b class="fn-k">Total</b><span class="fn-who"></span><span class="fn-c">${costChips(sumCosts(costs))}</span></div>` : '';
     const E = !later && state.proto && (state.event === 'heatwave' || state.event === 'mild') ? PROTO_EVENTS[state.event] : null;
-    const ev = E ? `<small class="fn-n ev" title="${esc(E.desc)}">${E.icon} ${E.name} ${state.event === 'heatwave' ? '+1' : '−1'} per enclosure</small>` : '';
-    return `<div class="feed-need"><div class="fn-h"><span class="fn-t">🍽️ ${later ? 'Next Feeding needs' : 'Feeding needs'}</span>${ev}</div><div class="fn-tab">${rows}${tot}</div></div>`;
+    const evTxt = E ? `${E.name} ${state.event === 'heatwave' ? '+1' : '−1'} per enclosure` : '';
+    const ev = E ? `<small class="fn-n ev" title="${esc(E.desc)}">${E.icon}${feedOpen ? ` ${evTxt}` : ''}</small>` : '';
+    const sum = feedOpen ? '' : `<span class="fn-sum">${costChips(sumCosts(costs))}</span>`;
+    return `<div class="feed-need${feedOpen ? ' open' : ''}"><button type="button" class="fn-h" data-act="feedToggle" aria-expanded="${feedOpen}" title="${feedOpen ? 'Hide' : 'Show'} what each enclosure eats">
+      <span class="fn-t">🍽️ ${later ? 'Next Feeding needs' : 'Feeding needs'}</span>${ev}${sum}<span class="fn-arrow" aria-hidden="true">▾</span></button>${feedOpen ? `<div class="fn-tab">${rows}${tot}</div>` : ''}</div>`;
   }
 
   function costChips(c) {
@@ -4272,6 +4277,12 @@
       renderBoards();
       return;
     }
+    if (act === 'feedToggle') {
+      feedOpen = !feedOpen;
+      localStorage.setItem('dino_feed_open', feedOpen ? '1' : '0');
+      renderBoards();
+      return;
+    }
     if (busy) return;
     if (act === 'closeModal') {
       if (el.classList.contains('modal-bg') && ev.target !== el) return;
@@ -4962,7 +4973,7 @@
   }
 
   // ---------------------------------------------------------------- computer player
-  const FREE_ACTS = new Set(['viewBoard', 'simOpen', 'simOpt', 'simStart', 'simSpeed', 'simStop', 'simAgain', 'fullLog', 'viewCard', 'rules', 'rulesTab', 'goals', 'book', 'closeModal', 'newGame', 'confirmYes', 'aiSettings', 'setAiOpt', 'onlineLeave', 'onlineResign', 'olRematch', 'replayReveal']);
+  const FREE_ACTS = new Set(['viewBoard', 'feedToggle', 'simOpen', 'simOpt', 'simStart', 'simSpeed', 'simStop', 'simAgain', 'fullLog', 'viewCard', 'rules', 'rulesTab', 'goals', 'book', 'closeModal', 'newGame', 'confirmYes', 'aiSettings', 'setAiOpt', 'onlineLeave', 'onlineResign', 'olRematch', 'replayReveal']);
   const AI_LEVELS = { easy: 'Easy', medium: 'Normal', hard: 'Hard' };
   const AI_PACES = { fast: 'Fast', medium: 'Medium', slow: 'Slow' };
   const AI_LEVEL_HELP = { easy: 'Plays for fun and makes mistakes', medium: 'Plans one move at a time', hard: 'Plays to win: plans fences, cards and the whole game' };

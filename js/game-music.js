@@ -2,6 +2,9 @@
 // Configured from the script tag: data-key (saved on/off), data-src, data-loop="start,end" in seconds.
 // The track is only downloaded once music is wanted, and only plays while a game header with a
 // [data-music] button is on screen and the tab is visible.
+// Plays through an <audio> element (not Web Audio) so iPhones play it with the ringer switch on silent.
+// The file carries half a second of the loop's own audio past each loop point, so jumping back by one
+// loop length anywhere in that margin is seamless.
 (function () {
   const me = document.currentScript;
   const cfg = {
@@ -10,14 +13,13 @@
     loop: (me.dataset.loop || '0,0').split(',').map(Number),
     vol: Number(me.dataset.vol || 0.75),
   };
-  let ctx = null;
-  let gain = null;
-  let source = null;
-  let buffer = null;
-  let loading = null;
+  const loopLen = cfg.loop[1] - cfg.loop[0];
+  let audio = null;
   let unlocked = false;
-  let idleTimer = 0;
   let target = 0;
+  let fadeTimer = 0;
+  let canFade = true;
+  let lastError = '';
 
   const isOn = () => localStorage.getItem(cfg.key) !== 'off';
   const wanted = () => unlocked && isOn() && !document.hidden && !!document.querySelector('[data-music]');
@@ -41,88 +43,84 @@
     });
   }
 
-  function fadeTo(v, secs) {
-    const t = ctx.currentTime;
-    gain.gain.cancelScheduledValues(t);
-    gain.gain.setValueAtTime(gain.gain.value, t);
-    gain.gain.linearRampToValueAtTime(v, t + secs);
+  function wrap() {
+    if (audio && loopLen > 0 && audio.currentTime >= cfg.loop[1]) audio.currentTime -= loopLen;
   }
 
-  function load() {
-    if (!loading) {
-      loading = fetch(cfg.src)
-        .then((r) => r.arrayBuffer())
-        .then((a) => new Promise((res, rej) => ctx.decodeAudioData(a, res, rej)))
-        .then((b) => { buffer = b; return b; })
-        .catch(() => { loading = null; return null; });
+  function tick() {
+    if (!audio || audio.paused) return;
+    wrap();
+    requestAnimationFrame(tick);
+  }
+
+  function el() {
+    if (!audio) {
+      audio = new Audio();
+      audio.preload = 'auto';
+      audio.setAttribute('playsinline', '');
+      audio.src = `${cfg.src}#t=${cfg.loop[0]}`;
+      // iOS ignores volume changes; there the track plays at full level and fades are skipped.
+      audio.volume = 0.5;
+      canFade = audio.volume === 0.5;
+      audio.volume = 0;
+      audio.addEventListener('timeupdate', wrap);
+      audio.addEventListener('playing', tick);
+      audio.addEventListener('ended', () => {
+        audio.currentTime = cfg.loop[0];
+        if (wanted()) audio.play().catch(() => {});
+      });
+      if ('mediaSession' in navigator && window.MediaMetadata) {
+        navigator.mediaSession.metadata = new MediaMetadata({ title: document.title });
+      }
     }
-    return loading;
+    return audio;
   }
 
-  // iPhones mute Web Audio when the ringer switch is on silent unless the page asks for media playback.
-  // Older iOS has no audioSession; a silent looping <audio> started from a tap switches it the same way.
-  let silent = null;
-  function mediaSession() {
-    if (navigator.audioSession) {
-      try { navigator.audioSession.type = 'playback'; } catch (e) {}
+  function fadeTo(v, secs, done) {
+    clearInterval(fadeTimer);
+    if (!canFade) {
+      if (done) done();
       return;
     }
-    const ios = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-    if (!ios) return;
-    if (!silent) {
-      silent = document.createElement('audio');
-      silent.setAttribute('x-webkit-airplay', 'deny');
-      silent.loop = true;
-      silent.src = 'data:audio/wav;base64,UklGRkQDAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YSADAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgA==';
-    }
-    silent.play().catch(() => {});
+    const from = audio.volume;
+    const steps = Math.max(1, Math.round(secs * 20));
+    let i = 0;
+    fadeTimer = setInterval(() => {
+      i++;
+      audio.volume = Math.min(1, Math.max(0, from + ((v - from) * i) / steps));
+      if (i >= steps) {
+        clearInterval(fadeTimer);
+        if (done) done();
+      }
+    }, 50);
   }
 
-  // Must first run inside a tap or key press so the browser lets the page make sound.
-  function wake() {
-    mediaSession();
-    if (!ctx) {
-      const AC = window.AudioContext || window.webkitAudioContext;
-      if (!AC) return;
-      ctx = new AC();
-      gain = ctx.createGain();
-      gain.gain.value = 0;
-      gain.connect(ctx.destination);
+  function play() {
+    const a = el();
+    if (target === cfg.vol && !a.paused) return;
+    target = cfg.vol;
+    a.muted = false;
+    const p = a.play();
+    if (p && p.catch) {
+      p.catch((e) => {
+        lastError = e && e.name ? e.name : String(e);
+        target = 0;
+      });
     }
-    if (ctx.state !== 'running') ctx.resume().catch(() => {});
-  }
-
-  async function play() {
-    wake();
-    if (!ctx) return;
-    clearTimeout(idleTimer);
-    const b = buffer || (await load());
-    if (!b || !wanted()) return;
-    if (!source) {
-      source = ctx.createBufferSource();
-      source.buffer = b;
-      source.loop = true;
-      source.loopStart = cfg.loop[0];
-      source.loopEnd = cfg.loop[1] || b.duration;
-      source.connect(gain);
-      source.start(0, cfg.loop[0]);
-    }
-    if (target !== cfg.vol) {
-      target = cfg.vol;
-      fadeTo(cfg.vol, 2);
-    }
+    fadeTo(cfg.vol, 2);
   }
 
   function pause() {
-    if (!ctx || !source || target === 0) return;
+    if (!audio || target === 0) return;
     target = 0;
-    fadeTo(0, 0.6);
-    clearTimeout(idleTimer);
-    idleTimer = setTimeout(() => {
-      if (wanted() || ctx.state !== 'running') return;
-      ctx.suspend().catch(() => {});
-      if (silent) silent.pause();
-    }, 700);
+    if (document.hidden) {
+      clearInterval(fadeTimer);
+      audio.pause();
+      return;
+    }
+    fadeTo(0, 0.6, () => {
+      if (!wanted()) audio.pause();
+    });
   }
 
   function sync() {
@@ -130,9 +128,26 @@
     else pause();
   }
 
+  // Browsers only let a page start sound from inside a tap or key press. The first one starts the
+  // element (muted, if music isn't due yet) so later plays outside a tap are allowed too.
   function gesture() {
+    const first = !unlocked;
     unlocked = true;
-    if (isOn()) wake();
+    if (!isOn()) return sync();
+    if (navigator.audioSession) {
+      try { navigator.audioSession.type = 'playback'; } catch (e) {}
+    }
+    if (wanted()) return play();
+    if (first) {
+      const a = el();
+      a.muted = true;
+      const p = a.play();
+      const settle = () => {
+        if (target === 0) a.pause();
+        a.muted = false;
+      };
+      if (p && p.then) p.then(settle, settle);
+    }
     sync();
   }
   ['click', 'touchend', 'keydown'].forEach((t) => document.addEventListener(t, gesture, true));
@@ -158,17 +173,16 @@
     });
   }).observe(document.body || document.documentElement, { childList: true, subtree: true });
 
-  let meter = null;
-  function level() {
-    if (!ctx) return 0;
-    if (!meter) {
-      meter = ctx.createAnalyser();
-      gain.connect(meter);
-    }
-    const d = new Float32Array(meter.fftSize);
-    meter.getFloatTimeDomainData(d);
-    return Math.sqrt(d.reduce((s, v) => s + v * v, 0) / d.length);
-  }
-
-  window.GameMusic = { buttonHtml, level, state: () => ({ ctx: ctx ? ctx.state : null, playing: !!source, target, loaded: !!buffer }) };
+  window.GameMusic = {
+    buttonHtml,
+    state: () => ({
+      playing: !!audio && !audio.paused,
+      time: audio ? Math.round(audio.currentTime * 100) / 100 : 0,
+      volume: audio ? Math.round(audio.volume * 100) / 100 : 0,
+      muted: !!audio && audio.muted,
+      target,
+      error: lastError,
+    }),
+    seek: (t) => { if (audio) audio.currentTime = t; },
+  };
 })();
