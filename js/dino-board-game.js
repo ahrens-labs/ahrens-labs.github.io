@@ -3081,7 +3081,7 @@
       ? `<div class="bm-hand pl-${O.color}"><div class="bm-sub">🥚 ${esc(O.name)}’s reserved hand <small>Oviraptor can take one of these</small></div><div class="bm-row">${O.hand.map((sp, i) => card(sp, 'o', i)).join('')}</div></div>`
       : '';
     const stack = Math.min(state.deck.length, 4);
-    setHtml(el, `<div class="bm-head"><div class="bm-sub bm-shop-sub">Face-up cards anyone can buy</div>${picking || buying || breeding ? `<span class="bm-hint live">${hint}</span>` : ''}</div>
+    setHtml(el, `<div class="bm-head"><div class="bm-sub bm-shop-sub"><b>Market</b> <span class="bm-what">- face-up cards anyone can buy</span></div>${picking || buying || breeding ? `<span class="bm-hint live">${hint}</span>` : ''}</div>
       <div class="bm-row">
         <div class="deck-back bm-deck ${deckOk ? 'pick' : ''} ${state.deck.length ? '' : 'gone'}" ${deckOk ? 'data-act="take" data-from="deck"' : ''} title="Top of the deck (face down)" style="--stack:${stack}"><b>${state.deck.length}</b><small>deck</small></div>
         ${state.faceUp.map((sp, i) => card(sp, 'm', i)).join('')}

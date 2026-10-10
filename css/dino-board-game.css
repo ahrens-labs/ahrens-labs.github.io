@@ -1228,6 +1228,7 @@ a.btn { display: inline-block; text-align: center; text-decoration: none; }
 .big-market .dcard.pick:hover .dc-art img { transform: none; }
 .bm-sub small { margin-left: 0.4rem; font-weight: 400; font-size: 0.78rem; color: var(--muted); }
 .bm-shop-sub { margin: 0 0 0.1rem; padding-top: 0; border-top: 0; }
+.bm-shop-sub .bm-what { font-weight: 400; }
 .bm-hand { --hc: var(--red); margin-top: 1rem; padding: 0 12px 12px; border-radius: 14px; border: 3px solid var(--hc); background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--hc) 14%, #fff8e6) 0 14px, color-mix(in srgb, var(--hc) 8%, #fff8e6) 14px 28px); }
 .bm-hand.pl-blue { --hc: var(--blue); }
 .bm-hand .bm-sub { margin: 0; padding-top: 0.55rem; border-top: 0; color: color-mix(in srgb, var(--hc) 70%, #3d2a12); }
