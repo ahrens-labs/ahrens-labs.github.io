@@ -111,12 +111,13 @@ def render(score, programs, loop_beats, path, rt60=1.4, wet=0.2, humanize=0.006,
     loop = x[:loop_len].copy()
     rest = x[loop_len:]
     loop[: len(rest)] += rest
-    # Quiet background level, peaks safe.
+    # Loud enough for phone speakers (the page plays it back below full volume); peaks are
+    # rounded off softly above the knee instead of being scaled down with the whole track.
     rms = np.sqrt((loop ** 2).mean())
-    loop *= 10 ** (-21 / 20) / rms
-    peak = np.abs(loop).max()
-    if peak > 0.89:
-        loop *= 0.89 / peak
+    loop *= 10 ** (-15 / 20) / rms
+    knee, ceil = 0.6, 0.95
+    over = np.abs(loop) > knee
+    loop[over] = np.sign(loop[over]) * (knee + (ceil - knee) * np.tanh((np.abs(loop[over]) - knee) / (ceil - knee)))
     # Pad half a second either side with the loop's own audio, so the player can loop
     # gaplessly even if the decoder adds or trims a few milliseconds at the start.
     pad = SR // 2

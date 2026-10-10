@@ -8,7 +8,7 @@
     key: me.dataset.key,
     src: me.dataset.src,
     loop: (me.dataset.loop || '0,0').split(',').map(Number),
-    vol: Number(me.dataset.vol || 0.5),
+    vol: Number(me.dataset.vol || 0.75),
   };
   let ctx = null;
   let gain = null;
@@ -59,8 +59,28 @@
     return loading;
   }
 
+  // iPhones mute Web Audio when the ringer switch is on silent unless the page asks for media playback.
+  // Older iOS has no audioSession; a silent looping <audio> started from a tap switches it the same way.
+  let silent = null;
+  function mediaSession() {
+    if (navigator.audioSession) {
+      try { navigator.audioSession.type = 'playback'; } catch (e) {}
+      return;
+    }
+    const ios = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    if (!ios) return;
+    if (!silent) {
+      silent = document.createElement('audio');
+      silent.setAttribute('x-webkit-airplay', 'deny');
+      silent.loop = true;
+      silent.src = 'data:audio/wav;base64,UklGRkQDAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YSADAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgA==';
+    }
+    silent.play().catch(() => {});
+  }
+
   // Must first run inside a tap or key press so the browser lets the page make sound.
   function wake() {
+    mediaSession();
     if (!ctx) {
       const AC = window.AudioContext || window.webkitAudioContext;
       if (!AC) return;
@@ -69,7 +89,7 @@
       gain.gain.value = 0;
       gain.connect(ctx.destination);
     }
-    if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+    if (ctx.state !== 'running') ctx.resume().catch(() => {});
   }
 
   async function play() {
@@ -99,7 +119,9 @@
     fadeTo(0, 0.6);
     clearTimeout(idleTimer);
     idleTimer = setTimeout(() => {
-      if (!wanted() && ctx.state === 'running') ctx.suspend().catch(() => {});
+      if (wanted() || ctx.state !== 'running') return;
+      ctx.suspend().catch(() => {});
+      if (silent) silent.pause();
     }, 700);
   }
 
@@ -136,5 +158,17 @@
     });
   }).observe(document.body || document.documentElement, { childList: true, subtree: true });
 
-  window.GameMusic = { buttonHtml, state: () => ({ ctx: ctx ? ctx.state : null, playing: !!source, target, loaded: !!buffer }) };
+  let meter = null;
+  function level() {
+    if (!ctx) return 0;
+    if (!meter) {
+      meter = ctx.createAnalyser();
+      gain.connect(meter);
+    }
+    const d = new Float32Array(meter.fftSize);
+    meter.getFloatTimeDomainData(d);
+    return Math.sqrt(d.reduce((s, v) => s + v * v, 0) / d.length);
+  }
+
+  window.GameMusic = { buttonHtml, level, state: () => ({ ctx: ctx ? ctx.state : null, playing: !!source, target, loaded: !!buffer }) };
 })();

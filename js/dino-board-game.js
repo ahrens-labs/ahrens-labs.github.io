@@ -3115,23 +3115,26 @@
   // What each enclosure with dinos eats at the next Feeding, under every park: inactive enclosures
   // eat more, feeders take some off, and this round's event counts until this round's Feeding is over.
   function feedNeedHtml(P) {
-    const list = feedables(analyze(P.board));
+    const list = feedables(analyze(P.board)).sort((a, b) => String(a.name).localeCompare(String(b.name)));
     if (!list.length) return '';
     const T = cur();
     const fi = state.phaseOrder.indexOf('feed');
     const later = !!T && T.t !== 'roundStart' && T.k != null && fi >= 0 && T.k > fi;
     const costs = list.map((cp) => enclosureBill(cp, later));
-    const each = list.map((cp, i) => {
+    const rows = list.map((cp, i) => {
+      const eaters = {};
+      cp.living.forEach((d) => { if (d.stage !== 'egg') eaters[d.species] = (eaters[d.species] || 0) + 1; });
+      const who = Object.entries(eaters).map(([sp, n]) => `<span class="fn-d">${dz(sp)}${n > 1 ? `<small>×${n}</small>` : ''}</span>`).join('');
       const notes = [
-        cp.inactive ? `<small class="fn-n warn" title="Inactive ${cp.inactive}/4: each dino eats ${cp.inactive} more">💤+${cp.inactive} each</small>` : '',
-        costs[i].discount ? `<small class="fn-n" title="Feeder squares take food off the bill">🌾−${costs[i].discount}</small>` : '',
+        cp.inactive ? `<small class="fn-n warn" title="Inactive ${cp.inactive}/4: each dino eats ${cp.inactive} more">💤 +${cp.inactive} each</small>` : '',
+        costs[i].discount ? `<small class="fn-n" title="Feeder squares take food off the bill">🌾 −${costs[i].discount}</small>` : '',
       ].join('');
-      return `<span class="fn-e"><b>${cp.name}</b>${costChips(costs[i])}${notes}</span>`;
+      return `<div class="fn-r"><b class="fn-k">${cp.name}</b><span class="fn-who">${who || '<small class="fn-egg">eggs only</small>'}${notes}</span><span class="fn-c">${costChips(costs[i])}</span></div>`;
     }).join('');
-    const tot = list.length > 1 ? `<span class="fn-e fn-tot"><b>Total</b>${costChips(sumCosts(costs))}</span>` : '';
+    const tot = list.length > 1 ? `<div class="fn-r fn-tot"><b class="fn-k">Total</b><span class="fn-who"></span><span class="fn-c">${costChips(sumCosts(costs))}</span></div>` : '';
     const E = !later && state.proto && (state.event === 'heatwave' || state.event === 'mild') ? PROTO_EVENTS[state.event] : null;
     const ev = E ? `<small class="fn-n ev" title="${esc(E.desc)}">${E.icon} ${E.name} ${state.event === 'heatwave' ? '+1' : '−1'} per enclosure</small>` : '';
-    return `<div class="feed-need"><span class="fn-t">${later ? 'Next Feeding needs' : 'Feeding needs'}</span>${each}${tot}${ev}</div>`;
+    return `<div class="feed-need"><div class="fn-h"><span class="fn-t">🍽️ ${later ? 'Next Feeding needs' : 'Feeding needs'}</span>${ev}</div><div class="fn-tab">${rows}${tot}</div></div>`;
   }
 
   function costChips(c) {
