@@ -3788,7 +3788,7 @@
     const floaters = ['coin', 'diamond', 'meat', 'plant', 'coin', 'fence', 'water', 'diamond']
       .map((t, i) => `<img class="floater f${i}" src="${IMG}${t}.webp" alt="">`)
       .join('');
-    return `<div class="gh-top"><a class="gh-lobby" href="/board-games.html" title="Back to the game lobby">← 🎲 Game lobby</a></div>
+    return `<div class="gh-top"><a class="gh-lobby" href="/board-games.html" title="Back to the game lobby">← <img class="gh-dice" src="/img/board-games-icon-32.png?v=1" alt="" width="20" height="20"> Game lobby</a></div>
       <div class="gh-hero">
         <img class="gh-hero-img" src="${IMG}cover.webp" alt="Dinosaurs in fenced enclosures in a jungle park">
         <div class="gh-shade"></div>
@@ -3825,19 +3825,18 @@
           <div id="ol-list"></div>
         </div>
         <div class="name-row">
-          <div class="name-field"><label for="name0"><img class="nf-dino" src="${IMG}${MASCOT[0]}.webp" alt=""><span class="dot-red"></span><span class="only-2p">Red player</span><span class="only-ai">Your name</span></label><input id="name0" maxlength="18" value="Red" autocomplete="off"></div>
-          <div class="name-field only-2p"><label for="name1"><img class="nf-dino" src="${IMG}${MASCOT[1]}.webp" alt=""><span class="dot-blue"></span>Blue player</label><input id="name1" maxlength="18" value="Blue" autocomplete="off"></div>
-          <div class="name-field only-ai"><label><img class="nf-dino" src="${IMG}${MASCOT[1]}.webp" alt=""><span class="dot-blue"></span>Opponent</label><div class="ai-card">🤖 Computer</div></div>
+          <div class="name-field"><label for="name0"><span class="only-2p">Red player</span><span class="only-ai">Your name</span></label><input id="name0" maxlength="18" value="Red" autocomplete="off"></div>
+          <div class="name-field only-2p"><label for="name1">Blue player</label><input id="name1" maxlength="18" value="Blue" autocomplete="off"></div>
         </div>
         <div class="ai-opts only-ai">
           ${segGroup('Difficulty', 'setupOpt', 'level', AI_LEVELS, AI_LEVEL_HELP, setupLevel)}
-          ${segGroup('Computer speed', 'setupOpt', 'pace', AI_PACES, AI_PACE_HELP, setupPace)}
+          ${segGroup('Speed', 'setupOpt', 'pace', AI_PACES, AI_PACE_HELP, setupPace)}
         </div>
         <div class="seg-group first-pick">
-          <div class="seg-label">Who goes first?</div>
-          <div class="seg" role="radiogroup">
-            <button class="seg-btn${setupFirst === '0' ? ' on' : ''}" data-act="setupFirst" data-v="0"><b><span class="only-2p">🔴 Red</span><span class="only-ai">🔴 You</span></b></button>
-            <button class="seg-btn${setupFirst === '1' ? ' on' : ''}" data-act="setupFirst" data-v="1"><b><span class="only-2p">🔵 Blue</span><span class="only-ai">🤖 Computer</span></b></button>
+          <div class="seg-label">Who starts?</div>
+          <div class="seg pills" role="radiogroup">
+            <button class="seg-btn${setupFirst === '0' ? ' on' : ''}" data-act="setupFirst" data-v="0"><b><span class="only-2p">Red</span><span class="only-ai">You</span></b></button>
+            <button class="seg-btn${setupFirst === '1' ? ' on' : ''}" data-act="setupFirst" data-v="1"><b><span class="only-2p">Blue</span><span class="only-ai">Computer</span></b></button>
             <button class="seg-btn${setupFirst === 'r' ? ' on' : ''}" data-act="setupFirst" data-v="r"><b>🎲 Random</b></button>
           </div>
         </div>
@@ -3851,9 +3850,9 @@
 
   function segGroup(label, act, k, opts, help, val) {
     const btns = Object.keys(opts)
-      .map((v) => `<button class="seg-btn${v === val ? ' on' : ''}" data-act="${act}" data-k="${k}" data-v="${v}"><b>${opts[v]}</b><small>${help[v]}</small></button>`)
+      .map((v) => `<button class="seg-btn${v === val ? ' on' : ''}" data-act="${act}" data-k="${k}" data-v="${v}" title="${help[v]}"><b>${opts[v]}</b></button>`)
       .join('');
-    return `<div class="seg-group"><div class="seg-label">${label}</div><div class="seg" role="radiogroup">${btns}</div></div>`;
+    return `<div class="seg-group"><div class="seg-label">${label}</div><div class="seg pills" role="radiogroup">${btns}</div></div>`;
   }
 
   function savePrefs(level, pace) {

@@ -602,8 +602,8 @@ button { font-family: inherit; }
 .loc-name { font-size: 0.98rem; line-height: 1.15; }
 .loc-text { font-size: 0.8rem; line-height: 1.3; }
 .loc-now { grid-column: 1 / -1; margin-top: 0.35rem; font-size: 0.78rem; font-weight: 700; color: #2e6b25; background: #e5f3d6; border-radius: 8px; padding: 0.15rem 0.45rem; justify-self: start; }
-.meeple { position: absolute; top: -0.7rem; right: -0.4rem; width: 2.2rem; height: 2.2rem; border-radius: 50%; display: grid; place-items: center; font-size: 1.25rem;
-  background: var(--pc); box-shadow: 0 0 0 3px #fff, 0 4px 8px rgba(0, 0, 0, 0.35); animation: meepleDrop 0.45s cubic-bezier(.34, 1.56, .64, 1) both; }
+.meeple { position: absolute; top: -0.7rem; right: -0.4rem; width: 2.2rem; height: 2.2rem; border-radius: 50%; display: grid; place-items: center;
+  background: #fffaf0; box-shadow: 0 0 0 3px var(--pc), 0 4px 8px rgba(0, 0, 0, 0.35); animation: meepleDrop 0.45s cubic-bezier(.34, 1.56, .64, 1) both; }
 @keyframes meepleDrop { from { transform: translateY(-30px) scale(0.6); opacity: 0; } to { transform: none; opacity: 1; } }
 .open-head { margin: 0.8rem 0 0.45rem; }
 .open-head h4 { margin: 0; font-size: 0.92rem; }
@@ -612,8 +612,8 @@ button { font-family: inherit; }
 .loc.mini .loc-art { grid-row: span 2; width: 40px; height: 40px; border-radius: 9px; }
 .loc.mini .loc-name { font-size: 0.88rem; }
 .crowd { position: absolute; top: -0.55rem; right: -0.3rem; display: flex; }
-.crowd i { width: 1.7rem; height: 1.7rem; margin-left: -0.45rem; border-radius: 50%; display: grid; place-items: center; font-size: 0.95rem; font-style: normal;
-  background: var(--pc); box-shadow: 0 0 0 2px #fff, 0 3px 6px rgba(0, 0, 0, 0.3); animation: meepleDrop 0.45s cubic-bezier(.34, 1.56, .64, 1) both; }
+.crowd i { width: 1.7rem; height: 1.7rem; margin-left: -0.45rem; border-radius: 50%; display: grid; place-items: center; font-style: normal;
+  background: #fffaf0; box-shadow: 0 0 0 2px var(--pc), 0 3px 6px rgba(0, 0, 0, 0.3); animation: meepleDrop 0.45s cubic-bezier(.34, 1.56, .64, 1) both; }
 .who small { opacity: 0.75; font-weight: 600; }
 .end-btn { width: 100%; margin-top: 0.4rem; }
 .end-btn small { font-weight: 600; opacity: 0.8; }
@@ -864,3 +864,11 @@ table.lg tr.good-li td { background: rgba(46, 125, 50, 0.08); }
 table.lg-end td { text-align: center; border: 0; }
 table.lg-end td b, table.lg-end td small { display: block; margin: 0; }
 @media (max-width: 560px) { .lg-sides { grid-template-columns: repeat(3, 1fr); } }
+
+/* Worker pieces: a wooden meeple in the player's colour. */
+.mp { width: 1.05em; height: 1.05em; display: inline-block; vertical-align: -0.15em; filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.45)); }
+.mp path { stroke: rgba(0, 0, 0, 0.35); stroke-width: 0.9; stroke-linejoin: round; }
+.who .mp { width: 0.95rem; height: 0.95rem; margin-left: -0.1rem; }
+.meeple .mp { width: 1.45rem; height: 1.45rem; }
+.crowd i .mp { width: 1.1rem; height: 1.1rem; }
+.mp.tipm { width: 1.1em; height: 1.1em; }

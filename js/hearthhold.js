@@ -34,6 +34,8 @@
   }
   const SMOKY = ['keep', 'house', 'inn', 'bakery', 'smithy', 'workshop'];
   const PCOLOR = ['#e05a4f', '#3f8fd8'];
+  const MEEPLE_D = 'M12 2C14.2 2 15.6 3.6 15.6 5.6c0 1.3-.6 2.3-1.4 2.9l4.8 1.6c1.3.4 2.2 1.3 2.2 2.4 0 1.3-1.3 1.9-2.6 1.6l-2.2-.5 2.4 6.1c.4 1-.3 1.9-1.4 1.9h-2.6L12 17l-2.8 4.6H6.6c-1.1 0-1.8-.9-1.4-1.9l2.4-6.1-2.2.5c-1.3.3-2.6-.3-2.6-1.6 0-1.1.9-2 2.2-2.4l4.8-1.6c-.8-.6-1.4-1.6-1.4-2.9C8.4 3.6 9.8 2 12 2z';
+  const meeple = (color, cls = '') => `<svg class="mp${cls ? ` ${cls}` : ''}" viewBox="0 0 24 24" aria-hidden="true"><path d="${MEEPLE_D}" fill="${color}"/></svg>`;
 
   const $ = (sel, root) => (root || document).querySelector(sel);
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -178,7 +180,7 @@
     const back = encodeURIComponent(location.pathname.replace(/^\//, '') + location.search);
     $('#app').innerHTML = `
       <div class="setup gh">
-        <div class="gh-top"><a class="gh-lobby" href="/board-games.html" title="Back to the game lobby">← 🎲 Game lobby</a></div>
+        <div class="gh-top"><a class="gh-lobby" href="/board-games.html" title="Back to the game lobby">← <img class="gh-dice" src="/img/board-games-icon-32.png?v=1" alt="" width="20" height="20"> Game lobby</a></div>
         <div class="gh-hero">
           <img src="${IMG('cover')}" alt="" class="gh-hero-img">
           <div class="gh-shade"></div>
@@ -212,7 +214,7 @@
     document.body.className = 'setup-mode';
     $('#app').innerHTML = `
       <div class="setup gh">
-        <div class="gh-top"><a class="gh-lobby" href="/board-games.html" title="Back to the game lobby">← 🎲 Game lobby</a></div>
+        <div class="gh-top"><a class="gh-lobby" href="/board-games.html" title="Back to the game lobby">← <img class="gh-dice" src="/img/board-games-icon-32.png?v=1" alt="" width="20" height="20"> Game lobby</a></div>
         <div class="gh-hero">
           <img src="${IMG('cover')}" alt="" class="gh-hero-img">
           <div class="gh-shade"></div>
@@ -427,7 +429,7 @@
     else {
       const p = s.players[s.turn];
       const dots = s.players
-        .map((q, i) => `<span class="who" style="--pc:${PCOLOR[i]}" title="Workers left"><i></i>${esc(q.name)} ${q.done ? '<small>done</small>' : '🧍'.repeat(Math.max(0, q.workers)) || '<small>no workers</small>'}</span>`)
+        .map((q, i) => `<span class="who" style="--pc:${PCOLOR[i]}" title="Workers left"><i></i>${esc(q.name)} ${q.done ? '<small>done</small>' : meeple(PCOLOR[i]).repeat(Math.max(0, q.workers)) || '<small>no workers</small>'}</span>`)
         .join('');
       const what = p.workers > 0 ? `${plural(p.workers, 'worker')} to place` : 'free actions, then End round';
       b = p.ai
@@ -911,7 +913,7 @@
         <button class="act" data-act="trade"><span class="ai">⚖️</span><span class="at">Trade</span><span class="as">${rate}, any number</span></button>
         <button class="act" data-act="train"${p.flags && p.flags.trained ? ' disabled title="You already trained someone this round"' : ''}><span class="ai">🎓</span><span class="at">Train</span><span class="as">${p.flags && p.flags.trained ? 'done this round' : E.trainee(p) ? 'a Peasant' : 'needs a Peasant'}</span></button>
       </div>
-      <p class="tip">🧍 ${workerMsg}</p>
+      <p class="tip">${meeple(PCOLOR[G.view != null ? G.view : 0], 'tipm')} ${workerMsg}</p>
       <button class="btn ${p.workers > 0 && open ? 'ghost' : 'big'} end-btn" data-act="end">⏭️ End round${p.workers > 0 && open ? ` <small>(${plural(p.workers, 'worker')} unused)</small>` : ''}</button>
       <p class="tip">Moving villagers between jobs is free too — click a villager above or a building on the map.</p>`;
   }
@@ -939,7 +941,7 @@
           <b class="loc-name">${L.name}</b>
           <span class="loc-text">${L.text}</span>
           ${g && who == null ? `<span class="loc-now">You’d get ${g}${k === 'crew' ? ` · ${(() => { const n = ((p.flags && p.flags.site) || []).length + (p.flags && p.flags.siteCastle ? 1 : 0); return n ? `finish ${n} 🚧 now` : 'nothing under construction yet'; })()}` : ''}</span>` : ''}
-          ${who != null ? `<span class="meeple" style="--pc:${PCOLOR[who]}" title="${esc(s.players[who].name)}">🧍</span>` : ''}
+          ${who != null ? `<span class="meeple" style="--pc:${PCOLOR[who]}" title="${esc(s.players[who].name)}">${meeple(PCOLOR[who])}</span>` : ''}
         </button>`;
       })
       .join('');
@@ -951,7 +953,7 @@
           <span class="loc-art"><img src="${IMG(L.img)}" alt=""></span>
           <b class="loc-name">${L.name}</b>
           <span class="loc-text">Take ${g}. No limit.</span>
-          ${crowd.length ? `<span class="crowd">${crowd.map((pi) => `<i style="--pc:${PCOLOR[pi]}" title="${esc(s.players[pi].name)}">🧍</i>`).join('')}</span>` : ''}
+          ${crowd.length ? `<span class="crowd">${crowd.map((pi) => `<i style="--pc:${PCOLOR[pi]}" title="${esc(s.players[pi].name)}">${meeple(PCOLOR[pi])}</i>`).join('')}</span>` : ''}
         </button>`;
     }).join('');
     $('#locs').innerHTML = `<div class="locs-head"><h3>📍 Locations</h3><span class="muted">Each holds one worker per round — whoever gets there first. This game’s five are drawn from ${E.LOC_ORDER.length}; the Work crew is in every game.</span></div><div class="loc-row">${cards}</div>
@@ -1147,7 +1149,7 @@
     }
     const p = s.players[pi];
     if (a.t === 'build' && p.bld.length > before) ui.fresh.add(p.bld[p.bld.length - 1].id);
-    if (a.t === 'place') toast(`🧍 ${esc(s.log[s.log.length - 1].text)}`);
+    if (a.t === 'place') toast(`${meeple(PCOLOR[pi], 'tipm')} ${esc(s.log[s.log.length - 1].text)}`);
     const fresh = p.ai || G.mode === 'sim' ? [] : newcomers(vilBefore, p);
     if (fresh.length) {
       save();
@@ -1242,8 +1244,9 @@
     };
     const chips = () => cands.map((v) => {
       const on = pick.has(v.id);
-      const where = v.at === b.id ? `working here` : v.at != null ? `now at the ${whereOf(p, v)}` : 'idle';
-      return `<button class="pchip${on ? ' on' : ''}${E.canWork(v.k, b.b) === 'spec' ? ' spec' : ''}" data-pick="${v.id}"><img src="${IMG(v.k)}" alt=""><span><b>${on ? '✓ ' : ''}${E.VIL[v.k].name}</b><small>${E.canWork(v.k, b.b) === 'spec' ? 'own trade ★' : 'labor'} · ${where}</small></span></button>`;
+      const trade = E.canWork(v.k, b.b) === 'spec' ? 'own trade ★' : 'labor';
+      const where = v.at === b.id ? `${trade} · working here` : v.at != null ? `${trade} · now at the ${whereOf(p, v)}` : 'Idle';
+      return `<button class="pchip${on ? ' on' : ''}${v.at == null && !on ? ' idle' : ''}${E.canWork(v.k, b.b) === 'spec' ? ' spec' : ''}" data-pick="${v.id}"><img src="${IMG(v.k)}" alt=""><span><b>${on ? '✓ ' : ''}${E.VIL[v.k].name}</b><small>${where}</small></span></button>`;
     }).join('');
     const back = openModal(`
       <div class="binfo">
@@ -1325,7 +1328,7 @@
     };
     const chip = (b, on) => {
       const y = yields(b);
-      return `<button class="pchip${on ? ' on' : ''}${b && E.canWork(v.k, b.b) === 'spec' ? ' spec' : ''}" data-to="${b ? b.id : 'idle'}">${b ? `<img src="${IMG(b.b)}" alt="">` : ''}<span><b>${b ? E.BUILD[b.b].name : 'Rest'}</b><small>${b ? `${how(b)}${y ? ` · ${y} a round` : ''}` : 'stay idle'}</small></span></button>`;
+      return `<button class="pchip${on ? ' on' : ''}${b && E.canWork(v.k, b.b) === 'spec' ? ' spec' : ''}" data-to="${b ? b.id : 'idle'}">${b ? `<img src="${IMG(b.b)}" alt="">` : ''}<span><b>${b ? E.BUILD[b.b].name : 'Idle'}</b>${b ? `<small>${how(b)}${y ? ` · ${y} a round` : ''}</small>` : ''}</span></button>`;
     };
     const targets = E.moveTargets(p, v);
     const back = openModal(`
@@ -1518,7 +1521,7 @@
         <div class="b-art big" style="--bc:${B.color}"><img src="${IMG(b)}" alt=""></div>
         <div>
           <h2>🔨 Who builds the ${B.name}?</h2>
-          <p class="muted">The builder leaves their job — anyone idle steps into it — and spends the rest of the round on the site: no work, no defending, and no other building until it’s finished. It opens next season, or right away if you send a worker to the Work crew.</p>
+          <p class="muted">The builder leaves their job and spends the rest of the round on the site: no work, no defending, and no other building until it’s finished. It opens next season, or right away if you send a worker to the Work crew.</p>
           <p class="warn">You can’t change the builder once building starts.</p>
         </div>
       </div>
@@ -1617,10 +1620,10 @@
           <h2>${V.name}</h2>
           <p>${V.text}</p>
           <p class="muted">Now: ${whereOf(p, v)} · worth ⭐${V.pts}</p>
-          ${away ? `<p class="warn">🔨 Building${siteName(p, v) ? ` the ${siteName(p, v)}` : ''} this round, so they can’t take a job until next season. They’ll find one on their own then.</p>` : '<p><b>Move to (free):</b></p>'}
+          ${away ? `<p class="warn">🔨 Building${siteName(p, v) ? ` the ${siteName(p, v)}` : ''} this round, so they can’t take a job until next season. You choose their job then.</p>` : '<p><b>Move to (free):</b></p>'}
           <div class="pchips">
             ${targets.map((b) => `<button class="pchip sm${E.canWork(v.k, b.b) === 'spec' ? ' spec' : ''}" data-to="${b.id}"><img src="${IMG(b.b)}" alt=""><span><b>${E.BUILD[b.b].name}</b><small>${E.canWork(v.k, b.b) === 'spec' ? 'own trade ★' : 'labor'}</small></span></button>`).join('') || '<span class="muted">No free job they can do. Build one first.</span>'}
-            ${v.at != null && !away ? '<button class="pchip sm idle" data-to="idle"><span><b>Rest</b><small>make idle</small></span></button>' : ''}
+            ${v.at != null && !away ? '<button class="pchip sm idle" data-to="idle"><span><b>Idle</b></span></button>' : ''}
           </div>
         </div>
       </div>`);
@@ -2133,7 +2136,7 @@
     document.body.className = 'setup-mode';
     $('#app').innerHTML = `
       <div class="setup gh">
-        <div class="gh-top"><a class="gh-lobby" href="/board-games.html" title="Back to the game lobby">← 🎲 Game lobby</a><button class="btn ghost sm" id="hist-new">🏰 New game</button></div>
+        <div class="gh-top"><a class="gh-lobby" href="/board-games.html" title="Back to the game lobby">← <img class="gh-dice" src="/img/board-games-icon-32.png?v=1" alt="" width="20" height="20"> Game lobby</a><button class="btn ghost sm" id="hist-new">🏰 New game</button></div>
         <div class="setup-card gh-card panel hist">
           <h2>🏆 Game history</h2>
           <div id="hist-body"><p class="muted">Loading your games…</p></div>
@@ -2767,7 +2770,7 @@
       <p class="lead">Free actions don’t need a worker. On your turn you can do them <b>as often as you like</b> — before or after placing a worker — as long as you can pay.</p>
       <table class="rules-table">
         <tr><th>Action</th><th>Exactly what happens</th></tr>
-        <tr><td>🏗️ Build</td><td>Pay the cost, pick a <b>villager to build it</b>, and put the building on a free hex of the right land <b>next to one of your buildings</b>. The builder <b>leaves their job</b> (an idle villager steps into it if you have one) and spends the rest of the round on the site: they don’t work, defend or build anything else until it is finished, and next season they take any free job. After you pick the building, a window asks who builds it. <b>The builder can’t be changed once building starts.</b> <b>New buildings are under construction 🚧 until next season</b>: they make nothing, add no beds, water or defense, and their workers don’t work yet. A worker at the <b>Work crew</b> finishes them early and frees your builders to work — or build again — straight away. Build as many as you can afford, even several of the same kind. Wonders also need enough villagers and only one village can build each (see Buildings).</td></tr>
+        <tr><td>🏗️ Build</td><td>Pay the cost, pick a <b>villager to build it</b>, and put the building on a free hex of the right land <b>next to one of your buildings</b>. The builder <b>leaves their job</b> and spends the rest of the round on the site: they don’t work, defend or build anything else until it is finished, and when it’s finished you choose their next job. After you pick the building, a window asks who builds it. <b>The builder can’t be changed once building starts.</b> <b>New buildings are under construction 🚧 until next season</b>: they make nothing, add no beds, water or defense, and their workers don’t work yet. A worker at the <b>Work crew</b> finishes them early and frees your builders to work — or build again — straight away. Build as many as you can afford, even several of the same kind. Wonders also need enough villagers and only one village can build each (see Buildings).</td></tr>
         <tr><td>🧱 Wall</td><td>Each of your 6 sides can have a wall. A bare side becomes a <b>Palisade</b> (🪵2, 🛡️2); a Palisade becomes <b>Stone</b> (🪨3, 🛡️4 in total); Stone becomes <b>Iron</b> (🪨1 🔩2, 🛡️6 in total). A wall only defends against creatures on foot attacking <i>that side</i>.</td></tr>
         <tr><td>🏹 Crossbow</td><td>Mount a crossbow on any wall (🪵2 🔩1, one per side): 🛡️4 against <b>flyers</b> attacking that side. If the wall is destroyed — or a Palisade falls to frost — its crossbow falls too.</td></tr>
         <tr><td>🧑‍🌾 Recruit</td><td>Take a traveller from the Crossroads and pay their 🪙 price (Knights also cost 🔩1). You need room: a free bed and free water. A Peasant for 🪙1 is always available.</td></tr>
@@ -2786,8 +2789,7 @@
       <ul>
         <li>Each traveller has a trade (★) and works best in their own building. Inns, Workshops, Smithies, Bakeries, Markets, Chapels, Barracks, Watchtowers, the Wizard’s Tower and the Keep only take their own trade.</li>
         <li><b>Anyone</b> can work a Farm, Lumber camp, Quarry or Mine as plain labor; their own trade there makes more.</li>
-        <li>New villagers take a job automatically: their own building if it has room, otherwise a free Farm, Lumber camp, Quarry or Mine, otherwise idle.</li>
-        <li>When you build, idle villagers who fit move in, and specialists doing labor move to their own new building.</li>
+        <li>Nobody takes a job on their own: new villagers, finished builders and new buildings all wait for you to choose. Until then they are idle.</li>
         <li>Each building holds 1 worker (Barracks 2). Houses, Wells and wonders without a job hold none.</li>
         <li>A Carpenter in a Workshop makes everything with wood in its cost 🪵1 cheaper, Palisades too.</li>
       </ul>`;

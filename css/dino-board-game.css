@@ -1323,3 +1323,10 @@ a.btn { display: inline-block; text-align: center; text-decoration: none; }
   .big-market { order: 4; margin-top: 0; }
   .player, .panel { scroll-margin-top: 92px; }
 }
+
+/* Setup choices: one-word pills, same as Oakhaven. */
+.seg.pills .seg-btn { align-content: center; justify-items: center; text-align: center; padding: 0.55rem 0.6rem; }
+.seg.pills .seg-btn b { font-family: "Fredoka", sans-serif; font-weight: 600; font-size: 0.98rem; }
+.seg.pills .seg-btn.on { background: linear-gradient(180deg, #ffd978, var(--amber)); box-shadow: 0 3px 0 #b07800; border-color: transparent; }
+.ai-opts { gap: 0.1rem; }
+.setup.vs-ai .name-row { grid-template-columns: 1fr; margin-bottom: 0.8rem; }
