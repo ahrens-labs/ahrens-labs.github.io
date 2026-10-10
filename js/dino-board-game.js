@@ -341,6 +341,7 @@
   let busy = false;
   let drag = null;
   let lastFocus = null;
+  let lastSel = false;
   let animOn = false;
   let lastTurnKey = null;
   let lastClickRect = null;
@@ -2701,11 +2702,14 @@
     }
     animOn = true;
     const focusP = ui.sel ? ui.sel.board : T && T.p !== undefined ? T.p : null;
-    if (!state.sim && focusP !== null && lastFocus !== null && focusP !== lastFocus && boardsStacked()) {
+    // Stacked boards (phones): follow the player whose turn it is, and bring a board into view when you start marking it.
+    const selNow = !!ui.sel && !theirTurn(T);
+    if (!state.sim && focusP !== null && boardsStacked() && ((lastFocus !== null && focusP !== lastFocus) || (selNow && !lastSel))) {
       const el = document.querySelector(`[data-player="${focusP}"]`);
       if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
-    lastFocus = focusP;
+    if (focusP !== null) lastFocus = focusP;
+    lastSel = selNow;
     if (T && T.t === 'gameOver' && !state.celebrated) {
       state.celebrated = true;
       save();
@@ -2852,6 +2856,9 @@
     });
   }
 
+  // Phones: the action panel sits over the park, so tapping its title folds it away. A new step of yours opens it again.
+  let panelMin = false;
+  let panelKey = '';
   function renderPanel() {
     const el = document.getElementById('panel');
     if (!el) return;
@@ -2860,7 +2867,15 @@
     const top = scroll ? scroll.scrollTop : 0;
     const ended = online && online.status !== 'active' && !(T && T.t === 'gameOver');
     const body = ended ? onlineEndHtml() : theirTurn(T) ? watchHtml(T) : taskHtml(T);
-    const changed = setHtml(el, `${bannerHtml(T)}<div class="panel-scroll"><div class="task">${body}</div></div>${marketHtml(T)}`);
+    const key = T ? `${state.round}:${T.t}:${T.k}:${T.p}` : '';
+    if (key !== panelKey) {
+      panelKey = key;
+      if (!theirTurn(T)) panelMin = false;
+    }
+    el.classList.toggle('min', panelMin);
+    el.classList.toggle('selecting', !!ui.sel);
+    const banner = bannerHtml(T).replace(/<\/div>$/, '<span class="b-fold" aria-hidden="true"></span></div>');
+    const changed = setHtml(el, `${banner}<div class="panel-scroll"><div class="task">${body}</div></div>${marketHtml(T)}`);
     const ns = el.querySelector('.panel-scroll');
     if (changed && ns && ui.keepScroll) ns.scrollTop = top;
     ui.keepScroll = false;
@@ -7629,6 +7644,11 @@
 
   // ---------------------------------------------------------------- events wiring
   document.addEventListener('click', (e) => {
+    if (e.target.closest && e.target.closest('#panel > .banner') && matchMedia('(max-width: 860px)').matches) {
+      panelMin = !panelMin;
+      document.getElementById('panel').classList.toggle('min', panelMin);
+      return;
+    }
     const el = e.target.closest('[data-act]');
     if (!el) {
       const cell = e.target.closest && e.target.closest('[data-cell]');

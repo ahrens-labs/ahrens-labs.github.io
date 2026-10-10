@@ -336,15 +336,15 @@
           <div class="turn-banner" id="banner"></div>
         </div>
         <div class="top-actions">
-          <button class="btn ghost sm" id="rules-btn">📜 Rules</button>
+          <button class="btn ghost sm" id="rules-btn" aria-label="Rules">📜<span class="bt"> Rules</span></button>
           ${G && G.mode === 'sim' ? '<button class="btn ghost sm" id="sim-speed"></button>' : ''}
-          <button class="btn ghost sm" id="new-btn">${G && G.mode === 'online' ? '🌐 Game' : G && G.mode === 'sim' ? '⏹ Stop' : '🏰 New game'}</button>
+          <button class="btn ghost sm" id="new-btn">${G && G.mode === 'online' ? '🌐<span class="bt"> Game</span>' : G && G.mode === 'sim' ? '⏹<span class="bt"> Stop</span>' : '🏰<span class="bt"> New game</span>'}</button>
           <a class="btn ghost sm" href="/board-games.html" title="All board games" aria-label="All board games">🎲</a>
         </div>
       </header>
       <section class="threats" id="threats"></section>
       <main class="layout">
-        <section class="board-wrap">
+        <section class="board-wrap" id="mapsec">
           <div class="board-tabs" id="tabs"></div>
           <div class="board" id="board"><svg id="svg" viewBox="-258 -240 516 480" role="img" aria-label="Village map"></svg><div class="particles" id="particles"></div></div>
           <div class="pickbar" id="pickbar"></div>
@@ -361,7 +361,19 @@
       <section class="panel" id="row"></section>
       <section class="lower">
         <div class="panel" id="log"></div>
-      </section>`;
+      </section>
+      <nav class="mnav" id="mnav" aria-label="Jump to">
+        <button data-jump="mapsec">🗺️<span>Map</span></button>
+        <button data-jump="res">🏡<span>Village</span></button>
+        <button data-jump="actions">🔨<span>Actions</span></button>
+        <button data-jump="locs">📍<span>Places</span></button>
+        <button data-jump="row">🛤️<span>Crossroads</span></button>
+        <button data-jump="log">📖<span>Log</span></button>
+      </nav>`;
+    $('#mnav').onclick = (e) => {
+      const b = e.target.closest('[data-jump]');
+      if (b) document.getElementById(b.dataset.jump).scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
     $('#rules-btn').onclick = () => showRules();
     $('#new-btn').onclick = newGame;
     if ($('#sim-speed')) {
@@ -422,6 +434,10 @@
     }
     if (G.mode === 'online' && G.gmode === 'quick' && G.status === 'active' && G.deadline) b += '<span class="ol-clock" id="ol-clock"></span>';
     $('#banner').innerHTML = b;
+    // Phones: the jump bar marks where the next move is made.
+    const mine = s.phase === 'act' && myTurnHere();
+    const due = { locs: mine && me().workers > 0, actions: mine && me().workers <= 0 };
+    document.querySelectorAll('#mnav [data-jump]').forEach((el) => el.classList.toggle('due', !!due[el.dataset.jump]));
     tickClock();
   }
   function turnLabel(p) {

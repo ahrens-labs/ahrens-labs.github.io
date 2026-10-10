@@ -613,7 +613,37 @@ button { font-family: inherit; }
 .end-btn small { font-weight: 600; opacity: 0.8; }
 .hidden-score { opacity: 0.75; }
 @media (max-width: 1100px) { .loc-row { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); } .loc-row.extra { max-width: none; } }
-@media (max-width: 560px) { .locs { margin: 0 0.6rem 1rem; } .loc-row { grid-template-columns: 1fr; } .loc-row.extra { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 560px) {
+  .locs { margin: 0 0.6rem 1rem; }
+  .loc-row, .loc-row.extra { grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+  .loc, .loc.mini { grid-template-columns: 38px minmax(0, 1fr); grid-template-rows: auto; padding: 0.45rem 0.5rem 0.5rem; }
+  .loc-art, .loc.mini .loc-art { grid-row: auto; width: 38px; height: 38px; border-radius: 9px; }
+  .loc-name, .loc.mini .loc-name { align-self: center; font-size: 0.86rem; }
+  .loc-text { grid-column: 1 / -1; margin-top: 0.3rem; font-size: 0.74rem; }
+  .loc-grp { font-size: 0.6rem; }
+  .loc-now { font-size: 0.7rem; }
+  .locs-head .muted { font-size: 0.8rem; }
+}
+
+/* ---------- phone jump bar ---------- */
+.mnav { display: none; }
+@media (max-width: 720px) {
+  .topbar { position: sticky; }
+  .tracker { display: none; }
+  .brand small { font-size: 0.72rem; }
+  .top-actions { flex-wrap: nowrap; }
+  .top-actions .bt { display: none; }
+  .top-actions .btn { min-width: 40px; min-height: 40px; font-size: 1.05rem; }
+  .turn-banner { font-size: 0.85rem; gap: 0.2rem 0.6rem; }
+  .mnav { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 0.15rem; position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+    padding: 0.3rem 0.3rem calc(0.3rem + env(safe-area-inset-bottom)); background: #2b1f12; box-shadow: 0 -4px 14px rgba(0, 0, 0, 0.35); }
+  .mnav button { font: inherit; border: 0; background: transparent; color: #f7ecd2; display: grid; justify-items: center; gap: 0.05rem; font-size: 1.2rem; line-height: 1.1; padding: 0.3rem 0 0.25rem; border-radius: 10px; cursor: pointer; min-height: 44px; }
+  .mnav span { font-size: 0.64rem; font-weight: 700; }
+  .mnav .due { background: rgba(242, 193, 78, 0.22); color: #ffe08a; box-shadow: inset 0 0 0 2px #f2c14e; }
+  body:not(.setup-mode) { padding-bottom: calc(4.2rem + env(safe-area-inset-bottom)); }
+  body:not(.setup-mode) #toasts { bottom: calc(4.8rem + env(safe-area-inset-bottom)); }
+  #mapsec, #res, #actions, #locs, #row, #log { scroll-margin-top: 7.5rem; }
+}
 
 /* ---------- final reveal ---------- */
 .hh-reveal { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; padding: 1.2rem; overflow-y: auto; cursor: pointer;

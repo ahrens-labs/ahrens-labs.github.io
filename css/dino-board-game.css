@@ -1290,3 +1290,21 @@ a.btn { display: inline-block; text-align: center; text-decoration: none; }
 @keyframes evrIn { from { transform: translateY(-60px) scale(0.6) rotate(-8deg); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes evrFlip { from { transform: rotateY(0); } to { transform: rotateY(180deg); } }
 @media (prefers-reduced-motion: reduce) { .evr-inner { transform: rotateY(180deg); } }
+
+/* ---------- phones: foldable action panel ---------- */
+.b-fold { display: none; }
+@media (max-width: 860px) {
+  .panel > .banner { cursor: pointer; position: relative; padding-top: 16px; }
+  .b-fold { display: block; position: absolute; top: 6px; left: 50%; width: 44px; height: 5px; margin-left: -22px; border-radius: 3px; background: rgba(255, 255, 255, 0.7); }
+  .panel > .banner .b-phase::after { content: " · tap to fold"; opacity: 0.75; font-weight: 600; }
+  .panel.min > .banner .b-phase::after { content: " · tap to open"; }
+  .panel.min .panel-scroll, .panel.min .market { display: none; }
+  .panel.selecting { max-height: 36vh; }
+  .panel.selecting .market:not(.picking) { display: none; }
+}
+@media (max-width: 520px) {
+  .tracker { display: none; }
+  .top-actions { flex-wrap: nowrap; overflow-x: auto; justify-content: flex-start; scrollbar-width: none; }
+  .top-actions .btn { flex: 0 0 auto; }
+}
+@media (pointer: coarse) { .edge .eh { stroke-width: 26; } }
