@@ -7772,13 +7772,20 @@
       if (!best || d < best.d) best = { d, e: ln.parentNode.dataset.e, x1, y1, x2, y2 };
     });
     aim.edge = best && best.d < CS * 0.8 ? best : null;
+    const removing = !!aim.edge && !!ui.sel && ui.sel.edges.has(aim.edge.e);
     const set = (ln) => {
+      ln.classList.toggle('rm', removing);
       if (!aim.edge) return ln.setAttribute('visibility', 'hidden');
       ln.setAttribute('visibility', 'visible');
       ['x1', 'y1', 'x2', 'y2'].forEach((k) => ln.setAttribute(k, aim.edge[k]));
     };
     set(aim.line);
     set(aim.loupeLine);
+    aim.loupeX.setAttribute('visibility', removing ? 'visible' : 'hidden');
+    if (removing) {
+      aim.loupeX.setAttribute('x', (aim.edge.x1 + aim.edge.x2) / 2 + 7);
+      aim.loupeX.setAttribute('y', (aim.edge.y1 + aim.edge.y2) / 2 - 7);
+    }
     const R = CS * 1.3;
     aim.loupeSvg.setAttribute('viewBox', `${x - R} ${y - R} ${R * 2} ${R * 2}`);
     const size = 132;
@@ -7811,9 +7818,13 @@
     loupeSvg.removeAttribute('class');
     const loupeLine = line.cloneNode();
     loupeSvg.appendChild(loupeLine);
+    const loupeX = document.createElementNS(NS, 'text');
+    loupeX.setAttribute('class', 'aim-x');
+    loupeX.textContent = '✕';
+    loupeSvg.appendChild(loupeX);
     loupe.appendChild(loupeSvg);
     document.body.appendChild(loupe);
-    aim = { p: +svg.dataset.p, svg, line, loupe, loupeSvg, loupeLine, edge: null };
+    aim = { p: +svg.dataset.p, svg, line, loupe, loupeSvg, loupeLine, loupeX, edge: null };
     aimAt(e);
   });
   document.addEventListener('pointermove', (e) => {
