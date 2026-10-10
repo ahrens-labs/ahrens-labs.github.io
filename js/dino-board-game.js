@@ -775,6 +775,10 @@
 
   // Feeders take 1 food per feeder square off the enclosure's whole bill (not off each dino).
   function enclosureCost(cp) {
+    return enclosureBill(cp, false);
+  }
+
+  function enclosureBill(cp, noEvent) {
     const c = { meat: 0, plant: 0, flex: 0 };
     const extra = cp.inactive || 0;
     cp.living.forEach((d) => {
@@ -789,8 +793,9 @@
     }
     c.discount = cp.feederSquares - off;
     const eaters = cp.living.filter((d) => d.stage !== 'egg');
-    if (state && state.proto && state.event === 'heatwave' && eaters.length) c[SPECIES[eaters[0].species].food.t]++;
-    if (state && state.proto && state.event === 'mild' && eaters.length) {
+    const ev = state && state.proto && !noEvent ? state.event : null;
+    if (ev === 'heatwave' && eaters.length) c[SPECIES[eaters[0].species].food.t]++;
+    if (ev === 'mild' && eaters.length) {
       const k = ['meat', 'plant', 'flex'].find((t) => c[t] > 0);
       if (k) c[k]--;
     }
@@ -2919,6 +2924,7 @@
             ${bonus ? chip('⏩', bonus, state.proto ? 'Dino bonus: extra worker next round' : 'Gigantoraptor: do a phase twice next round') : ''}
           </div>
           <div class="board-wrap">${boardSvg(p)}</div>
+          ${feedNeedHtml(P)}
           <div class="p-foot">
             <button class="btn sm ghost book-btn" data-act="book" data-p="${p}">${state.proto ? `✋ Reserved · ${P.hand.length}/${handMax(P)}` : `<span class="book-ic"></span>Dino book · ${P.book.length}`}</button>
             ${P.blocked.length ? `<span class="blocked">🚫 Blocked: ${P.blocked.map((sp) => esc(spName(sp)) + (state.proto && P.blockEnd && P.blockEnd[sp] ? ` (through round ${P.blockEnd[sp]})` : '')).join(', ')}</span>` : ''}
@@ -3103,6 +3109,28 @@
       <button data-act="step" data-k="${k}" data-d="-1" ${canDec ? '' : 'disabled'} aria-label="Less">−</button>
       <b>${val}</b>
       <button data-act="step" data-k="${k}" data-d="1" ${canInc ? '' : 'disabled'} aria-label="More">+</button></div>`;
+  }
+
+  // What each enclosure with dinos eats at the next Feeding, under every park: inactive enclosures
+  // eat more, feeders take some off, and this round's event counts until this round's Feeding is over.
+  function feedNeedHtml(P) {
+    const list = feedables(analyze(P.board));
+    if (!list.length) return '';
+    const T = cur();
+    const fi = state.phaseOrder.indexOf('feed');
+    const later = !!T && T.t !== 'roundStart' && T.k != null && fi >= 0 && T.k > fi;
+    const costs = list.map((cp) => enclosureBill(cp, later));
+    const each = list.map((cp, i) => {
+      const notes = [
+        cp.inactive ? `<small class="fn-n warn" title="Inactive ${cp.inactive}/4: each dino eats ${cp.inactive} more">💤+${cp.inactive} each</small>` : '',
+        costs[i].discount ? `<small class="fn-n" title="Feeder squares take food off the bill">🌾−${costs[i].discount}</small>` : '',
+      ].join('');
+      return `<span class="fn-e"><b>${cp.name}</b>${costChips(costs[i])}${notes}</span>`;
+    }).join('');
+    const tot = list.length > 1 ? `<span class="fn-e fn-tot"><b>Total</b>${costChips(sumCosts(costs))}</span>` : '';
+    const E = !later && state.proto && (state.event === 'heatwave' || state.event === 'mild') ? PROTO_EVENTS[state.event] : null;
+    const ev = E ? `<small class="fn-n ev" title="${esc(E.desc)}">${E.icon} ${E.name} ${state.event === 'heatwave' ? '+1' : '−1'} per enclosure</small>` : '';
+    return `<div class="feed-need"><span class="fn-t">${later ? 'Next Feeding needs' : 'Feeding needs'}</span>${each}${tot}${ev}</div>`;
   }
 
   function costChips(c) {

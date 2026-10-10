@@ -1401,3 +1401,13 @@ a.btn { display: inline-block; text-align: center; text-decoration: none; }
   .brand-logo { display: none; }
 }
 .big-market .goal-strip { margin-top: 14px; padding-top: 10px; border-top: 2px dashed var(--bone-dark); }
+.feed-need { display: flex; flex-wrap: wrap; align-items: center; gap: 5px 8px; margin-top: 8px; padding: 5px 8px; border-radius: 12px; background: rgba(0, 0, 0, 0.25); font-size: 0.85rem; }
+.feed-need .fn-t { font-weight: 700; color: #f6e7c8; }
+.feed-need .fn-e { display: inline-flex; align-items: center; gap: 3px; }
+.feed-need .fn-e > b { display: inline-grid; place-items: center; min-width: 19px; height: 19px; padding: 0 4px; border-radius: 999px; background: #4a2a10; box-shadow: 0 0 0 1.5px #f3d9a4; color: #fff; font-size: 0.72rem; }
+.feed-need .fn-tot { margin-left: auto; }
+.feed-need .fn-tot > b { background: none; box-shadow: none; color: #f6e7c8; font-size: 0.8rem; }
+.feed-need .fc { font-size: 0.8rem; }
+.feed-need .fn-n { padding: 1px 6px; border-radius: 999px; background: rgba(255, 255, 255, 0.14); color: #f6e7c8; font-size: 0.72rem; font-weight: 700; white-space: nowrap; }
+.feed-need .fn-n.warn { background: #22305a; color: #fff; }
+.feed-need .fn-n.ev { flex-basis: 100%; width: max-content; flex-grow: 0; background: rgba(255, 213, 79, 0.2); color: #ffe08a; }
