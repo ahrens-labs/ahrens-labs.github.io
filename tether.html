@@ -1315,7 +1315,7 @@
                   <p class="th-field-hint" style="margin:0;">Resets to To do with a new due date when completed.</p>
                 </div>
               </div>
-              <div class="th-field">
+              <div class="th-field" id="task-dod-field" hidden>
                 <label for="task-dod-input">Definition of Done</label>
                 <div id="task-dod-input" class="th-rich-editor" contenteditable="true" role="textbox"
                   aria-multiline="true" aria-label="Definition of Done"
@@ -4848,7 +4848,10 @@
     setFieldMarkdown('task-title-input', task ? taskDisplayTitle(task) : '');
     renderTaskLabelsEditor(task ? taskLabels(task) : []);
     document.getElementById('task-labels-input').value = '';
-    setFieldMarkdown('task-dod-input', task ? (task.definitionOfDone || '') : '');
+    const taskDod = task ? (task.definitionOfDone || '') : '';
+    setFieldMarkdown('task-dod-input', taskDod);
+    // Deprecated: only shown so tasks that already have one can still read/clear it.
+    document.getElementById('task-dod-field').hidden = !String(taskDod).trim();
     setFieldMarkdown('task-notes-input', task ? (task.notes || '') : '');
     document.getElementById('task-due-input').value = task ? (task.dueDate || '') : '';
     setTaskStatus(task ? (task.status || 'todo') : 'todo');
