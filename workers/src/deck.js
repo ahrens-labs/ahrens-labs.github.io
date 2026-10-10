@@ -625,7 +625,23 @@ export async function buildDeckSyncFingerprintForUser(env, userId) {
   return parts.join('::');
 }
 
-async function pushShareUpdate(env, userId, shareId, deckEntry, updatedShareIds) {
+function mergeSharePayload(shareType, payload, previous, tombstones) {
+  if (!previous || typeof previous !== 'object') return payload;
+  if (shareType === 'card') {
+    return deckEntityTime(previous) > deckEntityTime(payload) ? previous : payload;
+  }
+  if (shareType !== 'deck') return payload;
+  const key = '__share';
+  const { decks } = mergeDeckTrees(
+    [{ id: key, cards: payload.cards || [], stacks: payload.stacks || [] }],
+    [{ id: key, cards: previous.cards || [], stacks: previous.stacks || [] }],
+    tombstones || {}
+  );
+  const tree = decks[0] || { cards: [], stacks: [] };
+  return { ...payload, cards: tree.cards, stacks: tree.stacks };
+}
+
+async function pushShareUpdate(env, userId, shareId, deckEntry, updatedShareIds, tombstones) {
   if (!shareId || updatedShareIds.has(shareId)) return;
   const record = await fetchDeckShare(env, shareId);
   if (!record || !userCanEditShare(record, userId)) return;
@@ -636,11 +652,22 @@ async function pushShareUpdate(env, userId, shareId, deckEntry, updatedShareIds)
     if (payload) shareType = 'deck';
   }
   if (!payload) return;
+  if (shareType === record.type) {
+    payload = mergeSharePayload(shareType, payload, record.payload, tombstones);
+  }
+  const label = shareType === 'deck' ? (deckEntry.name || record.label) : record.label;
+  if (
+    shareType === record.type
+    && label === record.label
+    && JSON.stringify(payload) === JSON.stringify(record.payload)
+  ) {
+    return;
+  }
   const updated = {
     ...record,
     type: shareType,
     payload,
-    label: shareType === 'deck' ? (deckEntry.name || record.label) : record.label,
+    label,
     updatedAt: Date.now(),
   };
   await saveDeckShare(env, updated);
@@ -713,44 +740,237 @@ function collectSharePushTargets(decks) {
   return targets;
 }
 
-export async function processDeckSyncPayload(env, userId, deckData, sourceClientId) {
-  const existing = await getDeckDataForUser(env, userId);
-  const incomingMod = Number(deckData?.clientLastModified) || 0;
-  const existingMod = Number(existing?.clientLastModified) || 0;
+const DECK_TOMBSTONE_TTL_MS = 90 * 24 * 60 * 60 * 1000;
+const DECK_TOMBSTONE_MAX = 5000;
 
-  // Reject stale full-document overwrites from in-flight / multi-tab races.
-  // Legacy clients that omit clientLastModified are still accepted.
-  if (incomingMod > 0 && existingMod > 0 && incomingMod < existingMod) {
-    return {
-      ignored: true,
-      lastUpdated: existing.lastUpdated || null,
-      clientLastModified: existingMod,
-    };
+function deckEntityTime(entity) {
+  return Math.max(Number(entity?.updatedAt) || 0, Number(entity?.createdAt) || 0);
+}
+
+function normalizeDeckTombstones(raw, now) {
+  const out = {};
+  if (!raw || typeof raw !== 'object') return out;
+  for (const [id, ts] of Object.entries(raw)) {
+    const t = Number(ts) || 0;
+    if (id && t > 0 && now - t < DECK_TOMBSTONE_TTL_MS) out[id] = t;
+  }
+  return out;
+}
+
+function mergeDeckTombstones(existing, incoming, now) {
+  const merged = normalizeDeckTombstones(existing, now);
+  for (const [id, t] of Object.entries(normalizeDeckTombstones(incoming, now))) {
+    if (!merged[id] || t > merged[id]) merged[id] = t;
+  }
+  const entries = Object.entries(merged);
+  if (entries.length <= DECK_TOMBSTONE_MAX) return merged;
+  entries.sort((a, b) => b[1] - a[1]);
+  return Object.fromEntries(entries.slice(0, DECK_TOMBSTONE_MAX));
+}
+
+function deletedAfter(tombstones, id, entity) {
+  const t = tombstones[id];
+  return !!t && t >= deckEntityTime(entity);
+}
+
+/** Keep `primary` order; insert ids only in `secondary` after their nearest surviving predecessor. */
+function mergeIdOrder(primaryIds, secondaryIds) {
+  const out = primaryIds.slice();
+  const seen = new Set(out);
+  secondaryIds.forEach((id, idx) => {
+    if (seen.has(id)) return;
+    let at = 0;
+    for (let i = idx - 1; i >= 0; i--) {
+      const pos = out.indexOf(secondaryIds[i]);
+      if (pos >= 0) {
+        at = pos + 1;
+        break;
+      }
+    }
+    out.splice(at, 0, id);
+    seen.add(id);
+  });
+  return out;
+}
+
+function entityIds(list) {
+  return (Array.isArray(list) ? list : []).filter((e) => e && e.id).map((e) => e.id);
+}
+
+function indexDeckTree(decks) {
+  const deckMap = new Map();
+  const stackMap = new Map();
+  const cardMap = new Map();
+  for (const deck of decks || []) {
+    if (!deck?.id) continue;
+    deckMap.set(deck.id, deck);
+    for (const stack of deck.stacks || []) {
+      if (!stack?.id) continue;
+      stackMap.set(stack.id, { entity: stack, deckId: deck.id });
+      for (const card of stack.cards || []) {
+        if (card?.id) cardMap.set(card.id, { entity: card, deckId: deck.id, stackId: stack.id });
+      }
+    }
+    for (const card of deck.cards || []) {
+      if (card?.id) cardMap.set(card.id, { entity: card, deckId: deck.id, stackId: null });
+    }
+  }
+  return { deckMap, stackMap, cardMap };
+}
+
+/**
+ * Merge a client's deck tree into the stored tree entity-by-entity (decks, stacks, cards).
+ * The newer `updatedAt` wins per entity, so a device holding an old snapshot cannot revert
+ * cards it never touched. Entities missing from the client are kept unless tombstoned.
+ */
+function mergeDeckTrees(incomingDecks, existingDecks, tombstones) {
+  const inc = indexDeckTree(incomingDecks);
+  const ex = indexDeckTree(existingDecks);
+  let changed = false;
+
+  // Shared-in reference decks mirror the share record; the client's hydrated copy is authoritative.
+  const refDeckIds = new Set(
+    (incomingDecks || []).filter((d) => d?.id && d.sharedRef).map((d) => d.id)
+  );
+
+  const pick = (a, b) => {
+    if (a && refDeckIds.has(a.deckId)) return a;
+    if (!a) {
+      if (b && refDeckIds.has(b.deckId)) return null;
+      return b;
+    }
+    if (!b) return a;
+    return deckEntityTime(b.entity) > deckEntityTime(a.entity) ? b : a;
+  };
+
+  const outDecks = new Map();
+  for (const id of mergeIdOrder([...inc.deckMap.keys()], [...ex.deckMap.keys()])) {
+    const a = inc.deckMap.get(id);
+    const b = ex.deckMap.get(id);
+    const winner = !a ? b : (!b ? a : (deckEntityTime(b) > deckEntityTime(a) ? b : a));
+    if (deletedAfter(tombstones, id, winner)) {
+      if (a) changed = true;
+      continue;
+    }
+    if (winner !== a) changed = true;
+    outDecks.set(id, { ...winner, cards: [], stacks: [] });
   }
 
+  const outStacks = new Map();
+  for (const id of new Set([...inc.stackMap.keys(), ...ex.stackMap.keys()])) {
+    const a = inc.stackMap.get(id);
+    const winner = pick(a, ex.stackMap.get(id));
+    if (!winner || deletedAfter(tombstones, id, winner.entity) || !outDecks.has(winner.deckId)) {
+      if (a) changed = true;
+      continue;
+    }
+    if (winner !== a) changed = true;
+    outStacks.set(id, { entity: { ...winner.entity, cards: [] }, deckId: winner.deckId });
+  }
+
+  const outCards = new Map();
+  for (const id of new Set([...inc.cardMap.keys(), ...ex.cardMap.keys()])) {
+    const a = inc.cardMap.get(id);
+    const winner = pick(a, ex.cardMap.get(id));
+    if (!winner || deletedAfter(tombstones, id, winner.entity)) {
+      if (a) changed = true;
+      continue;
+    }
+    if (winner !== a) changed = true;
+    outCards.set(id, winner);
+  }
+
+  const placed = new Set();
+  const cardsFor = (incList, exList, belongs) =>
+    mergeIdOrder(entityIds(incList), entityIds(exList))
+      .filter((cid) => !placed.has(cid) && outCards.has(cid) && belongs(outCards.get(cid)))
+      .map((cid) => {
+        placed.add(cid);
+        return outCards.get(cid).entity;
+      });
+
+  for (const [deckId, deck] of outDecks) {
+    const incDeck = inc.deckMap.get(deckId);
+    const exDeck = ex.deckMap.get(deckId);
+    deck.stacks = mergeIdOrder(entityIds(incDeck?.stacks), entityIds(exDeck?.stacks))
+      .filter((sid) => outStacks.get(sid)?.deckId === deckId)
+      .map((sid) => {
+        const stack = outStacks.get(sid).entity;
+        stack.cards = cardsFor(
+          inc.stackMap.get(sid)?.entity?.cards,
+          ex.stackMap.get(sid)?.entity?.cards,
+          (loc) => loc.stackId === sid
+        );
+        return stack;
+      });
+    deck.cards = cardsFor(incDeck?.cards, exDeck?.cards, (loc) => !loc.stackId && loc.deckId === deckId);
+  }
+
+  // Cards whose stack disappeared fall back to their deck root rather than vanishing.
+  for (const [cid, loc] of outCards) {
+    if (placed.has(cid)) continue;
+    const deck = outDecks.get(loc.deckId);
+    if (!deck) continue;
+    deck.cards.push(loc.entity);
+    placed.add(cid);
+    changed = true;
+  }
+
+  return { decks: [...outDecks.values()], changed };
+}
+
+function nextDeckLastUpdated(existing) {
+  return Math.max(Date.now(), (Number(existing?.lastUpdated) || 0) + 1);
+}
+
+export async function processDeckSyncPayload(env, userId, deckData, sourceClientId) {
+  const existing = await getDeckDataForUser(env, userId);
+  const now = Date.now();
+  const incomingMod = Number(deckData?.clientLastModified) || 0;
+  const existingMod = Number(existing?.clientLastModified) || 0;
+  const existingDecks = Array.isArray(existing?.decks) ? existing.decks : [];
+  const incomingDecks = Array.isArray(deckData?.decks) ? deckData.decks : [];
+  const baseLastUpdated = Number(deckData?.baseLastUpdated) || 0;
+  const tombstones = mergeDeckTombstones(existing?.tombstones, deckData?.deletedIds, now);
   const copyAcks = new Set(
     (Array.isArray(deckData?.copyAcks) ? deckData.copyAcks : []).map(String)
   );
-  const restoredCopies = restorePendingCopies(
-    Array.isArray(deckData?.decks) ? deckData.decks : [],
-    existing.decks,
-    copyAcks
-  );
-  const decks = dedupeOwnedShareLinks(mergeDecksShareMetadata(restoredCopies.decks, existing.decks));
+
+  // Accept the client tree verbatim only when it was built on the exact snapshot stored now;
+  // otherwise another device (or share/copy) wrote in between and we must merge per entity.
+  const fastForward = (!existingDecks.length && !Object.keys(tombstones).length)
+    || (baseLastUpdated > 0 && baseLastUpdated === (Number(existing?.lastUpdated) || 0));
+  let mergedDecks;
+  let merged = false;
+  let copiesRestored = 0;
+  if (fastForward) {
+    const restored = restorePendingCopies(incomingDecks, existingDecks, copyAcks);
+    mergedDecks = restored.decks;
+    copiesRestored = restored.restored;
+  } else {
+    const incomingIds = new Set(incomingDecks.filter(Boolean).map((d) => d.id));
+    const mergeBase = existingDecks.filter(
+      (d) => !(d && d.copyPending && !incomingIds.has(d.id) && copyAcks.has(String(d.id)))
+    );
+    const result = mergeDeckTrees(incomingDecks, mergeBase, tombstones);
+    mergedDecks = result.decks;
+    merged = result.changed;
+  }
+
+  const decks = dedupeOwnedShareLinks(mergeDecksShareMetadata(mergedDecks, existingDecks));
   const updatedShareIds = new Set();
 
   if (env.DECK_SHARE || deckD1WriteEnabled(env) || deckD1PrimaryEnabled(env)) {
     for (const target of collectSharePushTargets(decks)) {
-      await pushShareUpdate(env, userId, target.shareId, target.deckEntry, updatedShareIds);
+      await pushShareUpdate(env, userId, target.shareId, target.deckEntry, updatedShareIds, tombstones);
     }
   }
 
-  const lastUpdated = Date.now();
-  const { copyAcks: _copyAcks, ...deckDataToStore } = deckData || {};
+  const lastUpdated = nextDeckLastUpdated(existing);
   await saveDeckDataForUser(env, userId, {
-    ...deckDataToStore,
     decks,
-    clientLastModified: incomingMod || existingMod || lastUpdated,
+    tombstones,
+    clientLastModified: Math.max(incomingMod, existingMod) || lastUpdated,
     lastUpdated,
   });
 
@@ -769,9 +989,9 @@ export async function processDeckSyncPayload(env, userId, deckData, sourceClient
 
   return {
     ignored: false,
+    merged,
     lastUpdated,
-    clientLastModified: incomingMod || existingMod || lastUpdated,
-    copiesRestored: restoredCopies.restored > 0,
+    copiesRestored: copiesRestored > 0,
   };
 }
 
@@ -1027,7 +1247,7 @@ export async function handleDeckShareRequest(request, env, corsHeaders, { execut
   await saveDeckDataForUser(env, userId, {
     ...ownerData,
     decks: ownerDecks,
-    lastUpdated: now,
+    lastUpdated: nextDeckLastUpdated(ownerData),
   });
 
   const recipientData = await getDeckDataForUser(env, target.userId);
@@ -1041,7 +1261,7 @@ export async function handleDeckShareRequest(request, env, corsHeaders, { execut
     await saveDeckDataForUser(env, target.userId, {
       ...recipientData,
       decks: recipientDecks,
-      lastUpdated: now,
+      lastUpdated: nextDeckLastUpdated(recipientData),
     });
   } else {
     const existing = recipientDecks.find((d) => d?.sharedRef?.sharedId === sharedId);
@@ -1171,7 +1391,7 @@ export async function handleDeckSendCopyRequest(request, env, corsHeaders, { exe
   await saveDeckDataForUser(env, target.userId, {
     ...recipientData,
     decks: recipientDecks,
-    lastUpdated: now,
+    lastUpdated: nextDeckLastUpdated(recipientData),
   });
   await notifyDeckSync(env, target.userId, { type: 'deck', ts: now, sourceClientId: null });
 

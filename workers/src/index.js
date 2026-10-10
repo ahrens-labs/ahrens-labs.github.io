@@ -2329,7 +2329,7 @@ async function handleDeckLoad(request, env, corsHeaders) {
   }
 
   const deckData = await getDeckDataForUser(env, userResult.userId);
-  const hydrated = await hydrateDeckDataForUser(env, userResult.userId, deckData);
+  const { tombstones: _tombstones, ...hydrated } = await hydrateDeckDataForUser(env, userResult.userId, deckData);
 
   return new Response(JSON.stringify(hydrated), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -12242,7 +12242,9 @@ export class UserAccount {
       {
         ...userData.games.deck,
         decks,
-        lastUpdated: Date.now(),
+        lastUpdated: Number(deckData?.lastUpdated) || Date.now(),
+        clientLastModified: Number(deckData?.clientLastModified) || 0,
+        tombstones: deckData?.tombstones && typeof deckData.tombstones === 'object' ? deckData.tombstones : {},
       },
       key
     );

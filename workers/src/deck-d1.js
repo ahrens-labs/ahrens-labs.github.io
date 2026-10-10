@@ -67,10 +67,12 @@ export async function d1PutUserDeckData(env, userId, deckData) {
   const decks = Array.isArray(deckData?.decks) ? deckData.decks : [];
   const lastUpdated = Number(deckData?.lastUpdated) || Date.now();
   const clientLastModified = Number(deckData?.clientLastModified) || 0;
+  const tombstones = deckData?.tombstones && typeof deckData.tombstones === 'object' ? deckData.tombstones : {};
   const encrypted = await encryptDeckBlob({ decks, lastUpdated, clientLastModified }, key);
   const decksJson = JSON.stringify({
     decks: encrypted.decks || [],
     clientLastModified: encrypted.clientLastModified || clientLastModified || 0,
+    tombstones,
   });
   await env.DECK_DB.prepare(
     `INSERT INTO deck_user_data (user_id, decks_json, last_updated, deck_count, card_count, updated_at)
@@ -111,6 +113,9 @@ export async function d1GetUserDeckData(env, userId) {
     decks: Array.isArray(decrypted?.decks) ? decrypted.decks : [],
     lastUpdated: decrypted?.lastUpdated != null ? decrypted.lastUpdated : Number(row.last_updated) || null,
     clientLastModified: Number(decrypted?.clientLastModified) || storedClientMod || 0,
+    tombstones: !Array.isArray(parsed) && parsed?.tombstones && typeof parsed.tombstones === 'object'
+      ? parsed.tombstones
+      : {},
   };
 }
 

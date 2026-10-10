@@ -12,7 +12,7 @@ Cutover docs: [`DECK_D1_MIGRATION.md`](./DECK_D1_MIGRATION.md)
 
 ## Design notes
 
-- **User library** is still a document: encrypted JSON array of decks (with nested stacks/cards) in `deck_user_data.decks_json`. Matches full-document `/api/deck/sync` LWW.
+- **User library** is still a document: encrypted JSON of decks (with nested stacks/cards) in `deck_user_data.decks_json`. `/api/deck/sync` fast-forwards only when the client's `baseLastUpdated` equals the stored `last_updated`; otherwise it merges per deck/stack/card by `updatedAt`, honoring `tombstones` for deletes.
 - **Shares** are relational so hydrate/fingerprint can batch-load by `sharedId` without N Durable Object fetches.
 
 ```
@@ -30,8 +30,8 @@ deck_shares             — one row per sharedId
 | Column | Type | Notes |
 |---|---|---|
 | `user_id` | TEXT PK | Ahrens Labs user id |
-| `decks_json` | TEXT NOT NULL | JSON array of decks; field-encrypted via `encryptDeckBlob` (names, card title/notes/front/back, sections, checklist text, stack names) |
-| `last_updated` | INTEGER | Client/library sync timestamp |
+| `decks_json` | TEXT NOT NULL | `{ decks, clientLastModified, tombstones }` (legacy rows: bare decks array); decks field-encrypted via `encryptDeckBlob` (names, card title/notes/front/back, sections, checklist text, stack names). `tombstones` maps deleted entity id → deletedAt (ids only, pruned after 90 days) |
+| `last_updated` | INTEGER | Server write version (strictly increasing); clients echo it back as `baseLastUpdated` |
 | `deck_count` | INTEGER NOT NULL | Denormalized count (admin / fingerprint helpers) |
 | `card_count` | INTEGER NOT NULL | Denormalized (deck cards + stack cards) |
 | `updated_at` | INTEGER NOT NULL | Row write time |
