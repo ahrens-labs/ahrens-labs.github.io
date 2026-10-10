@@ -341,7 +341,7 @@
   let busy = false;
   let drag = null;
   let lastFocus = null;
-  let lastSel = false;
+  let lastWhere = null;
   let animOn = false;
   let lastTurnKey = null;
   let lastClickRect = null;
@@ -2705,14 +2705,8 @@
     }
     animOn = true;
     const focusP = ui.sel ? ui.sel.board : T && T.p !== undefined ? T.p : null;
-    // Stacked boards (phones): follow the player whose turn it is, and bring a board into view when you start marking it.
-    const selNow = !!ui.sel && !theirTurn(T);
-    if (!state.sim && focusP !== null && boardsStacked() && selNow && !lastSel) {
-      const el = document.querySelector('#boards .btabs');
-      if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - pinnedHeight() - 8, behavior: 'smooth' });
-    }
     if (focusP !== null) lastFocus = focusP;
-    lastSel = selNow;
+    phoneFocus(T);
     if (T && T.t === 'gameOver' && !state.celebrated) {
       state.celebrated = true;
       save();
@@ -2725,6 +2719,32 @@
   // Phones: the park and the controls are stacked in the page, so marking a park scrolls it into view.
   function boardsStacked() {
     return window.matchMedia('(max-width: 860px)').matches;
+  }
+
+  // Phones: each time a new step needs you somewhere else on the page (your park, the controls or
+  // the market), scroll there, unless it is already on screen. The first paint never scrolls.
+  function phoneSpot(T) {
+    if (!T || T.t === 'gameOver' || state.sim || theirTurn(T)) return null;
+    if (state.proto && !ui.species && (T.t === 'drawCard' || T.t === 'freePlay' || (T.t === 'actions' && (ui.mode === 'draw' || ui.mode === 'play')))) return 'market';
+    const s = ui.sel;
+    if (s && T.t !== 'gainFood') return s.type === 'cells' && s.need && s.cells.size >= s.need ? 'panel' : 'park';
+    return 'panel';
+  }
+  function phoneFocus(T) {
+    if (!boardsStacked()) return;
+    const where = phoneSpot(T);
+    const key = where && `${where}|${state.round}|${T.t}|${T.p}|${T.k}|${ui.mode || ''}|${ui.sel ? ui.sel.purpose || ui.sel.type : ''}`;
+    if (key === lastWhere) return;
+    const first = lastWhere === null;
+    lastWhere = key || '';
+    if (first || !where) return;
+    const to = where === 'park' ? document.querySelector('#boards .btabs') : document.getElementById(where === 'market' ? 'bigmarket' : 'panel');
+    if (!to) return;
+    const top = pinnedHeight();
+    const r = (where === 'park' ? document.querySelector('#boards .player:not(.off)') || to : to).getBoundingClientRect();
+    const onScreen = where === 'park' ? r.top >= top - 4 && r.bottom <= innerHeight + 4 : r.top >= top - 4 && r.top <= innerHeight * 0.55;
+    if (onScreen) return;
+    window.scrollTo({ top: to.getBoundingClientRect().top + window.scrollY - top - 8, behavior: 'smooth' });
   }
 
   // Phones pin the whole header to the top of the screen.
@@ -7753,6 +7773,48 @@
     handle(el.dataset.act, el.dataset, el, e);
   });
 
+  // Touch on a park: a quick tap acts at once, press-and-hold then slide keeps going,
+  // and a swipe scrolls the page instead of placing anything.
+  const HOLD_MS = 200;
+  const SLOP = 10;
+  let press = null;
+  function startPress(e, cbs) {
+    if (press) clearTimeout(press.timer);
+    const pr = { id: e.pointerId, x: e.clientX, y: e.clientY, held: false, ...cbs };
+    pr.timer = setTimeout(() => {
+      if (press !== pr) return;
+      pr.held = true;
+      pr.hold({ clientX: pr.x, clientY: pr.y });
+    }, HOLD_MS);
+    press = pr;
+  }
+  function dropPress() {
+    if (!press) return null;
+    clearTimeout(press.timer);
+    const pr = press;
+    press = null;
+    return pr;
+  }
+  document.addEventListener('pointermove', (e) => {
+    if (!press || e.pointerId !== press.id) return;
+    if (press.held) press.move(e);
+    else if (Math.hypot(e.clientX - press.x, e.clientY - press.y) > SLOP) dropPress();
+  });
+  document.addEventListener('pointerup', (e) => {
+    if (!press || e.pointerId !== press.id) return;
+    const pr = dropPress();
+    if (pr.held) pr.release(e);
+    else pr.tap(e);
+  });
+  document.addEventListener('pointercancel', (e) => {
+    if (!press || e.pointerId !== press.id) return;
+    const pr = dropPress();
+    if (pr.held) pr.cancel();
+  });
+  document.addEventListener('touchmove', (e) => {
+    if (press && press.held && e.cancelable) e.preventDefault();
+  }, { passive: false });
+
   document.addEventListener('pointerdown', (e) => {
     const cell = e.target.closest && e.target.closest('[data-cell]');
     if (!cell || !ui.sel || ui.sel.type !== 'cells' || busy || isAiTask(cur()) || onlineBlocked()) return;
@@ -7761,10 +7823,23 @@
     const i = +cell.dataset.cell;
     const b = state.players[p].board;
     if (b.cells[i] !== 0) return;
-    e.preventDefault();
     const adding = !ui.sel.cells.has(i);
-    drag = { adding, p };
-    applyCell(i, adding, true);
+    if (e.pointerType === 'mouse') {
+      e.preventDefault();
+      drag = { adding, p };
+      applyCell(i, adding, true);
+      return;
+    }
+    startPress(e, {
+      tap: () => applyCell(i, adding, true),
+      hold: () => {
+        drag = { adding, p };
+        applyCell(i, adding, true);
+      },
+      move: () => {},
+      release: () => { drag = null; },
+      cancel: () => { drag = null; },
+    });
   });
 
   document.addEventListener('pointermove', (e) => {
@@ -7793,6 +7868,7 @@
       if (!best || d < best.d) best = { d, e: ln.parentNode.dataset.e, x1, y1, x2, y2 };
     });
     aim.edge = best && best.d < CS * 0.8 ? best : null;
+    return aim.edge;
     const removing = !!aim.edge && !!ui.sel && ui.sel.edges.has(aim.edge.e);
     const set = (ln) => {
       ln.classList.toggle('rm', removing);
@@ -7828,7 +7904,18 @@
     if (e.pointerType === 'mouse' || !ui.sel || ui.sel.type !== 'edges' || busy || isAiTask(cur()) || onlineBlocked()) return;
     const svg = e.target.closest && e.target.closest('svg.board');
     if (!svg || +svg.dataset.p !== ui.sel.board) return;
-    e.preventDefault();
+    startPress(e, {
+      tap: (ev) => {
+        startAim(svg, ev);
+        endAim({ type: 'pointerup' });
+      },
+      hold: (pt) => startAim(svg, pt),
+      move: (ev) => { if (aim) aimAt(ev); },
+      release: () => endAim({ type: 'pointerup' }),
+      cancel: () => endAim({ type: 'pointercancel' }),
+    });
+  });
+  function startAim(svg, e) {
     const NS = 'http://www.w3.org/2000/svg';
     const line = document.createElementNS(NS, 'line');
     line.setAttribute('class', 'aim-edge');
@@ -7847,12 +7934,7 @@
     document.body.appendChild(loupe);
     aim = { p: +svg.dataset.p, svg, line, loupe, loupeSvg, loupeLine, loupeX, edge: null };
     aimAt(e);
-  });
-  document.addEventListener('pointermove', (e) => {
-    if (aim) aimAt(e);
-  });
-  document.addEventListener('pointerup', endAim);
-  document.addEventListener('pointercancel', endAim);
+  }
 
   // Drag a worker from your supply onto a worker-board space (prototype rules).
   let meepleDrag = null;

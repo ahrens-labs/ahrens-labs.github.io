@@ -376,7 +376,7 @@
       </nav>`;
     $('#mnav').onclick = (e) => {
       const b = e.target.closest('[data-jump]');
-      if (b) document.getElementById(b.dataset.jump).scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (b) goTo(document.getElementById(b.dataset.jump), 'start');
     };
     $('#rules-btn').onclick = () => showRules();
     $('#new-btn').onclick = newGame;
@@ -442,7 +442,40 @@
     const mine = s.phase === 'act' && myTurnHere();
     const due = { locs: mine && me().workers > 0, actions: mine && me().workers <= 0 };
     document.querySelectorAll('#mnav [data-jump]').forEach((el) => el.classList.toggle('due', !!due[el.dataset.jump]));
+    phoneFocus(due.locs ? 'locs' : due.actions ? 'actions' : null);
     tickClock();
+  }
+
+  // Scroll so an element sits in the space between the pinned top bar and the phone jump bar.
+  function goTo(el, block = 'center') {
+    if (!el) return;
+    const bar = $('.topbar');
+    const nav = $('#mnav');
+    const top = bar && getComputedStyle(bar).position === 'sticky' ? bar.offsetHeight : 0;
+    const bottom = nav && nav.offsetParent ? nav.offsetHeight : 0;
+    const r = el.getBoundingClientRect();
+    const room = innerHeight - top - bottom;
+    const y = block === 'center' && r.height < room ? r.top - top - (room - r.height) / 2 : r.top - top - 8;
+    window.scrollTo({ top: window.scrollY + y, behavior: 'smooth' });
+  }
+
+  // Phones: when your turn comes round, bring the place you act next into view (unless it is already
+  // on screen or a pop-up is open). The first paint never scrolls.
+  let lastSpot = null;
+  function phoneFocus(spot) {
+    if (!matchMedia('(max-width: 720px)').matches) return;
+    const s = st();
+    const key = spot ? `${spot}|${s.round}|${s.turn}|${G.view}` : '';
+    if (key === lastSpot) return;
+    const first = lastSpot === null;
+    lastSpot = key;
+    if (first || !spot || ui.modal) return;
+    const el = document.getElementById(spot);
+    if (!el) return;
+    const bar = $('.topbar');
+    const r = el.getBoundingClientRect();
+    if (r.top >= (bar ? bar.offsetHeight : 0) - 4 && r.top <= innerHeight * 0.6) return;
+    setTimeout(() => goTo(el, 'start'), 250);
   }
   function turnLabel(p) {
     if (G.mode === 'online') return st().turn === G.me ? 'Your turn' : `${esc(p.name)}’s turn`;
@@ -1044,7 +1077,7 @@
       if (act.loc === 'masons' && E.masonChoices(st(), me()).length > 1) {
         ui.pick = { t: 'masons' };
         render();
-        $('#board').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        goTo($('#board'));
         return;
       }
       doAction(act);
@@ -1071,6 +1104,7 @@
     if (what === 'wall' || what === 'bow') {
       ui.pick = { t: what };
       render();
+      goTo($('#board'));
     }
     if (what === 'cancel-pick') {
       ui.pick = null;
@@ -1078,7 +1112,7 @@
     }
     if (what === 'recruit') {
       const row = $('#row');
-      row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      goTo(row);
       row.classList.remove('flash');
       void row.offsetWidth;
       row.classList.add('flash');
@@ -1545,7 +1579,7 @@
       }
       ui.pick = { t: 'build', b, by };
       render();
-      $('#board').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      goTo($('#board'));
     });
   }
 

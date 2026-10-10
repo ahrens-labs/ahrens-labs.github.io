@@ -271,7 +271,7 @@ button { font-family: inherit; color: #000; }
 .chip.down .delta { background: #c62828; }
 .board-wrap { position: relative; display: flex; justify-content: center; }
 .board { width: 100%; max-width: 470px; height: auto; display: block; user-select: none; -webkit-user-select: none; filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.45)); }
-.board.selecting { touch-action: none; }
+.board.selecting { touch-action: manipulation; }
 .p-foot { position: relative; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-top: 8px; }
 .book-btn { display: inline-flex; align-items: center; gap: 0.45rem; }
 .book-btn.bump { animation: bump 0.5s var(--pop); }
