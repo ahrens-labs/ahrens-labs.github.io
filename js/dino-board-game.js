@@ -2706,9 +2706,10 @@
     const focusP = ui.sel ? ui.sel.board : T && T.p !== undefined ? T.p : null;
     // Stacked boards (phones): follow the player whose turn it is, and bring a board into view when you start marking it.
     const selNow = !!ui.sel && !theirTurn(T);
-    if (!state.sim && focusP !== null && boardsStacked() && ((lastFocus !== null && focusP !== lastFocus) || (selNow && !lastSel))) {
-      const el = document.querySelector(`[data-player="${focusP}"]`);
-      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (!state.sim && focusP !== null && boardsStacked() && selNow && !lastSel) {
+      const el = document.querySelector('#boards .btabs');
+      const strip = document.getElementById('mstrip');
+      if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - (strip ? strip.offsetHeight : 0) - 8, behavior: 'smooth' });
     }
     if (focusP !== null) lastFocus = focusP;
     lastSel = selNow;
@@ -2721,9 +2722,9 @@
     aiSchedule();
   }
 
+  // Phones: the park and the controls are stacked in the page, so marking a park scrolls it into view.
   function boardsStacked() {
-    const els = document.querySelectorAll('#boards [data-player]');
-    return els.length === 2 && els[1].offsetTop > els[0].offsetTop + 20;
+    return window.matchMedia('(max-width: 860px)').matches;
   }
 
   function legendHtml() {
@@ -2777,7 +2778,7 @@
     ? `<button class="btn sm ghost" data-act="onlineLeave">🏠 My games</button>${online.status === 'active' ? '<button class="btn sm ghost" data-act="onlineResign">🏳️ Resign</button>' : ''}`
     : state.sim ? '<button class="btn sm ghost" data-act="simStop">⏹ Exit simulation</button>'
       : state.past ? '<a class="btn sm ghost" href="/dino-history.html">🏆 Back to history</a>' : '<button class="btn sm ghost" data-act="newGame">🥚 New game</button>'}
-        <a class="btn sm ghost" href="/board-games.html" title="Back to the game lobby">🎲 Lobby</a>
+        <a class="btn sm ghost" href="/board-games.html" title="Back to the game lobby"><img class="gh-dice" src="/img/board-games-favicon-48.png?v=2" alt=""> Lobby</a>
       </div>`);
   }
 
@@ -2796,6 +2797,22 @@
   }
 
   // The park the person at this screen plays: theirs online or against the computer, the active one on a shared device.
+  // One park is shown at a time; tabs switch to the other. A choice lasts until the player to move,
+  // or the park being marked, changes; then it goes back to the park that matters.
+  let viewP = null;
+  let viewKey = '';
+  function shownBoard() {
+    const T = cur();
+    const selB = ui.sel && !theirTurn(T) ? ui.sel.board : null;
+    const key = `${T && T.p != null ? T.p : ''}|${selB}`;
+    if (key !== viewKey) {
+      viewKey = key;
+      viewP = null;
+    }
+    if (viewP != null) return viewP;
+    return selB != null ? selB : homePlayer();
+  }
+
   function homePlayer() {
     if (online) return online.me;
     if (state.ai != null) return other(state.ai);
@@ -2843,12 +2860,18 @@
     prevRes = snap;
     const over = cur() && cur().t === 'gameOver';
     el.classList.toggle('watching', theirTurn(T));
-    const changed = setHtml(el, [0, 1]
+    const shown = shownBoard();
+    const youTag = online || state.ai != null;
+    const tabs = `<div class="btabs" role="tablist">${[0, 1].map((p) => {
+      const P = state.players[p];
+      return `<button class="btab pl-${P.color}${p === shown ? ' on' : ''}" data-act="viewBoard" data-p="${p}" role="tab" aria-selected="${p === shown}"><img class="bt-mascot" src="${IMG}${MASCOT[p]}.webp" alt="">${esc(P.name)}${youTag && p === homePlayer() ? ' (you)' : ''}${p === activeP ? ' <span class="tag turn-tag">TURN</span>' : ''}${p === target ? ' <span class="tag target-tag">TARGET</span>' : ''}</button>`;
+    }).join('')}</div>`;
+    const changed = setHtml(el, tabs + [0, 1]
       .map((p) => {
         const P = state.players[p];
         const bonus = P.bonusNext + P.bonusPending;
         const chips = RES.map(([k, img, label]) => chip(tok(img), P[k], label, k, resFx[p][k])).join('');
-        return `<div class="player pl-${P.color}${p === activeP ? ' active' : ''}${p === target ? ' target' : ''}${p === homePlayer() ? ' mine' : ''}" data-player="${p}">
+        return `<div class="player pl-${P.color}${p === activeP ? ' active' : ''}${p === target ? ' target' : ''}${p === homePlayer() ? ' mine' : ''}${p === shown ? '' : ' off'}" data-player="${p}">
           <div class="p-head">
             <div class="p-name"><img class="p-mascot" src="${IMG}${MASCOT[p]}.webp" alt="">${esc(P.name)}${p === state.first ? ' <span class="tag">1st</span>' : ''}${p === activeP ? ' <span class="tag turn-tag">TURN</span>' : ''}${p === target ? ' <span class="tag target-tag">TARGET</span>' : ''}</div>
             ${over ? `<div class="p-score" title="Final score">⭐ ${scorePlayer(p).total}</div>` : ''}
@@ -3157,6 +3180,7 @@
       ${stepper('meat', '🍖 Meat', ui.meat, ui.meat > 0, left > 0)}
       ${stepper('plant', '🌿 Plants', ui.plant, ui.plant > 0, left > 0)}
       <div class="fence-line">🪵 Fences: <b>${fences}</b> <span class="muted">— ${canFence ? 'tap the dotted edges on your board' : 'no legal edges left'}</span></div>
+      ${fenceUndoHtml()}
       <div class="hint">Close off an area with fences to make an enclosure. The board edge can count for <b>up to 2 sides</b>.</div>
       <button class="btn big" data-act="confirmGain">${left > 0 ? `Confirm (${left} unused)` : 'Confirm'}</button>`;
   }
@@ -3412,6 +3436,7 @@
       const n = ui.sel ? ui.sel.edges.size : 0;
       return `${backHead()}<h3>🪵 Build 2 fences</h3><p>Tap the dotted lines on your board.</p>
         <div class="fence-line">Fences selected: <b>${n}</b> / 2</div>
+        ${fenceUndoHtml()}
         <button class="btn big" data-act="confirmFences" ${n ? '' : 'disabled'}>Build fences</button>`;
     }
 
@@ -3518,11 +3543,17 @@
       <button class="btn big" data-act="confirmFood">Take ${ui.meat} 🍖 + ${plant} 🌿</button>`;
   }
 
+  function fenceUndoHtml() {
+    const n = ui.sel && ui.sel.type === 'edges' ? ui.sel.edges.size : 0;
+    return `<div class="btn-row fence-undo"><button class="btn sm ghost" data-act="fenceUndo" ${n ? '' : 'disabled'}>↩ Remove last fence</button><button class="btn sm ghost" data-act="fenceClear" ${n > 1 ? '' : 'disabled'}>✕ Remove all</button></div>`;
+  }
+
   function drawFencesHtml(T) {
     const n = ui.sel ? ui.sel.edges.size : 0;
     return `<h3>${esc(T.title)}</h3>
       <p>Tap dotted edges on your board (tap again to undo).</p>
       <div class="fence-line">Fences selected: <b>${n}</b> / ${T.count}</div>
+      ${fenceUndoHtml()}
       <button class="btn big" data-act="confirmFences">${n < T.count ? `Done (${T.count - n} unused)` : 'Build fences'}</button>`;
   }
 
@@ -4161,6 +4192,11 @@
 
   // ---------------------------------------------------------------- actions
   function handle(act, ds, el, ev) {
+    if (act === 'viewBoard') {
+      viewP = +ds.p;
+      renderBoards();
+      return;
+    }
     if (busy) return;
     if (act === 'closeModal') {
       if (el.classList.contains('modal-bg') && ev.target !== el) return;
@@ -4384,6 +4420,17 @@
           }
           s.edges.add(e);
         }
+        ui.keepScroll = true;
+        renderBoards();
+        renderPanel();
+        break;
+      }
+      case 'fenceUndo':
+      case 'fenceClear': {
+        const s = ui.sel;
+        if (!s || s.type !== 'edges' || !s.edges.size) break;
+        if (act === 'fenceClear') s.edges.clear();
+        else s.edges.delete([...s.edges].pop());
         ui.keepScroll = true;
         renderBoards();
         renderPanel();
@@ -4840,8 +4887,8 @@
   }
 
   // ---------------------------------------------------------------- computer player
-  const FREE_ACTS = new Set(['simOpen', 'simOpt', 'simStart', 'simSpeed', 'simStop', 'simAgain', 'fullLog', 'viewCard', 'rules', 'rulesTab', 'goals', 'book', 'closeModal', 'newGame', 'confirmYes', 'aiSettings', 'setAiOpt', 'onlineLeave', 'onlineResign', 'olRematch', 'replayReveal']);
-  const AI_LEVELS = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
+  const FREE_ACTS = new Set(['viewBoard', 'simOpen', 'simOpt', 'simStart', 'simSpeed', 'simStop', 'simAgain', 'fullLog', 'viewCard', 'rules', 'rulesTab', 'goals', 'book', 'closeModal', 'newGame', 'confirmYes', 'aiSettings', 'setAiOpt', 'onlineLeave', 'onlineResign', 'olRematch', 'replayReveal']);
+  const AI_LEVELS = { easy: 'Easy', medium: 'Normal', hard: 'Hard' };
   const AI_PACES = { fast: 'Fast', medium: 'Medium', slow: 'Slow' };
   const AI_LEVEL_HELP = { easy: 'Plays for fun and makes mistakes', medium: 'Plans one move at a time', hard: 'Plays to win: plans fences, cards and the whole game' };
   const AI_PACE_HELP = { fast: 'Quick turns', medium: 'Easy to follow', slow: 'Step by step' };
@@ -6256,7 +6303,7 @@
     return ms * PACE_MULT[aiCfg().pace];
   }
 
-  // If Hard's planning throws, play this step like Medium instead of freezing the game.
+  // If Hard's planning throws, play this step like Normal instead of freezing the game.
   let aiSafe = false;
 
   function aiRun(T) {
@@ -7658,7 +7705,7 @@
     if (Date.now() < aimBlockUntil && e.target.closest && e.target.closest('svg.board')) return;
     const jump = e.target.closest && e.target.closest('[data-jump]');
     if (jump) {
-      const to = jump.dataset.jump === 'panel' ? document.getElementById('panel') : document.querySelector(`#boards [data-player="${homePlayer()}"]`);
+      const to = jump.dataset.jump === 'panel' ? document.getElementById('panel') : document.querySelector('#boards .btabs');
       const strip = document.getElementById('mstrip');
       if (to) window.scrollTo({ top: to.getBoundingClientRect().top + window.scrollY - (strip ? strip.offsetHeight : 0) - 8, behavior: 'smooth' });
       return;

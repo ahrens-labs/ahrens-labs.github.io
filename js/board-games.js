@@ -6,7 +6,7 @@
     dino: { name: 'Dino Dynasty', icon: '🦖', page: '/dino-board-game.html', img: '/img/dino-game/cover.webp' },
     hearthhold: { name: 'Oakhaven', icon: '🏰', page: '/oakhaven.html', img: '/img/hearthhold/cover.webp' },
   };
-  const LEVELS = { easy: 'Easy', normal: 'Normal', medium: 'Medium', hard: 'Hard', brutal: 'Brutal' };
+  const LEVELS = { easy: 'Easy', normal: 'Normal', medium: 'Normal', hard: 'Hard', brutal: 'Brutal' };
   const SEASONS = ['Spring', 'Summer', 'Autumn', 'Winter'];
 
   const box = document.getElementById('my-games');

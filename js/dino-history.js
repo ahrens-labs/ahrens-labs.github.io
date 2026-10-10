@@ -3,7 +3,7 @@
   const API_BASE = window.AHRENS_LABS_API_BASE || 'https://chess-accounts.matthewahrens.workers.dev';
   const IMG = '/img/dino-game/';
   const PAGE = 30;
-  const LEVELS = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
+  const LEVELS = { easy: 'Easy', medium: 'Normal', hard: 'Hard' };
   const MODES = { quick: '⚡ Quick', long: '🐢 Long' };
   const FILTERS = [['', 'All games'], ['online', '🌐 Online'], ['ai', '🤖 Vs computer'], ['local', '👥 Same device']];
   const app = document.getElementById('app');
