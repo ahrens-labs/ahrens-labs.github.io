@@ -2683,11 +2683,13 @@
     if (!document.getElementById('game-shell')) {
       app.innerHTML = tokify(`<div id="game-shell">
         <header class="topbar" id="top"></header>
+        <div class="mstrip" id="mstrip"></div>
         <main class="layout"><div class="main-col"><section class="boards" id="boards"></section><section class="big-market" id="bigmarket"></section></div><aside class="panel" id="panel"></aside></main>
         <footer class="legend"><details><summary>🗺️ Board key <span>· tap any dino to see its card</span></summary><div class="lg">${legendHtml()}</div></details></footer>
       </div>`);
     }
     renderTop();
+    renderStrip();
     renderBoards();
     renderPanel();
     renderBigMarket();
@@ -2793,6 +2795,27 @@
     return `<span class="chip${cls}" title="${esc(title)}"${key ? ` data-r="${key}"` : ''}>${icon} <b>${val}</b>${delta}</span>`;
   }
 
+  // The park the person at this screen plays: theirs online or against the computer, the active one on a shared device.
+  function homePlayer() {
+    if (online) return online.me;
+    if (state.ai != null) return other(state.ai);
+    const T = cur();
+    return T && T.p != null ? T.p : state.first;
+  }
+
+  // Phones: your materials and whose turn it is stay pinned at the top, with jumps to your park and the controls.
+  function renderStrip() {
+    const el = document.getElementById('mstrip');
+    if (!el) return;
+    const T = cur();
+    const h = homePlayer();
+    const P = state.players[h];
+    const mine = T && T.t !== 'gameOver' && !theirTurn(T) && !state.sim;
+    const who = !T ? '' : T.t === 'gameOver' ? '🏁 Game over' : T.p == null ? `Round ${state.round}` : mine ? (T.p === h ? 'Your move' : `${esc(state.players[T.p].name)}’s move`) : `${esc(state.players[T.p].name)}’s turn`;
+    setHtml(el, `<div class="ms-res pl-${P.color}">${RES.map(([k, img, label]) => chip(tok(img), P[k], label)).join('')}</div>
+      <div class="ms-row"><span class="ms-who">${who}</span><button class="btn sm ghost" data-jump="park">🏞️ Park</button><button class="btn sm${mine ? ' due' : ' ghost'}" data-jump="panel">🎮 Controls</button></div>`);
+  }
+
   function renderBoards() {
     const el = document.getElementById('boards');
     const T = cur();
@@ -2825,7 +2848,7 @@
         const P = state.players[p];
         const bonus = P.bonusNext + P.bonusPending;
         const chips = RES.map(([k, img, label]) => chip(tok(img), P[k], label, k, resFx[p][k])).join('');
-        return `<div class="player pl-${P.color}${p === activeP ? ' active' : ''}${p === target ? ' target' : ''}" data-player="${p}">
+        return `<div class="player pl-${P.color}${p === activeP ? ' active' : ''}${p === target ? ' target' : ''}${p === homePlayer() ? ' mine' : ''}" data-player="${p}">
           <div class="p-head">
             <div class="p-name"><img class="p-mascot" src="${IMG}${MASCOT[p]}.webp" alt="">${esc(P.name)}${p === state.first ? ' <span class="tag">1st</span>' : ''}${p === activeP ? ' <span class="tag turn-tag">TURN</span>' : ''}${p === target ? ' <span class="tag target-tag">TARGET</span>' : ''}</div>
             ${over ? `<div class="p-score" title="Final score">⭐ ${scorePlayer(p).total}</div>` : ''}
@@ -2856,9 +2879,6 @@
     });
   }
 
-  // Phones: the action panel sits over the park, so tapping its title folds it away. A new step of yours opens it again.
-  let panelMin = false;
-  let panelKey = '';
   function renderPanel() {
     const el = document.getElementById('panel');
     if (!el) return;
@@ -2867,15 +2887,7 @@
     const top = scroll ? scroll.scrollTop : 0;
     const ended = online && online.status !== 'active' && !(T && T.t === 'gameOver');
     const body = ended ? onlineEndHtml() : theirTurn(T) ? watchHtml(T) : taskHtml(T);
-    const key = T ? `${state.round}:${T.t}:${T.k}:${T.p}` : '';
-    if (key !== panelKey) {
-      panelKey = key;
-      if (!theirTurn(T)) panelMin = false;
-    }
-    el.classList.toggle('min', panelMin);
-    el.classList.toggle('selecting', !!ui.sel);
-    const banner = bannerHtml(T).replace(/<\/div>$/, '<span class="b-fold" aria-hidden="true"></span></div>');
-    const changed = setHtml(el, `${banner}<div class="panel-scroll"><div class="task">${body}</div></div>${marketHtml(T)}`);
+    const changed = setHtml(el, `${bannerHtml(T)}<div class="panel-scroll"><div class="task">${body}</div></div>${marketHtml(T)}`);
     const ns = el.querySelector('.panel-scroll');
     if (changed && ns && ui.keepScroll) ns.scrollTop = top;
     ui.keepScroll = false;
@@ -7644,9 +7656,12 @@
 
   // ---------------------------------------------------------------- events wiring
   document.addEventListener('click', (e) => {
-    if (e.target.closest && e.target.closest('#panel > .banner') && matchMedia('(max-width: 860px)').matches) {
-      panelMin = !panelMin;
-      document.getElementById('panel').classList.toggle('min', panelMin);
+    if (Date.now() < aimBlockUntil && e.target.closest && e.target.closest('svg.board')) return;
+    const jump = e.target.closest && e.target.closest('[data-jump]');
+    if (jump) {
+      const to = jump.dataset.jump === 'panel' ? document.getElementById('panel') : document.querySelector(`#boards [data-player="${homePlayer()}"]`);
+      const strip = document.getElementById('mstrip');
+      if (to) window.scrollTo({ top: to.getBoundingClientRect().top + window.scrollY - (strip ? strip.offsetHeight : 0) - 8, behavior: 'smooth' });
       return;
     }
     const el = e.target.closest('[data-act]');
@@ -7692,6 +7707,74 @@
     if (!cell || +cell.dataset.p !== drag.p) return;
     applyCell(+cell.dataset.cell, drag.adding, false);
   });
+
+  // Touch: fence edges are thin, so a press aims at the nearest edge, a loupe above the finger shows it
+  // close up, sliding moves the aim, and lifting the finger toggles that fence.
+  let aim = null;
+  let aimBlockUntil = 0;
+  function aimAt(e) {
+    const pt = aim.svg.createSVGPoint();
+    pt.x = e.clientX;
+    pt.y = e.clientY;
+    const { x, y } = pt.matrixTransform(aim.svg.getScreenCTM().inverse());
+    let best = null;
+    aim.svg.querySelectorAll('[data-act="edge"] .eh').forEach((ln) => {
+      const x1 = +ln.getAttribute('x1'), y1 = +ln.getAttribute('y1'), x2 = +ln.getAttribute('x2'), y2 = +ln.getAttribute('y2');
+      const dx = x2 - x1, dy = y2 - y1;
+      const t = Math.max(0, Math.min(1, ((x - x1) * dx + (y - y1) * dy) / (dx * dx + dy * dy || 1)));
+      const d = Math.hypot(x - (x1 + t * dx), y - (y1 + t * dy));
+      if (!best || d < best.d) best = { d, e: ln.parentNode.dataset.e, x1, y1, x2, y2 };
+    });
+    aim.edge = best && best.d < CS * 0.8 ? best : null;
+    const set = (ln) => {
+      if (!aim.edge) return ln.setAttribute('visibility', 'hidden');
+      ln.setAttribute('visibility', 'visible');
+      ['x1', 'y1', 'x2', 'y2'].forEach((k) => ln.setAttribute(k, aim.edge[k]));
+    };
+    set(aim.line);
+    set(aim.loupeLine);
+    const R = CS * 1.3;
+    aim.loupeSvg.setAttribute('viewBox', `${x - R} ${y - R} ${R * 2} ${R * 2}`);
+    const size = 132;
+    const top = e.clientY - size - 48 < 8 ? e.clientY + 48 : e.clientY - size - 48;
+    aim.loupe.style.left = `${Math.max(8, Math.min(innerWidth - size - 8, e.clientX - size / 2))}px`;
+    aim.loupe.style.top = `${top}px`;
+    aim.loupe.classList.toggle('off', !aim.edge);
+  }
+  function endAim(e) {
+    if (!aim) return;
+    const a = aim;
+    aim = null;
+    a.line.remove();
+    a.loupe.remove();
+    aimBlockUntil = Date.now() + 600;
+    if (e.type === 'pointerup' && a.edge) handle('edge', { p: String(a.p), e: a.edge.e });
+  }
+  document.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'mouse' || !ui.sel || ui.sel.type !== 'edges' || busy || isAiTask(cur()) || onlineBlocked()) return;
+    const svg = e.target.closest && e.target.closest('svg.board');
+    if (!svg || +svg.dataset.p !== ui.sel.board) return;
+    e.preventDefault();
+    const NS = 'http://www.w3.org/2000/svg';
+    const line = document.createElementNS(NS, 'line');
+    line.setAttribute('class', 'aim-edge');
+    svg.appendChild(line);
+    const loupe = document.createElement('div');
+    loupe.className = 'loupe';
+    const loupeSvg = svg.cloneNode(true);
+    loupeSvg.removeAttribute('class');
+    const loupeLine = line.cloneNode();
+    loupeSvg.appendChild(loupeLine);
+    loupe.appendChild(loupeSvg);
+    document.body.appendChild(loupe);
+    aim = { p: +svg.dataset.p, svg, line, loupe, loupeSvg, loupeLine, edge: null };
+    aimAt(e);
+  });
+  document.addEventListener('pointermove', (e) => {
+    if (aim) aimAt(e);
+  });
+  document.addEventListener('pointerup', endAim);
+  document.addEventListener('pointercancel', endAim);
 
   // Drag a worker from your supply onto a worker-board space (prototype rules).
   let meepleDrag = null;

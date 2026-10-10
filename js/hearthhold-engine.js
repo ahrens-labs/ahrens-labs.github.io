@@ -496,8 +496,11 @@
         const v = p.vil.find((x) => x.id === id);
         if (v && v.at == null) placeVillager(p, v);
       });
-      // Buildings that opened this morning, so their owner can choose who works there.
-      p.flags = opened.length ? { opened } : {};
+      // Buildings that opened this morning and builders back from their sites, so their owner can choose their jobs.
+      const freed = ((p.flags && p.flags.built) || []).filter((id) => p.vil.some((v) => v.id === id && v.at == null));
+      p.flags = {};
+      if (opened.length) p.flags.opened = opened;
+      if (freed.length) p.flags.freed = freed;
       p.workers = workerCount(p);
       p.done = false;
       p.muster = 0;
@@ -969,7 +972,13 @@
 
   // Put a villager in the best free spot: its own trade first, then a labor job, else idle.
   // readyOnly: skip buildings still under construction (for someone who should work tonight).
+  // Only the computer's villagers find jobs on their own; a person chooses every job themselves.
+  const autoJobs = (p) => !!p.ai;
   function placeVillager(p, v, readyOnly) {
+    if (!autoJobs(p)) {
+      if (v.at === undefined) v.at = null;
+      return;
+    }
     const free = (b) => occupants(p, b.id).length < slotsOf(b.b) && (!readyOnly || ready(p, b));
     let spot = p.bld.find((b) => VIL[v.k].at === b.b && free(b));
     if (!spot) {
@@ -985,6 +994,7 @@
   // After building: idle villagers who belong here move in.
   // idleOnly: the building is still going up, so don't pull anyone off a job they're working tonight.
   function fillBuilding(p, bld, idleOnly) {
+    if (!autoJobs(p)) return;
     const cap = slotsOf(bld.b);
     const idle = p.vil.filter((v) => v.at == null && !busy(p, v));
     const pick = idle.filter((v) => VIL[v.k].at === bld.b).concat(LABOR.includes(bld.b) ? idle.filter((v) => VIL[v.k].at !== bld.b) : []);
@@ -1054,7 +1064,7 @@
       case 'train':
         return trainBlock(p, a.k);
       case 'place': {
-        if (!state.locs.includes(a.loc) && !FIXED_LOCS.includes(a.loc) && !OPEN_LOCS.includes(a.loc)) return 'That place isn’t in this game.';
+        if (!state.locs.includes(a.loc) && !FIXED_LOCS.includes(a.loc) && !OPEN_LOCS.includes(a.loc)) return 'That location isn’t in this game.';
         if (p.workers <= 0) return 'You have no workers left this round.';
         if (OPEN_LOCS.includes(a.loc)) return null;
         if (state.spots[a.loc] != null) return `${state.players[state.spots[a.loc]].name}’s worker is already there.`;
@@ -1206,6 +1216,8 @@
           if (b && slotsOf(b.b)) p.flags.opened = (p.flags.opened || []).concat(id);
         });
         p.vil.filter((v) => v.at == null).forEach((v) => placeVillager(p, v));
+        const freed = p.flags.built.filter((id) => p.vil.some((v) => v.id === id && v.at == null));
+        if (freed.length) p.flags.freed = [...new Set((p.flags.freed || []).concat(freed))];
         return n ? `took ${got} and finished ${n === 1 ? 'a building' : `${n} buildings`} early` : `took ${got}`;
       }
       case 'armory': {
@@ -1250,7 +1262,7 @@
           site = nb.id;
         }
         // A builder of the new building's own trade will work there once it opens.
-        if (site !== 'castle' && VIL[by.k].at === a.b && occupants(p, site).length < slotsOf(a.b)) by.at = site;
+        if (autoJobs(p) && site !== 'castle' && VIL[by.k].at === a.b && occupants(p, site).length < slotsOf(a.b)) by.at = site;
         // Which villager is building which site (shown on the board until the round ends).
         p.flags.by = Object.assign({}, p.flags.by, { [site]: by.id });
         msg = `built ${BUILD[a.b].wonder ? 'the ' : 'a '}${BUILD[a.b].name} (a ${VIL[by.k].name} built it)`;
@@ -1291,7 +1303,7 @@
         v.k = a.k;
         v.at = null;
         // they take over their own trade's building, sending an untrained worker there back to the fields
-        const home = p.bld.filter((x) => x.b === VIL[a.k].at);
+        const home = autoJobs(p) ? p.bld.filter((x) => x.b === VIL[a.k].at) : [];
         const free = home.find((x) => occupants(p, x.id).length < slotsOf(x.b));
         const swap = free ? null : home.find((x) => occupants(p, x.id).some((o) => canWork(o.k, x.b) !== 'spec'));
         if (free) v.at = free.id;
@@ -1610,7 +1622,7 @@
   // ---------------------------------------------------------------- computer player
   const VAL = { food: 0.3, wood: 0.35, stone: 0.42, iron: 0.55, gold: 0.38, renown: 1 };
   // How the computer weighs a position (tuned by self-play).
-  const EW = { fut: 0.75, forge: 0.45, foodCap: 2, short: 3.5, supper: 4, cold: 2, cap: 0.9, room: 0.6, emptyJob: 0.6, idle: 0.4, t0: 1, t1: 0.75, t2: 0.5, lossNear: 1, lossFar: 0.8, gap: 0.35, wage1: 2.2, wage3: 1.4, goal0: 0.35, goal1: 0.5, aim: 0.3, leave: 3.2, stone: 4.5, burn: 3, win: 1 };
+  const EW = { fut: 0.5, forge: 0.45, foodCap: 2, short: 3.5, supper: 4, cold: 2, cap: 0.9, room: 0.6, emptyJob: 0.6, idle: 0.4, t0: 1, t1: 0.75, t2: 0.5, lossNear: 1, lossFar: 0.8, gap: 0.35, wage1: 6.6, wage3: 1.4, goal0: 0.35, goal1: 0.5, aim: 0.3, leave: 3.2, stone: 4.5, burn: 3, win: 1 };
 
   function upcoming(state, n) {
     return state.threats.slice(state.round - 1, state.round - 1 + n);

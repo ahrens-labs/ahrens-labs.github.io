@@ -1291,20 +1291,35 @@ a.btn { display: inline-block; text-align: center; text-decoration: none; }
 @keyframes evrFlip { from { transform: rotateY(0); } to { transform: rotateY(180deg); } }
 @media (prefers-reduced-motion: reduce) { .evr-inner { transform: rotateY(180deg); } }
 
-/* ---------- phones: foldable action panel ---------- */
-.b-fold { display: none; }
-@media (max-width: 860px) {
-  .panel > .banner { cursor: pointer; position: relative; padding-top: 16px; }
-  .b-fold { display: block; position: absolute; top: 6px; left: 50%; width: 44px; height: 5px; margin-left: -22px; border-radius: 3px; background: rgba(255, 255, 255, 0.7); }
-  .panel > .banner .b-phase::after { content: " · tap to fold"; opacity: 0.75; font-weight: 600; }
-  .panel.min > .banner .b-phase::after { content: " · tap to open"; }
-  .panel.min .panel-scroll, .panel.min .market { display: none; }
-  .panel.selecting { max-height: 36vh; }
-  .panel.selecting .market:not(.picking) { display: none; }
-}
 @media (max-width: 520px) {
   .tracker { display: none; }
   .top-actions { flex-wrap: nowrap; overflow-x: auto; justify-content: flex-start; scrollbar-width: none; }
   .top-actions .btn { flex: 0 0 auto; }
 }
 @media (pointer: coarse) { .edge .eh { stroke-width: 26; } }
+
+/* ---------- phones: pinned materials, controls in the page ---------- */
+.mstrip { display: none; }
+.loupe { position: fixed; z-index: 90; width: 132px; height: 132px; border-radius: 50%; overflow: hidden; pointer-events: none; background: #4f8a3a; box-shadow: 0 0 0 3px #fff, 0 10px 24px rgba(0, 0, 0, 0.5); }
+.loupe.off { opacity: 0.55; }
+.loupe svg { width: 100%; height: 100%; display: block; }
+.aim-edge { stroke: #ffeb3b; stroke-width: 9; stroke-linecap: round; pointer-events: none; filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.7)); }
+@media (max-width: 860px) {
+  .mstrip { display: grid; gap: 4px; position: sticky; top: 0; z-index: 20; padding: 6px 10px 7px; background: linear-gradient(180deg, #2a170a, #3a2412); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4); }
+  .ms-res { display: flex; gap: 6px; flex-wrap: wrap; }
+  .ms-res .chip { font-size: 0.95rem; }
+  .ms-row { display: flex; align-items: center; gap: 6px; }
+  .ms-who { flex: 1 1 auto; min-width: 0; font-weight: 700; color: #fff3d6; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ms-row .btn { flex: 0 0 auto; }
+  .ms-row .btn.due { animation: msPulse 1.4s ease-in-out infinite; }
+  @keyframes msPulse { 50% { box-shadow: 0 0 0 3px #ffd54f; } }
+  /* The controls sit in the page under your own park instead of floating over it. */
+  .layout { display: flex; flex-direction: column; }
+  .main-col, .boards { display: contents; }
+  .boards > .player { order: 3; max-width: none; }
+  .boards > .player.mine { order: 1; }
+  .panel { position: static; order: 2; max-height: none; border-radius: var(--radius); z-index: auto; }
+  .panel-scroll { overflow: visible; }
+  .big-market { order: 4; margin-top: 0; }
+  .player, .panel { scroll-margin-top: 92px; }
+}

@@ -307,6 +307,7 @@
     ui.fresh.clear();
     document.body.className = '';
     buildShell();
+    window.scrollTo(0, 0);
     save();
     render();
     if (G.mode === 'online') connectSock();
@@ -334,6 +335,7 @@
         <div class="top-mid">
           <div class="tracker" id="tracker"></div>
           <div class="turn-banner" id="banner"></div>
+          <div class="mres" id="mres" aria-label="Your materials"></div>
         </div>
         <div class="top-actions">
           <button class="btn ghost sm" id="rules-btn" aria-label="Rules">📜<span class="bt"> Rules</span></button>
@@ -343,6 +345,7 @@
         </div>
       </header>
       <section class="threats" id="threats"></section>
+      <section class="locs panel" id="locs"></section>
       <main class="layout">
         <section class="board-wrap" id="mapsec">
           <div class="board-tabs" id="tabs"></div>
@@ -357,7 +360,6 @@
           <div class="panel" id="actions"></div>
         </aside>
       </main>
-      <section class="locs panel" id="locs"></section>
       <section class="panel" id="row"></section>
       <section class="lower">
         <div class="panel" id="log"></div>
@@ -366,7 +368,7 @@
         <button data-jump="mapsec">🗺️<span>Map</span></button>
         <button data-jump="res">🏡<span>Village</span></button>
         <button data-jump="actions">🔨<span>Actions</span></button>
-        <button data-jump="locs">📍<span>Places</span></button>
+        <button data-jump="locs">📍<span>Locations</span></button>
         <button data-jump="row">🛤️<span>Crossroads</span></button>
         <button data-jump="log">📖<span>Log</span></button>
       </nav>`;
@@ -765,7 +767,7 @@
     const s = st();
     const p = me();
     const pr = E.production(p, season());
-    const chip = (icon, n, plus, label) => `<div class="rchip" title="${label}"><span class="ri">${icon}</span><b>${n}</b>${plus ? `<small>+${plus}</small>` : ''}</div>`;
+    const chip = (icon, n, plus, label, cls) => `<div class="rchip${cls ? ` ${cls}` : ''}" title="${label}"><span class="ri">${icon}</span><b>${n}</b>${plus ? `<small>+${plus}</small>` : ''}</div>`;
     const pop = p.vil.length;
     const beds = E.beds(p);
     const water = E.water(p);
@@ -783,10 +785,12 @@
     const goldAt = p.res.gold + pr.gold;
     const loud = v3 ? p.bld.filter((b) => E.noisy(p, b)).length : 0;
     const roomWhy = room > 0 ? `<span class="good">room for ${room} more</span>` : beds <= water ? '<span class="warn">full — build a House</span>' : '<span class="warn">full — dig a Well</span>';
+    // Phones: the same materials stay in view in the sticky top bar.
+    $('#mres').innerHTML = `<span class="mres-who" style="--pc:${PCOLOR[G.view]}"><i></i></span>${E.RES.map((r) => `<span class="mchip r-${r}" title="${r}">${E.RES_ICON[r]}<b>${p.res[r]}</b>${pr[r] ? `<small>+${pr[r]}</small>` : ''}</span>`).join('')}`;
     $('#res').innerHTML = `
       <div class="res-head"><h3 style="--pc:${PCOLOR[G.view]}"><i></i>${esc(p.name)}</h3><span class="score-pill hidden-score" title="Scores stay secret until the final reveal">⭐ ?? points</span></div>
       <div class="rchips">
-        ${E.RES.map((r) => chip(E.RES_ICON[r], p.res[r], pr[r], `${r} (+${pr[r]} at dusk)`)).join('')}
+        ${E.RES.map((r) => chip(E.RES_ICON[r], p.res[r], pr[r], `${r} (+${pr[r]} at dusk)`, `r-${r}`)).join('')}
         ${p.arms || pr.forge ? chip('⚒️', `${p.arms}/${E.ARMS_MAX}`, pr.forge && p.arms < E.ARMS_MAX && (p.res.iron + pr.iron) > 0 ? 1 : 0, 'arms: each adds 🛡️1') : ''}
       </div>
       <ul class="vstats">
@@ -895,7 +899,7 @@
     const rate = `${E.tradeRate(p)}:1`;
     const open = E.freeLocs(s).length;
     const workerMsg = p.workers > 0
-      ? `Place ${plural(p.workers, 'worker')} on the <a href="#locs" class="to-locs">places below ↓</a> — placing one ends your turn.${E.freeLocs(s).length === E.OPEN_LOCS.length ? ' The main spots are taken, but the always-open ones still have room.' : ''}`
+      ? `Place ${plural(p.workers, 'worker')} on the <a href="#locs" class="to-locs">locations</a> — placing one ends your turn.${E.freeLocs(s).length === E.OPEN_LOCS.length ? ' The main spots are taken, but the always-open ones still have room.' : ''}`
       : 'All your workers are out. Finish your free actions, then end your round.';
     box.innerHTML = `
       <h3>Free actions <span class="muted">as many as you can pay for</span></h3>
@@ -985,7 +989,7 @@
     $('#row').innerHTML = `
       <div class="row-head"><h3>🛤️ The Crossroads</h3><span class="muted">Travellers looking for a home. The first is cheapest but leaves tonight. ${plural(s.deck.length, 'more traveller')} on the road.</span>
       ${room <= 0 ? '<span class="warn-pill">No room — build a House or Well</span>' : `<span class="ok-pill">Room for ${room}</span>`}</div>
-      <div class="vrow">${cards}${card('peasant', E.peasantPrice(p), null, 'Always here')}</div>`;
+      <div class="vwrap"><div class="vpeasant">${card('peasant', E.peasantPrice(p), null, 'Always here')}</div><div class="vrow">${cards}</div></div>`;
   }
 
   function renderPeople() {
@@ -1151,7 +1155,7 @@
       askPlacement(pi, fresh, afterAction);
       return;
     }
-    if (openedFor(pi).length) {
+    if (needsStaff(pi)) {
       save();
       render();
       return staff([pi], afterAction);
@@ -1175,11 +1179,32 @@
         ui.staffing = false;
         return done();
       }
-      askOpened(list[i], () => go(i + 1));
+      askOpened(list[i], () => askFreed(list[i], () => go(i + 1)));
     };
     go(0);
   }
   const humans = () => (G.mode === 'online' ? [G.me] : [0, 1]);
+
+  // Builders back from a finished site are idle until their owner gives them a job.
+  function freedFor(pi) {
+    const s = st();
+    const p = s.players[pi];
+    if (!p || p.ai || G.mode === 'sim' || s.phase !== 'act') return [];
+    const seen = new Set(G.openSeen || []);
+    return ((p.flags && p.flags.freed) || []).filter((id) => !seen.has(`${s.round}:f${id}`) && p.vil.some((v) => v.id === id && v.at == null && !E.busy(p, v)));
+  }
+  const needsStaff = (pi) => openedFor(pi).length > 0 || freedFor(pi).length > 0;
+  function askFreed(pi, done) {
+    const s = st();
+    const ids = freedFor(pi);
+    if (!ids.length) return done();
+    G.openSeen = (G.openSeen || []).filter((k) => +k.split(':')[0] === s.round).concat(ids.map((id) => `${s.round}:f${id}`));
+    save();
+    askPlacement(pi, ids, () => {
+      render();
+      done();
+    });
+  }
 
   // Buildings with jobs that opened this round and haven't been staffed through the pop-up yet.
   function openedFor(pi) {
@@ -1205,7 +1230,7 @@
     const cands = p.vil.filter((v) => E.canWork(v.k, b.b) && !E.busy(p, v));
     if (!cands.length) return next();
     cands.sort((x, y) => (E.canWork(y.k, b.b) === 'spec') - (E.canWork(x.k, b.b) === 'spec'));
-    const pick = new Set(E.occupants(p, b.id).map((v) => v.id));
+    const pick = new Set();
     const yieldWith = (ids2) => {
       const t = E.clone(p);
       t.vil.forEach((v) => {
@@ -2534,7 +2559,7 @@
       }
       if (G.status === 'over' && st().phase !== 'over' && !G.revealed) return showResigned();
       if (prev.turn !== s.turn && s.turn === G.me && s.phase === 'act') handoff();
-      if (!ui.staffing && !ui.modal && openedFor(G.me).length) staff([G.me], render);
+      if (!ui.staffing && !ui.modal && needsStaff(G.me)) staff([G.me], render);
     };
     if (fresh.length) {
       if (ui.modal) closeModal();
@@ -2622,7 +2647,7 @@
     ['video', '🎬 Video tutorial'],
     ['basics', 'Basics'],
     ['round', 'A round'],
-    ['places', 'Workers & places'],
+    ['locations', 'Workers & locations'],
     ['free', 'Free actions'],
     ['night', 'Night & supper'],
     ['goals', 'Goals & events'],
@@ -2642,7 +2667,7 @@
         : '<p>The video tutorial couldn’t load. Please refresh the page.</p>';
     if (tab === 'basics')
       return `
-      <p class="lead">Two villages grow side by side for <b>3 years</b> — 12 rounds, one per season. Each round you send your <b>workers</b> to the places on offer, build and recruit as much as you can pay for, and then the night comes: your village works, a creature attacks <i>both</i> villages, and everyone eats. After the 12th round the village with the most <b>⭐ points</b> wins.</p>
+      <p class="lead">Two villages grow side by side for <b>3 years</b> — 12 rounds, one per season. Each round you send your <b>workers</b> to the locations on offer, build and recruit as much as you can pay for, and then the night comes: your village works, a creature attacks <i>both</i> villages, and everyone eats. After the 12th round the village with the most <b>⭐ points</b> wins.</p>
       <h4>Your village</h4>
       <p>Each village has its own copy of the same map: 37 hexes in three rings around the <b>Keep</b> in the middle — 13 meadow, 13 plains, 4 forest, 3 hills and 3 mountain. One building fits on each hex, and the land decides which:</p>
       <table class="rules-table"><tr><th>Land</th><th>What fits</th></tr>
@@ -2678,41 +2703,41 @@
         <li>2 workers every round (3 once a Steward works your Keep).</li>
       </ul>
       <h4>Where workers go</h4>
-      <p>Five main places are drawn for each game, and each takes only one worker per round. Two weaker <b>always-open</b> places — the Village commons and Odd jobs — take any number of workers.</p>
+      <p>Five main locations are drawn for each game, and each takes only one worker per round. Two weaker <b>always-open</b> locations — the Village commons and Odd jobs — take any number of workers.</p>
       <h4>Scores are secret</h4>
-      <p>You can always look at both villages, the places, the Crossroads, the goals and the creatures coming, but nobody’s ⭐ total is shown during the game. It is revealed, category by category, after the last night.</p>
+      <p>You can always look at both villages, the locations, the Crossroads, the goals and the creatures coming, but nobody’s ⭐ total is shown during the game. It is revealed, category by category, after the last night.</p>
       <h4>Playing the computer</h4>
-      <p>Easy makes plenty of mistakes and Normal plays a fair game. Hard plans further ahead, blocks the places you need and starts with 🍞1 🪵3 🪨2 🪙3 extra. Brutal plays its best and starts with 🍞3 🪵5 🪨4 🔩1 🪙5 extra.</p>`;
+      <p>Easy makes plenty of mistakes and Normal plays a fair game. Hard plans further ahead, blocks the locations you need and starts with 🍞1 🪵3 🪨2 🪙3 extra. Brutal plays its best and starts with 🍞3 🪵5 🪨4 🔩1 🪙5 extra.</p>`;
     if (tab === 'round')
       return `
       <h4>1. Morning</h4>
-      <p>Each village gets its workers: <b>${E.BASE_WORKERS}</b>, plus 1 if a Steward works the Keep. Every place is empty again.</p>
+      <p>Each village gets its workers: <b>${E.BASE_WORKERS}</b>, plus 1 if a Steward works the Keep. Every location is empty again.</p>
       <h4>2. Day — take turns</h4>
       <ol class="steps">
         <li>On your turn, do as many <b>free actions</b> as you like and can pay for, in any order: build, wall, recruit, train, trade and move villagers. In two seasons each year, kept secret until they arrive, there is also a <b>season event</b> to answer (see Goals &amp; events) — you must choose before you end the round.</li>
-        <li>Then either <b>send one worker</b> to an empty place (or one of the always-open places) — you get its reward straight away and your turn ends — or press <b>End round</b>.</li>
-        <li>If that was your <b>last</b> worker, your turn doesn’t end: finish any free actions (you can use what the place just gave you) and then press End round.</li>
+        <li>Then either <b>send one worker</b> to an empty location (or one of the always-open locations) — you get its reward straight away and your turn ends — or press <b>End round</b>.</li>
+        <li>If that was your <b>last</b> worker, your turn doesn’t end: finish any free actions (you can use what the location just gave you) and then press End round.</li>
         <li>Once you end the round you can’t do anything more until tomorrow. Any workers you didn’t place are wasted. Your rival keeps taking turns until they end too.</li>
       </ol>
       <h4>3. Dusk</h4>
       <p>When both villages have ended, the night plays out for both at once — see <i>Night &amp; supper</i>. Then the next round starts.</p>
       <h4>Who goes first</h4>
-      <p>You choose who starts round 1 (or pick at random). After that it <b>alternates every round</b>. Going first means first pick of the places.</p>
+      <p>You choose who starts round 1 (or pick at random). After that it <b>alternates every round</b>. Going first means first pick of the locations.</p>
       <h4>What only lasts one round</h4>
-      <p>Everything a place gives you for “tonight” or “this round” wears off when the next round starts: the Militia yard and Watch post defense, the Granary bonus, Trading post trades and the Tavern and Guild hall discounts.</p>
+      <p>Everything a location gives you for “tonight” or “this round” wears off when the next round starts: the Militia yard and Watch post defense, the Granary bonus, Trading post trades and the Tavern and Guild hall discounts.</p>
       <h4>Seasons</h4>
       <table class="rules-table">${E.SEASONS.map((k) => `<tr><td>${E.SEASON[k].icon} ${E.SEASON[k].name}</td><td>${E.SEASON[k].note}</td></tr>`).join('')}</table>
       <p>Rounds 1–4 are year 1, 5–8 year 2 and 9–12 year 3. Each year runs Spring, Summer, Autumn, Winter.</p>`;
-    if (tab === 'places') {
+    if (tab === 'locations') {
       const inGame = G ? new Set(st().locs) : null;
       return `
-      <p class="lead">Places are the only thing you need workers for. Every game uses <b>${E.LOCS_PER_GAME}</b> places — one drawn from each group below, ${E.LOC_ORDER.length} in all — so each game plays a little differently.${inGame ? ' This game’s places are marked <b>✓</b>.' : ''}</p>
+      <p class="lead">Locations are the only thing you need workers for. Every game uses <b>${E.LOCS_PER_GAME}</b> locations — one drawn from each group below, ${E.LOC_ORDER.length} in all — so each game plays a little differently.${inGame ? ' This game’s locations are marked <b>✓</b>.' : ''}</p>
       <ul>
-        <li>Each place holds <b>one worker per round</b>, from either village. Whoever gets there first takes it; the other village can’t use it that round.</li>
-        <li>You get the reward the moment you place the worker. The place card shows exactly what you would get right now.</li>
-        <li>You can’t place two workers on the same place, and you never have to place all your workers.</li>
-        <li>The <b>Work crew</b> is in every game too, and holds one worker per round like the main places. It finishes every building you have under construction straight away and sends their builders back to work tonight — free to build again, too. So build first, then send the worker. Anything you build after that is a normal building site again.</li>
-        <li>Two <b>always-open places</b> are in every game as well. They give much less, but they have <b>no limit</b>: any number of workers from either village can go there, even several of yours in the same round. They’re there so a spare worker — say when you have 3 workers with a Steward and the five main places are full — still does something.</li>
+        <li>Each location holds <b>one worker per round</b>, from either village. Whoever gets there first takes it; the other village can’t use it that round.</li>
+        <li>You get the reward the moment you place the worker. The location card shows exactly what you would get right now.</li>
+        <li>You can’t place two workers on the same location, and you never have to place all your workers.</li>
+        <li>The <b>Work crew</b> is in every game too, and holds one worker per round like the main locations. It finishes every building you have under construction straight away and sends their builders back to work tonight — free to build again, too. So build first, then send the worker. Anything you build after that is a normal building site again.</li>
+        <li>Two <b>always-open locations</b> are in every game as well. They give much less, but they have <b>no limit</b>: any number of workers from either village can go there, even several of yours in the same round. They’re there so a spare worker — say when you have 3 workers with a Steward and the five main locations are full — still does something.</li>
       </ul>
       ${E.LOC_GROUPS.map(
         (g) => `<h4>${g.icon} ${g.name}</h4><table class="rules-table fixed">${E.LOC_ORDER.filter((k) => E.LOC[k].group === g.k)
@@ -2787,7 +2812,7 @@
         <li>Each set of arms 🛡️1.</li>
         <li>Working Guards 🛡️2 and Knights 🛡️4 on any side. Archers 🛡️2 (+3 against flyers) and the Wizard 🛡️3 (+4 against flyers and the undead) only on the sides their tower covers. Priests +4 against the undead only.</li>
         <li>The wall on the side being attacked: Palisade 🛡️2, Stone 🛡️4, Iron 🛡️6. Flyers ignore walls, but they still come from one side, so towers must be in range — and a crossbow on that side's wall adds 🛡️4 against them.</li>
-        <li>Anything a place gave you for tonight (Militia yard, Watch post).</li>
+        <li>Anything a location gave you for tonight (Militia yard, Watch post).</li>
       </ul>
       <h4>When a creature breaks through</h4>
       <table class="rules-table">
@@ -2870,7 +2895,7 @@
         <li>Check the threat track. A Palisade on the right side is cheap; flyers need Archers, Watchtowers, crossbows, arms or a Wizard. Spread your towers so they cover different sides, and build one early to see where tomorrow’s creature comes from.</li>
         <li>Keep gold for wages before each Spring, and wood for firewood and palisade repairs before each Winter.</li>
         <li>Watch each year’s goals: a small lead by the end of Winter is worth ⭐${E.GOAL_PTS}, and then the race starts again.</li>
-        <li>Going first? Take the place your rival needs most.</li>
+        <li>Going first? Take the location your rival needs most.</li>
         <li>Grab the first traveller at the Crossroads: they’re cheapest and leave tonight anyway.</li>
         <li>A Steward early gives you an extra worker every round for the rest of the game.</li>
         <li>Race for a wonder — but you need 5 or 7 villagers first.</li>
