@@ -3,6 +3,7 @@
 // The track is only downloaded once music is wanted, and only plays while a game header with a
 // [data-music] button is on screen and the tab is visible.
 // Plays through an <audio> element (not Web Audio) so iPhones play it with the ringer switch on silent.
+// The track is fetched into a blob first: Safari won't play media URLs from hosts that ignore Range requests.
 // The file carries half a second of the loop's own audio past each loop point, so jumping back by one
 // loop length anywhere in that margin is seamless.
 (function () {
@@ -14,7 +15,10 @@
     vol: Number(me.dataset.vol || 0.75),
   };
   const loopLen = cfg.loop[1] - cfg.loop[0];
+  const SILENT = 'data:audio/wav;base64,UklGRkQDAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YSADAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgA==';
   let audio = null;
+  let blobUrl = null;
+  let loading = null;
   let unlocked = false;
   let target = 0;
   let fadeTimer = 0;
@@ -58,7 +62,6 @@
       audio = new Audio();
       audio.preload = 'auto';
       audio.setAttribute('playsinline', '');
-      audio.src = `${cfg.src}#t=${cfg.loop[0]}`;
       // iOS ignores volume changes; there the track plays at full level and fades are skipped.
       audio.volume = 0.5;
       canFade = audio.volume === 0.5;
@@ -66,6 +69,7 @@
       audio.addEventListener('timeupdate', wrap);
       audio.addEventListener('playing', tick);
       audio.addEventListener('ended', () => {
+        if (!blobUrl) return;
         audio.currentTime = cfg.loop[0];
         if (wanted()) audio.play().catch(() => {});
       });
@@ -74,6 +78,36 @@
       }
     }
     return audio;
+  }
+
+  function load() {
+    if (!loading) {
+      loading = fetch(cfg.src)
+        .then((r) => {
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          return r.blob();
+        })
+        .then((b) => new Promise((res, rej) => {
+          const a = el();
+          a.pause();
+          a.addEventListener('loadedmetadata', () => {
+            a.currentTime = cfg.loop[0];
+            res();
+          }, { once: true });
+          a.addEventListener('error', () => rej(new Error('decode ' + (a.error && a.error.code))), { once: true });
+          blobUrl = URL.createObjectURL(b.type ? b : new Blob([b], { type: 'audio/mpeg' }));
+          a.src = blobUrl;
+          a.load();
+        }))
+        .then(sync)
+        .catch((e) => {
+          lastError = e && e.message ? e.message : String(e);
+          loading = null;
+          if (blobUrl) URL.revokeObjectURL(blobUrl);
+          blobUrl = null;
+        });
+    }
+    return loading;
   }
 
   function fadeTo(v, secs, done) {
@@ -97,6 +131,10 @@
 
   function play() {
     const a = el();
+    if (!blobUrl) {
+      load();
+      return;
+    }
     if (target === cfg.vol && !a.paused) return;
     target = cfg.vol;
     a.muted = false;
@@ -128,8 +166,8 @@
     else pause();
   }
 
-  // Browsers only let a page start sound from inside a tap or key press. The first one starts the
-  // element (muted, if music isn't due yet) so later plays outside a tap are allowed too.
+  // Browsers only let a page start sound from inside a tap or key press. The first one plays the
+  // element (muted, on a silent clip if the track isn't in yet) so later plays outside a tap are allowed.
   function gesture() {
     const first = !unlocked;
     unlocked = true;
@@ -137,13 +175,14 @@
     if (navigator.audioSession) {
       try { navigator.audioSession.type = 'playback'; } catch (e) {}
     }
-    if (wanted()) return play();
+    if (blobUrl && wanted()) return play();
     if (first) {
       const a = el();
+      if (!blobUrl) a.src = SILENT;
       a.muted = true;
       const p = a.play();
       const settle = () => {
-        if (target === 0) a.pause();
+        if (target === 0 || a.src === SILENT) a.pause();
         a.muted = false;
       };
       if (p && p.then) p.then(settle, settle);
@@ -182,6 +221,7 @@
       muted: !!audio && audio.muted,
       target,
       error: lastError,
+      loaded: !!blobUrl,
     }),
     seek: (t) => { if (audio) audio.currentTime = t; },
   };
