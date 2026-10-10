@@ -7868,7 +7868,6 @@
       if (!best || d < best.d) best = { d, e: ln.parentNode.dataset.e, x1, y1, x2, y2 };
     });
     aim.edge = best && best.d < CS * 0.8 ? best : null;
-    return aim.edge;
     const removing = !!aim.edge && !!ui.sel && ui.sel.edges.has(aim.edge.e);
     const set = (ln) => {
       ln.classList.toggle('rm', removing);
@@ -7890,6 +7889,7 @@
     aim.loupe.style.left = `${Math.max(8, Math.min(innerWidth - size - 8, e.clientX - size / 2))}px`;
     aim.loupe.style.top = `${top}px`;
     aim.loupe.classList.toggle('off', !aim.edge);
+    return aim.edge;
   }
   function endAim(e) {
     if (!aim) return;
