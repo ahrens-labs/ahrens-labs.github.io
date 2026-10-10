@@ -2682,11 +2682,12 @@
     }
     if (!document.getElementById('game-shell')) {
       app.innerHTML = tokify(`<div id="game-shell">
-        <header class="topbar" id="top"></header>
-        <div class="mstrip" id="mstrip"></div>
+        <div class="hdr" id="hdr"><header class="topbar" id="top"></header><div class="mstrip" id="mstrip"></div></div>
         <main class="layout"><div class="main-col"><section class="boards" id="boards"></section><section class="big-market" id="bigmarket"></section></div><aside class="panel" id="panel"></aside></main>
         <footer class="legend"><details><summary>🗺️ Board key <span>· tap any dino to see its card</span></summary><div class="lg">${legendHtml()}</div></details></footer>
       </div>`);
+      const hdr = document.getElementById('hdr');
+      if (window.ResizeObserver) new ResizeObserver(() => document.documentElement.style.setProperty('--hdr-h', `${hdr.offsetHeight}px`)).observe(hdr);
     }
     renderTop();
     renderStrip();
@@ -2708,8 +2709,7 @@
     const selNow = !!ui.sel && !theirTurn(T);
     if (!state.sim && focusP !== null && boardsStacked() && selNow && !lastSel) {
       const el = document.querySelector('#boards .btabs');
-      const strip = document.getElementById('mstrip');
-      if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - (strip ? strip.offsetHeight : 0) - 8, behavior: 'smooth' });
+      if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - pinnedHeight() - 8, behavior: 'smooth' });
     }
     if (focusP !== null) lastFocus = focusP;
     lastSel = selNow;
@@ -2725,6 +2725,12 @@
   // Phones: the park and the controls are stacked in the page, so marking a park scrolls it into view.
   function boardsStacked() {
     return window.matchMedia('(max-width: 860px)').matches;
+  }
+
+  // Phones pin the whole header to the top of the screen.
+  function pinnedHeight() {
+    const hdr = document.getElementById('hdr');
+    return hdr && boardsStacked() ? hdr.offsetHeight : 0;
   }
 
   function legendHtml() {
@@ -2766,6 +2772,7 @@
     setHtml(el, `
       <div class="brand"><img class="brand-logo" src="${IMG}trex.webp" alt=""><div><h1>Dino Dynasty</h1><small>Build the best dino park in ${rounds()} rounds</small></div></div>
       <div class="top-mid">
+        <span class="top-who">${turnLabel()}</span>
         <div class="tracker"><span class="tracker-label">Round</span>${pips}</div>
         <div class="phase-row${fresh}" data-round="${state.round}">${evChip}${phases}</div>
       </div>
@@ -2828,9 +2835,18 @@
     const h = homePlayer();
     const P = state.players[h];
     const mine = T && T.t !== 'gameOver' && !theirTurn(T) && !state.sim;
-    const who = !T ? '' : T.t === 'gameOver' ? '🏁 Game over' : T.p == null ? `Round ${state.round}` : mine ? (T.p === h ? 'Your move' : `${esc(state.players[T.p].name)}’s move`) : `${esc(state.players[T.p].name)}’s turn`;
     setHtml(el, `<div class="ms-res pl-${P.color}">${RES.map(([k, img, label]) => chip(tok(img), P[k], label)).join('')}</div>
-      <div class="ms-row"><span class="ms-who">${who}</span><button class="btn sm ghost" data-jump="park">🏞️ Park</button><button class="btn sm${mine ? ' due' : ' ghost'}" data-jump="panel">🎮 Controls</button></div>`);
+      <button class="btn sm ghost" data-jump="park" aria-label="Park">🏞️<span class="ms-t"> Park</span></button><button class="btn sm${mine ? ' due' : ' ghost'}" data-jump="panel" aria-label="Controls">🎮<span class="ms-t"> Controls</span></button>`);
+  }
+
+  function turnLabel() {
+    const T = cur();
+    if (!T) return '';
+    const h = homePlayer();
+    const mine = T.t !== 'gameOver' && !theirTurn(T) && !state.sim;
+    if (T.t === 'gameOver') return '🏁 Game over';
+    if (T.p == null) return `Round ${state.round}/${rounds()}`;
+    return `<small>R${state.round}/${rounds()}</small>${mine ? (T.p === h ? 'Your move' : `${esc(state.players[T.p].name)}’s move`) : `${esc(state.players[T.p].name)}’s turn`}`;
   }
 
   function renderBoards() {
@@ -3182,7 +3198,7 @@
       <div class="budget">${slots.join('')}</div>
       ${stepper('meat', '🍖 Meat', ui.meat, ui.meat > 0, left > 0)}
       ${stepper('plant', '🌿 Plants', ui.plant, ui.plant > 0, left > 0)}
-      <div class="fence-line">🪵 Fences: <b>${fences}</b> <span class="muted">— ${canFence ? 'tap the dotted edges on your board' : 'no legal edges left'}</span></div>
+      <div class="fence-line">🪵 Fences: <b>${fences}</b> <span class="muted">— ${canFence ? 'tap the lines between squares on your board' : 'no legal edges left'}</span></div>
       ${fenceUndoHtml()}
       <div class="hint">Close off an area with fences to make an enclosure. The board edge can count for <b>up to 2 sides</b>.</div>
       <button class="btn big" data-act="confirmGain">${left > 0 ? `Confirm (${left} unused)` : 'Confirm'}</button>`;
@@ -3437,7 +3453,7 @@
     }
     if (ui.mode === 'fences2') {
       const n = ui.sel ? ui.sel.edges.size : 0;
-      return `${backHead()}<h3>🪵 Build 2 fences</h3><p>Tap the dotted lines on your board.</p>
+      return `${backHead()}<h3>🪵 Build 2 fences</h3><p>Tap the lines between squares on your board.</p>
         <div class="fence-line">Fences selected: <b>${n}</b> / 2</div>
         ${fenceUndoHtml()}
         <button class="btn big" data-act="confirmFences" ${n ? '' : 'disabled'}>Build fences</button>`;
@@ -3554,7 +3570,7 @@
   function drawFencesHtml(T) {
     const n = ui.sel ? ui.sel.edges.size : 0;
     return `<h3>${esc(T.title)}</h3>
-      <p>Tap dotted edges on your board (tap again to undo).</p>
+      <p>Tap the lines between squares on your board (tap again to undo).</p>
       <div class="fence-line">Fences selected: <b>${n}</b> / ${T.count}</div>
       ${fenceUndoHtml()}
       <button class="btn big" data-act="confirmFences">${n < T.count ? `Done (${T.count - n} unused)` : 'Build fences'}</button>`;
@@ -7709,8 +7725,7 @@
     const jump = e.target.closest && e.target.closest('[data-jump]');
     if (jump) {
       const to = jump.dataset.jump === 'panel' ? document.getElementById('panel') : jump.dataset.jump === 'market' ? document.getElementById('bigmarket') : document.querySelector('#boards .btabs');
-      const strip = document.getElementById('mstrip');
-      if (to) window.scrollTo({ top: to.getBoundingClientRect().top + window.scrollY - (strip ? strip.offsetHeight : 0) - 8, behavior: 'smooth' });
+      if (to) window.scrollTo({ top: to.getBoundingClientRect().top + window.scrollY - pinnedHeight() - 8, behavior: 'smooth' });
       return;
     }
     const el = e.target.closest('[data-act]');

@@ -1306,7 +1306,7 @@ a.btn { display: inline-block; text-align: center; text-decoration: none; }
 @media (pointer: coarse) { .edge .eh { stroke-width: 26; } }
 
 /* ---------- phones: pinned materials, controls in the page ---------- */
-.mstrip { display: none; }
+.mstrip, .top-who { display: none; }
 .loupe { position: fixed; z-index: 90; width: 132px; height: 132px; border-radius: 50%; overflow: hidden; pointer-events: none; background: #4f8a3a; box-shadow: 0 0 0 3px #fff, 0 10px 24px rgba(0, 0, 0, 0.5); }
 .loupe.off { opacity: 0.55; }
 .loupe svg { width: 100%; height: 100%; display: block; }
@@ -1314,13 +1314,22 @@ a.btn { display: inline-block; text-align: center; text-decoration: none; }
 .aim-edge.rm { stroke: #ff5252; }
 .aim-x { fill: #ff5252; stroke: #fff; stroke-width: 1.5; font: 800 16px sans-serif; pointer-events: none; }
 @media (max-width: 860px) {
-  .mstrip { display: grid; gap: 4px; position: sticky; top: 0; z-index: 20; padding: 6px 10px 7px; background: linear-gradient(180deg, #2a170a, #3a2412); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4); }
-  .ms-res { display: flex; gap: 6px; flex-wrap: wrap; }
-  .ms-res .chip { font-size: 0.95rem; }
-  .ms-row { display: flex; align-items: center; gap: 6px; }
-  .ms-who { flex: 1 1 auto; min-width: 0; font-weight: 700; color: #fff3d6; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .ms-row .btn { flex: 0 0 auto; }
-  .ms-row .btn.due { animation: msPulse 1.4s ease-in-out infinite; }
+  /* One header pinned to the top: title and buttons, whose move and the phases, then your materials. */
+  .hdr { position: sticky; top: 0; z-index: 20; background: linear-gradient(180deg, #3b2210, #2a170a); border-bottom: 3px solid #1a0d04; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45); }
+  .hdr .topbar { background: none; border-bottom: 0; box-shadow: none; padding: 6px 10px 4px; gap: 4px 8px; }
+  .top-mid { flex-wrap: nowrap; justify-content: flex-start; gap: 8px; }
+  .top-who { display: block; flex: 0 0 auto; font-weight: 700; color: #fff3d6; font-size: 0.85rem; white-space: nowrap; }
+  .top-who small { margin-right: 4px; padding: 1px 6px; border-radius: 999px; background: rgba(255, 224, 138, 0.2); color: #ffe08a; font-size: 0.72rem; }
+  .hdr .tracker { display: none; }
+  .hdr .phase-row { flex: 1 1 auto; min-width: 0; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; gap: 5px; padding: 3px 2px; }
+  .hdr .phase-row::-webkit-scrollbar { display: none; }
+  .hdr .phase-row .pcard { flex: 0 0 auto; }
+  .hdr .phase-row .pcard.cur { transform: none; box-shadow: 0 0 0 2px var(--amber); }
+  .mstrip { display: flex; align-items: center; gap: 5px; padding: 0 10px 6px; }
+  .ms-res { display: flex; flex: 1 1 auto; min-width: 0; gap: 4px; }
+  .ms-res .chip { font-size: 0.88rem; padding: 2px 8px 2px 3px; }
+  .mstrip .btn { flex: 0 0 auto; padding: 0.3rem 0.55rem; font-size: 0.82rem; white-space: nowrap; }
+  .mstrip .btn.due { animation: msPulse 1.4s ease-in-out infinite; }
   @keyframes msPulse { 50% { box-shadow: 0 0 0 3px #ffd54f; } }
   /* The controls sit in the page under your own park instead of floating over it. */
   .layout { display: flex; flex-direction: column; }
@@ -1329,7 +1338,7 @@ a.btn { display: inline-block; text-align: center; text-decoration: none; }
   .panel { position: static; order: 2; max-height: none; border-radius: var(--radius); z-index: auto; }
   .panel-scroll { overflow: visible; }
   .big-market { order: 4; margin-top: 0; }
-  .player, .panel { scroll-margin-top: 92px; }
+  .player, .panel, .big-market { scroll-margin-top: calc(var(--hdr-h, 120px) + 8px); }
 }
 
 /* Setup choices: one-word pills, same as Oakhaven. */
@@ -1352,28 +1361,36 @@ a.btn { display: inline-block; text-align: center; text-decoration: none; }
 .btab:not(.on) .turn-tag { --pc: var(--tc); }
 .bt-mascot { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; box-shadow: 0 0 0 2px #fff; }
 @media (max-width: 860px) {
-  .btabs { scroll-margin-top: 92px; margin: 0 0 -4px; }
+  .btabs { scroll-margin-top: calc(var(--hdr-h, 120px) + 8px); margin: 0 0 -4px; }
   .btab { flex: 1 1 0; justify-content: center; min-width: 0; }
 }
 
-/* Phones: one tidy header row (title + icon buttons) and the phases on a single line. */
-@media (max-width: 520px) {
-  .topbar { grid-template-columns: minmax(0, 1fr) auto; align-items: center; row-gap: 0.45rem; }
-  .brand { min-width: 0; }
-  .brand > div { min-width: 0; }
-  .brand h1 { overflow: hidden; text-overflow: ellipsis; }
-  .top-actions { grid-row: 1; grid-column: 2; flex-wrap: nowrap; overflow: visible; justify-content: flex-end; gap: 0.3rem; }
+/* Phones and small tablets: one tidy header row (title + icon buttons) and the phases on a single line. */
+@media (max-width: 860px) {
+  .brand small { display: none; }
+  .topbar { grid-template-columns: auto minmax(0, 1fr); align-items: center; }
+  .brand { gap: 0.4rem; }
+  .brand-logo { width: 30px; height: 30px; box-shadow: 0 0 0 2px #f3d9a4; }
+  .brand h1 { font-size: 1.12rem; white-space: nowrap; }
+  .top-actions { grid-row: 1; grid-column: 2; flex-wrap: nowrap; overflow: visible; justify-content: flex-end; gap: 0.25rem; }
   .top-actions .lb-t { display: none; }
-  .top-actions .btn { width: 34px; height: 34px; padding: 0; display: inline-grid; place-items: center; font-size: 1rem; }
+  .top-actions .btn { width: 31px; height: 31px; padding: 0; display: inline-grid; place-items: center; font-size: 0.95rem; box-shadow: none; }
   .top-actions .btn .gh-dice { width: 1.15rem; height: 1.15rem; vertical-align: 0; }
   .top-mid { grid-row: 2; grid-column: 1 / -1; }
-  .phase-row { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; gap: 5px; padding: 5px 2px 3px; }
-  .phase-row::-webkit-scrollbar { display: none; }
-  .phase-row .pcard { flex: 0 0 auto; }
   .phase-row .pcard:not(.cur):not(.ev-chip) .pc-t { display: none; }
+}
+@media (max-width: 420px) {
+  .mstrip [data-jump=park] .ms-t { display: none; }
+}
+@media (max-width: 350px) {
+  .mstrip .ms-t { display: none; }
 }
 @media (max-width: 380px) {
   .brand h1 { font-size: 1rem; }
-  .top-actions .btn { width: 31px; height: 31px; font-size: 0.92rem; }
+  .brand-logo { width: 26px; height: 26px; }
+  .top-actions .btn { width: 28px; height: 28px; font-size: 0.85rem; }
+}
+@media (max-width: 340px) {
+  .brand-logo { display: none; }
 }
 .big-market .goal-strip { margin-top: 14px; padding-top: 10px; border-top: 2px dashed var(--bone-dark); }

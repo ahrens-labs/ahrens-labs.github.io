@@ -876,6 +876,8 @@ table.lg-end td b, table.lg-end td small { display: block; margin: 0; }
 .gc { display: inline-block; width: 0.95em; height: 0.95em; margin: 0 0.04em; border-radius: 50%; vertical-align: -0.13em;
   background: radial-gradient(circle at 34% 30%, #fff6b8 0 10%, #ffd84a 34%, #f0b000 66%, #b97a00 100%);
   box-shadow: inset 0 0 0 0.07em #9a6400, inset 0 0 0 0.15em #ffe27a, 0 0.05em 0.08em rgba(0, 0, 0, 0.35); }
+.mres .mchip { align-self: stretch; }
+.mchip .gc { align-self: center; width: 1.05em; height: 1.05em; margin: 0 0.06em; }
 
 /* Phones: the turn line shows only each player's meeples. */
 @media (max-width: 720px) {
