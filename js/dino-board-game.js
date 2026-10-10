@@ -2771,14 +2771,14 @@
       </div>
       <div class="top-actions">
         ${state.past ? '' : '<button class="btn sm ghost log-btn" data-act="fullLog" title="What happened" aria-label="What happened">🗒️<span class="lb-t"> What happened</span></button>'}
-        ${state.aiCfg && !online && !state.past ? `<button class="btn sm ghost" data-act="aiSettings" title="Computer settings">🤖 ${AI_LEVELS[state.aiCfg.level]} · ${AI_PACES[state.aiCfg.pace]}</button>` : ''}
+        ${state.aiCfg && !online && !state.past ? `<button class="btn sm ghost" data-act="aiSettings" title="Computer settings" aria-label="Computer settings">🤖<span class="lb-t"> ${AI_LEVELS[state.aiCfg.level]} · ${AI_PACES[state.aiCfg.pace]}</span></button>` : ''}
         ${!online && !state.sim && !state.past && isAdmin() ? '<button class="btn sm ghost" data-act="simOpen" title="Computer vs computer (admin)" aria-label="Computer vs computer (admin)">🧪</button>' : ''}
-        ${state.sim ? `<button class="btn sm ghost" data-act="simSpeed" title="Change simulation speed">${SIM_SPEEDS[state.sim.speed].icon} ${SIM_SPEEDS[state.sim.speed].name}</button>` : '<button class="btn sm ghost" data-act="rules">📜 Rules</button>'}
+        ${state.sim ? `<button class="btn sm ghost" data-act="simSpeed" title="Change simulation speed">${SIM_SPEEDS[state.sim.speed].icon} ${SIM_SPEEDS[state.sim.speed].name}</button>` : '<button class="btn sm ghost" data-act="rules" aria-label="Rules">📜<span class="lb-t"> Rules</span></button>'}
         ${online
-    ? `<button class="btn sm ghost" data-act="onlineLeave">🏠 My games</button>${online.status === 'active' ? '<button class="btn sm ghost" data-act="onlineResign">🏳️ Resign</button>' : ''}`
-    : state.sim ? '<button class="btn sm ghost" data-act="simStop">⏹ Exit simulation</button>'
-      : state.past ? '<a class="btn sm ghost" href="/dino-history.html">🏆 Back to history</a>' : '<button class="btn sm ghost" data-act="newGame">🥚 New game</button>'}
-        <a class="btn sm ghost" href="/board-games.html" title="Back to the game lobby"><img class="gh-dice" src="/img/board-games-favicon-48.png?v=2" alt=""> Lobby</a>
+    ? `<button class="btn sm ghost" data-act="onlineLeave" aria-label="My games">🏠<span class="lb-t"> My games</span></button>${online.status === 'active' ? '<button class="btn sm ghost" data-act="onlineResign" aria-label="Resign">🏳️<span class="lb-t"> Resign</span></button>' : ''}`
+    : state.sim ? '<button class="btn sm ghost" data-act="simStop" aria-label="Exit simulation">⏹<span class="lb-t"> Exit simulation</span></button>'
+      : state.past ? '<a class="btn sm ghost" href="/dino-history.html" aria-label="Back to history">🏆<span class="lb-t"> Back to history</span></a>' : '<button class="btn sm ghost" data-act="newGame" aria-label="New game">🥚<span class="lb-t"> New game</span></button>'}
+        <a class="btn sm ghost" href="/board-games.html" title="Back to the game lobby" aria-label="Game lobby"><img class="gh-dice" src="/img/board-games-favicon-48.png?v=2" alt=""><span class="lb-t"> Lobby</span></a>
       </div>`);
   }
 
