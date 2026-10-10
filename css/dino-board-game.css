@@ -1212,7 +1212,7 @@ a.btn { display: inline-block; text-align: center; text-decoration: none; }
 .watch-mini { display: flex; align-items: center; gap: 6px; margin-bottom: 0.5rem; padding: 6px 10px; border-radius: 10px; background: rgba(255, 255, 255, 0.6); font-size: 0.85rem; }
 /* Prototype: full-size dino market under the parks */
 .big-market:empty { display: none; }
-.big-market { margin-top: 14px; padding: 12px 14px 16px; border-radius: var(--radius); background: linear-gradient(180deg, var(--bone), var(--paper)); box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4), 0 0 0 3px #2a170a; color: var(--ink); }
+.big-market { scroll-margin-top: 92px; margin-top: 14px; padding: 12px 14px 16px; border-radius: var(--radius); background: linear-gradient(180deg, var(--bone), var(--paper)); box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4), 0 0 0 3px #2a170a; color: var(--ink); }
 .bm-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.3rem 0.8rem; margin-bottom: 0.6rem; }
 .bm-head h2 { margin: 0; font-family: "Lilita One", sans-serif; font-size: 1.2rem; }
 .bm-hint { font-size: 0.82rem; color: var(--muted); }
@@ -1243,7 +1243,10 @@ a.btn { display: inline-block; text-align: center; text-decoration: none; }
 .bm-deck { min-height: 150px; align-self: stretch; }
 .bm-deck b { font-size: 1.8rem; }
 .bm-deck.pick { cursor: pointer; animation: glow 1.4s ease-in-out infinite; }
-@media (min-width: 861px) { .market.proto { display: none; } }
+/* Prototype games buy from the full Dino market under the parks; the panel has no second, smaller copy. */
+.market.proto { display: none; }
+.m-jump { display: none; }
+@media (max-width: 860px) { .m-jump { display: inline-flex; margin-top: 6px; } }
 @media (max-width: 1180px) { .bm-row { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 520px) { .bm-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } .bm-deck { min-height: 90px; } }
 
@@ -1374,3 +1377,4 @@ a.btn { display: inline-block; text-align: center; text-decoration: none; }
   .brand h1 { font-size: 1rem; }
   .top-actions .btn { width: 31px; height: 31px; font-size: 0.92rem; }
 }
+.big-market .goal-strip { margin-top: 14px; padding-top: 10px; border-top: 2px dashed var(--bone-dark); }

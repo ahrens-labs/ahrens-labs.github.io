@@ -2369,9 +2369,9 @@
         : `<li><b>${typeLabel(S)}:</b> ${esc(S.ability)} <span class="muted">${typeHelp(S)}</span></li>`,
     ];
     if (owned) facts.push(`<li class="muted">${online || state.aiCfg ? 'You already have' : `${esc(state.players[viewer].name)} already has`} this dino in ${online || state.aiCfg ? 'your' : 'their'} book.</li>`);
-    openModal(`<div class="modal-head"><h2>🃏 ${esc(S.name)}</h2><button class="x" data-act="closeModal" aria-label="Close">✕</button></div>
+    openModal(`<div class="modal-head"><h2>${esc(S.name)}</h2><button class="x" data-act="closeModal" aria-label="Close">✕</button></div>
       <div class="piece-info">${cardHtml(sp, { cls: 'solo' })}<div><ul class="facts">${facts.join('')}</ul>
-      ${canTake ? `<button class="btn" data-act="take" data-from="${from}">🃏 ${state.proto ? 'Reserve' : 'Draw'} this card</button>` : ''}</div></div>`, 'medium');
+      ${canTake ? `<button class="btn" data-act="take" data-from="${from}">${state.proto ? 'Reserve' : 'Draw'} this card</button>` : ''}</div></div>`, 'medium');
   }
 
   // ---------------------------------------------------------------- rendering: board
@@ -3043,12 +3043,16 @@
       : '';
     const stack = Math.min(state.deck.length, 4);
     setHtml(el, `<div class="bm-head"><h2>🃏 Dino market</h2><span class="bm-hint${picking || buying ? ' live' : ''}">${hint}</span></div>
-      ${goalStripHtml()}
       <div class="bm-sub bm-shop-sub">🏪 Market <small>face-up cards anyone can buy</small></div>
       <div class="bm-row">
         <div class="deck-back bm-deck ${deckOk ? 'pick' : ''} ${state.deck.length ? '' : 'gone'}" ${deckOk ? 'data-act="take" data-from="deck"' : ''} title="Top of the deck (face down)" style="--stack:${stack}"><b>${state.deck.length}</b><small>deck</small></div>
         ${state.faceUp.map((sp, i) => card(sp, 'm', i)).join('')}
-      </div>${breeding ? `<div class="bm-hand bm-breed pl-${P.color}"><div class="bm-sub">🥚 Breed <small>species with an adult pair in one of ${esc(P.name)}’s enclosures · babies take half the squares · ${price ? `🪙${price}` : 'free'}</small></div><div class="bm-row">${opts.map((o) => card(o.sp, 'b', o.i)).join('')}</div></div>` : ''}${theirs}${theirs ? '' : hand}`);
+      </div>${breeding ? `<div class="bm-hand bm-breed pl-${P.color}"><div class="bm-sub">🥚 Breed <small>species with an adult pair in one of ${esc(P.name)}’s enclosures · babies take half the squares · ${price ? `🪙${price}` : 'free'}</small></div><div class="bm-row">${opts.map((o) => card(o.sp, 'b', o.i)).join('')}</div></div>` : ''}${theirs}${theirs ? '' : hand}${goalStripHtml()}`);
+  }
+
+  // Phones: the Dino market is below the controls, so the panel offers a jump to it.
+  function marketJumpHtml() {
+    return '<button class="btn sm ghost m-jump" data-jump="market">🏪 Go to the Dino market</button>';
   }
 
   function logItems(list) {
@@ -3415,7 +3419,7 @@
 
     if (ui.mode === 'play') return backHead(ui.species ? 'Other dinos' : 'Back') + playModeHtml(T, false);
     if (ui.mode === 'draw') {
-      return `${backHead()}<h3>🃏 Draw a card</h3><p>Tap a face-up card or the deck in the <b>card market</b> at the bottom of this panel.</p>`;
+      return `${backHead()}<h3>🃏 Draw a card</h3><p>Tap a face-up card or the deck in the <b>${state.proto ? 'Dino market' : 'card market'}</b>${state.proto ? '' : ' at the bottom of this panel'}.</p>${state.proto ? marketJumpHtml() : ''}`;
     }
     if (ui.mode === 'shop') return (ui.shopItem ? `<div class="act-top">${backBtn('shopBack', 'Shop')}${count}</div>` : backHead()) + shopHtml(P);
     if (ui.mode === 'dinoAction') {
@@ -3569,7 +3573,7 @@
 
   function drawCardHtml(T) {
     return `<h3>${esc(T.title || 'Draw a card')}</h3>
-      <p>${T.source === 'deck' ? 'Draw the top card of the deck.' : `Tap a face-up card or the deck in the card market below${state.proto ? ' to reserve it' : ''}.`}</p>`;
+      <p>${T.source === 'deck' ? 'Draw the top card of the deck.' : `Tap a face-up card or the deck in the ${state.proto ? 'Dino market to reserve it' : 'card market below'}.`}</p>${state.proto ? marketJumpHtml() : ''}`;
   }
 
   function spinoHtml() {
@@ -7705,7 +7709,7 @@
     if (Date.now() < aimBlockUntil && e.target.closest && e.target.closest('svg.board')) return;
     const jump = e.target.closest && e.target.closest('[data-jump]');
     if (jump) {
-      const to = jump.dataset.jump === 'panel' ? document.getElementById('panel') : document.querySelector('#boards .btabs');
+      const to = jump.dataset.jump === 'panel' ? document.getElementById('panel') : jump.dataset.jump === 'market' ? document.getElementById('bigmarket') : document.querySelector('#boards .btabs');
       const strip = document.getElementById('mstrip');
       if (to) window.scrollTo({ top: to.getBoundingClientRect().top + window.scrollY - (strip ? strip.offsetHeight : 0) - 8, behavior: 'smooth' });
       return;
