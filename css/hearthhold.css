@@ -561,7 +561,7 @@ button { font-family: inherit; }
   .top-actions .btn { padding: 0.35rem 0.55rem; }
   .top-actions { flex-wrap: wrap; justify-content: flex-end; gap: 0.35rem; }
   .pip { width: 22px; height: 22px; font-size: 0.75rem; }
-  .threats { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 82%; overflow-x: auto; scroll-snap-type: x mandatory; padding: 0.8rem 0.8rem 0.4rem; }
+  .threats { width: 100%; grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 82%; overflow-x: auto; scroll-snap-type: x mandatory; padding: 0.8rem 0.8rem 0.4rem; }
   .threats-head { display: none; }
   .threat { scroll-snap-align: start; }
   .layout { padding: 0.8rem 0.5rem; }
@@ -636,6 +636,7 @@ button { font-family: inherit; }
   .topbar { position: sticky; }
   /* Phones: what's going on first, then the locations to send workers to. */
   body:not(.setup-mode) #app { display: flex; flex-direction: column; }
+  body:not(.setup-mode) #app > * { min-width: 0; max-width: 100%; box-sizing: border-box; }
   body:not(.setup-mode) #locs, body:not(.setup-mode) #row, body:not(.setup-mode) .lower { order: 1; }
   .tracker { display: none; }
   .brand small { font-size: 0.72rem; }
@@ -643,11 +644,11 @@ button { font-family: inherit; }
   .top-actions .bt { display: none; }
   .top-actions .btn { min-width: 40px; min-height: 40px; font-size: 1.05rem; }
   .turn-banner { font-size: 0.85rem; gap: 0.2rem 0.6rem; }
-  .mres { display: flex; align-items: center; gap: 0.3rem; margin-top: 0.35rem; overflow-x: auto; scrollbar-width: none; }
+  .mres { display: grid; grid-template-columns: auto repeat(5, minmax(0, 1fr)); align-items: center; gap: 0.25rem; margin-top: 0.35rem; }
   .mres-who i { display: block; width: 0.6rem; height: 0.6rem; border-radius: 50%; background: var(--pc); box-shadow: 0 0 0 2px #fff; }
-  .mchip { display: inline-flex; align-items: baseline; gap: 0.15rem; padding: 0.15rem 0.45rem; border-radius: 9px; background: #fffaf0; color: var(--ink); font-size: 0.95rem; flex: 0 0 auto; box-shadow: inset 0 0 0 2px var(--parchment-2); }
-  .mchip b { font-size: 0.95rem; }
-  .mchip small { color: var(--good); font-weight: 700; font-size: 0.68rem; }
+  .mchip { display: flex; align-items: baseline; justify-content: center; gap: 0.1rem; min-width: 0; padding: 0.15rem 0.2rem; border-radius: 9px; background: #fffaf0; color: var(--ink); font-size: clamp(0.78rem, 3.7vw, 0.95rem); white-space: nowrap; box-shadow: inset 0 0 0 2px var(--parchment-2); }
+  .mchip b { font-size: inherit; }
+  .mchip small { color: var(--good); font-weight: 700; font-size: 0.72em; }
   .mnav { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 0.15rem; position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
     padding: 0.3rem 0.3rem calc(0.3rem + env(safe-area-inset-bottom)); background: #2b1f12; box-shadow: 0 -4px 14px rgba(0, 0, 0, 0.35); }
   .mnav button { font: inherit; border: 0; background: transparent; color: #f7ecd2; display: grid; justify-items: center; gap: 0.05rem; font-size: 1.2rem; line-height: 1.1; padding: 0.3rem 0 0.25rem; border-radius: 10px; cursor: pointer; min-height: 44px; }
