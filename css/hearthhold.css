@@ -204,7 +204,7 @@ button { font-family: inherit; }
 #row, .lower { max-width: 1400px; margin: 0 auto 1.2rem; }
 #row { margin: 0 1.2rem 1.2rem; }
 @media (min-width: 1440px) { #row { margin: 0 auto 1.2rem; } }
-.lower { display: grid; grid-template-columns: 1.3fr 1fr; gap: 1.2rem; padding: 0 1.2rem 2rem; }
+.lower { display: grid; grid-template-columns: 1fr; gap: 1.2rem; padding: 0 1.2rem 2rem; }
 
 /* ---------- board ---------- */
 .board-wrap { position: relative; }
@@ -577,8 +577,9 @@ button { font-family: inherit; }
 }
 
 /* ---------- locations (worker placement) ---------- */
-.locs { max-width: 1400px; margin: 0.9rem 1.2rem 0; }
-@media (min-width: 1440px) { .locs { margin: 0.9rem auto 0; } }
+.locs { max-width: 1400px; margin: 0 1.2rem 1.2rem; scroll-margin-top: 5rem; }
+.to-locs { color: inherit; font-weight: 700; }
+@media (min-width: 1440px) { .locs { margin: 0 auto 1.2rem; } }
 .locs-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.3rem 0.9rem; margin-bottom: 0.6rem; }
 .locs-head h3 { margin: 0; }
 .loc-row { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 0.7rem; }
@@ -612,7 +613,7 @@ button { font-family: inherit; }
 .end-btn small { font-weight: 600; opacity: 0.8; }
 .hidden-score { opacity: 0.75; }
 @media (max-width: 1100px) { .loc-row { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); } .loc-row.extra { max-width: none; } }
-@media (max-width: 560px) { .locs { margin: 0.8rem 0.6rem 0; } .loc-row { grid-template-columns: 1fr; } .loc-row.extra { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 560px) { .locs { margin: 0 0.6rem 1rem; } .loc-row { grid-template-columns: 1fr; } .loc-row.extra { grid-template-columns: 1fr 1fr; } }
 
 /* ---------- final reveal ---------- */
 .hh-reveal { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; padding: 1.2rem; overflow-y: auto; cursor: pointer;

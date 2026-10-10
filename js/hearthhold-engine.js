@@ -485,16 +485,19 @@
     state.crowd = {};
     state.players.forEach((p) => {
       // Last round's building sites open: their specialists move in.
+      const opened = [];
       ((p.flags && p.flags.site) || []).forEach((id) => {
         const b = bldById(p, id);
         if (b) fillBuilding(p, b);
+        if (b && slotsOf(b.b)) opened.push(id);
       });
       // Builders who are still without a job find one.
       ((p.flags && p.flags.built) || []).forEach((id) => {
         const v = p.vil.find((x) => x.id === id);
         if (v && v.at == null) placeVillager(p, v);
       });
-      p.flags = {};
+      // Buildings that opened this morning, so their owner can choose who works there.
+      p.flags = opened.length ? { opened } : {};
       p.workers = workerCount(p);
       p.done = false;
       p.muster = 0;
@@ -1200,6 +1203,7 @@
         sites.forEach((id) => {
           const b = bldById(p, id);
           if (b) fillBuilding(p, b);
+          if (b && slotsOf(b.b)) p.flags.opened = (p.flags.opened || []).concat(id);
         });
         p.vil.filter((v) => v.at == null).forEach((v) => placeVillager(p, v));
         return n ? `took ${got} and finished ${n === 1 ? 'a building' : `${n} buildings`} early` : `took ${got}`;
@@ -1605,6 +1609,8 @@
 
   // ---------------------------------------------------------------- computer player
   const VAL = { food: 0.3, wood: 0.35, stone: 0.42, iron: 0.55, gold: 0.38, renown: 1 };
+  // How the computer weighs a position (tuned by self-play).
+  const EW = { fut: 0.75, forge: 0.45, foodCap: 2, short: 3.5, supper: 4, cold: 2, cap: 0.9, room: 0.6, emptyJob: 0.6, idle: 0.4, t0: 1, t1: 0.75, t2: 0.5, lossNear: 1, lossFar: 0.8, gap: 0.35, wage1: 2.2, wage3: 1.4, goal0: 0.35, goal1: 0.5, aim: 0.3, leave: 3.2, stone: 4.5, burn: 3, win: 1 };
 
   function upcoming(state, n) {
     return state.threats.slice(state.round - 1, state.round - 1 + n);
@@ -1618,11 +1624,11 @@
       v += p.walls[t.side] ? (f.wall === 2 ? p.walls[t.side] * 2 : 2) : 0;
       if (hasBow(p, t.side) && (f.wall === 2 || p.walls[t.side] === 1)) v += 2.5;
     }
-    if (f.leave) v += f.leave * 3.2;
-    if (f.stone) v += 4.5;
+    if (f.leave) v += f.leave * EW.leave;
+    if (f.stone) v += EW.stone;
     if (f.burn) {
       const bb = bestBuilding(p, t.side);
-      if (bb) v += BUILD[bb.b].pts + 3;
+      if (bb) v += BUILD[bb.b].pts + EW.burn;
     }
     if (f.renown) v += f.renown;
     return v;
@@ -1645,12 +1651,12 @@
       for (let r = state.round; r <= ROUNDS; r++) if (seasonOf(r) === 'winter') return r - state.round;
       return -1;
     })();
-    const fut = Math.min(R, 6) * 0.75;
+    const fut = Math.min(R, 6) * EW.fut;
     // what the village makes each round, net of food
     v += fut * (income.wood * VAL.wood + income.stone * VAL.stone + income.iron * VAL.iron + income.gold * VAL.gold + income.renown);
-    v += fut * Math.min(income.forge, Math.max(0, ARMS_MAX - p.arms)) * 0.45;
+    v += fut * Math.min(income.forge, Math.max(0, ARMS_MAX - p.arms)) * EW.forge;
     const netFood = income.food - p.vil.length;
-    v += fut * Math.min(netFood, 2) * VAL.food;
+    v += fut * Math.min(netFood, EW.foodCap) * VAL.food;
     // stock on hand
     RES.forEach((r) => {
       const unit = r === 'gold' ? Math.max(1 / 3, VAL.gold * later) : VAL[r] * later;
@@ -1660,30 +1666,30 @@
     // starving or freezing is very bad
     const horizon = Math.min(R, 3);
     const foodShort = Math.max(0, -(p.res.food + netFood * horizon - (winterNext >= 0 && winterNext < horizon ? income.food : 0)));
-    v -= foodShort * 3.5;
+    v -= foodShort * EW.short;
     // tonight's supper, with builders off work
-    v -= Math.max(0, p.vil.length - (p.res.food + now.food)) * 4;
+    v -= Math.max(0, p.vil.length - (p.res.food + now.food)) * EW.supper;
     if (winterNext >= 0 && winterNext <= 2) {
       const wneed = Math.ceil((p.vil.length + 1) / 3) + (newRules(state) ? p.walls.filter((x) => x === 1).length : 0);
       const wHave = p.res.wood + income.wood * winterNext;
-      v -= Math.max(0, wneed - wHave) * 2;
+      v -= Math.max(0, wneed - wHave) * EW.cold;
     }
     // room to grow
     const rm = room(p, true);
     if (R > 1) {
       const n = p.vil.length;
       // capacity is worth having; filling it never counts against you
-      v += 0.9 * Math.min(beds(p, true), n + 3) + 0.9 * Math.min(water(p, true), n + 3) + (rm > 0 ? 0.6 : 0);
+      v += EW.cap * Math.min(beds(p, true), n + 3) + EW.cap * Math.min(water(p, true), n + 3) + (rm > 0 ? EW.room : 0);
     }
     // empty job buildings are worth something if someone for them is on offer
     p.bld.forEach((b) => {
-      if (BUILD[b.b].slots && !BUILD[b.b].wonder && !scores(p, b) && R > 2 && state.row.some((k) => VIL[k].at === b.b)) v += BUILD[b.b].pts * 0.6;
+      if (BUILD[b.b].slots && !BUILD[b.b].wonder && !scores(p, b) && R > 2 && state.row.some((k) => VIL[k].at === b.b)) v += BUILD[b.b].pts * EW.emptyJob;
     });
     // idle hands
-    v -= p.vil.filter((x) => x.at == null).length * (R > 1 ? 0.4 : 0);
+    v -= p.vil.filter((x) => x.at == null).length * (R > 1 ? EW.idle : 0);
     // threats on the horizon
     const look = level === 'easy' ? 1 : 3;
-    const w = [1, 0.75, 0.5];
+    const w = [EW.t0, EW.t1, EW.t2];
     threatsFor(state, pi, look).forEach((t0, j) => {
       // Only what this village can see: an unknown creature is planned for as a typical one of its year and kind,
       // and an unknown side as somewhere between the weakest and the average wall.
@@ -1696,26 +1702,26 @@
         t.side = ds.indexOf(Math.min(...ds));
       } else d = defense(p, k, t0.side, j > 0);
       const B = BEAST[k];
-      if (d >= B.str) v += w[j] * (B.win + (B.loot || 0) * VAL.gold);
-      else v -= w[j] * (lossValue(state, p, t) * (B.str - d <= 3 ? 1 : 0.8) + Math.min(B.str - d, 5) * 0.35);
+      if (d >= B.str) v += w[j] * EW.win * (B.win + (B.loot || 0) * VAL.gold);
+      else v -= w[j] * (lossValue(state, p, t) * (B.str - d <= 3 ? EW.lossNear : EW.lossFar) + Math.min(B.str - d, 5) * EW.gap);
     });
     if (newRules(state)) {
       // wages coming up
       const toPay = roundsToWages(state);
       if (toPay > 0 && toPay <= 3) {
         const short = wagesDue(p) - (p.res.gold + income.gold * (toPay - 1));
-        if (short > 0) v -= short * (toPay === 1 ? 2.2 : 1.4);
+        if (short > 0) v -= short * (toPay === 1 ? EW.wage1 : EW.wage3);
       }
       if (legacyGoals(state)) v -= sc.goals * 0.5 * later;
       else {
         // banked goal points are in the score; this year's lead only counts for part of the prize until Winter
         const into = ((state.round - 1) % 4) / 4;
-        goalsOfYear(state, yearOf(state.round)).forEach((g) => (v += goalPoints(state, g)[pi] * (0.35 + 0.5 * into)));
+        goalsOfYear(state, yearOf(state.round)).forEach((g) => (v += goalPoints(state, g)[pi] * (EW.goal0 + EW.goal1 * into)));
       }
     }
     // later creatures hit harder: keep building towards them
     const aim = state.round >= 8 ? 11 : state.round >= 4 ? 7 : 4;
-    if (R > 1) v += Math.min(baseDefense(p) + 2, aim) * 0.3;
+    if (R > 1) v += Math.min(baseDefense(p) + 2, aim) * EW.aim;
     return v;
   }
 

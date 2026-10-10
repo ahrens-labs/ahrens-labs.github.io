@@ -169,7 +169,39 @@
   });
 
   // ---------------------------------------------------------------- setup screen
+  // Every way of playing needs an Ahrens Labs account.
+  function showGate() {
+    clearTimeout(ui.aiTimer);
+    stopOnline();
+    G = null;
+    document.body.className = 'setup-mode';
+    const back = encodeURIComponent(location.pathname.replace(/^\//, '') + location.search);
+    $('#app').innerHTML = `
+      <div class="setup gh">
+        <div class="gh-top"><a class="gh-lobby" href="/board-games.html" title="Back to the game lobby">← 🎲 Game lobby</a></div>
+        <div class="gh-hero">
+          <img src="${IMG('cover')}" alt="" class="gh-hero-img">
+          <div class="gh-shade"></div>
+          <div class="gh-title"><h1 class="display">Oakhaven</h1></div>
+        </div>
+        <div class="setup-card gh-card panel ol-gate">
+          <h2>🔒 Sign in to play</h2>
+          <p>You need an Ahrens Labs account to play — against the computer, with a friend on this device, or online against other Ahrens Labs players.</p>
+          <a class="btn big" href="/account.html?return=${back}">Log in or sign up</a>
+        </div>
+      </div>`;
+  }
+  function signedOut() {
+    try {
+      localStorage.removeItem('ahrenslabs_sessionId');
+    } catch (e) {
+      /* ignore */
+    }
+    showGate();
+  }
+
   function showSetup(focusGame) {
+    if (!sessionId()) return showGate();
     clearTimeout(ui.aiTimer);
     stopOnline();
     G = null;
@@ -268,6 +300,7 @@
   }
 
   function startFrom(g) {
+    if (!sessionId()) return showGate();
     G = g;
     ui.pick = null;
     ui.boardSig = '';
@@ -283,7 +316,10 @@
     else if (st().phase === 'dusk') runDusk();
     else {
       seasonBanner();
-      scheduleAI();
+      staff(humans(), () => {
+        render();
+        scheduleAI();
+      });
     }
   }
 
@@ -307,7 +343,6 @@
         </div>
       </header>
       <section class="threats" id="threats"></section>
-      <section class="locs panel" id="locs"></section>
       <main class="layout">
         <section class="board-wrap">
           <div class="board-tabs" id="tabs"></div>
@@ -315,15 +350,16 @@
           <div class="pickbar" id="pickbar"></div>
         </section>
         <aside class="side">
-          <div class="panel" id="res"></div>
           <div class="panel event-panel" id="event" hidden></div>
-          <div class="panel" id="actions"></div>
+          <div class="panel" id="res"></div>
+          <div class="panel" id="people"></div>
           <div class="panel goals-panel" id="goals" hidden></div>
+          <div class="panel" id="actions"></div>
         </aside>
       </main>
+      <section class="locs panel" id="locs"></section>
       <section class="panel" id="row"></section>
       <section class="lower">
-        <div class="panel" id="people"></div>
         <div class="panel" id="log"></div>
       </section>`;
     $('#rules-btn').onclick = () => showRules();
@@ -843,7 +879,7 @@
     const rate = `${E.tradeRate(p)}:1`;
     const open = E.freeLocs(s).length;
     const workerMsg = p.workers > 0
-      ? `Place ${plural(p.workers, 'worker')} on the locations above — placing one ends your turn.${E.freeLocs(s).length === E.OPEN_LOCS.length ? ' The main spots are taken, but the always-open ones still have room.' : ''}`
+      ? `Place ${plural(p.workers, 'worker')} on the <a href="#locs" class="to-locs">places below ↓</a> — placing one ends your turn.${E.freeLocs(s).length === E.OPEN_LOCS.length ? ' The main spots are taken, but the always-open ones still have room.' : ''}`
       : 'All your workers are out. Finish your free actions, then end your round.';
     box.innerHTML = `
       <h3>Free actions <span class="muted">as many as you can pay for</span></h3>
@@ -857,7 +893,7 @@
       </div>
       <p class="tip">🧍 ${workerMsg}</p>
       <button class="btn ${p.workers > 0 && open ? 'ghost' : 'big'} end-btn" data-act="end">⏭️ End round${p.workers > 0 && open ? ` <small>(${plural(p.workers, 'worker')} unused)</small>` : ''}</button>
-      <p class="tip">Moving villagers between jobs is free too — click one below or a building on the map.</p>`;
+      <p class="tip">Moving villagers between jobs is free too — click a villager above or a building on the map.</p>`;
   }
 
   // ---------------------------------------------------------------- locations
@@ -1099,6 +1135,11 @@
       askPlacement(pi, fresh, afterAction);
       return;
     }
+    if (openedFor(pi).length) {
+      save();
+      render();
+      return staff([pi], afterAction);
+    }
     if (a.t === 'recruit') toast(`${esc(p.name)} took in a <b>${E.VIL[p.vil[p.vil.length - 1].k].name}</b>.`);
     afterAction();
   }
@@ -1107,6 +1148,121 @@
   function newcomers(before, p) {
     const old = new Map(before.map((v) => [v.id, v.k]));
     return p.vil.filter((v) => old.get(v.id) !== v.k).map((v) => v.id);
+  }
+
+  // Ask each of these players to staff their newly opened buildings, then carry on with `done`.
+  function staff(list, done) {
+    if (ui.staffing) return done();
+    ui.staffing = true;
+    const go = (i) => {
+      if (i >= list.length) {
+        ui.staffing = false;
+        return done();
+      }
+      askOpened(list[i], () => go(i + 1));
+    };
+    go(0);
+  }
+  const humans = () => (G.mode === 'online' ? [G.me] : [0, 1]);
+
+  // Buildings with jobs that opened this round and haven't been staffed through the pop-up yet.
+  function openedFor(pi) {
+    const s = st();
+    const p = s.players[pi];
+    if (!p || p.ai || G.mode === 'sim' || s.phase !== 'act') return [];
+    const seen = new Set(G.openSeen || []);
+    return ((p.flags && p.flags.opened) || []).filter((id) => !seen.has(`${s.round}:${id}`) && p.bld.some((b) => b.id === id));
+  }
+
+  // A building just opened: pick who works there from everyone who can, even villagers busy at another job.
+  function askOpened(pi, done) {
+    const ids = openedFor(pi);
+    if (!ids.length) return done();
+    const s = st();
+    const p = s.players[pi];
+    const b = p.bld.find((x) => x.id === ids[0]);
+    G.openSeen = (G.openSeen || []).filter((k) => +k.split(':')[0] === s.round).concat(`${s.round}:${b.id}`);
+    save();
+    const next = () => askOpened(pi, done);
+    const B = E.BUILD[b.b];
+    const slots = E.slotsOf(b.b);
+    const cands = p.vil.filter((v) => E.canWork(v.k, b.b) && !E.busy(p, v));
+    if (!cands.length) return next();
+    cands.sort((x, y) => (E.canWork(y.k, b.b) === 'spec') - (E.canWork(x.k, b.b) === 'spec'));
+    const pick = new Set(E.occupants(p, b.id).map((v) => v.id));
+    const yieldWith = (ids2) => {
+      const t = E.clone(p);
+      t.vil.forEach((v) => {
+        if (ids2.has(v.id)) v.at = b.id;
+        else if (v.at === b.id) v.at = null;
+      });
+      const out = E.production(t, season()).by[b.id];
+      return out ? Object.entries(out).map(([r, n]) => (r === 'forge' ? '⚒️' : `${r === 'renown' ? '⭐' : E.RES_ICON[r]}${n}`)).join(' ') : 'nothing';
+    };
+    const chips = () => cands.map((v) => {
+      const on = pick.has(v.id);
+      const where = v.at === b.id ? `working here` : v.at != null ? `now at the ${whereOf(p, v)}` : 'idle';
+      return `<button class="pchip${on ? ' on' : ''}${E.canWork(v.k, b.b) === 'spec' ? ' spec' : ''}" data-pick="${v.id}"><img src="${IMG(v.k)}" alt=""><span><b>${on ? '✓ ' : ''}${E.VIL[v.k].name}</b><small>${E.canWork(v.k, b.b) === 'spec' ? 'own trade ★' : 'labor'} · ${where}</small></span></button>`;
+    }).join('');
+    const back = openModal(`
+      <div class="binfo">
+        <div class="b-art big" style="--bc:${B.color}"><img src="${IMG(b.b)}" alt=""></div>
+        <div>
+          <h2>🏗️ ${G.mode === 'local' ? `${esc(p.name)}’s` : 'Your'} ${B.name} is finished</h2>
+          <p>${B.text}</p>
+          <p><b>Who works here?</b> Up to ${plural(slots, 'worker')}. Anyone can be moved here, even from another job — that job is left empty.</p>
+          <div class="pchips" id="open-chips">${chips()}</div>
+          <p class="open-out"></p>
+          <div class="btn-row"><button class="btn big" data-ok>Done</button></div>
+        </div>
+      </div>`, { cls: 'locked', noClose: true, onClose: () => {} });
+    const paint = () => {
+      back.querySelector('#open-chips').innerHTML = chips();
+      back.querySelector('.open-out').innerHTML = `<b>${pick.size}/${slots}</b> working · ${B.name} makes <b>${yieldWith(pick)}</b> a round${pick.size ? '' : ' — and scores nothing with nobody working'}.`;
+    };
+    paint();
+    back.addEventListener('click', (e) => {
+      const c = e.target.closest('[data-pick]');
+      if (c) {
+        const id = +c.dataset.pick;
+        if (pick.has(id)) pick.delete(id);
+        else if (pick.size < slots) pick.add(id);
+        else return toast(`The ${B.name} only has room for ${plural(slots, 'worker')}. Tap someone to take them off first.`, 'warn');
+        return paint();
+      }
+      if (!e.target.closest('[data-ok]')) return;
+      ui.onClose = null;
+      closeModal();
+      const idleBefore = new Set(p.vil.filter((v) => v.at == null).map((v) => v.id));
+      const moves = E.occupants(p, b.id).filter((v) => !pick.has(v.id)).map((v) => ({ t: 'move', v: v.id, to: null }))
+        .concat([...pick].filter((id) => p.vil.find((v) => v.id === id).at !== b.id).map((id) => ({ t: 'move', v: id, to: b.id })));
+      const finish = () => {
+        // Whoever was taken off this building now needs a job.
+        const q = st().players[pi];
+        const bumped = q.vil.filter((v) => v.at == null && !idleBefore.has(v.id) && !E.busy(q, v)).map((v) => v.id);
+        render();
+        if (bumped.length) return askPlacement(pi, bumped, next);
+        next();
+      };
+      if (G.mode === 'online') {
+        const run = (list) => {
+          if (!list.length) return finish();
+          sendOnline(list[0]);
+          const wait = () => (net.pending ? setTimeout(wait, 150) : run(list.slice(1)));
+          wait();
+        };
+        return run(moves);
+      }
+      moves.forEach((a) => {
+        try {
+          E.apply(st(), pi, a);
+        } catch (err) {
+          toast(esc(err.message), 'bad');
+        }
+      });
+      save();
+      finish();
+    });
   }
 
   // Ask where each newcomer should work, one at a time, then carry on with `done`.
@@ -1696,8 +1852,11 @@
           if (G.mode === 'local') G.view = s.turn;
           save();
           render();
-          seasonBanner();
-          scheduleAI();
+          staff(humans(), () => {
+            render();
+            seasonBanner();
+            scheduleAI();
+          });
         }
       },
     });
@@ -1947,14 +2106,7 @@
     }
     const r = await api('/api/oakhaven/history');
     if (!$('#hist-body')) return;
-    if (r.status === 401) {
-      try {
-        localStorage.removeItem('ahrenslabs_sessionId');
-      } catch (e) {
-        /* ignore */
-      }
-      return showHistory();
-    }
+    if (r.status === 401) return signedOut();
     if (!r.ok) {
       $('#hist-body').innerHTML = `<p class="bad">${esc(r.data.error || 'Couldn’t load your games.')}</p><button class="btn ghost sm" id="hist-retry">Try again</button>`;
       $('#hist-retry').onclick = showHistory;
@@ -2134,14 +2286,7 @@
     box.innerHTML = lobbyHtml(true);
     const r = await api('/api/oakhaven/games');
     if (!$('#online-box')) return;
-    if (r.status === 401) {
-      try {
-        localStorage.removeItem('ahrenslabs_sessionId');
-      } catch (e) {
-        /* ignore */
-      }
-      return showLobby();
-    }
+    if (r.status === 401) return signedOut();
     net.lobby = r.ok ? r.data.games || [] : null;
     net.err = r.ok ? '' : r.data.error || 'Couldn’t load your games.';
     renderLobby();
@@ -2373,6 +2518,7 @@
       }
       if (G.status === 'over' && st().phase !== 'over' && !G.revealed) return showResigned();
       if (prev.turn !== s.turn && s.turn === G.me && s.phase === 'act') handoff();
+      if (!ui.staffing && !ui.modal && openedFor(G.me).length) staff([G.me], render);
     };
     if (fresh.length) {
       if (ui.modal) closeModal();
