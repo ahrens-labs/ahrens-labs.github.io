@@ -2829,7 +2829,7 @@ export function newInteractionPage(allContacts: any[], preselectedContactId?: st
               </div>
             </div>
             ${contactPhotoFieldsHtml('interactionNewContact')}
-            <button type="button" onclick="createNewContact()" class="btn btn-primary" id="createContactBtn" style="font-size: 0.875rem;">Create Contact</button>
+            <p style="margin: 0; font-size: 0.8125rem; color: #6b7280;">This contact is created when you add the interaction.</p>
           </div>
           
           <input type="hidden" name="type" value="meeting">
@@ -2850,7 +2850,7 @@ export function newInteractionPage(allContacts: any[], preselectedContactId?: st
           </div>
           
           <div class="flex" style="gap: 1rem; margin-top: 1.5rem;">
-            <button type="submit" class="btn btn-primary">Add Interaction</button>
+            <button type="submit" class="btn btn-primary" id="addInteractionBtn">Add Interaction</button>
             <a href="${returnTo}" class="btn btn-secondary">Cancel</a>
           </div>
         </form>
@@ -2925,17 +2925,18 @@ export function newInteractionPage(allContacts: any[], preselectedContactId?: st
         contactSearch.focus();
       }
       
+      function newContactFormOpen() {
+        return document.getElementById('newContactFields').style.display !== 'none';
+      }
+
+      // Returns the new contact id, or null if the contact could not be created.
       async function createNewContact() {
         const name = document.getElementById('newContactName').value.trim();
         if (!name) {
           alert('Please enter a contact name');
           document.getElementById('newContactName').focus();
-          return;
+          return null;
         }
-        
-        const btn = document.getElementById('createContactBtn');
-        btn.disabled = true;
-        btn.textContent = 'Creating...';
         
         try {
           const response = await fetch('/api/contacts', {
@@ -2948,29 +2949,26 @@ export function newInteractionPage(allContacts: any[], preselectedContactId?: st
             })
           });
           
-          if (response.ok) {
-            const data = await response.json();
-            try {
-              await interactionNewContactUploadPhoto(data.id);
-            } catch (photoError) {
-              alert(photoError.message || 'Contact created, but photo could not be saved');
-            }
-            // Add to our local list
-            allContacts.push({ id: data.id, name: name });
-            allContacts.sort((a, b) => a.name.localeCompare(b.name));
-            // Select the new contact
-            selectContact(data.id, name);
-            // Hide the new contact form, show search input
-            document.getElementById('newContactFields').style.display = 'none';
-            contactSearch.style.display = '';
-          } else {
+          if (!response.ok) {
             alert('Error creating contact');
+            return null;
           }
+          const data = await response.json();
+          try {
+            await interactionNewContactUploadPhoto(data.id);
+          } catch (photoError) {
+            alert(photoError.message || 'Contact created, but photo could not be saved');
+          }
+          allContacts.push({ id: data.id, name: name });
+          allContacts.sort((a, b) => a.name.localeCompare(b.name));
+          // Select it so a retry after a failed interaction save doesn't create a duplicate.
+          selectContact(data.id, name);
+          document.getElementById('newContactFields').style.display = 'none';
+          contactSearch.style.display = '';
+          return data.id;
         } catch (error) {
           alert('Error creating contact');
-        } finally {
-          btn.disabled = false;
-          btn.textContent = 'Create Contact';
+          return null;
         }
       }
       
@@ -3036,12 +3034,19 @@ export function newInteractionPage(allContacts: any[], preselectedContactId?: st
       
       document.getElementById('interactionForm').addEventListener('submit', async (e) => {
         e.preventDefault();
+        const submitBtn = document.getElementById('addInteractionBtn');
+        if (submitBtn.disabled) return;
         const formData = new FormData(e.target);
-        const contactId = document.getElementById('contactIdInput').value;
+        let contactId = document.getElementById('contactIdInput').value;
         
-        if (!contactId) {
+        if (!contactId && !newContactFormOpen()) {
           alert('Please select a contact');
           document.getElementById('contactSearch').focus();
+          return;
+        }
+        if (!contactId && !document.getElementById('newContactName').value.trim()) {
+          alert('Please enter a contact name');
+          document.getElementById('newContactName').focus();
           return;
         }
         
@@ -3056,7 +3061,13 @@ export function newInteractionPage(allContacts: any[], preselectedContactId?: st
           location: formData.get('location') || null
         };
         
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Saving...';
         try {
+          if (!contactId) {
+            contactId = await createNewContact();
+            if (!contactId) return;
+          }
           const response = await fetch('/api/contacts/' + contactId + '/interactions', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -3064,12 +3075,18 @@ export function newInteractionPage(allContacts: any[], preselectedContactId?: st
           });
           
           if (response.ok) {
+            submitBtn.dataset.leaving = '1';
             window.location.href = '${returnTo}';
-          } else {
-            alert('Error adding interaction');
+            return;
           }
+          alert('Error adding interaction');
         } catch (error) {
           alert('Error adding interaction');
+        } finally {
+          if (!submitBtn.dataset.leaving) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Add Interaction';
+          }
         }
       });
     </script>
