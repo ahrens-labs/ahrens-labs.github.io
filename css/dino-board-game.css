@@ -47,7 +47,7 @@ body {
 
 h1, h2, h3, .display { font-family: "Lilita One", "Fredoka", sans-serif; font-weight: 400; letter-spacing: 0.02em; }
 
-button { font-family: inherit; }
+button { font-family: inherit; color: #000; }
 
 .muted { color: var(--muted); font-size: 0.9rem; }
 

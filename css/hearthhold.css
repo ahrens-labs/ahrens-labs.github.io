@@ -302,7 +302,6 @@ button { font-family: inherit; }
 .rchip .ri { font-size: 1.1rem; }
 .rchip b { font-size: 1.1rem; }
 .rchip small { color: var(--good); font-weight: 700; font-size: 0.75rem; }
-.rchip.r-gold { background: linear-gradient(180deg, #fff3c4, #ffd95e); box-shadow: inset 0 0 0 2px #e0a800; color: #6b4a00; }
 .mres { display: none; }
 .vstats { list-style: none; margin: 0.7rem 0 0; padding: 0; display: grid; gap: 0.3rem; font-size: 0.88rem; }
 .vstats li { display: flex; gap: 0.4rem; align-items: baseline; padding: 0.3rem 0.5rem; border-radius: 8px; background: rgba(255, 255, 255, 0.45); }
@@ -649,7 +648,6 @@ button { font-family: inherit; }
   .mchip { display: inline-flex; align-items: baseline; gap: 0.15rem; padding: 0.15rem 0.45rem; border-radius: 9px; background: #fffaf0; color: var(--ink); font-size: 0.95rem; flex: 0 0 auto; box-shadow: inset 0 0 0 2px var(--parchment-2); }
   .mchip b { font-size: 0.95rem; }
   .mchip small { color: var(--good); font-weight: 700; font-size: 0.68rem; }
-  .mchip.r-gold { background: linear-gradient(180deg, #fff3c4, #ffd95e); box-shadow: inset 0 0 0 2px #e0a800; color: #6b4a00; }
   .mnav { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 0.15rem; position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
     padding: 0.3rem 0.3rem calc(0.3rem + env(safe-area-inset-bottom)); background: #2b1f12; box-shadow: 0 -4px 14px rgba(0, 0, 0, 0.35); }
   .mnav button { font: inherit; border: 0; background: transparent; color: #f7ecd2; display: grid; justify-items: center; gap: 0.05rem; font-size: 1.2rem; line-height: 1.1; padding: 0.3rem 0 0.25rem; border-radius: 10px; cursor: pointer; min-height: 44px; }
