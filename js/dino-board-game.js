@@ -2981,7 +2981,7 @@
       .join('');
     const stack = Math.min(state.deck.length, 4);
     return `<div class="market${pickAny || pickDeck ? ' picking' : ''}${state.proto ? ' proto' : ''}">
-      <div class="m-title">🃏 ${state.proto ? 'Dino market' : 'Card market'}${pickAny || pickDeck ? ` <span class="m-hint">tap one to ${state.proto ? 'reserve' : 'draw'}</span>` : ''}</div>
+      <div class="m-title">${state.proto ? 'Market' : 'Card market'}${pickAny || pickDeck ? ` <span class="m-hint">tap one to ${state.proto ? 'reserve' : 'draw'}</span>` : ''}</div>
       <div class="m-row">
         <div class="deck-back ${deckAttrs ? 'pick' : ''} ${state.deck.length ? '' : 'gone'}" ${deckAttrs} title="Top of the deck (face down)" style="--stack:${stack}">
           <b>${state.deck.length}</b><small>deck</small>
@@ -3042,8 +3042,7 @@
       ? `<div class="bm-hand pl-${O.color}"><div class="bm-sub">🥚 ${esc(O.name)}’s reserved hand <small>Oviraptor can take one of these</small></div><div class="bm-row">${O.hand.map((sp, i) => card(sp, 'o', i)).join('')}</div></div>`
       : '';
     const stack = Math.min(state.deck.length, 4);
-    setHtml(el, `<div class="bm-head"><h2>🃏 Dino market</h2><span class="bm-hint${picking || buying ? ' live' : ''}">${hint}</span></div>
-      <div class="bm-sub bm-shop-sub">🏪 Market <small>face-up cards anyone can buy</small></div>
+    setHtml(el, `<div class="bm-head"><div class="bm-sub bm-shop-sub">Market</div><span class="bm-hint${picking || buying ? ' live' : ''}">${hint}</span></div>
       <div class="bm-row">
         <div class="deck-back bm-deck ${deckOk ? 'pick' : ''} ${state.deck.length ? '' : 'gone'}" ${deckOk ? 'data-act="take" data-from="deck"' : ''} title="Top of the deck (face down)" style="--stack:${stack}"><b>${state.deck.length}</b><small>deck</small></div>
         ${state.faceUp.map((sp, i) => card(sp, 'm', i)).join('')}
@@ -3052,7 +3051,7 @@
 
   // Phones: the Dino market is below the controls, so the panel offers a jump to it.
   function marketJumpHtml() {
-    return '<button class="btn sm ghost m-jump" data-jump="market">🏪 Go to the Dino market</button>';
+    return '<button class="btn sm ghost m-jump" data-jump="market">Go to the market</button>';
   }
 
   function logItems(list) {
@@ -3400,7 +3399,7 @@
     const backHead = (label) => `<div class="act-top">${backBtn('back', label)}${count}</div>${onSpace}`;
     if (ui.mode === 'play') return backHead(ui.species ? 'Other dinos' : 'Pick up worker') + playModeHtml(T, false);
     if (ui.mode === 'draw') {
-      return `${backHead('Pick up worker')}<h3>🔭 Scout</h3><p>Tap a card or the deck in the <b>Dino market</b> to reserve it. Hand: <b>${P.hand.length}/${handMax(P)}</b>.</p>`;
+      return `${backHead('Pick up worker')}<h3>🔭 Scout</h3><p>Tap a card or the deck in the <b>market</b> to reserve it. Hand: <b>${P.hand.length}/${handMax(P)}</b>.</p>`;
     }
     if (ui.mode === 'shop') return (ui.shopItem ? `<div class="act-top">${backBtn('shopBack', 'Builder')}${count}</div>${onSpace}` : backHead('Pick up worker')) + shopHtml(P);
     return `<div class="act-top">${count}<button class="btn sm ghost" data-act="endTurn">Pass ▸</button></div>
@@ -3419,7 +3418,7 @@
 
     if (ui.mode === 'play') return backHead(ui.species ? 'Other dinos' : 'Back') + playModeHtml(T, false);
     if (ui.mode === 'draw') {
-      return `${backHead()}<h3>🃏 Draw a card</h3><p>Tap a face-up card or the deck in the <b>${state.proto ? 'Dino market' : 'card market'}</b>${state.proto ? '' : ' at the bottom of this panel'}.</p>${state.proto ? marketJumpHtml() : ''}`;
+      return `${backHead()}<h3>🃏 Draw a card</h3><p>Tap a face-up card or the deck in the <b>${state.proto ? 'market' : 'card market'}</b>${state.proto ? '' : ' at the bottom of this panel'}.</p>${state.proto ? marketJumpHtml() : ''}`;
     }
     if (ui.mode === 'shop') return (ui.shopItem ? `<div class="act-top">${backBtn('shopBack', 'Shop')}${count}</div>` : backHead()) + shopHtml(P);
     if (ui.mode === 'dinoAction') {
@@ -3573,7 +3572,7 @@
 
   function drawCardHtml(T) {
     return `<h3>${esc(T.title || 'Draw a card')}</h3>
-      <p>${T.source === 'deck' ? 'Draw the top card of the deck.' : `Tap a face-up card or the deck in the ${state.proto ? 'Dino market to reserve it' : 'card market below'}.`}</p>${state.proto ? marketJumpHtml() : ''}`;
+      <p>${T.source === 'deck' ? 'Draw the top card of the deck.' : `Tap a face-up card or the deck in the ${state.proto ? 'market to reserve it' : 'card market below'}.`}</p>${state.proto ? marketJumpHtml() : ''}`;
   }
 
   function spinoHtml() {
