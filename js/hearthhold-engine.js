@@ -795,6 +795,39 @@
     if (b && b.kind === 'fly' && side != null && side >= 0 && hasBow(p, side)) d += BOW.def;
     return d;
   }
+  // defense(p, k, side) for this round, itemized: [{ label, n, count }]. Must add up to the same total.
+  function defenseParts(p, k, side) {
+    const b = BEAST[k];
+    const parts = [];
+    const add = (label, n) => {
+      if (!n) return;
+      const row = parts.find((x) => x.label === label);
+      if (row) {
+        row.n += n;
+        row.count += 1;
+      } else parts.push({ label, n, count: 1 });
+    };
+    add('Keep', BUILD.keep.def);
+    if (castleReady(p)) add('Castle', BUILD.castle.def);
+    add('Arms', p.arms);
+    if (k) add('Mustered for tonight', p.muster || 0);
+    p.bld.forEach((x) => {
+      if (x.b !== 'keep' && BUILD[x.b].def && ready(p, x) && inRange(p, x, side)) add(BUILD[x.b].name, BUILD[x.b].def);
+    });
+    const levy = p.flags && p.flags.levy;
+    onDuty(p).forEach(({ v, b: at, spec }) => {
+      if (!spec) return;
+      if (levy && ['guard', 'knight', 'archer'].includes(v.k)) return;
+      if (v.k === 'guard') add('Guard', 2);
+      if (v.k === 'knight') add('Knight', 4);
+      if (v.k === 'archer' && inRange(p, at, side)) add('Archer', 2 + (b && b.kind === 'fly' ? 3 : 0));
+      if (v.k === 'wizard' && inRange(p, at, side)) add('Wizard', 3 + (b && (b.kind === 'fly' || b.undead) ? 4 : 0));
+      if (v.k === 'priest' && b && b.undead) add('Priest', 4);
+    });
+    if (b && b.kind !== 'fly' && side != null && side >= 0) add(WALL[p.walls[side]].name, WALL[p.walls[side]].def);
+    if (b && b.kind === 'fly' && side != null && side >= 0 && hasBow(p, side)) add('Crossbow', BOW.def);
+    return parts;
+  }
   function baseDefense(p) {
     return defense(p, null, null, true);
   }
@@ -1361,6 +1394,106 @@
   }
 
   // Resolve production, the night's attack and upkeep for both villages. Returns a report for the UI.
+  // One village's night: work, the attack, supper, frost and wages. Changes p; returns the report.
+  function duskPlayer(state, p, season, threat) {
+    const B = BEAST[threat.k];
+    const r = { prod: null, forged: 0, attack: null, ate: 0, burned: 0, left: [], cold: [], hungry: [] };
+    // 1. production
+    const pr = production(p, season);
+    ['food', 'wood', 'stone', 'iron', 'gold'].forEach((x) => (p.res[x] += pr[x]));
+    p.renown += pr.renown;
+    for (let i = 0; i < pr.forge; i++) {
+      if (p.res.iron > 0 && p.arms < ARMS_MAX) {
+        p.res.iron -= 1;
+        p.arms += 1;
+        r.forged += 1;
+      }
+    }
+    r.prod = pr;
+    // 2. the attack
+    const d = defense(p, threat.k, threat.side);
+    const a = { def: d, str: B.str, won: d >= B.str };
+    if (a.won) {
+      p.renown += B.win;
+      if (B.loot) p.res.gold += B.loot;
+      p.trophies.push(threat.k);
+    } else {
+      const f = B.fail;
+      if (f.res) a.lost = loseRes(p, f.res);
+      if (f.wall && threat.side != null) {
+        a.wallFrom = p.walls[threat.side];
+        p.walls[threat.side] = f.wall === 2 ? 0 : Math.max(0, p.walls[threat.side] - 1);
+        a.wallTo = p.walls[threat.side];
+        if (dropBow(p, threat.side)) a.bowLost = true;
+      }
+      if (f.leave) a.left = loseVillagers(p, f.leave, threat.side);
+      if (f.stone) a.left = loseVillagers(p, 1, 'best');
+      if (f.renown) {
+        p.renown -= f.renown;
+        a.renown = f.renown;
+      }
+      if (f.burn) {
+        const bb = bestBuilding(p, threat.side);
+        if (bb) {
+          p.bld.splice(p.bld.indexOf(bb), 1);
+          p.vil.forEach((v) => {
+            if (v.at === bb.id) v.at = null;
+          });
+          p.vil.filter((v) => v.at == null).forEach((v) => placeVillager(p, v));
+          a.burned = bb.b;
+        }
+      }
+    }
+    r.attack = a;
+    // 3. upkeep
+    const need = foodNeed(p);
+    const eat = Math.min(need, p.res.food);
+    p.res.food -= eat;
+    r.ate = eat;
+    if (eat < need) {
+      r.hungry = loseVillagers(p, need - eat);
+      p.renown -= r.hungry.length;
+    }
+    const wneed = woodNeed(p, season);
+    if (wneed) {
+      const burn = Math.min(wneed, p.res.wood);
+      p.res.wood -= burn;
+      r.burned = burn;
+      if (burn < wneed) {
+        r.cold = loseVillagers(p, wneed - burn);
+        p.renown -= r.cold.length;
+      }
+    }
+    // 4. frost: in Winter each Palisade needs 🪵1 of repairs or it falls
+    if (newRules(state) && season === 'winter') {
+      r.frost = { fixed: 0, fell: [] };
+      p.walls.forEach((w, i) => {
+        if (w !== 1) return;
+        if (p.res.wood > 0) {
+          p.res.wood -= 1;
+          r.frost.fixed += 1;
+        } else {
+          p.walls[i] = 0;
+          r.frost.fell.push(i);
+          if (dropBow(p, i)) r.frost.bows = (r.frost.bows || 0) + 1;
+        }
+      });
+    }
+    // 5. wages as Spring begins (years 2 and 3)
+    if (newRules(state) && state.round < ROUNDS && seasonOf(state.round + 1) === 'spring') r.wages = payWages(p);
+    return r;
+  }
+
+  // What tonight would do to village pi if the round ended now, worked out on a copy.
+  function previewDusk(state, pi) {
+    const s = clone(state);
+    const p = s.players[pi];
+    const before = clone(p.res);
+    const renown = p.renown;
+    const r = duskPlayer(s, p, seasonOf(s.round), s.threats[s.round - 1]);
+    return { r, before, after: p.res, renown: p.renown - renown };
+  }
+
   function resolveDusk(state) {
     if (state.phase !== 'dusk') throw new Error('Not dusk.');
     const season = seasonOf(state.round);
@@ -1368,92 +1501,9 @@
     const B = BEAST[threat.k];
     const rep = { round: state.round, season, threat, players: [] };
     state.players.forEach((p, pi) => {
-      const r = { prod: null, forged: 0, attack: null, ate: 0, burned: 0, left: [], cold: [], hungry: [] };
-      // 1. production
-      const pr = production(p, season);
-      ['food', 'wood', 'stone', 'iron', 'gold'].forEach((x) => (p.res[x] += pr[x]));
-      p.renown += pr.renown;
-      for (let i = 0; i < pr.forge; i++) {
-        if (p.res.iron > 0 && p.arms < ARMS_MAX) {
-          p.res.iron -= 1;
-          p.arms += 1;
-          r.forged += 1;
-        }
-      }
-      r.prod = pr;
-      // 2. the attack
-      const d = defense(p, threat.k, threat.side);
-      const a = { def: d, str: B.str, won: d >= B.str };
-      if (a.won) {
-        p.renown += B.win;
-        if (B.loot) p.res.gold += B.loot;
-        p.trophies.push(threat.k);
-      } else {
-        const f = B.fail;
-        if (f.res) a.lost = loseRes(p, f.res);
-        if (f.wall && threat.side != null) {
-          a.wallFrom = p.walls[threat.side];
-          p.walls[threat.side] = f.wall === 2 ? 0 : Math.max(0, p.walls[threat.side] - 1);
-          a.wallTo = p.walls[threat.side];
-          if (dropBow(p, threat.side)) a.bowLost = true;
-        }
-        if (f.leave) a.left = loseVillagers(p, f.leave, threat.side);
-        if (f.stone) a.left = loseVillagers(p, 1, 'best');
-        if (f.renown) {
-          p.renown -= f.renown;
-          a.renown = f.renown;
-        }
-        if (f.burn) {
-          const bb = bestBuilding(p, threat.side);
-          if (bb) {
-            p.bld.splice(p.bld.indexOf(bb), 1);
-            p.vil.forEach((v) => {
-              if (v.at === bb.id) v.at = null;
-            });
-            p.vil.filter((v) => v.at == null).forEach((v) => placeVillager(p, v));
-            a.burned = bb.b;
-          }
-        }
-      }
-      r.attack = a;
-      // 3. upkeep
-      const need = foodNeed(p);
-      const eat = Math.min(need, p.res.food);
-      p.res.food -= eat;
-      r.ate = eat;
-      if (eat < need) {
-        r.hungry = loseVillagers(p, need - eat);
-        p.renown -= r.hungry.length;
-      }
-      const wneed = woodNeed(p, season);
-      if (wneed) {
-        const burn = Math.min(wneed, p.res.wood);
-        p.res.wood -= burn;
-        r.burned = burn;
-        if (burn < wneed) {
-          r.cold = loseVillagers(p, wneed - burn);
-          p.renown -= r.cold.length;
-        }
-      }
-      // 4. frost: in Winter each Palisade needs 🪵1 of repairs or it falls
-      if (newRules(state) && season === 'winter') {
-        r.frost = { fixed: 0, fell: [] };
-        p.walls.forEach((w, i) => {
-          if (w !== 1) return;
-          if (p.res.wood > 0) {
-            p.res.wood -= 1;
-            r.frost.fixed += 1;
-          } else {
-            p.walls[i] = 0;
-            r.frost.fell.push(i);
-            if (dropBow(p, i)) r.frost.bows = (r.frost.bows || 0) + 1;
-          }
-        });
-      }
-      // 5. wages as Spring begins (years 2 and 3)
-      if (newRules(state) && state.round < ROUNDS && seasonOf(state.round + 1) === 'spring') r.wages = payWages(p);
+      const r = duskPlayer(state, p, season, threat);
       rep.players.push(r);
-      log(state, duskLine(p, threat, a, r), pi);
+      log(state, duskLine(p, threat, r.attack, r), pi);
     });
     // 6. the year's goals are scored after Winter
     if (newRules(state) && !legacyGoals(state) && season === 'winter') {
@@ -1874,7 +1924,7 @@
     beds, water, room, workers, production, defense, baseDefense, buildCost, wallCost, BOW, hasBow, bowBlock, canPay, rowPrice, freeCells, buildBlock,
     occupants, moveTargets, canWork, slotsOf, adjacent, hasMerchant, tradeRate, TRADE_RATE, TRADE_RATE_GOOD, peasantPrice, busy, hasBuilt, onDuty, ready, castleReady, freeBuilders, builderFor, trainPrice, trainBlock, trainee, TRAIN_FEE, squareAmount, locGain, masonSides, masonFirst, masonChoices, freeLocs, crowdAt, workerCount, musterAmount, foodNeed, woodNeed, upcoming, clone,
     GOALS, GOAL_ORDER, GOAL_PTS, LEGACY_GOAL_PTS, GOALS_PER_YEAR, EVENTS, AI_LEVEL, WAGE, NOISY,
-    newRules, threatView, threatsFor, maskThreats, scout, farSight, goalValue, goalPoints, goalGain, goalsOfYear, goalText, legacyGoals, wagesDue, roundsToWages,
+    newRules, threatView, threatsFor, maskThreats, scout, farSight, goalValue, goalPoints, goalGain, goalsOfYear, goalText, legacyGoals, wagesDue, roundsToWages, defenseParts, previewDusk,
     eventNow, eventPending, eventBlock, eventCost, noisy, aiHeadStart, AI_HEAD_START, sideDepth, RANGE, inRange,
   };
   if (typeof module === 'object' && module.exports) module.exports = api;

@@ -1419,7 +1419,7 @@
     else if (T.t === 'grow' && state.players[p].board.items[T.id]) ui.sel = { type: 'cells', board: p, cells: new Set(), need: growExtra(state.players[p].board.items[T.id]), purpose: 'grow', id: T.id };
     else if (T.t === 'fillOpp') {
       ui.sel = { type: 'cells', board: other(p), cells: new Set(), need: Math.min(T.count, emptyCount(other(p))), purpose: 'rubble' };
-    } else if (T.t === 'feed') ui.feed = defaultFeed(p);
+    } else if (T.t === 'feed') ui.feed = isAiTask(T) ? defaultFeed(p) : new Set();
     else if (T.t === 'foodChoice') ui.meat = Math.floor(T.amount / 2);
     else if (T.t === 'steal') ui.meat = stealRange(T)[1];
     else if (T.t === 'power' && T.sp === 'triceratops') ui.triPay = triDefault(T);
@@ -3198,7 +3198,6 @@
 
   function produceHtml(T) {
     const list = produceChoices(T);
-    const best = Math.max(...list.map((cp) => cp.prod));
     const again = !!(T.got && T.got.length);
     let lead = 'Pick <b>one active enclosure</b> and collect its coins.';
     if (state.proto && state.event === 'goldrush') lead = `💰 Gold rush: collect from <b>${again ? `up to ${plural(PROTO_GOLDRUSH - T.got.length, 'more active enclosure')}` : `${PROTO_GOLDRUSH} active enclosures`}</b>.`;
@@ -3207,7 +3206,7 @@
       .map((cp) => `<button class="opt" data-act="produce" data-key="${cp.key}">
         <span class="ebadge">${cp.name}</span>
         <span class="o-t"><b>${dinoSummary(cp)}</b></span>
-        <span class="fc flex" style="font-size:1rem">🪙 +${cp.prod}${cp.prod === best && list.length > 1 ? ' ⭐' : ''}</span></button>`)
+        <span class="fc flex" style="font-size:1rem">🪙 +${cp.prod}</span></button>`)
       .join('');
     return `<h3>🪙 Production</h3><p>${lead}</p><div class="opt-list">${rows}</div>`;
   }
@@ -3576,7 +3575,7 @@
     return `<div class="place-head">${dz(it.species, 'big')}<h3>🍼 Baby ${esc(S.name)} is growing up!</h3></div>
       <p>The baby with the flashing yellow ring${encl ? ` in enclosure <b>${esc(encl)}</b>` : ''} has been fed enough, so it grows into an adult. Pick <b>${plural(extra, 'more square')}</b> joined to it in its enclosure (an adult takes ${S.space}).${SPECIES[it.species].type === 'event' ? ' Its when-played power triggers once it’s grown.' : ''}</p>
       ${placementBox(`Select ${plural(extra, 'empty square')} next to the baby`)}
-      ${mine ? `<div class="btn-row"><button class="btn ghost" data-act="growAuto">Pick squares for me</button><button class="btn big" data-act="place" ${v.ok ? '' : 'disabled'}>Grow up</button></div>` : ''}`;
+      ${mine ? `<div class="btn-row"><button class="btn big" data-act="place" ${v.ok ? '' : 'disabled'}>Grow up</button></div>` : ''}`;
   }
 
   function birthHtml(T) {
@@ -3591,7 +3590,7 @@
     return `<div class="place-head">${dz(T.sp, 'big')}<h3>🐣 Your ${esc(S.name)} pair is having a baby!</h3></div>
       <p>Pick <b>${plural(n, 'empty square')}</b> for the baby in the enclosure of the pair with the flashing yellow rings${encl ? ` (enclosure <b>${esc(encl)}</b>)` : ''}${T.cost ? ` — it costs 🪙${T.cost}` : ''}. It grows up after ${PROTO_BABY_FEEDS} Feedings, but only if there’s room for an adult (${S.space} squares) in this enclosure — otherwise it dies then.</p>
       ${placementBox(`Select ${plural(n, 'connected square')} in the enclosure with the pair`)}
-      ${mine ? `<div class="btn-row"><button class="btn ghost" data-act="birthAuto">Pick squares for me</button><button class="btn big" data-act="place" ${v.ok ? '' : 'disabled'}>Place baby</button></div>` : ''}`;
+      ${mine ? `<div class="btn-row"><button class="btn big" data-act="place" ${v.ok ? '' : 'disabled'}>Place baby</button></div>` : ''}`;
   }
 
   function powerHtml(T) {
@@ -3774,7 +3773,7 @@
   // ---------------------------------------------------------------- setup screen
   function renderSetup(app) {
     const saved = load();
-    const canResume = saved && saved.queue[0] && saved.queue[0].t !== 'gameOver';
+    const canResume = saved && saved.queue[0] && saved.queue[0].t !== 'gameOver' && saved.moved !== false;
     app.innerHTML = tokify(`<div class="setup gh${setupOnline ? ' vs-online' : setupVsAi ? ' vs-ai' : ''}">
       ${homeTop()}
       <div class="setup-card gh-card">

@@ -176,7 +176,7 @@
     if (history.replaceState && location.search) history.replaceState(null, '', location.pathname);
     const pr = prefs();
     const saved = loadSave();
-    const canResume = saved && saved.state.phase !== 'over';
+    const canResume = saved && saved.state.phase !== 'over' && playerMoved(saved.state);
     document.body.className = 'setup-mode';
     $('#app').innerHTML = `
       <div class="setup gh">
@@ -743,7 +743,8 @@
         ${wneed || mend ? `<li class="${woodAfter < 0 ? 'bad' : ''}"><span>❄️</span>${wneed ? `Firewood: burn ${wneed} 🪵` : ''}${wneed && mend ? ' · ' : ''}${mend ? `mend ${plural(mend, 'palisade')} (🪵1 each)` : ''} → ${woodAfter < 0 ? `<b>short ${-woodAfter} — ${wneed > p.res.wood + pr.wood ? 'villagers will freeze!' : 'a palisade will fall!'}</b>` : `${woodAfter} left`}</li>` : ''}
         ${toPay > 0 && toPay <= 4 && wages ? `<li class="${toPay === 1 && goldAt < wages ? 'bad' : ''}"><span>💰</span>Wages ${toPay === 1 ? 'tonight, as Spring begins' : `in ${plural(toPay, 'round')}`}: 🪙${wages} for ${plural(wages, 'working villager')} ${goldAt >= wages ? '<small>(you’ll have enough)</small>' : `<b>— ${toPay === 1 ? `short ${wages - goldAt}, unpaid villagers will leave!` : `you’re ${wages - goldAt} short so far`}</b>`}</li>` : ''}
         ${B ? `<li class="${d >= B.str ? 'good-li' : 'bad'}"><span>🛡️</span>Tonight vs ${esc(B.name)} ⚔️${B.str}: 🛡️${d} ${d >= B.str ? '✓ we hold' : `✗ short by ${B.str - d}`}${p.muster ? ` <small>(incl. +${p.muster} for tonight)</small>` : ''}</li>` : ''}
-      </ul>`;
+      </ul>
+      ${B && s.phase === 'act' ? '<button class="btn ghost sm ledger-btn" data-act="ledger">📒 Tonight’s ledger — every number</button>' : ''}`;
   }
 
   function renderEvent() {
@@ -1027,6 +1028,7 @@
     if (what === 'trade') showTrade();
     if (what === 'train') showTrain();
     if (what === 'end') confirmEnd();
+    if (what === 'ledger') showLedger();
     if (what === 'show-final') showGameOver(true);
     if (what === 'lobby') showSetup(G.id);
   }
@@ -1135,14 +1137,14 @@
         <div>
           <h2>🏡 Where should your ${V.name} work?</h2>
           <p>${V.text}</p>
-          <p class="muted">${here ? `They’d start at the <b>${E.BUILD[here.b].name}</b> — keep that or pick another job.` : 'They have no job yet — pick one, or let them rest.'} You can move villagers for free any time on your turn.</p>
+          <p class="muted">Pick their job. You can move villagers for free any time on your turn.</p>
           <div class="pchips">
-            ${here ? chip(here, true) : ''}
+            ${here ? chip(here, false) : ''}
             ${targets.map((b) => chip(b, false)).join('')}
-            ${chip(null, !here)}
+            ${chip(null, false)}
           </div>
         </div>
-      </div>`, { onClose: next });
+      </div>`, { cls: 'locked', noClose: true, onClose: next });
     back.addEventListener('click', (e) => {
       const t = e.target.closest('[data-to]');
       if (!t) return;
@@ -1299,18 +1301,19 @@
   function showBuilderPick(b) {
     const p = me();
     const B = E.BUILD[b];
-    const sugg = E.builderFor(p);
+    const pr = E.production(p, season()).by;
     const job = (v) => {
       const at = v.at != null && p.bld.find((x) => x.id === v.at);
       const how = at && E.canWork(v.k, at.b);
-      if (!how) return { txt: 'Idle — loses nothing', cls: 'good' };
-      return { txt: `Leaves the ${E.BUILD[at.b].name}${how === 'spec' ? ' ★' : ''}`, cls: how === 'spec' ? 'warn' : '' };
+      if (!how) return { txt: 'Idle' };
+      const out = pr[at.id] ? Object.entries(pr[at.id]).map(([r, n]) => (r === 'forge' ? '⚒️1' : `${r === 'renown' ? '⭐' : E.RES_ICON[r]}${n}`)).join(' ') : '';
+      return { txt: `${E.BUILD[at.b].name}${how === 'spec' ? ' ★' : ''}${out ? ` · its output tonight: ${out}` : ''}` };
     };
     const chips = p.vil
       .map((v) => {
         const isBusy = E.hasBuilt(p, v);
         const j = job(v);
-        return `<button class="bchip${sugg && v.id === sugg.id ? ' sugg' : ''}" data-builder="${v.id}" ${isBusy ? 'disabled title="Still building — free once that building is finished"' : ''}><img src="${IMG(v.k)}" alt=""><span><b>${E.VIL[v.k].name}</b><small class="${isBusy ? '' : j.cls}">${isBusy ? '🔨 already building' : esc(j.txt)}</small>${sugg && v.id === sugg.id ? '<em class="b-sugg">Suggested</em>' : ''}</span></button>`;
+        return `<button class="bchip" data-builder="${v.id}" ${isBusy ? 'disabled title="Still building — free once that building is finished"' : ''}><img src="${IMG(v.k)}" alt=""><span><b>${E.VIL[v.k].name}</b><small>${isBusy ? '🔨 already building' : esc(j.txt)}</small></span></button>`;
       })
       .join('');
     const back = openModal(`
@@ -1318,7 +1321,7 @@
         <div class="b-art big" style="--bc:${B.color}"><img src="${IMG(b)}" alt=""></div>
         <div>
           <h2>🔨 Who builds the ${B.name}?</h2>
-          <p class="muted">The builder leaves their job — anyone idle steps into it — and spends the rest of the round on the site: no work, no defending, and no other building until it’s finished. It opens next season, or right away if you send a worker to the Work crew. Idle Peasants make the cheapest builders.</p>
+          <p class="muted">The builder leaves their job — anyone idle steps into it — and spends the rest of the round on the site: no work, no defending, and no other building until it’s finished. It opens next season, or right away if you send a worker to the Work crew.</p>
           <p class="warn">You can’t change the builder once building starts.</p>
         </div>
       </div>
@@ -1491,14 +1494,99 @@
   function confirmEnd() {
     const p = me();
     const open = E.freeLocs(st()).length;
-    if (p.workers <= 0 || !open) return doAction({ t: 'end' });
-    const back = openModal(`<h2>End your round?</h2><p>You still have ${plural(p.workers, 'worker')} and ${plural(open, 'open location')}. Ending now gives them up for this round.</p><div class="btn-row"><button class="btn lava" data-yes>End round</button><button class="btn ghost" data-close>Keep playing</button></div>`);
+    const left = p.workers > 0 && open ? `<p class="warn">You still have ${plural(p.workers, 'worker')} and ${plural(open, 'open location')}. Ending now gives them up for this round.</p>` : '';
+    const back = openModal(`<h2>End your round?</h2>${left}<p class="muted">Here is exactly what tonight will do to your village, unless you change something first.</p>${ledgerHtml()}<div class="btn-row"><button class="btn lava" data-yes>End round</button><button class="btn ghost" data-close>Keep playing</button></div>`, { cls: 'wide' });
     back.addEventListener('click', (e) => {
       if (!e.target.closest('[data-yes]')) return;
       ui.onClose = null;
       closeModal();
       doAction({ t: 'end' });
     });
+  }
+
+  function showLedger() {
+    openModal(`<h2>📒 Tonight’s ledger</h2><p class="muted">Exactly what dusk will do to your village if the round ended now. It updates as you build, move villagers and trade.</p>${ledgerHtml()}<div class="btn-row"><button class="btn" data-close>Close</button></div>`, { cls: 'wide' });
+  }
+
+  // Tonight, line by line: the engine runs dusk on a copy of this village and every number below comes from that.
+  function ledgerHtml() {
+    const s = st();
+    const thr = tonight();
+    if (!thr || s.phase !== 'act') return '';
+    const p = me();
+    const B = E.BEAST[thr.k];
+    const { r, before, after, renown } = E.previewDusk(s, G.view);
+    const icon = (k) => (k === 'renown' ? '⭐' : E.RES_ICON[k]);
+    const sign = (n) => (n > 0 ? `+${n}` : n < 0 ? `−${-n}` : '0');
+    const row = (a, b, cls) => `<tr${cls ? ` class="${cls}"` : ''}><td>${a}</td><td class="num">${b}</td></tr>`;
+    const sec = (title, rows) => `<section class="lg-sec"><h3>${title}</h3><table class="lg">${rows}</table></section>`;
+
+    // 1. work
+    let work = Object.entries(r.prod.by)
+      .map(([bid, out]) => {
+        const b = p.bld.find((x) => x.id === +bid);
+        if (!b) return '';
+        const who = E.onDuty(p).filter((w) => w.b.id === b.id).map((w) => `${E.VIL[w.v.k].name}${w.spec ? ' ★' : ''}`);
+        const what = Object.entries(out).map(([k, n]) => (k === 'forge' ? '⚒️ forge' : `+${n}${icon(k)}`)).join(' ');
+        return row(`${E.BUILD[b.b].name}${who.length ? ` <small>${who.join(', ')}</small>` : ' <small>no worker needed</small>'}`, what);
+      })
+      .join('');
+    if (!work) work = row('<span class="muted">Nothing — nobody works a building that makes anything.</span>', '');
+    if (r.forged) work += row(`Smithy forges ${plural(r.forged, 'arm')} <small>🔩1 each</small>`, `+${r.forged}⚒️ −${r.forged}🔩`);
+    const tot = ['food', 'wood', 'stone', 'iron', 'gold', 'renown'].filter((k) => r.prod[k]).map((k) => `+${r.prod[k]}${icon(k)}`).join(' ');
+    work += row('<b>Total made</b>', `<b>${tot || '0'}</b>`, 'lg-tot');
+
+    // 2. the attack
+    const a = r.attack;
+    const parts = E.defenseParts(p, thr.k, thr.side);
+    let night = parts.map((x) => row(`${x.label}${x.count > 1 ? ` ×${x.count}` : ''}`, `+${x.n}🛡️`)).join('');
+    if (r.forged) night += row('Arms forged at dusk', `+${r.forged}🛡️`);
+    night += row(`<b>Defense</b> vs ${esc(B.name)} <small>${B.kind === 'fly' ? 'flies' : 'on foot'}${thr.side != null ? `, ${sideName(thr.side)}` : ''}</small>`, `<b>🛡️${a.def} vs ⚔️${a.str}</b>`, 'lg-tot');
+    night += a.won
+      ? row(`<b class="good">Driven off</b> — ${a.def - a.str} to spare`, `+${B.win}⭐${B.loot ? ` +${B.loot}🪙` : ''}`, 'good-li')
+      : row(`<b class="bad">Breaks through</b> — short by ${a.str - a.def}`, esc(E.beastText(thr.k).lose), 'bad');
+    const sides = [0, 1, 2, 3, 4, 5]
+      .map((i) => {
+        const d = E.defense(p, thr.k, i) + r.forged;
+        return `<span class="lg-side${i === thr.side ? ' hit' : ''}${d >= B.str ? ' ok' : ' low'}"><small>${esc(E.SIDES[i].name)}</small><b>🛡️${d}</b><small>${E.WALL[p.walls[i]].name}${p.bows && p.bows[i] ? ' 🏹' : ''}</small></span>`;
+      })
+      .join('');
+
+    // 3. supper, firewood, frost
+    const need = r.ate + r.hungry.length;
+    const lostFood = (a.lost && a.lost.food) || 0;
+    let upkeep = row(`🍞 Supper <small>${plural(need, 'villager')} × 🍞1</small>`, `−${r.ate}🍞`);
+    upkeep += row(`🍞 ${before.food} now ${sign(r.prod.food)} made${lostFood ? ` −${lostFood} taken` : ''} − ${r.ate} eaten`, `= ${after.food}🍞`);
+    if (r.hungry.length) upkeep += row(`<b class="bad">${plural(r.hungry.length, 'villager')} leave hungry</b>`, `−${r.hungry.length}⭐`, 'bad');
+    const wneed = r.burned + r.cold.length;
+    if (wneed) {
+      upkeep += row(`🔥 Firewood <small>${plural(need - r.hungry.length, 'villager')} ÷ 3, rounded up = 🪵${wneed}</small>`, `−${r.burned}🪵`);
+      if (r.cold.length) upkeep += row(`<b class="bad">${plural(r.cold.length, 'villager')} leave — too cold</b>`, `−${r.cold.length}⭐`, 'bad');
+    }
+    if (r.frost) {
+      if (r.frost.fixed) upkeep += row(`❄️ Mend ${plural(r.frost.fixed, 'palisade')} <small>🪵1 each</small>`, `−${r.frost.fixed}🪵`);
+      if (r.frost.fell.length) upkeep += row(`<b class="bad">${r.frost.fell.map((i) => sideName(i)).join(', ')} palisade falls</b> — no wood`, `−${plural(r.frost.fell.length, 'wall')}`, 'bad');
+    }
+    if (r.wages) {
+      upkeep += row(`💰 Wages <small>${plural(r.wages.due, 'working villager')} × 🪙1</small>`, `−${r.wages.paid}🪙`);
+      if (r.wages.left.length) upkeep += row(`<b class="bad">${plural(r.wages.left.length, 'villager')} leave unpaid</b>`, `−${r.wages.left.length}⭐`, 'bad');
+    } else {
+      const toPay = E.newRules(s) ? E.roundsToWages(s) : -1;
+      const due = E.wagesDue(p);
+      if (toPay > 1 && due) upkeep += row(`💰 Next payday in ${plural(toPay, 'round')}`, `🪙${due} due`);
+    }
+
+    // 4. after tonight
+    const res = E.RES.map((k) => `<td><b>${E.RES_ICON[k]}${after[k]}</b><small class="${after[k] - before[k] < 0 ? 'bad' : after[k] - before[k] > 0 ? 'good' : 'muted'}">${sign(after[k] - before[k])}</small></td>`).join('');
+    const end = `<table class="lg lg-end"><tr>${res}<td><b>⭐</b><small class="${renown < 0 ? 'bad' : renown > 0 ? 'good' : 'muted'}">${sign(renown)}</small></td></tr></table>`;
+
+    return `<div class="ledger">
+      ${sec('⚒️ Work', work)}
+      ${sec(`🌙 Night — ${esc(B.name)} ⚔️${B.str}`, night)}
+      <div class="lg-sides">${sides}</div>
+      ${sec('🍲 Upkeep', upkeep)}
+      <section class="lg-sec"><h3>🌅 After tonight</h3>${end}</section>
+    </div>`;
   }
 
 
@@ -2492,7 +2580,7 @@
       <p class="lead">Free actions don’t need a worker. On your turn you can do them <b>as often as you like</b> — before or after placing a worker — as long as you can pay.</p>
       <table class="rules-table">
         <tr><th>Action</th><th>Exactly what happens</th></tr>
-        <tr><td>🏗️ Build</td><td>Pay the cost, pick a <b>villager to build it</b>, and put the building on a free hex of the right land <b>next to one of your buildings</b>. The builder <b>leaves their job</b> (an idle villager steps into it if you have one) and spends the rest of the round on the site: they don’t work, defend or build anything else until it is finished, and next season they take any free job. After you pick the building, a window asks who builds it; idle Peasants make the cheapest builders. <b>The builder can’t be changed once building starts.</b> <b>New buildings are under construction 🚧 until next season</b>: they make nothing, add no beds, water or defense, and their workers don’t work yet. A worker at the <b>Work crew</b> finishes them early and frees your builders to work — or build again — straight away. Build as many as you can afford, even several of the same kind. Wonders also need enough villagers and only one village can build each (see Buildings).</td></tr>
+        <tr><td>🏗️ Build</td><td>Pay the cost, pick a <b>villager to build it</b>, and put the building on a free hex of the right land <b>next to one of your buildings</b>. The builder <b>leaves their job</b> (an idle villager steps into it if you have one) and spends the rest of the round on the site: they don’t work, defend or build anything else until it is finished, and next season they take any free job. After you pick the building, a window asks who builds it. <b>The builder can’t be changed once building starts.</b> <b>New buildings are under construction 🚧 until next season</b>: they make nothing, add no beds, water or defense, and their workers don’t work yet. A worker at the <b>Work crew</b> finishes them early and frees your builders to work — or build again — straight away. Build as many as you can afford, even several of the same kind. Wonders also need enough villagers and only one village can build each (see Buildings).</td></tr>
         <tr><td>🧱 Wall</td><td>Each of your 6 sides can have a wall. A bare side becomes a <b>Palisade</b> (🪵2, 🛡️2); a Palisade becomes <b>Stone</b> (🪨3, 🛡️4 in total); Stone becomes <b>Iron</b> (🪨1 🔩2, 🛡️6 in total). A wall only defends against creatures on foot attacking <i>that side</i>.</td></tr>
         <tr><td>🏹 Crossbow</td><td>Mount a crossbow on any wall (🪵2 🔩1, one per side): 🛡️4 against <b>flyers</b> attacking that side. If the wall is destroyed — or a Palisade falls to frost — its crossbow falls too.</td></tr>
         <tr><td>🧑‍🌾 Recruit</td><td>Take a traveller from the Crossroads and pay their 🪙 price (Knights also cost 🔩1). You need room: a free bed and free water. A Peasant for 🪙1 is always available.</td></tr>
