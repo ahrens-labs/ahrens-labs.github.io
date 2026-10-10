@@ -2721,11 +2721,12 @@
     return window.matchMedia('(max-width: 860px)').matches;
   }
 
-  // Phones: each time a new step needs you somewhere else on the page (your park, the controls or
-  // the market), scroll there, unless it is already on screen. The first paint never scrolls.
+  // Phones: each time a new step needs you somewhere else on the page (your park, the controls, or
+  // the market when drawing a card; playing and breeding stay at the controls), scroll there,
+  // unless it is already on screen. The first paint never scrolls.
   function phoneSpot(T) {
     if (!T || T.t === 'gameOver' || state.sim || theirTurn(T)) return null;
-    if (state.proto && !ui.species && (T.t === 'drawCard' || T.t === 'freePlay' || (T.t === 'actions' && (ui.mode === 'draw' || ui.mode === 'play')))) return 'market';
+    if (state.proto && (T.t === 'drawCard' || (T.t === 'actions' && ui.mode === 'draw'))) return 'market';
     const s = ui.sel;
     if (s && T.t !== 'gainFood') return s.type === 'cells' && s.need && s.cells.size >= s.need ? 'panel' : 'park';
     return 'panel';
