@@ -2152,6 +2152,7 @@
     const tot = [s[0].total, s[1].total];
     const w = tot[0] === tot[1] ? null : tot[0] > tot[1] ? 0 : 1;
     const verdict = revealVerdict(s, w);
+    sfx(w == null || w === homePlayer() || (state.ai == null && !online) ? 'win' : 'lose', 1500);
     const rows = scoreRows().filter(([, k]) => k === 'dinoPts' || s[0][k] || s[1][k]);
     const side = (p) => `<div class="rv-side pl-${state.players[p].color}">
         <span class="rv-crown">👑</span>
@@ -2847,6 +2848,13 @@
     return selB != null ? selB : homePlayer();
   }
 
+  // Sound effects (the shared player decides whether they're on). Never during admin simulations.
+  function sfx(k, delay) {
+    if (!window.GameMusic || !state || state.sim) return;
+    if (delay) setTimeout(() => GameMusic.sfx(k), delay);
+    else GameMusic.sfx(k);
+  }
+
   function homePlayer() {
     if (online) return online.me;
     if (state.ai != null) return other(state.ai);
@@ -2934,6 +2942,12 @@
       })
       .join(''));
     if (!changed || !changes.length) return;
+    const hp = homePlayer();
+    const mineCh = changes.filter((c) => c.p === hp);
+    if (mineCh.some((c) => c.d < 0 && changes.some((x) => x.p !== hp && x.k === c.k && x.d > 0))) sfx('bad');
+    else if (mineCh.some((c) => c.k === 'coins' && c.d > 0)) sfx('coin');
+    else if (mineCh.some((c) => c.d > 0)) sfx('gain');
+    else if (mineCh.some((c) => c.k === 'coins' && c.d < 0)) sfx('pay');
     const chipEl = (p, k) => {
       const e = el.querySelector(`[data-player="${p}"] [data-r="${k}"]`);
       return (e && e.offsetParent) || p !== homePlayer() ? e : document.querySelector(`#mstrip [data-r="${k}"]`) || e;
@@ -2949,10 +2963,22 @@
     });
   }
 
+  // Chime when control comes back after the other side actually took a turn (not every brief hand-off).
+  let waitSince = 0;
+  let chimedAt = 0;
   function renderPanel() {
     const el = document.getElementById('panel');
     if (!el) return;
     const T = cur();
+    const now = performance.now();
+    if (theirTurn(T)) waitSince = waitSince || now;
+    else if (waitSince) {
+      if (now - waitSince > 1500 && now - chimedAt > 6000 && T && T.t !== 'gameOver') {
+        sfx('turn');
+        chimedAt = now;
+      }
+      waitSince = 0;
+    }
     const scroll = el.querySelector('.panel-scroll');
     const top = scroll ? scroll.scrollTop : 0;
     const ended = online && online.status !== 'active' && !(T && T.t === 'gameOver');
@@ -3351,6 +3377,7 @@
   // Tap anywhere to dismiss each one.
   function revealEvent() {
     const cards = [];
+    if (PROTO_EVENTS[state.event] || protoNewGoal()) sfx('reveal');
     const E = PROTO_EVENTS[state.event];
     if (E) cards.push({ cls: '', back: ['🦖', 'Event'], small: `Round ${state.round} event`, icon: E.icon, name: E.name, desc: E.desc });
     const G = protoNewGoal();
@@ -4406,6 +4433,11 @@
     const p = T.p;
     const P = p !== undefined ? state.players[p] : null;
     const O = p !== undefined ? state.players[other(p)] : null;
+    if (!theirTurn(T)) {
+      const k = { roll: 'dice', rollBonus: 'dice', carnoRoll: 'dice', confirmFences: 'place', place: 'stomp', birthAuto: 'hatch', growAuto: 'hatch', maiaBreed: 'hatch', take: 'card', confirmFeed: 'munch' }[act];
+      if (k) sfx(k);
+      else if (act === 'confirmGain' && ui.sel && ui.sel.edges && ui.sel.edges.size) sfx('place');
+    }
 
     switch (act) {
       case 'pickDouble': {

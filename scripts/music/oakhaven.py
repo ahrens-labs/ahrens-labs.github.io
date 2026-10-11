@@ -1,11 +1,11 @@
 """Oakhaven: a gentle piano cakewalk (2/4, E-flat major), in the manner of an early-1900s parlour cakewalk,
-played softly and unhurried so it sits behind the game: light touch, rounded phrasing, a quiet string bed,
-and a little village band (clarinet, recorder) joining for colour."""
+played lightly so it sits behind the game: pedalled, flowing broken chords alternate with the oom-pah bounce,
+over a quiet string bed, with a little village band (clarinet, recorder) joining for colour."""
 import sys
 
 from render import Score, n, render
 
-S = Score(bpm=84)
+S = Score(bpm=90)
 PIANO, PAD, CLAR, REC = 0, 1, 2, 3
 BAR = 2  # beats per bar (2/4)
 SX = 0.25  # one sixteenth, in beats
@@ -43,13 +43,39 @@ def lh(bar, chords, vel=40, only_first=False, bed=22):
             return
 
 
+def pedal(bar, chords):
+    """Sustain pedal, changed cleanly at each harmony so the piano rings without blurring chords."""
+    halves = len(chords) == 2
+    for h in (range(2) if halves else [0]):
+        t = bar * BAR + h
+        S.cc(t - 0.03, PIANO, 64, 0)
+        S.cc(t + 0.04, PIANO, 64, 110)
+
+
+def lh_flow(bar, chords, vel=34, bed=22):
+    """Flowing left hand: bass then the chord broken upward in sixteenths, one sweep per beat."""
+    t0 = bar * BAR
+    halves = chords if len(chords) == 2 else [chords[0], chords[0]]
+    for h, name in enumerate(halves):
+        bass, alt, chord = H[name]
+        b = bass if h == 0 or len(chords) == 2 else alt
+        t = t0 + h
+        S.note(t, 0.9, PIANO, b, vel + 4)
+        for j, k in enumerate(chord):
+            S.note(t + 0.25 * (j + 1), 0.6, PIANO, k, vel - 6 + (2 if j == 1 else 0))
+        if bed:
+            for k in chord:
+                S.note(t, 0.98, PAD, k, bed)
+    pedal(bar, chords)
+
+
 def rh(bar, cells, vel=52, legato=False):
     """cells: (sixteenth position, note, length in sixteenths[, 'g' for a grace note])."""
     t0 = bar * BAR
     for c in cells:
         pos, note, ln = c[0], c[1], c[2]
         t = t0 + pos * SX
-        gate = ln * SX * (0.97 if legato else (0.75 if ln <= 2 else 0.9))
+        gate = ln * SX * (1.0 if legato else (0.85 if ln <= 2 else 0.95))
         accent = 3 if pos in (0, 4) else (1 if pos % 2 == 0 else 0)
         top = max(0, n(note) - 72)  # keep the high notes from poking out
         if len(c) > 3 and 'g' in c[3]:
@@ -106,20 +132,26 @@ B_PAD = [['Ab3', 'C4', 'Eb4'], ['Ab3', 'C4', 'F4'], ['Ab3', 'Db4', 'F4'], ['Ab3'
 
 bar = 0
 # Intro: the vamp alone, then a little run up into the tune.
-lh(bar, ['Eb'], 36); bar += 1
-lh(bar, ['Eb'], 37); bar += 1
-lh(bar, ['Bb7'], 38); bar += 1
+for ch, v in ((['Eb'], 36), (['Eb'], 37), (['Bb7'], 38)):
+    lh(bar, ch, v)
+    pedal(bar, ch)
+    bar += 1
 lh(bar, ['Eb'], 38)
+pedal(bar, ['Eb'])
 rh(bar, [(4, 'F4', 1), (5, 'G4', 1), (6, 'Ab4', 1), (7, 'A4', 1)], 42); bar += 1
 
 
-def section_a(alt_end=False, vel=52, final=False, pickup=None, clar=0):
+def section_a(alt_end=False, vel=52, final=False, pickup=None, clar=0, flow=False):
     global bar
     cells = A[:4] + (A2_END if alt_end else A[4:])
     chords = A_CH[:4] + (A2_CH if alt_end else A_CH[4:])
     for i in range(8):
         last = i == 7
-        lh(bar, chords[i], 40, only_first=final and last)
+        if flow and not (final and last):
+            lh_flow(bar, chords[i])
+        else:
+            lh(bar, chords[i], 40, only_first=final and last)
+            pedal(bar, chords[i])
         rh(bar, cells[i] + (pickup if last and pickup else []), vel)
         if clar:
             double(bar, cells[i], CLAR, clar, octave=-1)
@@ -127,15 +159,15 @@ def section_a(alt_end=False, vel=52, final=False, pickup=None, clar=0):
 
 
 section_a()
-section_a(alt_end=True, pickup=[(6, 'Ab4', 1), (7, 'Bb4', 1)])
+section_a(alt_end=True, pickup=[(6, 'Ab4', 1), (7, 'Bb4', 1)], flow=True)
 for i in range(8):
-    lh(bar, B_CH[i], 36, bed=0)
+    lh_flow(bar, B_CH[i], 32, bed=0)
     rh(bar, B[i], 46, legato=True)
     pad(bar, B_PAD[i])
     S.note(bar * BAR, BAR - 0.1, REC, n(B_PAD[i][-1]) + 12, 30)
     bar += 1
 section_a(vel=48, clar=40)
-section_a(alt_end=True, vel=48, final=True)
+section_a(alt_end=True, vel=48, final=True, flow=True)
 
 loop_beats = bar * BAR
 out = sys.argv[1] if len(sys.argv) > 1 else '/tmp/oakhaven.mp3'

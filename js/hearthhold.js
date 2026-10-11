@@ -1170,12 +1170,34 @@
     }
   }
 
+  // Sound effects (the shared player decides whether they're on). Never during admin simulations.
+  function sfx(k, delay) {
+    if (!window.GameMusic || !G || G.mode === 'sim') return;
+    if (delay) setTimeout(() => GameMusic.sfx(k), delay);
+    else GameMusic.sfx(k);
+  }
+  const ACTION_SFX = { place: 'place', build: 'build', wall: 'build', bow: 'build', recruit: 'hatch', train: 'hatch', move: 'place' };
+  // The action's own sound, then a bling for gold gained or a softer chime for other goods.
+  function actionSfx(a, p, before) {
+    if (ACTION_SFX[a.t]) sfx(ACTION_SFX[a.t]);
+    if (!before) return;
+    const d = (r) => (p.res[r] || 0) - (before[r] || 0);
+    const delay = ACTION_SFX[a.t] ? 140 : 0;
+    if (d('gold') > 0) sfx('coin', delay);
+    else if (E.RES.some((r) => r !== 'gold' && d(r) > 0)) sfx('gain', delay);
+    else if (d('gold') < 0 && (a.t === 'recruit' || a.t === 'train' || a.t === 'trade')) sfx('pay', delay);
+  }
+
   function doAction(a) {
-    if (G.mode === 'online') return sendOnline(a);
+    if (G.mode === 'online') {
+      actionSfx(a);
+      return sendOnline(a);
+    }
     const s = st();
     const pi = a.t === 'move' ? G.view : s.turn;
     const before = s.players[pi].bld.length;
     const vilBefore = s.players[pi].vil.map((v) => ({ id: v.id, k: v.k }));
+    const resBefore = { ...s.players[pi].res };
     try {
       E.apply(s, pi, a);
     } catch (err) {
@@ -1183,6 +1205,7 @@
       return;
     }
     const p = s.players[pi];
+    actionSfx(a, p, resBefore);
     if (a.t === 'build' && p.bld.length > before) ui.fresh.add(p.bld[p.bld.length - 1].id);
     if (a.t === 'place') toast(`${meeple(PCOLOR[pi], 'tipm')} ${esc(s.log[s.log.length - 1].text)}`);
     const fresh = p.ai || G.mode === 'sim' ? [] : newcomers(vilBefore, p);
@@ -1395,6 +1418,7 @@
       if (to === (v.at == null ? null : v.at)) return next();
       const a = { t: 'move', v: v.id, to };
       if (t.dataset.bump) a.bump = +t.dataset.bump;
+      sfx('place');
       if (G.mode === 'online') {
         sendOnline(a);
         const wait = () => (net.pending ? setTimeout(wait, 150) : next());
@@ -1464,6 +1488,7 @@
     if (a.t === 'build' && p.bld.length > before) ui.fresh.add(p.bld[p.bld.length - 1].id);
     if ((a.t === 'wall' || a.t === 'bow') && G.view === pi) ui.freshSide = a.side;
     if (G.mode !== 'sim' || G.speed !== 'turbo') toast(`<span class="dot" style="--pc:${PCOLOR[pi]}"></span><b>${esc(p.name)}</b> ${esc(msg)}`, 'ai');
+    if (s.phase === 'act' && s.turn !== pi && !s.players[s.turn].ai) sfx('turn', 300);
     afterAction();
   }
 
@@ -1872,6 +1897,23 @@
     ].filter(Boolean);
     const at = (k) => steps.findIndex((x) => x.k === k);
     const stepped = G.mode !== 'sim';
+    // Each step of the night has its own sound, from the point of view of this screen's player.
+    const hp = G.mode === 'online' ? G.me : G.mode === 'ai' ? s.players.findIndex((p) => !p.ai) : null;
+    const mine = (f) => (hp == null || hp < 0 ? rep.players.some(f) : f(rep.players[hp]));
+    const heard = new Set();
+    const duskSfx = (k) => {
+      if (heard.has(k)) return;
+      heard.add(k);
+      if (k === 'work') sfx(rep.players.some((r, i) => (hp == null || i === hp) && r.prod && r.prod.gold) ? 'coin' : 'gain');
+      else if (k === 'night') {
+        sfx('night');
+        sfx(mine((r) => !r.attack.won) ? 'bad' : 'good', 900);
+      } else if (k === 'supper' && mine((r) => r.hungry.length || r.cold.length)) sfx('bad');
+      else if (k === 'frost' && mine((r) => r.frost && r.frost.fell.length)) sfx('bad');
+      else if (k === 'wages') sfx(mine((r) => r.wages && r.wages.left.length) ? 'bad' : 'pay');
+      else if (k === 'goals') sfx('good');
+      else if (k === 'morning') sfx('reveal');
+    };
     const cols = rep.players
       .map((r, i) => {
         const p = s.players[i];
@@ -1963,6 +2005,7 @@
         el.className = +el.dataset.nav === n ? 'on' : +el.dataset.nav < n ? 'done' : '';
       });
       box.querySelector('.dnote').innerHTML = steps[n].note;
+      duskSfx(steps[n].k);
       if (n >= at('night')) {
         box.querySelectorAll('.breach-later').forEach((el) => el.classList.add('breach'));
         if (anyBreach && n === at('night')) box.classList.add('shake');
@@ -1988,6 +2031,7 @@
     const sea = E.SEASON[season()];
     const el = document.createElement('div');
     el.className = `season-banner sb-${season()}`;
+    sfx('reveal');
     const first = s.players[s.turn];
     el.innerHTML = `<div class="sb-in"><span class="sb-icon">${sea.icon}</span><div><b>${sea.name}</b><small>Year ${E.yearOf(s.round)} · round ${s.round} of ${E.ROUNDS}</small><em>${sea.note}</em><em>${esc(first.name)} goes first${s.round > 1 ? ' (it alternates every round)' : ''}.</em></div></div>`;
     document.body.appendChild(el);
@@ -2050,7 +2094,9 @@
       sides.forEach((x, i) => x.classList.add(w < 0 ? 'tie' : i === w ? 'win' : 'lose'));
       el.querySelector('.hr-verdict').innerHTML = `<div class="hr-head">${head}</div>`;
       el.querySelectorAll('.hr-total').forEach((t, i) => (t.textContent = sc[i].total));
-      if (!instant && (w < 0 || (G.mode === 'online' ? w === G.me : !s.players[w].ai))) confetti();
+      const happy = w < 0 || (G.mode === 'online' ? w === G.me : !s.players[w].ai);
+      if (!instant && happy) confetti();
+      if (!instant) sfx(happy ? 'win' : 'lose');
     };
     const finish = () => {
       if (decided) return;
