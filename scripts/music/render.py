@@ -94,7 +94,7 @@ def level(loop, amount, window=4.0, block=1024):
 
 
 def render(score, programs, loop_beats, path, rt60=1.4, wet=0.2, humanize=0.006, tail=8.0, pans=None, vols=None, seed=7,
-           warmth=0.0, even=0.0):
+           warmth=0.0, even=0.0, loud=-13):
     rng = random.Random(seed)
     spb = 60.0 / score.bpm
     synth = tsf.Synth(samplerate=SR, gain=-6)
@@ -145,7 +145,7 @@ def render(score, programs, loop_beats, path, rt60=1.4, wet=0.2, humanize=0.006,
     # Loud enough for phone speakers (the page plays it back below full volume); peaks are
     # rounded off softly above the knee instead of being scaled down with the whole track.
     rms = np.sqrt((loop ** 2).mean())
-    loop *= 10 ** (-13 / 20) / rms
+    loop *= 10 ** (loud / 20) / rms
     knee, ceil = 0.6, 0.95
     over = np.abs(loop) > knee
     loop[over] = np.sign(loop[over]) * (knee + (ceil - knee) * np.tanh((np.abs(loop[over]) - knee) / (ceil - knee)))

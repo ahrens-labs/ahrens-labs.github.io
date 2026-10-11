@@ -8,7 +8,7 @@
 // Each track is fetched into a blob first: Safari won't play media URLs from hosts that ignore Range requests.
 // The files carry half a second of the loop's own audio past each loop point, so jumping back by one loop
 // length anywhere in that margin is seamless.
-// Sound effects are synthesized with Web Audio, so they need no files.
+// Sound effects are synthesized once into short WAV clips and played through <audio> elements too.
 (function () {
   const me = document.currentScript;
   const ds = me.dataset;
@@ -21,7 +21,7 @@
     return { src, a, b, len: b - a, vol, when, el: null, blobUrl: null, loading: null, target: 0, fadeTimer: 0, lastError: '' };
   }
   const main = trackOf(ds.src, ds.loop, VOL, null);
-  const alt = trackOf(ds.altSrc, ds.altLoop, VOL * Number(ds.altVol || 0.85), ds.altWhen);
+  const alt = trackOf(ds.altSrc, ds.altLoop, Math.min(1, VOL * Number(ds.altVol || 1)), ds.altWhen);
   const tracks = [main, alt].filter(Boolean);
 
   let unlocked = false;
@@ -125,10 +125,13 @@
 
   function fadeTo(t, v, secs, done) {
     clearInterval(t.fadeTimer);
+    clearTimeout(t.duckTimer);
+    t.fading = false;
     if (!canFade) {
       if (done) done();
       return;
     }
+    t.fading = true;
     const e = t.el;
     const from = e.volume;
     const steps = Math.max(1, Math.round(secs * 20));
@@ -138,6 +141,7 @@
       e.volume = Math.min(1, Math.max(0, from + ((v - from) * i) / steps));
       if (i >= steps) {
         clearInterval(t.fadeTimer);
+        t.fading = false;
         if (done) done();
       }
     }, 50);
@@ -187,27 +191,18 @@
   }
 
   // ---------------------------------------------------------------- sound effects
-  let ctx = null;
+  // Each effect is synthesized once into a short WAV clip (an offline Web Audio render, which needs no tap
+  // and no speaker), then played through <audio> elements like the music, so effects are heard wherever
+  // the music is (including iPhones on silent). The music dips briefly under each effect.
+  let ctx = null; // the offline context currently being rendered into
   let bus = null;
   let noiseBuf = null;
+  const clips = {};
+  let rendering = null;
+  const POOL = 6;
+  const pool = [];
+  let poolNext = 0;
   const lastAt = {};
-
-  function wakeSfx() {
-    if (!ctx) {
-      const AC = window.AudioContext || window.webkitAudioContext;
-      if (!AC) return;
-      ctx = new AC();
-      bus = ctx.createGain();
-      bus.gain.value = 0.55;
-      const comp = ctx.createDynamicsCompressor();
-      bus.connect(comp);
-      comp.connect(ctx.destination);
-      noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
-      const d = noiseBuf.getChannelData(0);
-      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-    }
-    if (ctx.state !== 'running') ctx.resume().catch(() => {});
-  }
 
   // One enveloped tone. o: { type, vol, to (glide target Hz), attack }
   function tone(at, freq, dur, o = {}) {
@@ -247,6 +242,86 @@
     g.connect(bus);
     src.start(t, Math.random() * 0.5);
     src.stop(t + dur + 0.05);
+  }
+
+  function wav(data, sr) {
+    const buf = new ArrayBuffer(44 + data.length * 2);
+    const v = new DataView(buf);
+    const str = (o, x) => [...x].forEach((ch, i) => v.setUint8(o + i, ch.charCodeAt(0)));
+    str(0, 'RIFF');
+    v.setUint32(4, 36 + data.length * 2, true);
+    str(8, 'WAVEfmt ');
+    v.setUint32(16, 16, true);
+    v.setUint16(20, 1, true);
+    v.setUint16(22, 1, true);
+    v.setUint32(24, sr, true);
+    v.setUint32(28, sr * 2, true);
+    v.setUint16(32, 2, true);
+    v.setUint16(34, 16, true);
+    str(36, 'data');
+    v.setUint32(40, data.length * 2, true);
+    for (let i = 0; i < data.length; i++) v.setInt16(44 + i * 2, Math.max(-1, Math.min(1, data[i])) * 32767, true);
+    return new Blob([buf], { type: 'audio/wav' });
+  }
+
+  function renderClips() {
+    if (rendering) return rendering;
+    const OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+    if (!OAC) return (rendering = Promise.resolve());
+    const sr = 44100;
+    const jobs = Object.keys(SFX).map((name) => {
+      ctx = new OAC(1, sr * 2, sr);
+      bus = ctx.createGain();
+      bus.connect(ctx.destination);
+      noiseBuf = ctx.createBuffer(1, sr, sr);
+      const d = noiseBuf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      SFX[name]();
+      const c = ctx;
+      return new Promise((res) => {
+        c.oncomplete = (e) => res(e.renderedBuffer);
+        const p = c.startRendering();
+        if (p && p.then) p.then(res, () => res(null));
+      }).then((b) => [name, b]);
+    });
+    rendering = Promise.all(jobs).then((list) => {
+      // Every clip goes out near full scale with gentle saturation, so short blips still cut through music.
+      const drive = 1.8;
+      const norm = Math.tanh(drive);
+      list.forEach(([name, b]) => {
+        if (!b) return;
+        const x = b.getChannelData(0);
+        const p = x.reduce((m, v) => Math.max(m, Math.abs(v)), 0);
+        if (!p) return;
+        let end = x.length;
+        while (end > 1 && Math.abs(x[end - 1]) < p * 1e-3) end--;
+        const out = new Float32Array(Math.min(x.length, end + 441));
+        for (let i = 0; i < out.length; i++) out[i] = (0.94 * Math.tanh((drive * x[i]) / p)) / norm;
+        clips[name] = URL.createObjectURL(wav(out, sr));
+      });
+    }).catch(() => {});
+    return rendering;
+  }
+
+  function poolEl(i) {
+    if (!pool[i]) {
+      const e = new Audio();
+      e.preload = 'auto';
+      e.setAttribute('playsinline', '');
+      pool[i] = e;
+    }
+    return pool[i];
+  }
+
+  // Dip whichever music is playing under an effect, then bring it back.
+  function duck() {
+    if (!canFade) return;
+    tracks.forEach((t) => {
+      if (!t.el || t.el.paused || t.target <= 0 || t.fading) return;
+      t.el.volume = t.target * 0.45;
+      clearTimeout(t.duckTimer);
+      t.duckTimer = setTimeout(() => fadeTo(t, t.target, 0.5), 450);
+    });
   }
 
   const SFX = {
@@ -337,15 +412,18 @@
   };
 
   function sfx(name) {
-    if (!sfxOn() || !ctx || ctx.state !== 'running' || document.hidden || !SFX[name]) return;
+    if (!sfxOn() || !unlocked || document.hidden || !clips[name]) return;
     const now = performance.now();
     if (lastAt[name] && now - lastAt[name] < 90) return;
     lastAt[name] = now;
-    try {
-      SFX[name]();
-    } catch (e) {
-      /* a missing Web Audio feature just means no sound */
-    }
+    const e = poolEl(poolNext++ % POOL);
+    e.pause();
+    e.muted = false;
+    e.src = clips[name];
+    e.volume = 1;
+    const p = e.play();
+    if (p && p.catch) p.catch(() => {});
+    duck();
   }
 
   // ---------------------------------------------------------------- unlocking
@@ -359,8 +437,19 @@
     if (navigator.audioSession) {
       try { navigator.audioSession.type = 'playback'; } catch (e) {}
     }
-    wakeSfx();
+    renderClips();
     if (first) {
+      for (let i = 0; i < POOL; i++) {
+        const e = poolEl(i);
+        e.src = SILENT;
+        e.muted = true;
+        const p = e.play();
+        const settle = () => {
+          if (e.src === SILENT) e.pause();
+          e.muted = false;
+        };
+        if (p && p.then) p.then(settle, settle);
+      }
       tracks.forEach((t) => {
         if (t.blobUrl && wanted(t)) return;
         const e = el(t);
@@ -386,7 +475,7 @@
     const next = { all: 'sfx', sfx: 'off', off: 'all' }[mode()];
     localStorage.setItem(ds.key, next === 'all' ? 'on' : next);
     paintButtons();
-    if (next !== 'off') wakeSfx();
+    if (next !== 'off') renderClips();
     sync();
   });
 
@@ -413,7 +502,9 @@
   window.GameMusic = {
     buttonHtml,
     sfx,
-    state: () => Object.assign(trackState(main), { mode: mode(), sfx: ctx ? ctx.state : null, alt: alt ? trackState(alt) : null }),
+    state: () => Object.assign(trackState(main), { mode: mode(), sfx: Object.keys(clips).length, alt: alt ? trackState(alt) : null }),
+    clip: (name) => clips[name] || null,
+    pool: () => pool.map((e) => ({ src: (e.src || '').slice(0, 5), paused: e.paused, t: Math.round(e.currentTime * 100) / 100 })),
     seek: (s) => { if (main.el) main.el.currentTime = s; },
   };
 })();

@@ -24,7 +24,7 @@ PROG = ['Cm', 'Ab', 'Fm', 'Gsus', 'Cm', 'Eb/Bb', 'Ab', 'G',
         'Ab', 'Fm', 'Cm/Eb', 'Dm7b5', 'Cm', 'Ab', 'Fm6', 'G']
 
 
-def harmony(bar, name, harp=30, pad=26, bass=34):
+def harmony(bar, name, harp=36, pad=30, bass=38):
     b, voicing, arp = C[name]
     t0 = bar * BAR
     S.note(t0, BAR - 0.05, BASS, b, bass)
@@ -51,9 +51,9 @@ TUNE = {
 }
 
 for bar, ch in enumerate(PROG):
-    harmony(bar, ch, harp=28 if bar < 4 else 32)
+    harmony(bar, ch, harp=34 if bar < 4 else 38)
     if bar in TUNE:
-        melody(bar, TUNE[bar], FLUTE, 44)
+        melody(bar, TUNE[bar], FLUTE, 52)
 # Celesta glints, like stars coming out.
 for bar, notes in ((1, [(1.5, 'Eb6'), (2.5, 'G6')]), (9, [(0.5, 'C6'), (2, 'Eb6')]), (11, [(1, 'F6'), (2.5, 'Ab6')])):
     for beat, k in notes:
@@ -69,5 +69,5 @@ programs = {HARP: 46, PAD: 49, BASS: 43, FLUTE: 73, CELESTA: 8, OWL: 79}
 pans = {HARP: 44, PAD: 72, BASS: 64, FLUTE: 84, CELESTA: 30, OWL: 100}
 vols = {HARP: 96, PAD: 80, BASS: 84, FLUTE: 80, CELESTA: 70, OWL: 60}
 L, pad_s = render(S, programs, loop_beats, out, rt60=2.6, wet=0.34, humanize=0.006, pans=pans, vols=vols, tail=9,
-                  warmth=5, even=0.5)
+                  warmth=4, even=0.6, loud=-10.5)
 print(f'oakhaven night: {len(PROG)} bars, loop {L:.3f}s, pad {pad_s}s')
