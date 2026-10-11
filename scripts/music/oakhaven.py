@@ -1,11 +1,12 @@
 """Oakhaven: a gentle piano cakewalk (2/4, E-flat major), in the manner of an early-1900s parlour cakewalk,
-played softly and unhurried so it sits behind the game: light touch, rounded phrasing, a quiet string bed."""
+played softly and unhurried so it sits behind the game: light touch, rounded phrasing, a quiet string bed,
+and a little village band (clarinet, recorder) joining for colour."""
 import sys
 
 from render import Score, n, render
 
 S = Score(bpm=84)
-PIANO, PAD = 0, 1
+PIANO, PAD, CLAR, REC = 0, 1, 2, 3
 BAR = 2  # beats per bar (2/4)
 SX = 0.25  # one sixteenth, in beats
 
@@ -56,6 +57,14 @@ def rh(bar, cells, vel=52, legato=False):
         S.note(t, gate, PIANO, note, vel + accent - top)
 
 
+def double(bar, cells, chan, vel, octave=0):
+    """A wind player doubling the tune, smoothly."""
+    t0 = bar * BAR
+    for c in cells:
+        pos, note, ln = c[0], c[1], c[2]
+        S.note(t0 + pos * SX, ln * SX * 0.95, chan, n(note) + 12 * octave, vel)
+
+
 def pad(bar, notes, bars=1, vel=26):
     for k in notes:
         S.note(bar * BAR, bars * BAR - 0.05, PAD, k, vel)
@@ -104,7 +113,7 @@ lh(bar, ['Eb'], 38)
 rh(bar, [(4, 'F4', 1), (5, 'G4', 1), (6, 'Ab4', 1), (7, 'A4', 1)], 42); bar += 1
 
 
-def section_a(alt_end=False, vel=52, final=False, pickup=None):
+def section_a(alt_end=False, vel=52, final=False, pickup=None, clar=0):
     global bar
     cells = A[:4] + (A2_END if alt_end else A[4:])
     chords = A_CH[:4] + (A2_CH if alt_end else A_CH[4:])
@@ -112,6 +121,8 @@ def section_a(alt_end=False, vel=52, final=False, pickup=None):
         last = i == 7
         lh(bar, chords[i], 40, only_first=final and last)
         rh(bar, cells[i] + (pickup if last and pickup else []), vel)
+        if clar:
+            double(bar, cells[i], CLAR, clar, octave=-1)
         bar += 1
 
 
@@ -121,12 +132,14 @@ for i in range(8):
     lh(bar, B_CH[i], 36, bed=0)
     rh(bar, B[i], 46, legato=True)
     pad(bar, B_PAD[i])
+    S.note(bar * BAR, BAR - 0.1, REC, n(B_PAD[i][-1]) + 12, 30)
     bar += 1
-section_a(vel=50)
+section_a(vel=48, clar=40)
 section_a(alt_end=True, vel=48, final=True)
 
 loop_beats = bar * BAR
 out = sys.argv[1] if len(sys.argv) > 1 else '/tmp/oakhaven.mp3'
-L, pad_s = render(S, {PIANO: 0, PAD: 49}, loop_beats, out, rt60=1.7, wet=0.28,
-                  pans={PIANO: 64, PAD: 70}, vols={PIANO: 110, PAD: 64}, warmth=5, even=0.5)
+L, pad_s = render(S, {PIANO: 0, PAD: 49, CLAR: 71, REC: 74}, loop_beats, out, rt60=1.7, wet=0.28,
+                  pans={PIANO: 64, PAD: 70, CLAR: 50, REC: 82}, vols={PIANO: 110, PAD: 64, CLAR: 80, REC: 70},
+                  warmth=5, even=0.5)
 print(f'oakhaven: {bar} bars, loop {L:.3f}s, pad {pad_s}s')

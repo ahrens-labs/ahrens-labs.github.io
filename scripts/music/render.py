@@ -145,7 +145,7 @@ def render(score, programs, loop_beats, path, rt60=1.4, wet=0.2, humanize=0.006,
     # Loud enough for phone speakers (the page plays it back below full volume); peaks are
     # rounded off softly above the knee instead of being scaled down with the whole track.
     rms = np.sqrt((loop ** 2).mean())
-    loop *= 10 ** (-15 / 20) / rms
+    loop *= 10 ** (-13 / 20) / rms
     knee, ceil = 0.6, 0.95
     over = np.abs(loop) > knee
     loop[over] = np.sign(loop[over]) * (knee + (ceil - knee) * np.tanh((np.abs(loop[over]) - knee) / (ceil - knee)))

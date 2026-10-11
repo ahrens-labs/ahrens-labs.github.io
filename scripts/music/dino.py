@@ -1,11 +1,12 @@
 """Dino Dynasty: a broad, wonder-filled orchestral theme (4/4, D major) for horns, strings, harp, choir and timpani,
-kept at an even, unhurried level so it sits behind the game: no big swells, brass hits or drum rolls."""
+kept at an even, unhurried level so it sits behind the game: no big swells, brass hits or drum rolls.
+A soft taiko heartbeat, pan flute and misty tremolo strings give it a primeval, jungle feel."""
 import sys
 
 from render import Score, n, render
 
 S = Score(bpm=60)
-HORN, STR, HARP, BASS, TIMP, FLUTE, CHOIR, VLN = range(8)
+HORN, STR, HARP, BASS, TIMP, FLUTE, CHOIR, VLN, TAIKO, TREM = range(10)
 BAR = 4
 
 # Chord tones per harmony: (bass, pad voicing, harp arpeggio pitch classes as notes)
@@ -55,6 +56,14 @@ def melody(bar, cells, chan, vel, octave=0):
         S.note(t0 + beat, dur * 0.97, chan, n(note) + 12 * octave, vel + (5 if beat == 0 else 0))
 
 
+def heartbeat(bar, vel=30):
+    """A distant taiko pulse: a low beat and a softer echo, like something big walking nearby."""
+    t0 = bar * BAR
+    S.note(t0, 0.9, TAIKO, 'D2', vel)
+    S.note(t0 + 0.5, 0.6, TAIKO, 'D2', vel - 12)
+    S.note(t0 + 2, 0.9, TAIKO, 'A1', vel - 6)
+
+
 def swell(bar, bars, chan, lo, hi):
     S.ramp(bar * BAR, (bar + bars) * BAR - 0.5, chan, 11, lo, hi)
 
@@ -84,7 +93,10 @@ SOAR = [
 SOAR_CH = ['D', 'G/B', 'Bb', 'C', 'G', 'Gm/Bb', [(0, 'D/A'), (2, 'A7')], 'D']
 
 bar = 0
-# Intro: a misty pad grows and the harp starts turning.
+# Intro: a misty pad grows, tremolo strings shimmer low and the harp starts turning.
+for i in range(4):
+    S.note((bar + i) * BAR, BAR - 0.05, TREM, 'D2', 30)
+    S.note((bar + i) * BAR, BAR - 0.05, TREM, 'A2', 26)
 for i, ch in enumerate(['Dadd9', 'Dadd9', 'G/D', 'Asus/D']):
     harmony(bar + i, ch, pad_vel=42, harp_vel=26 + i * 2, bass_vel=42, choir=30)
 swell(bar, 2, STR, 70, 95)
@@ -100,6 +112,7 @@ S.cc(bar * BAR, STR, 11, 95)
 S.cc(bar * BAR, CHOIR, 11, 0)
 S.note(bar * BAR, 1, TIMP, 'D3', 26)
 for i in range(8):
+    heartbeat(bar + i, 28)
     harmony(bar + i, THEME_CH[i], pad_vel=42, harp_vel=30)
     melody(bar + i, THEME[i], HORN, 58)
 melody(bar + 3, [(2.5, 'E5', 0.5), (3, 'F#5', 0.5), (3.5, 'A5', 0.5)], FLUTE, 34)
@@ -111,12 +124,14 @@ S.note(bar * BAR, 1.5, TIMP, 'D3', 26)
 S.note(bar * BAR + 16, 1.5, TIMP, 'G2', 24)
 swell(bar, 8, CHOIR, 40, 55)
 for i in range(8):
+    heartbeat(bar + i, 32)
     harmony(bar + i, SOAR_CH[i], pad_vel=44, harp_vel=30, bass_vel=50, choir=26)
     melody(bar + i, SOAR[i], VLN, 56)
     melody(bar + i, SOAR[i], HORN, 40, octave=-1)
 bar += 8
 
 # Settle back into the mist for the loop.
+heartbeat(bar, 24)
 harmony(bar, 'G/D', pad_vel=42, harp_vel=28, bass_vel=44, choir=28)
 harmony(bar + 1, 'Dadd9', pad_vel=40, harp_vel=26, bass_vel=42, choir=26)
 swell(bar, 2, STR, 95, 70)
@@ -127,9 +142,9 @@ bar += 2
 
 loop_beats = bar * BAR
 out = sys.argv[1] if len(sys.argv) > 1 else '/tmp/dino.mp3'
-programs = {HORN: 60, STR: 49, HARP: 46, BASS: 43, TIMP: 47, FLUTE: 73, CHOIR: 52, VLN: 48}
-pans = {HORN: 48, STR: 74, HARP: 36, BASS: 64, TIMP: 60, FLUTE: 88, CHOIR: 64, VLN: 78}
-vols = {HORN: 100, STR: 92, HARP: 80, BASS: 88, TIMP: 80, FLUTE: 70, CHOIR: 66, VLN: 96}
+programs = {HORN: 60, STR: 49, HARP: 46, BASS: 43, TIMP: 47, FLUTE: 75, CHOIR: 52, VLN: 48, TAIKO: 116, TREM: 44}
+pans = {HORN: 48, STR: 74, HARP: 36, BASS: 64, TIMP: 60, FLUTE: 88, CHOIR: 64, VLN: 78, TAIKO: 58, TREM: 66}
+vols = {HORN: 100, STR: 92, HARP: 80, BASS: 88, TIMP: 80, FLUTE: 74, CHOIR: 66, VLN: 96, TAIKO: 84, TREM: 70}
 L, pad_s = render(S, programs, loop_beats, out, rt60=2.8, wet=0.32, humanize=0.004, pans=pans, vols=vols, tail=10,
                   warmth=4, even=0.6)
 print(f'dino: {bar} bars, loop {L:.3f}s, pad {pad_s}s')
