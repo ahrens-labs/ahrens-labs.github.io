@@ -67,7 +67,34 @@ def reverb(x, rt60, wet, seed=1, predelay=0.012, tone=6):
     return x * (1 - wet) + out * wet * 1.6
 
 
-def render(score, programs, loop_beats, path, rt60=1.4, wet=0.2, humanize=0.006, tail=8.0, pans=None, vols=None, seed=7):
+def soften(loop, cut_db, f0=1800, f1=9000):
+    """Roll off the treble above f0 by up to cut_db at f1 (applied around the loop, so the seam stays clean)."""
+    spec = np.fft.rfft(loop, axis=0)
+    f = np.fft.rfftfreq(len(loop), 1 / SR)
+    t = np.clip(np.log(np.maximum(f, 1) / f0) / np.log(f1 / f0), 0, 1)
+    t = t * t * (3 - 2 * t)
+    spec *= (10 ** (-cut_db * t / 20))[:, None]
+    return np.fft.irfft(spec, len(loop), axis=0)
+
+
+def level(loop, amount, window=4.0, block=1024):
+    """Slowly ride the gain toward the average loudness so no section jumps out (amount 0..1), wrapping round the loop."""
+    nb = -(-len(loop) // block)
+    e = np.array([(loop[i * block:(i + 1) * block] ** 2).mean() for i in range(nb)])
+    h = max(1, int(window * SR / block / 2))
+    k = np.hanning(2 * h + 1)
+    k /= k.sum()
+    env = np.sqrt(np.convolve(np.concatenate([e[-h:], e, e[:h]]), k, mode='valid'))
+    g = np.clip((np.sqrt(e.mean()) / np.maximum(env, 1e-9)) ** amount, 0.5, 2.0)
+    centers = np.arange(nb) * block + block / 2
+    L = len(loop)
+    xs = np.concatenate([[centers[-1] - L], centers, [centers[0] + L]])
+    gs = np.concatenate([[g[-1]], g, [g[0]]])
+    return loop * np.interp(np.arange(L), xs, gs)[:, None]
+
+
+def render(score, programs, loop_beats, path, rt60=1.4, wet=0.2, humanize=0.006, tail=8.0, pans=None, vols=None, seed=7,
+           warmth=0.0, even=0.0):
     rng = random.Random(seed)
     spb = 60.0 / score.bpm
     synth = tsf.Synth(samplerate=SR, gain=-6)
@@ -111,6 +138,10 @@ def render(score, programs, loop_beats, path, rt60=1.4, wet=0.2, humanize=0.006,
     loop = x[:loop_len].copy()
     rest = x[loop_len:]
     loop[: len(rest)] += rest
+    if warmth:
+        loop = soften(loop, warmth)
+    if even:
+        loop = level(loop, even)
     # Loud enough for phone speakers (the page plays it back below full volume); peaks are
     # rounded off softly above the knee instead of being scaled down with the whole track.
     rms = np.sqrt((loop ** 2).mean())
