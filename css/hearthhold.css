@@ -372,6 +372,11 @@ button { font-family: inherit; }
 .pchip.idle { background: #ffeede; box-shadow: inset 0 0 0 2px #f2b48a; }
 .pchip.idle small { color: #a0560c; font-weight: 700; }
 .pchip.sm img { width: 32px; height: 32px; }
+.pchip .pchip-ic { display: inline-grid; place-items: center; flex-shrink: 0; width: 38px; height: 38px; border-radius: 50%; background: #f3e3c4; box-shadow: 0 0 0 2px #fff; font-size: 1.15rem; }
+.pchip.sm .pchip-ic { width: 32px; height: 32px; font-size: 1rem; }
+.pchip.swap { background: #f6efe2; }
+.pchip.swap small { color: #a0560c; }
+.swap-head { margin: 0.7rem 0 0.35rem; font-size: 0.82rem; }
 .trophies { margin-top: 0.7rem; display: flex; align-items: center; gap: 0.3rem; flex-wrap: wrap; }
 .trophies img { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; box-shadow: 0 0 0 2px #e8c45a; animation: pieceDrop 0.5s var(--pop) both; }
 .log { list-style: none; margin: 0; padding: 0; max-height: 260px; overflow-y: auto; font-size: 0.85rem; }

@@ -1025,7 +1025,11 @@
       if (busy(p, v)) return `That ${VIL[v.k].name} is building this round — they take a job again next season.`;
       const b = bldById(p, a.to);
       if (!b || !canWork(v.k, b.b)) return 'They can’t work there.';
-      if (b.id !== v.at && occupants(p, b.id).length >= slotsOf(b.b)) return 'That building is full.';
+      if (b.id !== v.at && occupants(p, b.id).length >= slotsOf(b.b)) {
+        // A full building can still be joined by sending one of its workers off to be idle.
+        if (a.bump == null) return 'That building is full.';
+        if (!occupants(p, b.id).some((o) => o.id === a.bump)) return 'That villager doesn’t work there.';
+      }
       return null;
     }
     if (state.turn !== pi) return 'It isn’t your turn.';
@@ -1237,6 +1241,8 @@
     switch (a.t) {
       case 'move': {
         const v = p.vil.find((x) => x.id === a.v);
+        const out = a.bump != null && p.vil.find((x) => x.id === a.bump);
+        if (out && out.at === a.to && out !== v) out.at = null;
         v.at = a.to;
         return null;
       }

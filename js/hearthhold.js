@@ -1363,9 +1363,14 @@
     };
     const chip = (b, on) => {
       const y = yields(b);
-      return `<button class="pchip${on ? ' on' : ''}${b && E.canWork(v.k, b.b) === 'spec' ? ' spec' : ''}" data-to="${b ? b.id : 'idle'}">${b ? `<img src="${IMG(b.b)}" alt="">` : ''}<span><b>${b ? E.BUILD[b.b].name : 'Idle'}</b>${b ? `<small>${how(b)}${y ? ` · ${y} a round` : ''}</small>` : ''}</span></button>`;
+      return `<button class="pchip${on ? ' on' : ''}${b && E.canWork(v.k, b.b) === 'spec' ? ' spec' : ''}" data-to="${b ? b.id : 'idle'}">${b ? `<img src="${IMG(b.b)}" alt="">` : '<span class="pchip-ic" aria-hidden="true">💤</span>'}<span><b>${b ? E.BUILD[b.b].name : 'Idle'}</b><small>${b ? `${how(b)}${y ? ` · ${y} a round` : ''}` : 'no job · makes nothing'}</small></span></button>`;
     };
     const targets = E.moveTargets(p, v);
+    // Full buildings they could work: taking a spot sends that worker off to be idle.
+    const swaps = p.bld
+      .filter((b) => b.id !== v.at && E.canWork(v.k, b.b) && E.slotsOf(b.b) && E.occupants(p, b.id).length >= E.slotsOf(b.b))
+      .flatMap((b) => E.occupants(p, b.id).map((o) => ({ b, o })));
+    const swapChip = ({ b, o }) => `<button class="pchip swap${E.canWork(v.k, b.b) === 'spec' ? ' spec' : ''}" data-to="${b.id}" data-bump="${o.id}"><img src="${IMG(b.b)}" alt=""><span><b>${E.BUILD[b.b].name}</b><small>${how(b)} · ${E.VIL[o.k].name} goes idle</small></span></button>`;
     const back = openModal(`
       <div class="binfo">
         <div class="b-art big v"><img src="${IMG(v.k)}" alt=""></div>
@@ -1378,6 +1383,7 @@
             ${targets.map((b) => chip(b, false)).join('')}
             ${chip(null, false)}
           </div>
+          ${swaps.length ? `<p class="muted swap-head">Or take a spot in a full building — its worker goes idle (you can move them later):</p><div class="pchips">${swaps.map(swapChip).join('')}</div>` : ''}
         </div>
       </div>`, { cls: 'locked', noClose: true, onClose: next });
     back.addEventListener('click', (e) => {
@@ -1388,6 +1394,7 @@
       closeModal();
       if (to === (v.at == null ? null : v.at)) return next();
       const a = { t: 'move', v: v.id, to };
+      if (t.dataset.bump) a.bump = +t.dataset.bump;
       if (G.mode === 'online') {
         sendOnline(a);
         const wait = () => (net.pending ? setTimeout(wait, 150) : next());
@@ -1658,7 +1665,7 @@
           ${away ? `<p class="warn">🔨 Building${siteName(p, v) ? ` the ${siteName(p, v)}` : ''} this round, so they can’t take a job until next season. You choose their job then.</p>` : '<p><b>Move to (free):</b></p>'}
           <div class="pchips">
             ${targets.map((b) => `<button class="pchip sm${E.canWork(v.k, b.b) === 'spec' ? ' spec' : ''}" data-to="${b.id}"><img src="${IMG(b.b)}" alt=""><span><b>${E.BUILD[b.b].name}</b><small>${E.canWork(v.k, b.b) === 'spec' ? 'own trade ★' : 'labor'}</small></span></button>`).join('') || '<span class="muted">No free job they can do. Build one first.</span>'}
-            ${v.at != null && !away ? '<button class="pchip sm idle" data-to="idle"><span><b>Idle</b></span></button>' : ''}
+            ${v.at != null && !away ? '<button class="pchip sm idle" data-to="idle"><span class="pchip-ic" aria-hidden="true">💤</span><span><b>Idle</b><small>no job · makes nothing</small></span></button>' : ''}
           </div>
         </div>
       </div>`);
