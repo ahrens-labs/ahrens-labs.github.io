@@ -2,7 +2,8 @@
 // Configured from the script tag: data-key (saved setting), data-src + data-loop="start,end" (seconds) for the
 // main track, and optionally data-alt-src / data-alt-loop / data-alt-when (a CSS selector) for a second track
 // that plays instead while that selector matches, e.g. Oakhaven's night.
-// The setting cycles: music and sounds → sounds only → off. Tracks are only downloaded once they're wanted,
+// The setting cycles: music and sounds → sounds only → off. data-sfx="none" (a page with no sound effects,
+// like the lobby) makes it just music → off. Tracks are only downloaded once they're wanted,
 // and only play while a game header with a [data-music] button is on screen and the tab is visible.
 // Music plays through <audio> elements (not Web Audio) so iPhones play it with the ringer switch on silent.
 // Each track is fetched into a blob first: Safari won't play media URLs from hosts that ignore Range requests.
@@ -13,6 +14,8 @@
   const me = document.currentScript;
   const ds = me.dataset;
   const VOL = Number(ds.vol || 0.9);
+  const SFX_USED = ds.sfx !== 'none';
+  const MODES = SFX_USED ? ['all', 'sfx', 'off'] : ['all', 'off'];
   const SILENT = 'data:audio/wav;base64,UklGRkQDAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YSADAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgA==';
 
   function trackOf(src, loop, vol, when) {
@@ -30,26 +33,31 @@
   // 'all' (music + sounds), 'sfx' (sounds only) or 'off'. Older saves only ever stored 'off'.
   const mode = () => {
     const v = localStorage.getItem(ds.key);
-    return v === 'off' || v === 'sfx' ? v : 'all';
+    return v === 'off' || (v === 'sfx' && SFX_USED) ? v : 'all';
   };
   const musicOn = () => mode() === 'all';
-  const sfxOn = () => mode() !== 'off';
+  const sfxOn = () => SFX_USED && mode() !== 'off';
+  const nextMode = (m) => MODES[(MODES.indexOf(m) + 1) % MODES.length];
   const onScreen = () => !document.hidden && !!document.querySelector('[data-music]');
   const current = () => (alt && alt.when && document.querySelector(alt.when) ? alt : main);
-  const wanted = (t) => unlocked && musicOn() && onScreen() && current() === t;
+  // Hold the music while a video with sound plays (the lobby's tutorials).
+  const videoOn = () => [...document.querySelectorAll('video')].some((v) => !v.paused && !v.ended && !v.muted);
+  const wanted = (t) => unlocked && musicOn() && onScreen() && !videoOn() && current() === t;
 
   const LOOK = {
-    all: ['🎵', 'Music', 'Music and sounds on — tap for sounds only'],
-    sfx: ['🔔', 'Sounds', 'Sounds only — tap to turn everything off'],
-    off: ['🔇', 'Muted', 'Muted — tap to turn music and sounds on'],
+    all: ['🎵', 'Music', SFX_USED ? 'Music and sounds on' : 'Music on'],
+    sfx: ['🔔', 'Sounds', 'Sounds only'],
+    off: ['🔇', 'Muted', 'Muted'],
   };
+  const TAP = { all: SFX_USED ? 'tap to turn music and sounds on' : 'tap for music', sfx: 'tap for sounds only', off: SFX_USED ? 'tap to turn everything off' : 'tap to mute' };
+  const title = (m) => `${LOOK[m][2]} — ${TAP[nextMode(m)]}`;
   function inner(m, labelCls) {
     return `${LOOK[m][0]}${labelCls ? `<span class="${labelCls}"> ${LOOK[m][1]}</span>` : ''}`;
   }
 
   function buttonHtml(cls, labelCls) {
     const m = mode();
-    return `<button type="button" class="${cls} music-btn${m === 'all' ? '' : ' off'}" data-music data-label="${labelCls || ''}" aria-label="Sound: ${LOOK[m][1]}" title="${LOOK[m][2]}">${inner(m, labelCls)}</button>`;
+    return `<button type="button" class="${cls} music-btn${m === 'all' ? '' : ' off'}" data-music data-label="${labelCls || ''}" aria-label="Sound: ${LOOK[m][1]}" title="${title(m)}">${inner(m, labelCls)}</button>`;
   }
 
   function paintButtons() {
@@ -57,7 +65,7 @@
     document.querySelectorAll('[data-music]').forEach((b) => {
       b.classList.toggle('off', m !== 'all');
       b.setAttribute('aria-label', `Sound: ${LOOK[m][1]}`);
-      b.title = LOOK[m][2];
+      b.title = title(m);
       b.innerHTML = inner(m, b.dataset.label);
     });
   }
@@ -567,9 +575,9 @@
     if (navigator.audioSession) {
       try { navigator.audioSession.type = 'playback'; } catch (e) {}
     }
-    renderClips();
+    if (SFX_USED) renderClips();
     if (first) {
-      for (let i = 0; i < POOL; i++) {
+      for (let i = 0; i < (SFX_USED ? POOL : 0); i++) {
         const e = poolEl(i);
         e.src = SILENT;
         e.muted = true;
@@ -602,14 +610,17 @@
     if (!b) return;
     e.preventDefault();
     e.stopPropagation();
-    const next = { all: 'sfx', sfx: 'off', off: 'all' }[mode()];
+    const next = nextMode(mode());
     localStorage.setItem(ds.key, next === 'all' ? 'on' : next);
     paintButtons();
-    if (next !== 'off') renderClips();
+    if (next !== 'off' && SFX_USED) renderClips();
     sync();
   });
 
   document.addEventListener('visibilitychange', sync);
+  ['play', 'pause', 'ended', 'volumechange'].forEach((t) => document.addEventListener(t, (e) => e.target.tagName === 'VIDEO' && sync(), true));
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', paintButtons);
+  else paintButtons();
   let queued = false;
   new MutationObserver(() => {
     if (queued) return;

@@ -21,12 +21,15 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Lilita+One&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/css/board-games.css?v=8">
+  <link rel="stylesheet" href="/css/board-games.css?v=9">
   <link rel="stylesheet" href="/css/emoji.css">
 </head>
 <body>
   <header class="lobby-top">
-    <a class="back" href="/coding-lab.html">← Ahrens Labs</a>
+    <div class="lobby-nav">
+      <a class="back" href="/coding-lab.html">← Ahrens Labs</a>
+      <button type="button" class="music-btn lobby-music" data-music data-label="ml">🎵<span class="ml"> Music</span></button>
+    </div>
     <div class="lobby-title">
       <img class="dice" src="/img/board-games-favicon-256.png?v=2" alt="" width="64" height="64">
       <div>
@@ -116,6 +119,7 @@
     <div class="plank" aria-hidden="true"></div>
   </main>
 
+  <script src="/js/game-music.js?v=11" data-key="lobby_music" data-sfx="none" data-src="/audio/lobby-theme.mp3?v=1" data-loop="0.5,55.884615"></script>
   <script src="/js/board-saves.js?v=2"></script>
   <script src="/js/board-games.js?v=7"></script>
   <script src="/js/tutorial-video.js?v=6"></script>

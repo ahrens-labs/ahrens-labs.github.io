@@ -1429,6 +1429,19 @@
     });
   }
 
+  // Who else works in building b (besides villager v), shown on job chips so it's clear what's already taken.
+  const coworkers = (p, b, v) => E.occupants(p, b.id).filter((o) => !v || o.id !== v.id);
+  function staffLine(p, b, v) {
+    const o = coworkers(p, b, v);
+    const free = E.slotsOf(b.b) - o.length;
+    if (!o.length) return `<small class="who">empty · ${plural(free, 'spot')}</small>`;
+    return `<small class="who busy-who">${o.map((x) => E.VIL[x.k].name).join(', ')} already here · ${free > 0 ? `${plural(free, 'spot')} left` : 'no spots left'}</small>`;
+  }
+  function faces(list, bump) {
+    if (!list.length) return '';
+    return `<span class="occ${bump ? ' bump' : ''}">${list.map((o) => `<img src="${IMG(o.k)}" alt="${E.VIL[o.k].name}" title="${E.VIL[o.k].name}">`).join('')}</span>`;
+  }
+
   // Ask where each newcomer should work, one at a time, then carry on with `done`.
   function askPlacement(pi, ids, done) {
     const s = st();
@@ -1448,14 +1461,14 @@
     };
     const chip = (b, on) => {
       const y = yields(b);
-      return `<button class="pchip${on ? ' on' : ''}${b && E.canWork(v.k, b.b) === 'spec' ? ' spec' : ''}" data-to="${b ? b.id : 'idle'}">${b ? `<img src="${IMG(b.b)}" alt="">` : '<span class="pchip-ic" aria-hidden="true">💤</span>'}<span><b>${b ? E.BUILD[b.b].name : 'Idle'}</b><small>${b ? `${how(b)}${y ? ` · ${y} a round` : ''}` : 'no job · makes nothing'}</small></span></button>`;
+      return `<button class="pchip${on ? ' on' : ''}${b && E.canWork(v.k, b.b) === 'spec' ? ' spec' : ''}" data-to="${b ? b.id : 'idle'}">${b ? `<img src="${IMG(b.b)}" alt="">` : '<span class="pchip-ic" aria-hidden="true">💤</span>'}<span><b>${b ? E.BUILD[b.b].name : 'Idle'}</b><small>${b ? `${how(b)}${y ? ` · ${y} a round` : ''}` : 'no job · makes nothing'}</small>${b ? staffLine(p, b, v) : ''}</span>${b ? faces(coworkers(p, b, v)) : ''}</button>`;
     };
     const targets = E.moveTargets(p, v);
     // Full buildings they could work: taking a spot sends that worker off to be idle.
     const swaps = p.bld
       .filter((b) => b.id !== v.at && E.canWork(v.k, b.b) && E.slotsOf(b.b) && E.occupants(p, b.id).length >= E.slotsOf(b.b))
       .flatMap((b) => E.occupants(p, b.id).map((o) => ({ b, o })));
-    const swapChip = ({ b, o }) => `<button class="pchip swap${E.canWork(v.k, b.b) === 'spec' ? ' spec' : ''}" data-to="${b.id}" data-bump="${o.id}"><img src="${IMG(b.b)}" alt=""><span><b>${E.BUILD[b.b].name}</b><small>${how(b)} · ${E.VIL[o.k].name} goes idle</small></span></button>`;
+    const swapChip = ({ b, o }) => `<button class="pchip swap${E.canWork(v.k, b.b) === 'spec' ? ' spec' : ''}" data-to="${b.id}" data-bump="${o.id}"><img src="${IMG(b.b)}" alt=""><span><b>${E.BUILD[b.b].name} <i class="full-tag">full</i></b><small>${how(b)}</small><small class="bump-line">Takes the ${E.VIL[o.k].name}’s spot → they go idle</small></span>${faces([o], true)}</button>`;
     const back = openModal(`
       <div class="binfo">
         <div class="b-art big v"><img src="${IMG(v.k)}" alt=""></div>
@@ -1468,7 +1481,7 @@
             ${targets.map((b) => chip(b, false)).join('')}
             ${chip(null, false)}
           </div>
-          ${swaps.length ? `<p class="muted swap-head">Or take a spot in a full building — its worker goes idle (you can move them later):</p><div class="pchips">${swaps.map(swapChip).join('')}</div>` : ''}
+          ${swaps.length ? `<p class="swap-head"><b>Already full:</b> pick one of these to swap — the worker shown there goes idle (you can give them a new job later).</p><div class="pchips">${swaps.map(swapChip).join('')}</div>` : ''}
         </div>
       </div>`, { cls: 'locked', noClose: true, onClose: next });
     back.addEventListener('click', (e) => {
@@ -1751,7 +1764,7 @@
           <p class="muted">Now: ${whereOf(p, v)} · worth ⭐${V.pts}</p>
           ${away ? `<p class="warn">🔨 Building${siteName(p, v) ? ` the ${siteName(p, v)}` : ''} this round, so they can’t take a job until next season. You choose their job then.</p>` : '<p><b>Move to (free):</b></p>'}
           <div class="pchips">
-            ${targets.map((b) => `<button class="pchip sm${E.canWork(v.k, b.b) === 'spec' ? ' spec' : ''}" data-to="${b.id}"><img src="${IMG(b.b)}" alt=""><span><b>${E.BUILD[b.b].name}</b><small>${E.canWork(v.k, b.b) === 'spec' ? 'own trade ★' : 'labor'}</small></span></button>`).join('') || '<span class="muted">No free job they can do. Build one first.</span>'}
+            ${targets.map((b) => `<button class="pchip sm${E.canWork(v.k, b.b) === 'spec' ? ' spec' : ''}" data-to="${b.id}"><img src="${IMG(b.b)}" alt=""><span><b>${E.BUILD[b.b].name}</b><small>${E.canWork(v.k, b.b) === 'spec' ? 'own trade ★' : 'labor'}</small>${staffLine(p, b, v)}</span>${faces(coworkers(p, b, v))}</button>`).join('') || '<span class="muted">No free job they can do. Build one first.</span>'}
             ${v.at != null && !away ? '<button class="pchip sm idle" data-to="idle"><span class="pchip-ic" aria-hidden="true">💤</span><span><b>Idle</b><small>no job · makes nothing</small></span></button>' : ''}
           </div>
         </div>

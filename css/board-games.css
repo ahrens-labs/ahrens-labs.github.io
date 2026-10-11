@@ -18,6 +18,10 @@ h1, h2 { font-family: "Lilita One", "Fredoka", sans-serif; font-weight: 400; let
 
 .lobby-top { max-width: 1180px; margin: 0 auto; padding: 1.2rem 1.4rem 0.4rem; }
 .back { color: #ffe08a; text-decoration: none; font-weight: 600; font-size: 0.95rem; }
+.lobby-nav { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.lobby-music { border: 0; cursor: pointer; font: inherit; font-weight: 600; font-size: 0.9rem; padding: 0.35rem 0.85rem; border-radius: 999px; background: rgba(255, 224, 138, 0.16); color: #ffe08a; box-shadow: inset 0 0 0 2px rgba(255, 224, 138, 0.5); transition: background 0.15s; }
+.lobby-music:hover { background: rgba(255, 224, 138, 0.28); }
+.lobby-music.off { color: rgba(251, 241, 217, 0.7); box-shadow: inset 0 0 0 2px rgba(251, 241, 217, 0.3); background: transparent; }
 .back:hover { text-decoration: underline; }
 .lobby-title { display: flex; align-items: center; gap: 1rem; margin-top: 0.8rem; }
 .dice { width: 4.2rem; height: 4.2rem; filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.5)); animation: roll 4s ease-in-out infinite; display: inline-block; flex: 0 0 auto; }

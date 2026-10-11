@@ -374,9 +374,20 @@ button { font-family: inherit; }
 .pchip.sm img { width: 32px; height: 32px; }
 .pchip .pchip-ic { display: inline-grid; place-items: center; flex-shrink: 0; width: 38px; height: 38px; border-radius: 50%; background: #f3e3c4; box-shadow: 0 0 0 2px #fff; font-size: 1.15rem; }
 .pchip.sm .pchip-ic { width: 32px; height: 32px; font-size: 1rem; }
-.pchip.swap { background: #f6efe2; }
-.pchip.swap small { color: #a0560c; }
-.swap-head { margin: 0.7rem 0 0.35rem; font-size: 0.82rem; }
+.pchip.swap { background: #fbeee0; box-shadow: inset 0 0 0 2px #e9a66a; }
+.pchip.swap small { color: var(--muted); }
+.pchip.swap small.bump-line { color: #a0560c; font-weight: 700; }
+.pchip .full-tag { font-style: normal; font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.06em; padding: 0.05rem 0.35rem; border-radius: 999px; background: #c96a2b; color: #fff; vertical-align: 1px; }
+.pchip small.who { color: #3f6b2a; }
+.pchip small.busy-who { color: #8a5a00; font-weight: 700; }
+.pchip .occ { display: inline-flex; flex-shrink: 0; margin-left: 0.15rem; }
+.pchip .occ img { width: 26px; height: 26px; margin-left: -8px; box-shadow: 0 0 0 2px #fff; background: #fff; }
+.pchip .occ img:first-child { margin-left: 0; }
+.pchip .occ.bump { position: relative; }
+.pchip .occ.bump img { filter: grayscale(0.5); opacity: 0.85; }
+.pchip .occ.bump::after { content: "💤"; position: absolute; right: -6px; top: -8px; font-size: 0.8rem; }
+.pchip.sm .occ img { width: 22px; height: 22px; }
+.swap-head { font-size: 0.85rem; color: #8a4a12; margin: 0.8rem 0 0.4rem; }
 .trophies { margin-top: 0.7rem; display: flex; align-items: center; gap: 0.3rem; flex-wrap: wrap; }
 .trophies img { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; box-shadow: 0 0 0 2px #e8c45a; animation: pieceDrop 0.5s var(--pop) both; }
 .log { list-style: none; margin: 0; padding: 0; max-height: 260px; overflow-y: auto; font-size: 0.85rem; }
