@@ -359,11 +359,11 @@
           <div class="panel event-panel" id="event" hidden></div>
           <div class="panel" id="res"></div>
           <div class="panel" id="people"></div>
-          <div class="panel goals-panel" id="goals" hidden></div>
           <div class="panel" id="actions"></div>
         </aside>
       </main>
       <section class="panel" id="row"></section>
+      <section class="panel goals-panel" id="goals" hidden></section>
       <section class="lower">
         <div class="panel" id="log"></div>
       </section>
@@ -843,7 +843,9 @@
     const box = $('#event');
     const s = st();
     const k = s.phase === 'act' ? E.eventNow(s) : null;
-    if (!k) {
+    // Once every person playing has answered, the event leaves the screen.
+    const waiting = k && humans().some((i) => !s.players[i].ai && E.eventPending(s, s.players[i]));
+    if (!waiting) {
       box.hidden = true;
       return;
     }

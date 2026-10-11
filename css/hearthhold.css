@@ -203,9 +203,9 @@ button { font-family: inherit; }
 /* ---------- layout ---------- */
 .layout { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(320px, 1fr); gap: 1.2rem; padding: 1rem 1.2rem; max-width: 1400px; margin: 0 auto; align-items: start; }
 .side { display: grid; gap: 1.1rem; }
-#row, .lower { max-width: 1400px; margin: 0 auto 1.2rem; }
-#row { margin: 0 1.2rem 1.2rem; }
-@media (min-width: 1440px) { #row { margin: 0 auto 1.2rem; } }
+#row, #goals, .lower { max-width: 1400px; margin: 0 auto 1.2rem; }
+#row, #goals { margin: 0 1.2rem 1.2rem; }
+@media (min-width: 1440px) { #row, #goals { margin: 0 auto 1.2rem; } }
 .lower { display: grid; grid-template-columns: 1fr; gap: 1.2rem; padding: 0 1.2rem 2rem; }
 
 /* ---------- board ---------- */
@@ -584,7 +584,7 @@ button { font-family: inherit; }
   .threat { scroll-snap-align: start; }
   .layout { padding: 0.8rem 0.5rem; }
   #svg { max-height: none; }
-  #row { margin: 0 0.8rem 1rem; }
+  #row, #goals { margin: 0 0.8rem 1rem; }
   .lower { padding: 0 0.8rem 2rem; }
   .vwrap { --vcw: 42vw; grid-template-columns: calc(var(--vcw) + 0.55rem + 3px) minmax(0, 1fr); gap: 0.55rem; }
   .vpeasant { padding-right: 0.55rem; }
@@ -655,7 +655,7 @@ button { font-family: inherit; }
   /* Phones: what's going on first, then the locations to send workers to. */
   body:not(.setup-mode) #app { display: flex; flex-direction: column; }
   body:not(.setup-mode) #app > * { min-width: 0; max-width: 100%; box-sizing: border-box; }
-  body:not(.setup-mode) #locs, body:not(.setup-mode) #row, body:not(.setup-mode) .lower { order: 1; }
+  body:not(.setup-mode) #locs, body:not(.setup-mode) #row, body:not(.setup-mode) #goals, body:not(.setup-mode) .lower { order: 1; }
   .tracker { display: none; }
   .brand small { font-size: 0.72rem; }
   .top-actions { flex-wrap: nowrap; }
@@ -792,8 +792,14 @@ button.ev-opt:hover:not(:disabled) { background: #fff1c9; box-shadow: inset 0 0 
 .ev-pop .ev-icon { font-size: 2.6rem; }
 .ev-have { display: flex; flex-wrap: wrap; gap: 0.2rem 0.6rem; margin: 0 0 0.6rem; font-size: 0.85rem; color: #5a4630; }
 
-.goals-panel h3 .muted { display: block; font-size: 0.72rem; font-weight: 500; margin-top: 0.15rem; }
-.goal-list { list-style: none; margin: 0.4rem 0 0; padding: 0; display: grid; gap: 0.4rem; }
+.goals-panel h3 { margin: 0; }
+.goals-panel h3 .muted { font-size: 0.75rem; font-weight: 500; margin-left: 0.4rem; }
+/* The year's goals sit side by side in one row; on narrow screens the row scrolls sideways. */
+.goal-list { list-style: none; margin: 0.5rem 0 0; padding: 0; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 0.5rem; }
+@media (max-width: 720px) {
+  .goal-list { grid-auto-columns: minmax(210px, 1fr); overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 0.3rem; }
+  .goal-list li { scroll-snap-align: start; }
+}
 .goal-list li { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 0.55rem; padding: 0.4rem 0.55rem; border-radius: 10px; background: rgba(255, 255, 255, 0.45); }
 .gl-ic { font-size: 1.4rem; }
 .goal-list b { display: block; font-size: 0.9rem; }
