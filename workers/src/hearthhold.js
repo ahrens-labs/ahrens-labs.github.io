@@ -150,8 +150,8 @@ function cleanAction(a) {
       return trades.every(Boolean) ? { t: 'trade', trades } : null;
     }
     case 'move':
-      if (!isInt(a.v) || (a.to != null && !isInt(a.to))) return null;
-      return { t: 'move', v: a.v, to: a.to == null ? null : a.to };
+      if (!isInt(a.v) || (a.to != null && !isInt(a.to)) || (a.bump != null && !isInt(a.bump))) return null;
+      return { t: 'move', v: a.v, to: a.to == null ? null : a.to, ...(a.bump != null ? { bump: a.bump } : {}) };
     case 'event':
       return Number.isInteger(a.o) && a.o >= 0 && a.o < 4 ? { t: 'event', o: a.o } : null;
     case 'end':
@@ -536,7 +536,7 @@ export class HearthholdGame {
     const a = cleanAction(body.a);
     if (!a) return fresh('That isn’t a valid action.', 400);
     const state = record.state;
-    if (a.t !== 'move' && state.turn !== me) return fresh('It’s not your turn.');
+    if (a.t !== 'move' && a.t !== 'event' && state.turn !== me) return fresh('It’s not your turn.');
     const why = E.legal(state, me, a);
     if (why) return fresh(why);
     const prevTurn = record.turn;

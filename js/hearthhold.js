@@ -865,7 +865,7 @@
     box.hidden = false;
     box.className = `panel event-panel${mine ? ' pending' : ''}`;
     box.innerHTML = `<div class="ev-head"><span class="ev-icon">${ev.icon}</span><div><small>${E.SEASON[season()].name} event</small><h3>${esc(ev.name)}</h3></div></div>
-      <p class="ev-text">${esc(ev.text)} ${mine ? '<b>Choose one before you end the round.</b>' : chose != null ? `You chose “${esc(ev.opts[chose].label)}”.` : ''}</p>
+      <p class="ev-text">${esc(ev.text)} ${mine ? '<b>Choose one now.</b>' : chose != null ? `You chose “${esc(ev.opts[chose].label)}”.` : ''}</p>
       <div class="ev-opts">${opts}</div>${otherTxt ? `<p class="muted small">${otherTxt}</p>` : ''}`;
   }
 
@@ -1176,7 +1176,7 @@
     if (delay) setTimeout(() => GameMusic.sfx(k), delay);
     else GameMusic.sfx(k);
   }
-  const ACTION_SFX = { place: 'place', build: 'build', wall: 'build', bow: 'build', recruit: 'hatch', train: 'hatch', move: 'place' };
+  const ACTION_SFX = { place: 'place', build: 'build', wall: 'wall', bow: 'bow', recruit: 'join', train: 'join', move: 'place' };
   // The action's own sound, then a bling for gold gained or a softer chime for other goods.
   function actionSfx(a, p, before) {
     if (ACTION_SFX[a.t]) sfx(ACTION_SFX[a.t]);
@@ -1185,7 +1185,7 @@
     const delay = ACTION_SFX[a.t] ? 140 : 0;
     if (d('gold') > 0) sfx('coin', delay);
     else if (E.RES.some((r) => r !== 'gold' && d(r) > 0)) sfx('gain', delay);
-    else if (d('gold') < 0 && (a.t === 'recruit' || a.t === 'train' || a.t === 'trade')) sfx('pay', delay);
+    else if (E.RES.some((r) => d(r) < 0) && ['recruit', 'train', 'trade', 'event'].includes(a.t)) sfx('pay', delay);
   }
 
   function doAction(a) {
@@ -1239,9 +1239,12 @@
         ui.staffing = false;
         return done();
       }
-      askOpened(list[i], () => askFreed(list[i], () => go(i + 1)));
+      askEvent(list[i], () => askOpened(list[i], () => askFreed(list[i], () => go(i + 1))));
     };
-    go(0);
+    // Let the season banner play out before the first pop-up covers it.
+    const wait = list.some(needsStaff) ? (ui.bannerUntil || 0) - Date.now() : 0;
+    if (wait > 0) setTimeout(() => go(0), wait);
+    else go(0);
   }
   const humans = () => (G.mode === 'online' ? [G.me] : [0, 1]);
 
@@ -1253,7 +1256,66 @@
     const seen = new Set(G.openSeen || []);
     return ((p.flags && p.flags.freed) || []).filter((id) => !seen.has(`${s.round}:f${id}`) && p.vil.some((v) => v.id === id && v.at == null && !E.busy(p, v)));
   }
-  const needsStaff = (pi) => openedFor(pi).length > 0 || freedFor(pi).length > 0;
+  const needsStaff = (pi) => !!eventFor(pi) || openedFor(pi).length > 0 || freedFor(pi).length > 0;
+
+  // The season's event: each village answers it as the season begins, before doing anything else.
+  function eventFor(pi) {
+    const s = st();
+    const p = s.players[pi];
+    if (!p || p.ai || G.mode === 'sim' || s.phase !== 'act') return null;
+    if (G.mode === 'online' && (pi !== G.me || G.status !== 'active')) return null;
+    return E.eventPending(s, p) ? E.eventNow(s) : null;
+  }
+  function askEvent(pi, done) {
+    const k = eventFor(pi);
+    if (!k) return done();
+    const s = st();
+    const p = s.players[pi];
+    const ev = E.EVENTS[k];
+    const who = G.mode === 'local' ? esc(p.name) : '';
+    const opts = ev.opts
+      .map((o, i) => {
+        const why = E.eventBlock(s, p, i);
+        return `<button class="ev-opt" data-o="${i}" ${why ? 'disabled' : ''}><b>${esc(o.label)}</b><small>${o.text}${why ? ` <em>(${esc(why)})</em>` : ''}</small></button>`;
+      })
+      .join('');
+    sfx('reveal');
+    const back = openModal(`
+      <div class="ev-pop">
+        <div class="ev-head"><span class="ev-icon">${ev.icon}</span><div><small>${E.SEASON[season()].name} event${who ? ` · ${who}` : ''}</small><h2>${esc(ev.name)}</h2></div></div>
+        <p class="ev-text">${esc(ev.text)} <b>${who ? `${who} must choose` : 'Choose'} one now.</b></p>
+        <p class="ev-have">${who ? `${who} has` : 'You have'} ${E.RES.map((r) => `<span>${E.RES_ICON[r]}${p.res[r]}</span>`).join(' ')}</p>
+        <div class="ev-opts">${opts}</div>
+      </div>`, { cls: 'locked', noClose: true, onClose: done });
+    back.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-o]');
+      if (!b || b.disabled) return;
+      const a = { t: 'event', o: +b.dataset.o };
+      ui.onClose = null;
+      closeModal();
+      if (G.mode === 'online') {
+        actionSfx(a);
+        sendOnline(a);
+        // A refugee family that joins gets its own placement pop-up first.
+        const wait = () => (net.pending || ui.modal ? setTimeout(wait, 150) : done());
+        return wait();
+      }
+      const before = { ...p.res };
+      const vilBefore = p.vil.map((v) => ({ id: v.id, k: v.k }));
+      try {
+        const msg = E.apply(st(), pi, a);
+        toast(`<span class="dot" style="--pc:${PCOLOR[pi]}"></span><b>${esc(p.name)}</b> ${esc(msg)}`);
+      } catch (err) {
+        toast(esc(err.message), 'bad');
+      }
+      actionSfx(a, p, before);
+      save();
+      render();
+      const fresh = newcomers(vilBefore, p);
+      if (fresh.length) return askPlacement(pi, fresh, done);
+      done();
+    });
+  }
   function askFreed(pi, done) {
     const s = st();
     const ids = freedFor(pi);
@@ -1980,9 +2042,9 @@
           if (G.mode === 'local') G.view = s.turn;
           save();
           render();
+          seasonBanner();
           staff(humans(), () => {
             render();
-            seasonBanner();
             scheduleAI();
           });
         }
@@ -2035,6 +2097,7 @@
     const first = s.players[s.turn];
     el.innerHTML = `<div class="sb-in"><span class="sb-icon">${sea.icon}</span><div><b>${sea.name}</b><small>Year ${E.yearOf(s.round)} · round ${s.round} of ${E.ROUNDS}</small><em>${sea.note}</em><em>${esc(first.name)} goes first${s.round > 1 ? ' (it alternates every round)' : ''}.</em></div></div>`;
     document.body.appendChild(el);
+    ui.bannerUntil = Date.now() + 2400;
     setTimeout(() => el.classList.add('out'), 2300);
     setTimeout(() => el.remove(), 2800);
   }
@@ -2805,7 +2868,7 @@
       <p>Each village gets its workers: <b>${E.BASE_WORKERS}</b>, plus 1 if a Steward works the Keep. Every location is empty again.</p>
       <h4>2. Day — take turns</h4>
       <ol class="steps">
-        <li>On your turn, do as many <b>free actions</b> as you like and can pay for, in any order: build, wall, recruit, train, trade and move villagers. In two seasons each year, kept secret until they arrive, there is also a <b>season event</b> to answer (see Goals &amp; events) — you must choose before you end the round.</li>
+        <li>On your turn, do as many <b>free actions</b> as you like and can pay for, in any order: build, wall, recruit, train, trade and move villagers. In two seasons each year, kept secret until they arrive, a <b>season event</b> pops up as the season begins (see Goals &amp; events) — you must answer it right away, before anything else.</li>
         <li>Then either <b>send one worker</b> to an empty location (or one of the always-open locations) — you get its reward straight away and your turn ends — or press <b>End round</b>.</li>
         <li>If that was your <b>last</b> worker, your turn doesn’t end: finish any free actions (you can use what the location just gave you) and then press End round.</li>
         <li>Once you end the round you can’t do anything more until tomorrow. Any workers you didn’t place are wasted. Your rival keeps taking turns until they end too.</li>
@@ -2923,7 +2986,7 @@
       <p>Goals count only what you do <b>during that year</b>: Farms built, villagers gained, creatures driven off and so on, counted from the start of Spring. Fat purse and Full larder look at what you have when the year ends. Right after Winter’s night, the village that did most on each goal scores ⭐${E.GOAL_PTS}; a tie gives ⭐${E.GOAL_PTS / 2} each, and nobody scores if both did nothing.${G && E.goalsOfYear(st(), E.yearOf(st().round)).length && !E.legacyGoals(st()) ? ' This year’s goals are marked <b>✓</b>.' : ''}</p>
       <table class="rules-table">${E.GOAL_ORDER.map((g) => `<tr><td>${G && E.goalsOfYear(st(), E.yearOf(st().round)).includes(g) ? '✓ ' : ''}${E.GOALS[g].icon} <b>${E.GOALS[g].name}</b></td><td>${E.GOALS[g].text}${E.GOALS[g].stock ? '' : ' this year'}</td></tr>`).join('')}</table>
       <h4>📰 Season events</h4>
-      <p><b>Two seasons each year</b>, picked at random when the game starts (never the very first round), bring an <b>event</b> that both villages face. Which seasons they are, and which event it is, stay secret until that round begins; past events are marked 📰 on the season track. Each village picks one of its options on its own turn, and must do so before ending the round. Effects happen at once, or tonight if they say so. If you can’t pay for an option, you can’t pick it — there is always one you can. Events never repeat in a game, and some only happen in certain seasons.</p>
+      <p><b>Two seasons each year</b>, picked at random when the game starts (never the very first round), bring an <b>event</b> that both villages face. Which seasons they are, and which event it is, stay secret until that round begins; past events are marked 📰 on the season track. It pops up as soon as the season begins, and each village must pick one of its options right away, before doing anything else. Effects happen at once, or tonight if they say so. If you can’t pay for an option, you can’t pick it — there is always one you can. Events never repeat in a game, and some only happen in certain seasons.</p>
       <div class="gallery">${Object.keys(E.EVENTS).map((k) => {
         const ev = E.EVENTS[k];
         return `<div class="gcard ev"><span class="ev-icon">${ev.icon}</span><div><b>${esc(ev.name)}</b>${ev.when ? `<div class="g-cost">${ev.when.map((w) => E.SEASON[w].name).join(' or ')} only</div>` : ''}<p class="muted">${esc(ev.text)}</p><ul>${ev.opts.map((o) => `<li><b>${esc(o.label)}:</b> ${o.text}</li>`).join('')}</ul></div></div>`;

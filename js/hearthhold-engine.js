@@ -1018,6 +1018,12 @@
   function legal(state, pi, a) {
     const p = state.players[pi];
     if (state.phase !== 'act') return 'Not now.';
+    // The season's event is answered as the season begins, by each village, before anything else.
+    if (a.t === 'event') {
+      if (!eventPending(state, p)) return 'Nothing to answer.';
+      return eventBlock(state, p, a.o);
+    }
+    if (eventPending(state, p)) return `Answer the ${EVENTS[eventNow(state)].name} first.`;
     if (a.t === 'move') {
       const v = p.vil.find((x) => x.id === a.v);
       if (!v) return 'No such villager.';
@@ -1091,11 +1097,8 @@
         }
         return null;
       }
-      case 'event':
-        if (!eventPending(state, p)) return 'Nothing to answer.';
-        return eventBlock(state, p, a.o);
       case 'end':
-        return eventPending(state, p) ? `Answer the ${EVENTS[eventNow(state)].name} first.` : null;
+        return null;
       default:
         return 'Unknown action.';
     }

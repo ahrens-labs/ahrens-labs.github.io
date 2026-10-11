@@ -198,36 +198,61 @@
   let bus = null;
   let noiseBuf = null;
   const clips = {};
+  const clipLen = {};
   let rendering = null;
   const POOL = 6;
   const pool = [];
   let poolNext = 0;
   const lastAt = {};
 
-  // One enveloped tone. o: { type, vol, to (glide target Hz), attack }
+  // One enveloped oscillator. o: { type, vol, to (glide target Hz), glide (secs), attack, hold, detune,
+  // lp / lpTo / lpAt (a lowpass that sweeps), q, vib (depth as a fraction of freq), vibRate }
   function tone(at, freq, dur, o = {}) {
     const t = ctx.currentTime + at;
     const osc = ctx.createOscillator();
     const g = ctx.createGain();
     osc.type = o.type || 'sine';
     osc.frequency.setValueAtTime(freq, t);
-    if (o.to) osc.frequency.exponentialRampToValueAtTime(o.to, t + dur);
+    if (o.detune) osc.detune.value = o.detune;
+    if (o.to) osc.frequency.exponentialRampToValueAtTime(o.to, t + (o.glide || dur));
+    if (o.vib) {
+      const lfo = ctx.createOscillator();
+      const depth = ctx.createGain();
+      lfo.frequency.value = o.vibRate || 5.5;
+      depth.gain.value = freq * o.vib;
+      lfo.connect(depth);
+      depth.connect(osc.frequency);
+      lfo.start(t);
+      lfo.stop(t + dur + 0.05);
+    }
     const v = o.vol == null ? 0.3 : o.vol;
     const atk = o.attack || 0.005;
     g.gain.setValueAtTime(0.0001, t);
     g.gain.exponentialRampToValueAtTime(v, t + atk);
+    if (o.hold) g.gain.setValueAtTime(v, t + atk + o.hold);
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    osc.connect(g);
+    let out = osc;
+    if (o.lp) {
+      const f = ctx.createBiquadFilter();
+      f.type = 'lowpass';
+      f.frequency.setValueAtTime(o.lp, t);
+      if (o.lpTo) f.frequency.exponentialRampToValueAtTime(o.lpTo, t + (o.lpAt || dur));
+      f.Q.value = o.q || 0.7;
+      osc.connect(f);
+      out = f;
+    }
+    out.connect(g);
     g.connect(bus);
     osc.start(t);
     osc.stop(t + dur + 0.05);
   }
 
-  // A filtered noise burst. o: { type (filter), freq, to, q, vol }
+  // A filtered noise burst. o: { type (filter), freq, to, q, vol, attack }
   function noise(at, dur, o = {}) {
     const t = ctx.currentTime + at;
     const src = ctx.createBufferSource();
     src.buffer = noiseBuf;
+    src.loop = true;
     const f = ctx.createBiquadFilter();
     f.type = o.type || 'bandpass';
     f.frequency.setValueAtTime(o.freq || 1500, t);
@@ -235,13 +260,50 @@
     f.Q.value = o.q || 1;
     const g = ctx.createGain();
     g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(o.vol || 0.3, t + 0.006);
+    g.gain.exponentialRampToValueAtTime(o.vol || 0.3, t + (o.attack || 0.004));
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     src.connect(f);
     f.connect(g);
     g.connect(bus);
     src.start(t, Math.random() * 0.5);
     src.stop(t + dur + 0.05);
+  }
+
+  // Struck metal or glass: inharmonic partials, the higher ones dying first.
+  const BAR = [1, 2.756, 5.404, 8.933];
+  const BELL = [0.5, 1, 1.183, 1.506, 2, 2.514, 3.011];
+  function strike(at, f, dur, vol, ratios = BAR) {
+    ratios.forEach((r, i) => tone(at, f * r, dur / (1 + i * 0.5), { vol: vol / (1 + i * 0.7), attack: 0.002 }));
+  }
+  // A hollow wooden knock.
+  function knock(at, f, vol) {
+    noise(at, 0.05, { freq: f * 2.5, q: 6, vol: vol * 0.6, attack: 0.001 });
+    tone(at, f, 0.12, { vol, to: f * 0.7, attack: 0.001 });
+    tone(at, f * 2.3, 0.05, { vol: vol * 0.4, attack: 0.001 });
+  }
+  function marimba(at, f, vol) {
+    tone(at, f, 0.4, { vol, attack: 0.002 });
+    tone(at, f * 4, 0.09, { vol: vol * 0.35, attack: 0.001 });
+    tone(at, f * 10, 0.03, { vol: vol * 0.1, attack: 0.001 });
+  }
+  function pluck(at, f, vol, dur = 0.7) {
+    tone(at, f, dur, { type: 'triangle', vol, attack: 0.002 });
+    tone(at, f * 2, dur * 0.4, { vol: vol * 0.4, attack: 0.002 });
+  }
+  function drum(at, f, dur, vol) {
+    tone(at, f * 2.2, dur, { vol, to: f, glide: 0.06, attack: 0.002 });
+    noise(at, Math.min(0.15, dur), { type: 'lowpass', freq: f * 8, vol: vol * 0.5, attack: 0.001 });
+  }
+  // A horn note: two detuned saws whose lowpass opens as it speaks.
+  function brass(at, f, dur, vol, o = {}) {
+    [-7, 7].forEach((det) => tone(at, f, dur, Object.assign({ type: 'sawtooth', vol: vol / 2, attack: 0.035, hold: dur * 0.55, detune: det, lp: f * 1.2, lpTo: f * (o.bright || 5), lpAt: 0.09, q: 1.2 }, o)));
+  }
+  function room(c, secs) {
+    const n = Math.floor(c.sampleRate * secs);
+    const ir = c.createBuffer(1, n, c.sampleRate);
+    const d = ir.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 3) * (i < 200 ? i / 200 : 1);
+    return ir;
   }
 
   function wav(data, sr) {
@@ -270,13 +332,21 @@
     if (!OAC) return (rendering = Promise.resolve());
     const sr = 44100;
     const jobs = Object.keys(SFX).map((name) => {
-      ctx = new OAC(1, sr * 2, sr);
+      const def = SFX[name];
+      ctx = new OAC(1, sr * 3, sr);
       bus = ctx.createGain();
       bus.connect(ctx.destination);
+      const verb = ctx.createConvolver();
+      verb.buffer = room(ctx, 1.4);
+      const wet = ctx.createGain();
+      wet.gain.value = def.wet == null ? 0.15 : def.wet;
+      bus.connect(verb);
+      verb.connect(wet);
+      wet.connect(ctx.destination);
       noiseBuf = ctx.createBuffer(1, sr, sr);
       const d = noiseBuf.getChannelData(0);
       for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-      SFX[name]();
+      def.fn();
       const c = ctx;
       return new Promise((res) => {
         c.oncomplete = (e) => res(e.renderedBuffer);
@@ -285,19 +355,27 @@
       }).then((b) => [name, b]);
     });
     rendering = Promise.all(jobs).then((list) => {
-      // Every clip goes out near full scale with gentle saturation, so short blips still cut through music.
-      const drive = 1.8;
-      const norm = Math.tanh(drive);
+      // Each clip is levelled by its loudest 300 ms (so short clicks aren't buried under music) and its
+      // peaks are soft-limited.
       list.forEach(([name, b]) => {
         if (!b) return;
         const x = b.getChannelData(0);
         const p = x.reduce((m, v) => Math.max(m, Math.abs(v)), 0);
         if (!p) return;
+        const w = Math.floor(sr * 0.3);
+        let loud = 0;
+        for (let i = 0; i + w <= x.length; i += 1024) {
+          let e = 0;
+          for (let j = i; j < i + w; j += 2) e += x[j] * x[j];
+          loud = Math.max(loud, (2 * e) / w);
+        }
+        const g = Math.min(Math.pow(10, (SFX[name].level || -10) / 20) / Math.sqrt(loud || 1e-9), 4 / p);
         let end = x.length;
         while (end > 1 && Math.abs(x[end - 1]) < p * 1e-3) end--;
         const out = new Float32Array(Math.min(x.length, end + 441));
-        for (let i = 0; i < out.length; i++) out[i] = (0.94 * Math.tanh((drive * x[i]) / p)) / norm;
+        for (let i = 0; i < out.length; i++) out[i] = 0.95 * Math.tanh((x[i] * g) / 0.95);
         clips[name] = URL.createObjectURL(wav(out, sr));
+        clipLen[name] = out.length / sr;
       });
     }).catch(() => {});
     return rendering;
@@ -314,101 +392,153 @@
   }
 
   // Dip whichever music is playing under an effect, then bring it back.
-  function duck() {
+  function duck(secs) {
     if (!canFade) return;
     tracks.forEach((t) => {
       if (!t.el || t.el.paused || t.target <= 0 || t.fading) return;
       t.el.volume = t.target * 0.45;
       clearTimeout(t.duckTimer);
-      t.duckTimer = setTimeout(() => fadeTo(t, t.target, 0.5), 450);
+      t.duckTimer = setTimeout(() => fadeTo(t, t.target, 0.5), Math.min(1800, Math.max(450, secs * 800)));
     });
   }
 
+  // Each sound: fn schedules it; wet is how much room echo; level is its loudness in dB (default −10).
   const SFX = {
-    // Gaining coins: the classic two-note bling.
-    coin: () => {
-      tone(0, 1318.5, 0.09, { type: 'triangle', vol: 0.22 });
-      tone(0.075, 1975.5, 0.45, { type: 'triangle', vol: 0.22 });
-      tone(0.075, 3951, 0.25, { vol: 0.04 });
-    },
-    // Spending or losing coins: a single soft clink.
-    pay: () => {
-      tone(0, 1046.5, 0.16, { type: 'triangle', vol: 0.14 });
-      tone(0.04, 784, 0.18, { type: 'triangle', vol: 0.1 });
-    },
-    // Gaining food, materials or other goods.
-    gain: () => {
-      tone(0, 659.3, 0.12, { vol: 0.2 });
-      tone(0.06, 987.8, 0.18, { vol: 0.18 });
-    },
-    // Putting a piece down: a wooden tock.
-    place: () => {
-      tone(0, 190, 0.1, { vol: 0.4, to: 110 });
-      noise(0, 0.035, { freq: 2200, q: 2, vol: 0.18 });
-    },
-    // Construction: two hammer knocks.
-    build: () => {
-      [0, 0.16].forEach((at, i) => {
-        tone(at, 240 - i * 30, 0.08, { type: 'triangle', vol: 0.3, to: 140 });
-        noise(at, 0.05, { freq: 2800, q: 1.5, vol: 0.22 });
+    // Coins tumbling onto a pile, then a bright ring.
+    coin: { wet: 0.18, fn: () => {
+      [0, 0.055, 0.095, 0.125, 0.15].forEach((at, i) => strike(at + Math.random() * 0.01, 2300 + Math.random() * 900, 0.32 - i * 0.04, 0.16 - i * 0.02));
+      noise(0, 0.03, { type: 'highpass', freq: 5000, vol: 0.12 });
+      strike(0.19, 2637, 0.8, 0.12, BELL.slice(1));
+    } },
+    // Paying: a purse rustles open and coins are counted out.
+    pay: { fn: () => {
+      noise(0, 0.14, { freq: 1800, to: 900, q: 0.9, vol: 0.14 });
+      [0.12, 0.24, 0.36].forEach((at, i) => strike(at, 1900 - i * 160, 0.24, 0.15));
+    } },
+    // Goods arrive: a sack thumps down, then a wooden tok-tok.
+    gain: { fn: () => {
+      tone(0, 140, 0.16, { vol: 0.35, to: 80 });
+      noise(0, 0.14, { type: 'lowpass', freq: 700, vol: 0.28 });
+      noise(0.02, 0.18, { freq: 2500, q: 0.6, vol: 0.08 });
+      marimba(0.13, 784, 0.22);
+      marimba(0.22, 1174.7, 0.24);
+    } },
+    // A wooden piece slides and is set down.
+    place: { wet: 0.1, level: -11, fn: () => {
+      noise(0, 0.07, { freq: 3500, q: 1.2, vol: 0.06, attack: 0.03 });
+      knock(0.06, 620, 0.45);
+    } },
+    // Construction: a run of hammer blows, light taps then full swings, each nail ringing.
+    build: { wet: 0.2, level: -6, fn: () => {
+      [[0, 0.55], [0.17, 0.65], [0.42, 0.8], [0.6, 0.85], [0.78, 0.9], [1.02, 0.9], [1.2, 1], [1.38, 1], [1.7, 1]].forEach(([at, v], i) => {
+        noise(at, 0.025, { type: 'highpass', freq: 3000, vol: 0.22 * v, attack: 0.001 });
+        strike(at, 1650 + (i % 5) * 45 + Math.random() * 60, 0.3, 0.14 * v);
+        tone(at, 220, 0.26, { vol: 0.6 * v, to: 95, attack: 0.002 });
+        tone(at, 440, 0.12, { type: 'triangle', vol: 0.2 * v, to: 260, attack: 0.002 });
+        noise(at, 0.16, { type: 'lowpass', freq: 1000, vol: 0.4 * v, attack: 0.002 });
       });
-    },
-    // A big footstep.
-    stomp: () => {
-      tone(0, 95, 0.28, { vol: 0.55, to: 45 });
-      noise(0, 0.2, { type: 'lowpass', freq: 400, vol: 0.3 });
-    },
-    // Drawing or taking a card: a paper swish.
-    card: () => noise(0, 0.2, { freq: 1200, to: 4200, q: 0.8, vol: 0.16 }),
-    // Rolling a die: a short rattle.
-    dice: () => {
-      for (let i = 0; i < 6; i++) {
-        const at = i * 0.07 + Math.random() * 0.03;
-        noise(at, 0.03, { type: 'highpass', freq: 2600, vol: 0.18 });
-        tone(at, 320 + Math.random() * 260, 0.04, { type: 'triangle', vol: 0.08 });
-      }
-    },
-    // Something new hatching or joining.
-    hatch: () => {
-      tone(0, 523.3, 0.16, { vol: 0.18, to: 1046.5 });
-      tone(0.12, 1568, 0.25, { type: 'triangle', vol: 0.1 });
-    },
-    // Feeding: a few quick bites.
-    munch: () => {
-      [0, 0.11, 0.22].forEach((at) => noise(at, 0.07, { type: 'lowpass', freq: 900, vol: 0.28 }));
-    },
-    // A card or event turning over.
-    reveal: () => {
-      [1046.5, 1318.5, 1568].forEach((f, i) => tone(i * 0.06, f, 0.5, { vol: 0.08 }));
-      noise(0, 0.25, { freq: 3000, to: 6000, q: 0.7, vol: 0.06 });
-    },
-    // It's your turn again.
-    turn: () => {
-      tone(0, 784, 0.25, { vol: 0.14 });
-      tone(0.12, 1046.5, 0.4, { vol: 0.14 });
-    },
-    // Success: driven off, goal scored.
-    good: () => {
-      [523.3, 659.3, 784, 1046.5].forEach((f, i) => tone(i * 0.07, f, 0.35, { type: 'triangle', vol: 0.15 }));
-    },
-    // Setback: breach, villagers leave, dinos lost.
-    bad: () => {
-      tone(0, 330, 0.3, { type: 'triangle', vol: 0.22, to: 262 });
-      tone(0.22, 262, 0.5, { type: 'triangle', vol: 0.22, to: 196 });
-    },
-    // Night falls / the attack: a low boom.
-    night: () => {
-      tone(0, 72, 1.2, { vol: 0.6, to: 38 });
-      noise(0, 0.9, { type: 'lowpass', freq: 260, vol: 0.35 });
-    },
-    win: () => {
-      [523.3, 659.3, 784].forEach((f, i) => tone(i * 0.12, f, 0.3, { type: 'triangle', vol: 0.16 }));
-      [523.3, 659.3, 784, 1046.5].forEach((f) => tone(0.38, f, 1.2, { type: 'triangle', vol: 0.11 }));
-    },
-    lose: () => {
-      [392, 349.2, 311.1].forEach((f, i) => tone(i * 0.22, f, 0.4, { type: 'triangle', vol: 0.16 }));
-      tone(0.66, 261.6, 1, { type: 'triangle', vol: 0.15 });
-    },
+    } },
+    // A stone block is dropped into place, with grit trickling off it.
+    wall: { wet: 0.18, level: -8, fn: () => {
+      [0, 0.3].forEach((at, i) => {
+        tone(at, 120 - i * 15, 0.26, { vol: 0.55, to: 60, attack: 0.002 });
+        noise(at, 0.06, { freq: 1400, q: 1.5, vol: 0.4, attack: 0.001 });
+        noise(at, 0.2, { type: 'lowpass', freq: 500, vol: 0.4, attack: 0.001 });
+      });
+      for (let i = 0; i < 9; i++) noise(0.34 + i * 0.03 + Math.random() * 0.03, 0.02, { type: 'highpass', freq: 3000 + Math.random() * 2000, vol: 0.12 });
+    } },
+    // A crossbow is cranked and loosed.
+    bow: { wet: 0.15, fn: () => {
+      for (let i = 0; i < 4; i++) noise(i * 0.07, 0.04, { freq: 900 + i * 120, q: 10, vol: 0.25 });
+      tone(0.32, 98, 0.6, { type: 'sawtooth', vol: 0.4, lp: 3200, lpTo: 260, lpAt: 0.3, vib: 0.012, vibRate: 9 });
+      knock(0.32, 420, 0.35);
+      noise(0.34, 0.25, { freq: 2500, to: 600, q: 1, vol: 0.12 });
+    } },
+    // Someone new walks up and whistles hello.
+    join: { wet: 0.15, fn: () => {
+      [0, 0.17].forEach((at) => {
+        noise(at, 0.05, { type: 'lowpass', freq: 1200, vol: 0.3 });
+        tone(at, 150, 0.08, { vol: 0.25, to: 90 });
+      });
+      tone(0.38, 1318.5, 0.15, { vol: 0.16, attack: 0.02, vib: 0.01, vibRate: 7 });
+      tone(0.54, 1760, 0.35, { vol: 0.16, attack: 0.02, vib: 0.015, vibRate: 7 });
+    } },
+    // A big dinosaur footstep: a thud through the ground and pebbles bouncing.
+    stomp: { wet: 0.2, level: -8, fn: () => {
+      tone(0, 70, 0.45, { vol: 0.7, to: 32, attack: 0.004 });
+      noise(0, 0.3, { type: 'lowpass', freq: 300, vol: 0.5 });
+      noise(0.01, 0.06, { freq: 800, q: 1, vol: 0.2 });
+      for (let i = 0; i < 7; i++) noise(0.08 + Math.random() * 0.3, 0.02, { type: 'highpass', freq: 2500 + Math.random() * 2500, vol: 0.09 });
+    } },
+    // A card flicked off the deck.
+    card: { wet: 0.08, level: -12, fn: () => {
+      noise(0, 0.12, { freq: 1200, to: 5000, q: 0.7, vol: 0.3, attack: 0.03 });
+      noise(0.1, 0.02, { type: 'highpass', freq: 3500, vol: 0.2, attack: 0.001 });
+      noise(0.11, 0.2, { freq: 4000, to: 1500, q: 0.6, vol: 0.18 });
+    } },
+    // Dice rattled in a cup, then tumbling across the table.
+    dice: { wet: 0.12, fn: () => {
+      for (let i = 0; i < 7; i++) knock(i * 0.045 + Math.random() * 0.02, 1700 + Math.random() * 900, 0.12);
+      [0.42, 0.56, 0.66, 0.73, 0.78].forEach((at, i) => knock(at, 900 + Math.random() * 300, 0.35 - i * 0.05));
+    } },
+    // An egg cracks open and the hatchling chirps.
+    hatch: { level: -11, fn: () => {
+      [0, 0.14, 0.24].forEach((at, i) => {
+        noise(at, 0.05, { freq: 3000 + i * 500, q: 2.5, vol: 0.25, attack: 0.001 });
+        noise(at + 0.01, 0.03, { type: 'highpass', freq: 6000, vol: 0.12, attack: 0.001 });
+      });
+      [0.42, 0.6, 0.72].forEach((at, i) => tone(at, 2100 + i * 150, 0.14, { vol: 0.3, to: 3200, vib: 0.04, vibRate: 30, attack: 0.01 }));
+    } },
+    // Crunchy bites.
+    munch: { wet: 0.06, level: -11, fn: () => {
+      [0, 0.16, 0.32].forEach((at) => {
+        tone(at, 110, 0.07, { vol: 0.35, to: 70 });
+        for (let i = 0; i < 5; i++) noise(at + i * 0.012 + Math.random() * 0.01, 0.025, { freq: 1500 + Math.random() * 2500, q: 2, vol: 0.18, attack: 0.001 });
+      });
+    } },
+    // A whoosh and a harp run as something turns over.
+    reveal: { wet: 0.3, fn: () => {
+      noise(0, 0.35, { freq: 500, to: 4000, q: 0.8, vol: 0.16, attack: 0.15 });
+      [523.3, 659.3, 784, 1046.5, 1318.5, 1568].forEach((f, i) => pluck(0.12 + i * 0.045, f, 0.12));
+    } },
+    // Your turn: a handbell rung twice.
+    turn: { wet: 0.25, fn: () => {
+      strike(0, 880, 1.1, 0.12, BELL);
+      strike(0.2, 1174.7, 1.1, 0.1, BELL);
+    } },
+    // Success: a short horn call and a cymbal shimmer.
+    good: { wet: 0.25, fn: () => {
+      brass(0, 392, 0.2, 0.16);
+      brass(0.13, 523.3, 0.2, 0.16);
+      [523.3, 659.3, 784].forEach((f) => brass(0.26, f, 0.7, 0.11));
+      noise(0.26, 0.8, { type: 'highpass', freq: 6000, vol: 0.07, attack: 0.002 });
+    } },
+    // Setback: a muted horn sagging down.
+    bad: { wet: 0.15, fn: () => {
+      tone(0, 311.1, 0.3, { type: 'sawtooth', vol: 0.16, attack: 0.02, hold: 0.15, lp: 900, lpTo: 400 });
+      tone(0.32, 261.6, 0.75, { type: 'sawtooth', vol: 0.16, attack: 0.02, hold: 0.3, to: 220, glide: 0.65, lp: 800, lpTo: 300, vib: 0.02, vibRate: 6 });
+      drum(0.32, 60, 0.3, 0.3);
+    } },
+    // Night falls and the attack comes: war drums, a gong and wind.
+    night: { wet: 0.35, level: -7, fn: () => {
+      drum(0, 55, 0.6, 0.7);
+      drum(0.42, 55, 0.6, 0.7);
+      drum(0.66, 50, 1, 0.85);
+      strike(0.66, 98, 1.8, 0.2, BELL);
+      noise(0.5, 1.4, { freq: 300, to: 900, q: 0.6, vol: 0.09, attack: 0.5 });
+    } },
+    // Victory fanfare with a timpani hit and cymbal.
+    win: { wet: 0.3, fn: () => {
+      [0, 0.15, 0.3].forEach((at) => brass(at, 392, 0.13, 0.15));
+      [523.3, 659.3, 784].forEach((f) => brass(0.45, f, 1.4, 0.12));
+      drum(0.45, 65, 0.6, 0.55);
+      noise(0.45, 1.4, { type: 'highpass', freq: 5000, vol: 0.1, attack: 0.002 });
+    } },
+    // Defeat: a sad trombone.
+    lose: { wet: 0.2, fn: () => {
+      [293.7, 277.2, 261.6].forEach((f, i) => brass(i * 0.38, f, 0.34, 0.16, { bright: 3 }));
+      brass(1.14, 246.9, 1.2, 0.16, { bright: 3, vib: 0.025, vibRate: 5 });
+    } },
   };
 
   function sfx(name) {
@@ -423,7 +553,7 @@
     e.volume = 1;
     const p = e.play();
     if (p && p.catch) p.catch(() => {});
-    duck();
+    duck(clipLen[name] || 0.5);
   }
 
   // ---------------------------------------------------------------- unlocking

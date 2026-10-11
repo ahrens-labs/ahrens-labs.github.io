@@ -776,6 +776,10 @@ button.ev-opt:hover:not(:disabled) { background: #fff1c9; box-shadow: inset 0 0 
 .ev-opt.picked { box-shadow: inset 0 0 0 2px var(--good); background: #eef7e8; }
 .ev-opt small { font-size: 0.8rem; color: #5a4630; }
 .ev-opt em { color: var(--bad); font-style: normal; }
+.ev-pop { max-width: 520px; }
+.ev-pop .ev-head h2 { margin: 0; }
+.ev-pop .ev-icon { font-size: 2.6rem; }
+.ev-have { display: flex; flex-wrap: wrap; gap: 0.2rem 0.6rem; margin: 0 0 0.6rem; font-size: 0.85rem; color: #5a4630; }
 
 .goals-panel h3 .muted { display: block; font-size: 0.72rem; font-weight: 500; margin-top: 0.15rem; }
 .goal-list { list-style: none; margin: 0.4rem 0 0; padding: 0; display: grid; gap: 0.4rem; }
