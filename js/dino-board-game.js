@@ -3138,7 +3138,7 @@
     const evTxt = E ? `${E.name} ${state.event === 'heatwave' ? '+1' : '−1'} per enclosure` : '';
     const ev = E ? `<small class="fn-n ev" title="${esc(E.desc)}">${E.icon}${feedOpen ? ` ${evTxt}` : ''}</small>` : '';
     const sum = feedOpen ? '' : `<span class="fn-sum">${costChips(sumCosts(costs))}</span>`;
-    return `<div class="feed-need${feedOpen ? ' open' : ''}"><button type="button" class="fn-h" data-act="feedToggle" aria-expanded="${feedOpen}" title="${feedOpen ? 'Hide' : 'Show'} what each enclosure eats">
+    return `<div class="feed-need${feedOpen ? ' open' : ''}"><button type="button" class="fn-h" data-act="feedNeedOpen" aria-expanded="${feedOpen}" title="${feedOpen ? 'Hide' : 'Show'} what each enclosure eats">
       <span class="fn-t">🍽️ ${later ? 'Next Feeding needs' : 'Feeding needs'}</span>${ev}${sum}<span class="fn-arrow" aria-hidden="true">▾</span></button>${feedOpen ? `<div class="fn-tab">${rows}${tot}</div>` : ''}</div>`;
   }
 
@@ -4277,7 +4277,7 @@
       renderBoards();
       return;
     }
-    if (act === 'feedToggle') {
+    if (act === 'feedNeedOpen') {
       feedOpen = !feedOpen;
       localStorage.setItem('dino_feed_open', feedOpen ? '1' : '0');
       renderBoards();
@@ -4973,7 +4973,7 @@
   }
 
   // ---------------------------------------------------------------- computer player
-  const FREE_ACTS = new Set(['viewBoard', 'feedToggle', 'simOpen', 'simOpt', 'simStart', 'simSpeed', 'simStop', 'simAgain', 'fullLog', 'viewCard', 'rules', 'rulesTab', 'goals', 'book', 'closeModal', 'newGame', 'confirmYes', 'aiSettings', 'setAiOpt', 'onlineLeave', 'onlineResign', 'olRematch', 'replayReveal']);
+  const FREE_ACTS = new Set(['viewBoard', 'feedNeedOpen', 'simOpen', 'simOpt', 'simStart', 'simSpeed', 'simStop', 'simAgain', 'fullLog', 'viewCard', 'rules', 'rulesTab', 'goals', 'book', 'closeModal', 'newGame', 'confirmYes', 'aiSettings', 'setAiOpt', 'onlineLeave', 'onlineResign', 'olRematch', 'replayReveal']);
   const AI_LEVELS = { easy: 'Easy', medium: 'Normal', hard: 'Hard' };
   const AI_PACES = { fast: 'Fast', medium: 'Medium', slow: 'Slow' };
   const AI_LEVEL_HELP = { easy: 'Plays for fun and makes mistakes', medium: 'Plans one move at a time', hard: 'Plays to win: plans fences, cards and the whole game' };
