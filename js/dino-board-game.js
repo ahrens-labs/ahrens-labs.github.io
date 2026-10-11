@@ -5075,7 +5075,7 @@
     render();
   }
   // How the computer weighs choices in the 15-round rules (tuned by self-play).
-  const PW = { goal: 1.6, cvLate: 0.1, cvMid: 0.3, cvEarly: 0.5, prodMin: 0.35, prodW: 0.6, foodW: 0.35, foodIncome: 5, hungerSpare: 0.8, hungerDef: 0.6, dia: 1.5, breedGrown: 0.75, breedYoung: 0.5, breedHunger: 0.5, pair: 0.6, feeder: 0.35, water: 2.5, scout: 0.6, first: 0.45, lastShort: 3, short: 1.3, next: 0.6, fenceLate: 0.1, fenceW: 0.4, coinBonus: 0.4, gemWant: 2, gemCost: 0.7, power: 1 };
+  const PW = { goal: 1.6, cvLate: 0.1, cvMid: 0.3, cvEarly: 0.5, prodMin: 0.35, prodW: 0.6, foodW: 0.35, foodIncome: 5, hungerSpare: 0.8, hungerDef: 0.6, dia: 1.5, breedGrown: 0.95, breedYoung: 0.6, breedHunger: 0.5, pair: 0.9, room: 0.45, herdMax: 4, seed: 0.35, feeder: 0.35, water: 2.5, scout: 0.6, first: 0.45, lastShort: 3, short: 1.3, next: 0.6, fenceLate: 0.1, fenceW: 0.4, coinBonus: 0.4, gemWant: 2, gemCost: 0.7, power: 1 };
   function pw() {
     return tune().pw || PW;
   }
@@ -6652,8 +6652,9 @@
     protoPlayOptions(p, freeTask, extra).filter((o) => o.ok).forEach((o) => {
       const first = aiFindCellsB(b, spec(o.sp).space, o.sp);
       if (!first) return;
-      // Also try joining a lone adult of the same species, which starts a breeding pair.
-      const spots = [first].concat(an.comps.filter((cp) => cp.living.filter((d) => d.species === o.sp && isAdult(d)).length === 1)
+      // Also try each enclosure with room: joining a lone adult of the same species starts a breeding pair,
+      // and a roomy pen leaves space for a mate and babies later.
+      const spots = [first].concat(an.comps.filter((cp) => cp.valid && !cp.dead && cp.empty >= spec(o.sp).space)
         .map((cp) => aiFindCellsB(b, spec(o.sp).space, o.sp, cp.key)).filter(Boolean));
       let cells = first;
       let value = -Infinity;
@@ -6686,14 +6687,21 @@
   }
 
   // A second adult in an enclosure lets a Breed worker add babies there while there's room.
+  // The first of a species in a pen with room for a mate and a baby is worth a little for the pair it can start.
   function protoPairValue(p, sp, cells, an) {
     const home = an.comps[an.compOf[cells[0]]];
-    if (!home || home.living.filter((d) => d.species === sp && isAdult(d)).length !== 1) return 0;
+    if (!home) return 0;
+    const adults = home.living.filter((d) => d.species === sp && isAdult(d)).length;
+    if (adults > 1) return 0;
     const b = state.players[p].board;
     const left = protoRoundsLeft();
     const S = spec(sp);
     const owed = home.dinos.filter((d) => d.stage).reduce((s, d) => s + growExtra(d), 0);
     const free = home.cells.filter((i) => b.cells[i] === 0).length - cells.length - owed;
+    if (adults === 0) {
+      const seed = pw().seed || 0;
+      return seed && free >= S.space + babySize(sp) && left - PROTO_BABY_FEEDS >= 2 ? S.pts * seed : 0;
+    }
     if (free < babySize(sp)) return 0;
     const grows = Math.max(0, Math.min(left - PROTO_BABY_FEEDS, Math.floor(free / S.space)));
     return grows * S.pts * pw().pair + Math.ceil(S.pts / 2) * 0.5;
@@ -6776,9 +6784,17 @@
     });
     if (!wants.length) wants.push({ space: 4, v: 2 });
     const waste = known.includes('full') ? 0.35 : 0.2;
+    // Big pens pay off by breeding: room for a pair and the babies they raise, while there's time to grow up.
+    const W = pw();
+    const room = (W.room || 0) * clamp((protoRoundsLeft() - PROTO_BABY_FEEDS) / 3, 0, 1);
     const fit = (area) => {
       let best = -Infinity;
-      wants.forEach((w) => { if (w.space <= area) best = Math.max(best, w.v - (area - w.space) * waste); });
+      wants.forEach((w) => {
+        if (w.space > area) return;
+        const n = Math.floor(area / w.space);
+        const herd = Math.min(n, W.herdMax || 1) - 1;
+        best = Math.max(best, w.v + herd * w.v * room - (area - n * w.space) * waste);
+      });
       return best + (known.includes('roomy') && area >= 12 ? 1 : 0);
     };
     let edges = [];
@@ -6806,7 +6822,7 @@
         for (let r1 = r0; r1 < N; r1++) {
           for (let c1 = c0; c1 < N; c1++) {
             const area = (r1 - r0 + 1) * (c1 - c0 + 1);
-            if (area > 20) break;
+            if (area > 24) break;
             if ((r0 === 0) + (r1 === N - 1) + (c0 === 0) + (c1 === N - 1) > 2) continue;
             let ok = true;
             for (let r = r0; r <= r1 && ok; r++) {
