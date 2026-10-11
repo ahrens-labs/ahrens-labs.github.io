@@ -346,6 +346,7 @@
   let lastTurnKey = null;
   let lastClickRect = null;
   let prevRes = null;
+  let eggsSeen = null; // your egg ids at the last board render, to hear them hatch
   let resFx = [{}, {}];
   let pendingCard = null;
   let pendingConfirm = null;
@@ -411,6 +412,7 @@
   function resetFx() {
     fxSeen.clear();
     prevRes = null;
+    eggsSeen = null;
     resFx = [{}, {}];
     lastTurnKey = null;
     pendingCard = null;
@@ -2941,6 +2943,10 @@
         </div>`;
       })
       .join(''));
+    // Your eggs hatching at the start of a round.
+    const homeDinos = Object.values(state.players[homePlayer()].board.items).filter((it) => it.kind === 'dino' && !it.dead);
+    if (eggsSeen && homeDinos.some((it) => it.stage === 'baby' && eggsSeen.includes(it.id))) sfx('hatch', 250);
+    eggsSeen = homeDinos.filter((it) => it.stage === 'egg').map((it) => it.id);
     if (!changed || !changes.length) return;
     const hp = homePlayer();
     const mineCh = changes.filter((c) => c.p === hp);
@@ -4434,7 +4440,8 @@
     const P = p !== undefined ? state.players[p] : null;
     const O = p !== undefined ? state.players[other(p)] : null;
     if (!theirTurn(T)) {
-      const k = { roll: 'dice', rollBonus: 'dice', carnoRoll: 'dice', confirmFences: 'place', place: 'stomp', birthAuto: 'hatch', growAuto: 'hatch', maiaBreed: 'hatch', take: 'card', confirmFeed: 'munch' }[act];
+      const k = act === 'place' ? { birth: 'hatch', grow: 'grow' }[T.t] || 'stomp'
+        : { roll: 'dice', rollBonus: 'dice', carnoRoll: 'dice', confirmFences: 'place', maiaBreed: 'hatch', take: 'card', confirmFeed: 'munch' }[act];
       if (k) sfx(k);
       else if (act === 'confirmGain' && ui.sel && ui.sel.edges && ui.sel.edges.size) sfx('place');
     }
@@ -7463,6 +7470,7 @@
     state = repairFences(view.state);
     resetFx();
     prevRes = null;
+    eggsSeen = null;
     lastTurnKey = null;
     applyMeta(view);
     ui = freshUi();

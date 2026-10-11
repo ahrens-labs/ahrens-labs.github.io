@@ -334,6 +334,29 @@
     return new Blob([buf], { type: 'audio/wav' });
   }
 
+  // RBJ high-pass biquad, used to level clips by what a phone speaker can actually play.
+  function highpass(x, sr, f) {
+    const w = (2 * Math.PI * f) / sr;
+    const al = Math.sin(w) / (2 * Math.SQRT1_2);
+    const c = Math.cos(w);
+    const a0 = 1 + al;
+    const b0 = (1 + c) / 2 / a0;
+    const b1 = -(1 + c) / a0;
+    const a1 = (-2 * c) / a0;
+    const a2 = (1 - al) / a0;
+    const y = new Float32Array(x.length);
+    let x1 = 0, x2 = 0, y1 = 0, y2 = 0;
+    for (let i = 0; i < x.length; i++) {
+      const v = b0 * x[i] + b1 * x1 + b0 * x2 - a1 * y1 - a2 * y2;
+      x2 = x1;
+      x1 = x[i];
+      y2 = y1;
+      y1 = v;
+      y[i] = v;
+    }
+    return y;
+  }
+
   function renderClips() {
     if (rendering) return rendering;
     const OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
@@ -363,18 +386,19 @@
       }).then((b) => [name, b]);
     });
     rendering = Promise.all(jobs).then((list) => {
-      // Each clip is levelled by its loudest 300 ms (so short clicks aren't buried under music) and its
-      // peaks are soft-limited.
+      // Each clip is levelled by its loudest 300 ms above 350 Hz (what phone and laptop speakers play, so
+      // short clicks and thuds aren't lost under the music), with sub-bass trimmed and peaks soft-limited.
       list.forEach(([name, b]) => {
         if (!b) return;
-        const x = b.getChannelData(0);
+        const x = highpass(b.getChannelData(0), sr, 90);
         const p = x.reduce((m, v) => Math.max(m, Math.abs(v)), 0);
         if (!p) return;
+        const band = highpass(x, sr, 350);
         const w = Math.floor(sr * 0.3);
         let loud = 0;
-        for (let i = 0; i + w <= x.length; i += 1024) {
+        for (let i = 0; i + w <= band.length; i += 1024) {
           let e = 0;
-          for (let j = i; j < i + w; j += 2) e += x[j] * x[j];
+          for (let j = i; j < i + w; j += 2) e += band[j] * band[j];
           loud = Math.max(loud, (2 * e) / w);
         }
         const g = Math.min(Math.pow(10, (SFX[name].level || -10) / 20) / Math.sqrt(loud || 1e-9), 4 / p);
@@ -442,6 +466,7 @@
         noise(at, 0.025, { type: 'highpass', freq: 3000, vol: 0.22 * v, attack: 0.001 });
         strike(at, 1650 + (i % 5) * 45 + Math.random() * 60, 0.3, 0.14 * v);
         tone(at, 220, 0.26, { vol: 0.6 * v, to: 95, attack: 0.002 });
+        knock(at, 380, 0.4 * v);
         tone(at, 440, 0.12, { type: 'triangle', vol: 0.2 * v, to: 260, attack: 0.002 });
         noise(at, 0.16, { type: 'lowpass', freq: 1000, vol: 0.4 * v, attack: 0.002 });
       });
@@ -449,16 +474,18 @@
     // A stone block is dropped into place, with grit trickling off it.
     wall: { wet: 0.18, level: -8, fn: () => {
       [0, 0.3].forEach((at, i) => {
-        tone(at, 120 - i * 15, 0.26, { vol: 0.55, to: 60, attack: 0.002 });
-        noise(at, 0.06, { freq: 1400, q: 1.5, vol: 0.4, attack: 0.001 });
-        noise(at, 0.2, { type: 'lowpass', freq: 500, vol: 0.4, attack: 0.001 });
+        tone(at, 130 - i * 15, 0.22, { vol: 0.22, to: 70, attack: 0.002 });
+        knock(at, 420 - i * 40, 0.6);
+        noise(at, 0.12, { freq: 1600, q: 1.2, vol: 0.5, attack: 0.001 });
+        noise(at, 0.25, { freq: 700, q: 0.8, vol: 0.3, attack: 0.001 });
       });
-      for (let i = 0; i < 9; i++) noise(0.34 + i * 0.03 + Math.random() * 0.03, 0.02, { type: 'highpass', freq: 3000 + Math.random() * 2000, vol: 0.12 });
+      for (let i = 0; i < 14; i++) noise(0.34 + i * 0.028 + Math.random() * 0.03, 0.025, { freq: 2000 + Math.random() * 3000, q: 1.5, vol: 0.22, attack: 0.001 });
+      noise(0.34, 0.45, { freq: 3500, q: 0.7, vol: 0.08, attack: 0.05 });
     } },
     // A crossbow is cranked and loosed.
     bow: { wet: 0.15, fn: () => {
       for (let i = 0; i < 4; i++) noise(i * 0.07, 0.04, { freq: 900 + i * 120, q: 10, vol: 0.25 });
-      tone(0.32, 98, 0.6, { type: 'sawtooth', vol: 0.4, lp: 3200, lpTo: 260, lpAt: 0.3, vib: 0.012, vibRate: 9 });
+      tone(0.32, 146.8, 0.6, { type: 'sawtooth', vol: 0.4, lp: 3500, lpTo: 400, lpAt: 0.3, vib: 0.012, vibRate: 9 });
       knock(0.32, 420, 0.35);
       noise(0.34, 0.25, { freq: 2500, to: 600, q: 1, vol: 0.12 });
     } },
@@ -473,10 +500,11 @@
     } },
     // A big dinosaur footstep: a thud through the ground and pebbles bouncing.
     stomp: { wet: 0.2, level: -8, fn: () => {
-      tone(0, 70, 0.45, { vol: 0.7, to: 32, attack: 0.004 });
-      noise(0, 0.3, { type: 'lowpass', freq: 300, vol: 0.5 });
-      noise(0.01, 0.06, { freq: 800, q: 1, vol: 0.2 });
-      for (let i = 0; i < 7; i++) noise(0.08 + Math.random() * 0.3, 0.02, { type: 'highpass', freq: 2500 + Math.random() * 2500, vol: 0.09 });
+      tone(0, 90, 0.4, { vol: 0.25, to: 40, attack: 0.004 });
+      tone(0, 300, 0.2, { type: 'triangle', vol: 0.55, to: 140, attack: 0.003 });
+      noise(0, 0.28, { freq: 700, q: 0.7, vol: 0.6, attack: 0.002 });
+      noise(0.01, 0.08, { freq: 1500, q: 1, vol: 0.25, attack: 0.001 });
+      for (let i = 0; i < 9; i++) noise(0.08 + Math.random() * 0.35, 0.025, { freq: 2000 + Math.random() * 3000, q: 1.5, vol: 0.18, attack: 0.001 });
     } },
     // A card flicked off the deck.
     card: { wet: 0.08, level: -12, fn: () => {
@@ -497,11 +525,18 @@
       });
       [0.42, 0.6, 0.72].forEach((at, i) => tone(at, 2100 + i * 150, 0.14, { vol: 0.3, to: 3200, vib: 0.04, vibRate: 30, attack: 0.01 }));
     } },
+    // A baby dinosaur grows up: a little growl that rises into a roar.
+    grow: { wet: 0.2, fn: () => {
+      tone(0, 170, 0.7, { type: 'sawtooth', vol: 0.3, to: 290, glide: 0.5, attack: 0.06, hold: 0.3, lp: 900, lpTo: 2600, lpAt: 0.45, vib: 0.03, vibRate: 24 });
+      noise(0, 0.7, { freq: 900, to: 1600, q: 1.2, vol: 0.12, attack: 0.06 });
+      knock(0.05, 300, 0.2);
+    } },
     // Crunchy bites.
     munch: { wet: 0.06, level: -11, fn: () => {
       [0, 0.16, 0.32].forEach((at) => {
-        tone(at, 110, 0.07, { vol: 0.35, to: 70 });
-        for (let i = 0; i < 5; i++) noise(at + i * 0.012 + Math.random() * 0.01, 0.025, { freq: 1500 + Math.random() * 2500, q: 2, vol: 0.18, attack: 0.001 });
+        knock(at, 320, 0.3);
+        noise(at, 0.08, { freq: 1800, q: 0.8, vol: 0.3, attack: 0.002 });
+        for (let i = 0; i < 6; i++) noise(at + i * 0.012 + Math.random() * 0.01, 0.04, { freq: 1200 + Math.random() * 2800, q: 1.5, vol: 0.3, attack: 0.001 });
       });
     } },
     // A whoosh and a harp run as something turns over.
@@ -525,15 +560,18 @@
     bad: { wet: 0.15, fn: () => {
       tone(0, 311.1, 0.3, { type: 'sawtooth', vol: 0.16, attack: 0.02, hold: 0.15, lp: 900, lpTo: 400 });
       tone(0.32, 261.6, 0.75, { type: 'sawtooth', vol: 0.16, attack: 0.02, hold: 0.3, to: 220, glide: 0.65, lp: 800, lpTo: 300, vib: 0.02, vibRate: 6 });
-      drum(0.32, 60, 0.3, 0.3);
+      knock(0.32, 200, 0.35);
     } },
     // Night falls and the attack comes: war drums, a gong and wind.
     night: { wet: 0.35, level: -7, fn: () => {
-      drum(0, 55, 0.6, 0.7);
-      drum(0.42, 55, 0.6, 0.7);
-      drum(0.66, 50, 1, 0.85);
-      strike(0.66, 98, 1.8, 0.2, BELL);
-      noise(0.5, 1.4, { freq: 300, to: 900, q: 0.6, vol: 0.09, attack: 0.5 });
+      [[0, 0.7], [0.42, 0.7], [0.66, 0.85]].forEach(([at, v]) => {
+        drum(at, 55, 0.6, 0.4 * v);
+        tone(at, 220, 0.22, { type: 'triangle', vol: 0.5 * v, to: 120, attack: 0.002 });
+        noise(at, 0.12, { freq: 900, q: 0.9, vol: 0.5 * v, attack: 0.001 });
+      });
+      strike(0.66, 196, 1.8, 0.2, BELL);
+      brass(0.7, 146.8, 1.3, 0.18, { bright: 6 });
+      noise(0.5, 1.4, { freq: 400, to: 1200, q: 0.6, vol: 0.14, attack: 0.5 });
     } },
     // Victory fanfare with a timpani hit and cymbal.
     win: { wet: 0.3, fn: () => {
