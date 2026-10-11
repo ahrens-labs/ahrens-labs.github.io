@@ -2154,7 +2154,6 @@
     const tot = [s[0].total, s[1].total];
     const w = tot[0] === tot[1] ? null : tot[0] > tot[1] ? 0 : 1;
     const verdict = revealVerdict(s, w);
-    sfx(w == null || w === homePlayer() || (state.ai == null && !online) ? 'win' : 'lose', 1500);
     const rows = scoreRows().filter(([, k]) => k === 'dinoPts' || s[0][k] || s[1][k]);
     const side = (p) => `<div class="rv-side pl-${state.players[p].color}">
         <span class="rv-crown">👑</span>
@@ -2198,6 +2197,7 @@
       verdictEl.innerHTML = tokify(`<div class="rv-head">${verdict.head}</div>`);
       totals.forEach((t, i) => { t.textContent = tot[i]; t.classList.add('done'); });
       if (!reduceMotion.matches) confetti();
+      sfx(w == null || w === homePlayer() || (state.ai == null && !online) ? 'win' : 'lose');
     };
 
     const finish = () => {
