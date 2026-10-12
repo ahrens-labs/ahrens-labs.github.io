@@ -33,11 +33,12 @@
   };
 
   // Silhouettes of an image in one colour, for haze and night tinting.
-  const SIL = new Map();
+  const SIL = new WeakMap();
   function silhouette(im, color) {
-    const key = (im.src || im.id || '') + color;
-    let c = SIL.get(key);
-    if (c && c.ready) return c;
+    let byColor = SIL.get(im);
+    if (!byColor) SIL.set(im, (byColor = new Map()));
+    let c = byColor.get(color);
+    if (c) return c;
     if (!im.width && !im.naturalWidth) return null;
     c = document.createElement('canvas');
     c.width = im.naturalWidth || im.width;
@@ -47,9 +48,44 @@
     g.globalCompositeOperation = 'source-in';
     g.fillStyle = color;
     g.fillRect(0, 0, c.width, c.height);
-    c.ready = true;
-    SIL.set(key, c);
+    byColor.set(color, c);
     return c;
+  }
+
+  // An out-of-focus copy of a sprite, px source pixels soft. Shrinking and scaling back up stands in for
+  // ctx.filter blur, which hangs headless Chromium on some frames. Cached per power-of-two step.
+  const SOFT = new WeakMap();
+  function softened(im, px) {
+    const lvl = Math.min(5, Math.round(Math.log2(px)));
+    if (lvl < 1) return im;
+    let byLvl = SOFT.get(im);
+    if (!byLvl) SOFT.set(im, (byLvl = new Map()));
+    let out = byLvl.get(lvl);
+    if (out) return out;
+    const iw = im.naturalWidth || im.width;
+    const ih = im.naturalHeight || im.height;
+    let src = im;
+    let cw = iw;
+    let ch = ih;
+    for (let i = 0; i < lvl && cw > 2 && ch > 2; i++) {
+      const c = document.createElement('canvas');
+      c.width = Math.ceil(cw / 2);
+      c.height = Math.ceil(ch / 2);
+      const cg = c.getContext('2d');
+      cg.imageSmoothingQuality = 'high';
+      cg.drawImage(src, 0, 0, c.width, c.height);
+      src = c;
+      cw = c.width;
+      ch = c.height;
+    }
+    out = document.createElement('canvas');
+    out.width = iw;
+    out.height = ih;
+    const og = out.getContext('2d');
+    og.imageSmoothingQuality = 'high';
+    og.drawImage(src, 0, 0, iw, ih);
+    byLvl.set(lvl, out);
+    return out;
   }
 
   // Procedural props drawn once into canvases, then used like any other cut-out.
@@ -277,13 +313,12 @@
           }
         }
         const b = (o.blur || 0) + blurAt(p.d);
-        if (b > 0.4) g.filter = `blur(${b.toFixed(1)}px)`;
-        if (o.filter) g.filter = (g.filter === 'none' ? '' : g.filter + ' ') + o.filter;
+        const pic = b > 0.4 ? softened(im, (b * 2 * ih) / h) : im;
         g.globalAlpha = a;
-        g.drawImage(im, -w / 2, -h, w, h);
+        g.drawImage(pic, -w / 2, -h, w, h);
         const fog = o.fog != null ? o.fog : fogAt(p.d);
         if (fog > 0.01 && env.haze) {
-          const s = silhouette(im, env.haze);
+          const s = silhouette(pic, env.haze);
           if (s) {
             g.globalAlpha = a * fog;
             g.drawImage(s, -w / 2, -h, w, h);
@@ -345,21 +380,13 @@
         const ph = hgt * (o.grow == null ? 1 : Math.min(1, pg * 1.6));
         const pa = project(ax, 0, az);
         if (!pa) continue;
-        add(pa.d, () => {
-          const b = blurAt(pa.d);
-          if (b > 0.4) g.filter = `blur(${b.toFixed(1)}px)`;
-          post(ax, az, ph + 10, o);
-        });
+        add(pa.d, () => post(ax, az, ph + 10, o));
         if (i < n && i + 1 < shown) {
           const bx = lerp(x1, x2, (i + 1) / n);
           const bz = lerp(z1, z2, (i + 1) / n);
           const pb = project(bx, 0, bz);
           if (!pb) continue;
-          add((pa.d + pb.d) / 2 + 1, () => {
-            const b = blurAt((pa.d + pb.d) / 2);
-            if (b > 0.4) g.filter = `blur(${b.toFixed(1)}px)`;
-            [0.34, 0.74].forEach((f) => rail(ax, az, bx, bz, hgt * f, o));
-          });
+          add((pa.d + pb.d) / 2 + 1, () => [0.34, 0.74].forEach((f) => rail(ax, az, bx, bz, hgt * f, o)));
         }
       }
     }
