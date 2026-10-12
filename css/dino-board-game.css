@@ -512,6 +512,17 @@ button { font-family: inherit; color: #000; }
 .pb-msg { font-size: 0.92rem; font-weight: 600; padding: 0.35rem 0.55rem; border-radius: 10px; }
 .pb-msg.ok { background: #dcf3cf; color: #2f6b1a; }
 .pb-msg.bad { background: #fff1ee; color: #a83a18; }
+.shape-ico { display: block; width: calc(var(--w) * 10px); height: calc(var(--h) * 10px); fill: var(--sc, #7a5a2c); stroke: rgba(0, 0, 0, 0.35); stroke-width: 0.8; }
+.shape-box { display: flex; gap: 0.75rem; align-items: flex-start; }
+.pb-shape { flex-shrink: 0; display: grid; place-items: center; min-width: 64px; min-height: 64px; padding: 6px; border-radius: 12px; background: #f6efdf; }
+.pb-shape .shape-ico { width: calc(var(--w) * 14px); height: calc(var(--h) * 14px); }
+.pb-main { flex: 1; min-width: 0; display: grid; gap: 0.35rem; justify-items: start; }
+.dc-shape, .m-shape { position: absolute; left: 4px; top: 4px; padding: 3px; border-radius: 6px; background: rgba(255, 250, 238, 0.92); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35); line-height: 0; }
+.dc-shape .shape-ico { width: calc(var(--w) * 7px); height: calc(var(--h) * 7px); }
+.m-shape { left: 2px; top: 2px; padding: 2px; }
+.m-shape .shape-ico { width: calc(var(--w) * 5px); height: calc(var(--h) * 5px); }
+.dm-shape { display: inline-block; vertical-align: middle; padding: 3px; border-radius: 6px; background: #f6efdf; }
+.dm-shape .shape-ico { width: calc(var(--w) * 9px); height: calc(var(--h) * 9px); }
 
 /* ---------- Dino cards ---------- */
 .card-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 0.5rem 0; perspective: 900px; }

@@ -347,6 +347,7 @@
   let lastClickRect = null;
   let prevRes = null;
   let eggsSeen = null; // your egg ids at the last board render, to hear them hatch
+  let lastGhost = null;
   let resFx = [{}, {}];
   let pendingCard = null;
   let pendingConfirm = null;
@@ -694,6 +695,130 @@
     return seen.size === set.size;
   }
 
+  // ---------------------------------------------------------------- dino shapes (15-round games started on rules 16+)
+  // Each dino fills a fixed shape ('#' = a square) that can be turned 4 ways, like a Tetris piece (no flipping).
+  // A baby fills the first half of its shape, so the grown-up shape can always be laid over it.
+  const SHAPES = {
+    compy: ['##'],
+    microraptor: ['##'],
+    oviraptor: ['##'],
+    velociraptor: ['##', '#.'],
+    dilophosaurus: ['###'],
+    pachy: ['##', '##'],
+    parasaurolophus: ['#..', '###'],
+    gigantoraptor: ['.#.', '###'],
+    triceratops: ['##.', '###'],
+    spinosaurus: ['.#..', '####'],
+    carnotaurus: ['##..', '.###'],
+    ankylosaurus: ['#.#', '###'],
+    maiasaura: ['#..', '#..', '###'],
+    stegosaurus: ['.##.', '####'],
+    quetzalcoatlus: ['#..#', '####'],
+    allosaurus: ['..##', '####', '#.#.'],
+    brachiosaurus: ['##..', '#...', '####', '#..#'],
+    trex: ['..###', '#####', '.#.#.'],
+    giganotosaurus: ['....##', '######', '.#..#.'],
+    sauroposeidon: ['#...', '#...', '####', '####', '#..#'],
+    mosasaurus: ['.####.', '######', '######'],
+  };
+  const shapesOn = () => !!(state && state.proto && state.shapes);
+  const shapeCache = {};
+
+  // The distinct turns of a shape, each as sorted [row, col] squares starting at row 0, col 0.
+  function shapeTurns(sp, baby) {
+    const key = sp + (baby ? ':b' : '');
+    if (shapeCache[key]) return shapeCache[key];
+    let sq = [];
+    SHAPES[sp].forEach((row, r) => [...row].forEach((ch, c) => { if (ch === '#') sq.push([r, c]); }));
+    if (baby) {
+      const n = Math.max(1, Math.floor(sq.length / 2));
+      const has = (r, c) => sq.find((q) => q[0] === r && q[1] === c);
+      const out = [sq[0]];
+      for (let k = 0; k < out.length && out.length < n; k++) {
+        const [r, c] = out[k];
+        for (const q of [has(r - 1, c), has(r, c + 1), has(r + 1, c), has(r, c - 1)]) {
+          if (q && !out.includes(q) && out.length < n) out.push(q);
+        }
+      }
+      sq = out;
+    }
+    const turns = [];
+    const seen = new Set();
+    let t = sq;
+    for (let k = 0; k < 4; k++) {
+      const r0 = Math.min(...t.map((q) => q[0]));
+      const c0 = Math.min(...t.map((q) => q[1]));
+      const norm = t.map(([r, c]) => [r - r0, c - c0]).sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+      const id = norm.join(';');
+      if (!seen.has(id)) { seen.add(id); turns.push(norm); }
+      t = t.map(([r, c]) => [c, -r]);
+    }
+    shapeCache[key] = turns;
+    return turns;
+  }
+
+  function shapeFits(cells, sp, baby) {
+    const r0 = Math.min(...cells.map((i) => Math.floor(i / N)));
+    const c0 = Math.min(...cells.map((i) => i % N));
+    const id = cells.map((i) => [Math.floor(i / N) - r0, (i % N) - c0]).sort((a, b) => a[0] - b[0] || a[1] - b[1]).join(';');
+    return shapeTurns(sp, baby).some((t) => t.join(';') === id);
+  }
+
+  // [shorter side, longer side] of the shape's bounding box.
+  function shapeDims(sp) {
+    const t = shapeTurns(sp)[0];
+    const h = Math.max(...t.map((q) => q[0])) + 1;
+    const w = Math.max(...t.map((q) => q[1])) + 1;
+    return [Math.min(h, w), Math.max(h, w)];
+  }
+
+  function acrossFence(b, cells) {
+    const set = new Set(cells);
+    return cells.some((i) => (i % N < N - 1 && set.has(i + 1) && b.v[Math.floor(i / N) * FENCE_STRIDE + (i % N)]) || (set.has(i + N) && b.h[i]));
+  }
+
+  // Every spot for a dino's shape on empty squares in one live enclosure (only `onlyKey`'s, if given).
+  // `keep`: squares the piece already sits on (a growing baby); each spot must cover all of them.
+  function shapeSpots(b, sp, baby, onlyKey, keep, an) {
+    an = an || analyze(b);
+    const out = [];
+    const keepSet = new Set(keep || []);
+    shapeTurns(sp, baby).forEach((t) => {
+      const h = Math.max(...t.map((q) => q[0])) + 1;
+      const w = Math.max(...t.map((q) => q[1])) + 1;
+      for (let r = 0; r + h <= N; r++) {
+        for (let c = 0; c + w <= N; c++) {
+          const cells = t.map(([dr, dc]) => (r + dr) * N + c + dc);
+          const ci = an.compOf[cells[0]];
+          const cp = an.comps[ci];
+          if (!cp.valid || cp.dead || (onlyKey != null && cp.key !== onlyKey)) continue;
+          if (cells.some((i) => an.compOf[i] !== ci || (b.cells[i] !== 0 && !keepSet.has(i)))) continue;
+          if (keepSet.size && [...keepSet].some((i) => !cells.includes(i))) continue;
+          if (acrossFence(b, cells)) continue;
+          out.push({ cells, cp });
+        }
+      }
+    });
+    return out;
+  }
+
+  // How snugly a piece sits: sides touching the board edge, a fence, another enclosure or a filled square.
+  function snug(b, cells, an) {
+    const set = new Set(cells);
+    let n = 0;
+    cells.forEach((i) => {
+      const r = Math.floor(i / N);
+      const c = i % N;
+      [[r - 1, c], [r + 1, c], [r, c - 1], [r, c + 1]].forEach(([rr, cc]) => {
+        if (rr < 0 || cc < 0 || rr >= N || cc >= N) { n++; return; }
+        const j = rr * N + cc;
+        if (set.has(j)) return;
+        if (an.compOf[j] !== an.compOf[i] || b.cells[j] !== 0) n++;
+      });
+    });
+    return n;
+  }
+
   function enclosureName(n) {
     return n < 26 ? String.fromCharCode(65 + n) : String.fromCharCode(65 + (n % 26)) + Math.floor(n / 26);
   }
@@ -724,11 +849,12 @@
     }
     if (cells.some((i) => b.cells[i] !== 0)) return { ok: false, msg: 'Every square must be empty.' };
     if (!contiguous(cells)) return { ok: false, msg: 'Squares must connect side to side (diagonals don’t count).' };
+    if (spec.kind === 'dino' && shapesOn() && !shapeFits(cells, spec.species, spec.baby)) {
+      return { ok: false, msg: `That isn’t the ${spec.baby ? 'baby ' : ''}${spName(spec.species)}’s shape — turn it with ⟳ Rotate.` };
+    }
     const ci = an.compOf[cells[0]];
     if (cells.some((i) => an.compOf[i] !== ci)) return { ok: false, msg: 'All squares must be inside one enclosure.' };
-    const set = new Set(cells);
-    const fenced = cells.some((i) => (i % N < N - 1 && set.has(i + 1) && b.v[Math.floor(i / N) * FENCE_STRIDE + (i % N)]) || (set.has(i + N) && b.h[i]));
-    if (fenced) return { ok: false, msg: 'A piece can’t sit across a fence.' };
+    if (acrossFence(b, cells)) return { ok: false, msg: 'A piece can’t sit across a fence.' };
     const cp = an.comps[ci];
     if (!cp.valid) {
       return {
@@ -882,6 +1008,8 @@
   function roomFor(p, sp, an) {
     const b = state.players[p].board;
     const need = spec(sp).space;
+    const mixOk = (cp) => new Set(cp.species).add(sp).size <= 1 + cp.waters.length;
+    if (shapesOn()) return shapeSpots(b, sp, false, null, null, an).some((s) => mixOk(s.cp));
     return an.comps.some((cp) => {
       if (!cp.valid || cp.dead || cp.empty < need) return false;
       const kinds = new Set(cp.species);
@@ -1121,6 +1249,7 @@
     };
     if (proto) {
       state.proto = true;
+      state.shapes = true;
       state.deck = protoDeck();
       state.faceUp = state.deck.splice(0, PROTO_MARKET);
       state.players.forEach((P) => { P.book = []; });
@@ -1792,6 +1921,17 @@
       const free = cp.cells.filter((i) => b.cells[i] === 0).length;
       const owed = cp.dinos.filter((d) => d.stage).reduce((s, d) => s + growExtra(d), 0);
       if (free - owed < spec(T.sp).space) return null;
+      if (shapesOn()) {
+        let best = null;
+        shapeSpots(b, T.sp, true, cp.key, null, an).forEach((s) => {
+          const nb = cloneBoard(b);
+          placeItemB(nb, 'dino', s.cells, T.sp);
+          if (!growMore(nb, nb.items[nb.nextId - 1], spec(T.sp).space - s.cells.length)) return;
+          const v = snug(b, s.cells, an);
+          if (!best || v > best.v) best = { v, cells: s.cells };
+        });
+        return best ? best.cells : null;
+      }
     }
     const cells = aiFindCellsB(b, babySize(T.sp), T.sp, cp.key);
     if (!cells || !roomy) return cells;
@@ -1804,7 +1944,7 @@
     const b = state.players[p].board;
     const par = b.items[T.par];
     if (!par || par.dead) return { ok: false, msg: 'The parents are gone.' };
-    const v = validatePlacement(p, cells, { kind: 'dino', species: T.sp, size: babySize(T.sp) });
+    const v = validatePlacement(p, cells, { kind: 'dino', species: T.sp, size: babySize(T.sp), baby: true });
     if (!v.ok) return v;
     if (!v.comp.cells.includes(par.cells[0])) return { ok: false, msg: 'The baby must go in the enclosure with its parents.' };
     return Object.assign({}, v, { msg: `Baby fits in enclosure ${v.comp.name} ✔` });
@@ -1814,6 +1954,14 @@
   function growMore(b, it, extra) {
     const an = analyze(b);
     const home = an.compOf[it.cells[0]];
+    if (shapesOn() && it.kind === 'dino') {
+      let best = null;
+      shapeSpots(b, it.species, false, an.comps[home].key, it.cells, an).forEach((s) => {
+        const v = snug(b, s.cells, an);
+        if (!best || v > best.v) best = { v, cells: s.cells };
+      });
+      return best ? best.cells.filter((i) => !it.cells.includes(i)) : null;
+    }
     const free = new Set(an.comps[home].cells.filter((i) => b.cells[i] === 0));
     const seen = new Set(it.cells);
     const queue = it.cells.slice();
@@ -1838,6 +1986,9 @@
     const it = b.items[id];
     if (!it || it.stage !== 'baby') return { ok: false, msg: 'This baby is gone.' };
     const extra = growExtra(it);
+    if (shapesOn() && cells.length && !shapeFits(it.cells.concat(cells), it.species, false)) {
+      return { ok: false, msg: `The grown-up ${spName(it.species)}’s shape must cover the whole baby — turn it with ⟳ Rotate.` };
+    }
     if (cells.length !== extra) return { ok: false, msg: `Select ${extra} more square${extra === 1 ? '' : 's'} next to the baby (${cells.length} so far).` };
     if (cells.some((i) => b.cells[i] !== 0)) return { ok: false, msg: 'Every square must be empty.' };
     const an = analyze(b);
@@ -1845,8 +1996,7 @@
     if (cells.some((i) => an.compOf[i] !== home)) return { ok: false, msg: 'It has to grow inside its own enclosure.' };
     const all = it.cells.concat(cells);
     if (!contiguous(all)) return { ok: false, msg: 'The new squares must join the baby side to side.' };
-    const set = new Set(all);
-    if (all.some((i) => (i % N < N - 1 && set.has(i + 1) && b.v[Math.floor(i / N) * FENCE_STRIDE + (i % N)]) || (set.has(i + N) && b.h[i]))) return { ok: false, msg: 'A piece can’t sit across a fence.' };
+    if (acrossFence(b, all)) return { ok: false, msg: 'A piece can’t sit across a fence.' };
     return { ok: true, msg: `Room for an adult ${spName(it.species)} ✔` };
   }
 
@@ -2339,7 +2489,7 @@
     return `<div class="dcard t-${S.type} ${o.cls || ''}" ${o.attrs || ''} title="${esc(S.name)}">
       ${o.tag ? `<span class="dc-tag">${o.tag}</span>` : ''}
       <div class="dc-head"><div class="dc-name ${S.name.length > 11 && S.name.length <= 15 ? 'long' : ''}">${esc(S.name.length > 15 ? spName(sp) : S.name)}</div><div class="dc-pts" title="Points">${S.pts}</div></div>
-      <div class="dc-art" style="--sc:${S.color}"><img src="${IMG}${sp}.webp" alt="" draggable="false">${o.lock ? `<span class="dc-lock">🔒 ${o.lock}</span>` : ''}</div>
+      <div class="dc-art" style="--sc:${S.color}"><img src="${IMG}${sp}.webp" alt="" draggable="false">${(o.proto || shapesOn()) && SHAPES[sp] ? `<span class="dc-shape" title="Its shape (you can turn it)">${shapeSvg(sp)}</span>` : ''}${o.lock ? `<span class="dc-lock">🔒 ${o.lock}</span>` : ''}</div>
       <div class="dc-price"><small>${o.costLabel || 'Cost'}</small><b>${costText(o.cost || cardCost(sp))}</b></div>
       <div class="dc-facts">${statBox('space', `⬛${S.space}`, 'Squares it takes up')}${statBox('eats', foodText(S.food).replace(' ', ''), 'Food it eats every Feeding')}${statBox('earns', `🪙${S.prod}`, 'Coins it adds in Production')}</div>
       <div class="dc-ab"><span class="dc-type">${typeLabel(S, o.proto)}</span>${esc(S.ability)}</div>
@@ -2353,7 +2503,7 @@
     const title = `${S.name} · ${typeLabel(S)}: ${S.ability}`;
     const view = `data-act="viewCard" data-sp="${sp}" data-from="${from}"`;
     return `<div class="mini t-${S.type} ${attrs ? 'pick' : 'view'} ${cls || ''}" ${attrs || view} title="${esc(title)}">
-      <div class="ma" style="--sc:${S.color}"><img src="${IMG}${sp}.webp" alt="" draggable="false"><span class="mp">${S.pts}</span></div>
+      <div class="ma" style="--sc:${S.color}"><img src="${IMG}${sp}.webp" alt="" draggable="false"><span class="mp">${S.pts}</span>${shapesOn() && SHAPES[sp] ? `<span class="m-shape">${shapeSvg(sp)}</span>` : ''}</div>
       <div class="mn">${esc(spName(sp))}</div>
       <div class="ms">${costText(cardCost(sp))}</div>
       ${attrs ? `<button class="m-info" ${view} aria-label="See what ${esc(S.name)} does">i</button>` : ''}
@@ -2368,7 +2518,7 @@
     const viewer = online ? online.me : state.aiCfg ? 0 : T && T.p != null ? T.p : 0;
     const owned = state.players[viewer] && state.players[viewer].book.includes(sp);
     const facts = [
-      `<li>Costs <b>${costText(cardCost(sp))}</b> to play and fills <b>${plural(S.space, 'square')}</b> in one enclosure.</li>`,
+      `<li>Costs <b>${costText(cardCost(sp))}</b> to play and fills <b>${plural(S.space, 'square')}</b> in one enclosure${shapesOn() && SHAPES[sp] ? `, in this shape (turned any way): <span class="dm-shape" style="--sc:${S.color}">${shapeSvg(sp)}</span>` : ''}.</li>`,
       `<li>Eats <b>${foodText(S.food)}</b> every Feeding.</li>`,
       state.proto ? `<li>Adds <b>🪙${S.prod}</b> to its enclosure when you collect from it in Production.</li>` : `<li>Adds <b>🪙${S.prod}</b> when its enclosure is picked in Production.</li>`,
       `<li>Worth <b>${plural(S.pts, 'point')}</b> at the end if its enclosure is active.</li>`,
@@ -2582,6 +2732,8 @@
       out.push(`<g class="piece${fresh ? ' drop' : ''}"><rect x="${X(c) + 2}" y="${Y(r) + 2}" width="${CS - 4}" height="${CS - 4}" rx="6" fill="#857a69"/><image href="${IMG}rubble.webp" x="${X(c) + 3}" y="${Y(r) + 3}" width="${CS - 6}" height="${CS - 6}"/></g>`);
     }
     out.push('</g>');
+    const sh = sel && sel.type === 'cells' && sel.board === p && sel.cells.size ? shapeSel(sel) : null;
+    if (sh) out.push(ghostSvg([...sel.cells].concat(sh.keep), sh.sp, validateSel().ok, 'shape-sel'));
 
     // fences
     const fence = (x1, y1, x2, y2, fresh) => `<g class="fence${fresh ? ' new' : ''}">`
@@ -3575,6 +3727,20 @@
     const s = ui.sel;
     const v = validateSel();
     const n = s.cells.size;
+    const sh = shapeSel(s);
+    if (sh) {
+      const grow = sh.keep.length > 0;
+      const mine = !theirTurn(cur());
+      return `<div class="place-box shape-box">
+        <div class="pb-shape" style="--sc:${SPECIES[sh.sp].color}">${shapeSvg(sh.sp, sh.baby, grow ? 0 : ui.rot)}</div>
+        <div class="pb-main">
+          <div class="pb-title">${grow ? 'Lay the grown-up shape over the baby' : s.purpose === 'birth' ? 'Place the baby in its parents’ enclosure' : 'Place it inside one enclosure'}</div>
+          <div class="pb-msg ${v.ok ? 'ok' : 'bad'}">${n ? v.msg : grow ? 'Tap the baby to see where it grows.' : 'Tap a square to put it there.'}</div>
+          ${mine ? `<button class="btn sm ghost rot-btn" data-act="rotate">${grow ? '⟳ Next spot' : '⟳ Rotate'}</button>` : ''}
+          <div class="muted xtra">${grow ? 'The grown-up shape has to cover the whole baby.' : 'Turn it with ⟳, the R key or a right-click. No flipping.'}</div>
+        </div>
+      </div>`;
+    }
     return `<div class="place-box">
       <div class="pb-title">${title}</div>
       <div class="pb-count">Selected <b>${n}</b>${s.need ? ` / ${s.need}` : ''} square${n === 1 && !s.need ? '' : 's'}</div>
@@ -3608,7 +3774,7 @@
     const need = ui.sel && ui.sel.need ? ui.sel.need : S.space;
     const price = free ? ' (free!)' : ` · ${costText(state.proto ? protoTaskCost(ui.species, ui.pick && ui.pick.src, T, spaceExtra()) : cardCost(ui.species))}`;
     return `<div class="place-head">${dz(ui.species, 'big')}<h3>Place ${esc(S.name)}${price}</h3></div>
-      ${placementBox(`Select ${plural(need, 'connected square')} inside one enclosure`)}
+      ${placementBox(shapesOn() ? `Fit its ${need}-square shape inside one enclosure` : `Select ${plural(need, 'connected square')} inside one enclosure`)}
       <button class="btn big" data-act="place" ${v.ok ? '' : 'disabled'}>Place ${esc(spName(ui.species))}</button>
 `;
   }
@@ -3744,8 +3910,8 @@
     const an = analyze(state.players[T.p].board);
     const encl = an.comps[an.compOf[it.cells[0]]].name;
     return `<div class="place-head">${dz(it.species, 'big')}<h3>🍼 Baby ${esc(S.name)} is growing up!</h3></div>
-      <p>The baby with the flashing yellow ring${encl ? ` in enclosure <b>${esc(encl)}</b>` : ''} has been fed enough, so it grows into an adult. Pick <b>${plural(extra, 'more square')}</b> joined to it in its enclosure (an adult takes ${S.space}).${SPECIES[it.species].type === 'event' ? ' Its when-played power triggers once it’s grown.' : ''}</p>
-      ${placementBox(`Select ${plural(extra, 'empty square')} next to the baby`)}
+      <p>The baby with the flashing yellow ring${encl ? ` in enclosure <b>${esc(encl)}</b>` : ''} has been fed enough, so it grows into an adult. ${shapesOn() ? `Lay the grown-up shape over it in its enclosure (${S.space} squares, covering the whole baby).` : `Pick <b>${plural(extra, 'more square')}</b> joined to it in its enclosure (an adult takes ${S.space}).`}${SPECIES[it.species].type === 'event' ? ' Its when-played power triggers once it’s grown.' : ''}</p>
+      ${placementBox(shapesOn() ? 'Pick where the grown-up goes' : `Select ${plural(extra, 'empty square')} next to the baby`)}
       ${mine ? `<div class="btn-row"><button class="btn big" data-act="place" ${v.ok ? '' : 'disabled'}>Grow up</button></div>` : ''}`;
   }
 
@@ -3841,10 +4007,11 @@
   }
 
   // ---------------------------------------------------------------- selection validation
-  function validateSel() {
+  // `over`: check these squares instead of the selection (the shape preview under the mouse).
+  function validateSel(over) {
     const s = ui.sel;
     if (!s || s.type !== 'cells') return { ok: false, msg: '' };
-    const cells = [...s.cells];
+    const cells = over || [...s.cells];
     const P = state.players[s.board];
     if (s.purpose === 'rubble') {
       if (cells.length < s.need) return { ok: false, msg: `Pick ${s.need - cells.length} more.` };
@@ -3886,6 +4053,96 @@
       if (b.cells[i] === 0 && cp.valid && !cp.dead && (only === null || an.compOf[i] === only)) out.add(i);
     }
     return out;
+  }
+
+  // The shape a squares selection is placing (when dinos have shapes): { sp, baby, keep }.
+  function shapeSel(s) {
+    if (!shapesOn() || !s || s.type !== 'cells') return null;
+    if (s.purpose === 'dino') return { sp: s.species, baby: false, keep: [] };
+    const T = cur();
+    if (s.purpose === 'birth' && T && T.t === 'birth') return { sp: T.sp, baby: true, keep: [] };
+    const it = s.purpose === 'grow' && state.players[s.board].board.items[s.id];
+    return it ? { sp: it.species, baby: false, keep: it.cells } : null;
+  }
+
+  // Squares for the shape at board square i. A new piece is centred there in its current turn (nudged onto
+  // the board); a growing baby takes the spot over it whose middle is nearest i.
+  function shapePick(s, sh, i) {
+    if (sh.keep.length) {
+      const spots = shapeSpots(state.players[s.board].board, sh.sp, false, null, sh.keep);
+      const d = (cells) => cells.reduce((m, j) => m + Math.hypot(Math.floor(j / N) - Math.floor(i / N), (j % N) - (i % N)), 0) / cells.length;
+      return spots.length ? spots.reduce((a, x) => (d(x.cells) < d(a.cells) ? x : a)).cells : null;
+    }
+    const ts = shapeTurns(sh.sp, sh.baby);
+    const t = ts[(ui.rot || 0) % ts.length];
+    const h = Math.max(...t.map((q) => q[0])) + 1;
+    const w = Math.max(...t.map((q) => q[1])) + 1;
+    const a = t.reduce((m, q) => (Math.hypot(q[0] - (h - 1) / 2, q[1] - (w - 1) / 2) < Math.hypot(m[0] - (h - 1) / 2, m[1] - (w - 1) / 2) ? q : m));
+    const r0 = clamp(Math.floor(i / N) - a[0], 0, N - h);
+    const c0 = clamp((i % N) - a[1], 0, N - w);
+    return t.map(([r, c]) => (r0 + r) * N + c0 + c);
+  }
+
+  function placeShapeAt(i) {
+    const s = ui.sel;
+    const sh = shapeSel(s);
+    if (!sh) return;
+    const cells = shapePick(s, sh, i);
+    if (!cells) return;
+    s.cells = new Set(cells.filter((j) => !sh.keep.includes(j)));
+    s.at = i;
+    refreshSel();
+  }
+
+  // Turn the piece a quarter (a growing baby steps to its next spot instead).
+  function rotateShape() {
+    const s = ui.sel;
+    const sh = shapeSel(s);
+    if (!sh) return;
+    if (sh.keep.length) {
+      const spots = shapeSpots(state.players[s.board].board, sh.sp, false, null, sh.keep);
+      if (!spots.length) return;
+      const now = spots.findIndex((x) => x.cells.every((j) => s.cells.has(j) || sh.keep.includes(j)));
+      s.cells = new Set(spots[(now + 1) % spots.length].cells.filter((j) => !sh.keep.includes(j)));
+      refreshSel();
+      return;
+    }
+    ui.rot = ((ui.rot || 0) + 1) % 4;
+    if (s.at != null) placeShapeAt(s.at);
+    else refreshSel();
+  }
+
+  function refreshSel() {
+    const boards = document.getElementById('boards');
+    if (boards) boards._html = null;
+    ui.keepScroll = true;
+    lastGhost = null;
+    render();
+  }
+
+  // A piece's outline on the board: the chosen spot, or the preview under the mouse.
+  function ghostSvg(cells, sp, ok, cls) {
+    const set = new Set(cells);
+    const col = ok ? SPECIES[sp].color : '#263238';
+    const g = cells.map((i) => {
+      const x = PAD + (i % N) * CS;
+      const y = PAD + Math.floor(i / N) * CS;
+      const e = [];
+      if (Math.floor(i / N) === 0 || !set.has(i - N)) e.push(`M${x} ${y}h${CS}`);
+      if (Math.floor(i / N) === N - 1 || !set.has(i + N)) e.push(`M${x} ${y + CS}h${CS}`);
+      if (i % N === 0 || !set.has(i - 1)) e.push(`M${x} ${y}v${CS}`);
+      if (i % N === N - 1 || !set.has(i + 1)) e.push(`M${x + CS} ${y}v${CS}`);
+      return `<rect x="${x}" y="${y}" width="${CS}" height="${CS}" fill="${col}" fill-opacity="${ok ? 0.42 : 0.5}"/><path d="${e.join('')}" stroke="${ok ? '#fffbe0' : '#ff5252'}" stroke-width="3" stroke-linecap="square"${ok ? '' : ' stroke-dasharray="6 4"'} fill="none"/>`;
+    });
+    return `<g class="${cls}${ok ? ' ok' : ' bad'}" pointer-events="none">${g.join('')}</g>`;
+  }
+
+  function shapeSvg(sp, baby, turn) {
+    const ts = shapeTurns(sp, baby);
+    const t = ts[(turn || 0) % ts.length];
+    const h = Math.max(...t.map((q) => q[0])) + 1;
+    const w = Math.max(...t.map((q) => q[1])) + 1;
+    return `<svg class="shape-ico" viewBox="-1 -1 ${w * 10 + 2} ${h * 10 + 2}" style="--w:${w};--h:${h}" aria-hidden="true">${t.map(([r, c]) => `<rect x="${c * 10 + 0.5}" y="${r * 10 + 0.5}" width="9" height="9" rx="2"/>`).join('')}</svg>`;
   }
 
   function applyCell(i, adding, first) {
@@ -4144,6 +4401,7 @@
           <li>An enclosure is an area completely closed off by fences. It may use at most <b>two sides</b> of the board edge as walls; an area touching three or four edges isn’t an enclosure yet.</li>
           <li>Each enclosure gets a letter (A, B, C…) so you can tell them apart.</li>
           <li>Dinos, feeders and watering holes fill <b>connected</b> empty squares (side to side, not diagonal) inside one enclosure, and can’t sit across a fence.</li>
+          <li>Every dino has its own <b>shape</b>, shown on its card. Like a Tetris piece you can turn it any of 4 ways (⟳, the R key or a right-click), but not flip it.</li>
           <li>Each enclosure holds <b>one species</b>, plus one more for each 💧 watering hole in it (${costText(WATER_COST)}, ${WATER_SQUARES} squares).</li>
           <li>🌾 <b>Feeders</b> cost 💎1 + 🪙1 per square and can be any size. Each feeder square takes 1 food off that enclosure’s bill every Feeding.</li>
           <li>Splitting an enclosure with new fences is allowed. Any inactive or extinct status carries over to the new parts that hold dinos.</li>
@@ -4161,14 +4419,14 @@
           <li>A 🥚 Breed worker picks a species you have an <b>adult pair</b> of in one <b>active</b> enclosure. That pair has one baby in their enclosure.</li>
           <li>The top Breed space is free, the middle costs 🪙3 and the bottom (any number of workers) costs 🪙6. Breeding season makes all of them free.</li>
           <li>Each enclosure can breed <b>once per round</b>, so you can breed in several enclosures in the same round.</li>
-          <li>Babies take half the squares (rounded down, at least 1), and eat, earn and score half (rounded up). They have no when-played or every-round powers.</li>
-          <li>Once a baby has been fed in ${PROTO_BABY_FEEDS} Feedings (1 with an adult Maiasaura in the enclosure; the Nursery event counts double) it <b>grows up</b> at the start of the next round: it fills squares for its full size in its own enclosure — or dies if there isn’t room — and its when-played power triggers.</li>
+          <li>Babies take half the squares (rounded down, at least 1) — the first half of their shape — and eat, earn and score half (rounded up). They have no when-played or every-round powers.</li>
+          <li>Once a baby has been fed in ${PROTO_BABY_FEEDS} Feedings (1 with an adult Maiasaura in the enclosure; the Nursery event counts double) it <b>grows up</b> at the start of the next round: its full shape is laid over it in its own enclosure — or dies if there isn’t room — and its when-played power triggers.</li>
           <li>T. Rex blocks stop breeding that species too.</li>
         </ul>`,
       dinos: `<h3>Buying dinos</h3>
         <ul>
           <li>Use a 🦖 Play a dino worker to buy a face-up market card or one you reserved. Pay its cost and fill its squares in one enclosure.</li>
-          <li>You need a valid spot: enough connected empty squares in one enclosure that isn’t extinct and has room for another species if needed.</li>
+          <li>You need a valid spot: room for its shape on empty squares in one enclosure that isn’t extinct and has room for another species if needed.</li>
           <li>Reserve cards with 🔭 Scout (up to ${PROTO_HAND_MAX} in your hand). Only you can buy them, and they cost 🪙${PROTO_RESERVE_OFF} less. Reserved cards stay in your hand until you play them.</li>
           <li>A bought market card is replaced from the deck right away.</li>
           <li>A dino blocked by T. Rex can’t be bought or bred by that player until the block ends.</li>
@@ -4701,6 +4959,9 @@
         render();
         break;
       }
+      case 'rotate':
+        rotateShape();
+        break;
       case 'growAuto': {
         const it = T.t === 'grow' && ui.sel && state.players[p].board.items[T.id];
         const cells = it && growMore(state.players[p].board, it, growExtra(it));
@@ -5420,6 +5681,16 @@
     const an = analyze(b);
     const mixing = !!sp && !!state.proto && protoKnownGoals().includes('mixed');
     let best = null;
+    if (sp && shapesOn() && (size === spec(sp).space || size === babySize(sp))) {
+      shapeSpots(b, sp, size !== spec(sp).space, onlyKey, null, an).forEach(({ cells, cp }) => {
+        if (new Set(cp.species).add(sp).size > 1 + cp.waters.length) return;
+        let score = (cp.species.has(sp) ? 30 : 0) + cp.prod * 2 - (cp.empty - size) * 0.4 + snug(b, cells, an) * 0.5 - (cp.inactive ? 20 : 0);
+        if (mixing && cp.species.size === 1 && !cp.species.has(sp)) score += 25;
+        if (sp === 'compy') score += cells.reduce((s, i) => s + orthNbrs(i).filter((j) => { const it = b.items[b.cells[j]]; return it && it.species === 'compy'; }).length * 6, 0);
+        if (!best || score > best.score) best = { cells, score };
+      });
+      return best ? best.cells : null;
+    }
     an.comps.forEach((cp) => {
       if (!cp.valid || cp.dead || cp.empty < size) return;
       if (onlyKey != null && cp.key !== onlyKey) return;
@@ -6780,17 +7051,18 @@
       const space = spec(sp).space;
       let v = Math.max(0.5, protoDinoValue(p, sp)) * (canAfford(P, protoCost(sp)) ? 1 : 0.6);
       if (spare.some((n) => n >= space)) v *= 0.35;
-      return { space, v };
+      return { space, v, dims: shapesOn() && SHAPES[sp] ? shapeDims(sp) : null };
     });
     if (!wants.length) wants.push({ space: 4, v: 2 });
     const waste = known.includes('full') ? 0.35 : 0.2;
     // Big pens pay off by breeding: room for a pair and the babies they raise, while there's time to grow up.
     const W = pw();
     const room = (W.room || 0) * clamp((protoRoundsLeft() - PROTO_BABY_FEEDS) / 3, 0, 1);
-    const fit = (area) => {
+    const fit = (area, h, wd) => {
       let best = -Infinity;
       wants.forEach((w) => {
         if (w.space > area) return;
+        if (w.dims && (Math.min(h, wd) < w.dims[0] || Math.max(h, wd) < w.dims[1])) return;
         const n = Math.floor(area / w.space);
         const herd = Math.min(n, W.herdMax || 1) - 1;
         best = Math.max(best, w.v + herd * w.v * room - (area - n * w.space) * waste);
@@ -6842,7 +7114,7 @@
               if (c1 < N - 1 && !b.v[r * FENCE_STRIDE + c1]) need.push(`v${r * FENCE_STRIDE + c1}`);
             }
             if (!need.length || need.some((e) => !legal.has(e))) continue;
-            const f = fit(area);
+            const f = fit(area, r1 - r0 + 1, c1 - c0 + 1);
             if (f <= 0) continue;
             const partial = need.length > budget;
             const v = partial ? f * 0.5 * (budget / need.length) - 0.2 : f - need.length * 0.1;
@@ -7854,7 +8126,7 @@
     const el = e.target.closest('[data-act]');
     if (!el) {
       const cell = e.target.closest && e.target.closest('[data-cell]');
-      if (cell && state && !drag) {
+      if (cell && state && !drag && !(shapeSel(ui.sel) && +cell.dataset.p === ui.sel.board)) {
         const v = state.players[+cell.dataset.p].board.cells[+cell.dataset.cell];
         if (v > 0) openPiece(+cell.dataset.p, v);
       }
@@ -7922,6 +8194,16 @@
     if (p !== ui.sel.board) return;
     const i = +cell.dataset.cell;
     const b = state.players[p].board;
+    if (shapeSel(ui.sel)) {
+      if (e.pointerType === 'mouse') {
+        e.preventDefault();
+        if (e.button === 2) rotateShape();
+        else if (e.button === 0) placeShapeAt(i);
+        return;
+      }
+      startPress(e, { tap: () => placeShapeAt(i), hold: () => placeShapeAt(i), move: () => {}, release: () => {}, cancel: () => {} });
+      return;
+    }
     if (b.cells[i] !== 0) return;
     const adding = !ui.sel.cells.has(i);
     if (e.pointerType === 'mouse') {
@@ -7940,6 +8222,28 @@
       release: () => { drag = null; },
       cancel: () => { drag = null; },
     });
+  });
+
+  // With a mouse, the piece's outline follows the pointer before you click.
+  document.addEventListener('pointermove', (e) => {
+    if (e.pointerType !== 'mouse') return;
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    const cell = el && el.closest && el.closest('[data-cell]');
+    const sh = cell && !busy && !isAiTask(cur()) && !onlineBlocked() && +cell.dataset.p === (ui.sel && ui.sel.board) ? shapeSel(ui.sel) : null;
+    const key = sh ? `${cell.dataset.cell}:${ui.rot || 0}:${ui.sel.cells.size}` : null;
+    if (key === lastGhost) return;
+    lastGhost = key;
+    document.querySelectorAll('.board .shape-ghost').forEach((g) => g.remove());
+    if (!sh) return;
+    const cells = shapePick(ui.sel, sh, +cell.dataset.cell);
+    if (!cells) return;
+    const svg = cell.closest('svg');
+    const over = cells.filter((j) => !sh.keep.includes(j));
+    svg.insertAdjacentHTML('beforeend', ghostSvg(cells, sh.sp, validateSel(over).ok, 'shape-ghost'));
+  });
+  document.addEventListener('contextmenu', (e) => {
+    const cell = e.target.closest && e.target.closest('[data-cell]');
+    if (cell && shapeSel(ui.sel) && +cell.dataset.p === ui.sel.board) e.preventDefault();
   });
 
   document.addEventListener('pointermove', (e) => {
@@ -8083,6 +8387,11 @@
 
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') closeModal();
+    if ((e.key === 'r' || e.key === 'R') && !e.ctrlKey && !e.metaKey && !e.altKey && !/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)
+      && shapeSel(ui.sel) && !busy && !isAiTask(cur()) && !onlineBlocked()) {
+      e.preventDefault();
+      rotateShape();
+    }
   });
 
   // ---------------------------------------------------------------- boot
