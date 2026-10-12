@@ -696,7 +696,7 @@
   }
 
   // ---------------------------------------------------------------- dino shapes (15-round games started on rules 16+)
-  // Each dino fills a fixed shape ('#' = a square) that can be turned 4 ways, like a Tetris piece (no flipping).
+  // Each dino fills a fixed shape ('#' = a square) that can be turned and flipped any way.
   // A baby fills the first half of its shape, so the grown-up shape can always be laid over it.
   const SHAPES = {
     compy: ['##'],
@@ -724,10 +724,8 @@
   const shapesOn = () => !!(state && state.proto && state.shapes);
   const shapeCache = {};
 
-  // The distinct turns of a shape, each as sorted [row, col] squares starting at row 0, col 0.
-  function shapeTurns(sp, baby) {
-    const key = sp + (baby ? ':b' : '');
-    if (shapeCache[key]) return shapeCache[key];
+  // A shape's squares as written in SHAPES ([row, col]); a baby keeps the first half, joined side to side.
+  function shapeBase(sp, baby) {
     let sq = [];
     SHAPES[sp].forEach((row, r) => [...row].forEach((ch, c) => { if (ch === '#') sq.push([r, c]); }));
     if (baby) {
@@ -742,17 +740,31 @@
       }
       sq = out;
     }
+    return sq;
+  }
+
+  // The shape turned `rot` quarter turns clockwise (after a mirror flip if `flip`), as sorted squares from row 0, col 0.
+  function shapeOrient(sp, baby, rot, flip) {
+    let t = shapeBase(sp, baby).map(([r, c]) => [r, flip ? -c : c]);
+    for (let k = 0; k < ((rot || 0) % 4 + 4) % 4; k++) t = t.map(([r, c]) => [c, -r]);
+    const r0 = Math.min(...t.map((q) => q[0]));
+    const c0 = Math.min(...t.map((q) => q[1]));
+    return t.map(([r, c]) => [r - r0, c - c0]).sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  }
+
+  // Every distinct way a shape can lie: 4 turns, each also flipped.
+  function shapeTurns(sp, baby) {
+    const key = sp + (baby ? ':b' : '');
+    if (shapeCache[key]) return shapeCache[key];
     const turns = [];
     const seen = new Set();
-    let t = sq;
-    for (let k = 0; k < 4; k++) {
-      const r0 = Math.min(...t.map((q) => q[0]));
-      const c0 = Math.min(...t.map((q) => q[1]));
-      const norm = t.map(([r, c]) => [r - r0, c - c0]).sort((a, b) => a[0] - b[0] || a[1] - b[1]);
-      const id = norm.join(';');
-      if (!seen.has(id)) { seen.add(id); turns.push(norm); }
-      t = t.map(([r, c]) => [c, -r]);
-    }
+    [false, true].forEach((flip) => {
+      for (let k = 0; k < 4; k++) {
+        const t = shapeOrient(sp, baby, k, flip);
+        const id = t.join(';');
+        if (!seen.has(id)) { seen.add(id); turns.push(t); }
+      }
+    });
     shapeCache[key] = turns;
     return turns;
   }
@@ -850,7 +862,7 @@
     if (cells.some((i) => b.cells[i] !== 0)) return { ok: false, msg: 'Every square must be empty.' };
     if (!contiguous(cells)) return { ok: false, msg: 'Squares must connect side to side (diagonals don’t count).' };
     if (spec.kind === 'dino' && shapesOn() && !shapeFits(cells, spec.species, spec.baby)) {
-      return { ok: false, msg: `That isn’t the ${spec.baby ? 'baby ' : ''}${spName(spec.species)}’s shape — turn it with ⟳ Rotate.` };
+      return { ok: false, msg: `That isn’t the ${spec.baby ? 'baby ' : ''}${spName(spec.species)}’s shape.` };
     }
     const ci = an.compOf[cells[0]];
     if (cells.some((i) => an.compOf[i] !== ci)) return { ok: false, msg: 'All squares must be inside one enclosure.' };
@@ -1987,7 +1999,7 @@
     if (!it || it.stage !== 'baby') return { ok: false, msg: 'This baby is gone.' };
     const extra = growExtra(it);
     if (shapesOn() && cells.length && !shapeFits(it.cells.concat(cells), it.species, false)) {
-      return { ok: false, msg: `The grown-up ${spName(it.species)}’s shape must cover the whole baby — turn it with ⟳ Rotate.` };
+      return { ok: false, msg: `The grown-up ${spName(it.species)}’s shape must cover the whole baby — try ⟳ Next spot.` };
     }
     if (cells.length !== extra) return { ok: false, msg: `Select ${extra} more square${extra === 1 ? '' : 's'} next to the baby (${cells.length} so far).` };
     if (cells.some((i) => b.cells[i] !== 0)) return { ok: false, msg: 'Every square must be empty.' };
@@ -2489,7 +2501,7 @@
     return `<div class="dcard t-${S.type} ${o.cls || ''}" ${o.attrs || ''} title="${esc(S.name)}">
       ${o.tag ? `<span class="dc-tag">${o.tag}</span>` : ''}
       <div class="dc-head"><div class="dc-name ${S.name.length > 11 && S.name.length <= 15 ? 'long' : ''}">${esc(S.name.length > 15 ? spName(sp) : S.name)}</div><div class="dc-pts" title="Points">${S.pts}</div></div>
-      <div class="dc-art" style="--sc:${S.color}"><img src="${IMG}${sp}.webp" alt="" draggable="false">${(o.proto || shapesOn()) && SHAPES[sp] ? `<span class="dc-shape" title="Its shape (you can turn it)">${shapeSvg(sp)}</span>` : ''}${o.lock ? `<span class="dc-lock">🔒 ${o.lock}</span>` : ''}</div>
+      <div class="dc-art" style="--sc:${S.color}"><img src="${IMG}${sp}.webp" alt="" draggable="false">${(o.proto || shapesOn()) && SHAPES[sp] ? `<span class="dc-shape" title="Its shape (turn or flip it any way)">${shapeSvg(sp)}</span>` : ''}${o.lock ? `<span class="dc-lock">🔒 ${o.lock}</span>` : ''}</div>
       <div class="dc-price"><small>${o.costLabel || 'Cost'}</small><b>${costText(o.cost || cardCost(sp))}</b></div>
       <div class="dc-facts">${statBox('space', `⬛${S.space}`, 'Squares it takes up')}${statBox('eats', foodText(S.food).replace(' ', ''), 'Food it eats every Feeding')}${statBox('earns', `🪙${S.prod}`, 'Coins it adds in Production')}</div>
       <div class="dc-ab"><span class="dc-type">${typeLabel(S, o.proto)}</span>${esc(S.ability)}</div>
@@ -2518,7 +2530,7 @@
     const viewer = online ? online.me : state.aiCfg ? 0 : T && T.p != null ? T.p : 0;
     const owned = state.players[viewer] && state.players[viewer].book.includes(sp);
     const facts = [
-      `<li>Costs <b>${costText(cardCost(sp))}</b> to play and fills <b>${plural(S.space, 'square')}</b> in one enclosure${shapesOn() && SHAPES[sp] ? `, in this shape (turned any way): <span class="dm-shape" style="--sc:${S.color}">${shapeSvg(sp)}</span>` : ''}.</li>`,
+      `<li>Costs <b>${costText(cardCost(sp))}</b> to play and fills <b>${plural(S.space, 'square')}</b> in one enclosure${shapesOn() && SHAPES[sp] ? `, in this shape (turned or flipped any way): <span class="dm-shape" style="--sc:${S.color}">${shapeSvg(sp)}</span>` : ''}.</li>`,
       `<li>Eats <b>${foodText(S.food)}</b> every Feeding.</li>`,
       state.proto ? `<li>Adds <b>🪙${S.prod}</b> to its enclosure when you collect from it in Production.</li>` : `<li>Adds <b>🪙${S.prod}</b> when its enclosure is picked in Production.</li>`,
       `<li>Worth <b>${plural(S.pts, 'point')}</b> at the end if its enclosure is active.</li>`,
@@ -3732,12 +3744,12 @@
       const grow = sh.keep.length > 0;
       const mine = !theirTurn(cur());
       return `<div class="place-box shape-box">
-        <div class="pb-shape" style="--sc:${SPECIES[sh.sp].color}">${shapeSvg(sh.sp, sh.baby, grow ? 0 : ui.rot)}</div>
+        <div class="pb-shape" style="--sc:${SPECIES[sh.sp].color}">${shapeSvg(sh.sp, sh.baby, grow ? 0 : ui.rot, !grow && ui.flip)}</div>
         <div class="pb-main">
           <div class="pb-title">${grow ? 'Lay the grown-up shape over the baby' : s.purpose === 'birth' ? 'Place the baby in its parents’ enclosure' : 'Place it inside one enclosure'}</div>
           <div class="pb-msg ${v.ok ? 'ok' : 'bad'}">${n ? v.msg : grow ? 'Tap the baby to see where it grows.' : 'Tap a square to put it there.'}</div>
-          ${mine ? `<button class="btn sm ghost rot-btn" data-act="rotate">${grow ? '⟳ Next spot' : '⟳ Rotate'}</button>` : ''}
-          <div class="muted xtra">${grow ? 'The grown-up shape has to cover the whole baby.' : 'Turn it with ⟳, the R key or a right-click. No flipping.'}</div>
+          ${mine ? `<div class="btn-row rot-row"><button class="btn sm ghost rot-btn" data-act="rotate">${grow ? '⟳ Next spot' : '⟳ Rotate'}</button>${grow ? '' : '<button class="btn sm ghost rot-btn" data-act="flip">⇋ Flip</button>'}</div>` : ''}
+          <div class="muted xtra">${grow ? 'The grown-up shape has to cover the whole baby.' : 'Rotate: ⟳, R or right-click. Flip: ⇋ or F.'}</div>
         </div>
       </div>`;
     }
@@ -4073,8 +4085,7 @@
       const d = (cells) => cells.reduce((m, j) => m + Math.hypot(Math.floor(j / N) - Math.floor(i / N), (j % N) - (i % N)), 0) / cells.length;
       return spots.length ? spots.reduce((a, x) => (d(x.cells) < d(a.cells) ? x : a)).cells : null;
     }
-    const ts = shapeTurns(sh.sp, sh.baby);
-    const t = ts[(ui.rot || 0) % ts.length];
+    const t = shapeOrient(sh.sp, sh.baby, ui.rot, ui.flip);
     const h = Math.max(...t.map((q) => q[0])) + 1;
     const w = Math.max(...t.map((q) => q[1])) + 1;
     const a = t.reduce((m, q) => (Math.hypot(q[0] - (h - 1) / 2, q[1] - (w - 1) / 2) < Math.hypot(m[0] - (h - 1) / 2, m[1] - (w - 1) / 2) ? q : m));
@@ -4094,8 +4105,8 @@
     refreshSel();
   }
 
-  // Turn the piece a quarter (a growing baby steps to its next spot instead).
-  function rotateShape() {
+  // Turn the piece a quarter clockwise, or mirror it (a growing baby steps to its next spot instead).
+  function rotateShape(flip) {
     const s = ui.sel;
     const sh = shapeSel(s);
     if (!sh) return;
@@ -4107,7 +4118,8 @@
       refreshSel();
       return;
     }
-    ui.rot = ((ui.rot || 0) + 1) % 4;
+    if (flip) ui.flip = !ui.flip;
+    else ui.rot = ((ui.rot || 0) + 1) % 4;
     if (s.at != null) placeShapeAt(s.at);
     else refreshSel();
   }
@@ -4137,9 +4149,8 @@
     return `<g class="${cls}${ok ? ' ok' : ' bad'}" pointer-events="none">${g.join('')}</g>`;
   }
 
-  function shapeSvg(sp, baby, turn) {
-    const ts = shapeTurns(sp, baby);
-    const t = ts[(turn || 0) % ts.length];
+  function shapeSvg(sp, baby, rot, flip) {
+    const t = shapeOrient(sp, baby, rot, flip);
     const h = Math.max(...t.map((q) => q[0])) + 1;
     const w = Math.max(...t.map((q) => q[1])) + 1;
     return `<svg class="shape-ico" viewBox="-1 -1 ${w * 10 + 2} ${h * 10 + 2}" style="--w:${w};--h:${h}" aria-hidden="true">${t.map(([r, c]) => `<rect x="${c * 10 + 0.5}" y="${r * 10 + 0.5}" width="9" height="9" rx="2"/>`).join('')}</svg>`;
@@ -4401,7 +4412,7 @@
           <li>An enclosure is an area completely closed off by fences. It may use at most <b>two sides</b> of the board edge as walls; an area touching three or four edges isn’t an enclosure yet.</li>
           <li>Each enclosure gets a letter (A, B, C…) so you can tell them apart.</li>
           <li>Dinos, feeders and watering holes fill <b>connected</b> empty squares (side to side, not diagonal) inside one enclosure, and can’t sit across a fence.</li>
-          <li>Every dino has its own <b>shape</b>, shown on its card. Like a Tetris piece you can turn it any of 4 ways (⟳, the R key or a right-click), but not flip it.</li>
+          <li>Every dino has its own <b>shape</b>, shown on its card. Like a Tetris piece you can turn it (⟳, the R key or a right-click) and flip it over (⇋ or the F key) before placing it.</li>
           <li>Each enclosure holds <b>one species</b>, plus one more for each 💧 watering hole in it (${costText(WATER_COST)}, ${WATER_SQUARES} squares).</li>
           <li>🌾 <b>Feeders</b> cost 💎1 + 🪙1 per square and can be any size. Each feeder square takes 1 food off that enclosure’s bill every Feeding.</li>
           <li>Splitting an enclosure with new fences is allowed. Any inactive or extinct status carries over to the new parts that hold dinos.</li>
@@ -4961,6 +4972,9 @@
       }
       case 'rotate':
         rotateShape();
+        break;
+      case 'flip':
+        rotateShape(true);
         break;
       case 'growAuto': {
         const it = T.t === 'grow' && ui.sel && state.players[p].board.items[T.id];
@@ -8230,7 +8244,7 @@
     const el = document.elementFromPoint(e.clientX, e.clientY);
     const cell = el && el.closest && el.closest('[data-cell]');
     const sh = cell && !busy && !isAiTask(cur()) && !onlineBlocked() && +cell.dataset.p === (ui.sel && ui.sel.board) ? shapeSel(ui.sel) : null;
-    const key = sh ? `${cell.dataset.cell}:${ui.rot || 0}:${ui.sel.cells.size}` : null;
+    const key = sh ? `${cell.dataset.cell}:${ui.rot || 0}:${ui.flip ? 1 : 0}:${ui.sel.cells.size}` : null;
     if (key === lastGhost) return;
     lastGhost = key;
     document.querySelectorAll('.board .shape-ghost').forEach((g) => g.remove());
@@ -8387,10 +8401,10 @@
 
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') closeModal();
-    if ((e.key === 'r' || e.key === 'R') && !e.ctrlKey && !e.metaKey && !e.altKey && !/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)
+    if (/^[rRfF]$/.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey && !/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)
       && shapeSel(ui.sel) && !busy && !isAiTask(cur()) && !onlineBlocked()) {
       e.preventDefault();
-      rotateShape();
+      rotateShape(/f/i.test(e.key));
     }
   });
 

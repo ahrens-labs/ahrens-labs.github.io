@@ -517,6 +517,7 @@ button { font-family: inherit; color: #000; }
 .pb-shape { flex-shrink: 0; display: grid; place-items: center; min-width: 64px; min-height: 64px; padding: 6px; border-radius: 12px; background: #f6efdf; }
 .pb-shape .shape-ico { width: calc(var(--w) * 14px); height: calc(var(--h) * 14px); }
 .pb-main { flex: 1; min-width: 0; display: grid; gap: 0.35rem; justify-items: start; }
+.rot-row { display: flex; gap: 0.4rem; flex-wrap: wrap; margin: 0; }
 .dc-shape, .m-shape { position: absolute; left: 4px; top: 4px; padding: 3px; border-radius: 6px; background: rgba(255, 250, 238, 0.92); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35); line-height: 0; }
 .dc-shape .shape-ico { width: calc(var(--w) * 7px); height: calc(var(--h) * 7px); }
 .m-shape { left: 2px; top: 2px; padding: 2px; }
