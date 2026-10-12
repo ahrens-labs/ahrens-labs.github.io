@@ -2393,17 +2393,18 @@
       finish();
       return;
     }
-    // Category by category first; the totals and the winner only at the very end.
-    const ROW_START = 1200;
-    const ROW_GAP = 900;
-    const DRUM = ROW_START + rows.length * ROW_GAP + 600;
-    const ANNOUNCE = DRUM + 2400;
-    q('.rv-row').forEach((r, i) => at(ROW_START + i * ROW_GAP, () => r.classList.add('in')));
+    // Drumroll, then the winner, then the scorecard row by row.
+    const DRUM = 1400;
+    const ANNOUNCE = DRUM + 2200;
+    const ROW_START = ANNOUNCE + 1900;
+    const ROW_GAP = 600;
     at(DRUM, () => {
       el.classList.add('suspense');
       verdictEl.innerHTML = '<div class="rv-drum">And the winner is<i>.</i><i>.</i><i>.</i></div>';
     });
-    at(ANNOUNCE, finish);
+    at(ANNOUNCE, announce);
+    q('.rv-row').forEach((r, i) => at(ROW_START + i * ROW_GAP, () => r.classList.add('in')));
+    at(ROW_START + rows.length * ROW_GAP + 400, finish);
   }
 
   // ---------------------------------------------------------------- tabletop effects

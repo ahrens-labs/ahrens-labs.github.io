@@ -55,11 +55,17 @@ async function open(b, port, sayDur) {
   return p;
 }
 
+// What the voice is given: respellings for words the synthesizer gets wrong ("dee-no", "com-pies").
+const spoken = (s) => s
+  .replace(/\b([Dd])ino(s?)\b/g, (m, d, pl) => (d === 'D' ? 'Dyno' : 'dyno') + pl)
+  .replace(/\bCompy(s?)\b/g, (m, pl) => 'Kompee' + pl);
+
 function voice(lines) {
   fs.mkdirSync(VOICE_DIR, { recursive: true });
   const out = {};
   const jobs = [];
-  lines.forEach(({ id, text }) => {
+  lines.forEach(({ id, text: said }) => {
+    const text = spoken(said);
     const h = crypto.createHash('sha1').update(`${CFG.voice}|${CFG.speed}|${text}`).digest('hex').slice(0, 16);
     const wav = path.join(VOICE_DIR, `${h}.wav`);
     out[id] = wav;
