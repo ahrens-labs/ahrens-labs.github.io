@@ -7,7 +7,7 @@
   const VIDEOS = {
     dino: { title: 'Dino Dynasty — video tutorial', base: '/video/dino-tutorial' },
     hearthhold: { title: 'Oakhaven — video tutorial', base: '/video/hearthhold-tutorial' },
-    'dino-ad': { title: 'Dino Dynasty — trailer', base: '/video/dino-ad', trailer: true },
+    'dino-ad': { title: 'Dino Dynasty — trailer', base: '/video/dino-ad', trailer: true, v: 9 },
     'oakhaven-ad': { title: 'Oakhaven — trailer', base: '/video/oakhaven-ad', trailer: true, v: 9 },
   };
   const V = '?v=7';
