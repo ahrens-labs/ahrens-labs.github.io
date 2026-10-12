@@ -1,0 +1,99 @@
+// Atlantis Expedition — game history for the admin preview. Finished local games are kept per user in a
+// HearthholdLobby Durable Object under its own name, so they never mix with Oakhaven's history.
+const ADMIN_EMAIL = 'calebahrens2011@gmail.com';
+const LOCAL_ID_RE = /^al[0-9a-f]{16}$/;
+const MAX_BOARD_BYTES = 64 * 1024;
+const SCORE_KEYS = ['treasure', 'discoveries', 'gold', 'expeditions', 'total'];
+const LEVELS = new Set(['easy', 'normal', 'hard', 'brutal']);
+
+function jsonResponse(body, corsHeaders, status = 200) {
+  return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+}
+
+function bearerSession(request) {
+  const m = (request.headers.get('Authorization') || '').match(/^Bearer\s+(\S+)/i);
+  return m ? m[1] : null;
+}
+
+// The signed-in user, only if it's the admin account.
+async function adminUserId(env, request) {
+  const sessionId = bearerSession(request);
+  if (!sessionId) return { status: 401 };
+  const session = env.SESSION.get(env.SESSION.idFromName(sessionId));
+  const sres = await session.fetch(new Request('http://do/getUserId', { method: 'GET' }));
+  const { userId } = await sres.json().catch(() => ({}));
+  if (!userId) return { status: 401 };
+  const account = env.USER_ACCOUNT.get(env.USER_ACCOUNT.idFromName(userId));
+  const ares = await account.fetch(new Request('http://do/getData', { method: 'GET' }));
+  const data = ares.ok ? await ares.json().catch(() => ({})) : {};
+  const email = String((data && data.email) || '').trim().toLowerCase();
+  return email === ADMIN_EMAIL ? { userId } : { status: 403 };
+}
+
+function historyStub(env, userId) {
+  return env.HEARTHHOLD_LOBBY.get(env.HEARTHHOLD_LOBBY.idFromName(`atlantis:${userId}`));
+}
+
+const int = (v, lo, hi) => (Number.isInteger(v) && v >= lo && v <= hi ? v : null);
+
+function cleanCats(c) {
+  if (!c || typeof c !== 'object') return null;
+  const out = {};
+  for (const k of SCORE_KEYS) {
+    const v = int(c[k], -999, 9999);
+    if (v == null) return null;
+    out[k] = v;
+  }
+  return out;
+}
+
+function historyItem(b) {
+  if (!b || !LOCAL_ID_RE.test(String(b.id || ''))) return null;
+  const kind = b.kind === 'ai' || b.kind === 'local' ? b.kind : null;
+  const names = Array.isArray(b.names) && b.names.length === 2 ? b.names.map((n) => String(n || '').trim().slice(0, 18)) : null;
+  const cats = Array.isArray(b.cats) && b.cats.length === 2 ? b.cats.map(cleanCats) : null;
+  const winner = int(b.winner, -1, 1);
+  if (!kind || !names || names.some((n) => !n) || !cats || cats.some((c) => !c) || winner == null) return null;
+  return { id: b.id, kind, at: Date.now(), names, cats, winner, me: kind === 'ai' ? 0 : null, level: kind === 'ai' && LEVELS.has(b.level) ? b.level : null };
+}
+
+// The finished sea chart, so history can show it (the log goes if it's too big).
+function cleanBoard(b) {
+  if (!b || typeof b !== 'object' || b.v !== 1 || b.phase !== 'over' || !Array.isArray(b.players) || b.players.length !== 2) return null;
+  if (JSON.stringify(b).length <= MAX_BOARD_BYTES) return b;
+  const lean = { ...b, log: [] };
+  return JSON.stringify(lean).length <= MAX_BOARD_BYTES ? lean : null;
+}
+
+export async function handleAtlantisRequest(request, env, corsHeaders, path) {
+  if (!env.HEARTHHOLD_LOBBY) return jsonResponse({ error: 'Not available' }, corsHeaders, 503);
+  const who = await adminUserId(env, request);
+  if (who.status === 401) return jsonResponse({ error: 'Not authenticated' }, corsHeaders, 401);
+  if (!who.userId) return jsonResponse({ error: 'Atlantis Expedition isn’t open yet' }, corsHeaders, 403);
+  const stub = historyStub(env, who.userId);
+  const url = new URL(request.url);
+
+  if (path === '/api/atlantis/history' && request.method === 'GET') {
+    const res = await stub.fetch(new Request('http://do/history'));
+    return jsonResponse(await res.json(), corsHeaders);
+  }
+  if (path === '/api/atlantis/history/board' && request.method === 'GET') {
+    const gid = String(url.searchParams.get('id') || '');
+    if (!LOCAL_ID_RE.test(gid)) return jsonResponse({ error: 'Game not found' }, corsHeaders, 404);
+    const res = await stub.fetch(new Request(`http://do/board?id=${gid}`));
+    return jsonResponse(await res.json(), corsHeaders, res.status);
+  }
+  if (path === '/api/atlantis/history/record' && request.method === 'POST') {
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return jsonResponse({ error: 'Invalid JSON' }, corsHeaders, 400);
+    }
+    const item = historyItem(body);
+    if (!item) return jsonResponse({ error: 'Invalid game record' }, corsHeaders, 400);
+    const res = await stub.fetch(new Request('http://do/record', { method: 'POST', body: JSON.stringify({ item, board: cleanBoard(body.board) }) }));
+    return jsonResponse(await res.json(), corsHeaders, res.status);
+  }
+  return jsonResponse({ error: 'Not found' }, corsHeaders, 404);
+}

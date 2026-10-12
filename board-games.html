@@ -126,6 +126,42 @@
   <script src="/js/board-games.js?v=7"></script>
   <script src="/js/tutorial-video.js?v=10"></script>
   <script>
+    // Atlantis Expedition is still in the lab: only the admin account sees it on the shelf.
+    (function () {
+      let admin = false;
+      try { admin = (localStorage.getItem('ahrenslabs_email') || '').trim().toLowerCase() === 'calebahrens2011@gmail.com'; } catch (e) { /* ignore */ }
+      if (!admin) return;
+      const card = document.createElement('article');
+      card.className = 'game';
+      card.style.cssText = '--accent:#2ec4b6;--accent-2:#0b2a3f';
+      card.innerHTML = `
+        <a class="lid-link" href="/atlantis.html?home" aria-label="Play Atlantis Expedition">
+          <div class="box">
+            <div class="lid">
+              <img src="/img/atlantis/cover.webp" alt="Atlantis Expedition cover: a brass submarine and divers swimming toward the sunken city">
+              <span class="shine"></span>
+              <span class="lid-title">Atlantis Expedition</span>
+              <span class="badge">🧪 Admin</span>
+            </div>
+            <div class="box-side"></div>
+          </div>
+        </a>
+        <div class="info">
+          <h2>Atlantis Expedition</h2>
+          <p>Hire scuba divers, build submarines and race a rival company to the treasures of the lost city. Roll a d20 for every dive — the deeper you go, the bigger the prize and the hungrier the sharks.</p>
+          <ul class="chips">
+            <li>👥 1–2 players</li>
+            <li>🤖 vs computer</li>
+            <li>📱 same device</li>
+            <li>🧪 admin preview</li>
+          </ul>
+          <div class="actions">
+            <a class="play" href="/atlantis.html?home">Play Atlantis Expedition →</a>
+          </div>
+        </div>`;
+      const soon = document.querySelector('.shelf .game.soon');
+      soon.parentNode.insertBefore(card, soon);
+    })();
     // Tilt each box toward the pointer.
     document.querySelectorAll('.game:not(.soon)').forEach((g) => {
       const box = g.querySelector('.box');
