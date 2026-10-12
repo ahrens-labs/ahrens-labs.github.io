@@ -190,6 +190,7 @@
           <h2>🔒 Sign in to play</h2>
           <p>You need an Ahrens Labs account to play — against the computer, with a friend on this device, or online against other Ahrens Labs players.</p>
           <a class="btn big" href="/account.html?return=${back}">Log in or sign up</a>
+          <div class="gh-links"><button class="btn ghost sm" data-tutorial="oakhaven-ad">🎞️ Watch the trailer</button><button class="btn ghost sm" data-tutorial="hearthhold">🎬 Watch the tutorial</button></div>
         </div>
       </div>`;
   }
@@ -254,6 +255,7 @@
           <button class="btn big offline-only" id="start">Start game</button>
           <div class="gh-links">
             <button class="btn ghost sm" id="how">📜 How to play</button>
+            <button class="btn ghost sm" data-tutorial="oakhaven-ad">🎞️ Watch the trailer</button>
             <button class="btn ghost sm" id="hist">🏆 Game history</button>
             ${isAdmin() ? '<button class="btn ghost sm" id="sim">🧪 Computer vs computer</button>' : ''}
           </div>

@@ -1,11 +1,14 @@
 // Narrated video tutorials for the board games, with chapters and optional captions.
 // - Any element with data-tutorial="dino" | "hearthhold" opens that video in a modal.
+// - "dino-ad" | "oakhaven-ad" are the short trailers: same modal, no chapters or captions.
 // - AhrensTutorial.embed(id) returns markup for an inline player (e.g. a Rules tab);
 //   call AhrensTutorial.mount(container) after inserting it.
 (function () {
   const VIDEOS = {
     dino: { title: 'Dino Dynasty — video tutorial', base: '/video/dino-tutorial' },
     hearthhold: { title: 'Oakhaven — video tutorial', base: '/video/hearthhold-tutorial' },
+    'dino-ad': { title: 'Dino Dynasty — trailer', base: '/video/dino-ad', trailer: true },
+    'oakhaven-ad': { title: 'Oakhaven — trailer', base: '/video/oakhaven-ad', trailer: true },
   };
   const V = '?v=7';
   const CC_KEY = 'ahrensTutorial.cc';
@@ -61,6 +64,10 @@
     const v = VIDEOS[id];
     if (!v) return '';
     addStyle();
+    if (v.trailer)
+      return `<div class="tutv-embed" data-tutv="${id}" data-trailer="1">
+      <video controls playsinline preload="metadata"${autoplay ? ' autoplay' : ''} style="aspect-ratio:16/9" poster="${v.base}.jpg${V}" src="${v.base}.mp4${V}"></video>
+    </div>`;
     return `<div class="tutv-embed" data-tutv="${id}">
       <video controls playsinline preload="metadata"${autoplay ? ' autoplay' : ''} poster="${v.base}.jpg${V}" src="${v.base}.mp4${V}">
         <track kind="captions" srclang="en" label="English" src="${v.base}.vtt${V}">
@@ -97,6 +104,7 @@
   function mount(root) {
     (root || document).querySelectorAll('.tutv-embed:not([data-mounted])').forEach((box) => {
       box.dataset.mounted = '1';
+      if (box.dataset.trailer) return;
       const id = box.dataset.tutv;
       const video = box.querySelector('video');
       setCaptions(box, ccOn());
