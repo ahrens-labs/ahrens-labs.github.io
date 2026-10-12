@@ -698,28 +698,29 @@
   // ---------------------------------------------------------------- dino shapes (15-round games started on rules 16+)
   // Each dino fills a fixed shape ('#' = a square) that can be turned and flipped any way.
   // A baby fills the first half of its shape, so the grown-up shape can always be laid over it.
+  // Side-on silhouettes facing right: head at the front, tail behind, legs below.
   const SHAPES = {
     compy: ['##'],
     microraptor: ['##'],
     oviraptor: ['##'],
-    velociraptor: ['##', '#.'],
+    velociraptor: ['.#', '##'],
     dilophosaurus: ['###'],
     pachy: ['##', '##'],
-    parasaurolophus: ['#..', '###'],
-    gigantoraptor: ['.#.', '###'],
-    triceratops: ['##.', '###'],
+    parasaurolophus: ['..#', '###'],
+    gigantoraptor: ['.#', '##', '.#'],
+    triceratops: ['..##', '###.'],
     spinosaurus: ['.#..', '####'],
-    carnotaurus: ['##..', '.###'],
-    ankylosaurus: ['#.#', '###'],
-    maiasaura: ['#..', '#..', '###'],
+    carnotaurus: ['..#', '###', '.#.'],
+    ankylosaurus: ['###', '#.#'],
+    maiasaura: ['..#', '..#', '###'],
     stegosaurus: ['.##.', '####'],
-    quetzalcoatlus: ['#..#', '####'],
-    allosaurus: ['..##', '####', '#.#.'],
-    brachiosaurus: ['##..', '#...', '####', '#..#'],
-    trex: ['..###', '#####', '.#.#.'],
-    giganotosaurus: ['....##', '######', '.#..#.'],
-    sauroposeidon: ['#...', '#...', '####', '####', '#..#'],
-    mosasaurus: ['.####.', '######', '######'],
+    quetzalcoatlus: ['..#..', '#####'],
+    allosaurus: ['...##', '####.', '.#.#.'],
+    brachiosaurus: ['..##', '..#.', '####', '#..#'],
+    trex: ['...###', '#####.', '..#.#.'],
+    giganotosaurus: ['....##', '######', '..#.#.'],
+    sauroposeidon: ['..##', '..#.', '.###', '####', '#..#'],
+    mosasaurus: ['#.###..', '#######', '#.####.'],
   };
   const shapesOn = () => !!(state && state.proto && state.shapes);
   const shapeCache = {};
