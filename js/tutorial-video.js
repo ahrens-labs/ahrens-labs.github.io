@@ -7,7 +7,7 @@
     dino: { title: 'Dino Dynasty — video tutorial', base: '/video/dino-tutorial' },
     hearthhold: { title: 'Oakhaven — video tutorial', base: '/video/hearthhold-tutorial' },
   };
-  const V = '?v=6';
+  const V = '?v=7';
   const CC_KEY = 'ahrensTutorial.cc';
 
   const css = `
