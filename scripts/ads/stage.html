@@ -1,0 +1,13 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Lilita+One&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="stage.css">
+</head>
+<body>
+  <div id="stage"></div>
+  <script src="engine.js"></script>
+  <script>document.write(`<script src="scene-${new URLSearchParams(location.search).get('scene') || 'dino'}.js"><\/script>`);</script>
+</body>
+</html>
