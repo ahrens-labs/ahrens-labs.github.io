@@ -47,6 +47,7 @@ async function open(b, port, sayDur) {
   await p.waitForFunction(() => window.TIMELINE);
   await p.evaluate(async () => {
     await document.fonts.ready;
+    await Promise.all(['44px "Lilita One"', '600 30px Fredoka', '700 30px Fredoka'].map((f) => document.fonts.load(f)));
     for (let t = 0; t < window.DURATION; t += 0.5) window.frame(t);
     await AD.loaded();
     window.frame(0);

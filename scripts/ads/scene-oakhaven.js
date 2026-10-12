@@ -1,872 +1,618 @@
-// Oakhaven ad: a day (and a night) in a little medieval village, built from the game's own pieces.
+// Oakhaven ad: a storybook tale of a village growing at the edge of the forest, told in a 3D paper-theatre
+// world built from the game's own art.
 (function () {
-  const { W, H, clamp, lerp, seg, E, rng, el, sprite, pose, canvasLayer, caption, runAd } = AD;
+  const { W, H, clamp, lerp, seg, E, rng, el, img, caption, runAd } = AD;
+  const { world, pine, oak, bush, rock, meadow, weather, prop } = AD3;
   const O = (n) => `sprites/oak/${n}.png`;
-  const GROUND = 440;
-  const BACK = 575; // where the back row of buildings stands
-  const STREET = 668; // villagers' feet, hidden behind the front hedge (the art is drawn waist-up)
+  const TAU = Math.PI * 2;
 
-  // ---------------------------------------------------------------- colour helpers
-  const hex = (c) => [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16));
-  const mix = (a, b, k) => {
-    const x = hex(a);
-    const y = hex(b);
-    return `rgb(${x.map((v, i) => Math.round(lerp(v, y[i], clamp(k)))).join(',')})`;
+  // ---------------------------------------------------------------- the village
+  const BLD = {
+    keep: [0, 700, 'keep', 450], well: [-210, 330, 'well', 225], house1: [-540, 520, 'house', 345], house2: [500, 560, 'house', 345],
+    farm: [-1050, 420, 'farm', 315], lumber: [1080, 900, 'lumber', 330], bakery: [340, 170, 'bakery', 330], market: [-430, 110, 'market', 322],
+    smithy: [720, 280, 'smithy', 330], house3: [-780, 920, 'house', 330], house4: [800, 1010, 'house', 330], inn: [-300, 1080, 'inn', 368],
+    chapel: [340, 1180, 'chapel', 390], tower: [980, -170, 'tower', 450], castle: [0, 700, 'castle', 525], cathedral: [-720, 1400, 'cathedral', 555],
+    wizardtower: [680, 1480, 'wizardtower', 585], barracks: [-980, 1250, 'barracks', 345],
   };
-  // Time of day: 0 dawn, 1 day, 2 dusk, 3 night.
-  const SKY = [
-    ['#6f86c9', '#f4b38c', '#ffe3ae'],
-    ['#4fa7e4', '#a6daf4', '#eef2d2'],
-    ['#3d3f7e', '#d5786b', '#f6b67a'],
-    ['#0b1230', '#1b2756', '#36477a'],
-  ];
-  const skyAt = (tod) => {
-    const i = Math.min(2, Math.floor(tod));
-    const k = tod - i;
-    return SKY[0].map((_, j) => mix(SKY[i][j], SKY[i + 1][j], k));
-  };
+  const CHIMNEY = { house1: [-45, 300], house2: [-45, 300], house3: [-45, 285], house4: [-45, 285], bakery: [38, 305], inn: [45, 320], smithy: [-60, 285] };
+  const START = ['keep', 'well', 'farm'];
+  const GROWN = ['keep', 'well', 'farm', 'house1', 'house2', 'lumber', 'bakery', 'market', 'smithy', 'house3', 'house4', 'inn', 'chapel'];
+  const FINAL = GROWN.filter((k) => k !== 'keep').concat(['castle', 'cathedral', 'wizardtower', 'barracks', 'tower']);
 
-  // ---------------------------------------------------------------- painted backdrop
-  function wave(x, seed, amp) {
-    return Math.sin(x * 0.0019 + seed) * amp + Math.sin(x * 0.0047 + seed * 2.3) * amp * 0.45 + Math.sin(x * 0.012 + seed * 5.1) * amp * 0.15;
+  const r0 = rng(77);
+  const TREES = [];
+  for (let i = 0; i < 120; i++) {
+    const a = r0() * TAU;
+    const rad = 2100 + r0() * 1700;
+    const x = Math.sin(a) * rad * 1.2;
+    const z = 700 + Math.cos(a) * rad;
+    if (Math.abs(x) < 260 && z < 200) continue;
+    TREES.push([x, z, r0() < 0.75 ? 'pine' : 'oak', Math.floor(r0() * 6), 0.85 + r0() * 0.5]);
   }
-  function ridge(width, base, amp, seed, fill) {
-    let d = `M0 ${H} L0 ${base}`;
-    for (let x = 0; x <= width; x += 40) d += ` L${x} ${(base - Math.abs(wave(x, seed, amp))).toFixed(1)}`;
-    return `<path d="${d} L${width} ${H} Z" fill="${fill}"/>`;
+  for (let i = 0; i < 26; i++) {
+    const a = r0() * TAU;
+    const rad = 1500 + r0() * 500;
+    const x = Math.sin(a) * rad * 1.15;
+    const z = 700 + Math.cos(a) * rad;
+    if (Math.abs(x) < 300 && z < 300) continue;
+    TREES.push([x, z, 'oak', Math.floor(r0() * 6), 0.8 + r0() * 0.4]);
   }
-  function pines(width, base, seed, cols) {
-    const r = rng(seed);
-    let s = '';
-    for (let x = -40; x < width; x += 26 + r() * 30) {
-      const h = 60 + r() * 70;
-      const y = base + r() * 14;
-      const c = cols[Math.floor(r() * cols.length)];
-      s += `<path d="M${x} ${y - h} L${x + h * 0.32} ${y} L${x - h * 0.32} ${y} Z" fill="${c}"/>`;
+  const BUSHES = Array.from({ length: 40 }, () => [(r0() - 0.5) * 3000, -600 + r0() * 2400, Math.floor(r0() * 5), r0() < 0.3]).filter(([x, z]) => Math.abs(x) > 260 || z > 1600);
+
+  const GROUND = { 0: ['#9ccf62', '#6aae45'], 1: ['#8cc356', '#5e9f3a'], 2: ['#c3b45a', '#9a8a3c'], 3: ['#e3eaf2', '#f4f8ff'] };
+
+  // A villager is drawn waist-up, so they always stand in a tuft of tall grass (or a snow drift).
+  const FADE = new Map();
+  function faded(src) {
+    const im = img(src);
+    if (!im.naturalWidth) return im;
+    if (FADE.has(src)) return FADE.get(src);
+    const c = document.createElement('canvas');
+    c.width = im.naturalWidth;
+    c.height = im.naturalHeight;
+    c.id = 'fade' + src;
+    const g = c.getContext('2d');
+    g.drawImage(im, 0, 0);
+    g.globalCompositeOperation = 'destination-out';
+    const gr = g.createLinearGradient(0, c.height * 0.82, 0, c.height);
+    gr.addColorStop(0, 'rgba(0,0,0,0)');
+    gr.addColorStop(1, 'rgba(0,0,0,1)');
+    g.fillStyle = gr;
+    g.fillRect(0, 0, c.width, c.height);
+    FADE.set(src, c);
+    return c;
+  }
+  function tuft(seed, snow) {
+    return prop(`tuft${seed}:${snow}`, 240, 90, (g, w, h) => {
+      const r = rng(seed);
+      if (snow) {
+        const gr = g.createLinearGradient(0, 20, 0, h);
+        gr.addColorStop(0, '#ffffff');
+        gr.addColorStop(1, '#dfe8f3');
+        g.fillStyle = gr;
+        g.beginPath();
+        g.ellipse(w / 2, h, w / 2 - 4, h - 22, 0, Math.PI, 0);
+        g.fill();
+        return;
+      }
+      const base = g.createRadialGradient(w / 2, h, 4, w / 2, h, w / 2);
+      base.addColorStop(0, 'rgba(30,70,20,0.85)');
+      base.addColorStop(1, 'rgba(30,70,20,0)');
+      g.fillStyle = base;
+      g.fillRect(0, h - 30, w, 30);
+      for (let i = 0; i < 90; i++) {
+        const x = 14 + r() * (w - 28);
+        const e = (x - w / 2) / (w / 2);
+        const hh = (34 + r() * 50) * (1 - e * e * 0.85);
+        g.strokeStyle = ['#3f7f2c', '#4f9a36', '#5eaa3f', '#2f6a24'][i % 4];
+        g.lineWidth = 3 + r() * 2;
+        g.lineCap = 'round';
+        g.beginPath();
+        g.moveTo(x, h);
+        g.quadraticCurveTo(x + (r() - 0.5) * 16, h - hh * 0.6, x + (r() - 0.5) * 26, h - hh);
+        g.stroke();
+      }
+    });
+  }
+  // A villager (or knight, wizard...) standing at x, z.
+  function folk(R, n, x, z, o = {}) {
+    const h = o.h || 165;
+    const bob = o.walk ? Math.abs(Math.sin(o.walk * 7)) * 7 : 0;
+    const rot = o.walk ? Math.sin(o.walk * 7) * 3 : o.talk ? Math.sin(o.talk * 9) * 2 : Math.sin((o.t || 0) * 1.3 + x) * 0.8;
+    const sy = 1 + (o.talk ? 0.012 * Math.sin(o.talk * 11) : 0.015 * Math.sin((o.t || 0) * 2.2 + x));
+    R.bill(faded(O(n)), { x, z, h, dir: o.dir || 1, lift: bob + (o.lift || 0), rot: rot + (o.rot || 0), sy, op: o.op, shadowW: 0.3, flash: o.flash, flashColor: o.flashColor });
+    if (o.grass !== false) R.bill(tuft(Math.round(Math.abs(x + z)) % 7, o.snow), { x, z: z - 8, h: h * 0.3, sx: 1, shadow: false, op: o.op, rot: Math.sin((o.t || 0) * 1.7 + x) * 1.5 });
+  }
+
+  // The whole village. `built` maps building ids to how far they have risen (0..1).
+  function village(R, t, o) {
+    const season = o.season == null ? 1 : o.season;
+    const snow = season === 3;
+    // Roads, plaza and fields.
+    const road = snow ? '#d8d4cc' : '#b8935f';
+    R.decal([[-80, -4000], [80, -4000], [95, 380], [-95, 380]], road);
+    R.decal([[-4000, -1680], [4000, -1680], [4000, -1540], [-4000, -1540]], road);
+    R.disc(0, 400, 330, 250, snow ? '#e4e0d8' : '#cdb78d', snow ? '#cfc8bb' : '#a88f63', 3);
+    if (o.built.farm) {
+      for (let i = 0; i < 6; i++) {
+        const z0 = 520 + i * 70;
+        R.decal([[-1320, z0], [-820, z0], [-820, z0 + 44], [-1320, z0 + 44]], snow ? '#eef2f7' : season === 2 ? '#e2b84a' : season === 0 ? '#86b04a' : '#c9c45a');
+      }
     }
-    return s;
-  }
-
-  function backdrop(root, o = {}) {
-    const width = o.width || 5200;
-    const sky = el('div', 'full', root, { zIndex: 0 });
-    const stars = el('div', 'full', root, { zIndex: 1 });
-    const r = rng(o.seed || 7);
-    let sh = [];
-    for (let i = 0; i < 120; i++) sh.push(`${Math.round(r() * 1400)}px ${Math.round(r() * 380)}px 0 ${r() < 0.15 ? 1 : 0}px rgba(255,255,240,${(0.5 + r() * 0.5).toFixed(2)})`);
-    el('div', '', stars, { position: 'absolute', left: 0, top: 0, width: '2px', height: '2px', borderRadius: '50%', boxShadow: sh.join(',') });
-    const sun = el('div', '', root, {
-      position: 'absolute', width: '220px', height: '220px', borderRadius: '50%', zIndex: 1,
-      background: 'radial-gradient(circle, #fffbe0 0 22%, rgba(255, 233, 150, 0.7) 36%, rgba(255, 220, 120, 0) 68%)',
+    if (o.meadow && !snow) o.meadow();
+    // Trees and bushes.
+    TREES.forEach(([x, z, k, sd, sc]) => {
+      const im = k === 'pine' ? pine(sd, snow ? 1 : 0) : oak(sd, season);
+      R.bill(im, { x, z, h: (k === 'pine' ? 430 : 390) * sc, shadowW: 0.25, rot: Math.sin(t * 0.8 + x) * 0.6 });
     });
-    const moon = el('div', '', root, {
-      position: 'absolute', width: '90px', height: '90px', borderRadius: '50%', zIndex: 1,
-      background: 'radial-gradient(circle at 40% 40%, #fffdf0, #e8e2c4 60%, #cfc7a3)', boxShadow: '0 0 50px 12px rgba(255,250,220,0.35)',
+    BUSHES.forEach(([x, z, sd, isRock]) => R.bill(isRock ? rock(sd) : bush(sd, snow ? '#9fb3a3' : '#3f8a3a'), { x, z, minD: 200, h: isRock ? 70 : 80, shadowW: 0.3 }));
+    // Buildings.
+    Object.entries(o.built).forEach(([id, p]) => {
+      if (!(p > 0)) return;
+      const [x, z, n, h] = BLD[id];
+      const k = clamp(p);
+      R.bill(O(n), { x, z, h, sy: k < 1 ? Math.max(0.02, E.back(k)) : 1, sx: k < 1 ? lerp(0.8, 1, E.out(k)) : 1, shadowW: 0.42, shadowA: 0.45, bias: -30 });
+      if (k < 1) {
+        for (let j = 0; j < 8; j++) {
+          const a = (j / 8) * TAU;
+          const d = E.out(seg(k, 0, 1)) * 120;
+          R.blob(x + Math.cos(a) * (60 + d), 20 + d * 0.3, z + Math.sin(a) * (40 + d * 0.6), 40 + d * 0.4, '#d9c7a4', 0.75 * (1 - k));
+        }
+      }
+      if (o.night && k >= 1) R.light(x, h * 0.35, z - 20, h * 0.9, '#ffb347', 0.22 * o.night);
+      if (o.smoke && CHIMNEY[id] && k >= 1) {
+        const [cx, cy] = CHIMNEY[id];
+        for (let j = 0; j < 7; j++) {
+          const q = (t * 0.28 + j / 7 + (x % 1)) % 1;
+          R.blob(x + cx + q * 70 + Math.sin(q * 7) * 10, cy + q * 260, z, 18 + q * 40, snow ? '#e8e8ee' : '#ece8e0', 0.55 * (1 - q) * o.smoke);
+        }
+      }
     });
-    const clouds = [];
-    for (let i = 0; i < 7; i++) {
-      const c = el('div', '', root, {
-        position: 'absolute', zIndex: 1, width: `${90 + r() * 70}px`, height: '42px', borderRadius: '42px', background: '#fff',
-        boxShadow: '40px -22px 0 6px #fff, 86px -6px 0 0 #fff, -30px -10px 0 -2px #fff',
+    if (o.walls) {
+      for (let i = 0; i < 10; i++) R.bill(O('wall'), { x: -900 + i * 190, z: -260, h: 112, shadowW: 0.4 });
+      R.bill(O('tower'), { x: 1020, z: -240, h: 300, shadowW: 0.35 });
+      if (o.night) [-710, -330, 50, 430, 810].forEach((x, i) => {
+        const f = 0.8 + 0.2 * Math.sin(t * 13 + i * 2.1) * Math.sin(t * 7.3 + i);
+        R.light(x, 120, -270, 150, '#ff9a3c', 0.5 * f * o.night);
+        R.blob(x, 125, -275, 10, '#ffd27a', 0.9 * f * o.night);
       });
-      clouds.push({ c, x: r() * 1700, y: 40 + r() * 140, v: 5 + r() * 9 });
     }
-    const far = el('div', 'layer', root, { zIndex: 2 });
-    far.innerHTML = `<svg width="${width}" height="${H}">${ridge(width, 350, 110, 1.7, '#9db9c9')}${ridge(width, 395, 70, 3.9, '#88b08f')}</svg>`;
-    const mid = el('div', 'layer', root, { zIndex: 3 });
-    mid.innerHTML = `<svg width="${width}" height="${H}">${pines(width, GROUND + 4, o.seed || 3, ['#2f6b3a', '#285e33', '#357642'])}</svg>`;
-    const shade = el('div', 'full', root, { zIndex: 4, background: '#0b1230', opacity: 0 });
-    return {
-      // tod: 0 dawn .. 1 day .. 2 dusk .. 3 night
-      update(t, camX, tod = 1) {
-        const [a, b, c] = skyAt(tod);
-        sky.style.background = `linear-gradient(180deg, ${a} 0%, ${b} 46%, ${c} 64%, ${c} 100%)`;
-        const night = clamp(tod - 2);
-        stars.style.opacity = night;
-        const sy = tod <= 1 ? lerp(330, 40, E.out(clamp(tod))) : lerp(40, 360, clamp(tod - 1));
-        sun.style.transform = `translate(${(o.sunX || 960) - camX * 0.05}px, ${sy}px)`;
-        sun.style.opacity = 1 - night;
-        moon.style.transform = `translate(${(o.moonX || 1020) - camX * 0.05}px, ${lerp(300, 60, E.out(night))}px)`;
-        moon.style.opacity = night;
-        clouds.forEach((k) => {
-          const x = ((k.x + t * k.v - camX * 0.1) % 1700 + 1700) % 1700 - 200;
-          k.c.style.transform = `translate(${x}px, ${k.y}px)`;
-          k.c.style.opacity = 0.85 * (1 - night * 0.8);
+  }
+
+  function look(R, x, y, z, tx, ty, tz) {
+    Object.assign(R.cam, { x, y, z });
+    const dx = tx - x;
+    const dz = tz - z;
+    R.cam.yaw = Math.atan2(dx, dz);
+    R.cam.pitch = Math.atan2(y - ty, Math.hypot(dx, dz));
+  }
+  const builtOf = (list, k = 1) => Object.fromEntries(list.map((id) => [id, k]));
+
+  // Stars of music from the bard.
+  function notes(R, x, z, t, h = 165) {
+    for (let j = 0; j < 4; j++) {
+      const k = (t * 0.55 + j / 4) % 1;
+      R.at(x + 40 + k * 60 + Math.sin(k * 9) * 12, h * 0.75 + k * 110, z - 10, (g, p) => {
+        const s = p.s * 1.1;
+        g.globalAlpha = 1 - k;
+        g.fillStyle = '#ffd24d';
+        g.strokeStyle = '#5a3412';
+        g.lineWidth = 2.5 * s;
+        g.translate(p.x, p.y);
+        g.rotate(-0.2);
+        const heads = j % 2 ? [[0, 0]] : [[0, 0], [16 * s, -4 * s]];
+        heads.forEach(([hx, hy]) => {
+          g.beginPath();
+          g.ellipse(hx, hy, 7 * s, 5 * s, -0.4, 0, TAU);
+          g.fill();
+          g.stroke();
+          g.fillRect(hx + 5 * s, hy - 26 * s, 3 * s, 26 * s);
         });
-        far.style.transform = `translateX(${-camX * 0.25}px)`;
-        mid.style.transform = `translateX(${-camX * 0.55}px)`;
-        shade.style.opacity = night * 0.45 + clamp(tod - 1.4) * 0.1;
-      },
-    };
-  }
-
-  // The world layer pans and zooms like a camera: grass, a dirt street, and a hedge along the front.
-  function world(root, o = {}) {
-    const w = el('div', 'world', root, { zIndex: 10 });
-    const grass = el('div', '', w, { position: 'absolute', left: '-3000px', top: `${GROUND}px`, width: '12000px', height: '900px' });
-    const road = el('div', '', w, {
-      position: 'absolute', left: '-3000px', top: `${BACK + 8}px`, width: '12000px', height: '120px', zIndex: 2,
-      background: 'linear-gradient(#b48a57, #c79c66 25%, #b88d5a 80%, #9d784a)', borderTop: '4px solid #8f6c40', borderBottom: '4px solid #8f6c40',
-    });
-    const r = rng(o.seed || 11);
-    let tufts = '';
-    for (let i = 0; i < 220; i++) {
-      const x = -1000 + r() * 7000;
-      const y = GROUND + 14 + r() * 125;
-      tufts += `<path d="M${x} ${y} l-5 -12 M${x} ${y} l0 -15 M${x} ${y} l6 -11" stroke="#4f8f33" stroke-width="3" stroke-linecap="round"/>`;
-      if (i % 4 === 0) tufts += `<circle cx="${x + 9}" cy="${y - 6}" r="4" fill="${['#ffe066', '#ff8fb1', '#ffffff', '#b59cff'][i % 16 / 4]}"/>`;
-    }
-    for (let i = 0; i < 70; i++) tufts += `<ellipse cx="${-1000 + r() * 7000}" cy="${BACK + 30 + r() * 80}" rx="${4 + r() * 6}" ry="${2 + r() * 3}" fill="#9a7447" opacity="0.6"/>`;
-    const deco = el('div', '', w, { position: 'absolute', left: 0, top: 0, zIndex: 3 });
-    deco.innerHTML = `<svg width="7000" height="800" style="position:absolute;left:0;top:0;overflow:visible">${tufts}</svg>`;
-    // The hedge hides villagers' waists: the art is drawn as busts.
-    let hedge = '';
-    const hr = rng(21);
-    for (let x = -1200; x < 7000; x += 34 + hr() * 20) {
-      const rr = 34 + hr() * 18;
-      hedge += `<ellipse cx="${x}" cy="${702 + hr() * 8}" rx="${rr * 1.25}" ry="${rr}" fill="${hr() < 0.5 ? '#3f8a3a' : '#4a9a43'}"/>`;
-    }
-    for (let x = -1200; x < 7000; x += 22 + hr() * 30) hedge += `<circle cx="${x}" cy="${684 + hr() * 40}" r="${4 + hr() * 3}" fill="${['#ffe066', '#ff8fb1', '#ffffff', '#ff6b6b'][Math.floor(hr() * 4)]}"/>`;
-    const front = el('div', '', w, { position: 'absolute', left: 0, top: 0, zIndex: 2000 });
-    front.innerHTML = `<svg width="7000" height="900" style="position:absolute;left:0;top:0;overflow:visible"><rect x="-1300" y="712" width="8400" height="300" fill="#3d8538"/>${hedge}</svg>`;
-    const snow = el('div', '', w, { position: 'absolute', left: '-3000px', top: `${GROUND}px`, width: '12000px', height: '900px', zIndex: 1, background: '#f4f8ff', opacity: 0 });
-    const c = { x: 0, z: 1, y: 400, sx: 0, sy: 0 };
-    const set = (season = 'summer', k = 1) => {
-      const G = { spring: ['#a6d86a', '#6fb24a'], summer: ['#9fd463', '#5ea33c'], autumn: ['#cdbb5a', '#a68a3a'], winter: ['#c9d6c9', '#9fb3a3'] }[season];
-      grass.style.background = `linear-gradient(${G[0]}, ${G[1]} 40%)`;
-      snow.style.opacity = season === 'winter' ? 0.75 * k : 0;
-    };
-    set();
-    return {
-      el: w, front, set,
-      hideHedge() { front.style.display = 'none'; },
-      at(x, y) {
-        return [W / 2 + c.sx + c.z * (x - (c.x + W / 2)), c.y + c.sy + c.z * (y - c.y)];
-      },
-      cam(x, z = 1, y = 400, shakeX = 0, shakeY = 0) {
-        Object.assign(c, { x, z, y, sx: shakeX, sy: shakeY });
-        w.style.transform = `translate(${W / 2 + shakeX}px, ${y + shakeY}px) scale(${z}) translate(${-(x + W / 2)}px, ${-y}px)`;
-      },
-    };
-  }
-
-  // A row of buildings along the back of the street: [name, x, h].
-  function buildings(parent, list) {
-    return list.map(([n, x, h, y]) => {
-      const s = sprite(parent, O(n), { x, y: y || BACK, h: h * 1.22, shadow: false });
-      s.place();
-      return s;
-    });
-  }
-  // A villager walking the street (feet hidden by the hedge).
-  function folk(parent, n, h = 190) {
-    return sprite(parent, O(n), { h, y: STREET, shadow: false });
-  }
-  function nameTag(parent) {
-    const e = el('div', 'name', parent, { zIndex: 4000 });
-    return (text, x, y, a = 1) => {
-      e.textContent = text;
-      e.style.display = a > 0.01 ? '' : 'none';
-      e.style.opacity = a;
-      e.style.transform = `translate(${x}px, ${y}px) translateX(-50%)`;
-    };
-  }
-
-  const tag = (root) => {
-    const e = el('div', 'tag', root, { top: '30px', bottom: 'auto' });
-    return (text, t, a, b) => {
-      e.textContent = text;
-      const vis = t >= a && t <= b;
-      e.style.display = vis ? '' : 'none';
-      const p = E.out(seg(t, a, a + 0.5)) * (1 - seg(t, b - 0.4, b));
-      e.style.opacity = p;
-      e.style.transform = `translateX(-50%) translateY(${(1 - p) * -30}px)`;
-    };
-  };
-
-  function emoji(g, ch, x, y, size, a = 1, rot = 0) {
-    g.save();
-    g.globalAlpha = clamp(a);
-    g.translate(x, y);
-    g.rotate(rot);
-    g.font = `${size}px "Noto Color Emoji", "Apple Color Emoji", sans-serif`;
-    g.textAlign = 'center';
-    g.textBaseline = 'middle';
-    g.fillText(ch, 0, 0);
-    g.restore();
-  }
-  // A resource popping up from a worker and drifting away.
-  function rise(g, ch, x, y, k, size = 40) {
-    if (k <= 0 || k >= 1) return;
-    emoji(g, ch, x + Math.sin(k * 6) * 6, y - E.out(k) * 90, size * lerp(0.6, 1, E.back(Math.min(1, k * 4))), 1 - seg(k, 0.7, 1));
-  }
-  function puff(g, x, y, k, size, col = '235,232,225') {
-    if (k <= 0 || k >= 1) return;
-    g.fillStyle = `rgba(${col},${(1 - k) * 0.75})`;
-    g.beginPath();
-    g.arc(x, y, size * (0.4 + k), 0, Math.PI * 2);
-    g.fill();
-  }
-  function sparkle(g, x, y, t, n = 10, r0 = 20, r1 = 90, seed = 1, color = '255,230,120') {
-    const r = rng(seed);
-    for (let i = 0; i < n; i++) {
-      const a = r() * Math.PI * 2;
-      const rr = lerp(r0, r1, clamp(t)) * (0.6 + r() * 0.6);
-      const s = (1 - clamp(t)) * (6 + r() * 6);
-      if (s <= 0) continue;
-      g.fillStyle = `rgba(${color},${1 - clamp(t)})`;
-      g.beginPath();
-      const px = x + Math.cos(a) * rr;
-      const py = y + Math.sin(a) * rr;
-      g.moveTo(px, py - s);
-      g.lineTo(px + s * 0.35, py);
-      g.lineTo(px, py + s);
-      g.lineTo(px - s * 0.35, py);
-      g.fill();
+        g.fillRect(5 * s, -28 * s, heads.length > 1 ? 19 * s : 10 * s, 5 * s);
+      });
     }
   }
-  function stamp(g, text, x, y, k, col = '#ffd24d', stroke = '#4a2600') {
-    if (k <= 0 || k >= 1) return;
-    g.save();
-    g.globalAlpha = 1 - seg(k, 0.75, 1);
-    g.translate(x, y);
-    g.rotate(-0.06);
-    const s = lerp(1.6, 1, E.out(seg(k, 0, 0.15)));
-    g.scale(s, s);
-    g.font = '86px "Lilita One"';
-    g.textAlign = 'center';
-    g.textBaseline = 'middle';
-    g.lineWidth = 10;
-    g.strokeStyle = stroke;
-    g.fillStyle = col;
-    g.strokeText(text, 0, 0);
-    g.fillText(text, 0, 0);
-    g.restore();
+
+  function sceneRoot(root, seed) {
+    const R = world(root, { seed });
+    el('div', 'vignette', root);
+    const flash = el('div', 'full', root, { zIndex: 8600, background: '#eef3ff', opacity: 0 });
+    R.env.ground = GROUND[1];
+    const offPath = (x, z) => ((x / 360) ** 2 + ((z - 400) / 280) ** 2 < 1) || (Math.abs(x) < 110 && z < 400) || Math.abs(z + 1610) < 80;
+    return { R, flash, meadow: meadow(R, [-2400, 2400, -1400, 2200], 900, seed + 3, undefined, offPath) };
   }
 
   // ---------------------------------------------------------------- scenes
   const scenes = [];
 
   scenes.push({
-    id: 'open', min: 9, lead: 1.4,
-    say: 'Long ago, at the edge of the old forest, a little village woke with the sun.',
+    id: 'open', min: 9.5, lead: 1.2,
+    say: 'Once upon a time, at the edge of a great old forest, there was a clearing.',
     build(root) {
-      const bg = el('div', 'full', root, { background: `url(${O('cover')}) center/cover`, transformOrigin: '50% 50%' });
+      const bg = el('div', 'full', root, { background: `url(${O('cover')}) center/cover`, transformOrigin: '50% 45%' });
       el('div', 'vignette', root);
-      const title = caption(root, '<div class="big">Oakhaven</div><div class="sub">Build the finest village in the land</div>');
-      const fx = canvasLayer(root, 8000);
-      return { bg, title, fx };
+      const title = caption(root, '<div class="big">Oakhaven</div>');
+      return { bg, title };
     },
     frame(t, dur, s) {
       const p = t / dur;
-      s.bg.style.transform = `scale(${lerp(1.24, 1.04, E.sine(p))}) translate(${lerp(24, -10, p)}px, ${lerp(12, -6, p)}px)`;
-      s.title.show(t, dur - 4.2, dur + 1, 'pop');
-      s.fx.clear();
-      if (t > dur - 4.2) sparkle(s.fx.g, W / 2, H / 2 - 30, (t - (dur - 4.2)) / 1.2, 26, 60, 420, 3);
+      s.bg.style.transform = `perspective(900px) rotateX(${lerp(4, 0, E.sine(p))}deg) scale(${lerp(1.3, 1.06, E.sine(p))}) translateY(${lerp(20, -8, p)}px)`;
+      s.title.show(t, dur - 4.4, dur + 1, 'pop');
     },
   });
 
   scenes.push({
-    id: 'morning', min: 12,
-    say: 'Farmers head out to the fields, the baker fires up her ovens, and one by one, the people of Oakhaven start their day.',
-    build(root) {
-      const bd = backdrop(root, { seed: 4, sunX: 900 });
-      const w = world(root);
-      const b = buildings(w.el, [['house', 120, 200], ['farm', 470, 190], ['well', 760, 150], ['bakery', 1030, 205], ['house', 1330, 200], ['inn', 1620, 220]]);
-      const farmer = folk(w.el, 'farmer');
-      const peasant = folk(w.el, 'peasant');
-      const baker = folk(w.el, 'baker');
-      const chef = folk(w.el, 'chef');
-      return { bd, w, b, farmer, peasant, baker, chef, fx: canvasLayer(root), tag: tag(root), names: [0, 1, 2, 3].map(() => nameTag(w.el)) };
-    },
+    id: 'dawn', min: 11,
+    say: 'In it stood an old keep, a well, a single farm... and a handful of hopeful people, ready to begin.',
+    build: (root) => sceneRoot(root, 2),
     frame(t, dur, s) {
-      const cx = lerp(-120, 520, E.inOut(seg(t, 0.2, dur - 0.4)));
-      s.bd.update(t, cx, lerp(0, 1, E.out(seg(t, 0, dur * 0.7))));
-      s.w.cam(cx, 1, 400);
-      const g = s.fx.g;
-      s.fx.clear();
-      // Farmer and peasant stroll out to the farm; the baker stands at her bakery; the chef ambles to the inn.
-      const walkers = [
-        [s.farmer, lerp(-60, 430, seg(t, 0.4, 6)), 'Farmer'],
-        [s.peasant, lerp(-220, 560, seg(t, 1.2, 7.5)), 'Peasant'],
-        [s.baker, 1040 + Math.sin(t * 0.7) * 20, 'Baker'],
-        [s.chef, lerp(1980, 1640, seg(t, 3, 10)), 'Chef'],
-      ];
-      walkers.forEach(([sp, x, label], i) => {
-        const moving = Math.abs(x - (sp._px == null ? x : sp._px)) > 0.05;
-        sp.dir = sp._px != null && x < sp._px ? -1 : 1;
-        sp._px = x;
-        sp.x = x;
-        sp.y = STREET + (i % 2) * 6;
-        if (moving) pose.walk(sp, t, 0.8, i, 8);
-        else pose.breathe(sp, t, i);
-        sp.place();
-        const [sx] = s.w.at(x, 0);
-        s.names[i](label, x, STREET - sp.h - 46, clamp(seg(t, 1 + i * 0.6, 2 + i * 0.6)) * (sx > 60 && sx < W - 60 ? 1 : 0));
-      });
-      // Smoke from the bakery chimney, bread popping out.
-      for (let i = 0; i < 9; i++) {
-        const k = (t * 0.35 + i / 9) % 1;
-        const [px, py] = s.w.at(1000 + k * 60 + Math.sin(k * 8) * 10, 400 - k * 160);
-        puff(g, px, py, k, 16);
-      }
-      for (let i = 0; i < 6; i++) {
-        const a = 2 + i * 1.4;
-        const [px, py] = s.w.at(1040, 500);
-        rise(g, '🍞', px, py, seg(t, a, a + 1.6), 40);
-      }
-      for (let i = 0; i < 4; i++) {
-        const a = 5 + i * 1.6;
-        const [px, py] = s.w.at(470, 470);
-        rise(g, '🍞', px + 30, py, seg(t, a, a + 1.6), 38);
-      }
-      s.tag('Wake your village', t, 1, dur - 0.3);
+      const R = s.R;
+      const k = E.inOut(seg(t, 0, dur - 0.5));
+      R.env.tod = lerp(0.05, 0.75, seg(t, 0, dur));
+      R.env.sunAz = 0.15;
+      look(R, lerp(-300, 100, k), lerp(1500, 175, k), lerp(-2200, -560, k), lerp(0, -60, k), lerp(0, 130, k), lerp(900, 300, k));
+      R.begin(t);
+      village(R, t, { built: builtOf(START), meadow: s.meadow, smoke: 0 });
+      [['peasant', -150, 90, 1], ['farmer', -40, 60, -1], ['steward', 90, 80, -1], ['woodcutter', 220, 110, -1], ['carpenter', -290, 140, 1]].forEach(([n, x, z, d], i) =>
+        folk(R, n, x, z, { dir: d, t: t + i }));
+      R.end();
     },
   });
 
   scenes.push({
-    id: 'work', min: 13,
-    say: 'Everyone has a trade. Woodcutters, stonecutters and miners turn the wild land into timber, stone, iron and gold.',
-    build(root) {
-      const bd = backdrop(root, { seed: 8, sunX: 700 });
-      const w = world(root);
-      const b = buildings(w.el, [['lumber', 200, 200], ['quarry', 620, 190], ['mine', 1040, 200], ['smithy', 1460, 200]]);
-      const who = [['woodcutter', 330], ['stonecutter', 740], ['miner', 1160], ['blacksmith', 1570]].map(([n, x]) => ({ sp: folk(w.el, n), x, n }));
-      return { bd, w, b, who, fx: canvasLayer(root), tag: tag(root), names: who.map(() => nameTag(w.el)) };
-    },
+    id: 'plan', min: 11,
+    say: 'Their steward, a careful old man, had a plan. Houses first, he said. Then a bakery. Then, we shall see.',
+    build: (root) => sceneRoot(root, 3),
     frame(t, dur, s) {
-      const cx = lerp(-160, 900, E.inOut(seg(t, 0.3, dur - 0.5)));
-      s.bd.update(t, cx, 1);
-      s.w.cam(cx, 1, 400);
-      const g = s.fx.g;
-      s.fx.clear();
-      const icons = { woodcutter: '🪵', stonecutter: '🪨', miner: '🔩', blacksmith: '🪙' };
-      s.who.forEach(({ sp, x, n }, i) => {
-        sp.x = x;
-        sp.dir = -1;
-        pose.work(sp, t, 0.6, i);
-        sp.place();
-        const [px, py] = s.w.at(x - 20, STREET - sp.h - 10);
-        for (let j = 0; j < 5; j++) {
-          const a = 0.8 + i * 0.5 + j * 1.9;
-          rise(g, icons[n], px, py, seg(t, a, a + 1.6), 46);
-          if (n === 'miner' && j % 2) rise(g, '🪙', px + 40, py + 10, seg(t, a + 0.5, a + 2.1), 40);
-        }
-        s.names[i](n.charAt(0).toUpperCase() + n.slice(1), x, STREET - sp.h - 50, seg(t, 0.6 + i * 0.4, 1.2 + i * 0.4));
-      });
-      // Hammer sparks at the smithy.
-      for (let j = 0; j < 8; j++) {
-        const k = (t * 1.3 + j / 8) % 1;
-        const [px, py] = s.w.at(1500, 520);
-        sparkle(g, px, py, k, 6, 4, 40, j + 3, '255,180,80');
-      }
-      s.tag('Gather wood, stone, iron & gold', t, 1, dur - 0.3);
+      const R = s.R;
+      const k = E.inOut(seg(t, 0, dur));
+      R.env.tod = 0.85;
+      R.env.focus = lerp(560, 390, k);
+      R.env.dof = 2.2;
+      const a = lerp(-0.35, 0.2, k);
+      look(R, 60 + Math.sin(a) * lerp(560, 380, k), 150, 110 - Math.cos(a) * lerp(560, 380, k), 30, 140, 160);
+      R.begin(t);
+      village(R, t, { built: builtOf(START), meadow: s.meadow });
+      const talk = t > 1 && t < dur - 1.5 ? t : 0;
+      folk(R, 'steward', -40, 120, { dir: 1, talk, t });
+      folk(R, 'carpenter', 110, 130, { dir: -1, t: t + 2, talk: Math.sin(t * 0.7) > 0.6 ? t : 0 });
+      folk(R, 'peasant', 280, 200, { dir: -1, t: t + 4 });
+      R.end();
+      R.env.focus = null;
     },
   });
 
-  scenes.push({
-    id: 'market', min: 11,
-    say: 'At the market, the merchant drives a hard bargain. The steward keeps the books, and down at the inn, there is always something on the stove.',
-    build(root) {
-      const bd = backdrop(root, { seed: 12, sunX: 500 });
-      const w = world(root);
-      const b = buildings(w.el, [['market', 260, 190], ['house', 560, 200], ['inn', 860, 220], ['chapel', 1180, 210]]);
-      const merchant = folk(w.el, 'merchant');
-      const steward = folk(w.el, 'steward');
-      const chef = folk(w.el, 'chef');
-      return { bd, w, b, merchant, steward, chef, fx: canvasLayer(root), tag: tag(root), names: [0, 1, 2].map(() => nameTag(w.el)) };
-    },
-    frame(t, dur, s) {
-      const cx = lerp(-80, 300, E.inOut(seg(t, 0.3, dur - 0.5)));
-      s.bd.update(t, cx, 1);
-      s.w.cam(cx, 1, 400);
-      const g = s.fx.g;
-      s.fx.clear();
-      [[s.merchant, 330, 'Merchant'], [s.steward, 600, 'Steward'], [s.chef, 900, 'Chef']].forEach(([sp, x, label], i) => {
-        sp.x = x + Math.sin(t * 0.6 + i) * 14;
-        sp.dir = i === 1 ? -1 : 1;
-        pose.breathe(sp, t * 1.3, i);
-        if (i === 0) sp.rot = Math.sin(t * 3) * 3;
-        sp.place();
-        s.names[i](label, x, STREET - sp.h - 50, seg(t, 0.6 + i * 0.5, 1.2 + i * 0.5));
-      });
-      // The merchant trades three of one thing for one of another.
-      const trades = [['🪵', '🪙'], ['🪨', '🍞'], ['🍞', '🔩']];
-      trades.forEach(([give, get], i) => {
-        const a = 1.2 + i * 2.6;
-        const k = seg(t, a, a + 2.2);
-        if (k <= 0 || k >= 1) return;
-        const [px, py] = s.w.at(330, 470);
-        for (let j = 0; j < 3; j++) emoji(g, give, px - 120 + j * 34 + E.in(seg(k, 0, 0.45)) * (120 - j * 34), py - 30, 36, 1 - seg(k, 0.35, 0.5));
-        emoji(g, get, px + E.out(seg(k, 0.45, 0.9)) * 120, py - 30 - Math.sin(seg(k, 0.45, 0.9) * Math.PI) * 50, 46, seg(k, 0.4, 0.5) * (1 - seg(k, 0.85, 1)));
-      });
-      for (let i = 0; i < 8; i++) {
-        const k = (t * 0.3 + i / 8) % 1;
-        const [px, py] = s.w.at(910 + Math.sin(k * 7) * 8, 380 - k * 120);
-        puff(g, px, py, k, 14);
-      }
-      s.tag('Trade, plan & feed your people', t, 1, dur - 0.3);
-    },
-  });
-
+  const RISE = ['house1', 'house2', 'bakery', 'lumber', 'market', 'smithy', 'house3', 'house4', 'inn', 'chapel'];
   scenes.push({
     id: 'build', min: 12,
-    say: 'With enough timber and stone, the carpenters get to work. Houses, workshops, a chapel... the village grows, one building at a time.',
-    build(root) {
-      const bd = backdrop(root, { seed: 16, sunX: 1000 });
-      const w = world(root);
-      const plots = [['house', 260, 200], ['workshop', 620, 190], ['chapel', 980, 215], ['barracks', 1340, 200]].map(([n, x, h]) => ({ sp: sprite(w.el, O(n), { x, y: BACK, h: h * 1.22, shadow: false }), x, n }));
-      const carp = folk(w.el, 'carpenter');
-      const peasant = folk(w.el, 'peasant');
-      return { bd, w, plots, carp, peasant, fx: canvasLayer(root), tag: tag(root) };
-    },
+    say: 'So the carpenter hammered, the woodcutter chopped, and stone by stone, the village rose.',
+    build: (root) => sceneRoot(root, 4),
     frame(t, dur, s) {
-      const cx = lerp(-120, 700, E.inOut(seg(t, 0.3, dur - 0.6)));
-      s.bd.update(t, cx, 1);
-      s.w.cam(cx, 1, 400);
-      const g = s.fx.g;
-      s.fx.clear();
-      s.plots.forEach(({ sp, x }, i) => {
-        const a = 1 + i * 2.4;
-        const p = seg(t, a, a + 1.4);
-        sp.op = p > 0 ? 1 : 0;
-        sp.sy = E.back(p);
-        sp.sx = lerp(0.85, 1, E.out(p));
-        sp.place();
-        for (let j = 0; j < 7; j++) {
-          const k = seg(t, a - 0.2 + j * 0.05, a + 1.4);
-          const [px, py] = s.w.at(x + (j - 3) * 34, BACK - 10 - (j % 3) * 14);
-          puff(g, px + (j - 3) * k * 30, py - k * 30, k, 26, '205,185,150');
-        }
-        if (t > a + 0.9 && t < a + 2) {
-          const [px, py] = s.w.at(x, BACK - sp.h * 0.6);
-          sparkle(g, px, py, (t - a - 0.9) / 1.1, 14, 20, 140, i + 1);
-        }
-      });
-      // The carpenter hurries from plot to plot, hammering.
-      const idx = clamp(Math.floor((t - 0.4) / 2.4), 0, 3);
-      const target = s.plots[idx].x + 110;
-      const from = idx ? s.plots[idx - 1].x + 110 : -100;
-      const local = (t - 0.4) - idx * 2.4;
-      const x = lerp(from, target, E.inOut(seg(local, 0, 0.8)));
-      s.carp.x = x;
-      s.carp.dir = -1;
-      if (local < 0.8) pose.walk(s.carp, t, 1.1, 0, 8);
-      else pose.work(s.carp, t, 1.2, 0);
-      s.carp.place();
-      s.peasant.x = x - 140;
-      s.peasant.dir = 1;
-      pose.walk(s.peasant, t, 0.9, 1, 7);
-      s.peasant.place();
-      s.tag('Build up your village', t, 1, dur - 0.3);
+      const R = s.R;
+      R.env.tod = 1;
+      R.env.sunAz = 0.6;
+      const a = lerp(-0.7, 0.75, E.inOut(seg(t, 0, dur)));
+      look(R, Math.sin(a) * 1700, lerp(700, 520, seg(t, 0, dur)), 650 - Math.cos(a) * 1700, 0, 80, 650);
+      R.begin(t);
+      const built = builtOf(START);
+      RISE.forEach((id, i) => (built[id] = seg(t, 0.8 + i * 0.95, 2.1 + i * 0.95)));
+      village(R, t, { built, meadow: s.meadow, smoke: 1 });
+      const site = RISE[clamp(Math.floor((t - 0.8) / 0.95), 0, RISE.length - 1)];
+      const [sx, sz] = BLD[site];
+      folk(R, 'carpenter', sx + 150, sz - 90, { dir: -1, t, rot: Math.sin(t * 14) * 8 });
+      folk(R, 'woodcutter', 860, 760, { dir: 1, t, rot: Math.sin(t * 9) * 9 });
+      folk(R, 'stonecutter', -200, 520, { dir: 1, t, rot: Math.sin(t * 10 + 1) * 8 });
+      folk(R, 'peasant', lerp(-600, 400, seg(t, 0, dur)), 260, { walk: t, dir: 1 });
+      R.end();
     },
   });
 
   scenes.push({
-    id: 'crossroads', min: 13,
-    say: 'Word spreads. Travellers gather at the crossroads: a bard, a knight, a priest... even a wizard. Each one will join your village, if you can pay their way.',
-    build(root) {
-      const bd = backdrop(root, { seed: 20, sunX: 380 });
-      const w = world(root);
-      const b = buildings(w.el, [['inn', 160, 220], ['tower', 1150, 230]]);
-      const post = el('div', '', w.el, { position: 'absolute', left: 0, top: 0, zIndex: BACK + 1, transform: `translate(600px, ${BACK - 210}px)` });
-      post.innerHTML = `<svg width="200" height="220" style="overflow:visible"><rect x="92" y="20" width="14" height="200" rx="3" fill="#6b4018"/>
-        <path d="M30 40 h120 l22 18 l-22 18 h-120 z" fill="#a8703c" stroke="#5a3412" stroke-width="4"/>
-        <path d="M168 90 h-120 l-22 18 l22 18 h120 z" fill="#a8703c" stroke="#5a3412" stroke-width="4"/>
-        <text x="88" y="66" font-family="Lilita One" font-size="22" fill="#fff6dc" text-anchor="middle">Oakhaven</text>
-        <text x="100" y="116" font-family="Lilita One" font-size="22" fill="#fff6dc" text-anchor="middle">Crossroads</text></svg>`;
-      const who = ['bard', 'knight', 'priest', 'wizard', 'guard', 'archer'].map((n) => ({ n, sp: folk(w.el, n) }));
-      return { bd, w, b, who, fx: canvasLayer(root), tag: tag(root), names: who.map(() => nameTag(w.el)) };
-    },
+    id: 'life', min: 12,
+    say: 'Soon there was bread in the ovens, a merchant in the market, and a blacksmith whose hammer rang from dawn till dusk.',
+    build: (root) => sceneRoot(root, 5),
     frame(t, dur, s) {
-      s.bd.update(t, 0, 1);
-      s.w.cam(0, lerp(1, 1.06, seg(t, 0, dur)), 420);
-      const g = s.fx.g;
-      s.fx.clear();
-      s.who.forEach(({ n, sp }, i) => {
-        const a = 0.6 + i * 1.3;
-        const slot = 300 + i * 150;
-        const x = lerp(1500 + i * 60, slot, E.out(seg(t, a, a + 2.2)));
-        const moving = t > a && t < a + 2;
-        sp.x = x;
-        sp.y = STREET + (i % 2) * 8;
-        sp.dir = -1;
-        if (moving) pose.walk(sp, t, 0.9, i, 8);
-        else pose.breathe(sp, t, i);
-        sp.place();
-        s.names[i](n.charAt(0).toUpperCase() + n.slice(1), x, STREET - sp.h - 46, seg(t, a + 1.4, a + 2));
-        if (n === 'bard' && t > a + 1.8) {
-          for (let j = 0; j < 4; j++) {
-            const k = (t * 0.6 + j / 4) % 1;
-            const [px, py] = s.w.at(x + 40 + k * 40, STREET - 150 - k * 90);
-            emoji(g, j % 2 ? '🎵' : '🎶', px + Math.sin(k * 9) * 10, py, 30, (1 - k) * seg(t, a + 1.8, a + 2.4));
-          }
-        }
-        if (n === 'wizard' && t > a + 2) {
-          const [px, py] = s.w.at(x - 50, STREET - sp.h + 10);
-          sparkle(g, px, py, ((t - a - 2) % 1.4) / 1.4, 10, 10, 70, i + 9, '190,160,255');
-        }
+      const R = s.R;
+      R.env.tod = 1;
+      R.env.sunAz = -0.4;
+      R.env.focus = 360;
+      R.env.dof = 1.6;
+      R.env.focus = 470;
+      const bx = lerp(-650, 760, seg(t, 0.3, dur));
+      look(R, bx - 60, 165, -280, bx + 40, 120, 200);
+      R.begin(t);
+      village(R, t, { built: builtOf(GROWN), meadow: s.meadow, smoke: 1 });
+      folk(R, 'baker', bx, 180, { walk: t, dir: 1 });
+      folk(R, 'merchant', -560, 300, { t, talk: t, dir: 1 });
+      folk(R, 'blacksmith', 640, 215, { t, dir: -1, rot: Math.sin(t * 12) * 9 });
+      folk(R, 'chef', lerp(400, -200, seg(t, 0, dur)), 420, { walk: t + 1, dir: -1 });
+      folk(R, 'farmer', lerp(-900, -300, seg(t, 0, dur)), 520, { walk: t + 2, dir: 1 });
+      folk(R, 'peasant', lerp(900, 100, seg(t, 0, dur)), 60, { walk: t + 3, dir: -1 });
+      // The smith's sparks.
+      for (let j = 0; j < 10; j++) {
+        const q = (t * 1.6 + j / 10) % 1;
+        R.blob(600 + Math.cos(j * 2.4) * q * 70, 90 + Math.sin(j * 1.7) * 20 + q * 40 - q * q * 60, 205, 6, '#ffb347', 1 - q);
+      }
+      R.end();
+      R.env.focus = null;
+    },
+  });
+
+  const TRAVELLERS = ['bard', 'knight', 'priest', 'wizard'];
+  scenes.push({
+    id: 'road', min: 14,
+    say: 'Word travelled. Strangers came down the road: a bard with a song, a knight in shining armour, a priest, and a wizard who never said where he came from.',
+    build: (root) => sceneRoot(root, 6),
+    frame(t, dur, s) {
+      const R = s.R;
+      R.env.tod = lerp(1.15, 1.45, seg(t, 0, dur));
+      R.env.sunAz = 0.1;
+      const k = E.inOut(seg(t, 0, dur));
+      look(R, lerp(160, 260, k), lerp(110, 140, k), lerp(-2100, -1950, k), lerp(-40, 40, k), 120, lerp(-1200, -1500, k));
+      R.begin(t);
+      village(R, t, { built: builtOf(GROWN), meadow: s.meadow, smoke: 1, walls: false });
+      R.bill(AD3.sign('Oakhaven'), { x: 280, z: -1580, h: 120, shadowW: 0.2 });
+      TRAVELLERS.forEach((n, i) => {
+        const a = 0.4 + i * 2.6;
+        const p = seg(t, a, a + 7);
+        const z = lerp(-500, -1640 + i * 80, E.out(p));
+        const x = lerp(-30 + (i % 2) * 60, [-170, -50, 70, 190][i], E.out(p));
+        const walking = p > 0 && p < 0.95;
+        folk(R, n, x, z, { walk: walking ? t + i : 0, t: t + i, dir: i % 2 ? -1 : 1, op: clamp(seg(t, a - 0.3, a + 0.4)) });
+        if (n === 'bard' && p > 0) notes(R, x, z, t);
+        if (n === 'wizard' && p > 0) R.light(x - 50, 150, z, 70, '#b48cff', 0.35 + 0.15 * Math.sin(t * 5));
       });
-      s.tag('Recruit travellers', t, 1, dur - 0.3);
+      R.end();
     },
   });
 
   scenes.push({
-    id: 'seasons', min: 14,
-    say: 'The seasons turn. Spring planting, summer sun, an autumn harvest... and then winter, when the firewood burns low and the walls begin to crack.',
+    id: 'seasons', min: 15,
+    say: 'The seasons turned. Spring was gentle. Summer was kind. Autumn was golden. But winter was long, and cold, and dark.',
     build(root) {
-      const bd = backdrop(root, { seed: 24, sunX: 840 });
-      const w = world(root);
-      const b = buildings(w.el, [['farm', 180, 190], ['house', 500, 200], ['well', 760, 150], ['house', 1000, 195], ['lumber', 1300, 195]]);
-      const farmer = folk(w.el, 'farmer');
-      const wood = folk(w.el, 'woodcutter');
-      const label = caption(root, '', 'title');
-      return { bd, w, b, farmer, wood, label, fx: canvasLayer(root), tag: tag(root) };
+      const s = sceneRoot(root, 7);
+      s.label = caption(root, '', 'title');
+      return s;
     },
     frame(t, dur, s) {
+      const R = s.R;
       const q = dur / 4;
       const si = clamp(Math.floor(t / q), 0, 3);
-      const name = ['spring', 'summer', 'autumn', 'winter'][si];
       const lt = t - si * q;
-      s.bd.update(t, 0, si === 3 ? 1.25 : 1);
-      s.w.set(name, seg(lt, 0, 1));
-      s.w.cam(0, 1, 400);
-      s.b.forEach((sp) => {
-        sp.filter = si === 3 ? 'brightness(1.05) saturate(0.7)' : si === 2 ? 'sepia(0.15)' : '';
-        sp.place();
-      });
-      s.farmer.x = 320 + Math.sin(t * 0.5) * 60;
-      s.farmer.dir = Math.cos(t * 0.5) >= 0 ? 1 : -1;
-      pose.walk(s.farmer, t, 0.6, 0, 6);
-      s.farmer.place();
-      s.wood.x = 1180;
-      s.wood.dir = -1;
-      pose.work(s.wood, t, 0.6, 1);
-      s.wood.place();
-      const g = s.fx.g;
-      s.fx.clear();
-      const r = rng(si + 3);
-      for (let i = 0; i < 46; i++) {
-        const x0 = r() * (W + 100);
-        const v = si === 3 ? 60 + r() * 50 : 50 + r() * 40;
-        const y = ((r() * H + lt * v) % (H + 40)) - 20;
-        const x = x0 + Math.sin(lt * 1.3 + i) * 30;
-        if (si === 0 && i < 26) emoji(g, '🌸', x, y, 18 + (i % 3) * 4, 0.9, lt + i);
-        if (si === 2) emoji(g, '🍂', x, y, 24 + (i % 3) * 5, 0.95, lt * 2 + i);
-        if (si === 3) {
-          g.fillStyle = 'rgba(255,255,255,0.9)';
-          g.beginPath();
-          g.arc(x, y, 2 + (i % 3) * 1.5, 0, Math.PI * 2);
-          g.fill();
-        }
-      }
-      if (si === 1) {
-        for (let i = 0; i < 3; i++) {
-          const k = seg(lt, 0.5 + i * 0.8, 2 + i * 0.8);
-          const [px, py] = s.w.at(180, 480);
-          if (k > 0 && k < 1) emoji(g, '🍞', px - 40 + i * 40, py - E.out(k) * 90, 40, 1 - seg(k, 0.7, 1));
-        }
-      }
-      if (si === 3) {
-        for (let i = 0; i < 4; i++) {
-          const k = seg(lt, 0.4 + i * 0.6, 1.8 + i * 0.6);
-          const [px, py] = s.w.at(1180, 520);
-          if (k > 0 && k < 1) emoji(g, '🪵', px + E.out(k) * -160, py - Math.sin(k * Math.PI) * 60, 40, 1 - seg(k, 0.75, 1));
-        }
-      }
-      s.label.e.innerHTML = `<div class="mid">${['🌱 Spring', '☀️ Summer', '🍂 Autumn', '❄️ Winter'][si]}</div>`;
-      s.label.e.style.top = '27%';
-      s.label.show(lt, 0.15, q - 0.1, 'rise');
-      s.tag('12 rounds · 4 seasons a year', t, 1, dur - 0.3);
+      R.env.tod = si === 3 ? lerp(1.2, 1.7, seg(lt, 0, q)) : 1;
+      R.env.sunAz = 0.4;
+      R.env.ground = GROUND[si];
+      R.env.clouds = si === 3 ? 1.4 : 1;
+      R.env.tint = si === 3 ? '#c9d4ee' : si === 2 ? '#ffe2b8' : null;
+      const a = lerp(0.5, -0.4, E.inOut(seg(t, 0, dur)));
+      look(R, Math.sin(a) * 1300, 380, 500 - Math.cos(a) * 1300, 0, 90, 600);
+      R.begin(t);
+      village(R, t, { built: builtOf(GROWN), meadow: s.meadow, smoke: si === 3 ? 1.4 : 0.6, season: si });
+      const snow = si === 3;
+      folk(R, 'farmer', -760 + Math.sin(t * 0.5) * 120, 470, { walk: t, dir: Math.cos(t * 0.5) > 0 ? 1 : -1, snow });
+      folk(R, 'woodcutter', 300, 350, { walk: snow ? t : 0, t, dir: -1, snow, rot: snow ? 0 : Math.sin(t * 9) * 8 });
+      folk(R, 'peasant', -120, 260, { t, dir: 1, snow });
+      if (si === 0) weather(R, 'petals', t, 140, 3);
+      if (si === 2) weather(R, 'leaves', t, 160, 4);
+      if (si === 3) weather(R, 'snow', t, 420, 5, seg(lt, 0, 1.2));
+      R.end();
+      R.env.tint = null;
+      s.label.e.innerHTML = `<div class="mid">${['Spring', 'Summer', 'Autumn', 'Winter'][si]}</div>`;
+      s.label.e.style.top = '20%';
+      s.label.show(lt, 0.2, q - 0.1, 'rise');
     },
   });
 
   scenes.push({
-    id: 'night', min: 13, music: 'night',
-    say: 'But when night falls, things stir in the forest. Wolves at the walls! Guards and archers, to your posts!',
-    build(root) {
-      const bd = backdrop(root, { seed: 28, moonX: 980 });
-      const w = world(root);
-      w.hideHedge();
-      const back = buildings(w.el, [['house', 180, 190, 520], ['keep', 520, 240, 520], ['house', 840, 190, 520]]);
-      const walls = [];
-      for (let i = 0; i < 6; i++) walls.push(sprite(w.el, O('wall'), { x: 60 + i * 190, y: 640, h: 120, shadow: false, z: 640 }));
-      const tower = sprite(w.el, O('tower'), { x: 1180, y: 680, h: 280, shadow: false });
-      const guard = sprite(w.el, O('guard'), { h: 160, shadow: false, z: 630 });
-      const guard2 = sprite(w.el, O('guard'), { h: 150, shadow: false, z: 630, dir: -1 });
-      const archer = sprite(w.el, O('archer'), { h: 110, shadow: false, z: 690 });
-      const wolves = [0, 1].map(() => sprite(w.el, O('wolves'), { h: 120, face: -1 }));
-      return { bd, w, back, walls, tower, guard, guard2, archer, wolves, fx: canvasLayer(root), tag: tag(root) };
-    },
+    id: 'wolves', min: 14, music: 'night',
+    say: 'And on the darkest nights, things crept out of the forest. To the walls! cried the guards. And the archers did not miss.',
+    build: (root) => sceneRoot(root, 8),
     frame(t, dur, s) {
-      const tod = lerp(2, 3, E.inOut(seg(t, 0, 3.5)));
-      s.bd.update(t, 0, tod);
-      s.w.cam(lerp(0, 90, E.inOut(seg(t, 3, dur))), 1, 400);
-      const dark = clamp(tod - 1.8);
-      const f = `brightness(${lerp(1, 0.55, dark)}) saturate(${lerp(1, 0.7, dark)})`;
-      s.w.el.style.filter = f;
-      [...s.back, ...s.walls].forEach((sp) => sp.place());
-      s.tower.place();
-      // The guard pops up behind the wall, the archer at the tower.
-      const up = E.back(seg(t, 4.2, 4.9));
-      s.guard.x = 760;
-      s.guard.y = 575 + (1 - up) * 40;
-      s.guard.op = clamp(seg(t, 4.2, 4.6));
-      s.guard.place();
-      const up2 = E.back(seg(t, 4.6, 5.3));
-      s.guard2.x = 420;
-      s.guard2.y = 580 + (1 - up2) * 40;
-      s.guard2.op = clamp(seg(t, 4.6, 5));
-      s.guard2.place();
-      s.archer.x = 1185;
-      s.archer.y = 540 + (1 - up) * 60;
-      s.archer.op = up > 0.01 ? 1 : 0;
-      s.archer.dir = 1;
-      s.archer.place();
-      const g = s.fx.g;
-      s.fx.clear();
-      // Wolves slink in from the forest, then flee from the arrows.
-      const fleeAt = 8.6;
-      s.wolves.forEach((sp, i) => {
-        const inX = lerp(1550 + i * 200, 760 + i * 230, E.out(seg(t, 2.5 + i * 0.4, 6.5)));
-        const out = E.in(seg(t, fleeAt, fleeAt + 2));
-        sp.x = lerp(inX, 1900, out);
-        sp.y = 700 + i * 6;
-        sp.z = 900;
-        sp.dir = out > 0 ? 1 : -1;
-        pose.walk(sp, t, out > 0 ? 1.6 : 0.6, i, out > 0 ? 10 : 4);
-        sp.filter = `brightness(${lerp(1, 0.75, dark)})`;
-        sp.place();
-        // glowing eyes in the dark
-      });
-      for (let i = 0; i < 7; i++) {
-        const a = 5.2 + i * 0.45;
-        const k = seg(t, a, a + 0.5);
-        if (k <= 0 || k >= 1) continue;
-        const [x0, y0] = s.w.at(1210, 380);
-        const [x1, y1] = s.w.at(780 + (i % 3) * 110, 680);
-        const x = lerp(x0, x1, k);
-        const y = lerp(y0, y1, k) - Math.sin(k * Math.PI) * 60;
-        const ang = Math.atan2(y1 - y0 + Math.cos(k * Math.PI) * -190, x1 - x0);
-        g.save();
-        g.translate(x, y);
-        g.rotate(ang);
-        g.strokeStyle = '#f3e6c4';
-        g.lineWidth = 3;
-        g.beginPath();
-        g.moveTo(-22, 0);
-        g.lineTo(14, 0);
-        g.stroke();
-        g.fillStyle = '#d9d9d9';
-        g.beginPath();
-        g.moveTo(20, 0);
-        g.lineTo(12, -5);
-        g.lineTo(12, 5);
-        g.fill();
-        g.restore();
+      const R = s.R;
+      R.env.tod = lerp(2.3, 3, seg(t, 0, 3));
+      R.env.moonAz = 0.25;
+      const k = E.inOut(seg(t, 0, dur));
+      look(R, lerp(-380, -120, k), lerp(150, 120, k), lerp(-1350, -1150, k), lerp(300, 380, k), 110, -260);
+      R.begin(t);
+      village(R, t, { built: builtOf(GROWN), smoke: 0.5, walls: true, night: clamp(R.env.tod - 2) });
+      const night = clamp(R.env.tod - 2);
+      // Eyes in the dark, then the pack.
+      for (let i = 0; i < 6; i++) {
+        const ex = -700 + i * 70;
+        const a = clamp(seg(t, 1.5 + i * 0.25, 2.2 + i * 0.25)) * (1 - seg(t, 4.2, 4.6));
+        const blink = Math.sin(t * 2 + i * 3) > 0.96 ? 0 : 1;
+        if (a > 0) R.at(ex, 50, -820 - (i % 3) * 90, (g, p) => {
+          g.fillStyle = `rgba(255,236,120,${a * blink})`;
+          [-1, 1].forEach((sd) => {
+            g.beginPath();
+            g.ellipse(p.x + sd * 7 * p.s, p.y, 3.2 * p.s, 2.2 * p.s, 0, 0, TAU);
+            g.fill();
+          });
+          g.shadowBlur = 0;
+        });
       }
-      const [sx, sy] = s.w.at(1000, 300);
-      stamp(g, 'Driven off!', sx, sy, seg(t, fleeAt + 0.3, fleeAt + 3.2));
-      s.tag(t < 7 ? 'Defend your village at night' : 'Walls + guards = defense', t, 1, dur - 0.3);
+      const flee = seg(t, 9.2, 11.5);
+      [[-60, -760], [260, -820], [520, -720]].forEach(([x0, z0], i) => {
+        const inP = E.out(seg(t, 4 + i * 0.4, 8));
+        const x = lerp(x0 - 500, x0, inP) - E.in(flee) * 900;
+        const z = lerp(-1100, z0, inP) - E.in(flee) * 500;
+        const c = t * 7 + i;
+        R.bill(O('wolves'), { x, z, h: 115, face: -1, dir: flee > 0 ? -1 : 1, lift: Math.abs(Math.sin(c)) * 8, rot: Math.sin(c) * 3, op: clamp(seg(t, 4 + i * 0.4, 4.6 + i * 0.4)) });
+      });
+      // Guards behind the wall, the archer up in the tower.
+      [[-520, 0], [140, 0.3], [600, 0.6]].forEach(([x, d]) => {
+        const up = E.back(seg(t, 5.6 + d, 6.3 + d));
+        if (up > 0) R.bill(faded(O('guard')), { x, z: -240, h: 150, lift: lerp(-40, 30, up), op: clamp(seg(t, 5.6 + d, 6 + d)), shadow: false, bias: -5 });
+      });
+      const up = E.back(seg(t, 5.8, 6.5));
+      if (up > 0) R.bill(O('archer'), { x: 1015, z: -250, h: 110, lift: lerp(120, 160, up), dir: -1, op: clamp(seg(t, 5.8, 6.2)), shadow: false, bias: 2 });
+      // Arrows.
+      for (let i = 0; i < 6; i++) {
+        const a = 6.6 + i * 0.45;
+        const q = seg(t, a, a + 0.7);
+        if (q <= 0 || q >= 1) continue;
+        const tx = [-60, 260, 520][i % 3];
+        const tz = [-760, -820, -720][i % 3];
+        const pos = (u) => [lerp(990, tx, u), lerp(270, 50, u) + Math.sin(u * Math.PI) * 120, lerp(-250, tz, u)];
+        const p0 = pos(q);
+        const p1 = pos(Math.max(0, q - 0.06));
+        R.at(p0[0], p0[1], p0[2], (g, p) => {
+          const pb = R.project(p1[0], p1[1], p1[2]);
+          if (!pb) return;
+          g.strokeStyle = '#f3e6c4';
+          g.lineWidth = Math.max(1.5, 3 * p.s);
+          g.beginPath();
+          g.moveTo(pb.x, pb.y);
+          g.lineTo(p.x, p.y);
+          g.stroke();
+        });
+      }
+      R.end();
     },
   });
 
-  const BEASTS = [
-    ['goblins', 'Goblin raiders', 140], ['spiders', 'Giant spider', 130], ['harpies', 'Harpy', 150, true], ['skeletons', 'Skeleton host', 140],
-    ['troll', 'Troll', 200], ['ogre', 'Ogre', 190], ['griffin', 'Griffin', 170, true], ['wyvern', 'Wyvern', 160, true],
-    ['hydra', 'Hydra', 210], ['basilisk', 'Basilisk', 190], ['lich', 'Lich king', 210], ['giant', 'Hill giant', 250],
-  ];
+  const BEASTS = [['goblins', 140], ['troll', 230], ['skeletons', 150], ['ogre', 220], ['spiders', 130], ['hydra', 240], ['lich', 220], ['giant', 300], ['basilisk', 200]];
   scenes.push({
     id: 'monsters', min: 14, music: 'night',
-    say: 'And it isn’t only wolves. Goblins, trolls, skeletons, a hydra, a lich king... Every night brings a new threat, and you never know which one, until it’s at the gates.',
-    build(root) {
-      const bd = backdrop(root, { seed: 32, moonX: 300 });
-      const w = world(root);
-      w.hideHedge();
-      w.el.style.filter = 'brightness(0.78) saturate(0.8)';
-      const list = BEASTS.map(([n, label, h, fly], i) => ({ n, label, fly, x: 260 + i * 250, sp: sprite(w.el, O(n), { h }), name: nameTag(w.el) }));
-      const fog = el('div', 'full', root, { zIndex: 4500, background: 'linear-gradient(180deg, rgba(20,30,60,0) 55%, rgba(120,140,190,0.25) 80%, rgba(20,30,60,0.35))' });
-      return { bd, w, list, fog, tag: tag(root) };
-    },
+    say: 'Goblins. Trolls. Skeletons that rattled in the moonlight. Every night brought something new, and nobody ever knew what, until it was at the gates.',
+    build: (root) => sceneRoot(root, 9),
     frame(t, dur, s) {
-      const cx = lerp(-120, 260 + 11 * 250 - 1000, E.inOut(seg(t, 0.3, dur - 0.5)));
-      s.bd.update(t, cx, 3);
-      s.w.cam(cx, 1, 400);
-      s.list.forEach(({ n, label, fly, x, sp, name }, i) => {
-        sp.x = x + Math.sin(t * 0.8 + i) * 14;
-        sp.y = 620 - (i % 2) * 36;
-        if (fly) {
-          sp.lift = 140 + Math.sin(t * 2 + i) * 18;
-          sp.sy = 1 + 0.06 * Math.sin(t * 8 + i);
-        } else pose.walk(sp, t, 0.45, i, 5);
-        sp.place();
-        // Threats arrive face-down: a card flip before each one is revealed.
-        const [scx] = s.w.at(x, 0);
-        const rev = seg(scx, W * 0.95, W * 0.7);
-        sp.op = 1;
-        sp.filter = `brightness(${lerp(0, 1, rev)})`;
-        name(rev > 0.6 ? label : '?', x, sp.y + 8, scx > -150 && scx < W + 150 ? 1 : 0);
+      const R = s.R;
+      R.env.tod = 3;
+      R.env.moonAz = Math.PI - 0.25;
+      R.env.fogNear = 300;
+      R.env.fogFar = 1700;
+      R.env.fogMax = 0.85;
+      R.env.hazeColor = '#2a3760';
+      R.env.ground = ['#33503a', '#2a4430'];
+      const k = E.inOut(seg(t, 0, dur));
+      look(R, 0, lerp(80, 110, k), lerp(-420, -340, k), 0, lerp(150, 120, k), -2000);
+      R.begin(t);
+      // Lightning: two flashes that reveal what is coming.
+      const fl = Math.max(seg(t, 4.2, 4.3) * (1 - seg(t, 4.3, 4.9)), seg(t, 9.4, 9.5) * (1 - seg(t, 9.5, 10.3)), 0.6 * seg(t, 9.75, 9.8) * (1 - seg(t, 9.8, 10.1)));
+      s.flash.style.opacity = fl * 0.55;
+      village(R, t, { built: builtOf(GROWN), walls: true, night: 1 });
+      BEASTS.forEach(([n, h], i) => {
+        const col = i % 3;
+        const row = Math.floor(i / 3);
+        const p = seg(t, 0.3 + row * 1.2, dur);
+        const x = (col - 1) * 330 + (row % 2) * 120;
+        const z = lerp(-1700 - row * 240, -950 - row * 240, E.out(p));
+        const c = t * 3 + i;
+        R.bill(O(n), { x, z, h, lift: Math.abs(Math.sin(c)) * 4, rot: Math.sin(c) * 2, flash: (1 - fl) * 0.92, flashColor: '#0c1124', op: clamp(seg(t, 0.3 + row * 1.2, 1.5 + row * 1.2)) });
       });
-      s.tag('Hidden threats every night', t, 1, dur - 0.3);
+      weather(R, 'rain', t, 200, 6, 0.6);
+      R.end();
+      R.env.fogNear = 1400;
+      R.env.fogFar = 5200;
+      R.env.fogMax = 0.6;
+      R.env.hazeColor = null;
+      R.env.ground = GROUND[1];
     },
   });
 
   scenes.push({
-    id: 'dragon', min: 13, music: 'night',
-    say: 'And once in a long while... a dragon! Walls won’t stop it. Only the bravest knights and the wisest wizards can drive it away.',
-    build(root) {
-      const bd = backdrop(root, { seed: 36, moonX: 1080 });
-      const w = world(root);
-      w.hideHedge();
-      const back = buildings(w.el, [['house', 120, 190, 560], ['keep', 430, 250, 560], ['wizardtower', 760, 300, 560], ['house', 1040, 190, 560]]);
-      const knight = sprite(w.el, O('knight'), { h: 200, shadow: false, z: 700 });
-      const wizard = sprite(w.el, O('wizard'), { h: 200, shadow: false, z: 700 });
-      const walls = [];
-      for (let i = 0; i < 7; i++) walls.push(sprite(w.el, O('wall'), { x: 40 + i * 190, y: 700, h: 110, shadow: false, z: 800 }));
-      const dragon = sprite(w.el, O('dragon'), { h: 260, shadow: false, z: 3000 });
-      return { bd, w, back, walls, knight, wizard, dragon, fx: canvasLayer(root), tag: tag(root) };
-    },
+    id: 'dragon', min: 15, music: 'night',
+    say: 'Then, one night... a dragon. Walls could not stop it. But the knight held his ground, the wizard raised his staff, and the beast fled, roaring, into the clouds.',
+    build: (root) => sceneRoot(root, 10),
     frame(t, dur, s) {
-      s.bd.update(t, 0, 3);
-      const shake = t > 3 && t < 5.5 ? Math.sin(t * 40) * 4 : 0;
-      s.w.cam(0, 1, 400, shake, shake * 0.5);
-      s.w.el.style.filter = 'brightness(0.66) saturate(0.8)';
-      [...s.back, ...s.walls].forEach((sp) => sp.place());
-      const g = s.fx.g;
-      s.fx.clear();
-      // The dragon swoops in from the left, breathes fire, takes the hits and flees up and away.
-      const inP = E.out(seg(t, 0.5, 3));
-      const outP = E.in(seg(t, dur - 4, dur - 1.2));
-      s.dragon.x = lerp(-300, 360, inP) + outP * 1400 + Math.sin(t * 1.4) * 30;
-      s.dragon.y = lerp(240, 330, inP) - outP * 420 + Math.sin(t * 2.4) * 16;
-      s.dragon.sy = 1 + 0.07 * Math.sin(t * 7);
-      s.dragon.rot = outP > 0 ? -12 * outP : Math.sin(t * 1.4) * 4;
-      const hit = seg(t, 6.2, 6.6) * (1 - seg(t, 7.5, 8));
-      s.dragon.filter = hit > 0 ? `brightness(${1 + hit})` : '';
-      s.dragon.place();
-      if (t > 2.6 && t < 5.4) {
-        const [dx, dy] = s.w.at(s.dragon.x + 120, s.dragon.y - 170);
-        for (let i = 0; i < 28; i++) {
-          const k = ((t - 2.6) * 1.6 + i / 28) % 1;
-          const x = dx + k * 260;
-          const y = dy + k * 120 + Math.sin(i * 3.7 + t * 12) * k * 30;
-          g.fillStyle = `rgba(255,${Math.round(lerp(230, 70, k))},40,${(1 - k) * 0.9})`;
+      const R = s.R;
+      R.env.tod = 3;
+      R.env.tint = '#8590c4';
+      R.env.moonAz = 0.15;
+      const shake = t > 4 && t < 6.5 ? Math.sin(t * 47) * 6 : 0;
+      const k = E.inOut(seg(t, 0, dur));
+      look(R, lerp(-200, 120, k), lerp(110, 150, k) + shake * 0.5, lerp(-300, -420, k), 40 + shake, lerp(330, 240, seg(t, 0, 6)), 600);
+      R.begin(t);
+      village(R, t, { built: builtOf(GROWN.concat(['wizardtower'])), walls: false, night: 1, smoke: 0.3 });
+      // The dragon comes in from the far sky, swoops low over the square, takes the blow and flees upward.
+      const inP = E.inOut(seg(t, 0.5, 4.2));
+      const outP = E.in(seg(t, dur - 4.5, dur - 1.2));
+      const dx = lerp(-1600, -120, inP) + outP * 1700 + Math.sin(t * 1.3) * 40;
+      const dz = lerp(2600, 620, inP) + outP * 900;
+      const dy = lerp(900, 380, inP) + outP * 900 + Math.sin(t * 2.4) * 22;
+      const hit = seg(t, 8.2, 8.5) * (1 - seg(t, 9.3, 9.8));
+      R.bill(O('dragon'), { x: dx, y: dy, z: dz, h: 430, sy: 1 + 0.07 * Math.sin(t * 7), rot: outP > 0 ? -14 * outP : Math.sin(t * 1.3) * 5, flash: hit * 0.8, flashColor: '#e6d6ff' });
+      R.shadowAt(dx, dz, 220, 0.25 * (1 - clamp(dy / 1500)));
+      // Fire.
+      if (t > 4 && t < 6.8) {
+        for (let j = 0; j < 26; j++) {
+          const q = ((t - 4) * 1.5 + j / 26) % 1;
+          R.blob(dx + 130 + q * 260, dy + 180 - q * 260 + Math.sin(j * 3.7 + t * 12) * q * 30, dz - 40 - q * 120, 18 + q * 40, q < 0.3 ? '#fff0a0' : q < 0.6 ? '#ff9a2a' : '#d2401a', 0.85 * (1 - q));
+        }
+        R.light(dx + 250, dy, dz - 100, 900, '#ff7a1a', 0.45);
+      }
+      // Knight and wizard step out into the square.
+      const step = E.out(seg(t, 5.2, 6.6));
+      folk(R, 'knight', lerp(-260, -110, step), 300, { t, dir: 1, op: clamp(seg(t, 5.2, 5.6)), h: 175 });
+      folk(R, 'wizard', lerp(260, 120, step), 290, { t, dir: -1, op: clamp(seg(t, 5.4, 5.8)), h: 175 });
+      if (t > 7.4 && t < 9.8) {
+        const q = seg(t, 7.4, 8.2);
+        const a = 1 - seg(t, 9.2, 9.8);
+        const p0 = R.project(80, 230, 285);
+        const p1 = R.project(dx, dy + 160, dz);
+        if (p0 && p1) R.add(1, () => {
+          const g = R.g;
+          g.globalAlpha = a;
+          g.strokeStyle = '#d8c2ff';
+          g.shadowColor = '#b48cff';
+          g.shadowBlur = 30;
+          g.lineWidth = 12 + Math.sin(t * 40) * 4;
           g.beginPath();
-          g.arc(x, y, 6 + k * 22, 0, Math.PI * 2);
-          g.fill();
-        }
+          g.moveTo(p0.x, p0.y);
+          g.lineTo(lerp(p0.x, p1.x, q), lerp(p0.y, p1.y, q));
+          g.stroke();
+        });
+        R.light(80, 230, 285, 260, '#b48cff', 0.6 * a);
+        R.light(dx, dy + 160, dz, 500, '#c9a6ff', 0.4 * a * q);
       }
-      // Knight and wizard step up.
-      const up = E.back(seg(t, 4.6, 5.3));
-      s.knight.x = 660;
-      s.knight.y = 640 + (1 - up) * 50;
-      s.knight.op = clamp(seg(t, 4.6, 5));
-      s.knight.place();
-      s.wizard.x = 900;
-      s.wizard.y = 640 + (1 - up) * 50;
-      s.wizard.op = clamp(seg(t, 4.6, 5));
-      s.wizard.dir = -1;
-      s.wizard.place();
-      if (t > 5.8 && t < 8) {
-        const k = seg(t, 5.8, 6.4);
-        const [x0, y0] = s.w.at(760, 290);
-        const [x1, y1] = s.w.at(s.dragon.x, s.dragon.y - 130);
-        const fade = 1 - seg(t, 7.4, 8);
-        g.save();
-        g.globalAlpha = fade;
-        g.strokeStyle = 'rgba(190,150,255,0.9)';
-        g.lineWidth = 14 + Math.sin(t * 40) * 4;
-        g.shadowColor = '#c9a6ff';
-        g.shadowBlur = 30;
-        g.beginPath();
-        g.moveTo(x0, y0);
-        g.lineTo(lerp(x0, x1, k), lerp(y0, y1, k));
-        g.stroke();
-        g.restore();
-        if (k >= 1) sparkle(g, x1, y1, ((t - 6.4) % 0.8) / 0.8, 16, 10, 120, 4, '200,170,255');
-      }
-      if (t > 6 && t < 8) {
-        const [kx, ky] = s.w.at(700, 540);
-        sparkle(g, kx, ky, ((t - 6) % 0.7) / 0.7, 10, 10, 80, 7, '255,240,190');
-      }
-      const [sx, sy] = s.w.at(640, 250);
-      stamp(g, 'Victory!', sx, sy, seg(t, dur - 3.4, dur - 0.2));
-      s.tag(t < 5 ? 'Flying foes ignore walls' : 'Knights & wizards to the rescue', t, 1, dur - 0.3);
+      R.end();
+      R.env.tint = null;
     },
   });
 
   scenes.push({
-    id: 'festival', min: 13,
-    say: 'Survive the night, and the whole village celebrates. Raise a castle, a cathedral, a mighty keep... and become the most renowned village in the land.',
+    id: 'dawnfest', min: 15,
+    say: 'At dawn, the whole village gathered in the square. They had built a castle, and a cathedral, and something better still. A home worth defending.',
     build(root) {
-      const bd = backdrop(root, { seed: 40, sunX: 980 });
-      const w = world(root);
-      const b = buildings(w.el, [['castle', 260, 270], ['cathedral', 640, 280], ['keep', 980, 240], ['barracks', 1300, 210], ['wizardtower', 1580, 290]]);
-      const crowd = ['bard', 'farmer', 'baker', 'knight', 'peasant', 'priest', 'merchant', 'wizard', 'chef'].map((n, i) => ({ n, sp: folk(w.el, n, 170), x: 120 + i * 175 }));
-      return { bd, w, b, crowd, fx: canvasLayer(root), tag: tag(root) };
+      const s = sceneRoot(root, 11);
+      const r = rng(19);
+      s.confetti = Array.from({ length: 140 }, () => [(r() - 0.5) * 1100, r() * 600, 120 + r() * 700, r(), Math.floor(r() * 5)]);
+      return s;
     },
     frame(t, dur, s) {
-      const cx = lerp(-40, 520, E.inOut(seg(t, 0.3, dur - 0.5)));
-      s.bd.update(t, cx, lerp(0.4, 1, seg(t, 0, 3)));
-      s.w.cam(cx, 1, 400);
-      const g = s.fx.g;
-      s.fx.clear();
-      s.crowd.forEach(({ n, sp, x }, i) => {
-        sp.x = x + Math.sin(t * 1.5 + i) * 12;
-        sp.y = STREET + (i % 2) * 8;
-        sp.dir = i % 2 ? -1 : 1;
-        pose.hop(sp, t, 1.4, i * 0.31, 22);
-        sp.place();
-        if (n === 'bard') {
-          for (let j = 0; j < 4; j++) {
-            const k = (t * 0.6 + j / 4) % 1;
-            const [px, py] = s.w.at(x + 40 + k * 50, STREET - 150 - k * 100);
-            emoji(g, j % 2 ? '🎵' : '🎶', px + Math.sin(k * 9) * 10, py, 32, 1 - k);
-          }
-        }
+      const R = s.R;
+      R.env.tod = lerp(0.3, 0.95, seg(t, 0, dur));
+      R.env.sunAz = 0.05;
+      const k = E.inOut(seg(t, 1.5, dur));
+      look(R, lerp(-60, 0, k), lerp(190, 1250, k), lerp(-480, -1900, k), lerp(-20, 0, k), lerp(130, 100, k), lerp(330, 700, k));
+      R.begin(t);
+      village(R, t, { built: builtOf(FINAL), meadow: s.meadow, smoke: 1, walls: true });
+      const crowd = ['bard', 'farmer', 'baker', 'knight', 'peasant', 'priest', 'merchant', 'wizard', 'chef', 'blacksmith', 'steward', 'carpenter'];
+      crowd.forEach((n, i) => {
+        const a = (i / crowd.length) * TAU;
+        const x = Math.sin(a) * 360;
+        const z = 400 + Math.cos(a) * 275;
+        const c = (t * 1.4 + i * 0.31) % 1;
+        folk(R, n, x, z, { t: t + i, dir: x > 0 ? -1 : 1, lift: Math.sin(c * Math.PI) * 18 });
+        if (n === 'bard') notes(R, x, z, t);
       });
-      // Bunting confetti and renown stars.
-      const r = rng(9);
-      for (let i = 0; i < 40; i++) {
-        const x = r() * W + Math.sin(t * 1.2 + i) * 30;
-        const y = ((r() * H + t * (70 + r() * 60)) % (H + 40)) - 20;
-        g.fillStyle = ['#ffd24d', '#ff6b6b', '#6bc5ff', '#8ee06b', '#ff9de2'][i % 5];
-        g.save();
-        g.translate(x, y);
-        g.rotate(t * 3 + i);
-        g.fillRect(-5, -3, 10, 6);
-        g.restore();
-      }
-      for (let i = 0; i < 5; i++) {
-        const a = 2 + i * 1.8;
-        const [px, py] = s.w.at(260 + i * 340, 360);
-        const k = seg(t, a, a + 1.8);
-        if (k > 0 && k < 1) emoji(g, '⭐', px, py - E.out(k) * 100, 50 * lerp(0.5, 1, E.back(Math.min(1, k * 3))), 1 - seg(k, 0.7, 1));
-      }
-      s.tag('Earn renown · win the game', t, 1, dur - 0.3);
+      const g = R.g;
+      s.confetti.forEach(([x, y0, z, ph, ci]) => {
+        const y = ((y0 - t * 80) % 600 + 600) % 600;
+        R.at(x + Math.sin(t + ph * 9) * 30, y, z, (g2, p) => {
+          g2.save();
+          g2.translate(p.x, p.y);
+          g2.rotate(t * 3 + ph * 10);
+          g2.fillStyle = ['#ffd24d', '#ff6b6b', '#6bc5ff', '#8ee06b', '#ff9de2'][ci];
+          g2.fillRect(-5 * p.s, -3 * p.s, 10 * p.s, 6 * p.s);
+          g2.restore();
+        });
+      });
+      R.end();
+      void g;
     },
   });
 
   scenes.push({
-    id: 'end', min: 10, tail: 2.6,
-    say: 'Oakhaven. Play free against the computer, a friend, or online, at Ahrens Labs.',
+    id: 'end', min: 9, tail: 2.4,
+    say: 'Build a village of your own. Oakhaven. Play free at ahrens labs dot com.',
     build(root) {
-      const bg = el('div', 'full', root, { background: `url(${O('cover')}) center/cover`, filter: 'blur(3px) brightness(0.6)', transform: 'scale(1.06)' });
-      const a = sprite(root, O('knight'), { h: 330, x: 200, y: 740, shadow: false });
-      const b = sprite(root, O('wizard'), { h: 330, x: 1080, y: 740, dir: -1, shadow: false });
-      const title = caption(root, '<div class="big">Oakhaven</div><div class="sub">Build · Recruit · Defend · Score</div><div class="pill">Play free at ahrens-labs.github.io</div><div class="sub" style="font-size:24px;margin-top:16px">vs the computer · a friend · online</div>');
-      return { bg, a, b, title, fx: canvasLayer(root) };
+      const s = sceneRoot(root, 12);
+      s.title = caption(root, '<div class="big">Oakhaven</div><div class="sub">A storybook village game</div><div class="pill">Play free at ahrenslabs.com</div>');
+      return s;
     },
     frame(t, dur, s) {
-      s.title.show(t, 0.2, dur + 2);
-      [s.a, s.b].forEach((sp, i) => {
-        const p = seg(t, 0.4 + i * 0.25, 1.2 + i * 0.25);
-        pose.breathe(sp, t, i);
-        sp.lift = (1 - E.back(p)) * -300;
-        sp.place();
-      });
-      s.fx.clear();
-      sparkle(s.fx.g, W / 2, 300, (t - 0.3) / 1.3, 30, 80, 520, 4);
+      const R = s.R;
+      R.env.tod = 1.6;
+      R.env.sunAz = 0.05;
+      const a = t * 0.05;
+      look(R, Math.sin(a) * 1900, 900, 700 - Math.cos(a) * 1900, 0, 60, 700);
+      R.begin(t);
+      village(R, t, { built: builtOf(FINAL), meadow: s.meadow, smoke: 1, walls: true, night: 0.4 });
+      R.end();
+      R.cv.style.filter = 'blur(2px) brightness(0.75)';
+      s.title.show(t, 0.3, dur + 2);
     },
   });
 

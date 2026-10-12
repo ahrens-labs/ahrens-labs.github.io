@@ -1,846 +1,507 @@
-// Dino Dynasty ad: a side-on tour of a living dino park, built from the game's own pieces.
+// Dino Dynasty ad: the story of a dinosaur park built on a lost island, told in a 3D paper-theatre world
+// made from the game's own dino art.
 (function () {
-  const { W, H, clamp, lerp, seg, E, rng, el, img, sprite, pose, canvasLayer, caption, runAd } = AD;
+  const { W, H, clamp, lerp, seg, E, rng, el, img, caption, runAd } = AD;
+  const { world, palm, fern, bush, rock, meadow, weather, prop, sign } = AD3;
   const D = (n) => `sprites/dino/${n}.png`;
-  const GROUND = 430;
+  const TAU = Math.PI * 2;
 
-  // ---------------------------------------------------------------- painted backdrop
-  function wave(x, seed, amp) {
-    return Math.sin(x * 0.0021 + seed) * amp + Math.sin(x * 0.0053 + seed * 2.3) * amp * 0.45 + Math.sin(x * 0.011 + seed * 5.1) * amp * 0.18;
-  }
-  function ridge(width, base, amp, seed, fill) {
-    let d = `M0 ${H} L0 ${base}`;
-    for (let x = 0; x <= width; x += 40) d += ` L${x} ${(base - Math.abs(wave(x, seed, amp))).toFixed(1)}`;
-    return `<path d="${d} L${width} ${H} Z" fill="${fill}"/>`;
-  }
-  function palm(x, base, h, lean, r) {
-    const tx = x + lean;
-    const ty = base - h;
-    let s = `<path d="M${x} ${base} Q${x + lean * 0.3} ${base - h * 0.55} ${tx} ${ty}" stroke="#6f4a2a" stroke-width="${7 + h / 40}" fill="none" stroke-linecap="round"/>`;
-    [-170, -140, -105, -75, -40, -10].forEach((a, i) => {
-      const len = h * (0.42 + r() * 0.12);
-      const rad = (a * Math.PI) / 180;
-      const ex = tx + Math.cos(rad) * len;
-      const ey = ty + Math.sin(rad) * len * 0.55 + len * 0.35;
-      const cx = tx + Math.cos(rad) * len * 0.5;
-      const cy = ty + Math.sin(rad) * len * 0.5 - len * 0.12;
-      s += `<path d="M${tx} ${ty} Q${cx} ${cy} ${ex} ${ey}" stroke="${i % 2 ? '#2f7a34' : '#3b9140'}" stroke-width="${6 + h / 30}" fill="none" stroke-linecap="round"/>`;
-    });
-    return s;
-  }
-  function jungle(width, seed) {
-    const r = rng(seed);
-    let s = '';
-    for (let x = -60; x < width; x += 70 + r() * 60) {
-      const y = GROUND + 16;
-      const rr = 40 + r() * 55;
-      s += `<ellipse cx="${x}" cy="${y}" rx="${rr * 1.3}" ry="${rr}" fill="${r() < 0.5 ? '#3f8f3c' : '#357f36'}"/>`;
-    }
-    for (let x = 30; x < width; x += 150 + r() * 170) s += palm(x, GROUND + 10, 130 + r() * 110, (r() - 0.5) * 70, r);
-    for (let x = 0; x < width; x += 55 + r() * 40) {
-      const rr = 22 + r() * 26;
-      s += `<ellipse cx="${x}" cy="${GROUND + 6}" rx="${rr * 1.4}" ry="${rr}" fill="${r() < 0.5 ? '#4ea347' : '#459a40'}"/>`;
-    }
-    return s;
-  }
-
-  function backdrop(root, o = {}) {
-    const width = o.width || 5200;
-    el('div', 'full', root, { zIndex: 0, background: o.sky || 'linear-gradient(180deg, #4aa8e2 0%, #9fd8f2 44%, #f7e6b4 66%, #f7e6b4 100%)' });
-    const sun = el('div', '', root, {
-      position: 'absolute', width: '220px', height: '220px', borderRadius: '50%', zIndex: 1,
-      background: 'radial-gradient(circle, #fffbe0 0 22%, rgba(255, 233, 150, 0.7) 36%, rgba(255, 220, 120, 0) 68%)',
-    });
-    const clouds = [];
-    const r = rng(o.seed || 7);
-    for (let i = 0; i < 7; i++) {
-      const c = el('div', '', root, {
-        position: 'absolute', zIndex: 1, width: `${90 + r() * 70}px`, height: '44px', borderRadius: '44px', background: '#fff', opacity: 0.85,
-        boxShadow: '40px -22px 0 6px #fff, 86px -6px 0 0 #fff, -30px -10px 0 -2px #fff',
-      });
-      clouds.push({ c, x: r() * 1700, y: 50 + r() * 150, v: 6 + r() * 10 });
-    }
-    const far = el('div', 'layer', root, { zIndex: 2 });
-    far.innerHTML = `<svg width="${width}" height="${H}">${ridge(width, 330, 120, 1.3, '#9cc3c8')}
-      <path d="M${1500} ${360} L${1700} ${170} L${1745} ${178} L${1960} ${360} Z" fill="#8aaab0"/><path d="M1700 170 L1745 178 L1735 196 L1708 192 Z" fill="#5b6f73"/>
-      ${ridge(width, 380, 80, 4.1, '#86b7a0')}</svg>`;
-    const smoke = el('div', 'layer', root, { zIndex: 2 });
-    const puffs = [];
-    for (let i = 0; i < 8; i++) puffs.push(el('div', '', smoke, { position: 'absolute', borderRadius: '50%', background: 'rgba(240,240,235,0.75)' }));
-    const mid = el('div', 'layer', root, { zIndex: 3 });
-    mid.innerHTML = `<svg width="${width}" height="${H}">${jungle(width, o.seed || 3)}</svg>`;
-    return {
-      update(t, camX) {
-        sun.style.transform = `translate(${(o.sunX || 980) - camX * 0.05}px, ${o.sunY || 40}px)`;
-        clouds.forEach((k) => {
-          const x = ((k.x + t * k.v - camX * 0.1) % 1700 + 1700) % 1700 - 200;
-          k.c.style.transform = `translate(${x}px, ${k.y}px)`;
-        });
-        far.style.transform = `translateX(${-camX * 0.25}px)`;
-        smoke.style.transform = `translateX(${-camX * 0.25}px)`;
-        puffs.forEach((p, i) => {
-          const c = (t * 0.12 + i / puffs.length) % 1;
-          const s = 30 + c * 90;
-          p.style.width = p.style.height = `${s}px`;
-          p.style.opacity = (1 - c) * 0.8;
-          p.style.transform = `translate(${1722 + c * 160 - s / 2}px, ${170 - c * 150 - s / 2}px)`;
-        });
-        mid.style.transform = `translateX(${-camX * 0.55}px)`;
-      },
-    };
-  }
-
-  // The world layer pans and zooms like a camera; ground and every sprite live inside it.
-  function world(root) {
-    const w = el('div', 'world', root, { zIndex: 10 });
-    el('div', '', w, { position: 'absolute', left: '-3000px', top: `${GROUND}px`, width: '12000px', height: '900px', background: 'linear-gradient(#9fd463, #74b947 30%, #5ea33c)' });
-    const r = rng(11);
-    let tufts = '';
-    for (let i = 0; i < 260; i++) {
-      const x = -1000 + r() * 7000;
-      const y = GROUND + 20 + r() * 300;
-      tufts += `<path d="M${x} ${y} l-5 -12 M${x} ${y} l0 -15 M${x} ${y} l6 -11" stroke="${r() < 0.5 ? '#4f9a33' : '#5daa3c'}" stroke-width="3" stroke-linecap="round"/>`;
-    }
-    const svg = el('div', '', w, { position: 'absolute', left: 0, top: 0 });
-    svg.innerHTML = `<svg width="7000" height="800" style="position:absolute;left:0;top:0;overflow:visible">${tufts}</svg>`;
-    const c = { x: 0, z: 1, y: 380, sx: 0, sy: 0 };
-    return {
-      el: w,
-      // Where a world point lands on screen with the current camera.
-      at(x, y) {
-        return [W / 2 + c.sx + c.z * (x - (c.x + W / 2)), c.y + c.sy + c.z * (y - c.y)];
-      },
-      cam(x, z = 1, y = 380, shakeX = 0, shakeY = 0) {
-        Object.assign(c, { x, z, y, sx: shakeX, sy: shakeY });
-        w.style.transform = `translate(${W / 2 + shakeX}px, ${y + shakeY}px) scale(${z}) translate(${-(x + W / 2)}px, ${-y}px)`;
-      },
-    };
-  }
-
-  // An enclosure: fence pieces from the game in a back row, two receding sides and a front row.
-  function pen(parent, x0, x1, o = {}) {
-    const yb = o.yb || 470;
-    const yf = o.yf || 650;
-    const pieces = [];
-    const add = (x, y, h) => {
-      const s = sprite(parent, D('fence'), { x, y, h, shadow: false });
-      pieces.push(s);
-    };
-    const floor = el('div', '', parent, {
-      position: 'absolute', left: 0, top: 0, zIndex: yb - 2,
-      width: `${x1 - x0 + 80}px`, height: `${yf - yb}px`, transform: `translate(${x0 - 40}px, ${yb}px)`,
-      background: o.floor || 'radial-gradient(ellipse at 50% 55%, rgba(196, 160, 90, 0.45), rgba(196, 160, 90, 0.12) 70%, rgba(0,0,0,0) 72%)',
-    });
-    const nb = Math.max(2, Math.round((x1 - x0) / 54));
-    for (let i = 0; i < nb; i++) add(lerp(x0, x1, (i + 0.5) / nb), yb, 54);
-    for (let i = 1; i <= 4; i++) {
-      const f = i / 4.6;
-      add(lerp(x0, x0 - 46, f), lerp(yb, yf, f), lerp(54, 76, f));
-    }
-    const nf = Math.max(2, Math.round((x1 - x0 + 92) / 70));
-    for (let i = 0; i < nf; i++) add(lerp(x0 - 46, x1 + 46, (i + 0.5) / nf), yf, 78);
-    for (let i = 4; i >= 1; i--) {
-      const f = i / 4.6;
-      add(lerp(x1, x1 + 46, f), lerp(yb, yf, f), lerp(54, 76, f));
-    }
-    let sign = null;
-    if (o.name) {
-      sign = el('div', 'sign', parent, { zIndex: yb - 1 });
-      sign.textContent = o.name;
-    }
-    const cx = (x0 + x1) / 2;
-    const sx = x0 + Math.min(110, (x1 - x0) * 0.22);
-    return {
-      x0, x1, yb, yf, cx, pieces, floor,
-      // Pieces drop in one after another between a and b (all standing once t >= b).
-      draw(t, a = -1, b = -0.5) {
-        pieces.forEach((s, i) => {
-          const at = lerp(a, b, i / pieces.length);
-          const p = seg(t, at, at + 0.35);
-          s.op = p > 0 ? 1 : 0;
-          s.lift = (1 - E.back(p)) * 70;
-          s.rot = (1 - p) * 8;
-          s.place();
-        });
-        floor.style.opacity = seg(t, a, b);
-        if (sign) {
-          const p = seg(t, b - 0.2, b + 0.4);
-          sign.style.opacity = p;
-          sign.style.transform = `translate(${sx}px, ${yb - 64}px) translate(-50%, -100%) scale(${lerp(0.4, 1, E.back(p))})`;
-        }
-      },
-    };
-  }
-
-  function deco(parent, list) {
-    return list.map(([n, x, y, h]) => {
-      const s = sprite(parent, D(n), { x, y, h, shadow: n !== 'plant' });
-      s.place();
-      return s;
-    });
-  }
-
-  const tag = (root) => {
-    const e = el('div', 'tag', root);
-    return (text, t, a, b) => {
-      e.textContent = text;
-      const vis = t >= a && t <= b;
-      e.style.display = vis ? '' : 'none';
-      const p = E.out(seg(t, a, a + 0.5)) * (1 - seg(t, b - 0.4, b));
-      e.style.opacity = p;
-      e.style.transform = `translateX(-50%) translateY(${(1 - p) * 30}px)`;
-    };
+  // ---------------------------------------------------------------- the park
+  const PENS = {
+    compy: { x: [-950, -420], z: [250, 650], name: 'Compys' },
+    trike: { x: [-250, 480], z: [250, 800], name: 'Triceratops' },
+    brachio: { x: [650, 1500], z: [200, 1150], name: 'Brachiosaurus', h: 80 },
+    maia: { x: [-1150, -520], z: [1000, 1500], name: 'Maiasaura' },
+    trex: { x: [-250, 560], z: [1250, 1850], name: 'T. Rex', h: 110 },
   };
+  const LAGOON = [1350, 1900, 470, 320];
+  const GROUND = ['#9ccf5a', '#68a83e'];
 
-  // Things flying along an arc in screen space, drawn into the effects canvas.
-  function arcItem(g, src, x0, y0, x1, y1, p, size, spin = 0, peak = 160) {
-    if (p <= 0 || p >= 1) return;
-    const x = lerp(x0, x1, p);
-    const y = lerp(y0, y1, p) - Math.sin(p * Math.PI) * peak;
-    g.save();
-    g.translate(x, y);
-    g.rotate(spin * p * Math.PI * 2);
-    g.drawImage(img(src), -size / 2, -size / 2, size, size);
-    g.restore();
+  const r0 = rng(311);
+  const JUNGLE = [];
+  for (let i = 0; i < 110; i++) {
+    const a = r0() * TAU;
+    const rad = 2100 + r0() * 1800;
+    const x = 250 + Math.sin(a) * rad * 1.25;
+    const z = 900 + Math.cos(a) * rad;
+    JUNGLE.push([x, z, r0() < 0.6 ? 'palm' : 'bush', Math.floor(r0() * 6), 0.8 + r0() * 0.6]);
   }
-  function emoji(g, ch, x, y, size, a = 1) {
-    g.globalAlpha = clamp(a);
-    g.font = `${size}px "Noto Color Emoji", "Apple Color Emoji", sans-serif`;
-    g.textAlign = 'center';
-    g.textBaseline = 'middle';
-    g.fillText(ch, x, y);
-    g.globalAlpha = 1;
+  for (let i = 0; i < 50; i++) {
+    const x = (r0() - 0.5) * 3800 + 250;
+    const z = -700 + r0() * 3000;
+    const inPen = Object.values(PENS).some((p) => x > p.x[0] - 60 && x < p.x[1] + 60 && z > p.z[0] - 60 && z < p.z[1] + 60);
+    const inLagoon = ((x - LAGOON[0]) / (LAGOON[2] + 80)) ** 2 + ((z - LAGOON[1]) / (LAGOON[3] + 80)) ** 2 < 1;
+    if (!inPen && !inLagoon) JUNGLE.push([x, z, ['fern', 'fern', 'rock', 'palm'][Math.floor(r0() * 4)], Math.floor(r0() * 6), 0.7 + r0() * 0.5]);
   }
-  function sparkle(g, x, y, t, n = 10, r0 = 20, r1 = 90, seed = 1, color = '255,230,120') {
-    const r = rng(seed);
-    for (let i = 0; i < n; i++) {
-      const a = r() * Math.PI * 2;
-      const rr = lerp(r0, r1, clamp(t)) * (0.6 + r() * 0.6);
-      const s = (1 - clamp(t)) * (6 + r() * 6);
-      if (s <= 0) continue;
-      g.fillStyle = `rgba(${color},${1 - clamp(t)})`;
+
+  function volcano() {
+    return prop('volcano', 900, 420, (g, w, h) => {
+      const gr = g.createLinearGradient(0, 0, 0, h);
+      gr.addColorStop(0, '#6c5a66');
+      gr.addColorStop(1, '#8f8a7a');
+      g.fillStyle = gr;
       g.beginPath();
-      const px = x + Math.cos(a) * rr;
-      const py = y + Math.sin(a) * rr;
-      g.moveTo(px, py - s);
-      g.lineTo(px + s * 0.35, py);
-      g.lineTo(px, py + s);
-      g.lineTo(px - s * 0.35, py);
+      g.moveTo(0, h);
+      g.quadraticCurveTo(w * 0.3, h * 0.55, w * 0.43, 30);
+      g.lineTo(w * 0.57, 30);
+      g.quadraticCurveTo(w * 0.7, h * 0.55, w, h);
+      g.closePath();
       g.fill();
-    }
+      g.fillStyle = '#ff8a3a';
+      g.beginPath();
+      g.ellipse(w / 2, 32, w * 0.07, 8, 0, 0, TAU);
+      g.fill();
+      g.strokeStyle = 'rgba(255,120,40,0.75)';
+      g.lineWidth = 6;
+      g.beginPath();
+      g.moveTo(w * 0.47, 36);
+      g.quadraticCurveTo(w * 0.44, h * 0.25, w * 0.4, h * 0.45);
+      g.stroke();
+    });
   }
 
-  // Wander inside a pen: a smooth looping path between its fences.
-  // Wander inside a pen. With lanes = [i, n], animal i keeps to its own slice so a group never bunches up.
-  function roam(pn, t, k, speed = 0.12, margin = 60, lanes = null) {
-    const u = t * speed + k * 1.7;
-    let a = pn.x0 + margin;
-    let b = pn.x1 - margin;
-    if (lanes) {
-      const wdt = (b - a) / lanes[1];
-      a += wdt * lanes[0] + wdt * 0.15;
-      b = a + wdt * 0.7;
+  function egg(cracked) {
+    return prop(`egg${cracked}`, 60, 80, (g, w, h) => {
+      const gr = g.createRadialGradient(w * 0.38, h * 0.35, 4, w / 2, h * 0.55, w * 0.6);
+      gr.addColorStop(0, '#fffaf0');
+      gr.addColorStop(1, '#d8c7a0');
+      g.fillStyle = gr;
+      g.beginPath();
+      g.ellipse(w / 2, h * 0.56, w * 0.42, h * 0.43, 0, 0, TAU);
+      g.fill();
+      g.fillStyle = '#b89a6a';
+      [[20, 30], [38, 44], [26, 58]].forEach(([x, y]) => {
+        g.beginPath();
+        g.arc(x, y, 3.5, 0, TAU);
+        g.fill();
+      });
+      if (cracked) {
+        g.strokeStyle = '#5a4020';
+        g.lineWidth = 2.5;
+        g.beginPath();
+        g.moveTo(8, 36);
+        [[16, 28], [22, 38], [30, 26], [37, 37], [44, 27], [52, 34]].forEach(([x, y]) => g.lineTo(x, y));
+        g.stroke();
+      }
+    });
+  }
+
+  // The Maiasaura art has its nest in the corner; hatchlings are the same dino without it.
+  let hatchling = null;
+  function noNest() {
+    const im = img(D('maiasaura'));
+    if (!im.naturalWidth) return im;
+    if (hatchling) return hatchling;
+    const c = document.createElement('canvas');
+    c.width = im.naturalWidth;
+    c.height = im.naturalHeight;
+    c.id = 'hatchling';
+    const g = c.getContext('2d');
+    g.drawImage(im, 0, 0);
+    g.clearRect(c.width * 0.53, c.height * 0.57, c.width, c.height);
+    hatchling = c;
+    return c;
+  }
+
+  function pen(R, k, o = {}) {
+    const p = PENS[k];
+    const [x0, x1] = p.x;
+    const [z0, z1] = p.z;
+    const grow = o.grow == null ? 1 : o.grow;
+    const f = { h: p.h || 70, grow };
+    R.fence(x0, z0, x1, z0, f);
+    R.fence(x1, z0, x1, z1, f);
+    R.fence(x1, z1, x0, z1, f);
+    R.fence(x0, z1, x0, z0, f);
+    if (grow >= 1 && o.sign !== false) R.bill(sign(p.name), { x: x0 + 90, z: z0 - 30, h: 100, shadowW: 0.2 });
+  }
+  function park(R, t, o = {}) {
+    // Paths, pen floors and the lagoon.
+    const path = '#cdb382';
+    R.decal([[-90, -3000], [90, -3000], [90, 2100], [-90, 2100]].map(([x, z]) => [x + 540, z]), path);
+    R.decal([[-1400, 880], [1600, 880], [1600, 1060], [-1400, 1060]], path);
+    if (o.lagoon !== false) {
+      const [lx, lz, rx, rz] = LAGOON;
+      R.disc(lx, lz, rx + 40, rz + 30, '#d9c48e');
+      R.disc(lx, lz, rx, rz, '#2f8fb8', '#8fd3ea', 4);
+      R.disc(lx, lz, rx * 0.7, rz * 0.65, 'rgba(25,95,150,0.7)');
+      for (let i = 0; i < 3; i++) {
+        const q = (t * 0.25 + i / 3) % 1;
+        R.disc(lx - 120 + i * 90, lz + 40 - i * 60, 30 + q * 160, 20 + q * 100, null, `rgba(220,245,255,${0.5 * (1 - q)})`, 2);
+      }
     }
-    const x = lerp(a, b, 0.5 + 0.5 * Math.sin(u * 2 * Math.PI * 0.5 + k));
-    const y = lerp(pn.yb + 40, pn.yf - 40, 0.5 + 0.5 * Math.sin(u * 2 * Math.PI * 0.37 + k * 2.1));
-    const dx = Math.cos(u * 2 * Math.PI * 0.5 + k);
-    return { x, y, dir: dx >= 0 ? 1 : -1 };
+    if (o.meadow) o.meadow();
+    R.bill(volcano(), { x: 2600, z: 9000, h: 1500, shadow: false, fog: 0.45 });
+    for (let j = 0; j < 8; j++) {
+      const q = (t * 0.05 + j / 8) % 1;
+      R.blob(2600 + q * 900, 1500 + q * 1400, 9050, 260 + q * 500, '#8a7f86', 0.5 * (1 - q));
+    }
+    JUNGLE.forEach(([x, z, k, sd, sc]) => {
+      if (k === 'palm') R.bill(palm(sd), { x, z, minD: 220, h: 470 * sc, shadowW: 0.18, rot: Math.sin(t * 0.9 + x) * 1.2 });
+      else if (k === 'bush') R.bill(bush(sd, '#2f7f3a'), { x, z, minD: 220, h: 180 * sc, shadowW: 0.3 });
+      else if (k === 'fern') R.bill(fern(sd), { x, z, minD: 160, h: 110 * sc, shadowW: 0.25, rot: Math.sin(t * 1.4 + x) * 2 });
+      else R.bill(rock(sd, '#9a9184'), { x, z, minD: 220, h: 90 * sc, shadowW: 0.3 });
+    });
+    Object.keys(PENS).forEach((k) => {
+      if (!o.pens || o.pens[k] != null) pen(R, k, { grow: o.pens ? o.pens[k] : 1 });
+    });
+  }
+
+  // A dino at x, z. Every one of the game's dinos faces right in its art.
+  function dino(R, n, x, z, o = {}) {
+    const c = (o.walk || 0) * (o.speed || 6);
+    const walking = o.walk != null;
+    const lift = walking ? Math.abs(Math.sin(c)) * (o.bob || 8) : 0;
+    const rot = walking ? Math.sin(c) * 3 : Math.sin((o.t || 0) * 1.2 + x) * 1.2;
+    const sy = 1 + (walking ? 0.02 * Math.cos(2 * c) : 0.02 * Math.sin((o.t || 0) * 2 + x));
+    return R.bill(D(n), { x, z, y: o.y, h: o.h, dir: o.dir || 1, lift: lift + (o.lift || 0), rot: rot + (o.rot || 0), sy: sy * (o.sy || 1), sx: o.sx, op: o.op, shadowW: o.shadowW || 0.32, clipY: o.clipY, flash: o.flash, flashColor: o.flashColor, bias: o.bias });
+  }
+
+  function look(R, x, y, z, tx, ty, tz) {
+    Object.assign(R.cam, { x, y, z });
+    const dx = tx - x;
+    const dz = tz - z;
+    R.cam.yaw = Math.atan2(dx, dz);
+    R.cam.pitch = Math.atan2(y - ty, Math.hypot(dx, dz));
+  }
+
+  function sceneRoot(root, seed) {
+    const R = world(root, { seed });
+    R.env.ground = GROUND;
+    R.env.mountains = { far: '#7fa6a0', near: '#5f9a6a' };
+    R.env.haze = null;
+    el('div', 'vignette', root);
+    const flash = el('div', 'full', root, { zIndex: 8600, background: '#eef3ff', opacity: 0 });
+    const inPen = (x, z) => Object.values(PENS).some((p) => Math.abs(x - p.x[0]) < 12 || Math.abs(x - p.x[1]) < 12) || (((x - LAGOON[0]) / LAGOON[2]) ** 2 + ((z - LAGOON[1]) / LAGOON[3]) ** 2 < 1.15) || Math.abs(x - 540) < 100 || Math.abs(z - 970) < 100;
+    return { R, flash, meadow: meadow(R, [-2000, 2600, -900, 2600], 1100, seed + 5, { blade: '#4e8a2c', flowers: ['#ffe066', '#ff8f6b', '#ffffff'] }, inPen) };
   }
 
   // ---------------------------------------------------------------- scenes
   const scenes = [];
 
   scenes.push({
-    id: 'open', min: 9, lead: 1.4,
-    say: 'Deep in a hidden valley, where the ferns grow tall and the ground still trembles... a park is waiting to be built.',
+    id: 'open', min: 9.5, lead: 1.2,
+    say: 'Far out at sea, past the edge of every map, there is an island where the ground still trembles.',
     build(root) {
-      const bg = el('div', 'full', root, { background: `url(${D('cover')}) center/cover`, transformOrigin: '60% 50%' });
+      const bg = el('div', 'full', root, { background: `url(${D('cover')}) center/cover`, transformOrigin: '50% 45%' });
       el('div', 'vignette', root);
-      const title = caption(root, '<div class="big">Dino Dynasty</div><div class="sub">Build the greatest dino park of all time</div>');
-      const fx = canvasLayer(root, 8000);
-      return { bg, title, fx };
+      const title = caption(root, '<div class="big">Dino Dynasty</div>');
+      return { bg, title };
     },
     frame(t, dur, s) {
       const p = t / dur;
-      s.bg.style.transform = `scale(${lerp(1.22, 1.04, E.sine(p))}) translate(${lerp(-30, 10, p)}px, ${lerp(10, -6, p)}px)`;
-      s.title.show(t, dur - 4.2, dur + 1, 'pop');
-      s.fx.clear();
-      if (t > dur - 4.2) sparkle(s.fx.g, W / 2, H / 2 - 30, (t - (dur - 4.2)) / 1.2, 26, 60, 420, 3);
+      s.bg.style.transform = `perspective(900px) rotateX(${lerp(4, 0, E.sine(p))}deg) scale(${lerp(1.3, 1.06, E.sine(p))}) translateY(${lerp(20, -8, p)}px)`;
+      s.title.show(t, dur - 4.4, dur + 1, 'pop');
     },
   });
 
   scenes.push({
-    id: 'fence', min: 9,
-    say: 'Every great park starts with a fence. Draw your enclosures, square by square, and close them off tight.',
-    build(root) {
-      const bd = backdrop(root);
-      const w = world(root);
-      const pn = pen(w.el, 430, 960, { name: 'Compy Corner' });
-      deco(w.el, [['plant', 300, 520, 70], ['plant', 1080, 560, 80], ['plant', 1180, 500, 60], ['water', 220, 640, 60]]);
-      return { bd, w, pn, tag: tag(root) };
-    },
+    id: 'fences', min: 12,
+    say: 'And on that island, someone had a very big idea. A dinosaur park! Step one... fences. Big ones. Lots of them.',
+    build: (root) => sceneRoot(root, 2),
     frame(t, dur, s) {
-      const cx = lerp(-40, 60, E.sine(t / dur));
-      s.bd.update(t, cx);
-      s.w.cam(cx, lerp(1.08, 1, E.out(seg(t, 0, dur))));
-      s.pn.draw(t, 0.8, dur - 2.2);
-      s.tag('Fence your enclosures', t, 1, dur - 0.3);
+      const R = s.R;
+      R.env.tod = lerp(0.1, 0.8, seg(t, 0, dur));
+      R.env.sunAz = 0.3;
+      R.env.fogNear = 600;
+      R.env.fogFar = 3600;
+      R.env.fogMax = lerp(0.85, 0.45, seg(t, 0, dur));
+      const k = E.inOut(seg(t, 0, 6.5));
+      const a = lerp(0, 0.5, E.inOut(seg(t, 5, dur)));
+      look(R, lerp(200, 100, k) + Math.sin(a) * 600, lerp(1900, 420, k), lerp(-2600, -900, k) + (1 - Math.cos(a)) * 300, lerp(250, 100, k), 0, lerp(1500, 600, k));
+      R.begin(t);
+      const pens = {};
+      ['trike', 'compy', 'brachio', 'maia', 'trex'].forEach((p, i) => (pens[p] = seg(t, 5 + i * 0.9, 7 + i * 0.9)));
+      park(R, t, { pens, meadow: s.meadow });
+      R.end();
+      R.env.fogNear = 1400;
+      R.env.fogFar = 5200;
+      R.env.fogMax = 0.6;
     },
   });
 
+  const COMPYS = Array.from({ length: 7 }, (_, i) => [i * 0.37, (i * 53) % 140 - 70, 0.85 + (i % 3) * 0.12]);
   scenes.push({
-    id: 'compys', min: 10,
-    say: 'Then the dinos move in! A pack of Compys scampers through the gate. They love company, so the more you keep together, the more they’re worth.',
-    build(root) {
-      const bd = backdrop(root);
-      const w = world(root);
-      const pn = pen(w.el, 430, 960, { name: 'Compy Corner' });
-      deco(w.el, [['plant', 300, 520, 70], ['plant', 1080, 560, 80], ['plant', 1180, 500, 60], ['water', 220, 640, 60], ['feeder', 880, 520, 54]]);
-      const c = [0, 1, 2, 3, 4].map(() => sprite(w.el, D('compy'), { h: 108 }));
-      return { bd, w, pn, c, fx: canvasLayer(root), tag: tag(root) };
-    },
+    id: 'compys', min: 11,
+    say: 'The first guests were small, fast, and impossible to count. Seriously. Nobody ever managed to count them.',
+    build: (root) => sceneRoot(root, 3),
     frame(t, dur, s) {
-      s.bd.update(t, 0);
-      s.w.cam(0, lerp(1, 1.12, E.sine(seg(t, dur * 0.45, dur))), 470);
-      s.pn.draw(t);
-      s.fx.clear();
-      s.c.forEach((sp, i) => {
-        const enter = 0.4 + i * 0.45;
-        const p = seg(t, enter, enter + 2);
-        const r = roam(s.pn, t, i * 2.3, 0.16, 50, [i, 5]);
-        if (p < 1) {
-          sp.x = lerp(-120 - i * 40, r.x, E.inOut(p));
-          sp.y = lerp(600, r.y, E.inOut(p));
-          sp.dir = 1;
-        } else {
-          sp.x = r.x;
-          sp.y = r.y;
-          sp.dir = r.dir;
-        }
-        pose.hop(sp, t, 2.2, i * 0.37, 18);
-        sp.place();
+      const R = s.R;
+      R.env.tod = 0.95;
+      R.env.focus = 420;
+      R.env.dof = 2.4;
+      const cx = lerp(-900, -560, seg(t, 0, dur));
+      R.env.focus = 300;
+      look(R, cx - 80, 50, 290, cx + 60, 35, 560);
+      R.begin(t);
+      park(R, t, { meadow: s.meadow });
+      COMPYS.forEach(([d, dz, sc], i) => {
+        const run = seg(t, 0.3 + d, dur - 0.5 + d);
+        const zig = Math.sin(t * 2.2 + i * 1.7) * 60;
+        const x = lerp(-1000, -380, run) + Math.sin(t * 3 + i) * 30;
+        dino(R, 'compy', x, 520 + dz * 0.6 + zig * 0.6, { h: 68 * sc, walk: t + i * 0.13, speed: 11, bob: 14, op: clamp(seg(x, -1000, -930)) * (1 - seg(x, -440, -390)) });
       });
-      // Hearts between neighbours: Compys score for each Compy next to them.
-      if (t > dur * 0.55) {
-        for (let i = 0; i < 4; i++) {
-          const a = s.c[i];
-          const b = s.c[i + 1];
-          const k = ((t - dur * 0.55 + i * 0.3) % 1.4) / 1.4;
-          const [hx, hy] = s.w.at((a.x + b.x) / 2, (a.y + b.y) / 2 - 80 - k * 40);
-          emoji(s.fx.g, '💛', hx, hy, 26, 1 - k);
-        }
+      // Ferns right by the lens, out of focus.
+      [[-140, 470, 2], [150, 480, 4]].forEach(([dx, dz, sd]) => R.bill(fern(sd, '#2f7f30'), { x: cx + dx, z: dz, h: 60, blur: 4, shadow: false }));
+      R.end();
+      R.env.focus = null;
+    },
+  });
+
+  scenes.push({
+    id: 'giants', min: 14,
+    say: 'Then came the big ones. A Triceratops with a very bad attitude... and a Brachiosaurus so tall, the fence was more of a polite suggestion.',
+    build: (root) => sceneRoot(root, 4),
+    frame(t, dur, s) {
+      const R = s.R;
+      R.env.tod = 1;
+      R.env.sunAz = 0.8;
+      const split = 6.2;
+      if (t < split) {
+        const k = E.inOut(seg(t, 0, split));
+        look(R, lerp(80, 140, k), 70, lerp(-80, 40, k), 160, 90, 500);
+      } else {
+        const k = E.inOut(seg(t, split, dur));
+        look(R, lerp(700, 820, k), 60, lerp(-520, -430, k), lerp(1000, 1020, k), lerp(200, 560, k), 620);
       }
-      s.tag('Fill them with dinos', t, 1.2, dur - 0.3);
-    },
-  });
-
-  scenes.push({
-    id: 'giants', min: 11,
-    say: 'Every dino has its own shape, so plan your pens with care. Room for a Triceratops, a Stegosaurus... and one very tall Brachiosaurus.',
-    build(root) {
-      const bd = backdrop(root, { seed: 5 });
-      const w = world(root);
-      const p1 = pen(w.el, 200, 720, { name: 'Triceratops' });
-      const p2 = pen(w.el, 880, 1400, { name: 'Stegosaurus' });
-      const p3 = pen(w.el, 1560, 2160, { name: 'Brachiosaurus' });
-      deco(w.el, [['plant', 120, 520, 70], ['plant', 800, 540, 76], ['plant', 1480, 520, 70], ['feeder', 640, 530, 54], ['feeder', 1320, 530, 54], ['plant', 2250, 540, 80]]);
-      const tri = [sprite(w.el, D('triceratops'), { h: 150 }), sprite(w.el, D('triceratops'), { h: 140 })];
-      const ste = [sprite(w.el, D('stegosaurus'), { h: 150 }), sprite(w.el, D('stegosaurus'), { h: 138 })];
-      const bra = sprite(w.el, D('brachiosaurus'), { h: 330 });
-      return { bd, w, pens: [p1, p2, p3], tri, ste, bra, tag: tag(root) };
-    },
-    frame(t, dur, s) {
-      const cx = lerp(-60, 1300, E.inOut(seg(t, 0.4, dur - 1.6)));
-      s.bd.update(t, cx);
-      s.w.cam(cx, 1, 390);
-      s.pens.forEach((p) => p.draw(t));
-      s.tri.forEach((sp, i) => {
-        const r = roam(s.pens[0], t, i * 2 + 1, 0.05, 90, [i, 2]);
-        sp.x = r.x;
-        sp.y = r.y;
-        sp.dir = r.dir;
-        if (i) pose.graze(sp, t, i);
-        else pose.walk(sp, t, 0.45, i, 5);
-        sp.place();
-      });
-      s.ste.forEach((sp, i) => {
-        const r = roam(s.pens[1], t, i * 3 + 2, 0.05, 90, [i, 2]);
-        sp.x = r.x;
-        sp.y = r.y;
-        sp.dir = r.dir;
-        pose.walk(sp, t, 0.4, i * 2, 5);
-        sp.place();
-      });
-      s.bra.x = lerp(1920, 2010, 0.5 + 0.5 * Math.sin(t * 0.25));
-      s.bra.y = 590;
-      s.bra.dir = Math.cos(t * 0.25) >= 0 ? 1 : -1;
-      pose.breathe(s.bra, t);
-      s.bra.rot = 1.5 * Math.sin(t * 0.8);
-      s.bra.place();
-      s.tag('Every dino has its own shape', t, 1, dur - 0.3);
+      R.begin(t);
+      park(R, t, { meadow: s.meadow });
+      const walk = seg(t, 0.4, 3.6);
+      const tz = lerp(700, 470, E.out(walk));
+      const snort = seg(t, 4, 4.4) * (1 - seg(t, 4.6, 5.2));
+      dino(R, 'triceratops', lerp(300, 120, E.out(walk)), tz, { h: 190, walk: walk > 0 && walk < 1 ? t : undefined, speed: 4, dir: -1, rot: -6 * snort });
+      for (let j = 0; j < 5; j++) {
+        const q = seg(t, 4.1 + j * 0.05, 5.4);
+        if (q > 0 && q < 1) R.blob(45 - q * 80, 70 + j * 6 + q * 30, tz - 30 - j * 8, 14 + q * 34, '#e8e0d0', 0.7 * (1 - q));
+      }
+      dino(R, 'stegosaurus', -120, 640, { h: 170, t, dir: 1 });
+      dino(R, 'brachiosaurus', 1000, 640, { h: 620, t, rot: Math.sin(t * 0.6) * 1.5 });
+      dino(R, 'brachiosaurus', 1300, 980, { h: 560, t: t + 2, dir: -1 });
+      R.end();
     },
   });
 
   scenes.push({
     id: 'feeding', min: 13,
-    say: 'Feeding time! Meat for the meat eaters, plants for the plant eaters. But forget an enclosure, and its dinos get hungry... and sleepy. Leave them too long, and they’re gone for good.',
-    build(root) {
-      const bd = backdrop(root, { seed: 9 });
-      const w = world(root);
-      const p1 = pen(w.el, 160, 700, { name: 'Raptor Run' });
-      const p2 = pen(w.el, 860, 1400, { name: 'Duckbill Meadow' });
-      const p3 = pen(w.el, 1560, 2100, { name: 'Allosaurus' });
-      deco(w.el, [['plant', 90, 520, 70], ['plant', 780, 540, 70], ['plant', 1480, 520, 74], ['plant', 2200, 540, 70]]);
-      const rap = [0, 1, 2].map(() => sprite(w.el, D('velociraptor'), { h: 120 }));
-      const par = [0, 1].map(() => sprite(w.el, D('parasaurolophus'), { h: 150 }));
-      const allo = sprite(w.el, D('allosaurus'), { h: 190 });
-      const zz = sprite(w.el, D('sleep'), { h: 70, shadow: false });
-      return { bd, w, p1, p2, p3, rap, par, allo, zz, fx: canvasLayer(root), tag: tag(root) };
-    },
+    say: 'Feeding time was always lively. Leaves for the plant eaters. Meat for the meat eaters. And never, ever mix those up.',
+    build: (root) => sceneRoot(root, 5),
     frame(t, dur, s) {
-      const pan = E.inOut(seg(t, dur * 0.42, dur * 0.42 + 2.2));
-      const cx = lerp(lerp(120, 760, E.inOut(seg(t, 0, dur * 0.4))), 1470, pan);
-      s.bd.update(t, cx);
-      s.w.cam(cx, 1, 390);
-      [s.p1, s.p2, s.p3].forEach((p) => p.draw(t));
-      const g = s.fx.g;
-      s.fx.clear();
-      s.rap.forEach((sp, i) => {
-        const r = roam(s.p1, t, i * 1.3, 0.14, 50, [i, 3]);
-        sp.x = r.x;
-        sp.y = r.y;
-        sp.dir = r.dir;
-        const leap = (t * 0.9 + i * 0.33) % 1;
-        pose.walk(sp, t, 1.2, i, 7);
-        if (t > 1 && leap < 0.3) sp.lift = Math.sin((leap / 0.3) * Math.PI) * 60;
-        sp.place();
-      });
-      s.par.forEach((sp, i) => {
-        const r = roam(s.p2, t, i * 2.2, 0.06, 80, [i, 2]);
-        sp.x = r.x;
-        sp.y = r.y;
-        sp.dir = r.dir;
-        pose.graze(sp, t, i * 1.4);
-        sp.place();
-      });
-      // Meat and plants arc in from the keeper's side of the screen.
-      for (let i = 0; i < 10; i++) {
-        const a = 0.6 + i * 0.42;
-        const p = seg(t, a, a + 1.1);
-        const toRap = i % 2 === 0;
-        const tx = (toRap ? 300 + (i % 3) * 120 : 1000 + (i % 3) * 140) - cx;
-        arcItem(g, D(toRap ? 'meat' : 'plant'), -40, 520, tx, 560, p, 58, toRap ? 1.2 : 0.4, 230);
-      }
-      // The unfed pen: a sleepy Allosaurus, greying out.
-      const sleepy = seg(t, dur * 0.5, dur * 0.62);
-      s.allo.x = 1830;
-      s.allo.y = 590;
-      s.allo.dir = -1;
-      pose.breathe(s.allo, t * 0.6);
-      s.allo.rot = lerp(0, -6, sleepy);
-      s.allo.sy *= lerp(1, 0.92, sleepy);
-      s.allo.filter = `grayscale(${sleepy * 0.75}) brightness(${1 - sleepy * 0.15})`;
-      s.allo.place();
-      s.zz.x = 1960;
-      s.zz.y = 400 - Math.sin(t * 2) * 6;
-      s.zz.op = sleepy;
-      s.zz.sy = s.zz.sx = lerp(0.6, 1, E.back(sleepy));
-      s.zz.place();
-      if (sleepy > 0) {
-        for (let i = 0; i < 3; i++) {
-          const k = ((t * 0.5 + i / 3) % 1);
-          g.globalAlpha = sleepy * (1 - k);
-          g.fillStyle = '#ffffff';
-          g.font = `${22 + k * 18}px "Lilita One"`;
-          g.fillText('z', 1920 - cx + k * 60, 330 - k * 90);
-          g.globalAlpha = 1;
+      const R = s.R;
+      R.env.tod = 1.1;
+      R.env.sunAz = -0.3;
+      const a = lerp(-0.5, 0.45, E.inOut(seg(t, 0, dur)));
+      look(R, 115 + Math.sin(a) * 900, 300, 525 - Math.cos(a) * 900, 115, 60, 525);
+      R.begin(t);
+      park(R, t, { meadow: s.meadow });
+      // Plants for the stegosaurus and triceratops, meat for the raptors in the compy pen next door.
+      for (let i = 0; i < 6; i++) {
+        const a0 = 0.6 + i * 1.1;
+        const q = seg(t, a0, a0 + 1.1);
+        const meat = i % 2 === 1;
+        const tx = meat ? -700 : -40 + i * 60;
+        const tz = meat ? 470 : 480 + (i % 3) * 60;
+        const x = lerp(meat ? -500 : 160, tx, q);
+        const z = lerp(-200, tz, q);
+        const y = Math.sin(q * Math.PI) * 340;
+        if (q > 0 && q < 1) R.bill(D(meat ? 'meat' : 'plant'), { x, y, z, h: 70, rot: q * 540, shadow: false });
+        else if (q >= 1) {
+          const gone = seg(t, a0 + 1.1, a0 + 2.6);
+          if (gone < 1) R.bill(D(meat ? 'meat' : 'plant'), { x: tx, z: tz, h: 60 * (1 - gone * 0.8), shadowW: 0.3 });
         }
       }
-      s.tag(t < dur * 0.48 ? 'Feed every enclosure' : 'Unfed dinos go inactive', t, 1, dur - 0.3);
+      const munch = Math.sin(t * 9);
+      dino(R, 'stegosaurus', 30, 560, { h: 175, t, rot: 4 + munch * 4 });
+      dino(R, 'triceratops', 260, 620, { h: 180, t, dir: -1, rot: -3 - munch * 3 });
+      [[-820, 440, 0], [-650, 560, 1.2], [-560, 380, 2.4]].forEach(([x, z, ph], i) => {
+        const leap = Math.max(0, Math.sin(t * 2.4 + ph));
+        dino(R, 'velociraptor', x + Math.sin(t + ph) * 60, z, { h: 115, lift: leap * 60, rot: -leap * 12, dir: i === 1 ? -1 : 1 });
+      });
+      R.end();
     },
   });
 
   scenes.push({
-    id: 'babies', min: 11,
-    say: 'Keep a pair happy and well fed, and before long... babies! Raise them up, and watch your herds grow.',
-    build(root) {
-      const bd = backdrop(root, { seed: 13, sunX: 700 });
-      const w = world(root);
-      const pn = pen(w.el, 300, 980, { name: 'Nursery' });
-      deco(w.el, [['plant', 230, 520, 70], ['plant', 1070, 520, 80], ['feeder', 920, 520, 52], ['plant', 1180, 600, 66]]);
-      const a = sprite(w.el, D('parasaurolophus'), { h: 165 });
-      const b = sprite(w.el, D('parasaurolophus'), { h: 158 });
-      const baby = sprite(w.el, D('parasaurolophus'), { h: 82 });
-      const maia = sprite(w.el, D('maiasaura'), { h: 150 });
-      return { bd, w, pn, a, b, baby, maia, fx: canvasLayer(root), tag: tag(root) };
-    },
+    id: 'babies', min: 13,
+    say: 'Then one quiet morning, something in the Maiasaura nest began to wobble. Then something cracked. And then... hello there.',
+    build: (root) => sceneRoot(root, 6),
     frame(t, dur, s) {
-      s.bd.update(t, 0);
-      const born = dur * 0.42;
-      s.w.cam(0, lerp(1, 1.18, E.inOut(seg(t, 0, born + 1))), 500);
-      s.pn.draw(t);
-      const g = s.fx.g;
-      s.fx.clear();
-      s.a.x = 520;
-      s.a.y = 580;
-      s.a.dir = 1;
-      pose.breathe(s.a, t);
-      s.b.x = 760;
-      s.b.y = 585;
-      s.b.dir = -1;
-      pose.breathe(s.b, t, 1.3);
-      [s.a, s.b].forEach((x) => x.place());
-      for (let i = 0; i < 4; i++) {
-        const k = ((t * 0.6 + i / 4) % 1);
-        const [hx, hy] = s.w.at(640 + Math.sin(i * 2 + t) * 30, 470 - k * 120);
-        if (t < born + 0.6) emoji(g, '❤️', hx, hy, 30 + k * 10, (1 - k) * seg(t, 0.5, 1.2));
-      }
-      const p = seg(t, born, born + 0.6);
-      s.baby.op = p > 0 ? 1 : 0;
-      s.baby.x = lerp(640, lerp(640, 600, seg(t, born + 1.5, dur)), 1);
-      s.baby.y = 610;
-      s.baby.dir = 1;
-      s.baby.sx = s.baby.sy = lerp(0.2, 1, E.back(p));
-      if (p >= 1) pose.hop(s.baby, t, 1.6, 0, 22);
-      s.baby.place();
-      if (t > born) sparkle(g, ...s.w.at(640, 560), (t - born) / 1.2, 24, 10, 160, 9);
-      s.maia.x = 900;
-      s.maia.y = 625;
-      s.maia.dir = -1;
-      pose.breathe(s.maia, t, 2);
-      s.maia.place();
-      s.tag(t < born ? 'Breed a pair' : 'Raise the babies', t, 1, dur - 0.3);
+      const R = s.R;
+      R.env.tod = lerp(0.4, 0.9, seg(t, 0, dur));
+      R.env.sunAz = 0.1;
+      R.env.focus = lerp(520, 330, E.inOut(seg(t, 0, dur)));
+      R.env.dof = 2.2;
+      const k = E.inOut(seg(t, 0, dur));
+      look(R, lerp(-960, -840, k), lerp(175, 130, k), lerp(740, 860, k), -830, 55, 1260);
+      R.begin(t);
+      park(R, t, { meadow: s.meadow });
+      dino(R, 'maiasaura', -960, 1320, { h: 190, t, rot: seg(t, 6.5, 7) * (1 - seg(t, 9, 9.5)) * -6 });
+      [[-800, 1240], [-740, 1275], [-770, 1210]].forEach(([x, z], i) => {
+        const at = 5.2 + i * 1.1;
+        const wob = seg(t, 2 + i * 0.6, at) > 0 && t < at ? Math.sin(t * 22 + i) * (6 + 6 * seg(t, 2, at)) : 0;
+        if (t < at) {
+          R.bill(egg(t > at - 1.3), { x, z, h: 48, rot: wob, shadowW: 0.4 });
+        } else {
+          const q = seg(t, at, at + 0.8);
+          for (let j = 0; j < 5; j++) R.blob(x + Math.cos(j * 1.3) * q * 50, 30 + Math.sin(q * Math.PI) * 50 - q * 20, z - 10, 8, '#fff3d6', 1 - q);
+          const hop = Math.abs(Math.sin((t - at) * 5)) * 10 * seg(t, at + 0.5, at + 1);
+          R.bill(noNest(), { x, z, h: lerp(30, 66, E.back(seg(t, at, at + 0.6))), lift: hop, dir: i % 2 ? -1 : 1, rot: Math.sin(t * 3 + i) * 3, shadowW: 0.3 });
+        }
+      });
+      R.end();
+      R.env.focus = null;
     },
   });
 
   scenes.push({
-    id: 'water', min: 11,
-    say: 'Dig a watering hole, and the wildest guests arrive. A Mosasaurus in the lagoon! A Quetzalcoatlus overhead!',
+    id: 'lagoon', min: 12,
+    say: 'Down at the lagoon, the Mosasaurus liked to say hello. Loudly. And very, very wetly.',
     build(root) {
-      const bd = backdrop(root, { seed: 17, sunX: 300 });
-      const w = world(root);
-      const pn = pen(w.el, 260, 1020, { name: 'Lagoon', floor: 'rgba(0,0,0,0)' });
-      const pool = el('div', '', w.el, {
-        position: 'absolute', left: 0, top: 0, width: '640px', height: '150px', borderRadius: '50%', zIndex: 520,
-        transform: 'translate(320px, 488px)', background: 'radial-gradient(ellipse at 50% 40%, #6fd3ff, #2f9be0 55%, #1d6fb3)', boxShadow: '0 0 0 10px #9aa3a8, 0 0 0 16px #7d868b, inset 0 8px 18px rgba(0,0,0,0.25)',
-      });
-      deco(w.el, [['water', 1120, 600, 70], ['plant', 1180, 520, 70], ['plant', 190, 540, 76], ['plant', 1090, 640, 60]]);
-      const mosa = sprite(w.el, D('mosasaurus'), { h: 170, shadow: false });
-      const qz = sprite(w.el, D('quetzalcoatlus'), { h: 170, shadow: false, z: 3000 });
-      const dilo = sprite(w.el, D('dilophosaurus'), { h: 140 });
-      return { bd, w, pn, pool, mosa, qz, dilo, fx: canvasLayer(root), tag: tag(root) };
+      const s = sceneRoot(root, 7);
+      s.drops = el('canvas', 'fx', root, { zIndex: 8400 });
+      s.drops.width = W;
+      s.drops.height = H;
+      const r = rng(4);
+      s.dropList = Array.from({ length: 26 }, () => [r() * W, r() * H, 10 + r() * 34, r()]);
+      return s;
     },
     frame(t, dur, s) {
-      s.bd.update(t, 0);
-      s.w.cam(0, 1, 400);
-      s.pn.draw(t);
-      const g = s.fx.g;
-      s.fx.clear();
-      // Mosasaurus leaps out of the lagoon in an arc, twice.
-      const L = [1.4, dur * 0.55];
-      let shown = false;
-      L.forEach((a, k) => {
-        const p = seg(t, a, a + 1.8);
-        if (p > 0 && p < 1) {
-          shown = true;
-          s.mosa.x = lerp(420 + k * 60, 900 - k * 40, p);
-          s.mosa.y = 560;
-          s.mosa.lift = Math.sin(p * Math.PI) * 230;
-          s.mosa.rot = lerp(-38, 38, p);
-          s.mosa.dir = 1;
+      const R = s.R;
+      R.env.tod = 1.15;
+      R.env.sunAz = 0.6;
+      const [lx, lz] = LAGOON;
+      const breach = seg(t, 3.2, 5.6);
+      const shake = breach > 0.7 && breach < 0.95 ? Math.sin(t * 50) * 8 : 0;
+      look(R, lx - 120 + shake, 45, lz - 620, lx, 120 + breach * 60, lz);
+      R.begin(t);
+      park(R, t, { meadow: s.meadow });
+      // The Mosasaurus surges up, arcs over, and slams back down.
+      const my = breach > 0 ? Math.sin(breach * Math.PI) * 330 - 160 : -300;
+      const mrot = lerp(-35, 40, breach);
+      if (breach > 0 && breach < 1) dino(R, 'mosasaurus', lx + lerp(-160, 160, breach), lz, { h: 300, lift: my, rot: mrot, clipY: 0, shadow: false });
+      // Splashes when it breaks the surface and when it lands.
+      [[3.3, -120], [5.3, 150]].forEach(([at, dx]) => {
+        const q = seg(t, at, at + 1.6);
+        if (q <= 0 || q >= 1) return;
+        for (let j = 0; j < 22; j++) {
+          const a = (j / 22) * TAU;
+          const sp = 0.6 + ((j * 37) % 10) / 14;
+          R.blob(lx + dx + Math.cos(a) * q * 220 * sp, Math.sin(q * Math.PI) * 260 * sp, lz + Math.sin(a) * q * 90, 20 + q * 20, '#e8f8ff', 0.85 * (1 - q));
         }
-        [a + 0.05, a + 1.75].forEach((sx, j) => {
-          const q = seg(t, sx, sx + 0.9);
-          if (q <= 0 || q >= 1) return;
-          const r = rng(31 + k * 7 + j);
-          for (let i = 0; i < 26; i++) {
-            const ang = -Math.PI * (0.15 + r() * 0.7);
-            const v = 120 + r() * 260;
-            const x = (j ? 900 - k * 40 : 420 + k * 60) + Math.cos(ang) * v * q;
-            const y = 560 + Math.sin(ang) * v * q + 420 * q * q;
-            g.fillStyle = `rgba(${200 + r() * 55},${235 + r() * 20},255,${1 - q})`;
-            g.beginPath();
-            g.arc(x, y, 4 + r() * 6, 0, Math.PI * 2);
-            g.fill();
-          }
+        R.disc(lx + dx, lz, 60 + q * 380, 30 + q * 220, null, `rgba(255,255,255,${0.7 * (1 - q)})`, 4);
+      });
+      const fly = seg(t, 6.5, dur);
+      if (fly > 0 && fly < 1) dino(R, 'quetzalcoatlus', lerp(lx - 900, lx + 1100, fly), lz + 300, { y: 500 + Math.sin(fly * 9) * 30, h: 240, rot: Math.sin(t * 3) * 5, shadow: false });
+      R.end();
+      // Water on the lens after the landing splash.
+      const g = s.drops.getContext('2d');
+      g.clearRect(0, 0, W, H);
+      const wet = seg(t, 5.55, 5.75) * (1 - seg(t, 7.5, 10));
+      if (wet > 0) {
+        s.dropList.forEach(([x, y, r, ph]) => {
+          const yy = y + seg(t, 5.7, 10) * 60 * ph;
+          const rg = g.createRadialGradient(x - r * 0.3, yy - r * 0.3, r * 0.1, x, yy, r);
+          rg.addColorStop(0, `rgba(255,255,255,${0.55 * wet})`);
+          rg.addColorStop(0.7, `rgba(200,235,255,${0.18 * wet})`);
+          rg.addColorStop(1, `rgba(120,180,220,${0.35 * wet})`);
+          g.fillStyle = rg;
+          g.beginPath();
+          g.ellipse(x, yy, r * 0.8, r, 0, 0, TAU);
+          g.fill();
         });
-      });
-      s.mosa.op = shown ? 1 : 0;
-      s.mosa.place();
-      // Ripples on the lagoon.
-      for (let i = 0; i < 3; i++) {
-        const k = (t * 0.4 + i / 3) % 1;
-        g.strokeStyle = `rgba(255,255,255,${0.5 * (1 - k)})`;
-        g.lineWidth = 3;
-        g.beginPath();
-        g.ellipse(640, 560, 60 + k * 230, 14 + k * 50, 0, 0, Math.PI * 2);
-        g.stroke();
       }
-      // Quetzalcoatlus glides across the sky, flapping.
-      const f = seg(t, dur * 0.45, dur - 0.5);
-      s.qz.x = lerp(1450, -250, f);
-      s.qz.y = 300 + Math.sin(f * 7) * 30;
-      s.qz.dir = -1;
-      s.qz.sy = 1 + 0.12 * Math.sin(t * 9);
-      s.qz.rot = -6 + Math.sin(t * 3) * 4;
-      s.qz.op = f > 0 && f < 1 ? 1 : 0;
-      s.qz.place();
-      s.dilo.x = 1185;
-      s.dilo.y = 610;
-      s.dilo.dir = -1;
-      pose.breathe(s.dilo, t);
-      s.dilo.place();
-      s.tag('Watering holes welcome more species', t, 1, dur - 0.3);
     },
   });
 
   scenes.push({
-    id: 'trex', min: 12,
-    say: 'And then there’s the king. A T. Rex brings in the crowds, and the crowds bring coins. Lots and lots of coins.',
+    id: 'storm', min: 15,
+    say: 'But when the storm rolled in, and the thunder shook the trees, everyone remembered who was really in charge.',
     build(root) {
-      const bd = backdrop(root, { seed: 21, sunX: 820 });
-      const w = world(root);
-      const pn = pen(w.el, 260, 1060, { name: 'T. Rex Kingdom' });
-      const p2 = pen(w.el, 1240, 1900, { name: 'Giganotosaurus' });
-      deco(w.el, [['plant', 190, 520, 76], ['plant', 1140, 540, 70], ['feeder', 980, 530, 56]]);
-      const rex = sprite(w.el, D('trex'), { h: 260 });
-      const gig = sprite(w.el, D('giganotosaurus'), { h: 230 });
-      const counter = el('div', 'name', root, { zIndex: 9000, fontSize: '34px', transform: 'translate(1040px, 40px)' });
-      return { bd, w, pn, p2, rex, gig, counter, fx: canvasLayer(root), tag: tag(root) };
+      const s = sceneRoot(root, 8);
+      s.roar = caption(root, '<div class="big">ROAR!</div>');
+      return s;
     },
     frame(t, dur, s) {
-      const roar = 2.2;
-      const shake = t > roar && t < roar + 1.4 ? (1 - seg(t, roar, roar + 1.4)) * 14 : 0;
-      const cx = lerp(0, 240, E.inOut(seg(t, dur * 0.55, dur)));
-      s.bd.update(t, cx);
-      s.w.cam(cx, lerp(1.12, 1, E.inOut(seg(t, roar + 1, dur * 0.6))), 430, Math.sin(t * 60) * shake, Math.cos(t * 47) * shake);
-      s.pn.draw(t);
-      s.p2.draw(t);
-      const g = s.fx.g;
-      s.fx.clear();
-      s.rex.x = lerp(560, 760, 0.5 + 0.5 * Math.sin(t * 0.3));
-      s.rex.y = 600;
-      s.rex.dir = 1;
-      pose.walk(s.rex, t, 0.35, 0, 6);
-      if (t > roar - 0.3 && t < roar + 1.4) {
-        const p = seg(t, roar - 0.3, roar + 0.2);
-        s.rex.rot = -8 * E.out(p) + Math.sin(t * 50) * 1.2;
-        s.rex.sx = s.rex.sy = 1 + 0.06 * E.out(p);
-      }
-      s.rex.place();
-      s.gig.x = 1560 + Math.sin(t * 0.35) * 120;
-      s.gig.y = 600;
-      s.gig.dir = Math.cos(t * 0.35) > 0 ? 1 : -1;
-      pose.walk(s.gig, t, 0.35, 1, 6);
-      s.gig.place();
-      if (t > roar && t < roar + 1.6) {
-        const k = seg(t, roar, roar + 1.6);
-        g.globalAlpha = 1 - seg(k, 0.6, 1);
-        g.font = `${80 + E.out(k) * 40}px "Lilita One"`;
-        g.textAlign = 'center';
-        g.lineWidth = 8;
-        g.strokeStyle = '#5a1a00';
-        g.fillStyle = '#ffd24d';
-        const [rx, ry] = s.w.at(s.rex.x + 60, 300);
-        g.strokeText('ROAR!', rx, ry);
-        g.fillText('ROAR!', rx, ry);
-        g.globalAlpha = 1;
-      }
-      // A fountain of coins, then a few diamonds.
-      let n = 0;
-      for (let i = 0; i < 40; i++) {
-        const a = roar + 1.2 + i * 0.13;
-        const p = seg(t, a, a + 1.3);
-        if (t > a + 1.3) n++;
-        const r = rng(100 + i);
-        const [ox, oy] = s.w.at(s.rex.x + (r() - 0.5) * 80, 420);
-        arcItem(g, D(i % 9 === 8 ? 'diamond' : 'coin'), ox, oy, 1120 + (r() - 0.5) * 60, 60, p, 52, 2 + r(), 120 + r() * 160);
-      }
-      s.counter.style.display = t > roar + 1 ? '' : 'none';
-      s.counter.innerHTML = `<img src="${D('coin')}" style="height:38px;vertical-align:middle;margin-right:8px">${n * 3}`;
-      s.tag('Big dinos, big crowds', t, 1, dur - 0.3);
+      const R = s.R;
+      R.env.tod = lerp(1.6, 2.6, seg(t, 0, 3));
+      R.env.tint = '#7d86a8';
+      R.env.clouds = 1.6;
+      R.env.fogNear = 500;
+      R.env.fogFar = 2400;
+      R.env.fogMax = 0.7;
+      R.env.hazeColor = '#4a5470';
+      const roar = seg(t, 8.6, 9.0) * (1 - seg(t, 11, 11.8));
+      const shake = roar > 0 ? Math.sin(t * 61) * 10 * roar : 0;
+      const push = E.inOut(seg(t, 0, 8.6)) + roar * 0.15;
+      look(R, 150 + shake, lerp(75, 60, push), lerp(640, 840, push), 150, lerp(160, 200, push), 1700);
+      const fl = Math.max(seg(t, 2.5, 2.6) * (1 - seg(t, 2.6, 3.3)), seg(t, 6.2, 6.3) * (1 - seg(t, 6.3, 7)), 0.8 * seg(t, 8.6, 8.7) * (1 - seg(t, 8.7, 9.6)));
+      s.flash.style.opacity = fl * 0.6;
+      R.begin(t);
+      park(R, t, {});
+      const walk = E.out(seg(t, 3.2, 8.4));
+      const tx = lerp(-60, 140, walk);
+      const tz = lerp(1800, 1420, walk);
+      dino(R, 'trex', tx, tz, { h: 330, walk: walk > 0 && walk < 0.97 ? t : undefined, speed: 3.2, bob: 6, rot: -roar * 8, sy: 1 + roar * 0.06, flash: fl * 0.7 });
+      weather(R, 'rain', t, 320, 9);
+      R.end();
+      R.env.tint = null;
+      R.env.clouds = 1;
+      R.env.fogNear = 1400;
+      R.env.fogFar = 5200;
+      R.env.fogMax = 0.6;
+      R.env.hazeColor = null;
+      s.roar.show(t, 8.7, 11.2, 'pop');
+      s.roar.e.style.top = '24%';
+    },
+  });
+
+  const FINALE = [
+    ['compy', -700, 420, 60], ['compy', -620, 500, 55], ['compy', -760, 560, 62], ['triceratops', 40, 520, 180], ['stegosaurus', 260, 660, 170],
+    ['brachiosaurus', 1000, 620, 600], ['brachiosaurus', 1250, 980, 560], ['maiasaura', -880, 1240, 180], ['trex', 120, 1520, 350],
+    ['parasaurolophus', -300, 1120, 200], ['spinosaurus', 900, 1600, 260], ['ankylosaurus', -1150, 1700, 140],
+  ];
+  scenes.push({
+    id: 'finale', min: 15,
+    say: 'When the clouds cleared, the park was still standing. Every pen, every dino, every egg. The greatest park the world had ever seen.',
+    build: (root) => sceneRoot(root, 9),
+    frame(t, dur, s) {
+      const R = s.R;
+      R.env.tod = lerp(1.35, 1.85, seg(t, 0, dur));
+      R.env.sunAz = 0.15;
+      const k = E.inOut(seg(t, 0, dur));
+      const a = lerp(-0.25, 0.25, k);
+      look(R, 200 + Math.sin(a) * lerp(900, 2600, k), lerp(160, 1500, k), 900 - Math.cos(a) * lerp(1300, 2900, k), 250, lerp(140, 0, k), 1000);
+      R.begin(t);
+      park(R, t, { meadow: s.meadow });
+      FINALE.forEach(([n, x, z, h], i) => dino(R, n, x + Math.sin(t * 0.4 + i) * 30, z, { h, t: t + i, dir: Math.sin(t * 0.4 + i + 1.57) > 0 ? 1 : -1 }));
+      dino(R, 'mosasaurus', LAGOON[0], LAGOON[1], { h: 280, lift: -150 + Math.sin(t * 0.8) * 20, clipY: 0, shadow: false, rot: -10 });
+      [0, 1].forEach((i) => {
+        const q = (t * 0.06 + i * 0.5) % 1;
+        dino(R, 'quetzalcoatlus', lerp(-1600, 2200, q), 1400 + i * 600, { y: 700 + i * 200 + Math.sin(t + i) * 40, h: 250, shadow: false, rot: Math.sin(t * 2 + i) * 6 });
+      });
+      R.end();
     },
   });
 
   scenes.push({
-    id: 'storm', min: 11,
-    say: 'Every round brings a surprise. A heatwave. A stampede. A sudden storm! Adapt fast, or your rival will.',
+    id: 'end', min: 9, tail: 2.4,
+    say: 'Build a park of your own. Dino Dynasty. Play free at ahrens labs dot com.',
     build(root) {
-      const bd = backdrop(root, { seed: 29, sky: 'linear-gradient(180deg, #4b5d73 0%, #7f93a6 50%, #b7b39a 100%)', sunY: -400 });
-      const dark = el('div', 'full', root, { zIndex: 6, background: 'rgba(25,35,55,0.28)' });
-      const w = world(root);
-      w.el.style.filter = 'brightness(0.72) saturate(0.8)';
-      const pn = pen(w.el, 300, 1000, { name: 'Ankylosaurus' });
-      const ank = [sprite(w.el, D('ankylosaurus'), { h: 120, face: -1 }), sprite(w.el, D('ankylosaurus'), { h: 112, face: -1 })];
-      const rocks = [0, 1, 2].map(() => sprite(w.el, D('rubble'), { h: 80 }));
-      const flash = el('div', 'full', root, { zIndex: 7000, background: '#fff' });
-      return { bd, dark, w, pn, ank, rocks, flash, fx: canvasLayer(root), tag: tag(root) };
+      const s = sceneRoot(root, 10);
+      s.title = caption(root, '<div class="big">Dino Dynasty</div><div class="sub">Build the greatest dino park on Earth</div><div class="pill">Play free at ahrenslabs.com</div>');
+      return s;
     },
     frame(t, dur, s) {
-      s.bd.update(t, 0);
-      s.w.cam(0, 1, 400);
-      s.pn.draw(t);
-      const g = s.fx.g;
-      s.fx.clear();
-      s.ank.forEach((sp, i) => {
-        sp.x = 560 + i * 150 + Math.sin(t * 0.8 + i) * 20;
-        sp.y = 590 + i * 20;
-        sp.dir = i ? -1 : 1;
-        pose.breathe(sp, t * 2, i);
-        sp.rot += Math.sin(t * 13 + i) * 1.2;
-        sp.place();
-      });
-      s.rocks.forEach((sp, i) => {
-        const a = 3 + i * 0.6;
-        const p = seg(t, a, a + 0.5);
-        sp.x = 400 + i * 60;
-        sp.y = 540 + i * 30;
-        sp.op = p > 0 ? 1 : 0;
-        sp.lift = (1 - E.out(p)) * 400;
-        sp.place();
-      });
-      const r = rng(5);
-      g.strokeStyle = 'rgba(210,225,255,0.55)';
-      g.lineWidth = 2;
-      for (let i = 0; i < 160; i++) {
-        const x0 = r() * (W + 200);
-        const v = 900 + r() * 500;
-        const y = ((r() * H + t * v) % (H + 60)) - 30;
-        const x = x0 - ((t * v * 0.25) % (W + 200));
-        const xx = ((x % (W + 200)) + W + 200) % (W + 200) - 100;
-        g.beginPath();
-        g.moveTo(xx, y);
-        g.lineTo(xx - 6, y + 22);
-        g.stroke();
-      }
-      const bolts = [1.6, 2.9, dur * 0.7];
-      let fl = 0;
-      bolts.forEach((b) => {
-        fl = Math.max(fl, t > b && t < b + 0.35 ? 1 - seg(t, b, b + 0.35) : 0);
-      });
-      s.flash.style.opacity = fl * 0.75;
-      s.tag('A new event every round', t, 1, dur - 0.3);
-    },
-  });
-
-  const PARADE = ['microraptor', 'compy', 'oviraptor', 'velociraptor', 'dilophosaurus', 'pachy', 'gigantoraptor', 'parasaurolophus', 'triceratops', 'carnotaurus', 'ankylosaurus', 'maiasaura', 'stegosaurus', 'spinosaurus', 'allosaurus', 'quetzalcoatlus', 'brachiosaurus', 'giganotosaurus', 'trex', 'sauroposeidon', 'mosasaurus'];
-  const HGT = { microraptor: 90, compy: 80, oviraptor: 110, velociraptor: 115, dilophosaurus: 140, pachy: 120, gigantoraptor: 160, parasaurolophus: 160, triceratops: 150, carnotaurus: 170, ankylosaurus: 115, maiasaura: 150, stegosaurus: 150, spinosaurus: 210, allosaurus: 200, quetzalcoatlus: 190, brachiosaurus: 320, giganotosaurus: 230, trex: 250, sauroposeidon: 330, mosasaurus: 170 };
-  scenes.push({
-    id: 'parade', min: 14,
-    say: 'Twenty-one kinds of dino, from the tiny Microraptor to the mighty Mosasaurus, each with its own shape, its own appetite, and its own special power. Which will you collect?',
-    build(root) {
-      const bd = backdrop(root, { seed: 33, sunX: 600 });
-      const w = world(root);
-      const list = PARADE.map((n, i) => {
-        const sp = sprite(w.el, D(n), { h: HGT[n], face: n === 'ankylosaurus' ? -1 : 1 });
-        return { n, sp, x: 200 + i * 230 };
-      });
-      deco(w.el, PARADE.map((_, i) => ['plant', 300 + i * 230, 470 + (i % 2) * 8, 50 + (i % 3) * 10]));
-      const names = list.map(({ n }) => {
-        const e = el('div', 'name', w.el, { zIndex: 4000 });
-        e.textContent = { trex: 'T. Rex', pachy: 'Pachycephalosaurus' }[n] || n.charAt(0).toUpperCase() + n.slice(1);
-        return e;
-      });
-      return { bd, w, list, names, tag: tag(root) };
-    },
-    frame(t, dur, s) {
-      const cx = lerp(-200, 200 + 20 * 230 - 900, E.inOut(seg(t, 0.3, dur - 0.6)));
-      s.bd.update(t, cx);
-      s.w.cam(cx, 1, 400);
-      s.list.forEach(({ n, sp, x }, i) => {
-        sp.x = x + Math.sin(t * 0.7 + i) * 18;
-        sp.y = 620 - (i % 2) * 40;
-        sp.dir = 1;
-        if (n === 'quetzalcoatlus') {
-          sp.lift = 140 + Math.sin(t * 2) * 20;
-          sp.sy = 1 + 0.1 * Math.sin(t * 9);
-        } else if (n === 'mosasaurus') {
-          sp.lift = 30 + Math.sin(t * 2) * 15;
-          sp.rot = Math.sin(t * 2) * 8;
-        } else pose.walk(sp, t, 0.5, i, 6);
-        sp.place();
-        const ne = s.names[i];
-        const sx = x - cx;
-        const vis = sx > -150 && sx < W + 150;
-        ne.style.display = vis ? '' : 'none';
-        ne.style.transform = `translate(${x}px, ${sp.y + 8}px) translateX(-50%)`;
-      });
-      s.tag('21 species to collect', t, 1, dur - 0.3);
-    },
-  });
-
-  scenes.push({
-    id: 'rival', min: 12,
-    say: 'But you’re not alone. A rival park is growing right next door. Fifteen rounds. Two parks. Only one dynasty.',
-    build(root) {
-      const halves = ['#e53935', '#1e88e5'].map((col, i) => {
-        const h = el('div', '', root, { position: 'absolute', top: 0, left: `${i * 640}px`, width: '640px', height: `${H}px`, overflow: 'hidden', zIndex: 1 });
-        const bd = backdrop(h, { seed: 40 + i, sunX: i ? 200 : 900 });
-        const w = world(h);
-        const pn = pen(w.el, 60 + 640 * 0, 560, { name: i ? 'Rival park' : 'Your park' });
-        const sp = sprite(w.el, D(i ? 'brachiosaurus' : 'trex'), { h: i ? 300 : 240 });
-        const sp2 = sprite(w.el, D(i ? 'stegosaurus' : 'velociraptor'), { h: i ? 130 : 110 });
-        const bar = el('div', '', h, { position: 'absolute', left: 0, right: 0, top: 0, height: '10px', background: col, zIndex: 50 });
-        return { h, bd, w, pn, sp, sp2, bar };
-      });
-      el('div', '', root, { position: 'absolute', left: '636px', top: 0, width: '8px', height: `${H}px`, background: '#fff6e2', zIndex: 60, boxShadow: '0 0 18px rgba(0,0,0,0.4)' });
-      const vs = caption(root, '<div class="big" style="font-size:96px">VS</div>');
-      const track = el('div', '', root, { position: 'absolute', left: '50%', top: '34px', transform: 'translateX(-50%)', zIndex: 9000, display: 'flex', gap: '8px' });
-      const chips = [];
-      for (let i = 1; i <= 15; i++) {
-        const c = el('div', '', track, { width: '40px', height: '40px', borderRadius: '50%', display: 'grid', placeItems: 'center', fontFamily: 'Lilita One', fontSize: '20px', background: '#fff6e2', color: '#6b4a2a', boxShadow: '0 3px 0 rgba(0,0,0,0.3)' });
-        c.textContent = i;
-        chips.push(c);
-      }
-      return { halves, vs, chips, tag: tag(root) };
-    },
-    frame(t, dur, s) {
-      s.halves.forEach((h, i) => {
-        h.bd.update(t, 0);
-        h.w.cam(0, 1, 400);
-        h.pn.draw(t);
-        h.sp.x = (i ? 420 : 300) + Math.sin(t * 0.5 + i) * 40;
-        h.sp.y = 600;
-        h.sp.dir = i ? -1 : 1;
-        pose.walk(h.sp, t, 0.4, i, 5);
-        h.sp.place();
-        h.sp2.x = (i ? 220 : 180) + Math.sin(t * 0.8) * 30;
-        h.sp2.y = 620;
-        h.sp2.dir = i ? -1 : 1;
-        pose.walk(h.sp2, t, 0.9, i, 7);
-        h.sp2.place();
-      });
-      s.vs.show(t, 1.2, dur + 1);
-      const lit = Math.floor(clamp(seg(t, 2, dur - 1.5)) * 15);
-      s.chips.forEach((c, i) => {
-        c.style.background = i < lit ? '#ffd24d' : '#fff6e2';
-        c.style.transform = i === lit - 1 ? 'scale(1.18)' : '';
-      });
-      s.tag('15 rounds · 2 parks', t, 1, dur - 0.3);
-    },
-  });
-
-  scenes.push({
-    id: 'end', min: 10, tail: 2.6,
-    say: 'Dino Dynasty. Play free against the computer, a friend, or online, at Ahrens Labs.',
-    build(root) {
-      const bg = el('div', 'full', root, { background: `url(${D('cover')}) center/cover`, filter: 'blur(3px) brightness(0.62)', transform: 'scale(1.06)' });
-      const a = sprite(root, D('trex'), { h: 300, x: 210, y: 690 });
-      const b = sprite(root, D('brachiosaurus'), { h: 360, x: 1080, y: 690, dir: -1 });
-      const title = caption(root, '<div class="big">Dino Dynasty</div><div class="sub">Fence · Feed · Breed · Score</div><div class="pill">Play free at ahrens-labs.github.io</div><div class="sub" style="font-size:24px;margin-top:16px">vs the computer · a friend · online</div>');
-      return { bg, a, b, title, fx: canvasLayer(root) };
-    },
-    frame(t, dur, s) {
-      s.title.show(t, 0.2, dur + 2);
-      [s.a, s.b].forEach((sp, i) => {
-        const p = seg(t, 0.4 + i * 0.25, 1.2 + i * 0.25);
-        sp.lift = (1 - E.back(p)) * -260;
-        pose.breathe(sp, t, i);
-        sp.lift = (1 - E.back(p)) * -260;
-        sp.place();
-      });
-      s.fx.clear();
-      sparkle(s.fx.g, W / 2, 300, (t - 0.3) / 1.3, 30, 80, 520, 4);
+      const R = s.R;
+      R.env.tod = 1.7;
+      R.env.sunAz = 0.15;
+      const a = t * 0.05;
+      look(R, 250 + Math.sin(a) * 2600, 1300, 900 - Math.cos(a) * 2600, 250, 0, 1000);
+      R.begin(t);
+      park(R, t, { meadow: s.meadow });
+      FINALE.forEach(([n, x, z, h], i) => dino(R, n, x, z, { h, t: t + i }));
+      R.end();
+      R.cv.style.filter = 'blur(2px) brightness(0.75)';
+      s.title.show(t, 0.3, dur + 2);
     },
   });
 
