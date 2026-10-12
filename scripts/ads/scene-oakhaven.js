@@ -610,11 +610,13 @@
       // The guard pops up behind the wall, the archer at the tower.
       const up = E.back(seg(t, 4.2, 4.9));
       s.guard.x = 760;
-      s.guard.y = 575 + (1 - up) * 150;
+      s.guard.y = 575 + (1 - up) * 40;
+      s.guard.op = clamp(seg(t, 4.2, 4.6));
       s.guard.place();
       const up2 = E.back(seg(t, 4.6, 5.3));
       s.guard2.x = 420;
-      s.guard2.y = 580 + (1 - up2) * 150;
+      s.guard2.y = 580 + (1 - up2) * 40;
+      s.guard2.op = clamp(seg(t, 4.6, 5));
       s.guard2.place();
       s.archer.x = 1185;
       s.archer.y = 540 + (1 - up) * 60;
@@ -757,10 +759,12 @@
       // Knight and wizard step up.
       const up = E.back(seg(t, 4.6, 5.3));
       s.knight.x = 660;
-      s.knight.y = 640 + (1 - up) * 200;
+      s.knight.y = 640 + (1 - up) * 50;
+      s.knight.op = clamp(seg(t, 4.6, 5));
       s.knight.place();
       s.wizard.x = 900;
-      s.wizard.y = 640 + (1 - up) * 200;
+      s.wizard.y = 640 + (1 - up) * 50;
+      s.wizard.op = clamp(seg(t, 4.6, 5));
       s.wizard.dir = -1;
       s.wizard.place();
       if (t > 5.8 && t < 8) {
