@@ -267,11 +267,65 @@ def parse_chord(name):
     return xml + '</harmony>'
 
 
+BEAMED = {'eighth': 1, '16th': 2}
+
+
+def beam_groups(items, beats):
+    """Indices of notes to beam together: by beat, or by half-bar in 4/4 and whole bar in 3/4 when all eighths."""
+    def chunk(span):
+        groups, cur, key = [], [], None
+        for i, it in enumerate(items):
+            g = int(it['pos'] // span + 1e-9)
+            ok = (not it['rest'] and it['name'] in BEAMED and it['pos'] + it['v'] / 4 <= (g + 1) * span + 1e-9)
+            if not ok or g != key:
+                if len(cur) > 1:
+                    groups.append(cur)
+                cur = []
+            key = g
+            if ok:
+                cur.append(i)
+        if len(cur) > 1:
+            groups.append(cur)
+        return groups
+
+    wide = {3: 3, 4: 2}.get(beats)
+    if not wide:
+        return chunk(1)
+    out = []
+    for grp in chunk(wide):
+        if all(items[i]['name'] == 'eighth' for i in grp):
+            out.append(grp)
+        else:
+            out += [g for g in chunk(1) if g[0] in grp]
+    return out
+
+
+def add_beams(items, beats):
+    for grp in beam_groups(items, beats):
+        for j, i in enumerate(grp):
+            it = items[i]
+            b = ['begin' if j == 0 else 'end' if j == len(grp) - 1 else 'continue']
+            if BEAMED[it['name']] == 2:
+                prev = j > 0 and BEAMED[items[grp[j - 1]]['name']] == 2
+                nxt = j < len(grp) - 1 and BEAMED[items[grp[j + 1]]['name']] == 2
+                b.append('continue' if prev and nxt else 'end' if prev else 'begin' if nxt
+                         else 'backward hook' if j == len(grp) - 1 else 'forward hook')
+            it['beam'] = ''.join(f'<beam number="{n + 1}">{x}</beam>' for n, x in enumerate(b))
+
+
 def staff_xml(events, bar, beats, fifths, staff, voice, acc):
     """One staff's notes for one bar: events are (start, dur, keys) in beats; returns XML."""
     D = 4  # divisions per quarter
     t0, t1 = bar * beats, (bar + 1) * beats
-    parts = []
+    items = []
+
+    def rests(a, b):
+        pos = a
+        for v, name, dots in pieces_of(int(round((b - a) * D))):
+            items.append({'pos': pos - t0, 'v': v, 'name': name, 'rest': True,
+                          'xml': f'<note><rest/><duration>{v}</duration><voice>{voice}</voice><type>{name}</type>{"<dot/>" * dots}<staff>{staff}</staff></note>'})
+            pos += v / D
+
     t = t0
     for s, d, keys in events:
         e = s + d
@@ -279,13 +333,13 @@ def staff_xml(events, bar, beats, fifths, staff, voice, acc):
             continue
         a, b = max(s, t0), min(e, t1)
         if a > t:
-            for v, name, dots in pieces_of(int(round((a - t) * D))):
-                parts.append(f'<note><rest/><duration>{v}</duration><voice>{voice}</voice><type>{name}</type>{"<dot/>" * dots}<staff>{staff}</staff></note>')
+            rests(t, a)
         pos = a
         segs = pieces_of(int(round((b - a) * D)))
         for si, (v, name, dots) in enumerate(segs):
             tie_start = si < len(segs) - 1 or e > t1
             tie_stop = si > 0 or s < t0
+            notes = []
             for ki, k in enumerate(keys):
                 step, alt, octv = spell(k, fifths)
                 acc_xml = ''
@@ -296,16 +350,17 @@ def staff_xml(events, bar, beats, fifths, staff, voice, acc):
                         acc[(step, octv)] = alt
                 ties = (('<tie type="stop"/>' if tie_stop else '') + ('<tie type="start"/>' if tie_start else ''))
                 tied = (('<tied type="stop"/>' if tie_stop else '') + ('<tied type="start"/>' if tie_start else ''))
-                parts.append(
+                notes.append(
                     f'<note>{"<chord/>" if ki else ""}<pitch><step>{step}</step>{f"<alter>{alt}</alter>" if alt else ""}<octave>{octv}</octave></pitch>'
                     f'<duration>{v}</duration>{ties}<voice>{voice}</voice><type>{name}</type>{"<dot/>" * dots}{acc_xml}'
-                    f'<staff>{staff}</staff>{f"<notations>{tied}</notations>" if tied else ""}</note>')
+                    f'<staff>{staff}</staff>{"{BEAM}" if ki == 0 else ""}{f"<notations>{tied}</notations>" if tied else ""}</note>')
+            items.append({'pos': pos - t0, 'v': v, 'name': name, 'rest': False, 'xml': ''.join(notes)})
             pos += v / D
         t = b
     if t < t1:
-        for v, name, dots in pieces_of(int(round((t1 - t) * D))):
-            parts.append(f'<note><rest/><duration>{v}</duration><voice>{voice}</voice><type>{name}</type>{"<dot/>" * dots}<staff>{staff}</staff></note>')
-    return ''.join(parts)
+        rests(t, t1)
+    add_beams(items, beats)
+    return ''.join(it['xml'].replace('{BEAM}', it.get('beam', '')) for it in items)
 
 
 def musicxml(title, rh, lh, chords, fifths, mode, beats, bpm, words, total_beats):

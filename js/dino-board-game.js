@@ -3482,10 +3482,18 @@
           <div class="stepper"><span class="st-l">🌿 Plants</span><b>${tot.flex - fm}</b></div></div>`;
       }
     }
+    // What happens to an enclosure left unfed: [style, short label, sentence].
+    const fate = (cp) => {
+      if (!cp.inactive) return ['warn', '💤 Will go inactive', `${cp.name} will go <b>inactive</b> — no coins or points until it’s fed.`];
+      if (P.board.placedRound[cp.key] === state.round) return ['warn', '💤 Stays inactive', `${cp.name} stays inactive.`];
+      if (cp.inactive >= 4) return ['dead', '💀 Dinos will die', `${cp.name}’s dinos will <b>die</b>!`];
+      return ['warn', `💤 Inactive ${cp.inactive + 1}/4`, `${cp.name} gets hungrier: inactive marker to <b>${cp.inactive + 1}/4</b>.`];
+    };
     const rows = list
       .map((cp) => {
         const c = enclosureCost(cp);
         const on = ui.feed.has(cp.key);
+        const f = on ? null : fate(cp);
         const affordable = on || canPayFood(P, sumCosts(selCosts.concat([c])));
         let status;
         if (!cp.inactive) status = '<span class="status-pill ok">active</span>';
@@ -3493,34 +3501,34 @@
         else status = `<span class="status-pill warn">💤 inactive ${cp.inactive}/4</span>`;
         const extra = cp.inactive ? ` · +${cp.inactive} each` : '';
         const feeder = c.discount ? ` · feeder −${c.discount}` : '';
-        return `<div class="erow ${on ? 'on' : ''} ${affordable ? '' : 'dis'}" data-act="feedToggle" data-key="${cp.key}">
+        return `<div class="erow ${on ? 'on' : `unfed ${f[0]}`} ${affordable ? '' : 'dis'}" data-act="feedToggle" data-key="${cp.key}">
           <span class="ebadge">${cp.name}</span>
-          <span class="edinos">${dinoSummary(cp)}<small>${status}${extra}${feeder}</small></span>
+          <span class="edinos">${dinoSummary(cp)}<small>${status}${extra}${feeder}</small>${f ? `<span class="fate ${f[0]}">${f[1]}</span>` : ''}</span>
           <span class="ecost">${costChips(c)}</span>
           <span class="echeck">${on ? '✔ feeding' : affordable ? 'tap to feed' : 'not enough food'}</span>
         </div>`;
       })
       .join('');
     const warns = [];
+    const good = [];
     list.forEach((cp) => {
       if (ui.feed.has(cp.key)) {
-        if (cp.inactive) warns.push(`<div>✅ ${cp.name} will become active again.</div>`);
+        if (cp.inactive) good.push(`<div>✅ ${cp.name} will become active again.</div>`);
         return;
       }
-      const placedNow = P.board.placedRound[cp.key] === state.round;
-      if (!cp.inactive) warns.push(`<div>💤 ${cp.name} will go inactive.</div>`);
-      else if (placedNow) warns.push(`<div>💤 ${cp.name} stays inactive.</div>`);
-      else if (cp.inactive >= 4) warns.push(`<div>💀 ${cp.name}’s dinos will <b>die</b>!</div>`);
-      else warns.push(`<div>💤 ${cp.name} marker moves to ${cp.inactive + 1}/4.</div>`);
+      const f = fate(cp);
+      warns.push(`<div class="fw ${f[0]}">${f[2]}</div>`);
     });
+    const dying = warns.some((w) => w.includes('fw dead'));
     return `<h3>🍖 Feed your dinos</h3>
       <p>Tap an enclosure to feed it.<span class="xtra"> Unfed dinos go inactive.</span></p>
       <div class="pay-line">You have <span class="fc meat">🍖${P.meat}</span><span class="fc plant">🌿${P.plants}</span></div>
       ${rows}
       ${flexHtml}
       <div class="pay-line">Paying: ${paying}</div>
-      ${warns.length ? `<div class="warn-box">${warns.join('')}</div>` : ''}
-      <button class="btn big" data-act="confirmFeed">Feed &amp; continue</button>`;
+      ${warns.length ? `<div class="warn-box feed-warn${dying ? ' dead' : ''}"><div class="fw-head">⚠️ ${plural(warns.length, 'enclosure')} won’t be fed</div>${warns.join('')}</div>` : ''}
+      ${good.length ? `<div class="good-box">${good.join('')}</div>` : ''}
+      <button class="btn big" data-act="confirmFeed">${warns.length ? `Feed &amp; continue (${warns.length} unfed)` : 'Feed &amp; continue'}</button>`;
   }
 
   function produceHtml(T) {
