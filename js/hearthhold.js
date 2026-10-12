@@ -1381,9 +1381,11 @@
           <p><b>Who works here?</b> Up to ${plural(slots, 'worker')}. Anyone can be moved here, even from another job — that job is left empty.</p>
           <div class="pchips" id="open-chips">${chips()}</div>
           <p class="open-out"></p>
-          <div class="btn-row"><button class="btn big" data-ok>Done</button></div>
+          <div class="btn-row">${slots > 1 ? '<button class="btn big" data-ok>Done</button>' : '<button class="btn ghost" data-ok>Leave it empty for now</button>'}</div>
         </div>
       </div>`, { cls: 'locked', noClose: true, onClose: () => {} });
+    // Tapping a worker sends them straight there once every spot that can be filled is taken.
+    const full = () => pick.size >= Math.min(slots, cands.length);
     const paint = () => {
       back.querySelector('#open-chips').innerHTML = chips();
       back.querySelector('.open-out').innerHTML = `<b>${pick.size}/${slots}</b> working · ${B.name} makes <b>${yieldWith(pick)}</b> a round${pick.size ? '' : ' — and scores nothing with nobody working'}.`;
@@ -1396,9 +1398,9 @@
         if (pick.has(id)) pick.delete(id);
         else if (pick.size < slots) pick.add(id);
         else return toast(`The ${B.name} only has room for ${plural(slots, 'worker')}. Tap someone to take them off first.`, 'warn');
-        return paint();
-      }
-      if (!e.target.closest('[data-ok]')) return;
+        paint();
+        if (!full()) return;
+      } else if (!e.target.closest('[data-ok]')) return;
       ui.onClose = null;
       closeModal();
       const idleBefore = new Set(p.vil.filter((v) => v.at == null).map((v) => v.id));
