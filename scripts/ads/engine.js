@@ -173,7 +173,7 @@
         it.root.style.display = on ? '' : 'none';
         if (!on) return;
         it.root.style.opacity = i ? E.sine(seg(t, it.start - XF, it.start)) : 1;
-        it.sc.frame(t - it.start, it.dur, it.st);
+        it.sc.frame(Math.max(0, t - it.start), it.dur, it.st);
       });
     };
     window.frame(0);

@@ -32,7 +32,11 @@ for game, src in (('dino', 'dino-game'), ('oak', 'hearthhold')):
             lab, n = ndimage.label(a > 24)
             if n > 1:
                 sizes = ndimage.sum(np.ones_like(a), lab, range(1, n + 1))
-                keep = np.isin(lab, 1 + np.flatnonzero(sizes >= 0.04 * sizes.max()))
+                boxes = ndimage.find_objects(lab)
+                top = boxes[int(np.argmax(sizes))][0].start
+                # Keep sizeable parts, but never ones floating wholly above the subject (a moon in the sky).
+                ok = [i for i in range(n) if sizes[i] >= 0.04 * sizes.max() and boxes[i][0].stop > top]
+                keep = np.isin(lab, 1 + np.array(ok))
                 keep = ndimage.binary_dilation(keep, iterations=2)
                 cut.putalpha(Image.fromarray(np.where(keep, a, 0).astype(np.uint8)))
         box = cut.getchannel('A').point(lambda a: 255 if a > 8 else 0).getbbox()

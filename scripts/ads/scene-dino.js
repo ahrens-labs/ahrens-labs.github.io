@@ -149,6 +149,7 @@
       sign.textContent = o.name;
     }
     const cx = (x0 + x1) / 2;
+    const sx = x0 + Math.min(110, (x1 - x0) * 0.22);
     return {
       x0, x1, yb, yf, cx, pieces, floor,
       // Pieces drop in one after another between a and b (all standing once t >= b).
@@ -165,7 +166,7 @@
         if (sign) {
           const p = seg(t, b - 0.2, b + 0.4);
           sign.style.opacity = p;
-          sign.style.transform = `translate(${cx}px, ${yb - 64}px) translate(-50%, -100%) scale(${lerp(0.4, 1, E.back(p))})`;
+          sign.style.transform = `translate(${sx}px, ${yb - 64}px) translate(-50%, -100%) scale(${lerp(0.4, 1, E.back(p))})`;
         }
       },
     };
@@ -230,9 +231,17 @@
   }
 
   // Wander inside a pen: a smooth looping path between its fences.
-  function roam(pn, t, k, speed = 0.12, margin = 60) {
+  // Wander inside a pen. With lanes = [i, n], animal i keeps to its own slice so a group never bunches up.
+  function roam(pn, t, k, speed = 0.12, margin = 60, lanes = null) {
     const u = t * speed + k * 1.7;
-    const x = lerp(pn.x0 + margin, pn.x1 - margin, 0.5 + 0.5 * Math.sin(u * 2 * Math.PI * 0.5 + k));
+    let a = pn.x0 + margin;
+    let b = pn.x1 - margin;
+    if (lanes) {
+      const wdt = (b - a) / lanes[1];
+      a += wdt * lanes[0] + wdt * 0.15;
+      b = a + wdt * 0.7;
+    }
+    const x = lerp(a, b, 0.5 + 0.5 * Math.sin(u * 2 * Math.PI * 0.5 + k));
     const y = lerp(pn.yb + 40, pn.yf - 40, 0.5 + 0.5 * Math.sin(u * 2 * Math.PI * 0.37 + k * 2.1));
     const dx = Math.cos(u * 2 * Math.PI * 0.5 + k);
     return { x, y, dir: dx >= 0 ? 1 : -1 };
@@ -287,7 +296,7 @@
       const w = world(root);
       const pn = pen(w.el, 430, 960, { name: 'Compy Corner' });
       deco(w.el, [['plant', 300, 520, 70], ['plant', 1080, 560, 80], ['plant', 1180, 500, 60], ['water', 220, 640, 60], ['feeder', 880, 520, 54]]);
-      const c = [0, 1, 2, 3, 4].map(() => sprite(w.el, D('compy'), { h: 78 }));
+      const c = [0, 1, 2, 3, 4].map(() => sprite(w.el, D('compy'), { h: 108 }));
       return { bd, w, pn, c, fx: canvasLayer(root), tag: tag(root) };
     },
     frame(t, dur, s) {
@@ -298,7 +307,7 @@
       s.c.forEach((sp, i) => {
         const enter = 0.4 + i * 0.45;
         const p = seg(t, enter, enter + 2);
-        const r = roam(s.pn, t, i, 0.16, 70);
+        const r = roam(s.pn, t, i * 2.3, 0.16, 50, [i, 5]);
         if (p < 1) {
           sp.x = lerp(-120 - i * 40, r.x, E.inOut(p));
           sp.y = lerp(600, r.y, E.inOut(p));
@@ -346,7 +355,7 @@
       s.w.cam(cx, 1, 390);
       s.pens.forEach((p) => p.draw(t));
       s.tri.forEach((sp, i) => {
-        const r = roam(s.pens[0], t, i * 2 + 1, 0.05, 110);
+        const r = roam(s.pens[0], t, i * 2 + 1, 0.05, 90, [i, 2]);
         sp.x = r.x;
         sp.y = r.y;
         sp.dir = r.dir;
@@ -355,14 +364,14 @@
         sp.place();
       });
       s.ste.forEach((sp, i) => {
-        const r = roam(s.pens[1], t, i * 3 + 2, 0.05, 110);
+        const r = roam(s.pens[1], t, i * 3 + 2, 0.05, 90, [i, 2]);
         sp.x = r.x;
         sp.y = r.y;
         sp.dir = r.dir;
         pose.walk(sp, t, 0.4, i * 2, 5);
         sp.place();
       });
-      s.bra.x = lerp(1760, 1930, 0.5 + 0.5 * Math.sin(t * 0.25));
+      s.bra.x = lerp(1920, 2010, 0.5 + 0.5 * Math.sin(t * 0.25));
       s.bra.y = 590;
       s.bra.dir = Math.cos(t * 0.25) >= 0 ? 1 : -1;
       pose.breathe(s.bra, t);
@@ -397,7 +406,7 @@
       const g = s.fx.g;
       s.fx.clear();
       s.rap.forEach((sp, i) => {
-        const r = roam(s.p1, t, i * 1.3, 0.14, 70);
+        const r = roam(s.p1, t, i * 1.3, 0.14, 50, [i, 3]);
         sp.x = r.x;
         sp.y = r.y;
         sp.dir = r.dir;
@@ -407,7 +416,7 @@
         sp.place();
       });
       s.par.forEach((sp, i) => {
-        const r = roam(s.p2, t, i * 2.2, 0.06, 100);
+        const r = roam(s.p2, t, i * 2.2, 0.06, 80, [i, 2]);
         sp.x = r.x;
         sp.y = r.y;
         sp.dir = r.dir;
@@ -432,7 +441,7 @@
       s.allo.sy *= lerp(1, 0.92, sleepy);
       s.allo.filter = `grayscale(${sleepy * 0.75}) brightness(${1 - sleepy * 0.15})`;
       s.allo.place();
-      s.zz.x = 1740;
+      s.zz.x = 1960;
       s.zz.y = 400 - Math.sin(t * 2) * 6;
       s.zz.op = sleepy;
       s.zz.sy = s.zz.sx = lerp(0.6, 1, E.back(sleepy));
@@ -443,7 +452,7 @@
           g.globalAlpha = sleepy * (1 - k);
           g.fillStyle = '#ffffff';
           g.font = `${22 + k * 18}px "Lilita One"`;
-          g.fillText('z', 1700 - cx + k * 60, 330 - k * 90);
+          g.fillText('z', 1920 - cx + k * 60, 330 - k * 90);
           g.globalAlpha = 1;
         }
       }
@@ -576,8 +585,8 @@
       s.qz.rot = -6 + Math.sin(t * 3) * 4;
       s.qz.op = f > 0 && f < 1 ? 1 : 0;
       s.qz.place();
-      s.dilo.x = 1130;
-      s.dilo.y = 650;
+      s.dilo.x = 1185;
+      s.dilo.y = 610;
       s.dilo.dir = -1;
       pose.breathe(s.dilo, t);
       s.dilo.place();
@@ -626,8 +635,8 @@
       s.gig.place();
       if (t > roar && t < roar + 1.6) {
         const k = seg(t, roar, roar + 1.6);
-        g.globalAlpha = 1 - k;
-        g.font = `${70 + k * 50}px "Lilita One"`;
+        g.globalAlpha = 1 - seg(k, 0.6, 1);
+        g.font = `${80 + E.out(k) * 40}px "Lilita One"`;
         g.textAlign = 'center';
         g.lineWidth = 8;
         g.strokeStyle = '#5a1a00';
@@ -660,6 +669,7 @@
       const bd = backdrop(root, { seed: 29, sky: 'linear-gradient(180deg, #4b5d73 0%, #7f93a6 50%, #b7b39a 100%)', sunY: -400 });
       const dark = el('div', 'full', root, { zIndex: 6, background: 'rgba(25,35,55,0.28)' });
       const w = world(root);
+      w.el.style.filter = 'brightness(0.72) saturate(0.8)';
       const pn = pen(w.el, 300, 1000, { name: 'Ankylosaurus' });
       const ank = [sprite(w.el, D('ankylosaurus'), { h: 120, face: -1 }), sprite(w.el, D('ankylosaurus'), { h: 112, face: -1 })];
       const rocks = [0, 1, 2].map(() => sprite(w.el, D('rubble'), { h: 80 }));
@@ -789,12 +799,12 @@
         h.bd.update(t, 0);
         h.w.cam(0, 1, 400);
         h.pn.draw(t);
-        h.sp.x = 300 + Math.sin(t * 0.5 + i) * 60;
+        h.sp.x = (i ? 420 : 300) + Math.sin(t * 0.5 + i) * 40;
         h.sp.y = 600;
         h.sp.dir = i ? -1 : 1;
         pose.walk(h.sp, t, 0.4, i, 5);
         h.sp.place();
-        h.sp2.x = 180 + i * 230 + Math.sin(t * 0.8) * 30;
+        h.sp2.x = (i ? 220 : 180) + Math.sin(t * 0.8) * 30;
         h.sp2.y = 620;
         h.sp2.dir = i ? -1 : 1;
         pose.walk(h.sp2, t, 0.9, i, 7);
