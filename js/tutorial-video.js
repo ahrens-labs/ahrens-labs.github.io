@@ -8,7 +8,7 @@
     dino: { title: 'Dino Dynasty — video tutorial', base: '/video/dino-tutorial' },
     hearthhold: { title: 'Oakhaven — video tutorial', base: '/video/hearthhold-tutorial' },
     'dino-ad': { title: 'Dino Dynasty — trailer', base: '/video/dino-ad', trailer: true },
-    'oakhaven-ad': { title: 'Oakhaven — trailer', base: '/video/oakhaven-ad', trailer: true },
+    'oakhaven-ad': { title: 'Oakhaven — trailer', base: '/video/oakhaven-ad', trailer: true, v: 9 },
   };
   const V = '?v=7';
   const CC_KEY = 'ahrensTutorial.cc';
@@ -66,7 +66,7 @@
     addStyle();
     if (v.trailer)
       return `<div class="tutv-embed" data-tutv="${id}" data-trailer="1">
-      <video controls playsinline preload="metadata"${autoplay ? ' autoplay' : ''} style="aspect-ratio:16/9" poster="${v.base}.jpg${V}" src="${v.base}.mp4${V}"></video>
+      <video controls playsinline preload="metadata"${autoplay ? ' autoplay' : ''} style="aspect-ratio:16/9" poster="${v.base}.jpg${v.v ? `?v=${v.v}` : V}" src="${v.base}.mp4${v.v ? `?v=${v.v}` : V}"></video>
     </div>`;
     return `<div class="tutv-embed" data-tutv="${id}">
       <video controls playsinline preload="metadata"${autoplay ? ' autoplay' : ''} poster="${v.base}.jpg${V}" src="${v.base}.mp4${V}">
