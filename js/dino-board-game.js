@@ -4268,7 +4268,6 @@
           </div>
         </div>
         <button class="btn big start-game" data-act="setupStart" data-first="${setupFirst}">Start game</button>
-        <div class="setup-foot">Everyone starts with 🪙5 and an empty park, buying dinos from a shared market. Your game saves in this browser.</div>
         <div class="gh-links"><button class="btn ghost sm" data-act="rules">📜 How to play</button><button class="btn ghost sm" data-tutorial="dino-ad">🎞️ Watch the trailer</button><a class="btn ghost sm" href="/dino-history.html">🏆 Game history</a>${isAdmin() ? '<button class="btn ghost sm" data-act="simOpen">🧪 Computer vs computer</button>' : ''}</div>
       </div>
     </div>`);
