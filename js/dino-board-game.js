@@ -2372,6 +2372,7 @@
       el.classList.add('decided');
       const btn = el.querySelector('[data-rv="close"]');
       if (btn) btn.focus();
+      render();
     };
 
     el.addEventListener('click', (e) => {
@@ -2392,17 +2393,17 @@
       finish();
       return;
     }
-    const DRUM = 1400;
-    const ANNOUNCE = DRUM + 2200;
-    const ROW_START = ANNOUNCE + 1900;
-    const ROW_GAP = 600;
+    // Category by category first; the totals and the winner only at the very end.
+    const ROW_START = 1200;
+    const ROW_GAP = 900;
+    const DRUM = ROW_START + rows.length * ROW_GAP + 600;
+    const ANNOUNCE = DRUM + 2400;
+    q('.rv-row').forEach((r, i) => at(ROW_START + i * ROW_GAP, () => r.classList.add('in')));
     at(DRUM, () => {
       el.classList.add('suspense');
       verdictEl.innerHTML = '<div class="rv-drum">And the winner is<i>.</i><i>.</i><i>.</i></div>';
     });
-    at(ANNOUNCE, announce);
-    q('.rv-row').forEach((r, i) => at(ROW_START + i * ROW_GAP, () => r.classList.add('in')));
-    at(ROW_START + rows.length * ROW_GAP + 400, finish);
+    at(ANNOUNCE, finish);
   }
 
   // ---------------------------------------------------------------- tabletop effects
@@ -2883,8 +2884,11 @@
     if (T && T.t === 'gameOver' && !state.celebrated) {
       state.celebrated = true;
       save();
-      if (!state.sim && (!online || firstReveal(online.id))) revealWinner();
       recordLocalGame();
+      if (!state.sim && (!online || firstReveal(online.id))) {
+        revealWinner();
+        render();
+      }
     }
     aiSchedule();
   }
@@ -3997,6 +4001,7 @@
   }
 
   function gameOverHtml() {
+    if (reveal && !reveal.decided) return '<div class="winner"><span class="big">🥁</span>Revealing the results…</div>';
     const s = [scorePlayer(0), scorePlayer(1)];
     const P = state.players;
     const row = (label, k) => `<tr><td>${label}</td><td>${s[0][k]}</td><td>${s[1][k]}</td></tr>`;
@@ -4421,7 +4426,7 @@
           <li>An enclosure is an area completely closed off by fences. It may use at most <b>two sides</b> of the board edge as walls; an area touching three or four edges isn’t an enclosure yet.</li>
           <li>Each enclosure gets a letter (A, B, C…) so you can tell them apart.</li>
           <li>Dinos, feeders and watering holes fill <b>connected</b> empty squares (side to side, not diagonal) inside one enclosure, and can’t sit across a fence.</li>
-          <li>Every dino has its own <b>shape</b>, shown on its card. Like a Tetris piece you can turn it (⟳, the R key or a right-click) and flip it over (⇋ or the F key) before placing it.</li>
+          <li>Every dino has its own <b>shape</b> — its silhouette, head in front and legs below — shown on its card. Like a Tetris piece you can turn it (⟳, the R key or a right-click) and flip it over (⇋ or the F key) before placing it.</li>
           <li>Each enclosure holds <b>one species</b>, plus one more for each 💧 watering hole in it (${costText(WATER_COST)}, ${WATER_SQUARES} squares).</li>
           <li>🌾 <b>Feeders</b> cost 💎1 + 🪙1 per square and can be any size. Each feeder square takes 1 food off that enclosure’s bill every Feeding.</li>
           <li>Splitting an enclosure with new fences is allowed. Any inactive or extinct status carries over to the new parts that hold dinos.</li>

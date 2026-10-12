@@ -641,7 +641,31 @@
     }
     sync();
   }
-  ['click', 'touchend', 'keydown'].forEach((t) => document.addEventListener(t, gesture, true));
+  ['pointerdown', 'click', 'touchend', 'keydown'].forEach((t) => document.addEventListener(t, gesture, true));
+
+  // Start as soon as the page opens where the browser allows sound without a tap (a site you often play
+  // media on, or autoplay allowed in its settings). Elsewhere a play() is refused and the first tap starts it.
+  let autoTried = false;
+  function tryAutoplay() {
+    if (autoTried || unlocked || !musicOn() || !onScreen()) return;
+    autoTried = true;
+    if (navigator.getAutoplayPolicy && navigator.getAutoplayPolicy('mediaelement') !== 'allowed') return;
+    const t = current();
+    load(t).then(() => {
+      if (unlocked || !t.blobUrl || !musicOn() || !onScreen()) return;
+      const e = el(t);
+      e.muted = false;
+      const p = e.play();
+      if (!p || !p.then) return;
+      p.then(() => {
+        if (unlocked) return;
+        unlocked = true;
+        t.target = 0;
+        if (SFX_USED) renderClips();
+        sync();
+      }, () => {});
+    });
+  }
 
   document.addEventListener('click', (e) => {
     const b = e.target.closest && e.target.closest('[data-music]');
@@ -657,8 +681,12 @@
 
   document.addEventListener('visibilitychange', sync);
   ['play', 'pause', 'ended', 'volumechange'].forEach((t) => document.addEventListener(t, (e) => e.target.tagName === 'VIDEO' && sync(), true));
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', paintButtons);
-  else paintButtons();
+  const ready = () => {
+    paintButtons();
+    tryAutoplay();
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ready);
+  else ready();
   let queued = false;
   new MutationObserver(() => {
     if (queued) return;
@@ -666,6 +694,7 @@
     requestAnimationFrame(() => {
       queued = false;
       sync();
+      tryAutoplay();
     });
   }).observe(document.body || document.documentElement, { childList: true, subtree: true });
 

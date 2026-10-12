@@ -2221,13 +2221,14 @@
       if (!decided) finish();
     });
     if (instant || matchMedia('(prefers-reduced-motion: reduce)').matches) return finish();
-    at(1300, () => {
+    // Category by category first; the totals and the winner only at the very end.
+    rows.forEach((_, i) => at(1200 + i * 900, () => el.querySelectorAll('.hr-row')[i].classList.add('in')));
+    const drum = 1200 + rows.length * 900 + 600;
+    at(drum, () => {
       el.classList.add('suspense');
       el.querySelector('.hr-verdict').innerHTML = '<div class="hr-drum">And the winner is<i>.</i><i>.</i><i>.</i></div>';
     });
-    at(3500, announce);
-    rows.forEach((_, i) => at(5200 + i * 550, () => el.querySelectorAll('.hr-row')[i].classList.add('in')));
-    at(5200 + rows.length * 550 + 400, finish);
+    at(drum + 2400, finish);
   }
 
   function confetti() {
