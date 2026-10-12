@@ -5,6 +5,8 @@
 .gh-lobby { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.5rem 0.95rem; border-radius: 999px; font: 600 0.95rem/1 inherit; font-family: inherit;
   text-decoration: none; color: #fff6e2; background: rgba(0, 0, 0, 0.28); box-shadow: inset 0 0 0 1.5px rgba(255, 236, 200, 0.35); transition: background 0.15s; }
 .gh-lobby:hover { background: rgba(0, 0, 0, 0.42); }
+.gh-top .gh-music { margin-left: auto; color: #fff6e2; background: rgba(0, 0, 0, 0.28); border-color: transparent; box-shadow: inset 0 0 0 1.5px rgba(255, 236, 200, 0.35); }
+.gh-top .gh-music:hover { background: rgba(0, 0, 0, 0.42); }
 
 .gh-hero { position: relative; border-radius: 22px; overflow: hidden; aspect-ratio: 16 / 8; min-height: 220px;
   box-shadow: 0 0 0 4px var(--gh-frame, #6b4a2a), 0 0 0 7px var(--gh-frame-2, #3e2a16), 0 18px 40px rgba(0, 0, 0, 0.55); }

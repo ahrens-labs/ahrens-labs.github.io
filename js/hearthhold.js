@@ -180,7 +180,7 @@
     const back = encodeURIComponent(location.pathname.replace(/^\//, '') + location.search);
     $('#app').innerHTML = `
       <div class="setup gh">
-        <div class="gh-top"><a class="gh-lobby" href="/board-games.html" title="Back to the game lobby">← <img class="gh-dice" src="/img/board-games-favicon-48.png?v=2" alt="" width="20" height="20"> Game lobby</a></div>
+        <div class="gh-top"><a class="gh-lobby" href="/board-games.html" title="Back to the game lobby">← <img class="gh-dice" src="/img/board-games-favicon-48.png?v=2" alt="" width="20" height="20"> Game lobby</a>${window.GameMusic ? GameMusic.buttonHtml('btn ghost sm gh-music', 'bt') : ''}</div>
         <div class="gh-hero">
           <img src="${IMG('cover')}" alt="" class="gh-hero-img">
           <div class="gh-shade"></div>
@@ -214,7 +214,7 @@
     document.body.className = 'setup-mode';
     $('#app').innerHTML = `
       <div class="setup gh">
-        <div class="gh-top"><a class="gh-lobby" href="/board-games.html" title="Back to the game lobby">← <img class="gh-dice" src="/img/board-games-favicon-48.png?v=2" alt="" width="20" height="20"> Game lobby</a></div>
+        <div class="gh-top"><a class="gh-lobby" href="/board-games.html" title="Back to the game lobby">← <img class="gh-dice" src="/img/board-games-favicon-48.png?v=2" alt="" width="20" height="20"> Game lobby</a>${window.GameMusic ? GameMusic.buttonHtml('btn ghost sm gh-music', 'bt') : ''}</div>
         <div class="gh-hero">
           <img src="${IMG('cover')}" alt="" class="gh-hero-img">
           <div class="gh-shade"></div>
