@@ -122,8 +122,10 @@
   const expImg = (x) => IMG(x.k === 'heart' ? 'depth-heart' : DEPTH_IMG[E.SITE[x.k].depth]);
   function diverLine(d) {
     const D = E.DIVER[d.k];
-    return `${'⭐'.repeat(D.skill)} ${esc(D.role)} · 🪙${D.wage}/tide`;
+    const promo = E.promoted(d) ? ' · 🎖️ promoted' : ` · ${d.xp || 0}/${E.PROMO_XP} finds to promotion`;
+    return `${'⭐'.repeat(E.skillOf(d))} ${esc(D.role)} · 🪙${D.wage}/tide${promo}`;
   }
+  const depthTag = (d) => `<span class="tag deep" title="Trained to dive as deep as the ${esc(E.DEPTH[E.deepOf(d)].name)}">🌊 ${esc(E.DEPTH[E.deepOf(d)].name)}</span>`;
   function specTags(d) {
     return E.DIVER[d.k].spec.map((h) => `<span class="tag spec">${E.HAZ[h].icon} ${esc(E.HAZ[h].name)}</span>`).join('');
   }
@@ -331,11 +333,13 @@
         ${bannerHtml()}
         <div class="main">
           <section class="sea">
-            <div class="sec-head"><h2>🗺️ The sea chart</h2><small>${plural(s.map.length, 'expedition')} charted · ${s.expDeck.length} still unknown</small></div>
-            <div class="exps">${s.map.map((x) => expCard(x, v)).join('') || '<p class="empty">Every known expedition has been explored.</p>'}</div>
+            <div class="sec-head"><h2>🗺️ Chart of Atlantis</h2><small>${s.map.filter((x) => x.by != null).length} of ${s.map.length} sites explored</small></div>
+            ${chartHtml(v)}
+            <div class="legend"><span><i class="lg open"></i>Charted</span><span><i class="lg far"></i>Uncharted (−${E.UNCHARTED})</span><span><i class="lg done"></i>Explored</span><span>🏺 relic</span></div>
           </section>
           <section class="panel company" style="--pc:${PCOLOR[v]}">${companyHtml(v)}</section>
         </div>
+        <div class="lower">${hallHtml()}${goalsHtml()}</div>
         <section class="panel"><h3>📓 Captain’s log</h3><div class="log" id="log">${logHtml()}</div></section>
       </div>`;
     const lg = $('#log');
@@ -347,7 +351,7 @@
     const p = pl(i);
     const sc = E.score(s, p);
     const turn = s.phase === 'act' && s.turn === i;
-    const tag = s.phase !== 'act' ? '' : s.passed[i] ? '<span class="co-tag">Done this tide</span>' : turn ? `<span class="co-tag turn">${p.ai ? 'Thinking…' : 'Their move'}</span>` : '';
+    const tag = s.phase !== 'act' ? '' : s.passed[i] ? '<span class="co-tag">Done this tide</span>' : turn ? `<span class="co-tag turn">${p.ai ? 'Thinking…' : G.mode === 'ai' ? 'Your move' : 'Up now'}</span>` : '';
     return `<div class="co${turn ? ' turn' : ''}${v === i ? ' viewing' : ''}" style="--pc:${PCOLOR[i]}" data-view="${i}" title="Show ${esc(p.name)}’s company">
       <span class="co-flag">${FLAG[i]}</span>
       <div class="co-name"><b>${esc(p.name)}</b>${p.ai ? '<span class="co-tag">🤖</span>' : ''}${tag}</div>
@@ -366,7 +370,7 @@
     if (p.ai) return `<div class="banner" style="--pc:${PCOLOR[s.turn]}"><span class="dot"></span>${esc(p.name)} is planning their next move…</div>`;
     const who = G.mode === 'local' ? `${esc(p.name)}, your move` : 'Your move';
     const otherDone = s.passed[1 - s.turn] ? ` ${esc(pl(1 - s.turn).name)} is done for this tide, so you can keep going until you end yours.` : '';
-    return `<div class="banner mine" style="--pc:${PCOLOR[s.turn]}"><span class="dot"></span><b>${who}:</b> plan a dive on the sea chart, or hire, build or salvage.${otherDone}</div>`;
+    return `<div class="banner mine" style="--pc:${PCOLOR[s.turn]}"><span class="dot"></span><b>${who}:</b> pick a site on the chart to dive, hire from the dive hall, build or salvage.${otherDone}</div>`;
   }
 
   // The best odds this company could get on an expedition right now (best ready sub, best crew).
@@ -375,7 +379,6 @@
     const p = pl(pi);
     let best = null;
     for (const sub of E.readySubs(s, p)) {
-      if (E.SUB[sub.k].depth < E.SITE[x.k].depth) continue;
       const crew = E.bestCrew(s, pi, x, sub);
       if (!crew.length) continue;
       const c = E.chance(s, pi, x.id, sub.id, crew.map((d) => d.id));
@@ -384,26 +387,94 @@
     return best;
   }
 
-  function expCard(x, v) {
+  // ---------------------------------------------------------------- the chart
+  const ROW_Y = [16, 34, 52, 70, 86];
+  const HARBOR_Y = 4;
+  function chartHtml(v) {
     const s = st();
-    const site = E.SITE[x.k];
-    const t = E.TIER[site.tier];
-    const r = E.rewardOf(s, x);
     const canPlan = humanTurn();
     const actor = canPlan ? s.turn : v;
-    const odds = canPlan ? bestOdds(actor, x) : null;
-    const reach = E.maxDepth(pl(actor)) >= site.depth;
+    const lines = [];
+    E.SLOTS.filter((slot) => slot.row === 0).forEach((slot) => lines.push(`<line x1="50" y1="${HARBOR_Y}" x2="${slot.x}" y2="${ROW_Y[0]}" class="route"/>`));
+    E.SLOTS.forEach((slot, n) => slot.kids.forEach((k) => {
+      const a = s.map[n];
+      const b = s.map[k];
+      const cls = a.by != null ? (b.by != null ? 'done' : 'route') : '';
+      lines.push(`<line x1="${slot.x}" y1="${ROW_Y[slot.row]}" x2="${E.SLOTS[k].x}" y2="${ROW_Y[E.SLOTS[k].row]}" class="${cls}"${a.by != null ? ` style="--pc:${PCOLOR[a.by]}"` : ''}/>`);
+    }));
+    return `<div class="chart">
+      <svg class="chart-lines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">${lines.join('')}</svg>
+      <div class="harbor" style="top:${HARBOR_Y}%">⚓ Harbor</div>
+      ${s.map.map((x) => nodeHtml(x, actor, canPlan)).join('')}
+    </div>`;
+  }
+
+  function nodeHtml(x, actor, canPlan) {
+    const s = st();
+    const site = E.SITE[x.k];
+    const slot = E.SLOTS[x.n];
+    const done = x.by != null;
+    const open = E.isOpen(s, x);
+    const state = done ? 'done' : !open ? 'hidden' : E.charted(s, x) ? 'open' : 'far';
     let badge = '';
-    if (canPlan) badge = odds ? `<span class="odds" style="--oc:${oddsColor(odds.p)}">${pct(odds.p)}</span>` : `<span class="odds">${reach ? 'No crew ready' : `Needs a ${site.depth === 3 ? 'Nautilus' : 'Barracuda'}+`}</span>`;
-    return `<button class="exp${x.k === 'heart' ? ' heart' : ''}${canPlan ? '' : ' off'}" style="--bg:url('${expImg(x)}')" data-exp="${x.id}" ${canPlan ? '' : 'tabindex="-1"'}>
-      <div class="exp-top"><span class="tier t${site.tier}">${t.name}</span><span class="stars">${stars(site.tier)}</span><span>${E.DEPTH[site.depth].name}</span></div>
+    if (state === 'open' || state === 'far') {
+      const o = canPlan ? bestOdds(actor, x) : null;
+      if (o) badge = `<span class="nd-odds" style="--oc:${oddsColor(o.p)}">${pct(o.p)}</span>`;
+    }
+    const meta = `${site.haz.map((h) => E.HAZ[h].icon).join('')}${site.relic ? E.RELIC[site.relic].icon : ''}`;
+    const label = state === 'hidden' ? `🔒 Tide ${E.HEART_TIDE}` : esc(site.short);
+    return `<button class="node t${site.tier} ${state}${x.k === 'heart' ? ' heart' : ''}" data-site="${x.id}" style="left:${slot.x}%;top:${ROW_Y[slot.row]}%;--bg:url('${expImg(x)}')${done ? `;--pc:${PCOLOR[x.by]}` : ''}" title="${esc(site.name)} · ${E.TIER[site.tier].name}">
+      <span class="nd-dot"><span class="nd-stars">${stars(site.tier)}</span>${done ? `<span class="nd-flag">${FLAG[x.by]}</span>` : ''}${x.scout && !done ? `<span class="nd-scout">🧭${x.scout}</span>` : ''}</span>
       ${badge}
-      <h3>${esc(site.name)}</h3>
-      <div class="exp-blurb">${esc(site.blurb)}</div>
-      <div class="haz">${site.haz.map((h) => hz(h)).join('')}</div>
-      ${x.scout ? `<div class="scout">🧭 +${x.scout} from earlier attempts</div>` : ''}
-      <div class="exp-foot"><span class="need">Roll ${t.target}+<small>on a d20, plus bonuses</small></span><span class="reward">💎${r.treasure} 🪙${r.gold}${s.firsts[site.tier] == null ? '<br><small>+🏆 first find</small>' : ''}</span></div>
+      <span class="nd-name">${label}</span>
+      <span class="nd-meta">${meta}</span>
     </button>`;
+  }
+
+  // Details for a site you can't (or don't want to) dive right now.
+  function showSite(x) {
+    const s = st();
+    const site = E.SITE[x.k];
+    const slot = E.SLOTS[x.n];
+    const r = E.rewardOf(s, x);
+    const names = (ns) => ns.map((n) => esc(E.SITE[s.map[n].k].name)).join(', ');
+    let status;
+    if (x.by != null) status = `<p class="site-status" style="--pc:${PCOLOR[x.by]}">${FLAG[x.by]} Explored by <b>${esc(pl(x.by).name)}</b>.</p>`;
+    else if (!E.isOpen(s, x)) status = `<p class="site-status">🔒 Nobody has sighted it yet. It appears on tide ${E.HEART_TIDE}.</p>`;
+    else if (E.charted(s, x)) status = `<p class="site-status">🗺️ Charted — a route leads here.</p>`;
+    else status = `<p class="site-status far">🌫️ Uncharted: −${E.UNCHARTED} to dives until someone explores ${names(slot.parents)}.</p>`;
+    openModal(`<div class="plan-head"><img src="${expImg(x)}" alt=""><div><h2>${esc(site.name)}</h2><div class="haz">${site.haz.map((h) => hz(h)).join('')}</div>
+        <small class="muted">${E.TIER[site.tier].name} · ${E.DEPTH[site.depth].name} · roll ${E.TIER[site.tier].target}+ · reward 💎${r.treasure} 🪙${r.gold}${site.relic ? ` · ${E.RELIC[site.relic].icon} ${esc(E.RELIC[site.relic].name.toLowerCase())}` : ''}</small></div></div>
+      <p>${esc(site.blurb)}</p>${status}
+      ${slot.kids.length ? `<p class="muted">Leads to: ${names(slot.kids)}</p>` : ''}`, { onClose: () => {} });
+  }
+
+  // ---------------------------------------------------------------- dive hall (shared by both companies)
+  function hallHtml() {
+    const s = st();
+    const can = humanTurn();
+    const p = can ? pl(s.turn) : null;
+    const cards = s.market.map((d) => {
+      const D = E.DIVER[d.k];
+      const cost = E.hireCost(d);
+      const why = !can ? '' : p.divers.length >= E.MAX_DIVERS ? 'Company full' : p.gold < cost ? `Need 🪙${cost}` : '';
+      const price = `${cost < D.cost ? `<s>🪙${D.cost}</s> ` : ''}🪙${cost}`;
+      return `<div class="hire">${diverPic(d)}<div class="hire-main"><b>${esc(d.name)}</b><small>${'⭐'.repeat(D.skill)} ${esc(D.role)} · 🪙${D.wage}/tide</small><div class="tags">${depthTag(d)}${specTags(d)}</div></div>
+        ${can ? `<button class="btn sm" data-hire="${d.id}" ${why ? 'disabled' : ''}>${why || `Hire ${price}`}</button>` : `<span class="hire-price">${price}</span>`}</div>`;
+    }).join('') || '<p class="empty">Nobody is looking for work.</p>';
+    return `<section class="panel hall"><h3>🤿 The dive hall <small>shared by both companies · ${plural(s.diverDeck.length, 'more diver')} to come</small></h3>
+      <p class="muted">Divers get 🪙1 cheaper for every tide they wait, down to half price. The longest-waiting one leaves at the end of each tide. Hiring uses your move.</p>
+      <div class="hall-grid">${cards}</div></section>`;
+  }
+
+  function goalsHtml() {
+    const s = st();
+    const goals = s.goals.map((g) => {
+      const G = E.GOALS[g.k];
+      return `<div class="goal${g.by != null ? ' done' : ''}"${g.by != null ? ` style="--pc:${PCOLOR[g.by]}"` : ''}><span class="g-icon">${G.icon}</span><div><b>${esc(G.name)}</b><small>${esc(G.text)}</small></div><span class="g-pts">${g.by != null ? FLAG[g.by] + ' ' : ''}+${G.pts}</span></div>`;
+    }).join('');
+    return `<section class="panel goals"><h3>📜 Commissions <small>first company to do it scores</small></h3>${goals}
+      <h3>🏺 Relic sets</h3><p class="muted">Tricky and harder sites hold a relic (👑 📜 🔮 🏺). Each set of different kinds scores: ${E.RELIC_SET.slice(1).map((pts, i) => `${i + 1} kind${i ? 's' : ''} ${pts}`).join(' · ')}.</p></section>`;
   }
 
   function companyHtml(v) {
@@ -416,17 +487,20 @@
       const mods = sub.mods.map((m) => `<span class="tag spec">${E.MOD[m].icon} ${esc(E.MOD[m].name)}</span>`).join('');
       const free = B.slots - sub.mods.length;
       return `<div class="card${E.subReady(s, sub) ? '' : ' dim'}">${subPic(sub.k)}<b>${esc(B.name)}</b>${subStatus(s, sub)}
-        <div><small>${plural(B.crew, 'seat')} · reaches the ${esc(E.DEPTH[B.depth].name)}${B.bonus ? ` · +${B.bonus} to rolls` : ''}</small><div class="tags">${mods}${free > 0 ? `<span class="tag">${plural(free, 'free fitting slot')}</span>` : ''}</div></div></div>`;
+        <div><small>${plural(B.crew, 'seat')} · built for the ${esc(E.DEPTH[B.depth].name)}${B.bonus ? ` · +${B.bonus} to rolls` : ''}</small><div class="tags">${mods}${free > 0 ? `<span class="tag">${plural(free, 'free fitting slot')}</span>` : ''}</div></div></div>`;
     }).join('') || '<p class="empty">No submarines — build one at the shipyard.</p>';
-    const divers = p.divers.map((d) => `<div class="card${E.diverReady(s, d) ? '' : ' dim'}">${diverPic(d)}<b>${esc(d.name)}</b>${diverStatus(s, d)}<div><small>${diverLine(d)}</small><div class="tags">${specTags(d)}</div></div></div>`).join('') || '<p class="empty">No divers — hire some at the dive hall.</p>';
+    const divers = p.divers.map((d) => `<div class="card${E.diverReady(s, d) ? '' : ' dim'}">${diverPic(d)}<b>${esc(d.name)}</b>${diverStatus(s, d)}<div><small>${diverLine(d)}</small><div class="tags">${depthTag(d)}${specTags(d)}</div></div></div>`).join('') || '<p class="empty">No divers — hire some at the dive hall.</p>';
     const canSalvage = E.readySubs(s, p).length && E.readyDivers(s, p).length;
+    const relicCount = (r) => p.relics.filter((y) => y === r).length;
+    const relics = p.relics.length
+      ? `<h3>🏺 Relics <small>${plural(E.relicPoints(p.relics), 'point')}</small></h3><div class="tags">${E.RELIC_ORDER.filter(relicCount).map((r) => `<span class="tag">${E.RELIC[r].icon} ${esc(E.RELIC[r].name)} ×${relicCount(r)}</span>`).join('')}</div>`
+      : '';
     const acts = mine
       ? `<div class="acts">
-          <button class="btn sea" data-act="hall">🤿 Dive hall</button>
           <button class="btn sea" data-act="yard">🛠️ Shipyard</button>
           <button class="btn" data-act="salvage" ${canSalvage ? '' : 'disabled'}>🪙 Salvage run</button>
           <button class="btn ghost" data-act="rival">👀 ${esc(pl(1 - v).name)}</button>
-          <button class="btn danger end" data-act="pass">⏭ End my tide</button>
+          <button class="btn danger" data-act="pass">⏭ End my tide</button>
         </div>`
       : humanTurn() ? `<div class="acts"><button class="btn end" data-view="${s.turn}">← Back to ${esc(pl(s.turn).name)}</button></div>`
         : s.phase === 'act' && G.mode !== 'past' && G.mode !== 'sim' && !p.ai && s.turn !== v ? `<p class="muted wait-note">Waiting for ${esc(pl(s.turn).name)}…</p>` : '';
@@ -434,6 +508,7 @@
       <h3>🚢 Fleet <small>${p.subs.length}/${E.MAX_SUBS} docks</small></h3><div class="cards">${subs}</div>
       <h3>🤿 Crew <small>wages 🪙${E.wagesOf(p)}/tide · ${p.divers.length}/${E.MAX_DIVERS}</small></h3><div class="cards">${divers}</div>
       ${p.found.length ? `<h3>💎 Treasure found <small>${plural(p.found.length, 'expedition')}</small></h3><div class="tags">${p.found.map((k) => `<span class="tag">${stars(E.SITE[k].tier)} ${esc(E.SITE[k].name)}</span>`).join('')}</div>` : ''}
+      ${relics}
       ${acts}`;
   }
 
@@ -453,8 +528,17 @@
       render();
       return;
     }
-    const xb = e.target.closest('[data-exp]');
-    if (xb && !xb.classList.contains('off')) return openPlanner(Number(xb.dataset.exp));
+    const xb = e.target.closest('[data-site]');
+    if (xb) {
+      const x = E.expOf(st(), Number(xb.dataset.site));
+      if (x && humanTurn() && !ui.busy && E.isOpen(st(), x)) return openPlanner(x.id);
+      return x && showSite(x);
+    }
+    const hb = e.target.closest('[data-hire]');
+    if (hb) {
+      if (!hb.disabled && humanTurn() && !ui.busy) doAction({ t: 'hire', d: Number(hb.dataset.hire) });
+      return;
+    }
     const b = e.target.closest('[data-act]');
     if (!b) return;
     const act = b.dataset.act;
@@ -462,7 +546,6 @@
     if (act === 'home') return leaveGame();
     if (act === 'scorecard') return showGameOver(true);
     if (!humanTurn() || ui.busy) return;
-    if (act === 'hall') return openHall();
     if (act === 'yard') return openYard();
     if (act === 'salvage') return openPlanner(null);
     if (act === 'rival') {
@@ -503,6 +586,13 @@
     const after = () => {
       render();
       if (s.tide !== tideBefore) tideSplash();
+      if (a.t !== 'dive' && !(G.mode === 'sim' && G.speed === 'turbo')) {
+        (s.claimed || []).forEach((k) => {
+          const g = s.goals.find((y) => y.k === k);
+          toast(`${E.GOALS[k].icon} <b>${esc(pl(g.by).name)}</b> completed the <b>${esc(E.GOALS[k].name)}</b> commission: +${E.GOALS[k].pts} points!`);
+          sfx('reveal');
+        });
+      }
       if (s.phase === 'over') return showGameOver(false);
       scheduleAI();
     };
@@ -516,7 +606,7 @@
     const s = st();
     if (G.mode === 'sim' && G.speed === 'turbo') return;
     const w = E.SEA[E.sea(s)];
-    toast(`🌊 <b>Tide ${s.tide}</b> · ${w.icon} ${esc(w.name)}: ${esc(w.note)}${s.tide === E.HEART_TIDE ? '<br>💠 <b>The Heart of Atlantis has been sighted!</b>' : ''}`);
+    toast(`🌊 <b>Tide ${s.tide}</b> · ${w.icon} ${esc(w.name)}: ${esc(w.note)}${s.tide === E.HEART_TIDE ? '<br>💠 <b>The Heart of Atlantis has been sighted!</b> Anyone can dive for it now.' : ''}`);
     if (s.tide === E.HEART_TIDE) sfx('reveal');
   }
 
@@ -541,7 +631,8 @@
     const p = pl(pi);
     const x = xid == null ? null : E.expOf(s, xid);
     const site = x && E.SITE[x.k];
-    const reachable = (sub) => !x || E.SUB[sub.k].depth >= site.depth;
+    const subGap = (sub) => (x ? Math.max(0, site.depth - E.SUB[sub.k].depth) : 0);
+    const diverGap = (d) => (x ? Math.max(0, site.depth - E.deepOf(d)) : 0);
     const plan = { s: null, crew: [] };
     if (x) {
       const best = bestOdds(pi, x);
@@ -558,11 +649,10 @@
       }
     }
     if (!plan.s) {
-      const firstReach = p.subs.find((sub) => E.subReady(s, sub) && reachable(sub));
-      plan.s = firstReach ? firstReach.id : null;
+      const first = p.subs.find((sub) => E.subReady(s, sub));
+      plan.s = first ? first.id : null;
     }
     const subWhy = (sub) => {
-      if (!reachable(sub)) return `Can’t reach the ${E.DEPTH[site.depth].name.toLowerCase()}`;
       if (sub.stuck >= s.tide) return 'Out of action';
       if (sub.k === 'minnow' && E.sea(s) === 'storm') return 'In port (storm)';
       if (sub.used) return 'Already out this tide';
@@ -573,28 +663,33 @@
       const sub = plan.s != null ? E.subOf(p, plan.s) : null;
       const seats = sub ? E.SUB[sub.k].crew : 0;
       const head = x
-        ? `<div class="plan-head"><img src="${expImg(x)}" alt=""><div><h2>${esc(site.name)}</h2><div class="haz">${site.haz.map((h) => hz(h)).join('')}</div><small class="muted">${E.TIER[site.tier].name} · ${E.DEPTH[site.depth].name} · roll ${E.TIER[site.tier].target}+ · reward 💎${E.rewardOf(s, x).treasure} 🪙${E.rewardOf(s, x).gold}</small></div></div>`
+        ? `<div class="plan-head"><img src="${expImg(x)}" alt=""><div><h2>${esc(site.name)}</h2><div class="haz">${site.haz.map((h) => hz(h)).join('')}${E.charted(s, x) ? '' : `<span class="hz risk">🌫️ Uncharted</span>`}</div><small class="muted">${E.TIER[site.tier].name} · ${E.DEPTH[site.depth].name} · roll ${E.TIER[site.tier].target}+ · reward 💎${E.rewardOf(s, x).treasure} 🪙${E.rewardOf(s, x).gold}${site.relic ? ` · ${E.RELIC[site.relic].icon} relic` : ''}</small></div></div>`
         : `<h2>🪙 Salvage run</h2><p class="muted">A safe trip to pick over old wrecks. No dice, no danger: earns 🪙1 plus 🪙1 per diver. The sub and divers are out for the rest of this tide.</p>`;
       const subs = p.subs.map((q) => {
         const why = subWhy(q);
         const B = E.SUB[q.k];
-        return `<button data-sub="${q.id}" class="${q.id === plan.s ? 'on' : ''}" ${why ? 'disabled' : ''}>${subPic(q.k)}<b>${esc(B.name)}</b><small>${why || `${plural(B.crew, 'seat')}${B.bonus ? ` · +${B.bonus}` : ''}${q.mods.length ? ' · ' + q.mods.map((m) => E.MOD[m].icon).join('') : ''}`}</small></button>`;
+        const deep = subGap(q) ? `<em class="warn">⚠️ Too deep: −${E.SUB_DEEP_PEN * subGap(q)}</em>` : '';
+        return `<button data-sub="${q.id}" class="${q.id === plan.s ? 'on' : ''}${deep ? ' risky' : ''}" ${why ? 'disabled' : ''}>${subPic(q.k)}<b>${esc(B.name)}</b><small>${why || `${plural(B.crew, 'seat')}${B.bonus ? ` · +${B.bonus}` : ''}${q.mods.length ? ' · ' + q.mods.map((m) => E.MOD[m].icon).join('') : ''}`}${why ? '' : deep}</small></button>`;
       }).join('');
       const divers = p.divers.map((d) => {
         const why = diverWhy(d);
         const D = E.DIVER[d.k];
-        return `<button data-diver="${d.id}" class="${plan.crew.includes(d.id) ? 'on' : ''}" ${why ? 'disabled' : ''}>${diverPic(d)}<b>${esc(d.name)}</b><small>${why || `${'⭐'.repeat(D.skill)} ${D.spec.map((h) => E.HAZ[h].icon).join('')}`}</small></button>`;
+        const deep = diverGap(d) ? `<em class="warn">⚠️ Out of depth: −${E.DIVER_DEEP_PEN * diverGap(d)}</em>` : '';
+        return `<button data-diver="${d.id}" class="${plan.crew.includes(d.id) ? 'on' : ''}${deep ? ' risky' : ''}" ${why ? 'disabled' : ''}>${diverPic(d)}<b>${esc(d.name)}</b><small>${why || `${'⭐'.repeat(E.skillOf(d))} ${D.spec.map((h) => E.HAZ[h].icon).join('')} · 🌊 ${esc(E.DEPTH[E.deepOf(d)].name)}`}${why ? '' : deep}</small></button>`;
       }).join('');
       let box = '';
       if (x && sub && plan.crew.length) {
         const c = E.chance(s, pi, x.id, sub.id, plan.crew);
         const risks = c.uncovered.map((h) => `${E.HAZ[h].icon} ${E.HAZ[h].effect}`);
+        const deepRisks = c.risk.map((r) => `🫥 ${esc(r.name)} could be lost (${pct(r.p)})`);
+        if (c.crush) deepRisks.push(`💥 the ${esc(E.SUB[sub.k].name)} could be crushed (${pct(c.crush)})`);
         box = `<div class="odds-box" style="--oc:${oddsColor(c.p)}">
           <div class="odds-big"><span>Chance of success</span><b>${pct(c.p)}</b></div>
           <div class="odds-bar"><i style="width:${pct(c.p)}"></i></div>
           <div class="parts">${c.parts.map((q) => `<div class="${q.v < 0 ? 'neg' : 'pos'}"><span>${esc(q.label)}</span><span>${q.v > 0 ? '+' : ''}${q.v}</span></div>`).join('')}
             <div><span>Roll needed on the d20</span><b>${c.need}+</b></div></div>
           ${risks.length ? `<div class="risk-note">If it fails: ${risks.map(esc).join(' or ')}</div>` : '<div class="risk-note safe">Your crew is ready for every hazard — a failed dive just comes home empty-handed (unless you roll a 1).</div>'}
+          ${deepRisks.length ? `<div class="risk-note deep">Too deep! If it fails, as well: ${deepRisks.join(', ')}.</div>` : ''}
         </div>`;
       } else if (!x && sub && plan.crew.length) {
         box = `<div class="odds-box" style="--oc:#8ff0b4"><div class="odds-big"><span>Salvage</span><b>🪙${1 + plan.crew.length}</b></div></div>`;
@@ -687,12 +782,16 @@
       const msgs = [];
       if (r.ok) {
         msgs.push(`Found <b>💎${r.treasure}</b> and <b>🪙${r.gold}</b>${r.d20 === 20 ? ' (with 🪙2 of extra loot)' : ''}.`);
+        if (r.relic) msgs.push(`${E.RELIC[r.relic].icon} A relic for the collection: <b>${esc(E.RELIC[r.relic].name.toLowerCase())}</b>.`);
         if (r.first) msgs.push(`🏆 First company to finish a ${esc(E.TIER[site.tier].name.toLowerCase())} expedition: +${E.DISCOVERY_PTS} points!`);
+        if (r.promoted && r.promoted.length) msgs.push(`🎖️ ${r.promoted.map(esc).join(' and ')} ${r.promoted.length > 1 ? 'were' : 'was'} promoted: +1 skill, and trained one zone deeper.`);
+        if (r.opened && r.opened.length) msgs.push(`🗺️ New routes charted to ${r.opened.map((k) => esc(E.SITE[k].name)).join(' and ')}.`);
         if (r.k === 'heart') msgs.push('💠 <b>The Heart of Atlantis!</b> The season ends after this tide.');
       } else {
         r.msgs.forEach((m) => msgs.push(esc(m)));
         msgs.push(`🧭 The next dive here gets +${r.scout} from what was learned.`);
       }
+      (r.goals || []).forEach((k) => msgs.push(`${E.GOALS[k].icon} Commission complete — <b>${esc(E.GOALS[k].name)}</b>: +${E.GOALS[k].pts} points!`));
       back.querySelector('#roll-msgs').innerHTML = msgs.map((m) => `<p>${m}</p>`).join('');
       sfx(r.ok ? 'good' : 'bad');
       if (r.ok) sfx('coin', 300);
@@ -704,30 +803,6 @@
     }, landAt));
   }
 
-  // ---------------------------------------------------------------- dive hall
-  function openHall() {
-    const s = st();
-    const pi = s.turn;
-    const p = pl(pi);
-    const seats = E.crewRoom(p);
-    const cards = s.market.map((d) => {
-      const D = E.DIVER[d.k];
-      const why = p.divers.length >= E.MAX_DIVERS ? 'Company full' : p.gold < D.cost ? `Need 🪙${D.cost}` : '';
-      return `<div class="card">${diverPic(d)}<b>${esc(d.name)}</b><button class="btn sm" data-hire="${d.id}" ${why ? 'disabled' : ''}>${why || `Hire 🪙${D.cost}`}</button><div><small>${diverLine(d)}</small><div class="tags">${specTags(d) || '<span class="tag">No specialty</span>'}</div></div></div>`;
-    }).join('') || '<p class="empty">Nobody is looking for work.</p>';
-    const back = openModal(`<h2>🤿 The dive hall</h2>
-      <p class="muted">Each diver adds their ⭐ skill to every dive they join. A specialist makes their hazard safe for the whole crew. Wages are paid at the start of every tide — a diver you can’t pay quits. New hires can dive straight away. Hiring uses your move.</p>
-      <p class="gold-line">🪙${p.gold} · ${plural(p.divers.length, 'diver')} · ${plural(seats, 'seat')} in your subs · wages 🪙${E.wagesOf(p)}/tide</p>
-      <div class="shop">${cards}</div>
-      <p class="muted">${s.diverDeck.length} more divers may come looking for work. The longest-waiting diver leaves at the end of each tide.</p>`, { onClose: () => {} });
-    back.addEventListener('click', (e) => {
-      const b = e.target.closest('[data-hire]');
-      if (!b || b.disabled) return;
-      closeModal(true);
-      doAction({ t: 'hire', d: Number(b.dataset.hire) });
-    });
-  }
-
   // ---------------------------------------------------------------- shipyard
   function openYard() {
     const s = st();
@@ -736,7 +811,7 @@
     const builds = E.SUB_ORDER.map((k) => {
       const B = E.SUB[k];
       const why = full ? 'Docks full' : p.gold < B.cost ? `Need 🪙${B.cost}` : '';
-      return `<div class="card">${subPic(k)}<b>${esc(B.name)}</b><button class="btn sm" data-build="${k}" ${why ? 'disabled' : ''}>${why || `Build 🪙${B.cost}`}</button><div><small>${plural(B.crew, 'seat')} · reaches the ${esc(E.DEPTH[B.depth].name)} · ${B.bonus ? `+${B.bonus} to rolls` : 'no roll bonus'} · ${plural(B.slots, 'fitting slot')}</small><br><small>${esc(B.note)}</small></div></div>`;
+      return `<div class="card">${subPic(k)}<b>${esc(B.name)}</b><button class="btn sm" data-build="${k}" ${why ? 'disabled' : ''}>${why || `Build 🪙${B.cost}`}</button><div><small>${plural(B.crew, 'seat')} · built for the ${esc(E.DEPTH[B.depth].name)} · ${B.bonus ? `+${B.bonus} to rolls` : 'no roll bonus'} · ${plural(B.slots, 'fitting slot')}</small><br><small>${esc(B.note)}</small></div></div>`;
     }).join('');
     const ups = p.subs.map((sub) => {
       const opts = E.SUB_ORDER.filter((k) => E.SUB[k].cost > E.SUB[sub.k].cost).map((k) => {
@@ -801,7 +876,7 @@
     let text = '';
     if (a.t === 'hire') {
       const d = s.market.find((x) => x.id === a.d);
-      text = `hires ${esc(d.name)}, ${esc(E.DIVER[d.k].role.toLowerCase())}`;
+      text = `hires ${esc(d.name)}, ${esc(E.DIVER[d.k].role.toLowerCase())}, for 🪙${E.hireCost(d)}`;
     } else if (a.t === 'build') text = `builds a ${esc(E.SUB[a.k].name)}`;
     else if (a.t === 'upgrade') text = `rebuilds a ${esc(E.SUB[E.subOf(p, a.s).k].name)} as a ${esc(E.SUB[a.k].name)}`;
     else if (a.t === 'fit') text = `fits ${esc(E.MOD[a.m].name.toLowerCase())}`;
@@ -818,6 +893,8 @@
     const rows = [
       ['💎 Treasure', 'treasure'],
       ['🏆 First finds', 'discoveries'],
+      ['🏺 Relic sets', 'relics'],
+      ['📜 Commissions', 'goals'],
       [`🪙 Gold (1 per ${E.GOLD_PER_PT})`, 'gold'],
     ];
     if (G.mode === 'ai' || G.mode === 'local') recordGame();
@@ -847,7 +924,7 @@
         <div class="hr-verdict" aria-live="polite"></div>
         <div class="hr-sub">${sub}</div>
         <div class="hr-rows">${rows.map(([label, k]) => `<div class="hr-row"><span class="${sc[0][k] > sc[1][k] ? 'lead' : ''}">${sc[0][k]}</span><small>${label}</small><span class="${sc[1][k] > sc[0][k] ? 'lead' : ''}">${sc[1][k]}</span></div>`).join('')}</div>
-        <div class="hr-actions"><button class="btn" data-rv="close">🗺️ See the sea chart</button>${G.mode === 'past' ? '' : `<button class="btn" data-rv="again">${G.mode === 'sim' ? '🧪 Run again' : '🔱 Play again'}</button>`}${G.mode === 'sim' ? '' : '<button class="btn ghost" data-rv="hist">🏆 Game history</button>'}<a class="btn ghost" href="/board-games.html"><img class="gh-dice" src="/img/board-games-favicon-48.png?v=2" alt=""> All board games</a></div>
+        <div class="hr-actions"><button class="btn" data-rv="close">🗺️ See the chart</button>${G.mode === 'past' ? '' : `<button class="btn" data-rv="again">${G.mode === 'sim' ? '🧪 Run again' : '🔱 Play again'}</button>`}${G.mode === 'sim' ? '' : '<button class="btn ghost" data-rv="hist">🏆 Game history</button>'}<a class="btn ghost" href="/board-games.html"><img class="gh-dice" src="/img/board-games-favicon-48.png?v=2" alt=""> All board games</a></div>
       </div><button class="hr-skip" data-rv="skip">Skip ▸</button>`;
     document.body.appendChild(el);
     const timers = [];
@@ -969,12 +1046,13 @@
     const r = await api(`/api/atlantis/history/board?id=${encodeURIComponent(id)}`);
     const state = r.ok && r.data && r.data.state;
     if (!state || !Array.isArray(state.players) || state.phase !== 'over') return toast(esc((r.data && r.data.error) || 'Couldn’t load that game.'), 'bad');
+    if (state.v !== E.SAVE_V) return toast('That game was played before the chart of Atlantis was drawn, so its board can’t be shown.', 'bad');
     const h = (hist.items || []).find((x) => x.id === id);
     startFrom({ state, mode: 'past', level: h && h.level, view: 0, gid: id, revealed: true });
   }
 
   const hist = { items: null, kind: 'all' };
-  const SCORE_ROWS = [['💎 Treasure', 'treasure'], ['🏆 First finds', 'discoveries'], ['🪙 Gold', 'gold'], ['🗺️ Expeditions', 'expeditions']];
+  const SCORE_ROWS = [['💎 Treasure', 'treasure'], ['🏆 First finds', 'discoveries'], ['🏺 Relic sets', 'relics'], ['📜 Commissions', 'goals'], ['🪙 Gold', 'gold'], ['🗺️ Expeditions', 'expeditions']];
 
   async function showHistory() {
     stopAI();
@@ -1020,7 +1098,7 @@
       const when = new Date(h.at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
       const what = [h.kind === 'ai' ? `Computer${h.level ? ' · ' + LEVEL_NAME[h.level] : ''}` : 'Two players, one device', when].join(' · ');
       const table = h.cats ? `<div class="hg-table">${SCORE_ROWS.map(([label, k]) => `<div><span>${h.cats[0][k] || 0}</span><small>${label}</small><span>${h.cats[1][k] || 0}</span></div>`).join('')}</div>` : '';
-      const view = h.board ? `<div class="hg-view"><button class="btn sm" data-past="${esc(h.id)}">🗺️ View the sea chart</button></div>` : '';
+      const view = h.board ? `<div class="hg-view"><button class="btn sm" data-past="${esc(h.id)}">🗺️ View the chart</button></div>` : '';
       return `<details class="hg"><summary><span class="hg-icon">${icon[h.kind] || '🔱'}</span><span class="hg-main"><b>${esc(h.names[0])} <em>${total(0)}</em> – <em>${total(1)}</em> ${esc(h.names[1])}</b><small>${esc(what)}</small></span>${res}</summary>${table}${view}</details>`;
     };
     box.innerHTML = `
@@ -1090,41 +1168,54 @@
   function rulesBody(tab) {
     const T = E.TIER;
     if (tab === 'basics') {
-      return `<p>You run a diving company racing a rival to the treasures of sunken Atlantis. Over <b>${E.TIDES} tides</b> you hire <b>scuba divers</b>, build <b>submarines</b> and send them on <b>expeditions</b>. Every expedition is a gamble: roll a d20, add your bonuses, and beat the target.</p>
-        <p>Riskier expeditions pay far more. Better divers, divers who are <b>ready for the hazards</b> down there, and better subs all make your odds better.</p>
-        <p>The company with the most points when the season ends wins. Points come from 💎 treasure, 🏆 first finds and leftover 🪙 gold.</p>
+      return `<p>You run a diving company racing a rival to the treasures of sunken Atlantis. Over <b>${E.TIDES} tides</b> you hire <b>scuba divers</b>, build <b>submarines</b> and send them on <b>expeditions</b> to the sites on the chart. Every expedition is a gamble: roll a d20, add your bonuses, and beat the target.</p>
+        <p>You can try <b>any site with any sub and any crew</b> — but deeper, harder sites pay far more and are far more dangerous. Send a rookie or a little Minnow into the Abyss and you’ll probably fail, and you may never see them again.</p>
+        <p>Better divers, divers who are <b>ready for the hazards</b> down there, divers and subs <b>built for that depth</b>, and a <b>charted route</b> all make your odds better.</p>
+        <p>The company with the most points when the season ends wins. Points come from 💎 treasure, 🏆 first finds, 🏺 relic sets, 📜 commissions and leftover 🪙 gold.</p>
         <p>You start with 🪙${E.START_GOLD}, a Minnow sub and one rookie diver.</p>`;
+    }
+    if (tab === 'map') {
+      return `<p>The chart shows every site in this game, from the harbor down to the Heart of Atlantis. Each game draws different sites. Each row is harder (and richer) than the one above it.</p>
+        <ul><li>🗺️ <b>Charted</b> sites have a route: the top row, and every site that an explored site leads to. Lines on the chart show where each site leads.</li>
+        <li>🌫️ <b>Uncharted</b> sites can still be tried, at <b>−${E.UNCHARTED}</b> to the roll. Exploring a site charts the routes beyond it — for both companies.</li>
+        <li>🧭 <b>Known waters:</b> +${E.KNOWN_BONUS} on sites linked to one your company explored.</li>
+        <li>⚑ Each site can only be explored once. Whoever explores it first takes the treasure.</li>
+        <li>💠 <b>The Heart of Atlantis</b> is sighted on tide ${E.HEART_TIDE}. Whoever finds it ends the season at the end of that tide.</li></ul>`;
     }
     if (tab === 'tide') {
       return `<p>Each tide, the two companies take turns making <b>one move</b> at a time:</p>
-        <ul><li><b>🎲 Dive</b> — send a ready sub and crew on an expedition from the sea chart.</li>
+        <ul><li><b>🎲 Dive</b> — send a ready sub and crew to a site on the chart.</li>
         <li><b>🪙 Salvage run</b> — a safe trip: 🪙1 plus 🪙1 per diver. No dice.</li>
-        <li><b>🤿 Hire</b> a diver from the dive hall.</li>
+        <li><b>🤿 Hire</b> a diver from the dive hall. Both companies hire from the same hall, so a good diver you don’t take may end up working for your rival.</li>
         <li><b>🛠️ Build</b> a sub, <b>rebuild</b> one as a bigger model (pay the difference), or add a <b>fitting</b>.</li>
         <li><b>⏭ End your tide</b> — you’re done until the next tide. The other company can keep going alone.</li></ul>
-        <p>Each sub and each diver can go out <b>once per tide</b>. When both companies have ended their tide, the next one begins: everyone collects 🪙${E.INCOME}, pays every diver’s wage (a diver you can’t pay quits), the longest-waiting diver in the hall leaves and a new expedition is charted.</p>
+        <p>Each sub and each diver can go out <b>once per tide</b>. When both companies have ended their tide, the next one begins: everyone collects 🪙${E.INCOME} and pays every diver’s wage (a diver you can’t pay quits). In the dive hall, the longest-waiting diver leaves, everyone still waiting gets 🪙1 cheaper (down to half price) and new divers arrive.</p>
         <p>The <b>sea forecast</b> changes every tide — you can always see the next one coming.</p>
         <table><tr><th>Forecast</th><th>Effect</th></tr>${E.SEA_ORDER.map((k) => `<tr><td>${E.SEA[k].icon} ${esc(E.SEA[k].name)}</td><td>${esc(E.SEA[k].note)}</td></tr>`).join('')}</table>`;
     }
     if (tab === 'dive') {
-      return `<p>Pick an expedition, a sub that can reach its depth, and a crew that fits in the sub. Then roll a d20 and add:</p>
-        <ul><li>⭐ every diver’s <b>skill</b></li><li>the <b>sub’s bonus</b> (Barracuda +1, Nautilus +2, Leviathan +3)</li><li>🧭 <b>+1 for each earlier failed attempt</b> at that expedition, by anyone (up to +${E.SCOUT_MAX})</li><li>the forecast, if it helps</li></ul>
-        <p>and subtract <b>${E.UNCOVERED} for every hazard nobody is ready for</b>. A diver with that specialty, or a sub with the matching fitting, makes a hazard safe.</p>
+      return `<p>Pick a site, a ready sub, and a crew that fits in the sub. Then roll a d20 and add:</p>
+        <ul><li>⭐ every diver’s <b>skill</b></li><li>the <b>sub’s bonus</b> (Barracuda +1, Nautilus +2, Leviathan +3)</li><li>🧭 <b>+${E.KNOWN_BONUS} for known waters</b> and <b>+1 for each earlier failed attempt</b> at that site, by anyone (up to +${E.SCOUT_MAX})</li><li>the forecast, if it helps</li></ul>
+        <p>and subtract:</p>
+        <ul><li><b>${E.UNCOVERED} for every hazard nobody is ready for</b>. A diver with that specialty, or a sub with the matching fitting, makes a hazard safe.</li>
+        <li><b>${E.UNCHARTED}</b> if the site is uncharted.</li>
+        <li><b>${E.SUB_DEEP_PEN} per zone</b> a sub is below the depth it’s built for (a Minnow only reaches the Shallows, a Barracuda the Deep).</li>
+        <li><b>${E.DIVER_DEEP_PEN} per zone</b> for every diver out of their depth (rookies are only trained for the Shallows).</li></ul>
         <p>Beat the target to win the treasure and gold. A <b>natural 20</b> always succeeds (with 🪙2 extra loot); a <b>natural 1</b> always fails — and then any hazard can strike, even one you were ready for.</p>
-        <p>When a dive fails, one hazard nobody was ready for strikes (see Hazards). If you were ready for everything, the crew just comes home empty-handed.</p>
-        <table><tr><th>Level</th><th>Target</th><th>Treasure</th><th>Gold</th></tr>${[1, 2, 3, 4, 5].map((t) => `<tr><td>${'★'.repeat(T[t].stars)} ${T[t].name}</td><td>${T[t].target}+</td><td>💎${T[t].treasure}</td><td>🪙${T[t].gold}</td></tr>`).join('')}</table>
-        <p>💠 <b>The Heart of Atlantis</b> appears on tide ${E.HEART_TIDE}. Whoever finds it ends the season at the end of that tide.</p>`;
+        <p>When a dive fails, one hazard nobody was ready for strikes (see Hazards). On top of that, <b>every diver out of their depth has a ${pct(E.DIVER_LOST)} chance per zone of being lost</b>, and a sub out of its depth has a ${pct(E.SUB_CRUSH)} chance per zone of being crushed.</p>
+        <p>🎖️ Every diver on a successful dive gains experience. After ${E.PROMO_XP} successful dives a diver is <b>promoted</b>: +1 skill, and trained one zone deeper.</p>
+        <table><tr><th>Level</th><th>Target</th><th>Treasure</th><th>Gold</th></tr>${[1, 2, 3, 4, 5].map((t) => `<tr><td>${'★'.repeat(T[t].stars)} ${T[t].name}</td><td>${T[t].target}+</td><td>💎${T[t].treasure}</td><td>🪙${T[t].gold}</td></tr>`).join('')}</table>`;
     }
     if (tab === 'hazards') {
       return `<table><tr><th>Hazard</th><th>Who is ready for it</th><th>If it strikes</th></tr>${E.HAZ_ORDER.map((h) => `<tr><td>${E.HAZ[h].icon} ${esc(E.HAZ[h].name)}</td><td>${esc(E.HAZ[h].ready)}</td><td>${esc(E.HAZ[h].effect)}</td></tr>`).join('')}</table>
         <p>A shark always takes the least skilled diver on the crew.</p>`;
     }
     if (tab === 'crew') {
-      return `<h3>Divers</h3><table><tr><th>Diver</th><th>Skill</th><th>Ready for</th><th>Hire</th><th>Wage</th></tr>${E.DIVER_ORDER.map((k) => {
+      return `<h3>Divers</h3><table><tr><th>Diver</th><th>Skill</th><th>Trained to</th><th>Ready for</th><th>Hire</th><th>Wage</th></tr>${E.DIVER_ORDER.map((k) => {
         const D = E.DIVER[k];
-        return `<tr><td>${ROLE_ICON[k]} ${esc(D.role)}</td><td>${'⭐'.repeat(D.skill)}</td><td>${D.spec.map((h) => E.HAZ[h].icon + ' ' + esc(E.HAZ[h].name)).join(', ') || '—'}</td><td>🪙${D.cost}</td><td>🪙${D.wage}</td></tr>`;
+        return `<tr><td>${ROLE_ICON[k]} ${esc(D.role)}</td><td>${'⭐'.repeat(D.skill)}</td><td>${E.DEPTH[D.deep].name}</td><td>${D.spec.map((h) => E.HAZ[h].icon + ' ' + esc(E.HAZ[h].name)).join(', ') || '—'}</td><td>🪙${D.cost}</td><td>🪙${D.wage}</td></tr>`;
       }).join('')}</table>
-        <h3>Submarines</h3><table><tr><th>Sub</th><th>Seats</th><th>Reaches</th><th>Bonus</th><th>Fittings</th><th>Cost</th></tr>${E.SUB_ORDER.map((k) => {
+        <h3>Submarines</h3><table><tr><th>Sub</th><th>Seats</th><th>Built for</th><th>Bonus</th><th>Fittings</th><th>Cost</th></tr>${E.SUB_ORDER.map((k) => {
           const B = E.SUB[k];
           return `<tr><td>${esc(B.name)}</td><td>${B.crew}</td><td>${E.DEPTH[B.depth].name}</td><td>${B.bonus ? '+' + B.bonus : '—'}</td><td>${B.slots}</td><td>🪙${B.cost}</td></tr>`;
         }).join('')}</table>
@@ -1132,12 +1223,16 @@
         <h3>Fittings</h3><table><tr><th>Fitting</th><th>Makes safe</th><th>Cost</th></tr>${E.MOD_ORDER.map((m) => `<tr><td>${E.MOD[m].icon} ${esc(E.MOD[m].name)}</td><td>${E.HAZ[E.MOD[m].haz].icon} ${esc(E.HAZ[E.MOD[m].haz].name)}</td><td>🪙${E.MOD[m].cost}</td></tr>`).join('')}</table>`;
     }
     return `<p>When the last tide ends (or the Heart of Atlantis is found), add up:</p>
-      <ul><li>💎 every point of <b>treasure</b> you found</li><li>🏆 <b>${E.DISCOVERY_PTS} points</b> for each level of expedition (easy, tricky, hard, extreme, legendary) your company finished <b>first</b></li><li>🪙 <b>1 point per ${E.GOLD_PER_PT} gold</b> left over</li></ul>
-      <p>Most points wins. If it’s a tie, the company with more treasure wins, then the one with more expeditions.</p>`;
+      <ul><li>💎 every point of <b>treasure</b> you found</li><li>🏆 <b>${E.DISCOVERY_PTS} points</b> for each level of expedition (easy, tricky, hard, extreme, legendary) your company finished <b>first</b></li>
+      <li>🏺 <b>relic sets</b>: tricky and harder sites each hold a relic (👑 royal jewels, 📜 lost scrolls, 🔮 orichalcum crystals or 🏺 golden urns). Group your relics into sets of different kinds: ${E.RELIC_SET.slice(1).map((pts, i) => `${i + 1} kind${i ? 's' : ''} = ${pts}`).join(', ')} points.</li>
+      <li>📜 <b>commissions</b>: each game has ${E.GOAL_COUNT} public commissions. The first company to do one scores it.</li>
+      <li>🪙 <b>1 point per ${E.GOLD_PER_PT} gold</b> left over</li></ul>
+      <p>Most points wins. If it’s a tie, the company with more treasure wins, then the one with more expeditions.</p>
+      <h3>Possible commissions</h3><table><tr><th>Commission</th><th>Do this first</th><th>Points</th></tr>${E.GOAL_ORDER.map((k) => `<tr><td>${E.GOALS[k].icon} ${esc(E.GOALS[k].name)}</td><td>${esc(E.GOALS[k].text)}</td><td>+${E.GOALS[k].pts}</td></tr>`).join('')}</table>`;
   }
   function showRules(tab) {
     ui.rulesTab = tab || ui.rulesTab;
-    const tabs = { basics: '🌊 Basics', tide: '🔁 A tide', dive: '🎲 Diving', hazards: '🦈 Hazards', crew: '🤿 Divers & subs', score: '🏆 Scoring' };
+    const tabs = { basics: '🌊 Basics', map: '🗺️ The chart', tide: '🔁 A tide', dive: '🎲 Diving', hazards: '🦈 Hazards', crew: '🤿 Divers & subs', score: '🏆 Scoring' };
     const back = openModal(`<h2>📜 How to play Atlantis Expedition</h2>
       <div class="rules-tabs">${Object.keys(tabs).map((k) => `<button data-tab="${k}" class="${ui.rulesTab === k ? 'on' : ''}">${tabs[k]}</button>`).join('')}</div>
       <div class="rules-body">${rulesBody(ui.rulesTab)}</div>`, { cls: 'wide', onClose: G ? null : () => {} });

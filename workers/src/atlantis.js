@@ -4,6 +4,8 @@ const ADMIN_EMAIL = 'calebahrens2011@gmail.com';
 const LOCAL_ID_RE = /^al[0-9a-f]{16}$/;
 const MAX_BOARD_BYTES = 64 * 1024;
 const SCORE_KEYS = ['treasure', 'discoveries', 'gold', 'expeditions', 'total'];
+const OPTIONAL_SCORE_KEYS = ['relics', 'goals'];
+const BOARD_VERSIONS = new Set([1, 2]);
 const LEVELS = new Set(['easy', 'normal', 'hard', 'brutal']);
 
 function jsonResponse(body, corsHeaders, status = 200) {
@@ -44,6 +46,12 @@ function cleanCats(c) {
     if (v == null) return null;
     out[k] = v;
   }
+  for (const k of OPTIONAL_SCORE_KEYS) {
+    if (c[k] == null) continue;
+    const v = int(c[k], 0, 9999);
+    if (v == null) return null;
+    out[k] = v;
+  }
   return out;
 }
 
@@ -59,7 +67,7 @@ function historyItem(b) {
 
 // The finished sea chart, so history can show it (the log goes if it's too big).
 function cleanBoard(b) {
-  if (!b || typeof b !== 'object' || b.v !== 1 || b.phase !== 'over' || !Array.isArray(b.players) || b.players.length !== 2) return null;
+  if (!b || typeof b !== 'object' || !BOARD_VERSIONS.has(b.v) || b.phase !== 'over' || !Array.isArray(b.players) || b.players.length !== 2) return null;
   if (JSON.stringify(b).length <= MAX_BOARD_BYTES) return b;
   const lean = { ...b, log: [] };
   return JSON.stringify(lean).length <= MAX_BOARD_BYTES ? lean : null;

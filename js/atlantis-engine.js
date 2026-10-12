@@ -2,20 +2,27 @@
 (function (root) {
   'use strict';
 
-  const SAVE_V = 1;
+  const SAVE_V = 2;
   const TIDES = 10;
   const HEART_TIDE = 6;
   const START_GOLD = 7;
   const INCOME = 4;
   const MAX_SUBS = 3;
   const MAX_DIVERS = 8;
-  const MARKET_SIZE = 4;
-  const MAP_MAX = 6;
-  const MAP_MIN = 3;
+  const MARKET_SIZE = 5;
   const UNCOVERED = 3;
   const SCOUT_MAX = 3;
+  const KNOWN_BONUS = 1;
+  const UNCHARTED = 3;
+  // Out of their depth: per level too deep, the roll penalty and the chance (on a failed dive) of losing them.
+  const DIVER_DEEP_PEN = 2;
+  const DIVER_LOST = 0.35;
+  const SUB_DEEP_PEN = 4;
+  const SUB_CRUSH = 0.35;
+  const PROMO_XP = 2;
   const DISCOVERY_PTS = 2;
   const GOLD_PER_PT = 4;
+  const GOAL_COUNT = 3;
 
   // Hazards: what goes wrong on a failed dive when nobody on the crew (or the sub) is ready for it.
   const HAZ = {
@@ -51,27 +58,38 @@
   const MOD_ORDER = ['tanks', 'cage', 'drill', 'fins', 'lamps', 'decoder', 'harpoon'];
 
   // Divers for hire: skill is added to every dive; each specialty cancels that hazard's penalty.
+  // `deep` is the deepest water a diver is trained for (1 Shallows, 2 Deep, 3 Abyss); a promotion adds one.
   const DIVER = {
-    rookie: { role: 'Rookie diver', skill: 1, spec: [], cost: 2, wage: 1, n: 4 },
-    wrangler: { role: 'Shark wrangler', skill: 1, spec: ['shark'], cost: 4, wage: 1, n: 2 },
-    freediver: { role: 'Free-diver', skill: 1, spec: ['air'], cost: 4, wage: 1, n: 2 },
-    caver: { role: 'Cave diver', skill: 1, spec: ['cave'], cost: 4, wage: 1, n: 2 },
-    rider: { role: 'Current rider', skill: 1, spec: ['current'], cost: 4, wage: 1, n: 2 },
-    lamplighter: { role: 'Lamplighter', skill: 1, spec: ['dark'], cost: 4, wage: 1, n: 2 },
-    archaeologist: { role: 'Archaeologist', skill: 1, spec: ['trap'], cost: 4, wage: 1, n: 2 },
-    veteran: { role: 'Veteran diver', skill: 2, spec: [], cost: 5, wage: 1, n: 2 },
-    deepdiver: { role: 'Deep diver', skill: 2, spec: ['air', 'dark'], cost: 7, wage: 2, n: 1 },
-    hunter: { role: 'Treasure hunter', skill: 2, spec: ['cave', 'trap'], cost: 7, wage: 2, n: 1 },
-    stormdiver: { role: 'Storm diver', skill: 2, spec: ['current', 'shark'], cost: 7, wage: 2, n: 1 },
-    krakenhunter: { role: 'Kraken hunter', skill: 2, spec: ['kraken', 'shark'], cost: 8, wage: 2, n: 1 },
-    captain: { role: 'Legendary captain', skill: 3, spec: ['air', 'current', 'dark'], cost: 11, wage: 3, n: 1 },
-    professor: { role: 'Professor of Atlantis', skill: 3, spec: ['trap', 'cave', 'kraken'], cost: 11, wage: 3, n: 1 },
+    rookie: { role: 'Rookie diver', skill: 1, deep: 1, spec: [], cost: 2, wage: 1, n: 4 },
+    wrangler: { role: 'Shark wrangler', skill: 1, deep: 2, spec: ['shark'], cost: 4, wage: 1, n: 2 },
+    freediver: { role: 'Free-diver', skill: 1, deep: 2, spec: ['air'], cost: 4, wage: 1, n: 2 },
+    caver: { role: 'Cave diver', skill: 1, deep: 2, spec: ['cave'], cost: 4, wage: 1, n: 2 },
+    rider: { role: 'Current rider', skill: 1, deep: 2, spec: ['current'], cost: 4, wage: 1, n: 2 },
+    lamplighter: { role: 'Lamplighter', skill: 1, deep: 2, spec: ['dark'], cost: 4, wage: 1, n: 2 },
+    archaeologist: { role: 'Archaeologist', skill: 1, deep: 2, spec: ['trap'], cost: 4, wage: 1, n: 2 },
+    veteran: { role: 'Veteran diver', skill: 2, deep: 2, spec: [], cost: 5, wage: 1, n: 2 },
+    deepdiver: { role: 'Deep diver', skill: 2, deep: 3, spec: ['air', 'dark'], cost: 7, wage: 2, n: 1 },
+    hunter: { role: 'Treasure hunter', skill: 2, deep: 3, spec: ['cave', 'trap'], cost: 7, wage: 2, n: 1 },
+    stormdiver: { role: 'Storm diver', skill: 2, deep: 3, spec: ['current', 'shark'], cost: 7, wage: 2, n: 1 },
+    krakenhunter: { role: 'Kraken hunter', skill: 2, deep: 3, spec: ['kraken', 'shark'], cost: 8, wage: 2, n: 1 },
+    captain: { role: 'Legendary captain', skill: 3, deep: 3, spec: ['air', 'current', 'dark'], cost: 11, wage: 3, n: 1 },
+    professor: { role: 'Professor of Atlantis', skill: 3, deep: 3, spec: ['trap', 'cave', 'kraken'], cost: 11, wage: 3, n: 1 },
   };
   const DIVER_ORDER = Object.keys(DIVER);
   const NAMES = ['Marina', 'Coral', 'Finn', 'Nerissa', 'Kai', 'Pearl', 'Morgan', 'Delphine', 'Bruce', 'Ondine', 'Jonah', 'Shelly', 'Wade', 'Isla',
     'Murray', 'Doris', 'Caspian', 'Brook', 'Neptune Jr.', 'Ripley', 'Tula', 'Gil', 'Reef', 'Dory', 'Splash', 'Hal', 'Lagoon', 'Ahab', 'Sandy', 'Zeke'];
 
-  // Tier: 1 easy … 4 extreme; 5 is the Heart of Atlantis, which appears at tide 6.
+  // Relics come from tricky and harder sites and score in sets of different kinds.
+  const RELIC = {
+    crown: { icon: '👑', name: 'Royal jewels' },
+    scroll: { icon: '📜', name: 'Lost scrolls' },
+    crystal: { icon: '🔮', name: 'Orichalcum crystals' },
+    urn: { icon: '🏺', name: 'Golden urns' },
+  };
+  const RELIC_ORDER = ['crown', 'scroll', 'crystal', 'urn'];
+  const RELIC_SET = [0, 1, 3, 6, 10];
+
+  // Tier: 1 easy … 4 extreme; 5 is the Heart of Atlantis.
   const TIER = {
     1: { name: 'Easy', target: 6, treasure: 3, gold: 2, stars: 1 },
     2: { name: 'Tricky', target: 10, treasure: 5, gold: 3, stars: 2 },
@@ -80,31 +98,70 @@
     5: { name: 'Legendary', target: 18, treasure: 20, gold: 6, stars: 5 },
   };
   const SITE = {
-    reef: { name: 'Coral Gate Reef', tier: 1, depth: 1, haz: ['shark'], blurb: 'Gold coins tangled in the coral at the city gate.' },
-    market: { name: 'Sunken Fish Market', tier: 1, depth: 1, haz: ['current'], blurb: 'Stalls still full of silver scales and bronze weights.' },
-    statue: { name: 'Toppled Statue', tier: 1, depth: 1, haz: ['cave'], blurb: 'A fallen giant with jewels for eyes.' },
-    lighthouse: { name: 'Drowned Lighthouse', tier: 1, depth: 1, haz: ['dark'], blurb: 'Its great crystal lens lies somewhere in the gloom.' },
-    amphora: { name: 'Amphora Field', tier: 1, depth: 1, haz: ['air'], blurb: 'Hundreds of sealed jars. Some hold pearls.' },
-    garden: { name: 'Kelp Garden', tier: 1, depth: 1, haz: ['current'], blurb: 'The queen’s garden, gone wild under the waves.' },
-    docks: { name: 'Old Harbor Docks', tier: 1, depth: 1, haz: ['shark'], blurb: 'Trading ships sank here with their cargo.' },
-    baths: { name: 'Royal Baths', tier: 2, depth: 1, haz: ['air', 'cave'], blurb: 'Marble pools, golden taps, narrow pipes.' },
-    arena: { name: 'Water Arena', tier: 2, depth: 2, haz: ['shark', 'current'], blurb: 'Champions’ crowns still lie in the sand.' },
-    mosaic: { name: 'Mosaic Plaza', tier: 2, depth: 2, haz: ['dark', 'trap'], blurb: 'Every tile is a tiny gem. Some tiles are traps.' },
-    aqueduct: { name: 'Broken Aqueduct', tier: 2, depth: 1, haz: ['cave', 'current'], blurb: 'Water still roars through the old channels.' },
-    barracks: { name: 'Sunken Barracks', tier: 2, depth: 2, haz: ['trap', 'air'], blurb: 'Orichalcum shields, guarded by old tricks.' },
-    archive: { name: 'Flooded Archive', tier: 2, depth: 2, haz: ['dark', 'air'], blurb: 'Golden scrolls deep inside a lightless hall.' },
-    temple: { name: 'Temple of Poseidon', tier: 3, depth: 2, haz: ['trap', 'dark', 'shark'], blurb: 'The sea god’s trident rests on the altar.' },
-    observatory: { name: 'Star Observatory', tier: 3, depth: 2, haz: ['current', 'air'], blurb: 'A brass star-map worth a kingdom.' },
-    palace: { name: 'Coral Palace', tier: 3, depth: 2, haz: ['shark', 'cave', 'trap'], blurb: 'The royal jewels, behind walls of living coral.' },
-    mint: { name: 'Orichalcum Mint', tier: 3, depth: 3, haz: ['trap', 'cave'], blurb: 'Where Atlantis made its glowing coins.' },
-    library: { name: 'Great Library', tier: 3, depth: 3, haz: ['dark', 'air', 'trap'], blurb: 'Crystal books that still glow when you touch them.' },
-    throne: { name: 'Throne of the Sea Kings', tier: 4, depth: 3, haz: ['trap', 'kraken', 'dark'], blurb: 'A throne carved from one enormous pearl.' },
-    vault: { name: 'Golden Vault', tier: 4, depth: 3, haz: ['trap', 'cave', 'air'], blurb: 'Locked for ten thousand years. Very locked.' },
-    trench: { name: 'Abyssal Trench Gate', tier: 4, depth: 3, haz: ['current', 'dark', 'kraken'], blurb: 'The gate to the deepest district of all.' },
-    forge: { name: 'Volcano Forge', tier: 4, depth: 3, haz: ['cave', 'current', 'air'], blurb: 'Hot vents, molten gold, very little room.' },
-    heart: { name: 'The Heart of Atlantis', tier: 5, depth: 3, haz: ['trap', 'kraken', 'dark'], blurb: 'The glowing crystal that once powered the whole city.' },
+    reef: { name: 'Coral Gate Reef', short: 'Coral Gate', tier: 1, depth: 1, haz: ['shark'], blurb: 'Gold coins tangled in the coral at the city gate.' },
+    market: { name: 'Sunken Fish Market', short: 'Fish Market', tier: 1, depth: 1, haz: ['current'], blurb: 'Stalls still full of silver scales and bronze weights.' },
+    statue: { name: 'Toppled Statue', short: 'Statue', tier: 1, depth: 1, haz: ['cave'], blurb: 'A fallen giant with jewels for eyes.' },
+    lighthouse: { name: 'Drowned Lighthouse', short: 'Lighthouse', tier: 1, depth: 1, haz: ['dark'], blurb: 'Its great crystal lens lies somewhere in the gloom.' },
+    amphora: { name: 'Amphora Field', short: 'Amphorae', tier: 1, depth: 1, haz: ['air'], blurb: 'Hundreds of sealed jars. Some hold pearls.' },
+    garden: { name: 'Kelp Garden', short: 'Kelp Garden', tier: 1, depth: 1, haz: ['current'], blurb: 'The queen’s garden, gone wild under the waves.' },
+    docks: { name: 'Old Harbor Docks', short: 'Old Docks', tier: 1, depth: 1, haz: ['shark'], blurb: 'Trading ships sank here with their cargo.' },
+    baths: { name: 'Royal Baths', short: 'Royal Baths', tier: 2, depth: 1, haz: ['air', 'cave'], relic: 'urn', blurb: 'Marble pools, golden taps, narrow pipes.' },
+    arena: { name: 'Water Arena', short: 'Arena', tier: 2, depth: 2, haz: ['shark', 'current'], relic: 'crown', blurb: 'Champions’ crowns still lie in the sand.' },
+    mosaic: { name: 'Mosaic Plaza', short: 'Mosaic Plaza', tier: 2, depth: 2, haz: ['dark', 'trap'], relic: 'crystal', blurb: 'Every tile is a tiny gem. Some tiles are traps.' },
+    aqueduct: { name: 'Broken Aqueduct', short: 'Aqueduct', tier: 2, depth: 1, haz: ['cave', 'current'], relic: 'urn', blurb: 'Water still roars through the old channels.' },
+    barracks: { name: 'Sunken Barracks', short: 'Barracks', tier: 2, depth: 2, haz: ['trap', 'air'], relic: 'crown', blurb: 'Orichalcum shields, guarded by old tricks.' },
+    archive: { name: 'Flooded Archive', short: 'Archive', tier: 2, depth: 2, haz: ['dark', 'air'], relic: 'scroll', blurb: 'Golden scrolls deep inside a lightless hall.' },
+    temple: { name: 'Temple of Poseidon', short: 'Poseidon’s Temple', tier: 3, depth: 2, haz: ['trap', 'dark', 'shark'], relic: 'urn', blurb: 'The sea god’s trident rests on the altar.' },
+    observatory: { name: 'Star Observatory', short: 'Observatory', tier: 3, depth: 2, haz: ['current', 'air'], relic: 'scroll', blurb: 'A brass star-map worth a kingdom.' },
+    palace: { name: 'Coral Palace', short: 'Coral Palace', tier: 3, depth: 2, haz: ['shark', 'cave', 'trap'], relic: 'crown', blurb: 'The royal jewels, behind walls of living coral.' },
+    mint: { name: 'Orichalcum Mint', short: 'The Mint', tier: 3, depth: 3, haz: ['trap', 'cave'], relic: 'crystal', blurb: 'Where Atlantis made its glowing coins.' },
+    library: { name: 'Great Library', short: 'Great Library', tier: 3, depth: 3, haz: ['dark', 'air', 'trap'], relic: 'scroll', blurb: 'Crystal books that still glow when you touch them.' },
+    throne: { name: 'Throne of the Sea Kings', short: 'Sea Throne', tier: 4, depth: 3, haz: ['trap', 'kraken', 'dark'], relic: 'crown', blurb: 'A throne carved from one enormous pearl.' },
+    vault: { name: 'Golden Vault', short: 'Golden Vault', tier: 4, depth: 3, haz: ['trap', 'cave', 'air'], relic: 'urn', blurb: 'Locked for ten thousand years. Very locked.' },
+    trench: { name: 'Abyssal Trench Gate', short: 'Trench Gate', tier: 4, depth: 3, haz: ['current', 'dark', 'kraken'], relic: 'crystal', blurb: 'The gate to the deepest district of all.' },
+    forge: { name: 'Volcano Forge', short: 'Volcano Forge', tier: 4, depth: 3, haz: ['cave', 'current', 'air'], relic: 'crystal', blurb: 'Hot vents, molten gold, very little room.' },
+    heart: { name: 'The Heart of Atlantis', short: 'The Heart', tier: 5, depth: 3, haz: ['trap', 'kraken', 'dark'], blurb: 'The glowing crystal that once powered the whole city.' },
   };
   const SITE_ORDER = Object.keys(SITE);
+
+  // The chart: rows of sites from the harbor down to the Heart. LINKS[row][i] lists the sites in the next row that site i leads to.
+  const ROWS = [
+    { tier: 1, xs: [10, 30, 50, 70, 90] },
+    { tier: 2, xs: [10, 30, 50, 70, 90] },
+    { tier: 3, xs: [12.5, 37.5, 62.5, 87.5] },
+    { tier: 4, xs: [25, 50, 75] },
+    { tier: 5, xs: [50] },
+  ];
+  const LINKS = [
+    [[0, 1], [1, 2], [2], [3], [3, 4]],
+    [[0], [0, 1], [1, 2], [2, 3], [3]],
+    [[0], [0, 1], [1, 2], [2]],
+    [[0], [0], [0]],
+  ];
+  const SLOTS = [];
+  ROWS.forEach((r, row) => r.xs.forEach((x, i) => SLOTS.push({ row, i, tier: r.tier, x, kids: [], parents: [] })));
+  const slotAt = (row, i) => SLOTS.findIndex((s) => s.row === row && s.i === i);
+  LINKS.forEach((row, ri) => row.forEach((kids, i) => kids.forEach((j) => {
+    const a = slotAt(ri, i);
+    const b = slotAt(ri + 1, j);
+    SLOTS[a].kids.push(b);
+    SLOTS[b].parents.push(a);
+  })));
+
+  // Commissions: public goals. The first company to meet one scores it.
+  const GOALS = {
+    deep: { icon: '🌊', name: 'Deep-sea pioneers', text: 'Explore 3 sites in the Deep or the Abyss.', pts: 5, test: (p) => p.found.filter((k) => SITE[k].depth >= 2).length >= 3 },
+    relics: { icon: '🏺', name: 'Collectors', text: 'Hold 3 different kinds of relic.', pts: 4, test: (p) => new Set(p.relics).size >= 3 },
+    fleet: { icon: '🚢', name: 'Shipping line', text: 'Have 3 subs at once.', pts: 4, test: (p) => p.subs.length >= 3 },
+    crew: { icon: '🤿', name: 'Big outfit', text: 'Have 6 divers at once.', pts: 3, test: (p) => p.divers.length >= 6 },
+    kraken: { icon: '🐙', name: 'Kraken tamers', text: 'Explore a site where the Kraken lurks.', pts: 5, test: (p) => p.found.some((k) => SITE[k].haz.includes('kraken')) },
+    hazards: { icon: '🧭', name: 'Seen it all', text: 'Explore sites with 5 different hazards between them.', pts: 4, test: (p) => new Set([].concat(...p.found.map((k) => SITE[k].haz))).size >= 5 },
+    flagship: { icon: '🐋', name: 'Flagship', text: 'Own a Leviathan.', pts: 3, test: (p) => p.subs.some((x) => x.k === 'leviathan') },
+    salts: { icon: '🎖️', name: 'Old salts', text: `Have 2 promoted divers at once.`, pts: 4, test: (p) => p.divers.filter((d) => promoted(d)).length >= 2 },
+    pockets: { icon: '🪙', name: 'Deep pockets', text: 'Have 🪙15 at once.', pts: 3, test: (p) => p.gold >= 15 },
+    streak: { icon: '🔥', name: 'Hot streak', text: 'Explore 3 sites in one tide.', pts: 4, test: (p) => p.tideFound >= 3 },
+  };
+  const GOAL_ORDER = Object.keys(GOALS);
 
   // Sea forecast: one per tide, known a tide ahead.
   const SEA = {
@@ -142,12 +199,18 @@
     return a;
   }
   const nid = (state) => ++state.nextId;
+  const poss = (name) => (/s$/i.test(name) ? `${name}’` : `${name}’s`);
+  const signed = (n) => (n < 0 ? `−${-n}` : `+${n}`);
+
   function log(state, text, who) {
     state.log.push({ t: state.tide, text, who: who == null ? null : who });
     if (state.log.length > 400) state.log.splice(0, state.log.length - 400);
   }
   const plural = (n, one, many) => `${n} ${n === 1 ? one : many || one + 's'}`;
   const sea = (state) => state.forecast[state.tide - 1];
+  const promoted = (d) => (d.xp || 0) >= PROMO_XP;
+  const skillOf = (d) => DIVER[d.k].skill + (promoted(d) ? 1 : 0);
+  const deepOf = (d) => Math.min(3, DIVER[d.k].deep + (promoted(d) ? 1 : 0));
 
   function diverCard(state, k) {
     const used = new Set();
@@ -155,11 +218,9 @@
     state.market.forEach((d) => used.add(d.name));
     const free = NAMES.filter((n) => !used.has(n));
     const name = free.length ? free[rint(state, free.length)] : `Diver ${state.nextId + 1}`;
-    return { id: nid(state), k, name };
+    return { id: nid(state), k, name, wait: 0 };
   }
-  function expCard(state, k) {
-    return { id: nid(state), k, scout: 0 };
-  }
+  const hireCost = (d) => Math.max(Math.ceil(DIVER[d.k].cost / 2), DIVER[d.k].cost - (d.wait || 0));
 
   // ---------------------------------------------------------------- setup
   function newGame(opts) {
@@ -179,11 +240,12 @@
       market: [],
       diverDeck: [],
       map: [],
-      expDeck: [],
+      goals: [],
       forecast: [],
       firsts: {},
       heartTaken: false,
       last: null,
+      claimed: [],
       log: [],
     };
     state.forecast = shuffle(state, SEA_ORDER.slice()).slice(0, TIDES);
@@ -197,17 +259,14 @@
     });
     state.diverDeck = shuffle(state, deck);
 
-    const byTier = (t) => shuffle(state, SITE_ORDER.filter((k) => SITE[k].tier === t));
-    const [t1, t2, t3, t4] = [1, 2, 3, 4].map(byTier);
-    state.map = [t1.pop(), t1.pop(), t1.pop(), t2.pop()].map((k) => expCard(state, k));
-    state.expDeck = [
-      ...shuffle(state, [...t1, t2.pop(), t2.pop()]),
-      ...shuffle(state, [...t2, t3.pop(), t3.pop()]),
-      ...shuffle(state, [...t3, ...t4]),
-    ];
+    // Each game draws its own sites for every row of the chart.
+    const pools = {};
+    [1, 2, 3, 4, 5].forEach((t) => (pools[t] = shuffle(state, SITE_ORDER.filter((k) => SITE[k].tier === t))));
+    state.map = SLOTS.map((slot, n) => ({ id: nid(state), n, k: pools[slot.tier].pop(), scout: 0, by: null }));
+    state.goals = shuffle(state, GOAL_ORDER.slice()).slice(0, GOAL_COUNT).map((k) => ({ k, by: null }));
 
     for (let i = 0; i < 2; i++) {
-      const p = {
+      state.players.push({
         name: String(names[i] || (i ? 'Blue' : 'Red')).slice(0, 18),
         ai: !!ai[i],
         gold: START_GOLD,
@@ -215,12 +274,13 @@
         divers: [],
         subs: [],
         found: [],
+        relics: [],
+        tideFound: 0,
         stats: { dives: 0, wins: 0, lost: 0, wrecked: 0 },
-      };
-      state.players.push(p);
+      });
     }
     state.players.forEach((p) => {
-      p.divers.push(Object.assign(diverCard(state, 'rookie'), { used: false, tired: 0 }));
+      p.divers.push(Object.assign(diverCard(state, 'rookie'), { used: false, tired: 0, xp: 0 }));
       p.subs.push({ id: nid(state), k: 'minnow', mods: [], used: false, stuck: 0 });
     });
     for (let i = 0; i < MARKET_SIZE; i++) drawDiver(state);
@@ -233,18 +293,13 @@
     if (!h) return;
     const p = state.players[pi];
     p.gold += h.gold || 0;
-    if (h.rookie) p.divers.push(Object.assign(diverCard(state, 'rookie'), { used: false, tired: 0 }));
+    if (h.rookie) p.divers.push(Object.assign(diverCard(state, 'rookie'), { used: false, tired: 0, xp: 0 }));
     if (h.sub) p.subs[0].k = h.sub;
   }
 
   function drawDiver(state) {
     if (!state.diverDeck.length) return;
     state.market.push(diverCard(state, state.diverDeck.shift()));
-  }
-  function drawExp(state) {
-    if (!state.expDeck.length) return false;
-    state.map.push(expCard(state, state.expDeck.shift()));
-    return true;
   }
 
   // ---------------------------------------------------------------- queries
@@ -272,6 +327,25 @@
     const t = TIER[siteOf(x).tier];
     return { treasure: t.treasure + (sea(state) === 'rumors' ? 2 : 0), gold: t.gold };
   }
+  // Any unexplored site can be tried (the Heart only once it's sighted on tide HEART_TIDE), but a site is
+  // only charted once a site leading to it has been explored; diving somewhere uncharted is much harder.
+  const charted = (state, x) => SLOTS[x.n].row === 0 || SLOTS[x.n].parents.some((n) => state.map[n].by != null);
+  const isOpen = (state, x) => x.by == null && (x.k !== 'heart' || state.tide >= HEART_TIDE);
+  const openSites = (state) => state.map.filter((x) => isOpen(state, x));
+  const linked = (x) => SLOTS[x.n].parents.concat(SLOTS[x.n].kids);
+  const knownWaters = (state, pi, x) => linked(x).some((n) => state.map[n].by === pi);
+
+  function relicPoints(relics) {
+    const c = {};
+    relics.forEach((r) => (c[r] = (c[r] || 0) + 1));
+    let pts = 0;
+    for (;;) {
+      const kinds = Object.keys(c).filter((k) => c[k] > 0);
+      if (!kinds.length) return pts;
+      pts += RELIC_SET[kinds.length];
+      kinds.forEach((k) => (c[k] -= 1));
+    }
+  }
 
   // Everything that goes into a dive's roll, so the page can show the sum before the dice are thrown.
   function chance(state, pi, expId, subId, crewIds) {
@@ -282,13 +356,25 @@
     const site = siteOf(x);
     const crew = (crewIds || []).map((id) => diverOf(p, id)).filter(Boolean);
     const parts = [];
-    const skill = crew.reduce((t, d) => t + DIVER[d.k].skill, 0);
+    const skill = crew.reduce((t, d) => t + skillOf(d), 0);
     if (skill) parts.push({ label: `Crew skill`, v: skill });
     if (SUB[s.k].bonus) parts.push({ label: `${SUB[s.k].name}`, v: SUB[s.k].bonus });
+    if (knownWaters(state, pi, x)) parts.push({ label: 'Known waters', v: KNOWN_BONUS });
     if (x.scout) parts.push({ label: 'Earlier attempts', v: x.scout });
     const w = sea(state);
     if (w === 'calm') parts.push({ label: 'Calm seas', v: 1 });
     if (w === 'lowtide' && site.depth === 1) parts.push({ label: 'Low tide', v: 2 });
+    if (!charted(state, x)) parts.push({ label: 'Uncharted waters', v: -UNCHARTED });
+    const subGap = Math.max(0, site.depth - SUB[s.k].depth);
+    if (subGap) parts.push({ label: `${SUB[s.k].name} out of its depth`, v: -SUB_DEEP_PEN * subGap });
+    const risk = [];
+    crew.forEach((d) => {
+      const gap = Math.max(0, site.depth - deepOf(d));
+      if (!gap) return;
+      parts.push({ label: `${d.name} out of their depth`, v: -DIVER_DEEP_PEN * gap });
+      risk.push({ id: d.id, name: d.name, p: Math.min(0.9, DIVER_LOST * gap) });
+    });
+    const crush = subGap ? Math.min(0.9, SUB_CRUSH * subGap) : 0;
     const haz = site.haz.map((h) => {
       const byDiver = crew.find((d) => DIVER[d.k].spec.includes(h));
       const byMod = s.mods.find((m) => MOD[m].haz === h);
@@ -303,7 +389,7 @@
     // A natural 20 always works and a natural 1 always fails.
     const need = Math.min(20, Math.max(2, target - bonus));
     const p20 = (21 - need) / 20;
-    return { target, bonus, need, p: p20, parts, haz, uncovered: haz.filter((z) => !z.ready).map((z) => z.h) };
+    return { target, bonus, need, p: p20, parts, haz, uncovered: haz.filter((z) => !z.ready).map((z) => z.h), risk, crush, charted: charted(state, x) };
   }
 
   function legal(state, pi, a) {
@@ -317,7 +403,7 @@
         const d = state.market.find((x) => x.id === a.d);
         if (!d) return 'That diver isn’t for hire any more.';
         if (p.divers.length >= MAX_DIVERS) return `Your company can only keep ${MAX_DIVERS} divers.`;
-        if (p.gold < DIVER[d.k].cost) return `You need 🪙${DIVER[d.k].cost} to hire ${d.name}.`;
+        if (p.gold < hireCost(d)) return `You need 🪙${hireCost(d)} to hire ${d.name}.`;
         return '';
       }
       case 'build': {
@@ -361,8 +447,9 @@
         }
         if (a.t === 'salvage') return '';
         const x = expOf(state, a.x);
-        if (!x) return 'That expedition is gone.';
-        if (SUB[s.k].depth < siteOf(x).depth) return `A ${SUB[s.k].name} can’t reach the ${DEPTH[siteOf(x).depth].name.toLowerCase()}.`;
+        if (!x) return 'There’s no site like that.';
+        if (x.by != null) return 'That site has already been explored.';
+        if (!isOpen(state, x)) return `Nobody has sighted the Heart of Atlantis yet. It appears on tide ${HEART_TIDE}.`;
         return '';
       }
       case 'pass':
@@ -377,15 +464,18 @@
     if (why) throw new Error(why);
     const p = state.players[pi];
     state.last = null;
+    state.claimed = [];
     switch (a.t) {
       case 'hire': {
         const i = state.market.findIndex((x) => x.id === a.d);
         const d = state.market.splice(i, 1)[0];
-        p.gold -= DIVER[d.k].cost;
+        const paid = hireCost(d);
+        p.gold -= paid;
+        delete d.wait;
         // A new hire is ready to dive straight away.
-        p.divers.push(Object.assign(d, { used: false, tired: 0 }));
+        p.divers.push(Object.assign(d, { used: false, tired: 0, xp: 0 }));
         drawDiver(state);
-        log(state, `${p.name} hired ${d.name}, ${DIVER[d.k].role.toLowerCase()}, for 🪙${DIVER[d.k].cost}.`, pi);
+        log(state, `${p.name} hired ${d.name}, ${DIVER[d.k].role.toLowerCase()}, for 🪙${paid}.`, pi);
         break;
       }
       case 'build': {
@@ -418,7 +508,7 @@
         crew.forEach((d) => (d.used = true));
         p.gold += gain;
         state.last = { t: 'salvage', pi, s: s.id, crew: a.crew.slice(), gold: gain };
-        log(state, `${p.name}’s ${SUB[s.k].name} went on a salvage run and brought back 🪙${gain}.`, pi);
+        log(state, `${poss(p.name)} ${SUB[s.k].name} went on a salvage run and brought back 🪙${gain}.`, pi);
         break;
       }
       case 'dive':
@@ -429,7 +519,21 @@
         log(state, `${p.name} is done for this tide.`, pi);
         break;
     }
+    state.claimed = checkGoals(state, pi);
+    if (state.last) state.last.goals = state.claimed.slice();
     advance(state, pi);
+  }
+
+  function checkGoals(state, pi) {
+    const p = state.players[pi];
+    const got = [];
+    state.goals.forEach((g) => {
+      if (g.by != null || !GOALS[g.k].test(p)) return;
+      g.by = pi;
+      got.push(g.k);
+      log(state, `${GOALS[g.k].icon} ${p.name} completed the “${GOALS[g.k].name}” commission: +${GOALS[g.k].pts} points!`, pi);
+    });
+    return got;
   }
 
   function dive(state, pi, a) {
@@ -449,32 +553,61 @@
     if (ok) {
       const r = rewardOf(state, x);
       const extra = d20 === 20 ? 2 : 0;
+      const before = state.map.filter((y) => charted(state, y)).map((y) => y.id);
       p.treasure += r.treasure;
       p.gold += r.gold + extra;
       p.found.push(x.k);
+      p.tideFound += 1;
       p.stats.wins += 1;
-      state.map = state.map.filter((y) => y.id !== x.id);
+      x.by = pi;
       out.treasure = r.treasure;
       out.gold = r.gold + extra;
+      if (site.relic) {
+        p.relics.push(site.relic);
+        out.relic = site.relic;
+      }
       if (state.firsts[site.tier] == null) {
         state.firsts[site.tier] = pi;
         out.first = true;
       }
       if (x.k === 'heart') state.heartTaken = true;
-      log(state, `${p.name} explored ${site.name}${d20 === 20 ? ' with a perfect 20' : ''}: 🎲${d20}+${c.bonus} = ${total} (needed ${c.target}). Found 💎${r.treasure} and 🪙${r.gold + extra}${out.first ? ` — first to finish a ${TIER[site.tier].name.toLowerCase()} expedition!` : '.'}`, pi);
-      while (state.map.length < MAP_MIN && drawExp(state));
+      log(state, `${p.name} explored ${site.name}${d20 === 20 ? ' with a perfect 20' : ''}: 🎲${d20}${signed(c.bonus)} = ${total} (needed ${c.target}). Found 💎${r.treasure} and 🪙${r.gold + extra}${site.relic ? ` and a relic (${RELIC[site.relic].icon})` : ''}${out.first ? ` — first to finish a ${TIER[site.tier].name.toLowerCase()} expedition!` : '.'}`, pi);
+      out.promoted = [];
+      crew.forEach((d) => {
+        d.xp = (d.xp || 0) + 1;
+        if (d.xp === PROMO_XP) out.promoted.push(d.name);
+      });
+      if (out.promoted.length) log(state, `🎖️ ${out.promoted.join(' and ')} ${out.promoted.length > 1 ? 'were' : 'was'} promoted: +1 skill, and trained one zone deeper.`, pi);
+      out.opened = state.map.filter((y) => y.by == null && charted(state, y) && !before.includes(y.id)).map((y) => y.k);
+      if (out.opened.length) log(state, `🗺️ New routes charted to ${out.opened.map((k) => SITE[k].name).join(' and ')}.`, pi);
     } else {
       // The worst hazard nobody was ready for strikes; on a 1, any hazard can.
       const pool = d20 === 1 ? site.haz : c.uncovered;
       x.scout = Math.min(SCOUT_MAX, x.scout + 1);
       out.scout = x.scout;
-      log(state, `${p.name}’s dive at ${site.name} failed: 🎲${d20}${d20 === 1 ? ' (a disaster!)' : ''}+${c.bonus} = ${total}, needed ${c.target}.`, pi);
+      log(state, `${poss(p.name)} dive at ${site.name} failed: 🎲${d20}${d20 === 1 ? ' (a disaster!)' : ''}${signed(c.bonus)} = ${total}, needed ${c.target}.`, pi);
       if (!pool.length) {
-        out.msgs.push('The crew turned back empty-handed, but everyone is safe.');
+        out.msgs.push(c.risk.length || c.crush ? 'The crew was ready for every hazard down there and turned back empty-handed.' : 'The crew turned back empty-handed, but everyone is safe.');
       } else {
         const h = pool[rint(state, pool.length)];
         out.strike = h;
         strike(state, pi, h, s, crew, out);
+      }
+      // Divers and subs sent deeper than they're built for can be lost on top of whatever else went wrong.
+      out.drowned = [];
+      c.risk.forEach((r) => {
+        const d = diverOf(p, r.id);
+        if (!d || rng(state) >= r.p) return;
+        p.divers = p.divers.filter((y) => y !== d);
+        p.stats.lost += 1;
+        out.drowned.push(d.name);
+        out.msgs.push(`🫥 ${d.name} was out of their depth and was lost in the ${DEPTH[site.depth].name.toLowerCase()}.`);
+      });
+      if (c.crush && p.subs.includes(s) && rng(state) < c.crush) {
+        p.subs = p.subs.filter((y) => y !== s);
+        p.stats.wrecked += 1;
+        out.wrecked = SUB[s.k].name;
+        out.msgs.push(`💥 The water pressure crushed the ${SUB[s.k].name} — it was never built to go that deep.`);
       }
       out.msgs.forEach((m) => log(state, m, pi));
     }
@@ -487,8 +620,8 @@
     const sub = SUB[s.k].name;
     const rest = () => crew.forEach((d) => p.divers.includes(d) && (d.tired = Math.max(d.tired, t + 1)));
     if (h === 'shark') {
-      const low = Math.min(...crew.map((d) => DIVER[d.k].skill));
-      const pick = crew.filter((d) => DIVER[d.k].skill === low);
+      const low = Math.min(...crew.map(skillOf));
+      const pick = crew.filter((d) => skillOf(d) === low);
       const d = pick[rint(state, pick.length)];
       p.divers = p.divers.filter((y) => y !== d);
       p.stats.lost += 1;
@@ -539,6 +672,7 @@
     state.players.forEach((p, i) => {
       p.divers.forEach((d) => (d.used = false));
       p.subs.forEach((s) => (s.used = false));
+      p.tideFound = 0;
       const inc = INCOME + (w === 'gala' ? 3 : 0);
       p.gold += inc;
       const unpaid = [];
@@ -552,21 +686,15 @@
         log(state, `${p.name} couldn’t pay ${unpaid.map((d) => d.name).join(' and ')}, who quit.`, i);
       }
     });
-    // The longest-waiting diver in the hall finds other work; one new expedition is charted.
+    // The longest-waiting diver in the hall finds other work; everyone still waiting gets cheaper.
     if (state.market.length) state.market.shift();
+    state.market.forEach((d) => (d.wait = (d.wait || 0) + 1));
     while (state.market.length < MARKET_SIZE && state.diverDeck.length) drawDiver(state);
-    if (state.map.length >= MAP_MAX) {
-      const old = state.map.findIndex((x) => x.k !== 'heart');
-      if (old >= 0) state.map.splice(old, 1);
-    }
-    drawExp(state);
-    while (state.map.length < MAP_MIN && drawExp(state));
-    let heart = '';
-    if (state.tide === HEART_TIDE) {
-      state.map.push(expCard(state, 'heart'));
-      heart = ' The Heart of Atlantis has been sighted!';
-    }
-    log(state, `Tide ${state.tide} · ${SEA[w].icon} ${SEA[w].name}: ${SEA[w].note} Everyone collects 🪙${INCOME}${w === 'gala' ? '+3' : ''} and pays wages.${heart}`);
+    const heart = state.map.find((x) => x.k === 'heart');
+    const sighted = state.tide === HEART_TIDE ? ` The Heart of Atlantis has been sighted!${charted(state, heart) ? ' A route to it is already charted.' : ' Until someone explores an extreme site, the way there is uncharted.'}` : '';
+    log(state, `Tide ${state.tide} · ${SEA[w].icon} ${SEA[w].name}: ${SEA[w].note} Everyone collects 🪙${INCOME}${w === 'gala' ? '+3' : ''} and pays wages.${sighted}`);
+    state.claimed = [];
+    state.players.forEach((p, i) => state.claimed.push(...checkGoals(state, i)));
   }
 
   // ---------------------------------------------------------------- scoring
@@ -574,8 +702,10 @@
     const pi = state.players.indexOf(p);
     const treasure = p.treasure;
     const discoveries = Object.values(state.firsts).filter((w) => w === pi).length * DISCOVERY_PTS;
+    const relics = relicPoints(p.relics || []);
+    const goals = (state.goals || []).filter((g) => g.by === pi).reduce((t, g) => t + GOALS[g.k].pts, 0);
     const gold = Math.floor(p.gold / GOLD_PER_PT);
-    return { treasure, discoveries, gold, expeditions: p.found.length, total: treasure + discoveries + gold };
+    return { treasure, discoveries, relics, goals, gold, expeditions: p.found.length, total: treasure + discoveries + relics + goals + gold };
   }
   function winner(state) {
     const [a, b] = state.players.map((p) => score(state, p));
@@ -592,21 +722,24 @@
     const room = SUB[s.k].crew;
     let left = (pool || readyDivers(state, p)).slice();
     const crew = [];
+    let now = -Infinity;
     while (crew.length < room && left.length) {
       let best = null;
       for (const d of left) {
         const c = chance(state, pi, x.id, s.id, [...crew, d].map((y) => y.id));
-        const v = c.bonus - DIVER[d.k].skill * 0.01 * (crew.length ? 0 : 1);
+        const v = c.bonus - skillOf(d) * 0.01 * (crew.length ? 0 : 1) - (c.risk.some((r) => r.id === d.id) ? 0.5 : 0);
         if (!best || v > best.v) best = { d, v };
       }
+      // An extra diver who'd make the roll worse (out of their depth) stays home.
+      if (crew.length && best.v <= now) break;
+      now = best.v;
       crew.push(best.d);
       left = left.filter((y) => y !== best.d);
     }
-    // Drop divers who add nothing but risk (only skill-0 divers would, so keep everyone useful).
     return crew;
   }
 
-  const diverWorth = (d) => DIVER[d.k].cost * 0.5 + DIVER[d.k].skill;
+  const diverWorth = (d) => DIVER[d.k].cost * 0.5 + skillOf(d);
   function lossOf(state, pi, h, s, crew) {
     const p = state.players[pi];
     switch (h) {
@@ -619,12 +752,36 @@
     }
   }
 
+  // Points from commissions this company would complete if `change` happened to it.
+  function goalGain(state, pi, change) {
+    const open = state.goals.filter((g) => g.by == null);
+    if (!open.length) return 0;
+    const q = clone(state.players[pi]);
+    change(q);
+    return open.reduce((t, g) => t + (GOALS[g.k].test(q) ? GOALS[g.k].pts : 0), 0);
+  }
+
   function diveValue(state, pi, x, s, crew, level) {
+    const p = state.players[pi];
     const c = chance(state, pi, x.id, s.id, crew.map((d) => d.id));
     const site = siteOf(x);
     const r = rewardOf(state, x);
     let gain = r.treasure + r.gold * 0.35 + (state.firsts[site.tier] == null ? DISCOVERY_PTS : 0);
+    if (site.relic) gain += relicPoints(p.relics.concat(site.relic)) - relicPoints(p.relics) + 0.5;
     if (x.k === 'heart') gain += 4;
+    // Opening deeper routes matters early on; late in the season there's no time to use them.
+    gain += SLOTS[x.n].kids.filter((n) => state.map[n].by == null && !charted(state, state.map[n])).length * (tidesLeft(state) >= 4 ? 0.4 : 0.1);
+    if (level !== 'easy') {
+      gain += goalGain(state, pi, (q) => {
+        q.found.push(x.k);
+        if (site.relic) q.relics.push(site.relic);
+        q.tideFound += 1;
+        crew.forEach((d) => {
+          const y = q.divers.find((z) => z.id === d.id);
+          if (y) y.xp = (y.xp || 0) + 1;
+        });
+      });
+    }
     const pool = c.uncovered;
     let loss = pool.length ? pool.reduce((t, h) => t + lossOf(state, pi, h, s, crew), 0) / pool.length : 0;
     const disaster = site.haz.reduce((t, h) => t + lossOf(state, pi, h, s, crew), 0) / site.haz.length;
@@ -633,18 +790,21 @@
     if (level === 'easy') loss *= 0.6;
     const pFail = 1 - c.p;
     const pDisaster = 0.05;
-    return { v: c.p * gain - ((pFail - pDisaster) * loss + pDisaster * disaster) * late, p: c.p, c };
+    // Out-of-depth divers and subs can be lost on any failed dive.
+    let deepLoss = c.risk.reduce((t, rk) => t + rk.p * diverWorth(diverOf(p, rk.id)), 0) + c.crush * (SUB[s.k].cost * 0.7 + s.mods.length * 2 + 1);
+    if (level === 'easy') deepLoss *= 0.5;
+    return { v: c.p * gain - ((pFail - pDisaster) * loss + pDisaster * disaster + pFail * deepLoss) * late, p: c.p, c };
   }
 
-  // How much the company wants a diver with these specialties, given the expeditions on the map.
+  // How much the company wants a diver with these specialties, given the charted sites (and, less, the uncharted ones).
   function hazardDemand(state, pi) {
     const p = state.players[pi];
     const dem = {};
     HAZ_ORDER.forEach((h) => (dem[h] = 0));
     const depth = Math.max(maxDepth(p), 1);
-    state.map.forEach((x) => {
+    openSites(state).forEach((x) => {
       const site = siteOf(x);
-      const w = TIER[site.tier].treasure / 5;
+      const w = (TIER[site.tier].treasure / 5) * (charted(state, x) ? 1 : 0.35);
       const reach = site.depth <= depth + 1 ? 1 : 0.4;
       site.haz.forEach((h) => (dem[h] += w * reach));
     });
@@ -660,12 +820,13 @@
     const wages = wagesOf(p);
     const reserve = Math.max(0, wages - INCOME);
     const dem = hazardDemand(state, pi);
+    const goals = level !== 'easy';
+    const open = openSites(state);
 
     const subs = readySubs(state, p);
     const crewPool = readyDivers(state, p);
     for (const s of subs) {
-      for (const x of state.map) {
-        if (SUB[s.k].depth < siteOf(x).depth) continue;
+      for (const x of open) {
         const crew = level === 'easy' ? crewPool.slice(0, SUB[s.k].crew) : bestCrew(state, pi, x, s, crewPool);
         if (!crew.length) continue;
         const dv = diveValue(state, pi, x, s, crew, level);
@@ -679,41 +840,44 @@
       const room = crewRoom(p);
       for (const d of state.market) {
         const info = DIVER[d.k];
-        if (p.gold - info.cost < reserve) continue;
+        const cost = hireCost(d);
+        if (p.gold - cost < reserve) continue;
         const spec = info.spec.reduce((t, h) => t + dem[h], 0);
         // An empty seat in a sub is a dive the company can't make; a diver with no seat just draws wages.
         const seat = p.divers.length < room ? 1.8 : -1.4 * (p.divers.length - room + 1);
-        const v = info.skill * 0.9 + spec * 1.1 - info.cost * 0.3 - info.wage * Math.min(left - 1, 6) * 0.15 + seat;
+        let v = info.skill * 0.9 + (info.deep - 1) * 0.6 + spec * 1.1 - cost * 0.3 - info.wage * Math.min(left - 1, 6) * 0.15 + seat;
+        if (goals) v += goalGain(state, pi, (q) => { q.gold -= cost; q.divers.push({ k: d.k, xp: 0 }); }) * 0.8;
         out.push({ a: { t: 'hire', d: d.id }, v });
       }
     }
 
+    const depthNow = maxDepth(p);
+    const deepGain = open.filter((x) => siteOf(x).depth > depthNow).reduce((t, x) => Math.max(t, TIER[siteOf(x).tier].treasure), 0)
+      || state.map.filter((x) => x.by == null && siteOf(x).depth > depthNow).length * 0.6;
     if (left >= 2 && p.subs.length < MAX_SUBS) {
-      const depthNow = maxDepth(p);
-      const deep = state.map.filter((x) => siteOf(x).depth > depthNow);
-      const deepGain = deep.reduce((t, x) => Math.max(t, TIER[siteOf(x).tier].treasure), 0);
       for (const k of SUB_ORDER) {
         const b = SUB[k];
         if (p.gold - b.cost < reserve) continue;
         const crewGain = Math.min(b.crew, Math.max(0, p.divers.length - crewRoom(p)) + 1);
         const unlock = b.depth > depthNow ? deepGain * 0.45 : 0;
-        const v = crewGain * 0.8 + unlock + b.bonus * 0.9 + b.slots * 0.3 - b.cost * 0.3 + (left >= 5 ? 0.8 : 0);
+        let v = crewGain * 0.8 + unlock + b.bonus * 0.9 + b.slots * 0.3 - b.cost * 0.3 + (left >= 5 ? 0.8 : 0);
+        if (goals) v += goalGain(state, pi, (q) => { q.gold -= b.cost; q.subs.push({ k, mods: [] }); }) * 0.8;
         out.push({ a: { t: 'build', k }, v });
       }
     }
 
     if (left >= 2) {
-      const depthNow = maxDepth(p);
-      const deepGain = state.map.filter((x) => siteOf(x).depth > depthNow).reduce((t, x) => Math.max(t, TIER[siteOf(x).tier].treasure), 0);
       for (const s of p.subs) {
         if (s.stuck >= state.tide) continue;
         for (const k of SUB_ORDER) {
           const b = SUB[k];
           const was = SUB[s.k];
-          if (b.cost <= was.cost || p.gold - upgradeCost(s, k) < reserve) continue;
+          const cost = upgradeCost(s, k);
+          if (b.cost <= was.cost || p.gold - cost < reserve) continue;
           const crewGain = Math.min(b.crew - was.crew, Math.max(0, p.divers.length - crewRoom(p)) + 1);
           const unlock = b.depth > depthNow ? deepGain * 0.45 : 0;
-          const v = crewGain * 0.8 + unlock + (b.bonus - was.bonus) * 0.9 + (b.slots - was.slots) * 0.3 - upgradeCost(s, k) * 0.3 + (left >= 4 ? 0.5 : 0);
+          let v = crewGain * 0.8 + unlock + (b.bonus - was.bonus) * 0.9 + (b.slots - was.slots) * 0.3 - cost * 0.3 + (left >= 4 ? 0.5 : 0);
+          if (goals) v += goalGain(state, pi, (q) => { q.gold -= cost; q.subs.find((z) => z.id === s.id).k = k; }) * 0.8;
           out.push({ a: { t: 'upgrade', s: s.id, k }, v });
         }
       }
@@ -742,7 +906,7 @@
     for (const o of opts) {
       if (o.a.t === 'dive' && o.p < minP) continue;
       let v = o.v;
-      // Hard computers race you for the expeditions you're best placed to win.
+      // Hard computers race you for the sites you're best placed to win.
       if ((level === 'hard' || level === 'brutal') && o.a.t === 'dive') v += rivalThreat(state, pi, o.a.x) * 0.3;
       if (noise) v += (Math.random() - 0.5) * noise;
       if (!best || v > best.v) best = { a: o.a, v };
@@ -767,10 +931,13 @@
   }
 
   const api = {
-    SAVE_V, TIDES, HEART_TIDE, START_GOLD, INCOME, MAX_SUBS, MAX_DIVERS, MARKET_SIZE, UNCOVERED, SCOUT_MAX, DISCOVERY_PTS, GOLD_PER_PT,
+    SAVE_V, TIDES, HEART_TIDE, START_GOLD, INCOME, MAX_SUBS, MAX_DIVERS, MARKET_SIZE, UNCOVERED, SCOUT_MAX, KNOWN_BONUS, PROMO_XP, DISCOVERY_PTS, GOLD_PER_PT, GOAL_COUNT,
     HAZ, HAZ_ORDER, DEPTH, SUB, SUB_ORDER, MOD, MOD_ORDER, DIVER, DIVER_ORDER, TIER, SITE, SITE_ORDER, SEA, SEA_ORDER, SEA_DOUBLE, AI_LEVEL, AI_HEAD_START,
-    newGame, aiHeadStart, legal, apply, chance, score, winner, aiChoose, bestCrew, clone, upgradeCost,
+    RELIC, RELIC_ORDER, RELIC_SET, GOALS, GOAL_ORDER, ROWS, SLOTS,
+    newGame, aiHeadStart, legal, apply, chance, score, winner, aiChoose, bestCrew, clone, upgradeCost, hireCost, relicPoints,
     sea, diverReady, subReady, readyDivers, readySubs, wagesOf, crewRoom, maxDepth, tidesLeft, siteOf, targetOf, rewardOf, expOf, subOf, diverOf,
+    isOpen, openSites, charted, knownWaters, promoted, skillOf, deepOf, poss,
+    UNCHARTED, DIVER_DEEP_PEN, DIVER_LOST, SUB_DEEP_PEN, SUB_CRUSH,
   };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.AtlantisEngine = api;
