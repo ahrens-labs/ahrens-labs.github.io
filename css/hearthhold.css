@@ -747,6 +747,7 @@ button { font-family: inherit; }
 .hg-table { display: grid; gap: 0.15rem; margin: 0 0.8rem 0.8rem; padding-top: 0.5rem; border-top: 1px solid var(--parchment-2); font-size: 0.9rem; }
 .hg-table div { display: grid; grid-template-columns: 3rem 1fr 3rem; align-items: center; text-align: center; }
 .hg-table span { font-weight: 700; }
+.hg-view { margin: 0 0.8rem 0.8rem; text-align: center; }
 .hg-table small { color: #5a4630; }
 .hg-main em { font-style: normal; color: #8a5a00; }
 .hist-note { margin: 0.8rem 0 0; font-size: 0.85rem; text-align: center; }

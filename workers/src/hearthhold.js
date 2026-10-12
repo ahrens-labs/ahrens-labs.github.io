@@ -19,6 +19,7 @@ const MAX_TRADES = 40;
 const GAME_ID_RE = /^hh[0-9a-f]{18}$/;
 const LOCAL_ID_RE = /^hl[0-9a-f]{16}$/;
 const HISTORY_KEEP = 200;
+const MAX_BOARD_BYTES = 64 * 1024;
 const SCORE_KEYS = ['renown', 'buildings', 'villagers', 'walls', 'fortified', 'gold', 'total'];
 const OPTIONAL_SCORE_KEYS = ['goals'];
 const LEVELS = new Set(['easy', 'normal', 'hard', 'brutal']);
@@ -248,6 +249,14 @@ function localHistoryItem(b) {
   };
 }
 
+// The final villages of a finished local game, so history can show them (the log goes if it's too big).
+function cleanBoard(b) {
+  if (!b || typeof b !== 'object' || b.v !== 1 || b.phase !== 'over' || !Array.isArray(b.players) || b.players.length !== 2) return null;
+  if (JSON.stringify(b).length <= MAX_BOARD_BYTES) return b;
+  const lean = { ...b, log: [] };
+  return JSON.stringify(lean).length <= MAX_BOARD_BYTES ? lean : null;
+}
+
 function onlineHistoryItem(record, me) {
   const s = record.state;
   return {
@@ -306,7 +315,15 @@ export async function handleHearthholdRequest(request, env, corsHeaders, path, {
   if (path === '/api/oakhaven/history/record' && request.method === 'POST') {
     const item = localHistoryItem(body);
     if (!item) return jsonResponse({ error: 'Invalid game record' }, corsHeaders, 400);
-    const res = await lobbyStub(env, userId).fetch(new Request('http://do/record', { method: 'POST', body: JSON.stringify(item) }));
+    const board = cleanBoard(body.board);
+    const res = await lobbyStub(env, userId).fetch(new Request('http://do/record', { method: 'POST', body: JSON.stringify({ item, board }) }));
+    return jsonResponse(await res.json(), corsHeaders, res.status);
+  }
+
+  if (path === '/api/oakhaven/history/board' && request.method === 'GET') {
+    const gid = String(url.searchParams.get('id') || '');
+    if (!LOCAL_ID_RE.test(gid)) return jsonResponse({ error: 'Game not found' }, corsHeaders, 404);
+    const res = await lobbyStub(env, userId).fetch(new Request(`http://do/board?id=${gid}`));
     return jsonResponse(await res.json(), corsHeaders, res.status);
   }
 
@@ -650,13 +667,20 @@ export class HearthholdLobby {
   }
 
   async fetch(request) {
-    const op = new URL(request.url).pathname;
+    const url = new URL(request.url);
+    const op = url.pathname;
     if (op === '/history') {
       return Response.json({ items: (await this.storage.get('history')) || [] });
     }
     if (op === '/record' && request.method === 'POST') {
-      await this.addHistory(await request.json());
+      const { item, board } = await request.json();
+      await this.addHistory(item, board || null);
       return Response.json({ ok: true });
+    }
+    if (op === '/board') {
+      const board = await this.storage.get(`board:${url.searchParams.get('id')}`);
+      if (!board) return Response.json({ error: 'This game’s villages weren’t saved.' }, { status: 404 });
+      return Response.json({ state: board });
     }
     const games = (await this.storage.get('games')) || {};
     if (op === '/list') {
@@ -679,11 +703,21 @@ export class HearthholdLobby {
     return Response.json({ error: 'Not found' }, { status: 404 });
   }
 
-  async addHistory(item) {
+  // Local games keep their final villages under board:<id>, dropped together with the history row.
+  async addHistory(item, board = null) {
     if (!item || !item.id) return;
     const list = (await this.storage.get('history')) || [];
-    if (list.some((h) => h.id === item.id)) return;
+    const known = list.find((h) => h.id === item.id);
+    if (known) {
+      if (!board || known.board) return;
+      known.board = true;
+      await this.storage.put({ history: list, [`board:${item.id}`]: board });
+      return;
+    }
+    if (board) item.board = true;
     list.unshift(item);
-    await this.storage.put('history', list.slice(0, HISTORY_KEEP));
+    const dropped = list.slice(HISTORY_KEEP).filter((h) => h.board).map((h) => `board:${h.id}`);
+    await this.storage.put({ history: list.slice(0, HISTORY_KEEP), ...(board ? { [`board:${item.id}`]: board } : {}) });
+    if (dropped.length) await this.storage.delete(dropped);
   }
 }

@@ -45,7 +45,7 @@
 
   // ---------------------------------------------------------------- persistence
   function save() {
-    if (G && G.mode === 'sim') return;
+    if (G && (G.mode === 'sim' || G.mode === 'past')) return;
     try {
       if (G && G.mode === 'online') localStorage.setItem(ONLINE_KEY, JSON.stringify({ id: G.id, revealed: !!G.revealed, duskSeen: G.duskSeen || 0 }));
       else localStorage.setItem(SAVE_KEY, JSON.stringify(G));
@@ -345,7 +345,7 @@
           ${window.GameMusic ? GameMusic.buttonHtml('btn ghost sm', 'bt') : ''}
           <button class="btn ghost sm" id="rules-btn" aria-label="Rules">📜<span class="bt"> Rules</span></button>
           ${G && G.mode === 'sim' ? '<button class="btn ghost sm" id="sim-speed"></button>' : ''}
-          <button class="btn ghost sm" id="new-btn">${G && G.mode === 'online' ? '🌐<span class="bt"> Game</span>' : G && G.mode === 'sim' ? '⏹<span class="bt"> Stop</span>' : '🏰<span class="bt"> New game</span>'}</button>
+          <button class="btn ghost sm" id="new-btn">${G && G.mode === 'online' ? '🌐<span class="bt"> Game</span>' : G && G.mode === 'sim' ? '⏹<span class="bt"> Stop</span>' : G && G.mode === 'past' ? '🏆<span class="bt"> History</span>' : '🏰<span class="bt"> New game</span>'}</button>
           <a class="btn ghost sm" href="/board-games.html" title="All board games" aria-label="All board games"><img class="gh-dice" src="/img/board-games-favicon-48.png?v=2" alt=""></a>
         </div>
       </header>
@@ -417,7 +417,7 @@
   function renderTop() {
     const s = st();
     const se = E.SEASON[season()];
-    $('#subtitle').textContent = `${se.icon} ${se.name}, year ${E.yearOf(s.round)} · round ${s.round} of ${E.ROUNDS}`;
+    $('#subtitle').textContent = G.mode === 'past' ? `📜 Finished game · ${s.players.map((p) => p.name).join(' vs ')}` : `${se.icon} ${se.name}, year ${E.yearOf(s.round)} · round ${s.round} of ${E.ROUNDS}`;
     let pips = '';
     for (let r = 1; r <= E.ROUNDS; r++) {
       const cls = r < s.round ? 'done' : r === s.round ? 'now' : '';
@@ -2160,7 +2160,7 @@
         <div class="hr-verdict" aria-live="polite"></div>
         <div class="hr-sub">${sub}</div>
         <div class="hr-rows">${rows.map(([label, k]) => `<div class="hr-row"><span class="${sc[0][k] > sc[1][k] ? 'lead' : ''}">${sc[0][k]}</span><small>${label}</small><span class="${sc[1][k] > sc[0][k] ? 'lead' : ''}">${sc[1][k]}</span></div>`).join('')}</div>
-        <div class="hr-actions"><button class="btn" data-rv="close">🏘️ See the villages</button><button class="btn" data-rv="again">${G.mode === 'online' ? '🌐 Your games' : G.mode === 'sim' ? '🧪 Run again' : '🏰 Play again'}</button>${G.mode === 'sim' ? '' : '<button class="btn ghost" data-rv="hist">🏆 Game history</button>'}<a class="btn ghost" href="/board-games.html"><img class="gh-dice" src="/img/board-games-favicon-48.png?v=2" alt=""> All board games</a></div>
+        <div class="hr-actions"><button class="btn" data-rv="close">🏘️ See the villages</button>${G.mode === 'past' ? '' : `<button class="btn" data-rv="again">${G.mode === 'online' ? '🌐 Your games' : G.mode === 'sim' ? '🧪 Run again' : '🏰 Play again'}</button>`}${G.mode === 'sim' ? '' : '<button class="btn ghost" data-rv="hist">🏆 Game history</button>'}<a class="btn ghost" href="/board-games.html"><img class="gh-dice" src="/img/board-games-favicon-48.png?v=2" alt=""> All board games</a></div>
       </div><button class="hr-skip" data-rv="skip">Skip ▸</button>`;
     document.body.appendChild(el);
     const timers = [];
@@ -2253,6 +2253,7 @@
 
   // ---------------------------------------------------------------- new game
   function newGame() {
+    if (G.mode === 'past') return showHistory();
     if (G.mode === 'online') return onlineMenu();
     if (G.mode === 'sim') return stopSim();
     // The current game stays saved: it's listed under Your games in the game lobby.
@@ -2270,10 +2271,11 @@
   // Finished computer and two-player games go to the account's history (online games are added by the server).
   function recordGame() {
     const g = G;
-    if (g.recorded || !sessionId()) return;
+    if ((g.recorded && g.boardKept) || !sessionId()) return;
     const s = g.state;
     g.gid = g.gid || newLocalId();
     g.recorded = true;
+    g.boardKept = true;
     save();
     api('/api/oakhaven/history/record', {
       id: g.gid,
@@ -2282,11 +2284,23 @@
       names: s.players.map((p) => p.name),
       cats: s.players.map((p) => E.score(s, p)),
       winner: E.winner(s),
+      board: s,
     }).then((r) => {
       if (r.ok || r.status === 400 || G !== g) return;
       g.recorded = false;
+      g.boardKept = false;
       save();
     });
+  }
+
+  // A finished game from history, shown read-only: nothing is saved and nothing can be played.
+  async function openPast(id) {
+    const r = await api(`/api/oakhaven/history/board?id=${encodeURIComponent(id)}`);
+    if (r.status === 401) return signedOut();
+    const state = r.ok && r.data && r.data.state;
+    if (!state || !Array.isArray(state.players) || state.phase !== 'over') return toast(esc((r.data && r.data.error) || 'Couldn’t load that game.'), 'bad');
+    const h = (hist.items || []).find((x) => x.id === id);
+    startFrom({ state, mode: 'past', level: h && h.level, view: h && h.me === 1 ? 1 : 0, gid: id, revealed: true });
   }
 
   const hist = { items: null, kind: 'all' };
@@ -2355,7 +2369,10 @@
       const table = h.cats
         ? `<div class="hg-table">${SCORE_ROWS.map(([label, k]) => `<div><span>${h.cats[a][k] || 0}</span><small>${label}</small><span>${h.cats[b][k] || 0}</span></div>`).join('')}</div>`
         : '';
-      return `<details class="hg"><summary><span class="hg-icon">${icon[h.kind] || '🏰'}</span><span class="hg-main"><b>${esc(h.names[a])} <em>${total(a)}</em> – <em>${total(b)}</em> ${esc(h.names[b])}</b><small>${esc(what)}</small></span>${res}</summary>${table}</details>`;
+      const view = h.kind === 'online' && /^hh[0-9a-f]{18}$/.test(h.id)
+        ? `<a class="btn sm" href="/oakhaven.html?game=${h.id}">🏘️ View the villages</a>`
+        : h.board ? `<button class="btn sm" data-past="${esc(h.id)}">🏘️ View the villages</button>` : '';
+      return `<details class="hg"><summary><span class="hg-icon">${icon[h.kind] || '🏰'}</span><span class="hg-main"><b>${esc(h.names[a])} <em>${total(a)}</em> – <em>${total(b)}</em> ${esc(h.names[b])}</b><small>${esc(what)}</small></span>${res}</summary>${table}${view ? `<div class="hg-view">${view}</div>` : ''}</details>`;
     };
     box.innerHTML = `
       <div class="seg hist-kind">${Object.keys(kinds).map((k) => `<button data-k="${k}" class="${hist.kind === k ? 'on' : ''}">${kinds[k]}</button>`).join('')}</div>
@@ -2368,7 +2385,13 @@
         ${stat(myScores.length ? Math.round(myScores.reduce((t, x) => t + x, 0) / myScores.length) : '–', 'average')}
       </div>
       ${items.length ? `<div class="hist-list">${items.map(row).join('')}</div>` : '<p class="muted hist-empty">No finished games here yet. Games are added when they end.</p>'}
-      <p class="muted hist-note">Wins and scores count your computer and online games. Tap a game to see how the points were scored.</p>`;
+      <p class="muted hist-note">Wins and scores count your computer and online games. Tap a game to see how the points were scored and look back at both villages.</p>`;
+    box.querySelector('.hist-list') && box.querySelector('.hist-list').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-past]');
+      if (!b) return;
+      b.disabled = true;
+      openPast(b.dataset.past).finally(() => (b.disabled = false));
+    });
     box.querySelector('.hist-kind').onclick = (e) => {
       const b = e.target.closest('button');
       if (!b) return;
