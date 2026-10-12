@@ -137,7 +137,7 @@ function musicGraph(tl, total) {
   fs.mkdirSync('/tmp/ads', { recursive: true });
   const srv = await serve();
   const port = srv.address().port;
-  const b = await chromium.launch({ executablePath: EXE, args: ['--font-render-hinting=none'] });
+  const b = await chromium.launch({ executablePath: EXE, args: ['--font-render-hinting=none', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
   const probe = await open(b, port, null);
   const lines = await probe.evaluate(() => window.SAY_LINES);
   await probe.close();
