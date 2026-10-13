@@ -171,7 +171,7 @@
     riptide: { name: 'Riptides', icon: '🌀', note: 'Currents nobody is ready for are −6 instead of −3.' },
     storm: { name: 'Storm', icon: '⛈️', note: 'Minnows stay in port: they can’t dive or salvage.' },
     bloom: { name: 'Plankton bloom', icon: '🌫️', note: 'Darkness nobody is ready for is −6 instead of −3.' },
-    rumors: { name: 'Treasure rumors', icon: '🗺️', note: '+2 🦪 pearls for every successful expedition.' },
+    rumors: { name: 'Treasure rumors', icon: '🗺️', note: '+2 pearls for every successful expedition.' },
     gala: { name: 'Sponsors’ gala', icon: '🥂', note: 'Every company gets 🪙3 extra this tide.' },
     stirs: { name: 'The Kraken stirs', icon: '🐙', note: 'The Kraken is −6 instead of −3 if nobody is ready for it.' },
     lowtide: { name: 'Low tide', icon: '🏖️', note: '+2 to dives in the Shallows.' },
