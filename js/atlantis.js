@@ -355,7 +355,7 @@
     return `<div class="co${turn ? ' turn' : ''}${v === i ? ' viewing' : ''}" style="--pc:${PCOLOR[i]}" data-view="${i}" title="Show ${esc(p.name)}’s company">
       <span class="co-flag">${FLAG[i]}</span>
       <div class="co-name"><b>${esc(p.name)}</b>${p.ai ? '<span class="co-tag">🤖</span>' : ''}${tag}</div>
-      <div class="co-stats"><span>💎 <b>${p.treasure}</b></span><span>🪙 <b>${p.gold}</b></span><span>🤿 <b>${p.divers.length}</b></span><span>🚢 <b>${p.subs.length}</b></span><span title="Points so far">⭐ <b>${sc.total}</b></span></div>
+      <div class="co-stats"><span title="Pearls">🦪 <b>${p.treasure}</b></span><span>🪙 <b>${p.gold}</b></span><span>🤿 <b>${p.divers.length}</b></span><span>🚢 <b>${p.subs.length}</b></span><span title="Points so far">⭐ <b>${sc.total}</b></span></div>
     </div>`;
   }
 
@@ -444,7 +444,7 @@
     else if (E.charted(s, x)) status = `<p class="site-status">🗺️ Charted — a route leads here.</p>`;
     else status = `<p class="site-status far">🌫️ Uncharted: −${E.UNCHARTED} to dives until someone explores ${names(slot.parents)}.</p>`;
     openModal(`<div class="plan-head"><img src="${expImg(x)}" alt=""><div><h2>${esc(site.name)}</h2><div class="haz">${site.haz.map((h) => hz(h)).join('')}</div>
-        <small class="muted">${E.TIER[site.tier].name} · ${E.DEPTH[site.depth].name} · roll ${E.TIER[site.tier].target}+ · reward 💎${r.treasure} 🪙${r.gold}${site.relic ? ` · ${E.RELIC[site.relic].icon} ${esc(E.RELIC[site.relic].name.toLowerCase())}` : ''}</small></div></div>
+        <small class="muted">${E.TIER[site.tier].name} · ${E.DEPTH[site.depth].name} · roll ${E.TIER[site.tier].target}+ · reward 🦪${r.treasure} 🪙${r.gold}${site.relic ? ` · ${E.RELIC[site.relic].icon} ${esc(E.RELIC[site.relic].name.toLowerCase())}` : ''}</small></div></div>
       <p>${esc(site.blurb)}</p>${status}
       ${slot.kids.length ? `<p class="muted">Leads to: ${names(slot.kids)}</p>` : ''}`, { onClose: () => {} });
   }
@@ -507,7 +507,7 @@
     return `${tabs}
       <h3>🚢 Fleet <small>${p.subs.length}/${E.MAX_SUBS} docks</small></h3><div class="cards">${subs}</div>
       <h3>🤿 Crew <small>wages 🪙${E.wagesOf(p)}/tide · ${p.divers.length}/${E.MAX_DIVERS}</small></h3><div class="cards">${divers}</div>
-      ${p.found.length ? `<h3>💎 Treasure found <small>${plural(p.found.length, 'expedition')}</small></h3><div class="tags">${p.found.map((k) => `<span class="tag">${stars(E.SITE[k].tier)} ${esc(E.SITE[k].name)}</span>`).join('')}</div>` : ''}
+      ${p.found.length ? `<h3>🗺️ Sites explored <small>${plural(p.found.length, 'expedition')}</small></h3><div class="tags">${p.found.map((k) => `<span class="tag">${stars(E.SITE[k].tier)} ${esc(E.SITE[k].name)}</span>`).join('')}</div>` : ''}
       ${relics}
       ${acts}`;
   }
@@ -663,7 +663,7 @@
       const sub = plan.s != null ? E.subOf(p, plan.s) : null;
       const seats = sub ? E.SUB[sub.k].crew : 0;
       const head = x
-        ? `<div class="plan-head"><img src="${expImg(x)}" alt=""><div><h2>${esc(site.name)}</h2><div class="haz">${site.haz.map((h) => hz(h)).join('')}${E.charted(s, x) ? '' : `<span class="hz risk">🌫️ Uncharted</span>`}</div><small class="muted">${E.TIER[site.tier].name} · ${E.DEPTH[site.depth].name} · roll ${E.TIER[site.tier].target}+ · reward 💎${E.rewardOf(s, x).treasure} 🪙${E.rewardOf(s, x).gold}${site.relic ? ` · ${E.RELIC[site.relic].icon} relic` : ''}</small></div></div>`
+        ? `<div class="plan-head"><img src="${expImg(x)}" alt=""><div><h2>${esc(site.name)}</h2><div class="haz">${site.haz.map((h) => hz(h)).join('')}${E.charted(s, x) ? '' : `<span class="hz risk">🌫️ Uncharted</span>`}</div><small class="muted">${E.TIER[site.tier].name} · ${E.DEPTH[site.depth].name} · roll ${E.TIER[site.tier].target}+ · reward 🦪${E.rewardOf(s, x).treasure} 🪙${E.rewardOf(s, x).gold}${site.relic ? ` · ${E.RELIC[site.relic].icon} relic` : ''}</small></div></div>`
         : `<h2>🪙 Salvage run</h2><p class="muted">A safe trip to pick over old wrecks. No dice, no danger: earns 🪙1 plus 🪙1 per diver. The sub and divers are out for the rest of this tide.</p>`;
       const subs = p.subs.map((q) => {
         const why = subWhy(q);
@@ -778,10 +778,10 @@
       back.querySelector('#roll-sum').innerHTML = `🎲 ${r.d20} ${r.bonus >= 0 ? '+' : '−'} ${Math.abs(r.bonus)} = <b>${r.total}</b> · needed ${r.target}${r.d20 === 20 ? ' · a natural 20!' : r.d20 === 1 ? ' · a natural 1!' : ''}`;
       const v = back.querySelector('#roll-verdict');
       v.className = `roll-verdict ${r.ok ? 'ok' : 'fail'}`;
-      v.textContent = r.ok ? '💎 Treasure!' : '💥 The dive failed';
+      v.textContent = r.ok ? '🦪 Pearls!' : '💥 The dive failed';
       const msgs = [];
       if (r.ok) {
-        msgs.push(`Found <b>💎${r.treasure}</b> and <b>🪙${r.gold}</b>${r.d20 === 20 ? ' (with 🪙2 of extra loot)' : ''}.`);
+        msgs.push(`Found <b>🦪${r.treasure} pearls</b> and <b>🪙${r.gold}</b>${r.d20 === 20 ? ' (with 🪙2 of extra loot)' : ''}.`);
         if (r.relic) msgs.push(`${E.RELIC[r.relic].icon} A relic for the collection: <b>${esc(E.RELIC[r.relic].name.toLowerCase())}</b>.`);
         if (r.first) msgs.push(`🏆 First company to finish a ${esc(E.TIER[site.tier].name.toLowerCase())} expedition: +${E.DISCOVERY_PTS} points!`);
         if (r.promoted && r.promoted.length) msgs.push(`🎖️ ${r.promoted.map(esc).join(' and ')} ${r.promoted.length > 1 ? 'were' : 'was'} promoted: +1 skill, and trained one zone deeper.`);
@@ -891,7 +891,7 @@
     const sc = s.players.map((p) => E.score(s, p));
     const w = E.winner(s);
     const rows = [
-      ['💎 Treasure', 'treasure'],
+      ['🦪 Pearls', 'treasure'],
       ['🏆 First finds', 'discoveries'],
       ['🏺 Relic sets', 'relics'],
       ['📜 Commissions', 'goals'],
@@ -903,8 +903,8 @@
     else if (G.mode === 'ai') head = pl(w).ai ? '🦈 The rival wins!' : '🏆 You win!';
     else head = `🏆 ${esc(pl(w).name)} wins!`;
     const margin = Math.abs(sc[0].total - sc[1].total);
-    const sub = w < 0 ? 'Same points, same treasure, same number of expeditions.'
-      : margin === 0 ? 'Level on points — won on treasure!'
+    const sub = w < 0 ? 'Same points, same pearls, same number of expeditions.'
+      : margin === 0 ? 'Level on points — won on pearls!'
         : margin === 1 ? 'By a single point — what a finish!'
           : margin <= 5 ? `A nail-biter — by ${margin} points!` : `By ${margin} points.`;
     const flagImg = (p) => {
@@ -1001,7 +1001,7 @@
   function confetti() {
     const box = document.createElement('div');
     box.className = 'confetti';
-    const bits = ['🎉', '💎', '🪙', '🐚', '✨', '🔱'];
+    const bits = ['🎉', '🦪', '🪙', '🐚', '✨', '🔱'];
     for (let i = 0; i < 40; i++) {
       const sp = document.createElement('span');
       sp.textContent = bits[i % bits.length];
@@ -1052,7 +1052,7 @@
   }
 
   const hist = { items: null, kind: 'all' };
-  const SCORE_ROWS = [['💎 Treasure', 'treasure'], ['🏆 First finds', 'discoveries'], ['🏺 Relic sets', 'relics'], ['📜 Commissions', 'goals'], ['🪙 Gold', 'gold'], ['🗺️ Expeditions', 'expeditions']];
+  const SCORE_ROWS = [['🦪 Pearls', 'treasure'], ['🏆 First finds', 'discoveries'], ['🏺 Relic sets', 'relics'], ['📜 Commissions', 'goals'], ['🪙 Gold', 'gold'], ['🗺️ Expeditions', 'expeditions']];
 
   async function showHistory() {
     stopAI();
@@ -1171,7 +1171,7 @@
       return `<p>You run a diving company racing a rival to the treasures of sunken Atlantis. Over <b>${E.TIDES} tides</b> you hire <b>scuba divers</b>, build <b>submarines</b> and send them on <b>expeditions</b> to the sites on the chart. Every expedition is a gamble: roll a d20, add your bonuses, and beat the target.</p>
         <p>You can try <b>any site with any sub and any crew</b> — but deeper, harder sites pay far more and are far more dangerous. Send a rookie or a little Minnow into the Abyss and you’ll probably fail, and you may never see them again.</p>
         <p>Better divers, divers who are <b>ready for the hazards</b> down there, divers and subs <b>built for that depth</b>, and a <b>charted route</b> all make your odds better.</p>
-        <p>The company with the most points when the season ends wins. Points come from 💎 treasure, 🏆 first finds, 🏺 relic sets, 📜 commissions and leftover 🪙 gold.</p>
+        <p>The company with the most points when the season ends wins. Points come from 🦪 pearls, 🏆 first finds, 🏺 relic sets, 📜 commissions and leftover 🪙 gold.</p>
         <p>You start with 🪙${E.START_GOLD}, a Minnow sub and one rookie diver.</p>`;
     }
     if (tab === 'map') {
@@ -1179,7 +1179,7 @@
         <ul><li>🗺️ <b>Charted</b> sites have a route: the top row, and every site that an explored site leads to. Lines on the chart show where each site leads.</li>
         <li>🌫️ <b>Uncharted</b> sites can still be tried, at <b>−${E.UNCHARTED}</b> to the roll. Exploring a site charts the routes beyond it — for both companies.</li>
         <li>🧭 <b>Known waters:</b> +${E.KNOWN_BONUS} on sites linked to one your company explored.</li>
-        <li>⚑ Each site can only be explored once. Whoever explores it first takes the treasure.</li>
+        <li>⚑ Each site can only be explored once. Whoever explores it first takes the pearls.</li>
         <li>💠 <b>The Heart of Atlantis</b> is sighted on tide ${E.HEART_TIDE}. Whoever finds it ends the season at the end of that tide.</li></ul>`;
     }
     if (tab === 'tide') {
@@ -1201,10 +1201,10 @@
         <li><b>${E.UNCHARTED}</b> if the site is uncharted.</li>
         <li><b>${E.SUB_DEEP_PEN} per zone</b> a sub is below the depth it’s built for (a Minnow only reaches the Shallows, a Barracuda the Deep).</li>
         <li><b>${E.DIVER_DEEP_PEN} per zone</b> for every diver out of their depth (rookies are only trained for the Shallows).</li></ul>
-        <p>Beat the target to win the treasure and gold. A <b>natural 20</b> always succeeds (with 🪙2 extra loot); a <b>natural 1</b> always fails — and then any hazard can strike, even one you were ready for.</p>
+        <p>Beat the target to win the pearls and gold. A <b>natural 20</b> always succeeds (with 🪙2 extra loot); a <b>natural 1</b> always fails — and then any hazard can strike, even one you were ready for.</p>
         <p>When a dive fails, one hazard nobody was ready for strikes (see Hazards). On top of that, <b>every diver out of their depth has a ${pct(E.DIVER_LOST)} chance per zone of being lost</b>, and a sub out of its depth has a ${pct(E.SUB_CRUSH)} chance per zone of being crushed.</p>
         <p>🎖️ Every diver on a successful dive gains experience. After ${E.PROMO_XP} successful dives a diver is <b>promoted</b>: +1 skill, and trained one zone deeper.</p>
-        <table><tr><th>Level</th><th>Target</th><th>Treasure</th><th>Gold</th></tr>${[1, 2, 3, 4, 5].map((t) => `<tr><td>${'★'.repeat(T[t].stars)} ${T[t].name}</td><td>${T[t].target}+</td><td>💎${T[t].treasure}</td><td>🪙${T[t].gold}</td></tr>`).join('')}</table>`;
+        <table><tr><th>Level</th><th>Target</th><th>Pearls</th><th>Gold</th></tr>${[1, 2, 3, 4, 5].map((t) => `<tr><td>${'★'.repeat(T[t].stars)} ${T[t].name}</td><td>${T[t].target}+</td><td>🦪${T[t].treasure}</td><td>🪙${T[t].gold}</td></tr>`).join('')}</table>`;
     }
     if (tab === 'hazards') {
       return `<table><tr><th>Hazard</th><th>Who is ready for it</th><th>If it strikes</th></tr>${E.HAZ_ORDER.map((h) => `<tr><td>${E.HAZ[h].icon} ${esc(E.HAZ[h].name)}</td><td>${esc(E.HAZ[h].ready)}</td><td>${esc(E.HAZ[h].effect)}</td></tr>`).join('')}</table>
@@ -1223,11 +1223,11 @@
         <h3>Fittings</h3><table><tr><th>Fitting</th><th>Makes safe</th><th>Cost</th></tr>${E.MOD_ORDER.map((m) => `<tr><td>${E.MOD[m].icon} ${esc(E.MOD[m].name)}</td><td>${E.HAZ[E.MOD[m].haz].icon} ${esc(E.HAZ[E.MOD[m].haz].name)}</td><td>🪙${E.MOD[m].cost}</td></tr>`).join('')}</table>`;
     }
     return `<p>When the last tide ends (or the Heart of Atlantis is found), add up:</p>
-      <ul><li>💎 every point of <b>treasure</b> you found</li><li>🏆 <b>${E.DISCOVERY_PTS} points</b> for each level of expedition (easy, tricky, hard, extreme, legendary) your company finished <b>first</b></li>
+      <ul><li>🦪 every <b>pearl</b> you found</li><li>🏆 <b>${E.DISCOVERY_PTS} points</b> for each level of expedition (easy, tricky, hard, extreme, legendary) your company finished <b>first</b></li>
       <li>🏺 <b>relic sets</b>: tricky and harder sites each hold a relic (👑 royal jewels, 📜 lost scrolls, 🔮 orichalcum crystals or 🏺 golden urns). Group your relics into sets of different kinds: ${E.RELIC_SET.slice(1).map((pts, i) => `${i + 1} kind${i ? 's' : ''} = ${pts}`).join(', ')} points.</li>
       <li>📜 <b>commissions</b>: each game has ${E.GOAL_COUNT} public commissions. The first company to do one scores it.</li>
       <li>🪙 <b>1 point per ${E.GOLD_PER_PT} gold</b> left over</li></ul>
-      <p>Most points wins. If it’s a tie, the company with more treasure wins, then the one with more expeditions.</p>
+      <p>Most points wins. If it’s a tie, the company with more pearls wins, then the one with more expeditions.</p>
       <h3>Possible commissions</h3><table><tr><th>Commission</th><th>Do this first</th><th>Points</th></tr>${E.GOAL_ORDER.map((k) => `<tr><td>${E.GOALS[k].icon} ${esc(E.GOALS[k].name)}</td><td>${esc(E.GOALS[k].text)}</td><td>+${E.GOALS[k].pts}</td></tr>`).join('')}</table>`;
   }
   function showRules(tab) {

@@ -76,7 +76,7 @@
     professor: { role: 'Professor of Atlantis', skill: 3, deep: 3, spec: ['trap', 'cave', 'kraken'], cost: 11, wage: 3, n: 1 },
   };
   const DIVER_ORDER = Object.keys(DIVER);
-  const NAMES = ['Marina', 'Coral', 'Finn', 'Nerissa', 'Kai', 'Pearl', 'Morgan', 'Delphine', 'Bruce', 'Ondine', 'Jonah', 'Shelly', 'Wade', 'Isla',
+  const NAMES = ['Marina', 'Coral', 'Finn', 'Nerissa', 'Kai', 'Maren', 'Morgan', 'Delphine', 'Bruce', 'Ondine', 'Jonah', 'Shelly', 'Wade', 'Isla',
     'Murray', 'Doris', 'Caspian', 'Brook', 'Neptune Jr.', 'Ripley', 'Tula', 'Gil', 'Reef', 'Dory', 'Splash', 'Hal', 'Lagoon', 'Ahab', 'Sandy', 'Zeke'];
 
   // Relics come from tricky and harder sites and score in sets of different kinds.
@@ -166,12 +166,12 @@
   // Sea forecast: one per tide, known a tide ahead.
   const SEA = {
     calm: { name: 'Calm seas', icon: '☀️', note: '+1 to every dive roll.' },
-    clear: { name: 'Crystal water', icon: '💎', note: 'Darkness doesn’t count against dives.' },
+    clear: { name: 'Crystal water', icon: '🔆', note: 'Darkness doesn’t count against dives.' },
     frenzy: { name: 'Feeding frenzy', icon: '🦈', note: 'Sharks nobody is ready for are −6 instead of −3.' },
     riptide: { name: 'Riptides', icon: '🌀', note: 'Currents nobody is ready for are −6 instead of −3.' },
     storm: { name: 'Storm', icon: '⛈️', note: 'Minnows stay in port: they can’t dive or salvage.' },
     bloom: { name: 'Plankton bloom', icon: '🌫️', note: 'Darkness nobody is ready for is −6 instead of −3.' },
-    rumors: { name: 'Treasure rumors', icon: '🗺️', note: '+2 💎 for every successful expedition.' },
+    rumors: { name: 'Treasure rumors', icon: '🗺️', note: '+2 🦪 pearls for every successful expedition.' },
     gala: { name: 'Sponsors’ gala', icon: '🥂', note: 'Every company gets 🪙3 extra this tide.' },
     stirs: { name: 'The Kraken stirs', icon: '🐙', note: 'The Kraken is −6 instead of −3 if nobody is ready for it.' },
     lowtide: { name: 'Low tide', icon: '🏖️', note: '+2 to dives in the Shallows.' },
@@ -571,7 +571,7 @@
         out.first = true;
       }
       if (x.k === 'heart') state.heartTaken = true;
-      log(state, `${p.name} explored ${site.name}${d20 === 20 ? ' with a perfect 20' : ''}: 🎲${d20}${signed(c.bonus)} = ${total} (needed ${c.target}). Found 💎${r.treasure} and 🪙${r.gold + extra}${site.relic ? ` and a relic (${RELIC[site.relic].icon})` : ''}${out.first ? ` — first to finish a ${TIER[site.tier].name.toLowerCase()} expedition!` : '.'}`, pi);
+      log(state, `${p.name} explored ${site.name}${d20 === 20 ? ' with a perfect 20' : ''}: 🎲${d20}${signed(c.bonus)} = ${total} (needed ${c.target}). Found 🦪${r.treasure} pearls and 🪙${r.gold + extra}${site.relic ? ` and a relic (${RELIC[site.relic].icon})` : ''}${out.first ? ` — first to finish a ${TIER[site.tier].name.toLowerCase()} expedition!` : '.'}`, pi);
       out.promoted = [];
       crew.forEach((d) => {
         d.xp = (d.xp || 0) + 1;
