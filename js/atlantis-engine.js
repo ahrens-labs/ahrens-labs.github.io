@@ -19,6 +19,11 @@
   const DIVER_LOST = 0.35;
   const SUB_DEEP_PEN = 4;
   const SUB_CRUSH = 0.35;
+  // No sub: up to SWIM_CREW divers swim out from the dive boat. No sub bonus or fittings, a flat penalty, the deep
+  // penalty of a sub built for the Shallows, and (on a failed dive below the Shallows) a chance per zone of losing each swimmer.
+  const SWIM_CREW = 2;
+  const SWIM_PEN = 3;
+  const SWIM_LOST = 0.2;
   const PROMO_XP = 2;
   const DISCOVERY_PTS = 2;
   const GOLD_PER_PT = 4;
@@ -28,11 +33,11 @@
   const HAZ = {
     air: { icon: '🫧', name: 'Thin air', ready: 'Free-divers and oxygen tanks', fail: 'ran out of air and had to race for the surface', effect: 'The crew rests next tide.' },
     shark: { icon: '🦈', name: 'Sharks', ready: 'Shark wranglers and shark cages', fail: 'was attacked by a shark', effect: 'A shark eats one diver.' },
-    cave: { icon: '🪨', name: 'Tight tunnels', ready: 'Cave divers and drill arms', fail: 'got stuck in a collapsing tunnel', effect: 'The sub is stuck for 2 tides.' },
-    current: { icon: '🌀', name: 'Currents', ready: 'Current riders and stabilisers', fail: 'was swept away by a current', effect: 'Lose 🪙3 of gear; the sub is out next tide.' },
+    cave: { icon: '🪨', name: 'Tight tunnels', ready: 'Cave divers and drill arms', fail: 'got stuck in a collapsing tunnel', effect: 'The sub is stuck for 2 tides.', swim: 'The swimmers rest for 2 tides.' },
+    current: { icon: '🌀', name: 'Currents', ready: 'Current riders and stabilisers', fail: 'was swept away by a current', effect: 'Lose 🪙3 of gear; the sub is out next tide.', swim: 'Lose 🪙3 of gear; the swimmers rest next tide.' },
     dark: { icon: '🌑', name: 'Darkness', ready: 'Lamplighters and floodlights', fail: 'got lost in the dark', effect: 'The crew rests next tide.' },
-    trap: { icon: '🗿', name: 'Atlantean traps', ready: 'Archaeologists and glyph decoders', fail: 'set off an ancient trap', effect: 'Pay 🪙2 for repairs; the sub is out next tide.' },
-    kraken: { icon: '🐙', name: 'The Kraken', ready: 'Kraken hunters and harpoons', fail: 'woke the Kraken', effect: 'The sub is destroyed.' },
+    trap: { icon: '🗿', name: 'Atlantean traps', ready: 'Archaeologists and glyph decoders', fail: 'set off an ancient trap', effect: 'Pay 🪙2 for repairs; the sub is out next tide.', swim: 'Pay 🪙2; the swimmers rest next tide.' },
+    kraken: { icon: '🐙', name: 'The Kraken', ready: 'Kraken hunters and harpoons', fail: 'woke the Kraken', effect: 'The sub is destroyed.', swim: 'The Kraken takes one swimmer.' },
   };
   const HAZ_ORDER = ['air', 'shark', 'cave', 'current', 'dark', 'trap', 'kraken'];
 
@@ -351,33 +356,34 @@
   function chance(state, pi, expId, subId, crewIds) {
     const p = state.players[pi];
     const x = expOf(state, expId);
-    const s = subOf(p, subId);
-    if (!x || !s) return null;
+    const s = subId == null ? null : subOf(p, subId);
+    if (!x || (subId != null && !s)) return null;
     const site = siteOf(x);
     const crew = (crewIds || []).map((id) => diverOf(p, id)).filter(Boolean);
     const parts = [];
     const skill = crew.reduce((t, d) => t + skillOf(d), 0);
     if (skill) parts.push({ label: `Crew skill`, v: skill });
-    if (SUB[s.k].bonus) parts.push({ label: `${SUB[s.k].name}`, v: SUB[s.k].bonus });
+    if (!s) parts.push({ label: 'No sub (swimming from the boat)', v: -SWIM_PEN });
+    else if (SUB[s.k].bonus) parts.push({ label: `${SUB[s.k].name}`, v: SUB[s.k].bonus });
     if (knownWaters(state, pi, x)) parts.push({ label: 'Known waters', v: KNOWN_BONUS });
     if (x.scout) parts.push({ label: 'Earlier attempts', v: x.scout });
     const w = sea(state);
     if (w === 'calm') parts.push({ label: 'Calm seas', v: 1 });
     if (w === 'lowtide' && site.depth === 1) parts.push({ label: 'Low tide', v: 2 });
     if (!charted(state, x)) parts.push({ label: 'Uncharted waters', v: -UNCHARTED });
-    const subGap = Math.max(0, site.depth - SUB[s.k].depth);
-    if (subGap) parts.push({ label: `${SUB[s.k].name} out of its depth`, v: -SUB_DEEP_PEN * subGap });
+    const subGap = Math.max(0, site.depth - (s ? SUB[s.k].depth : 1));
+    if (subGap) parts.push({ label: s ? `${SUB[s.k].name} out of its depth` : `Swimming down to the ${DEPTH[site.depth].name}`, v: -SUB_DEEP_PEN * subGap });
     const risk = [];
     crew.forEach((d) => {
       const gap = Math.max(0, site.depth - deepOf(d));
-      if (!gap) return;
-      parts.push({ label: `${d.name} out of their depth`, v: -DIVER_DEEP_PEN * gap });
-      risk.push({ id: d.id, name: d.name, p: Math.min(0.9, DIVER_LOST * gap) });
+      if (gap) parts.push({ label: `${d.name} out of their depth`, v: -DIVER_DEEP_PEN * gap });
+      const lost = DIVER_LOST * gap + (s ? 0 : SWIM_LOST * subGap);
+      if (lost) risk.push({ id: d.id, name: d.name, p: Math.min(0.9, lost) });
     });
-    const crush = subGap ? Math.min(0.9, SUB_CRUSH * subGap) : 0;
+    const crush = s && subGap ? Math.min(0.9, SUB_CRUSH * subGap) : 0;
     const haz = site.haz.map((h) => {
       const byDiver = crew.find((d) => DIVER[d.k].spec.includes(h));
-      const byMod = s.mods.find((m) => MOD[m].haz === h);
+      const byMod = s && s.mods.find((m) => MOD[m].haz === h);
       const ignored = w === 'clear' && h === 'dark';
       const ready = !!(byDiver || byMod) || ignored;
       const pen = ready ? 0 : SEA_DOUBLE[w] === h ? UNCOVERED * 2 : UNCOVERED;
@@ -389,7 +395,7 @@
     // A natural 20 always works and a natural 1 always fails.
     const need = Math.min(20, Math.max(2, target - bonus));
     const p20 = (21 - need) / 20;
-    return { target, bonus, need, p: p20, parts, haz, uncovered: haz.filter((z) => !z.ready).map((z) => z.h), risk, crush, charted: charted(state, x) };
+    return { target, bonus, need, p: p20, parts, haz, uncovered: haz.filter((z) => !z.ready).map((z) => z.h), risk, crush, charted: charted(state, x), swim: !s };
   }
 
   function legal(state, pi, a) {
@@ -433,13 +439,15 @@
       }
       case 'dive':
       case 'salvage': {
-        const s = subOf(p, a.s);
-        if (!s) return 'Pick a sub.';
-        if (!subReady(state, s)) return s.k === 'minnow' && sea(state) === 'storm' ? 'Minnows stay in port during a storm.' : s.stuck >= state.tide ? 'That sub is out of action.' : 'That sub has already been out this tide.';
+        const swim = a.t === 'dive' && a.s == null;
+        const s = swim ? null : subOf(p, a.s);
+        if (!swim && !s) return 'Pick a sub.';
+        if (s && !subReady(state, s)) return s.k === 'minnow' && sea(state) === 'storm' ? 'Minnows stay in port during a storm.' : s.stuck >= state.tide ? 'That sub is out of action.' : 'That sub has already been out this tide.';
         const crew = Array.isArray(a.crew) ? a.crew : [];
         if (!crew.length) return 'Pick at least one diver.';
         if (new Set(crew).size !== crew.length) return 'Pick each diver once.';
-        if (crew.length > SUB[s.k].crew) return `A ${SUB[s.k].name} only carries ${plural(SUB[s.k].crew, 'diver')}.`;
+        if (swim && crew.length > SWIM_CREW) return `Only ${plural(SWIM_CREW, 'diver')} can swim out from the boat.`;
+        if (s && crew.length > SUB[s.k].crew) return `A ${SUB[s.k].name} only carries ${plural(SUB[s.k].crew, 'diver')}.`;
         for (const id of crew) {
           const d = diverOf(p, id);
           if (!d) return 'That diver isn’t in your company.';
@@ -538,18 +546,18 @@
 
   function dive(state, pi, a) {
     const p = state.players[pi];
-    const s = subOf(p, a.s);
+    const s = a.s == null ? null : subOf(p, a.s);
     const x = expOf(state, a.x);
     const site = siteOf(x);
-    const c = chance(state, pi, a.x, a.s, a.crew);
+    const c = chance(state, pi, a.x, s ? s.id : null, a.crew);
     const crew = a.crew.map((id) => diverOf(p, id));
     const d20 = 1 + rint(state, 20);
     const total = d20 + c.bonus;
     const ok = d20 === 20 || (d20 !== 1 && total >= c.target);
-    s.used = true;
+    if (s) s.used = true;
     crew.forEach((d) => (d.used = true));
     p.stats.dives += 1;
-    const out = { t: 'dive', pi, x: x.id, k: x.k, s: s.id, sk: s.k, crew: a.crew.slice(), crewNames: crew.map((d) => d.name), d20, bonus: c.bonus, total, target: c.target, need: c.need, ok, msgs: [] };
+    const out = { t: 'dive', pi, x: x.id, k: x.k, s: s ? s.id : null, sk: s ? s.k : null, crew: a.crew.slice(), crewNames: crew.map((d) => d.name), d20, bonus: c.bonus, total, target: c.target, need: c.need, ok, msgs: [] };
     if (ok) {
       const r = rewardOf(state, x);
       const extra = d20 === 20 ? 2 : 0;
@@ -601,9 +609,9 @@
         p.divers = p.divers.filter((y) => y !== d);
         p.stats.lost += 1;
         out.drowned.push(d.name);
-        out.msgs.push(`🫥 ${d.name} was out of their depth and was lost in the ${DEPTH[site.depth].name.toLowerCase()}.`);
+        out.msgs.push(`🫥 ${d.name} was ${s ? 'out of their depth' : 'too deep to swim back up'} and was lost in the ${DEPTH[site.depth].name.toLowerCase()}.`);
       });
-      if (c.crush && p.subs.includes(s) && rng(state) < c.crush) {
+      if (c.crush && s && p.subs.includes(s) && rng(state) < c.crush) {
         p.subs = p.subs.filter((y) => y !== s);
         p.stats.wrecked += 1;
         out.wrecked = SUB[s.k].name;
@@ -617,8 +625,10 @@
   function strike(state, pi, h, s, crew, out) {
     const p = state.players[pi];
     const t = state.tide;
-    const sub = SUB[s.k].name;
-    const rest = () => crew.forEach((d) => p.divers.includes(d) && (d.tired = Math.max(d.tired, t + 1)));
+    const rest = (n) => crew.forEach((d) => p.divers.includes(d) && (d.tired = Math.max(d.tired, t + (n || 1))));
+    // Swimmers have no sub to take the blow: the crew does.
+    if (!s && h !== 'shark' && h !== 'air' && h !== 'dark') return strikeSwimmers(state, pi, h, crew, out, rest);
+    const sub = s && SUB[s.k].name;
     if (h === 'shark') {
       const low = Math.min(...crew.map(skillOf));
       const pick = crew.filter((d) => skillOf(d) === low);
@@ -649,6 +659,31 @@
       rest();
       out.wrecked = sub;
       out.msgs.push(`🐙 The Kraken woke up and crushed the ${sub}! The crew swam home and rests next tide.`);
+    }
+  }
+
+  function strikeSwimmers(state, pi, h, crew, out, rest) {
+    const p = state.players[pi];
+    if (h === 'cave') {
+      rest(2);
+      out.msgs.push('🪨 The swimmers got trapped in a collapsing tunnel. Digging out leaves them resting for 2 tides.');
+    } else if (h === 'current') {
+      const lose = Math.min(3, p.gold);
+      p.gold -= lose;
+      rest();
+      out.msgs.push(`🌀 A current swept the swimmers away${lose ? `, with 🪙${lose} of gear` : ''}. They rest next tide.`);
+    } else if (h === 'trap') {
+      const pay = Math.min(2, p.gold);
+      p.gold -= pay;
+      rest();
+      out.msgs.push(`🗿 An ancient trap went off${pay ? `. Patching up the crew costs 🪙${pay}` : ''}; they rest next tide.`);
+    } else if (h === 'kraken') {
+      const d = crew[rint(state, crew.length)];
+      p.divers = p.divers.filter((y) => y !== d);
+      p.stats.lost += 1;
+      out.lost = d.name;
+      rest();
+      out.msgs.push(`🐙 The Kraken woke up and dragged ${d.name} into the dark! The others swam home and rest next tide.`);
     }
   }
 
@@ -719,14 +754,14 @@
   // The crew that gives the best roll: each diver is worth their skill plus any hazard they make safe.
   function bestCrew(state, pi, x, s, pool) {
     const p = state.players[pi];
-    const room = SUB[s.k].crew;
+    const room = s ? SUB[s.k].crew : SWIM_CREW;
     let left = (pool || readyDivers(state, p)).slice();
     const crew = [];
     let now = -Infinity;
     while (crew.length < room && left.length) {
       let best = null;
       for (const d of left) {
-        const c = chance(state, pi, x.id, s.id, [...crew, d].map((y) => y.id));
+        const c = chance(state, pi, x.id, s ? s.id : null, [...crew, d].map((y) => y.id));
         const v = c.bonus - skillOf(d) * 0.01 * (crew.length ? 0 : 1) - (c.risk.some((r) => r.id === d.id) ? 0.5 : 0);
         if (!best || v > best.v) best = { d, v };
       }
@@ -744,8 +779,8 @@
     const p = state.players[pi];
     switch (h) {
       case 'shark': return Math.min(...crew.map(diverWorth));
-      case 'kraken': return SUB[s.k].cost * 0.7 + s.mods.length * 2 + 1;
-      case 'cave': return 2.4;
+      case 'kraken': return s ? SUB[s.k].cost * 0.7 + s.mods.length * 2 + 1 : crew.reduce((t, d) => t + diverWorth(d), 0) / crew.length + crew.length * 0.7;
+      case 'cave': return s ? 2.4 : crew.length * 1.4;
       case 'current': return Math.min(3, p.gold) * 0.35 + 1.2;
       case 'trap': return Math.min(2, p.gold) * 0.35 + 1.2;
       default: return crew.length * 0.7;
@@ -763,7 +798,7 @@
 
   function diveValue(state, pi, x, s, crew, level) {
     const p = state.players[pi];
-    const c = chance(state, pi, x.id, s.id, crew.map((d) => d.id));
+    const c = chance(state, pi, x.id, s ? s.id : null, crew.map((d) => d.id));
     const site = siteOf(x);
     const r = rewardOf(state, x);
     let gain = r.treasure + r.gold * 0.35 + (state.firsts[site.tier] == null ? DISCOVERY_PTS : 0);
@@ -791,7 +826,7 @@
     const pFail = 1 - c.p;
     const pDisaster = 0.05;
     // Out-of-depth divers and subs can be lost on any failed dive.
-    let deepLoss = c.risk.reduce((t, rk) => t + rk.p * diverWorth(diverOf(p, rk.id)), 0) + c.crush * (SUB[s.k].cost * 0.7 + s.mods.length * 2 + 1);
+    let deepLoss = c.risk.reduce((t, rk) => t + rk.p * diverWorth(diverOf(p, rk.id)), 0) + (s ? c.crush * (SUB[s.k].cost * 0.7 + s.mods.length * 2 + 1) : 0);
     if (level === 'easy') deepLoss *= 0.5;
     return { v: c.p * gain - ((pFail - pDisaster) * loss + pDisaster * disaster + pFail * deepLoss) * late, p: c.p, c };
   }
@@ -825,13 +860,14 @@
 
     const subs = readySubs(state, p);
     const crewPool = readyDivers(state, p);
-    for (const s of subs) {
+    for (const s of [...subs, null]) {
       for (const x of open) {
-        const crew = level === 'easy' ? crewPool.slice(0, SUB[s.k].crew) : bestCrew(state, pi, x, s, crewPool);
+        const crew = level === 'easy' ? crewPool.slice(0, s ? SUB[s.k].crew : SWIM_CREW) : bestCrew(state, pi, x, s, crewPool);
         if (!crew.length) continue;
         const dv = diveValue(state, pi, x, s, crew, level);
-        out.push({ a: { t: 'dive', x: x.id, s: s.id, crew: crew.map((d) => d.id) }, v: dv.v, p: dv.p });
+        out.push({ a: { t: 'dive', x: x.id, s: s ? s.id : null, crew: crew.map((d) => d.id) }, v: dv.v, p: dv.p });
       }
+      if (!s) continue;
       const crew = crewPool.slice(0, SUB[s.k].crew);
       if (crew.length) out.push({ a: { t: 'salvage', s: s.id, crew: crew.map((d) => d.id) }, v: (1 + crew.length) * 0.35 - 0.05 });
     }
@@ -920,11 +956,11 @@
     if (state.passed[o]) return 0;
     const x = expOf(state, xid);
     let best = 0;
-    for (const s of readySubs(state, op)) {
-      if (SUB[s.k].depth < siteOf(x).depth) continue;
+    for (const s of [...readySubs(state, op), null]) {
+      if ((s ? SUB[s.k].depth : 1) < siteOf(x).depth) continue;
       const crew = bestCrew(state, o, x, s);
       if (!crew.length) continue;
-      const c = chance(state, o, x.id, s.id, crew.map((d) => d.id));
+      const c = chance(state, o, x.id, s ? s.id : null, crew.map((d) => d.id));
       best = Math.max(best, c.p * TIER[siteOf(x).tier].treasure);
     }
     return best;
@@ -937,7 +973,7 @@
     newGame, aiHeadStart, legal, apply, chance, score, winner, aiChoose, bestCrew, clone, upgradeCost, hireCost, relicPoints,
     sea, diverReady, subReady, readyDivers, readySubs, wagesOf, crewRoom, maxDepth, tidesLeft, siteOf, targetOf, rewardOf, expOf, subOf, diverOf,
     isOpen, openSites, charted, knownWaters, promoted, skillOf, deepOf, poss,
-    UNCHARTED, DIVER_DEEP_PEN, DIVER_LOST, SUB_DEEP_PEN, SUB_CRUSH,
+    UNCHARTED, DIVER_DEEP_PEN, DIVER_LOST, SUB_DEEP_PEN, SUB_CRUSH, SWIM_CREW, SWIM_PEN, SWIM_LOST,
   };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.AtlantisEngine = api;
