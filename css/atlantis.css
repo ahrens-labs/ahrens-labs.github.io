@@ -397,3 +397,5 @@ button { font-family: inherit; }
   .plan-head img { width: 80px; height: 56px; }
 }
 @media (prefers-reduced-motion: reduce) { .hero-bubbles, .gh-hero-img { animation: none !important; } }
+
+.loading-save { text-align: center; padding: 5rem 1rem; opacity: 0.8; }

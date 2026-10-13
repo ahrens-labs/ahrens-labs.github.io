@@ -44,14 +44,38 @@
     } catch (e) {
       /* storage full or blocked: the game still works, it just won't resume */
     }
+    keepInSaves();
   }
-  function loadSave() {
+  // Local games also go to the shared save list (Your games in the lobby, and the account), so several can be kept and resumed anywhere.
+  const playerMoved = (s) => s.tide > 1 || s.log.some((l) => l && l.who != null && s.players[l.who] && !s.players[l.who].ai);
+  function keepInSaves() {
+    const BS = window.BoardSaves;
+    if (!BS || !G || (G.mode !== 'ai' && G.mode !== 'local') || !isAdmin()) return;
+    G.gid = G.gid || newLocalId();
+    const s = G.state;
+    if (s.phase === 'over') {
+      if (BS.list('atlantis').some((m) => m.id === G.gid)) BS.remove('atlantis', G.gid);
+      return;
+    }
+    if (!playerMoved(s)) return;
+    BS.put('atlantis', G.gid, G, { mode: G.mode, level: G.level, names: s.players.map((p) => p.name), round: s.tide, rounds: E.TIDES, moved: true });
+  }
+  addEventListener('boardsaves:removed', (e) => {
+    if (G && G.gid && e.detail.some((m) => m.game === 'atlantis' && m.id === G.gid)) toast('This game was removed from Your games on another device, so it won’t be saved any more.', 'warn');
+  });
+  const validSave = (g) => g && g.state && g.state.v === E.SAVE_V && (g.mode === 'ai' || g.mode === 'local');
+  // 'removed' (deleted here or on another device), 'elsewhere' (played further on another device) or 'here'.
+  const lastStatus = (gid) => (gid && window.BoardSaves ? window.BoardSaves.status('atlantis', gid) : 'here');
+  function rawSave() {
     try {
-      const g = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
-      return g && g.state && g.state.v === E.SAVE_V && (g.mode === 'ai' || g.mode === 'local') ? g : null;
+      return JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
     } catch (e) {
       return null;
     }
+  }
+  function loadSave() {
+    const g = rawSave();
+    return validSave(g) && lastStatus(g.gid) === 'here' ? g : null;
   }
   function prefs() {
     try {
@@ -560,6 +584,8 @@
     if (G.mode === 'past') return showHistory();
     if (G.mode === 'sim') return stopSim();
     save();
+    // The current game stays saved: it's listed under Your games in the game lobby.
+    if (window.BoardSaves) window.BoardSaves.flush();
     showSetup();
   }
 
@@ -1248,9 +1274,22 @@
   // ---------------------------------------------------------------- start
   const params = new URLSearchParams(location.search);
   const saved = loadSave();
+  let localId = params.get('local');
+  const last = rawSave();
+  if (!saved && !localId && !params.has('home') && last && lastStatus(last.gid) === 'elsewhere') localId = last.gid;
   if (!sessionId()) showGate();
   else if (!isAdmin()) showLocked();
-  else if (params.has('home') || !saved || saved.state.phase === 'over') showSetup();
+  else if (localId && /^[a-z0-9]{4,40}$/i.test(localId) && window.BoardSaves) {
+    if (history.replaceState) history.replaceState(null, '', location.pathname);
+    $('#app').innerHTML = '<p class="loading-save">Loading your game…</p>';
+    window.BoardSaves.load('atlantis', localId).then((g) => {
+      if (validSave(g) && g.state.phase !== 'over') startFrom(g);
+      else {
+        showSetup();
+        toast('That game couldn’t be found — it may have finished or been removed.', 'warn');
+      }
+    });
+  } else if (params.has('home') || !saved || saved.state.phase === 'over') showSetup();
   else startFrom(saved);
   window.__atl = { get G() { return G; }, render, E, send: (a) => doAction(a) };
 })();

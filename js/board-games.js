@@ -5,6 +5,7 @@
   const GAMES = {
     dino: { name: 'Dino Dynasty', icon: '🦖', page: '/dino-board-game.html', img: '/img/dino-game/cover.webp' },
     hearthhold: { name: 'Oakhaven', icon: '🏰', page: '/oakhaven.html', img: '/img/hearthhold/cover.webp' },
+    atlantis: { name: 'Atlantis Expedition', icon: '🔱', page: '/atlantis.html', img: '/img/atlantis/cover.webp', admin: true },
   };
   const LEVELS = { easy: 'Easy', normal: 'Normal', medium: 'Normal', hard: 'Hard', brutal: 'Brutal' };
   const SEASONS = ['Spring', 'Summer', 'Autumn', 'Winter'];
@@ -29,6 +30,15 @@
       return '';
     }
   };
+  // Games still in the lab only show for the admin account.
+  const isAdmin = () => {
+    try {
+      return (localStorage.getItem('ahrenslabs_email') || '').trim().toLowerCase() === 'calebahrens2011@gmail.com';
+    } catch {
+      return false;
+    }
+  };
+  const shown = (game) => GAMES[game] && (!GAMES[game].admin || isAdmin());
 
   // Local games only count once a person has made a move; online games always count.
   const hhMoved = (s) => (s.round || 1) > 1 || (s.log || []).some((e) => e && e.who != null && s.players[e.who] && !s.players[e.who].ai);
@@ -72,6 +82,13 @@
         BS.put('dino', dino.gid, dino, { mode: dino.ai != null ? 'ai' : 'local', level: dino.aiCfg && dino.aiCfg.level, names: dino.players.map((p) => p.name), round: dino.round || 1, rounds: dino.proto ? 15 : 18, moved: true });
       }
     }
+    const atl = isAdmin() && read('ahrensAtlantis.v1');
+    const atlS = atl && atl.state;
+    if (atlS && Array.isArray(atlS.map) && atl.gid && atlS.phase !== 'over' && Array.isArray(atlS.players) && Array.isArray(atlS.log) && (atl.mode === 'ai' || atl.mode === 'local')
+      && (atlS.tide > 1 || atlS.log.some((l) => l && l.who != null && atlS.players[l.who] && !atlS.players[l.who].ai))
+      && !BS.getLocal('atlantis', atl.gid) && !BS.list('atlantis').some((m) => m.id === atl.gid)) {
+      BS.put('atlantis', atl.gid, atl, { mode: atl.mode, level: atl.level, names: atlS.players.map((p) => p.name), round: atlS.tide, rounds: 10, moved: true });
+    }
   }
 
   function savedItem(m) {
@@ -85,7 +102,9 @@
       who: s.mode === 'ai' ? `vs Computer${LEVELS[s.level] ? ` · ${LEVELS[s.level]}` : ''}` : `${names || 'Two players'} · same device`,
       note: m.game === 'hearthhold'
         ? `${SEASONS[(r - 1) % 4]}, year ${Math.floor((r - 1) / 4) + 1} · round ${r} of ${s.rounds || 12}`
-        : `Round ${r}${s.rounds ? ` of ${s.rounds}` : ''}`,
+        : m.game === 'atlantis'
+          ? `Tide ${r} of ${s.rounds || 10}`
+          : `Round ${r}${s.rounds ? ` of ${s.rounds}` : ''}`,
       where: m.local === false ? 'cloud' : 'local',
       updatedAt: m.updatedAt || 0,
       removable: true,
@@ -94,7 +113,7 @@
 
   function localGames() {
     if (!BS) return [];
-    return BS.list().filter((m) => GAMES[m.game] && (!m.summary || m.summary.moved !== false)).map(savedItem);
+    return BS.list().filter((m) => shown(m.game) && (!m.summary || m.summary.moved !== false)).map(savedItem);
   }
 
   function onlineItem(g) {
@@ -221,7 +240,7 @@
         return r.json();
       })
       .then((data) => {
-        const games = (data.games || []).filter((g) => GAMES[g.game]);
+        const games = (data.games || []).filter((g) => shown(g.game));
         if (BS && data.saves) BS.merge(data.saves);
         try {
           sessionStorage.setItem(CACHE_KEY, JSON.stringify(games));
