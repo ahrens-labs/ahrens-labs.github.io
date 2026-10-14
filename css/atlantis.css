@@ -495,3 +495,14 @@ button { font-family: inherit; }
   .top-sea .chip { font-size: 0.78rem; padding: 0.2rem 0.55rem; }
 }
 @media (max-width: 360px) { .brand-logo { display: none; } }
+/* After a failed dive: the story, then the penalty. */
+.what-box, .pen-box { text-align: left; margin: 0.6rem 0 0; padding: 0.65rem 0.85rem; border-radius: 12px; font-size: 0.95rem; }
+.what-box { background: rgba(18, 74, 99, 0.08); box-shadow: inset 0 0 0 1.5px rgba(18, 74, 99, 0.25); }
+.pen-box { background: rgba(192, 57, 43, 0.09); box-shadow: inset 0 0 0 2px rgba(192, 57, 43, 0.55); }
+.pen-box.none { background: rgba(31, 122, 70, 0.1); box-shadow: inset 0 0 0 2px rgba(31, 122, 70, 0.5); }
+.what-box h4, .pen-box h4 { margin: 0 0 0.35rem; font-family: "Lilita One", sans-serif; font-weight: 400; font-size: 1.1rem; letter-spacing: 0.02em; }
+.pen-box h4 { color: var(--bad); }
+.pen-box.none h4 { color: var(--good); }
+.what-box p, .pen-box p { margin: 0.2rem 0; }
+.pen-box ul { margin: 0.2rem 0 0.3rem; padding-left: 1.1rem; display: grid; gap: 0.3rem; }
+.pen-plus, .pen-kept { font-size: 0.85rem; color: var(--muted); }

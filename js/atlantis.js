@@ -875,6 +875,41 @@
     }
   }
 
+  // The penalty for a failed dive, item by item, with when everything comes back.
+  function penaltyHtml(r, p) {
+    const s = st();
+    const whose = G.mode === 'ai' && !p.ai ? 'you' : esc(p.name);
+    const back = (t) => {
+      if (t > E.TIDES) return 'for the rest of the season';
+      const n = t - s.tide - 1;
+      return `${n === 1 ? 'next tide' : `for the next ${n} tides`} (back on tide ${t})`;
+    };
+    const pen = r.pen;
+    const items = [];
+    if (!pen) {
+      return `<div class="pen-box"><h4>⚖️ The penalty</h4><p>See “What happened” above.</p></div>`;
+    }
+    pen.lost.forEach((n) => items.push(`💀 <b>${esc(n)} is gone for good</b> — that diver leaves the company.`));
+    if (pen.wrecked) items.push(`💥 <b>The ${esc(pen.wrecked)} is destroyed</b>, along with any fittings on it.`);
+    if (pen.gold) items.push(`🪙 <b>−${pen.gold} gold</b> (${whose === 'you' ? 'you have' : `${whose} has`} 🪙${p.gold} left).`);
+    if (pen.subBack) items.push(`🔧 <b>The ${esc(E.SUB[r.sk].name)} is out of action ${back(pen.subBack)}.</b>`);
+    const groups = {};
+    pen.rest.forEach((d) => (groups[d.back] = groups[d.back] || []).push(esc(d.name)));
+    Object.keys(groups).forEach((t) => {
+      const names = groups[t];
+      const list = names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : names[0];
+      items.push(`😴 <b>${list} ${names.length > 1 ? 'are' : 'is'} resting and can’t dive ${back(+t)}.</b>`);
+    });
+    const none = !items.length;
+    const kept = [];
+    if (!pen.wrecked && r.sk && !pen.subBack) kept.push(`the ${esc(E.SUB[r.sk].name)} is fine and can dive again next tide`);
+    const fine = r.crewNames.filter((n) => !pen.lost.includes(n) && !pen.rest.some((d) => d.name === n));
+    if (fine.length) kept.push(`${fine.map(esc).join(' and ')} ${fine.length > 1 ? 'are' : 'is'} fine and can dive again next tide`);
+    return `<div class="pen-box${none ? ' none' : ''}"><h4>${none ? '✅ No penalty' : `⚖️ The penalty${whose === 'you' ? '' : ` for ${whose}`}`}</h4>
+      ${none ? '<p>Everyone came home safe. The only cost is the turn: no pearls or gold this time.</p>' : `<ul>${items.map((i) => `<li>${i}</li>`).join('')}</ul><p class="pen-plus">Plus no pearls or gold from this dive.</p>`}
+      ${kept.length && !none ? `<p class="pen-kept">Still OK: ${kept.join('; ')}.</p>` : ''}</div>`;
+  }
+
   // ---------------------------------------------------------------- the dice
   const D20_SVG = (c) => `<svg viewBox="0 0 100 100" aria-hidden="true"><polygon points="50,3 93,27 93,73 50,97 7,73 7,27" fill="${c}" stroke="#fff" stroke-width="3" stroke-linejoin="round"/><polygon points="50,22 76,66 24,66" fill="rgba(255,255,255,0.18)" stroke="rgba(255,255,255,0.75)" stroke-width="2"/><path d="M50 3 50 22 M93 27 76 66 M7 27 24 66 M50 97 24 66 M50 97 76 66 M93 73 76 66 M7 73 24 66 M7 27 50 22 M93 27 50 22" stroke="rgba(255,255,255,0.5)" stroke-width="1.6" fill="none"/></svg>`;
 
@@ -921,7 +956,7 @@
       num.textContent = r.d20;
       back.querySelector('#roll-track').innerHTML = dieTrack(r.need, r.d20);
       const why = r.d20 === 20 ? 'A natural 20 always succeeds!' : r.d20 === 1 ? 'A natural 1 always fails!' : r.ok ? `That’s ${needText(r.need)}.` : `It needed ${needText(r.need)} — missed by ${r.need - r.d20}.`;
-      back.querySelector('#roll-sum').innerHTML = `The die shows <b>${r.d20}</b>. ${why}<br><small>${r.d20} ${r.bonus >= 0 ? '+' : '−'} ${Math.abs(r.bonus)} = ${r.total} against a target of ${r.target}.</small>`;
+      back.querySelector('#roll-sum').innerHTML = `The die shows <b>${r.d20}</b>. ${why}<br><small>${r.d20} ${r.bonus >= 0 ? '+' : '−'} ${Math.abs(r.bonus)} = ${r.total < 0 ? `−${-r.total}` : r.total} against a target of ${r.target}.</small>`;
       const v = back.querySelector('#roll-verdict');
       v.className = `roll-verdict ${r.ok ? 'ok' : 'fail'}`;
       v.innerHTML = r.ok ? `${PEARL} Pearls!` : '💥 The dive failed';
@@ -934,22 +969,23 @@
         if (r.opened && r.opened.length) msgs.push(`🗺️ New routes charted to ${r.opened.map((k) => esc(E.SITE[k].name)).join(' and ')}.`);
         if (r.k === 'heart') msgs.push('💠 <b>The Heart of Atlantis!</b> The season ends after this tide.');
       } else {
-        if (r.strike) msgs.push(`<b>What went wrong:</b> ${E.HAZ[r.strike].icon} ${esc(E.HAZ[r.strike].name)} struck${r.d20 === 1 ? ' (on a natural 1 any hazard can)' : ' — nobody on the dive was ready for it'}.`);
-        else msgs.push('<b>Nobody got hurt:</b> the crew was ready for every hazard down there and came home empty-handed.');
-        r.msgs.forEach((m) => msgs.push(esc(m)));
-        const losses = [].concat(r.lost ? [r.lost] : [], r.drowned || []).map(esc);
-        if (losses.length || r.wrecked) msgs.push(`<span class="loss">Lost for good: ${[...losses, ...(r.wrecked ? [`the ${esc(r.wrecked)}`] : [])].join(', ')}.</span>`);
+        const H = r.strike && E.HAZ[r.strike];
+        const story = H
+          ? `${H.icon} <b>${esc(H.name)}</b> struck. ${r.d20 === 1 ? 'On a natural 1 any hazard at the site can strike, even one the crew was ready for.' : `Nobody on the dive was ready for it — ${esc(H.ready.toLowerCase())} keep it away.`}`
+          : 'The crew was ready for every hazard down there, so nothing attacked them.';
+        msgs.push(`<div class="what-box"><h4>📖 What happened</h4><p>${story}</p>${r.msgs.map((m) => `<p>${esc(m)}</p>`).join('')}</div>`);
+        msgs.push(penaltyHtml(r, p));
         msgs.push(`🧭 The next dive here, by either company, gets +${r.scout} from what was learned.`);
       }
       (r.goals || []).forEach((k) => msgs.push(`${E.GOALS[k].icon} Commission complete — <b>${esc(E.GOALS[k].name)}</b>: +${E.GOALS[k].pts} points!`));
-      back.querySelector('#roll-msgs').innerHTML = msgs.map((m) => `<p>${m}</p>`).join('');
+      back.querySelector('#roll-msgs').innerHTML = msgs.map((m) => (m.startsWith('<div') ? m : `<p>${m}</p>`)).join('');
       sfx(r.ok ? 'good' : 'bad');
       if (r.ok) sfx('coin', 300);
       const ok = back.querySelector('#roll-ok');
       ok.hidden = false;
       ok.onclick = finish;
       ok.focus();
-      if (opts.auto) timers.push(setTimeout(finish, fast || 3200));
+      if (opts.auto) timers.push(setTimeout(finish, fast || (r.ok ? 3200 : 6000)));
     }, landAt));
   }
 

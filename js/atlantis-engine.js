@@ -610,6 +610,9 @@
     } else {
       // The worst hazard nobody was ready for strikes; on a 1, any hazard can.
       const pool = d20 === 1 ? site.haz : c.uncovered;
+      const gold0 = p.gold;
+      const stuck0 = s ? s.stuck : 0;
+      const tired0 = crew.map((d) => d.tired);
       x.scout = Math.min(SCOUT_MAX, x.scout + 1);
       out.scout = x.scout;
       log(state, `${poss(p.name)} dive at ${site.name} failed: 🎲${d20}${d20 === 1 ? ' (a disaster!)' : ''}${signed(c.bonus)} = ${total}, needed ${c.target}.`, pi);
@@ -637,6 +640,14 @@
         out.msgs.push(`💥 The water pressure crushed the ${SUB[s.k].name} — it was never built to go that deep.`);
       }
       out.msgs.forEach((m) => log(state, m, pi));
+      // Exactly what the failure cost, for the roll screen: back = the first tide they can dive again.
+      out.pen = {
+        gold: gold0 - p.gold,
+        lost: [out.lost, ...out.drowned].filter(Boolean),
+        wrecked: out.wrecked || null,
+        subBack: s && !out.wrecked && s.stuck > stuck0 ? s.stuck + 1 : 0,
+        rest: crew.filter((d, i) => p.divers.includes(d) && d.tired > tired0[i]).map((d) => ({ name: d.name, back: d.tired + 1 })),
+      };
     }
     state.last = out;
   }
