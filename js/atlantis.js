@@ -371,7 +371,7 @@
       const heart = t === E.HEART_TIDE ? ' heart' : '';
       pips += `<span class="pip ${cls}${heart}" title="Tide ${t}${heart ? ' · the Heart of Atlantis is sighted' : ''}">${t}</span>`;
     }
-    const home = G.mode === 'past' ? '🏆<span class="bt"> History</span>' : G.mode === 'sim' ? '⏹<span class="bt"> Stop</span>' : '🏠<span class="bt"> Home</span>';
+    const home = G.mode === 'past' ? '🏆<span class="bt"> History</span>' : G.mode === 'sim' ? '⏹<span class="bt"> Stop</span>' : '🔱<span class="bt"> New game</span>';
     $('#app').innerHTML = `
       <header class="topbar">
         <div class="brand">
@@ -388,7 +388,7 @@
         <div class="top-actions">
           ${window.GameMusic ? GameMusic.buttonHtml('btn ghost sm', 'bt') : ''}
           <button class="btn ghost sm" data-act="rules" aria-label="Rules">📜<span class="bt"> Rules</span></button>
-          <button class="btn ghost sm" data-act="home" aria-label="${G.mode === 'past' ? 'History' : G.mode === 'sim' ? 'Stop' : 'Home'}">${home}</button>
+          <button class="btn ghost sm" data-act="home" aria-label="${G.mode === 'past' ? 'History' : G.mode === 'sim' ? 'Stop' : 'New game'}" title="${G.mode === 'past' ? 'Back to history' : G.mode === 'sim' ? 'Stop the simulation' : 'Start a new game (this one stays saved under Your games)'}">${home}</button>
           <a class="btn ghost sm" href="/board-games.html" title="Back to the game lobby" aria-label="Game lobby"><img class="gh-dice" src="/img/board-games-favicon-48.png?v=2" alt=""><span class="bt"> Lobby</span></a>
         </div>
       </header>
