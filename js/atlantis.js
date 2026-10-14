@@ -307,6 +307,8 @@
           </div>
           <button class="btn big offline-only" id="start">Start game</button>
           <div class="gh-links">
+            <button class="btn ghost sm" data-tutorial="atlantis-ad">🎞️ Watch the trailer</button>
+            <button class="btn ghost sm" data-tutorial="atlantis">🎬 Watch the tutorial</button>
             <button class="btn ghost sm" id="how">📜 How to play</button>
             <button class="btn ghost sm" id="hist">🏆 Game history</button>
             <button class="btn ghost sm" id="sim">🧪 Computer vs computer</button>
@@ -1399,7 +1401,8 @@
     const wage = (k) => E.DIVER[k].wage;
     let body = '';
     if (tab === 'overview') {
-      body = `${sec(1, 'The story')}
+      body = `${window.AhrensTutorial ? '<p class="rb-video"><button class="btn sm" data-tutorial="atlantis">🎬 Watch the video tutorial</button> New to the game? The video plays a real game against the computer, step by step.</p>' : ''}
+        ${sec(1, 'The story')}
         <p>You run a diving company racing a rival company to the treasures of sunken Atlantis. Over one season of <b>${E.TIDES} tides</b> you hire <b>divers</b>, build <b>submarines</b> and send them on <b>expeditions</b> to the sites on the chart.</p>
         ${sec(2, 'How to win')}
         <p>When the season ends, the company with the <b>most points</b> wins. Points come from ${PEARL} <b>pearls</b> you bring up, 🏆 being <b>first</b> to finish each level of expedition, 🏺 <b>relic sets</b>, 📜 <b>commissions</b> and leftover 🪙 <b>gold</b>. (See chapter 9.)</p>

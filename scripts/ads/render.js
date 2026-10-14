@@ -1,6 +1,6 @@
-// Render an ad video: node render.js dino|oakhaven [out.mp4]
+// Render an ad video: node render.js dino|oakhaven|atlantis [out.mp4]
 // Needs playwright-core + Chromium (as in ~/.cache/hhtest), ffmpeg, the Kokoro TTS venv, and cut-out sprites
-// from cutout.py in /tmp/ads/sprites.
+// from cutout.py (cutout-atlantis.py for Atlantis) in /tmp/ads/sprites.
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -20,6 +20,7 @@ const TTS_PY = process.env.HOME + '/.cache/tts/venv/bin/python';
 const CFG = {
   dino: { voice: 'am_michael', speed: 1.0, music: { main: ['dino-theme.mp3', 0.5, 88.5] } },
   oakhaven: { voice: 'bm_george', speed: 0.95, music: { main: ['oakhaven-theme.mp3', 0.5, 59.166667], night: ['oakhaven-night.mp3', 0.5, 44.136364] } },
+  atlantis: { voice: 'am_michael', speed: 0.95, music: { main: ['atlantis-theme.mp3', 0.5, 58.1] } },
 }[SCENE];
 
 function serve() {

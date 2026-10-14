@@ -521,6 +521,7 @@ button { font-family: inherit; }
 .rb-flow li::marker { font-weight: 800; color: var(--brass-dark); }
 .rb-ex { padding: 0.55rem 0.8rem; border-left: 4px solid var(--teal); background: rgba(46, 196, 182, 0.1); border-radius: 0 10px 10px 0; font-size: 0.93rem; }
 .rb-key { text-align: center; padding: 0.5rem; border-radius: 10px; background: rgba(232, 182, 76, 0.18); }
+.rb-video { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.7rem; padding: 0.6rem 0.8rem; border-radius: 12px; background: rgba(46, 196, 182, 0.1); font-size: 0.93rem; }
 .rb-terms { display: grid; grid-template-columns: max-content 1fr; gap: 0.35rem 0.9rem; margin: 0.4rem 0; }
 .rb-terms dt { font-weight: 700; }
 .rb-terms dd { margin: 0; }

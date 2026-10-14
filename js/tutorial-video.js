@@ -1,14 +1,16 @@
 // Narrated video tutorials for the board games, with chapters and optional captions.
-// - Any element with data-tutorial="dino" | "hearthhold" opens that video in a modal.
-// - "dino-ad" | "oakhaven-ad" are the short trailers: same modal, no chapters or captions.
+// - Any element with data-tutorial="dino" | "hearthhold" | "atlantis" opens that video in a modal.
+// - "dino-ad" | "oakhaven-ad" | "atlantis-ad" are the short trailers: same modal, no chapters or captions.
 // - AhrensTutorial.embed(id) returns markup for an inline player (e.g. a Rules tab);
 //   call AhrensTutorial.mount(container) after inserting it.
 (function () {
   const VIDEOS = {
     dino: { title: 'Dino Dynasty — video tutorial', base: '/video/dino-tutorial' },
     hearthhold: { title: 'Oakhaven — video tutorial', base: '/video/hearthhold-tutorial' },
+    atlantis: { title: 'Atlantis Expedition — video tutorial', base: '/video/atlantis-tutorial' },
     'dino-ad': { title: 'Dino Dynasty — trailer', base: '/video/dino-ad', trailer: true, v: 9 },
     'oakhaven-ad': { title: 'Oakhaven — trailer', base: '/video/oakhaven-ad', trailer: true, v: 9 },
+    'atlantis-ad': { title: 'Atlantis Expedition — trailer', base: '/video/atlantis-ad', trailer: true, v: 1 },
   };
   const V = '?v=7';
   const CC_KEY = 'ahrensTutorial.cc';
