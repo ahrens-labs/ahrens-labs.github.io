@@ -365,18 +365,34 @@
     const sea = E.SEA[E.sea(s)];
     const next = s.tide < E.TIDES ? E.SEA[s.forecast[s.tide]] : null;
     const sub = G.mode === 'past' ? '📜 Finished game' : G.mode === 'sim' ? `🧪 ${SIM_SPEEDS[G.speed].name} · computer vs computer` : G.mode === 'local' ? '👥 Two players' : `🤖 vs computer · ${LEVEL_NAME[G.level] || ''}`;
+    let pips = '';
+    for (let t = 1; t <= E.TIDES; t++) {
+      const cls = s.phase === 'over' || t < s.tide ? 'done' : t === s.tide ? 'cur' : '';
+      const heart = t === E.HEART_TIDE ? ' heart' : '';
+      pips += `<span class="pip ${cls}${heart}" title="Tide ${t}${heart ? ' · the Heart of Atlantis is sighted' : ''}">${t}</span>`;
+    }
+    const home = G.mode === 'past' ? '🏆<span class="bt"> History</span>' : G.mode === 'sim' ? '⏹<span class="bt"> Stop</span>' : '🏠<span class="bt"> Home</span>';
     $('#app').innerHTML = `
-      <div class="at">
-        <header class="at-top">
-          <a class="gh-lobby" href="/board-games.html" title="Back to the game lobby">← <img class="gh-dice" src="/img/board-games-favicon-48.png?v=2" alt="" width="20" height="20"></a>
-          <div class="at-title">Atlantis Expedition<span class="at-sub">${esc(sub)}</span></div>
-          <span class="chip" title="Tide ${s.tide} of ${E.TIDES}">🌊 Tide ${s.tide}/${E.TIDES}</span>
-          <span class="chip" title="${esc(sea.note)}">${sea.icon} ${esc(sea.name)}</span>
-          ${next && s.phase === 'act' ? `<span class="chip next" title="Next tide: ${esc(next.note)}">Next: ${next.icon} ${esc(next.name)}</span>` : ''}
+      <header class="topbar">
+        <div class="brand">
+          <img src="/img/atlantis-favicon-96.png?v=1" alt="" class="brand-logo" width="46" height="46">
+          <div><h1>Atlantis Expedition</h1><small>${esc(sub)}</small></div>
+        </div>
+        <div class="top-mid">
+          <div class="tracker"><span class="tracker-label">Tide</span>${pips}</div>
+          <div class="top-sea">
+            <span class="chip" title="${esc(sea.note)}">${sea.icon} ${esc(sea.name)}</span>
+            ${next && s.phase === 'act' ? `<span class="chip next" title="Next tide: ${esc(next.note)}">Next: ${next.icon} ${esc(next.name)}</span>` : ''}
+          </div>
+        </div>
+        <div class="top-actions">
           ${window.GameMusic ? GameMusic.buttonHtml('btn ghost sm', 'bt') : ''}
-          <button class="btn ghost sm" data-act="rules">📜 Rules</button>
-          <button class="btn ghost sm" data-act="home">${G.mode === 'past' ? '🏆 History' : G.mode === 'sim' ? '⏹ Stop' : '🏠 Home'}</button>
-        </header>
+          <button class="btn ghost sm" data-act="rules" aria-label="Rules">📜<span class="bt"> Rules</span></button>
+          <button class="btn ghost sm" data-act="home" aria-label="${G.mode === 'past' ? 'History' : G.mode === 'sim' ? 'Stop' : 'Home'}">${home}</button>
+          <a class="btn ghost sm" href="/board-games.html" title="Back to the game lobby" aria-label="Game lobby"><img class="gh-dice" src="/img/board-games-favicon-48.png?v=2" alt=""><span class="bt"> Lobby</span></a>
+        </div>
+      </header>
+      <div class="at">
         <section class="scores">${s.players.map((p, i) => companyCard(i, v)).join('')}</section>
         ${s.phase === 'act' ? `<div class="tide-strip"><span class="ts-tide">🌊 Tide <b>${s.tide}</b> of ${E.TIDES}${s.tide === E.TIDES ? ' · <b class="ts-last">last tide!</b>' : ''}</span><span class="ts-sea">${sea.icon} <b>${esc(sea.name)}:</b> ${SEA_PLAIN[E.sea(s)]}</span>${next ? `<span class="ts-next">Next tide: ${next.icon} ${esc(next.name)}</span>` : ''}</div>` : ''}
         ${bannerHtml()}
