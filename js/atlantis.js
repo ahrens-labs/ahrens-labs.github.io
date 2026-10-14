@@ -449,9 +449,9 @@
       const o = canPlan ? bestOdds(actor, x) : null;
       if (o) badge = `<span class="nd-odds" style="--oc:${oddsColor(o.p)}">${pct(o.p)}</span>`;
     }
-    const meta = `${site.haz.map((h) => E.HAZ[h].icon).join('')}${site.relic ? E.RELIC[site.relic].icon : ''}`;
+    const meta = `${state === 'hidden' ? '' : `<span class="nd-haul">${PEARL}${E.rewardOf(s, x).treasure}</span>`}${site.haz.map((h) => E.HAZ[h].icon).join('')}${site.relic ? E.RELIC[site.relic].icon : ''}`;
     const label = state === 'hidden' ? `🔒 Tide ${E.HEART_TIDE}` : esc(site.short);
-    return `<button class="node t${site.tier} ${state}${x.k === 'heart' ? ' heart' : ''}" data-site="${x.id}" style="left:${slot.x}%;top:${ROW_Y[slot.row]}%;--bg:url('${expImg(x)}')${done ? `;--pc:${PCOLOR[x.by]}` : ''}" title="${esc(site.name)} · ${E.TIER[site.tier].name}">
+    return `<button class="node t${site.tier} ${state}${x.k === 'heart' ? ' heart' : ''}" data-site="${x.id}" style="left:${slot.x}%;top:${ROW_Y[slot.row]}%;--bg:url('${expImg(x)}')${done ? `;--pc:${PCOLOR[x.by]}` : ''}" title="${esc(site.name)} · ${E.TIER[site.tier].name} · ${E.rewardOf(s, x).treasure} pearls">
       <span class="nd-dot"><span class="nd-stars">${stars(site.tier)}</span>${done ? `<span class="nd-flag">${FLAG[x.by]}</span>` : ''}${x.scout && !done ? `<span class="nd-scout">🧭${x.scout}</span>` : ''}</span>
       ${badge}
       <span class="nd-name">${label}</span>
@@ -1241,7 +1241,11 @@
         <p>When a dive fails, one hazard nobody was ready for strikes (see Hazards). On top of that, <b>every diver out of their depth has a ${pct(E.DIVER_LOST)} chance per zone of being lost</b>, and a sub out of its depth has a ${pct(E.SUB_CRUSH)} chance per zone of being crushed.</p>
         <p>🏊 <b>No sub?</b> Up to ${E.SWIM_CREW} divers can swim out from the dive boat instead. Swimmers get no sub bonus or fittings and take <b>−${E.SWIM_PEN}</b>, plus <b>−${E.SUB_DEEP_PEN} per zone</b> below the Shallows. If a swim below the Shallows fails, each swimmer also has a ${pct(E.SWIM_LOST)} chance per zone of being lost, and hazards that would hit a sub hit the swimmers instead (they rest, and the Kraken takes one of them).</p>
         <p>🎖️ Every diver on a successful dive gains experience. After ${E.PROMO_XP} successful dives a diver is <b>promoted</b>: +1 skill, and trained one zone deeper.</p>
-        <table><tr><th>Level</th><th>Target</th><th>Pearls</th><th>Gold</th></tr>${[1, 2, 3, 4, 5].map((t) => `<tr><td>${'★'.repeat(T[t].stars)} ${T[t].name}</td><td>${T[t].target}+</td><td>${PEARL}${T[t].treasure}</td><td>🪙${T[t].gold}</td></tr>`).join('')}</table>`;
+        <p>Every site holds its own haul, set when the game starts — the chart shows each site’s pearls. Within a level, deeper sites and sites with more hazards tend to hold more.</p>
+        <table><tr><th>Level</th><th>Target</th><th>Pearls</th><th>Gold</th></tr>${[1, 2, 3, 4, 5].map((t) => {
+          const r = E.rewardRange(t);
+          return `<tr><td>${'★'.repeat(T[t].stars)} ${T[t].name}</td><td>${T[t].target}+</td><td>${PEARL}${r.lo}–${r.hi}</td><td>🪙${r.goldLo}–${r.goldHi}</td></tr>`;
+        }).join('')}</table>`;
     }
     if (tab === 'hazards') {
       return `<table><tr><th>Hazard</th><th>Who is ready for it</th><th>If it strikes</th></tr>${E.HAZ_ORDER.map((h) => `<tr><td>${E.HAZ[h].icon} ${esc(E.HAZ[h].name)}</td><td>${esc(E.HAZ[h].ready)}</td><td>${esc(E.HAZ[h].effect)}</td></tr>`).join('')}</table>

@@ -96,11 +96,11 @@
 
   // Tier: 1 easy … 4 extreme; 5 is the Heart of Atlantis.
   const TIER = {
-    1: { name: 'Easy', target: 6, treasure: 3, gold: 2, stars: 1 },
-    2: { name: 'Tricky', target: 10, treasure: 5, gold: 3, stars: 2 },
-    3: { name: 'Hard', target: 14, treasure: 8, gold: 4, stars: 3 },
-    4: { name: 'Extreme', target: 16, treasure: 12, gold: 5, stars: 4 },
-    5: { name: 'Legendary', target: 18, treasure: 20, gold: 6, stars: 5 },
+    1: { name: 'Easy', target: 6, treasure: 3, gold: 2, stars: 1, spread: 1 },
+    2: { name: 'Tricky', target: 10, treasure: 5, gold: 3, stars: 2, spread: 1 },
+    3: { name: 'Hard', target: 14, treasure: 8, gold: 4, stars: 3, spread: 2 },
+    4: { name: 'Extreme', target: 16, treasure: 12, gold: 5, stars: 4, spread: 2 },
+    5: { name: 'Legendary', target: 18, treasure: 20, gold: 6, stars: 5, spread: 3 },
   };
   const SITE = {
     reef: { name: 'Coral Gate Reef', short: 'Coral Gate', tier: 1, depth: 1, haz: ['shark'], blurb: 'Gold coins tangled in the coral at the city gate.' },
@@ -128,6 +128,15 @@
     heart: { name: 'The Heart of Atlantis', short: 'The Heart', tier: 5, depth: 3, haz: ['trap', 'kraken', 'dark'], blurb: 'The glowing crystal that once powered the whole city.' },
   };
   const SITE_ORDER = Object.keys(SITE);
+  // Each site's haul is rolled when the game starts: the level's usual pearls give or take its spread, plus 1 for a site
+  // deeper than the shallowest of its level and 1 for each hazard beyond the fewest of its level. Gold varies by 1 either way.
+  const tierMin = (t, f) => Math.min(...SITE_ORDER.filter((k) => SITE[k].tier === t).map((k) => f(SITE[k])));
+  const haulBump = (site) => (site.depth > tierMin(site.tier, (y) => y.depth) ? 1 : 0) + (site.haz.length - tierMin(site.tier, (y) => y.haz.length));
+  function rewardRange(t) {
+    const ks = SITE_ORDER.filter((k) => SITE[k].tier === t);
+    const bumps = ks.map((k) => haulBump(SITE[k]));
+    return { lo: TIER[t].treasure - TIER[t].spread + Math.min(...bumps), hi: TIER[t].treasure + TIER[t].spread + Math.max(...bumps), goldLo: Math.max(1, TIER[t].gold - 1), goldHi: TIER[t].gold + 1 };
+  }
 
   // The chart: rows of sites from the harbor down to the Heart. LINKS[row][i] lists the sites in the next row that site i leads to.
   const ROWS = [
@@ -267,7 +276,13 @@
     // Each game draws its own sites for every row of the chart.
     const pools = {};
     [1, 2, 3, 4, 5].forEach((t) => (pools[t] = shuffle(state, SITE_ORDER.filter((k) => SITE[k].tier === t))));
-    state.map = SLOTS.map((slot, n) => ({ id: nid(state), n, k: pools[slot.tier].pop(), scout: 0, by: null }));
+    state.map = SLOTS.map((slot, n) => {
+      const k = pools[slot.tier].pop();
+      const t = TIER[slot.tier];
+      const pearls = t.treasure - t.spread + rint(state, 2 * t.spread + 1) + haulBump(SITE[k]);
+      const gold = Math.max(1, t.gold - 1 + rint(state, 3));
+      return { id: nid(state), n, k, scout: 0, by: null, pearls, gold };
+    });
     state.goals = shuffle(state, GOAL_ORDER.slice()).slice(0, GOAL_COUNT).map((k) => ({ k, by: null }));
 
     for (let i = 0; i < 2; i++) {
@@ -328,9 +343,11 @@
   function targetOf(x) {
     return TIER[siteOf(x).tier].target;
   }
+  // Games saved before sites had their own haul use the level's usual one.
+  const haulOf = (x) => ({ treasure: x.pearls != null ? x.pearls : TIER[siteOf(x).tier].treasure, gold: x.gold != null ? x.gold : TIER[siteOf(x).tier].gold });
   function rewardOf(state, x) {
-    const t = TIER[siteOf(x).tier];
-    return { treasure: t.treasure + (sea(state) === 'rumors' ? 2 : 0), gold: t.gold };
+    const h = haulOf(x);
+    return { treasure: h.treasure + (sea(state) === 'rumors' ? 2 : 0), gold: h.gold };
   }
   // Any unexplored site can be tried (the Heart only once it's sighted on tide HEART_TIDE), but a site is
   // only charted once a site leading to it has been explored; diving somewhere uncharted is much harder.
@@ -358,8 +375,11 @@
     const x = expOf(state, expId);
     const s = subId == null ? null : subOf(p, subId);
     if (!x || (subId != null && !s)) return null;
+    return chanceOf(state, pi, x, s, (crewIds || []).map((id) => diverOf(p, id)).filter(Boolean), sea(state));
+  }
+  // The same sum for any sub and crew (even ones the company doesn't have yet) under any forecast.
+  function chanceOf(state, pi, x, s, crew, w) {
     const site = siteOf(x);
-    const crew = (crewIds || []).map((id) => diverOf(p, id)).filter(Boolean);
     const parts = [];
     const skill = crew.reduce((t, d) => t + skillOf(d), 0);
     if (skill) parts.push({ label: `Crew skill`, v: skill });
@@ -367,7 +387,6 @@
     else if (SUB[s.k].bonus) parts.push({ label: `${SUB[s.k].name}`, v: SUB[s.k].bonus });
     if (knownWaters(state, pi, x)) parts.push({ label: 'Known waters', v: KNOWN_BONUS });
     if (x.scout) parts.push({ label: 'Earlier attempts', v: x.scout });
-    const w = sea(state);
     if (w === 'calm') parts.push({ label: 'Calm seas', v: 1 });
     if (w === 'lowtide' && site.depth === 1) parts.push({ label: 'Low tide', v: 2 });
     if (!charted(state, x)) parts.push({ label: 'Uncharted waters', v: -UNCHARTED });
@@ -839,7 +858,7 @@
     const depth = Math.max(maxDepth(p), 1);
     openSites(state).forEach((x) => {
       const site = siteOf(x);
-      const w = (TIER[site.tier].treasure / 5) * (charted(state, x) ? 1 : 0.35);
+      const w = (haulOf(x).treasure / 5) * (charted(state, x) ? 1 : 0.35);
       const reach = site.depth <= depth + 1 ? 1 : 0.4;
       site.haz.forEach((h) => (dem[h] += w * reach));
     });
@@ -888,7 +907,7 @@
     }
 
     const depthNow = maxDepth(p);
-    const deepGain = open.filter((x) => siteOf(x).depth > depthNow).reduce((t, x) => Math.max(t, TIER[siteOf(x).tier].treasure), 0)
+    const deepGain = open.filter((x) => siteOf(x).depth > depthNow).reduce((t, x) => Math.max(t, haulOf(x).treasure), 0)
       || state.map.filter((x) => x.by == null && siteOf(x).depth > depthNow).length * 0.6;
     if (left >= 2 && p.subs.length < MAX_SUBS) {
       for (const k of SUB_ORDER) {
@@ -935,6 +954,7 @@
 
   function aiChoose(state, pi, level) {
     level = AI_LEVEL[level] || 'normal';
+    if (level === 'hard' || level === 'brutal') return evChoose(state, pi);
     const opts = options(state, pi, level);
     const noise = level === 'easy' ? 4 : level === 'normal' ? 1.2 : 0;
     const minP = level === 'easy' ? 0.15 : level === 'normal' ? 0.3 : 0.2;
@@ -961,19 +981,312 @@
       const crew = bestCrew(state, o, x, s);
       if (!crew.length) continue;
       const c = chance(state, o, x.id, s ? s.id : null, crew.map((d) => d.id));
-      best = Math.max(best, c.p * TIER[siteOf(x).tier].treasure);
+      best = Math.max(best, c.p * haulOf(x).treasure);
     }
     return best;
+  }
+
+  // ---------------------------------------------------------------- expected-value computer player
+  // Every choice is scored as its expected effect on the final margin (this company's points minus the rival's):
+  // a dive is P(success) × everything the find is worth, minus the expected cost of what failure brings; a purchase
+  // is how much it improves the best dive plan for this tide and the tides after it, minus what it costs.
+  const EV = {
+    decay: 0.5, // each later tide is worth this much of the one before: sites run out and the Heart can end the season
+    goldNow: 0.06, // gold is worth 1/GOLD_PER_PT at the end, more while it can still buy divers and subs
+    deny: 0.5, // share of the rival's expected haul from a site that a find takes away from them
+    chart: 0.3, // routes opened by a find, per newly charted site, while there's time to use them
+    promo: 0.35, // a promotion's +1 skill and depth, per remaining tide
+    floor: 1, // a lost diver is worth at least this share of what hiring a replacement would cost
+  };
+
+  const goldVal = (state, tl) => 1 / GOLD_PER_PT + EV.goldNow * Math.max(0, Math.min(tl - 1, 5));
+  function laterTides(tl) {
+    let f = 0;
+    for (let k = 1; k < tl; k++) f += Math.pow(EV.decay, k);
+    return f;
+  }
+
+  // Divers, subs and forecast for a plan: right now (what's still ready) or a fresh tide (everyone back from the last one).
+  function fleetOf(state, p, fresh) {
+    if (!fresh) return { subs: readySubs(state, p), divers: readyDivers(state, p), w: sea(state), sites: openSites(state) };
+    const t = state.tide + 1;
+    const w = state.forecast[state.tide] || null;
+    return {
+      subs: p.subs.filter((s) => s.stuck < t && !(s.k === 'minnow' && w === 'storm')),
+      divers: p.divers.filter((d) => d.tired < t),
+      w,
+      sites: state.map.filter((x) => x.by == null && (x.k !== 'heart' || t >= HEART_TIDE)),
+    };
+  }
+
+  // A quick crew: each diver adds their skill and the hazards they make safe; out-of-depth divers need to be worth the risk.
+  function quickCrew(x, s, pool, w) {
+    const site = siteOf(x);
+    const room = s ? SUB[s.k].crew : SWIM_CREW;
+    const covered = new Set(s ? s.mods.map((m) => MOD[m].haz) : []);
+    if (w === 'clear') covered.add('dark');
+    const crew = [];
+    let left = pool.slice();
+    while (crew.length < room && left.length) {
+      let best = null;
+      for (const d of left) {
+        const gap = Math.max(0, site.depth - deepOf(d));
+        let v = skillOf(d) - (DIVER_DEEP_PEN + 1.5) * gap - DIVER[d.k].cost * 0.01;
+        for (const h of DIVER[d.k].spec) if (site.haz.includes(h) && !covered.has(h)) v += SEA_DOUBLE[w] === h ? UNCOVERED * 2 : UNCOVERED;
+        if (!best || v > best.v) best = { d, v };
+      }
+      if (crew.length && best.v <= 0) break;
+      crew.push(best.d);
+      DIVER[best.d.k].spec.forEach((h) => covered.add(h));
+      left = left.filter((y) => y !== best.d);
+    }
+    return crew;
+  }
+
+  // What a company stands to gain from finding a site, before the dice: pearls, gold, first find, relic set, commissions.
+  function findGain(state, pi, x, w, gv) {
+    const p = state.players[pi];
+    const site = siteOf(x);
+    const h = haulOf(x);
+    let v = h.treasure + (w === 'rumors' ? 2 : 0) + h.gold * gv + (state.firsts[site.tier] == null ? DISCOVERY_PTS : 0);
+    if (site.relic) v += relicPoints(p.relics.concat(site.relic)) - relicPoints(p.relics);
+    return v;
+  }
+
+  function evContext(state, pi, rough) {
+    const tl = tidesLeft(state);
+    const ctx = { state, pi, tl, gv: goldVal(state, tl), F: laterTides(tl), gain: {}, deny: {}, goal: {}, diverRate: {}, subRate: {}, diverVal: {}, subVal: {}, rough };
+    const p = state.players[pi];
+    const late = Math.min(1, ctx.F / 2.5);
+    // Rough worth of divers and subs, used until the plans below measure it.
+    ctx.dRate = (d) => (ctx.diverRate[d.id] != null ? ctx.diverRate[d.id] : 0.6);
+    ctx.sRate = (s) => (s && ctx.subRate[s.id] != null ? ctx.subRate[s.id] : 1);
+    ctx.dVal = (d) => (ctx.diverVal[d.id] != null ? ctx.diverVal[d.id] : (DIVER[d.k].cost * 0.5 + skillOf(d)) * late);
+    ctx.sVal = (s) => (ctx.subVal[s.id] != null ? ctx.subVal[s.id] : (SUB[s.k].cost * 0.7 + s.mods.length * 2 + 1) * late);
+    state.map.forEach((x) => {
+      if (x.by != null) return;
+      const site = siteOf(x);
+      const open = state.goals.filter((g) => g.by == null);
+      if (open.length) {
+        const q = clone(p);
+        q.found.push(x.k);
+        if (site.relic) q.relics.push(site.relic);
+        q.tideFound += 1;
+        ctx.goal[x.id] = open.reduce((t, g) => t + (GOALS[g.k].test(q) ? GOALS[g.k].pts : 0), 0);
+      } else ctx.goal[x.id] = 0;
+    });
+    if (rough) return ctx;
+    // The rival's side: what they'd expect from each site (a find takes it away from them) and how fast they're scoring.
+    const o = 1 - pi;
+    const rctx = evContext(state, o, true);
+    const rf = fleetOf(state, state.players[o], true);
+    rf.sites.forEach((x) => {
+      let best = 0;
+      for (const s of [...rf.subs, null]) {
+        const crew = quickCrew(x, s, rf.divers, rf.w);
+        if (!crew.length) continue;
+        best = Math.max(best, chanceOf(state, o, x, s, crew, rf.w).p * findGain(state, o, x, rf.w, rctx.gv));
+      }
+      ctx.deny[x.id] = best;
+    });
+    ctx.rivalRate = planOf(state, o, rf, rctx).total;
+    if (!state.passed[o]) {
+      const rn = fleetOf(state, state.players[o], false);
+      ctx.rivalNow = {};
+      rn.sites.forEach((x) => {
+        let best = 0;
+        for (const s of [...rn.subs, null]) {
+          const crew = quickCrew(x, s, rn.divers, rn.w);
+          if (crew.length) best = Math.max(best, chanceOf(state, o, x, s, crew, rn.w).p);
+        }
+        ctx.rivalNow[x.id] = best;
+      });
+    }
+    // Measure each diver and sub by how much the company's best fresh-tide plan drops without them.
+    const fresh = fleetOf(state, p, true);
+    ctx.myRate = ctx.rivalRate;
+    const base = planOf(state, pi, fresh, ctx).total;
+    ctx.myRate = base;
+    for (const d of p.divers) {
+      const rate = Math.max(0, base - planOf(state, pi, Object.assign({}, fresh, { divers: fresh.divers.filter((y) => y !== d) }), ctx).total);
+      ctx.diverRate[d.id] = rate;
+      const replace = tl > 1 ? EV.floor * DIVER[d.k].cost * ctx.gv : 0;
+      ctx.diverVal[d.id] = Math.max(replace, rate * ctx.F - DIVER[d.k].wage * (tl - 1) * ctx.gv);
+    }
+    for (const s of p.subs) {
+      const rate = Math.max(0, base - planOf(state, pi, Object.assign({}, fresh, { subs: fresh.subs.filter((y) => y !== s) }), ctx).total);
+      ctx.subRate[s.id] = rate;
+      ctx.subVal[s.id] = rate * ctx.F;
+    }
+    return ctx;
+  }
+
+  // Expected margin from one dive: P(success) × (what the find is worth) − P(failure) × (what failure costs).
+  function diveEV(ctx, x, s, crew, w) {
+    const { state, pi, gv } = ctx;
+    const p = state.players[pi];
+    const c = chanceOf(state, pi, x, s, crew, w);
+    const site = siteOf(x);
+    let succ = findGain(state, pi, x, w, gv) + ctx.goal[x.id];
+    if (!ctx.rough) {
+      succ += EV.deny * (ctx.deny[x.id] || 0);
+      if (ctx.F > 0.5) succ += SLOTS[x.n].kids.filter((n) => state.map[n].by == null && !charted(state, state.map[n])).length * EV.chart;
+      succ += crew.filter((d) => (d.xp || 0) + 1 === PROMO_XP).length * EV.promo * ctx.F;
+      // The Heart ends the season: good when this company scores slower than its rival from here on, bad when faster.
+      if (x.k === 'heart') succ -= ctx.F * (ctx.myRate - ctx.rivalRate);
+    }
+    const rest = (n) => (ctx.tl > n - 1 ? crew.reduce((t, d) => t + ctx.dRate(d), 0) * n : 0);
+    const out = (n) => (ctx.tl > n - 1 ? ctx.sRate(s) * n : 0);
+    const cost = (h) => {
+      switch (h) {
+        case 'shark': {
+          const low = Math.min(...crew.map(skillOf));
+          return Math.min(...crew.filter((d) => skillOf(d) === low).map(ctx.dVal));
+        }
+        case 'kraken': return (s ? ctx.sVal(s) : crew.reduce((t, d) => t + ctx.dVal(d), 0) / crew.length) + rest(1);
+        case 'cave': return s ? out(2) : rest(2);
+        case 'current': return Math.min(3, p.gold) * gv + (s ? out(1) : rest(1));
+        case 'trap': return Math.min(2, p.gold) * gv + (s ? out(1) : rest(1));
+        default: return rest(1);
+      }
+    };
+    const avg = (hs) => (hs.length ? hs.reduce((t, h) => t + cost(h), 0) / hs.length : 0);
+    const pF = 1 - c.p;
+    const p1 = Math.min(pF, 0.05);
+    let fail = (pF - p1) * avg(c.uncovered) + p1 * avg(site.haz);
+    fail += pF * (c.risk.reduce((t, r) => t + r.p * ctx.dVal(crew.find((d) => d.id === r.id)), 0) + (s ? c.crush * ctx.sVal(s) : 0));
+    // A failed attempt makes the site easier for everyone, the rival included.
+    if (!ctx.rough) fail += pF * 0.05 * (ctx.deny[x.id] || 0);
+    return { ev: c.p * succ - fail, p: c.p, c };
+  }
+
+  // The best set of dives for one tide: greedily give each sub (or a swim) the site and crew worth the most.
+  function planOf(state, pi, fleet, ctx) {
+    let subs = fleet.subs.slice();
+    let divers = fleet.divers.slice();
+    let sites = fleet.sites.slice();
+    const dives = [];
+    let total = 0;
+    for (;;) {
+      let best = null;
+      for (const s of [...subs, null]) {
+        for (const x of sites) {
+          const crew = quickCrew(x, s, divers, fleet.w);
+          if (!crew.length) continue;
+          const r = diveEV(ctx, x, s, crew, fleet.w);
+          if (r.ev > 0 && (!best || r.ev > best.ev)) best = { x, s, crew, ev: r.ev, p: r.p };
+        }
+      }
+      if (!best) break;
+      dives.push(best);
+      total += best.ev;
+      subs = subs.filter((y) => y !== best.s);
+      divers = divers.filter((y) => !best.crew.includes(y));
+      sites = sites.filter((y) => y !== best.x);
+    }
+    return { total, dives, subs, divers };
+  }
+
+  function evChoose(state, pi) {
+    const p = state.players[pi];
+    const ctx = evContext(state, pi);
+    const nowFleet = fleetOf(state, p, false);
+    const freshFleet = fleetOf(state, p, true);
+    const now = planOf(state, pi, nowFleet, ctx);
+    const later = ctx.F > 0 ? ctx.myRate : 0;
+    const tl = ctx.tl;
+    const income = INCOME + (state.forecast[state.tide] === 'gala' ? 3 : 0);
+
+    // Purchases: the gain to this tide's plan plus the later tides', minus gold (and wages) at what gold is worth now.
+    const buys = [];
+    const consider = (a, change, gold, wage) => {
+      if (legal(state, pi, a)) return;
+      // Never spend so much that next tide's wages can't be paid.
+      if (tl > 1 && p.gold - gold + income < wagesOf(p) + wage) return;
+      const nf = change(nowFleet, false);
+      const ff = change(freshFleet, true);
+      const dNow = planOf(state, pi, nf.fleet, ctx).total - now.total;
+      const dLater = ctx.F > 0 ? planOf(state, pi, ff.fleet, ctx).total - later : 0;
+      const q = clone(p);
+      q.gold -= gold;
+      nf.apply(q);
+      const goals = state.goals.filter((g) => g.by == null && !GOALS[g.k].test(p) && GOALS[g.k].test(q)).reduce((t, g) => t + GOALS[g.k].pts, 0);
+      const v = dNow + ctx.F * dLater + goals - gold * ctx.gv - wage * (tl - 1) * ctx.gv;
+      buys.push({ a, v, now: dNow });
+    };
+    if (tl >= 1) {
+      state.market.forEach((d) => {
+        const hire = Object.assign({}, d, { used: false, tired: 0, xp: 0 });
+        consider({ t: 'hire', d: d.id }, (f) => ({ fleet: Object.assign({}, f, { divers: f.divers.concat(hire) }), apply: (q) => q.divers.push(hire) }), hireCost(d), DIVER[d.k].wage);
+      });
+      SUB_ORDER.forEach((k) => {
+        const sub = { id: -1, k, mods: [], used: false, stuck: 0 };
+        consider({ t: 'build', k }, (f, fresh) => ({ fleet: Object.assign({}, f, { subs: f.subs.concat(fresh || f.w !== 'storm' || k !== 'minnow' ? [sub] : []) }), apply: (q) => q.subs.push(sub) }), SUB[k].cost, 0);
+      });
+      p.subs.forEach((s) => {
+        SUB_ORDER.forEach((k) => {
+          if (SUB[k].cost <= SUB[s.k].cost) return;
+          const up = Object.assign({}, s, { k });
+          const swap = (list) => list.map((y) => (y === s ? up : y));
+          consider({ t: 'upgrade', s: s.id, k }, (f) => ({ fleet: Object.assign({}, f, { subs: f.subs.includes(s) ? swap(f.subs) : f.subs }), apply: (q) => (q.subs.find((z) => z.id === s.id).k = k) }), upgradeCost(s, k), 0);
+        });
+        MOD_ORDER.forEach((m) => {
+          const fit = Object.assign({}, s, { mods: s.mods.concat(m) });
+          const swap = (list) => list.map((y) => (y === s ? fit : y));
+          consider({ t: 'fit', s: s.id, m }, (f) => ({ fleet: Object.assign({}, f, { subs: f.subs.includes(s) ? swap(f.subs) : f.subs }), apply: () => {} }), MOD[m].cost, 0);
+        });
+      });
+    }
+    buys.sort((a, b) => b.v - a.v);
+    const buy = buys[0] && buys[0].v > 0.05 ? buys[0] : null;
+
+    // Anything that makes this tide's dives better is bought before diving.
+    if (buy && buy.now > 0.05) return buy.a;
+    if (now.dives.length) {
+      // Dive where the rival is most likely to get there first; otherwise the most valuable dive. A dive is only
+      // worth making now if it beats waiting for a better crew or forecast next tide.
+      const rn = ctx.rivalNow || {};
+      const ranked = now.dives
+        .map((d) => {
+          let wait = 0;
+          if (ctx.F > 0) {
+            for (const s of [...freshFleet.subs, null]) {
+              const crew = quickCrew(d.x, s, freshFleet.divers, freshFleet.w);
+              if (crew.length) wait = Math.max(wait, diveEV(ctx, d.x, s, crew, freshFleet.w).ev);
+            }
+          }
+          const keep = 1 - (rn[d.x.id] || 0);
+          // Dive now: d.ev, and a failed dive can still be tried again later. Wait: the later dive, if the site is still there.
+          const go = d.ev + (1 - d.p) * EV.decay * wait;
+          const hold = keep * EV.decay * wait;
+          return Object.assign({}, d, { gain: go - hold, race: (rn[d.x.id] || 0) * d.ev });
+        })
+        .filter((d) => d.gain > 0)
+        .sort((a, b) => b.race - a.race || b.ev - a.ev);
+      if (ranked.length) {
+        const d = ranked[0];
+        return { t: 'dive', x: d.x.id, s: d.s ? d.s.id : null, crew: d.crew.map((y) => y.id) };
+      }
+    }
+    if (buy) return buy.a;
+    // Leftover subs and divers bring in a little gold.
+    const left = now.subs.filter((s) => !s.used);
+    if (left.length && now.divers.length) {
+      const s = left.sort((a, b) => SUB[b.k].crew - SUB[a.k].crew)[0];
+      const crew = now.divers.slice(0, SUB[s.k].crew);
+      if ((1 + crew.length) * ctx.gv > 0.05) return { t: 'salvage', s: s.id, crew: crew.map((d) => d.id) };
+    }
+    return { t: 'pass' };
   }
 
   const api = {
     SAVE_V, TIDES, HEART_TIDE, START_GOLD, INCOME, MAX_SUBS, MAX_DIVERS, MARKET_SIZE, UNCOVERED, SCOUT_MAX, KNOWN_BONUS, PROMO_XP, DISCOVERY_PTS, GOLD_PER_PT, GOAL_COUNT,
     HAZ, HAZ_ORDER, DEPTH, SUB, SUB_ORDER, MOD, MOD_ORDER, DIVER, DIVER_ORDER, TIER, SITE, SITE_ORDER, SEA, SEA_ORDER, SEA_DOUBLE, AI_LEVEL, AI_HEAD_START,
     RELIC, RELIC_ORDER, RELIC_SET, GOALS, GOAL_ORDER, ROWS, SLOTS,
-    newGame, aiHeadStart, legal, apply, chance, score, winner, aiChoose, bestCrew, clone, upgradeCost, hireCost, relicPoints,
+    newGame, aiHeadStart, legal, apply, chance, score, rewardRange, winner, aiChoose, bestCrew, clone, upgradeCost, hireCost, relicPoints,
     sea, diverReady, subReady, readyDivers, readySubs, wagesOf, crewRoom, maxDepth, tidesLeft, siteOf, targetOf, rewardOf, expOf, subOf, diverOf,
     isOpen, openSites, charted, knownWaters, promoted, skillOf, deepOf, poss,
-    UNCHARTED, DIVER_DEEP_PEN, DIVER_LOST, SUB_DEEP_PEN, SUB_CRUSH, SWIM_CREW, SWIM_PEN, SWIM_LOST,
+    UNCHARTED, DIVER_DEEP_PEN, DIVER_LOST, SUB_DEEP_PEN, SUB_CRUSH, SWIM_CREW, SWIM_PEN, SWIM_LOST, EV,
   };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.AtlantisEngine = api;
