@@ -570,7 +570,9 @@
     const site = siteOf(x);
     const c = chance(state, pi, a.x, s ? s.id : null, a.crew);
     const crew = a.crew.map((id) => diverOf(p, id));
-    const d20 = 1 + rint(state, 20);
+    const roll = 1 + rint(state, 20);
+    // rig20: admin testing switch on the page; the rng still advances so the rest of the game is unchanged.
+    const d20 = a.rig20 ? 20 : roll;
     const total = d20 + c.bonus;
     const ok = d20 === 20 || (d20 !== 1 && total >= c.target);
     if (s) s.used = true;

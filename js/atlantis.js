@@ -121,6 +121,8 @@
       return '';
     }
   }
+  // Admin testing: every dive a human sends rolls a natural 20. Games played this way stay out of history.
+  const rig20On = () => isAdmin() && !!prefs().rig20;
   function isAdmin() {
     try {
       return (localStorage.getItem('ahrenslabs_email') || '').trim().toLowerCase() === ADMIN_EMAIL;
@@ -347,6 +349,9 @@
     document.body.className = 'game-mode';
     window.scrollTo(0, 0);
     save();
+    // Each saved game has its own address, so reloading reopens this game and the bare page is always home.
+    const q = G.gid && (G.mode === 'ai' || G.mode === 'local') ? `?local=${encodeURIComponent(G.gid)}` : '';
+    if (history.replaceState && location.search !== q) history.replaceState(null, '', location.pathname + q);
     render();
     if (st().phase === 'over') showGameOver(!!G.revealed);
     else scheduleAI();
@@ -387,6 +392,7 @@
         </div>
         <div class="top-actions">
           ${window.GameMusic ? GameMusic.buttonHtml('btn ghost sm', 'bt') : ''}
+          ${isAdmin() && (G.mode === 'ai' || G.mode === 'local') ? `<button class="btn ghost sm${rig20On() ? ' on' : ''}" data-act="rig20" aria-pressed="${rig20On()}" title="Admin testing: make your dives always roll a natural 20">🎯<span class="bt"> 20s ${rig20On() ? 'on' : 'off'}</span></button>` : ''}
           <button class="btn ghost sm" data-act="rules" aria-label="Rules">📜<span class="bt"> Rules</span></button>
           <button class="btn ghost sm" data-act="home" aria-label="${G.mode === 'past' ? 'History' : G.mode === 'sim' ? 'Stop' : 'New game'}" title="${G.mode === 'past' ? 'Back to history' : G.mode === 'sim' ? 'Stop the simulation' : 'Start a new game (this one stays saved under Your games)'}">${home}</button>
           <a class="btn ghost sm" href="/board-games.html" title="Back to the game lobby" aria-label="Game lobby"><img class="gh-dice" src="/img/board-games-favicon-48.png?v=2" alt=""><span class="bt"> Lobby</span></a>
@@ -613,6 +619,12 @@
     const act = b.dataset.act;
     if (act === 'rules') return showRules();
     if (act === 'home') return leaveGame();
+    if (act === 'rig20' && isAdmin()) {
+      const on = !prefs().rig20;
+      savePrefs(Object.assign(prefs(), { rig20: on }));
+      toast(on ? '🎯 Testing: your dives now always roll a 20. Games played this way won’t go into your history.' : '🎯 Rolls are random again.');
+      return render();
+    }
     if (act === 'scorecard') return showGameOver(true);
     if (!humanTurn() || ui.busy) return;
     if (act === 'yard') return openYard();
@@ -794,6 +806,7 @@
         if (c.crush) deep.push(`<li>💥 The <b>${esc(E.SUB[sub.k].name)}</b> is out of its depth: a <b>${pct(c.crush)}</b> chance of being crushed.</li>`);
         box = `<div class="odds-box" style="--oc:${oddsColor(c.p)}">
           <div class="need-big">🎲 You need to roll <b>${needText(c.need)}</b> on the d20${c.need >= 20 ? ' — nothing else will do' : ''}</div>
+          ${rig20On() && x ? '<div class="need-note rig-note">🎯 Admin testing is on: this dive will roll a 20.</div>' : ''}
           ${dieTrack(c.need)}
           <div class="odds-big"><span>Chance of success</span><b>${pct(c.p)}</b></div>
           <div class="odds-bar"><i style="width:${pct(c.p)}"></i></div>
@@ -846,7 +859,8 @@
       }
       if (e.target.closest('#plan-go')) {
         closeModal(true);
-        doAction(x ? { t: 'dive', x: x.id, s: plan.s === 'swim' ? null : plan.s, crew: plan.crew.slice() } : { t: 'salvage', s: plan.s, crew: plan.crew.slice() });
+        if (x && rig20On()) G.rigged = true;
+        doAction(x ? { t: 'dive', x: x.id, s: plan.s === 'swim' ? null : plan.s, crew: plan.crew.slice(), ...(rig20On() ? { rig20: true } : {}) } : { t: 'salvage', s: plan.s, crew: plan.crew.slice() });
       }
     });
   }
@@ -1208,7 +1222,7 @@
   }
   function recordGame() {
     const g = G;
-    if (g.recorded || !sessionId()) return;
+    if (g.recorded || g.rigged || !sessionId()) return;
     const s = g.state;
     g.gid = g.gid || newLocalId();
     g.recorded = true;
@@ -1564,23 +1578,22 @@
 
   // ---------------------------------------------------------------- start
   const params = new URLSearchParams(location.search);
-  const saved = loadSave();
-  let localId = params.get('local');
-  const last = rawSave();
-  if (!saved && !localId && !params.has('home') && last && lastStatus(last.gid) === 'elsewhere') localId = last.gid;
+  const localId = params.get('local');
   if (!sessionId()) showGate();
   else if (!isAdmin()) showLocked();
-  else if (localId && /^[a-z0-9]{4,40}$/i.test(localId) && window.BoardSaves) {
-    if (history.replaceState) history.replaceState(null, '', location.pathname);
-    $('#app').innerHTML = '<p class="loading-save">Loading your game…</p>';
-    window.BoardSaves.load('atlantis', localId).then((g) => {
-      if (validSave(g) && g.state.phase !== 'over') startFrom(g);
-      else {
-        showSetup();
-        toast('That game couldn’t be found — it may have finished or been removed.', 'warn');
-      }
-    });
-  } else if (params.has('home') || !saved || saved.state.phase === 'over') showSetup();
-  else startFrom(saved);
+  else if (localId && /^[a-z0-9]{4,40}$/i.test(localId)) {
+    const here = rawSave();
+    if (validSave(here) && here.gid === localId && lastStatus(localId) === 'here') startFrom(here);
+    else if (window.BoardSaves) {
+      $('#app').innerHTML = '<p class="loading-save">Loading your game…</p>';
+      window.BoardSaves.load('atlantis', localId).then((g) => {
+        if (validSave(g) && g.state.phase !== 'over') startFrom(g);
+        else {
+          showSetup();
+          toast('That game couldn’t be found — it may have finished or been removed.', 'warn');
+        }
+      });
+    } else showSetup();
+  } else showSetup();
   window.__atl = { get G() { return G; }, render, E, send: (a) => doAction(a) };
 })();

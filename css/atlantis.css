@@ -536,3 +536,6 @@ button { font-family: inherit; }
   .rules-body th, .rules-body td { padding: 0.25rem 0.3rem; }
   .rb-nav .btn { font-size: 0.8rem; }
 }
+/* Admin testing switch */
+.top-actions .btn.on { background: rgba(232, 182, 76, 0.35); box-shadow: inset 0 0 0 2px var(--brass); }
+.rig-note { color: var(--brass-dark); font-weight: 700; }
