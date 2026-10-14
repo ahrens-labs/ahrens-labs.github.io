@@ -971,7 +971,8 @@
     die.classList.add('spin');
     sfx('dice');
     const spin = setInterval(() => (num.textContent = 1 + Math.floor(Math.random() * 20)), 70);
-    const landAt = fast ? Math.min(900, fast / 2) : 1200;
+    const rival = opts.auto && !fast;
+    const landAt = fast ? Math.min(900, fast / 2) : rival ? 650 : 1200;
     timers.push(setTimeout(() => {
       clearInterval(spin);
       die.classList.remove('spin');
@@ -1012,7 +1013,7 @@
       ok.hidden = false;
       ok.onclick = finish;
       ok.focus();
-      if (opts.auto) timers.push(setTimeout(finish, fast || (r.ok ? 3200 : 6000)));
+      if (opts.auto) timers.push(setTimeout(finish, fast || (r.ok ? 1600 : 3200)));
     }, landAt));
   }
 
@@ -1070,7 +1071,7 @@
   function scheduleAI() {
     stopAI();
     if (!G || ui.modal || ui.busy || st().phase !== 'act' || !pl(st().turn).ai) return;
-    const wait = G.mode === 'sim' ? SIM_SPEEDS[G.speed].ai : 900;
+    const wait = G.mode === 'sim' ? SIM_SPEEDS[G.speed].ai : 400;
     ui.aiTimer = setTimeout(aiStep, wait);
   }
   function aiStep() {
