@@ -74,13 +74,6 @@
   const validSave = (g) => g && g.state && g.state.v >= 2 && g.state.v <= E.SAVE_V && (g.mode === 'ai' || g.mode === 'local');
   // The last game played here may since have been removed, or played further on another device.
   const lastStatus = (gid) => (gid && window.BoardSaves ? window.BoardSaves.status('hearthhold', gid) : 'here');
-  const lastGid = () => {
-    try {
-      return (JSON.parse(localStorage.getItem(SAVE_KEY) || 'null') || {}).gid || null;
-    } catch (e) {
-      return null;
-    }
-  };
   function loadSave() {
     try {
       const g = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
@@ -313,6 +306,11 @@
     buildShell();
     window.scrollTo(0, 0);
     save();
+    // Each game has its own address, so reloading reopens this game and the bare page is always home.
+    if (G.mode !== 'online') {
+      const q = G.gid && (G.mode === 'ai' || G.mode === 'local') ? `?local=${encodeURIComponent(G.gid)}` : '';
+      if (history.replaceState && location.search !== q) history.replaceState(null, '', location.pathname + q);
+    }
     render();
     if (G.mode === 'online') connectSock();
     if (G.mode === 'online' && st().dusk && st().dusk.round > (G.duskSeen || 0)) showOnlineDusk();
@@ -3148,21 +3146,21 @@
   const params = new URLSearchParams(location.search);
   const linked = params.get('game');
   const mem = savedOnline();
-  let localId = params.get('local');
-  if (!saved && !localId && !linked && !(mem && sessionId()) && lastStatus(lastGid()) === 'elsewhere') localId = lastGid();
-  // ?home (from the game shelf): the start screen, not whatever was played last.
-  const home = params.has('home') && !localId && !linked;
-  if ((params.has('resume') || params.has('home') || localId) && history.replaceState) history.replaceState(null, '', location.pathname);
-  if (home) showSetup();
-  else if (localId && /^[a-z0-9]{4,40}$/i.test(localId) && window.BoardSaves) {
-    $('#app').innerHTML = '<p class="loading-save">Loading your game…</p>';
-    window.BoardSaves.load('hearthhold', localId).then((g) => {
-      if (validSave(g) && g.state.phase !== 'over') startFrom(g);
-      else {
-        showSetup();
-        toast('That game couldn’t be found — it may have finished or been removed.', 'warn');
-      }
-    });
+  const localId = linked ? null : params.get('local');
+  if ((params.has('resume') || params.has('home')) && history.replaceState) history.replaceState(null, '', location.pathname);
+  if (localId && /^[a-z0-9]{4,40}$/i.test(localId)) {
+    const here = saved && saved.gid === localId && validSave(saved) ? saved : null;
+    if (here) startFrom(here);
+    else if (window.BoardSaves) {
+      $('#app').innerHTML = '<p class="loading-save">Loading your game…</p>';
+      window.BoardSaves.load('hearthhold', localId).then((g) => {
+        if (validSave(g) && g.state.phase !== 'over') startFrom(g);
+        else {
+          showSetup();
+          toast('That game couldn’t be found — it may have finished or been removed.', 'warn');
+        }
+      });
+    } else showSetup();
   } else if (saved && params.get('resume') === 'local') startFrom(saved);
   else if (linked && /^hh[0-9a-f]{18}$/.test(linked)) {
     if (mem && mem.id === linked && sessionId()) openOnline(linked);
@@ -3170,8 +3168,6 @@
       net.autoOpen = linked;
       showSetup(linked);
     }
-  } else if (mem && sessionId()) openOnline(mem.id);
-  else if (saved) startFrom(saved);
-  else showSetup();
+  } else showSetup();
   window.__hh = { get G() { return G; }, render, E, send: (a) => doAction(a) };
 })();

@@ -1322,13 +1322,6 @@
 
   // The last game played here may since have been removed, or played further on another device.
   const lastStatus = (gid) => (gid && window.BoardSaves ? window.BoardSaves.status('dino', gid) : 'here');
-  const lastGid = () => {
-    try {
-      return (JSON.parse(localStorage.getItem(SAVE_KEY) || 'null') || {}).gid || null;
-    } catch {
-      return null;
-    }
-  };
   function load() {
     try {
       const raw = localStorage.getItem(SAVE_KEY);
@@ -2830,8 +2823,18 @@
   }
 
   // ---------------------------------------------------------------- rendering: shell
+  // Each local game has its own address (?local=id), so reloading reopens it and the bare page is always home.
+  let localLoading = false;
+  function syncUrl() {
+    if (!history.replaceState || online || localLoading || pastLoading || (state && state.past)) return;
+    const q = state && !state.sim && state.gid ? `?local=${encodeURIComponent(state.gid)}` : '';
+    if (!q && !new URLSearchParams(location.search).has('local')) return;
+    if (location.search !== q) history.replaceState(null, '', location.pathname + q);
+  }
+
   function render() {
     const app = document.getElementById('app');
+    syncUrl();
     if (!sessionId() || authFailed) {
       renderGate(app);
       return;
@@ -8427,15 +8430,16 @@
   const params = new URLSearchParams(location.search);
   const linkedGame = params.get('game');
   const pastGame = linkedGame ? null : params.get('past');
-  let localId = linkedGame || pastGame ? null : params.get('local');
+  const localId = linkedGame || pastGame ? null : params.get('local');
   // ?home (from the game shelf): the start screen, not whatever was played last.
   const home = params.has('home') && !linkedGame && !pastGame && !localId;
   if (home && history.replaceState) history.replaceState(null, '', location.pathname);
-  state = linkedGame || pastGame || localId || home ? null : load();
-  if (!state && !linkedGame && !pastGame && !localId && !home && lastStatus(lastGid()) === 'elsewhere') localId = lastGid();
-  if (localId && history.replaceState) history.replaceState(null, '', location.pathname);
-  if (localId && /^[a-z0-9]{4,40}$/i.test(localId) && window.BoardSaves) {
+  const here = localId ? load() : null;
+  state = here && here.gid === localId ? here : null;
+  if (!state && localId && /^[a-z0-9]{4,40}$/i.test(localId) && window.BoardSaves) {
+    localLoading = true;
     window.BoardSaves.load('dino', localId).then((s) => {
+      localLoading = false;
       if (validSave(s) && !(s.queue[0] && s.queue[0].t === 'gameOver')) {
         state = repairFences(s);
         save();
