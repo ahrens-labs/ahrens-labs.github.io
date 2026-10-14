@@ -193,7 +193,7 @@ button { font-family: inherit; }
 .lower .muted { margin: 0 0 0.6rem; }
 .hall-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 0.45rem; }
 .hire { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 0.6rem; align-items: center; padding: 0.5rem 0.6rem; border-radius: 12px; background: #fffdf7; box-shadow: inset 0 0 0 2px var(--pearl-2); }
-.hire .pic { width: 46px; height: 46px; border-radius: 12px; background: #0d3b4f; display: grid; place-items: center; font-size: 1.6rem; }
+.hire .pic { width: 58px; height: 58px; border-radius: 12px; background: #0d3b4f; display: grid; place-items: center; font-size: 1.6rem; }
 .hire-main { display: grid; gap: 0.1rem; min-width: 0; }
 .hire-main small { color: var(--muted); font-size: 0.78rem; }
 .hire .btn { white-space: nowrap; }
@@ -226,7 +226,7 @@ button { font-family: inherit; }
 .cards { display: grid; gap: 0.45rem; }
 .card { display: grid; grid-template-columns: auto 1fr auto; gap: 0.15rem 0.7rem; align-items: center; padding: 0.5rem 0.6rem; border-radius: 12px; background: #fffdf7; box-shadow: inset 0 0 0 2px var(--pearl-2); }
 .card.dim { opacity: 0.55; }
-.card .pic { width: 54px; height: 54px; border-radius: 12px; object-fit: cover; grid-row: span 2; background: #0d3b4f; display: grid; place-items: center; font-size: 1.9rem; }
+.card .pic { width: 60px; height: 60px; border-radius: 12px; object-fit: cover; grid-row: span 2; background: #0d3b4f; display: grid; place-items: center; font-size: 1.9rem; }
 .card b { font-size: 0.98rem; }
 .card small { color: var(--muted); font-size: 0.8rem; }
 .card .st { font-size: 0.75rem; font-weight: 700; padding: 0.15rem 0.5rem; border-radius: 999px; background: #e3f4ef; color: #1f6b4f; white-space: nowrap; grid-row: span 2; align-self: center; }
@@ -261,7 +261,7 @@ button { font-family: inherit; }
 .pick { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0.4rem; }
 .pick button { display: grid; grid-template-columns: auto 1fr; gap: 0 0.5rem; align-items: center; text-align: left; border: 0; border-radius: 12px; padding: 0.45rem 0.55rem; cursor: pointer;
   background: #fffdf7; color: var(--ink); box-shadow: inset 0 0 0 2px var(--pearl-2); font: inherit; }
-.pick button .pic { width: 38px; height: 38px; border-radius: 9px; object-fit: cover; grid-row: span 2; background: #0d3b4f; display: grid; place-items: center; font-size: 1.4rem; }
+.pick button .pic { width: 44px; height: 44px; border-radius: 9px; object-fit: cover; grid-row: span 2; background: #0d3b4f; display: grid; place-items: center; font-size: 1.4rem; }
 .pick button b { font-size: 0.9rem; }
 .pick button small { font-size: 0.74rem; color: var(--muted); }
 .pick button.on { background: #fff4cf; box-shadow: inset 0 0 0 3px var(--brass); }
@@ -539,3 +539,38 @@ button { font-family: inherit; }
 /* Admin testing switch */
 .top-actions .btn.on { background: rgba(232, 182, 76, 0.35); box-shadow: inset 0 0 0 2px var(--brass); }
 .rig-note { color: var(--brass-dark); font-weight: 700; }
+/* Divers as animated people: a gentle bob in the water, with bubbles rising past them. */
+.pic.dv { position: relative; overflow: hidden; padding: 0; background: #0d3b4f; box-shadow: inset 0 0 0 2px rgba(200, 240, 255, 0.25); }
+.pic.dv img { width: 100%; height: 100%; object-fit: cover; display: block; transform-origin: 50% 85%; animation: dvBob 4.2s ease-in-out infinite; animation-delay: var(--dl, 0s); }
+.pic.dv.flip img { --fx: -1; }
+.pic.dv::before, .pic.dv::after { content: ''; position: absolute; bottom: -8px; width: 6px; height: 6px; border-radius: 50%; border: 1.5px solid rgba(220, 248, 255, 0.85); opacity: 0; pointer-events: none; animation: dvBubble 3.4s linear infinite; }
+.pic.dv::before { left: 18%; width: 4px; height: 4px; animation-delay: calc(var(--dl, 0s) - 1.7s); }
+.pic.dv::after { left: 74%; animation-delay: var(--dl, 0s); }
+.pic.dv.zz img { filter: grayscale(0.55) brightness(0.75); animation-duration: 9s; }
+.pic.dv.zz::after { content: '💤'; border: 0; width: auto; height: auto; left: auto; right: 3px; top: 2px; bottom: auto; font-size: 0.75rem; animation: dvZz 2.6s ease-in-out infinite; }
+.pic.dv.promo { box-shadow: inset 0 0 0 2px var(--brass), 0 0 8px rgba(232, 182, 76, 0.55); }
+.pic.dv.promo::before { content: '🎖️'; border: 0; width: auto; height: auto; left: 2px; top: 1px; bottom: auto; font-size: 0.7rem; opacity: 1; animation: none; }
+@keyframes dvBob { 0%, 100% { transform: scale(1.08) scaleX(var(--fx, 1)) translateY(1.5px) rotate(-1.5deg); } 50% { transform: scale(1.08) scaleX(var(--fx, 1)) translateY(-2.5px) rotate(1.5deg); } }
+@keyframes dvBubble { 0% { transform: translate(0, 0); opacity: 0; } 15% { opacity: 0.9; } 100% { transform: translate(4px, -72px); opacity: 0; } }
+@keyframes dvZz { 0%, 100% { transform: translateY(0); opacity: 0.6; } 50% { transform: translateY(-3px); opacity: 1; } }
+.hire:hover .pic.dv img, .pick button:hover .pic.dv img { animation-duration: 1.4s; }
+
+/* The crew on the dice screen: they dive while the die spins, then cheer, slump or are lost. */
+.roll-crew { display: flex; justify-content: center; gap: 0.6rem; margin: 0.3rem 0 0.4rem; }
+.roll-crew .pic { width: 64px; height: 64px; border-radius: 16px; }
+.roll-crew .pic.diving img { animation: dvDive 0.9s ease-in-out infinite; }
+.roll-crew .pic.cheer img { animation: dvCheer 0.6s var(--pop) 3; }
+.roll-crew .pic.cheer { box-shadow: inset 0 0 0 3px var(--good), 0 0 14px rgba(31, 122, 70, 0.5); }
+.roll-crew .pic.sad img { filter: saturate(0.6) brightness(0.85); animation: dvSad 1.2s ease both; }
+.roll-crew .pic.lost { box-shadow: inset 0 0 0 3px var(--bad); }
+.roll-crew .pic.lost img { animation: dvLost 1.6s ease forwards; }
+.roll-crew .pic.lost::after { content: '💀'; border: 0; width: auto; height: auto; left: 50%; top: 50%; bottom: auto; transform: translate(-50%, -50%); font-size: 1.6rem; opacity: 0; animation: dvSkull 1.6s ease 0.6s forwards; }
+@keyframes dvDive { 0%, 100% { transform: scale(1.08) scaleX(var(--fx, 1)) translateY(-3px) rotate(-3deg); } 50% { transform: scale(1.08) scaleX(var(--fx, 1)) translateY(4px) rotate(3deg); } }
+@keyframes dvCheer { 0%, 100% { transform: scale(1.08) scaleX(var(--fx, 1)) translateY(0); } 50% { transform: scale(1.14) scaleX(var(--fx, 1)) translateY(-8px); } }
+@keyframes dvSad { to { transform: scale(1.08) scaleX(var(--fx, 1)) translateY(4px) rotate(-4deg); } }
+@keyframes dvLost { to { transform: scale(1.08) scaleX(var(--fx, 1)) translateY(16px); filter: grayscale(1) brightness(0.5); opacity: 0.45; } }
+@keyframes dvSkull { to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .pic.dv img, .pic.dv::before, .pic.dv::after, .roll-crew .pic img { animation: none !important; }
+}
+.rb-face { width: 30px; height: 30px; border-radius: 8px; object-fit: cover; vertical-align: middle; margin-right: 0.3rem; }

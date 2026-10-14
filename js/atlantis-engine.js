@@ -81,8 +81,12 @@
     professor: { role: 'Professor of Atlantis', skill: 3, deep: 3, spec: ['trap', 'cave', 'kraken'], cost: 11, wage: 3, n: 1 },
   };
   const DIVER_ORDER = Object.keys(DIVER);
-  const NAMES = ['Marina', 'Coral', 'Finn', 'Nerissa', 'Kai', 'Maren', 'Morgan', 'Delphine', 'Bruce', 'Ondine', 'Jonah', 'Shelly', 'Wade', 'Isla',
-    'Murray', 'Doris', 'Caspian', 'Brook', 'Neptune Jr.', 'Ripley', 'Tula', 'Gil', 'Reef', 'Dory', 'Splash', 'Hal', 'Lagoon', 'Ahab', 'Sandy', 'Zeke'];
+  // Names follow the diver's portrait on the page (rookies come in three looks, picked by id; the first is a woman).
+  const NAMES_F = ['Marina', 'Coral', 'Nerissa', 'Maren', 'Delphine', 'Ondine', 'Shelly', 'Isla', 'Doris', 'Ripley', 'Tula', 'Dory', 'Sandy', 'Mira', 'Wren', 'Oceana'];
+  const NAMES_M = ['Finn', 'Kai', 'Bruce', 'Jonah', 'Wade', 'Murray', 'Caspian', 'Neptune Jr.', 'Gil', 'Hal', 'Ahab', 'Zeke', 'Barnaby', 'Otto', 'Rex'];
+  const NAMES_ANY = ['Morgan', 'Brook', 'Reef', 'Splash', 'Lagoon'];
+  const FEMALE_LOOK = { wrangler: 1, caver: 1, lamplighter: 1, archaeologist: 1, deepdiver: 1, stormdiver: 1, professor: 1 };
+  const femaleLook = (k, id) => (k === 'rookie' ? id % 3 === 0 : !!FEMALE_LOOK[k]);
 
   // Relics come from tricky and harder sites and score in sets of different kinds.
   const RELIC = {
@@ -230,9 +234,10 @@
     const used = new Set();
     state.players.forEach((p) => p.divers.forEach((d) => used.add(d.name)));
     state.market.forEach((d) => used.add(d.name));
-    const free = NAMES.filter((n) => !used.has(n));
-    const name = free.length ? free[rint(state, free.length)] : `Diver ${state.nextId + 1}`;
-    return { id: nid(state), k, name, wait: 0 };
+    const id = nid(state);
+    const free = (femaleLook(k, id) ? NAMES_F : NAMES_M).concat(NAMES_ANY).filter((n) => !used.has(n));
+    const name = free.length ? free[rint(state, free.length)] : `Diver ${id + 1}`;
+    return { id, k, name, wait: 0 };
   }
   const hireCost = (d) => Math.max(Math.ceil(DIVER[d.k].cost / 2), DIVER[d.k].cost - (d.wait || 0));
 
@@ -578,7 +583,7 @@
     if (s) s.used = true;
     crew.forEach((d) => (d.used = true));
     p.stats.dives += 1;
-    const out = { t: 'dive', pi, x: x.id, k: x.k, s: s ? s.id : null, sk: s ? s.k : null, crew: a.crew.slice(), crewNames: crew.map((d) => d.name), d20, bonus: c.bonus, total, target: c.target, need: c.need, ok, msgs: [] };
+    const out = { t: 'dive', pi, x: x.id, k: x.k, s: s ? s.id : null, sk: s ? s.k : null, crew: a.crew.slice(), crewNames: crew.map((d) => d.name), crewK: crew.map((d) => d.k), d20, bonus: c.bonus, total, target: c.target, need: c.need, ok, msgs: [] };
     if (ok) {
       const r = rewardOf(state, x);
       const extra = d20 === 20 ? 2 : 0;

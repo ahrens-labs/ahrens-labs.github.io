@@ -166,7 +166,15 @@
   }
   const hz = (h, cls) => `<span class="hz${cls ? ' ' + cls : ''}" title="${esc(E.HAZ[h].name)}">${E.HAZ[h].icon} ${esc(E.HAZ[h].name)}</span>`;
   const stars = (t) => '★'.repeat(E.TIER[t].stars);
-  const diverPic = (d) => `<span class="pic" aria-hidden="true">${ROLE_ICON[d.k] || '🤿'}</span>`;
+  // Every diver is drawn as their own person: rookies come in three looks, and a second hire of any other role is mirrored.
+  const DIVER_LOOKS = { rookie: ['rookie', 'rookie2', 'rookie3'] };
+  const diverArt = (d) => `diver-${DIVER_LOOKS[d.k] ? DIVER_LOOKS[d.k][d.id % DIVER_LOOKS[d.k].length] : d.k}`;
+  const diverPic = (d, extra) => {
+    const rest = G && d.tired != null && d.tired >= st().tide;
+    const flip = !DIVER_LOOKS[d.k] && d.id % 2;
+    const promo = d.xp != null && E.promoted(d);
+    return `<span class="pic dv${rest ? ' zz' : ''}${flip ? ' flip' : ''}${promo ? ' promo' : ''}${extra ? ' ' + extra : ''}" style="--dl:-${((d.id * 0.73) % 4).toFixed(2)}s" aria-hidden="true"><img src="${IMG(diverArt(d))}" alt="" width="64" height="64" loading="lazy"></span>`;
+  };
   const subPic = (k) => `<img class="pic" src="${IMG('sub-' + k)}" alt="">`;
   const swimPic = '<span class="pic" aria-hidden="true">🏊</span>';
   const expImg = (x) => IMG(x.k === 'heart' ? 'depth-heart' : DEPTH_IMG[E.SITE[x.k].depth]);
@@ -938,6 +946,7 @@
     const back = openModal(`<div class="roll">
         <h2>${esc(site.name)}</h2>
         <p>${r.sk ? `<span class="who" style="color:${PCOLOR[r.pi]}">${esc(E.poss(p.name))}</span> ${esc(E.SUB[r.sk].name)} dives with ${crew}.` : `<span class="who" style="color:${PCOLOR[r.pi]}">${esc(p.name)}</span>: ${crew} ${r.crew.length > 1 ? 'swim' : 'swims'} out from the dive boat.`}</p>
+        ${r.crewK ? `<div class="roll-crew">${r.crew.map((id, i) => diverPic({ id, k: r.crewK[i] }, 'diving')).join('')}</div>` : ''}
         <div class="roll-need">Hoping for <b>${needText(r.need)}</b> on the die</div>
         <div class="d20" id="d20">${D20_SVG(PCOLOR[r.pi])}<span>?</span></div>
         <div id="roll-track">${dieTrack(r.need)}</div>
@@ -969,6 +978,10 @@
       die.classList.add('land');
       num.textContent = r.d20;
       back.querySelector('#roll-track').innerHTML = dieTrack(r.need, r.d20);
+      back.querySelectorAll('.roll-crew .pic').forEach((el, i) => {
+        el.classList.remove('diving');
+        el.classList.add(r.ok ? 'cheer' : r.pen && r.pen.lost.includes(r.crewNames[i]) ? 'lost' : 'sad');
+      });
       const why = r.d20 === 20 ? 'A natural 20 always succeeds!' : r.d20 === 1 ? 'A natural 1 always fails!' : r.ok ? `That’s ${needText(r.need)}.` : `It needed ${needText(r.need)} — missed by ${r.need - r.d20}.`;
       back.querySelector('#roll-sum').innerHTML = `The die shows <b>${r.d20}</b>. ${why}<br><small>${r.d20} ${r.bonus >= 0 ? '+' : '−'} ${Math.abs(r.bonus)} = ${r.total < 0 ? `−${-r.total}` : r.total} against a target of ${r.target}.</small>`;
       const v = back.querySelector('#roll-verdict');
@@ -1490,7 +1503,7 @@
         <p>Each diver has a skill, a depth they’re trained for, and maybe a specialty that makes one or more hazards safe. Wages are paid between every tide.</p>
         <table><tr><th>Diver</th><th>Skill</th><th>Trained to</th><th>Ready for</th><th>Hire</th><th>Wage</th></tr>${E.DIVER_ORDER.map((k) => {
           const D = E.DIVER[k];
-          return `<tr><td>${ROLE_ICON[k]} ${esc(D.role)}</td><td>${'⭐'.repeat(D.skill)}</td><td>${E.DEPTH[D.deep].name}</td><td>${D.spec.map((h) => E.HAZ[h].icon + ' ' + esc(E.HAZ[h].name)).join(', ') || '—'}</td><td>🪙${D.cost}</td><td>🪙${wage(k)}</td></tr>`;
+          return `<tr><td><img class="rb-face" src="${IMG('diver-' + k)}" alt="" width="30" height="30" loading="lazy"> ${esc(D.role)}</td><td>${'⭐'.repeat(D.skill)}</td><td>${E.DEPTH[D.deep].name}</td><td>${D.spec.map((h) => E.HAZ[h].icon + ' ' + esc(E.HAZ[h].name)).join(', ') || '—'}</td><td>🪙${D.cost}</td><td>🪙${wage(k)}</td></tr>`;
         }).join('')}</table>
         ${sec(2, 'Submarines')}
         <table><tr><th>Sub</th><th>Seats</th><th>Built for</th><th>Bonus</th><th>Fittings</th><th>Cost</th></tr>${E.SUB_ORDER.map((k) => {
