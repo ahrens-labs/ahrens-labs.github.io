@@ -723,27 +723,45 @@
     state.passed = [false, false];
     state.turn = (state.first + state.tide - 1) % 2;
     const w = sea(state);
+    // What changed between the tides, for the page to explain.
+    const report = { tide: state.tide, sea: w, income: INCOME + (w === 'gala' ? 3 : 0), players: [], left: null, arrived: [] };
     state.players.forEach((p, i) => {
       p.divers.forEach((d) => (d.used = false));
       p.subs.forEach((s) => (s.used = false));
       p.tideFound = 0;
-      const inc = INCOME + (w === 'gala' ? 3 : 0);
+      const inc = report.income;
       p.gold += inc;
       const unpaid = [];
+      let paid = 0;
       p.divers.slice().sort((a, b) => DIVER[a.k].wage - DIVER[b.k].wage).forEach((d) => {
         const wage = DIVER[d.k].wage;
-        if (p.gold >= wage) p.gold -= wage;
-        else unpaid.push(d);
+        if (p.gold >= wage) {
+          p.gold -= wage;
+          paid += wage;
+        } else unpaid.push(d);
       });
       if (unpaid.length) {
         p.divers = p.divers.filter((d) => !unpaid.includes(d));
         log(state, `${p.name} couldn’t pay ${unpaid.map((d) => d.name).join(' and ')}, who quit.`, i);
       }
+      report.players.push({
+        paid,
+        quit: unpaid.map((d) => d.name),
+        gold: p.gold,
+        resting: p.divers.filter((d) => d.tired >= state.tide).map((d) => d.name),
+        stuck: p.subs.filter((x) => x.stuck >= state.tide).map((x) => SUB[x.k].name),
+        port: w === 'storm' ? p.subs.filter((x) => x.k === 'minnow').length : 0,
+      });
     });
     // The longest-waiting diver in the hall finds other work; everyone still waiting gets cheaper.
-    if (state.market.length) state.market.shift();
+    if (state.market.length) report.left = state.market.shift().name;
     state.market.forEach((d) => (d.wait = (d.wait || 0) + 1));
-    while (state.market.length < MARKET_SIZE && state.diverDeck.length) drawDiver(state);
+    while (state.market.length < MARKET_SIZE && state.diverDeck.length) {
+      drawDiver(state);
+      const d = state.market[state.market.length - 1];
+      report.arrived.push(`${d.name} (${DIVER[d.k].role.toLowerCase()})`);
+    }
+    state.report = report;
     const heart = state.map.find((x) => x.k === 'heart');
     const sighted = state.tide === HEART_TIDE ? ` The Heart of Atlantis has been sighted!${charted(state, heart) ? ' A route to it is already charted.' : ' Until someone explores an extreme site, the way there is uncharted.'}` : '';
     log(state, `Tide ${state.tide} · ${SEA[w].icon} ${SEA[w].name}: ${SEA[w].note} Everyone collects 🪙${INCOME}${w === 'gala' ? '+3' : ''} and pays wages.${sighted}`);

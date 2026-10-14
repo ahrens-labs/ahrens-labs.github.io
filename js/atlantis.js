@@ -26,6 +26,26 @@
     deepdiver: '🌌', hunter: '💰', stormdiver: '⛈️', krakenhunter: '🔱', captain: '🧑‍✈️', professor: '🎓',
   };
   const DEPTH_IMG = { 1: 'depth-1', 2: 'depth-2', 3: 'depth-3' };
+  // What each sea forecast does, in plain words.
+  const SEA_PLAIN = {
+    calm: 'Every dive roll gets +1.',
+    clear: '🌑 Darkness can’t hurt anyone, so no lamplighter or floodlights are needed.',
+    frenzy: 'A 🦈 Sharks hazard nobody is ready for costs −6 on the roll instead of −3.',
+    riptide: 'A 🌀 Currents hazard nobody is ready for costs −6 on the roll instead of −3.',
+    storm: 'Minnows must stay in port and can’t dive or salvage. Bigger subs and swimmers can still go out.',
+    bloom: 'A 🌑 Darkness hazard nobody is ready for costs −6 on the roll instead of −3.',
+    rumors: 'Every successful dive finds 2 extra pearls.',
+    gala: 'Every company gets 🪙3 extra at the start of the tide.',
+    stirs: 'A 🐙 Kraken hazard nobody is ready for costs −6 on the roll instead of −3.',
+    lowtide: 'Dives in the Shallows get +2.',
+  };
+  // What the die has to show, in words.
+  const needText = (need) => (need <= 2 ? 'anything but a 1' : need >= 20 ? 'a 20' : `${need} or higher`);
+  const dieTrack = (need, rolled) => `<div class="d20-track" aria-hidden="true">${Array.from({ length: 20 }, (_, i) => {
+    const n = i + 1;
+    const ok = n === 20 || (n !== 1 && n >= need);
+    return `<i class="${ok ? 'ok' : 'no'}${rolled === n ? ' hit' : ''}">${n}</i>`;
+  }).join('')}</div>`;
   // Pearls get their own drawn symbol; 🦪 marks the spot in the engine's log text and is swapped when shown.
   const PEARL = '<i class="pearl" role="img" aria-label="pearls"></i>';
   const pearls = (html) => String(html).replace(/🦪/g, PEARL);
@@ -358,6 +378,7 @@
           <button class="btn ghost sm" data-act="home">${G.mode === 'past' ? '🏆 History' : G.mode === 'sim' ? '⏹ Stop' : '🏠 Home'}</button>
         </header>
         <section class="scores">${s.players.map((p, i) => companyCard(i, v)).join('')}</section>
+        ${s.phase === 'act' ? `<div class="tide-strip"><span class="ts-tide">🌊 Tide <b>${s.tide}</b> of ${E.TIDES}${s.tide === E.TIDES ? ' · <b class="ts-last">last tide!</b>' : ''}</span><span class="ts-sea">${sea.icon} <b>${esc(sea.name)}:</b> ${SEA_PLAIN[E.sea(s)]}</span>${next ? `<span class="ts-next">Next tide: ${next.icon} ${esc(next.name)}</span>` : ''}</div>` : ''}
         ${bannerHtml()}
         <div class="main">
           <section class="sea">
@@ -395,7 +416,11 @@
     }
     if (s.phase === 'over') return `<div class="banner mine">🏁 The expedition season is over. <button class="btn sm" data-act="scorecard">🏆 See who won</button></div>`;
     const p = pl(s.turn);
-    if (p.ai) return `<div class="banner" style="--pc:${PCOLOR[s.turn]}"><span class="dot"></span>${esc(p.name)} is planning their next move…</div>`;
+    if (p.ai) {
+      const human = s.players.findIndex((q) => !q.ai);
+      const waiting = human >= 0 && s.passed[human] ? ` You’ve ended tide ${s.tide}; tide ${s.tide + 1 > E.TIDES ? '— the last one —' : s.tide + 1} starts when they end theirs.` : '';
+      return `<div class="banner" style="--pc:${PCOLOR[s.turn]}"><span class="dot"></span>${esc(p.name)} is planning their next move…${waiting}</div>`;
+    }
     const who = G.mode === 'local' ? `${esc(p.name)}, your move` : 'Your move';
     const otherDone = s.passed[1 - s.turn] ? ` ${esc(pl(1 - s.turn).name)} is done for this tide, so you can keep going until you end yours.` : '';
     return `<div class="banner mine" style="--pc:${PCOLOR[s.turn]}"><span class="dot"></span><b>${who}:</b> pick a site on the chart to dive, hire from the dive hall, build or salvage.${otherDone}</div>`;
@@ -632,12 +657,44 @@
     } else after();
   }
 
+  // Between tides: what just happened, and what the new tide's forecast means.
   function tideSplash() {
     const s = st();
     if (G.mode === 'sim' && G.speed === 'turbo') return;
-    const w = E.SEA[E.sea(s)];
-    toast(`🌊 <b>Tide ${s.tide}</b> · ${w.icon} ${esc(w.name)}: ${esc(w.note)}${s.tide === E.HEART_TIDE ? '<br>💠 <b>The Heart of Atlantis has been sighted!</b> Anyone can dive for it now.' : ''}`);
-    if (s.tide === E.HEART_TIDE) sfx('reveal');
+    const k = E.sea(s);
+    const w = E.SEA[k];
+    const r = s.report && s.report.tide === s.tide ? s.report : null;
+    const next = s.tide < E.TIDES ? E.SEA[s.forecast[s.tide]] : null;
+    const first = pl(s.turn);
+    const lines = [];
+    if (r) {
+      s.players.forEach((p, i) => {
+        const q = r.players[i];
+        const bits = [`collected 🪙${r.income}${k === 'gala' ? ' (with the gala’s 🪙3)' : ''}`, q.paid ? `paid 🪙${q.paid} in wages` : 'had no wages to pay', `now has 🪙${q.gold}`];
+        let line = `<b style="color:${PCOLOR[i]}">${FLAG[i]} ${esc(p.name)}</b> ${bits.join(', ')}.`;
+        if (q.quit.length) line += ` <span class="bad">${q.quit.map(esc).join(' and ')} couldn’t be paid and quit.</span>`;
+        if (q.resting.length) line += ` ${q.resting.map(esc).join(' and ')} ${q.resting.length > 1 ? 'are' : 'is'} resting this tide.`;
+        if (q.stuck.length) line += ` Their ${q.stuck.map(esc).join(' and ')} ${q.stuck.length > 1 ? 'are' : 'is'} out of action this tide.`;
+        if (q.port) line += ` ${q.port > 1 ? `Their ${q.port} Minnows stay` : 'Their Minnow stays'} in port (storm).`;
+        lines.push(line);
+      });
+      const hall = [];
+      if (r.left) hall.push(`${esc(r.left)} left the dive hall for other work`);
+      if (r.arrived.length) hall.push(`new for hire: ${r.arrived.map(esc).join(', ')}`);
+      if (hall.length) lines.push(`🤿 <b>Dive hall:</b> ${hall.join('; ')}. Everyone still waiting is 🪙1 cheaper.`);
+    }
+    const heart = s.tide === E.HEART_TIDE ? '<p class="tr-heart">💠 <b>The Heart of Atlantis has been sighted!</b> Anyone can dive for it from now on. Whoever finds it ends the season at the end of that tide.</p>' : '';
+    const back = openModal(`<div class="tide-report">
+        <div class="tr-turn"><span>Tide ${s.tide - 1} is over</span><b>🌊 Tide ${s.tide} of ${E.TIDES} begins</b>${s.tide === E.TIDES ? '<em>This is the last tide!</em>' : ''}</div>
+        <div class="tr-sea"><span class="tr-icon">${w.icon}</span><div><b>${esc(w.name)}</b><p>${SEA_PLAIN[k]}</p></div></div>
+        ${heart}
+        ${lines.length ? `<h3>Between the tides</h3><ul class="tr-list">${lines.map((l) => `<li>${l}</li>`).join('')}</ul>` : ''}
+        <p class="tr-next">${next ? `Coming next tide: ${next.icon} <b>${esc(next.name)}</b> — ${SEA_PLAIN[s.forecast[s.tide]]}` : 'There are no more tides after this one: the season ends when it’s over.'}</p>
+        <p class="tr-first"><b style="color:${PCOLOR[s.turn]}">${esc(first.name)}</b> moves first this tide. Every sub and diver that isn’t resting or stuck is ready to go out again.</p>
+        <div class="btn-row" style="justify-content:center"><button class="btn big" data-close>▶ Start tide ${s.tide}</button></div>
+      </div>`, { cls: 'wide' });
+    sfx(s.tide === E.HEART_TIDE ? 'reveal' : 'turn');
+    if (G.mode === 'sim') setTimeout(() => back.isConnected && closeModal(), G.speed === 'fast' ? 2500 : 6000);
   }
 
   function confirmPass() {
@@ -714,16 +771,25 @@
       let box = '';
       if (x && (sub || swim) && plan.crew.length) {
         const c = E.chance(s, pi, x.id, sub ? sub.id : null, plan.crew);
-        const risks = c.uncovered.map((h) => `${E.HAZ[h].icon} ${(c.swim && E.HAZ[h].swim) || E.HAZ[h].effect}`);
-        const deepRisks = c.risk.map((r) => `🫥 ${esc(r.name)} could be lost (${pct(r.p)})`);
-        if (c.crush) deepRisks.push(`💥 the ${esc(E.SUB[sub.k].name)} could be crushed (${pct(c.crush)})`);
+        const crew = plan.crew.map((id) => E.diverOf(p, id));
+        const fates = c.uncovered.map((h) => `<li>${hazardFate(h, sub, crew, p.gold)}</li>`);
+        const ready = site.haz.filter((h) => !c.uncovered.includes(h));
+        const deep = c.risk.map((r) => `<li>🫥 <b>${esc(r.name)}</b> is ${c.swim ? 'swimming deeper than is safe' : 'out of their depth'}: a <b>${pct(r.p)}</b> chance of being lost for good.</li>`);
+        if (c.crush) deep.push(`<li>💥 The <b>${esc(E.SUB[sub.k].name)}</b> is out of its depth: a <b>${pct(c.crush)}</b> chance of being crushed.</li>`);
         box = `<div class="odds-box" style="--oc:${oddsColor(c.p)}">
+          <div class="need-big">🎲 You need to roll <b>${needText(c.need)}</b> on the d20${c.need >= 20 ? ' — nothing else will do' : ''}</div>
+          ${dieTrack(c.need)}
           <div class="odds-big"><span>Chance of success</span><b>${pct(c.p)}</b></div>
           <div class="odds-bar"><i style="width:${pct(c.p)}"></i></div>
-          <div class="parts">${c.parts.map((q) => `<div class="${q.v < 0 ? 'neg' : 'pos'}"><span>${esc(q.label)}</span><span>${q.v > 0 ? '+' : ''}${q.v}</span></div>`).join('')}
-            <div><span>Roll needed on the d20</span><b>${c.need}+</b></div></div>
-          ${risks.length ? `<div class="risk-note">If it fails: ${risks.map(esc).join(' or ')}</div>` : '<div class="risk-note safe">Your crew is ready for every hazard — a failed dive just comes home empty-handed (unless you roll a 1).</div>'}
-          ${deepRisks.length ? `<div class="risk-note deep">Too deep! If it fails, as well: ${deepRisks.join(', ')}.</div>` : ''}
+          <div class="parts"><div><span>Target for this site</span><b>${c.target}</b></div>${c.parts.map((q) => `<div class="${q.v < 0 ? 'neg' : 'pos'}"><span>${esc(q.label)}</span><span>${q.v > 0 ? '+' : ''}${q.v}</span></div>`).join('')}
+            <div><span>Die roll + ${c.bonus >= 0 ? c.bonus : `(${c.bonus})`} must reach ${c.target}, so the die must show</span><b>${c.need}+</b></div></div>
+          <p class="need-note">A natural 20 always succeeds and a natural 1 always fails, whatever the bonuses.</p>
+          <div class="fail-box"><b>💥 If the dive fails:</b><ul>
+            ${fates.length ? `<li>${fates.length > 1 ? `One of these strikes (each equally likely, because nobody is ready for them):` : 'This strikes, because nobody is ready for it:'}<ul>${fates.join('')}</ul></li>` : '<li>✅ Your crew is ready for every hazard here, so a normal failure just comes home empty-handed.</li>'}
+            ${ready.length ? `<li>🎲 On a natural 1, any hazard here can strike — even ${ready.map((h) => `${E.HAZ[h].icon} ${esc(E.HAZ[h].name)}`).join(' or ')}, which you’re ready for.</li>` : ''}
+            ${deep.join('')}
+            <li>🧭 The next dive here (by either company) gets +1.</li>
+          </ul></div>
         </div>`;
       } else if (!x && sub && plan.crew.length) {
         box = `<div class="odds-box" style="--oc:#8ff0b4"><div class="odds-big"><span>Salvage</span><b>🪙${1 + plan.crew.length}</b></div></div>`;
@@ -769,6 +835,30 @@
     });
   }
 
+  // Exactly what a hazard would do to this crew and sub.
+  function hazardFate(h, sub, crew, gold) {
+    const H = E.HAZ[h];
+    const names = (list) => list.map((d) => `<b>${esc(d.name)}</b>`).join(' and ');
+    const subName = sub ? `<b>${esc(E.SUB[sub.k].name)}</b>` : '';
+    switch (h) {
+      case 'shark': {
+        const low = Math.min(...crew.map(E.skillOf));
+        const weak = crew.filter((d) => E.skillOf(d) === low);
+        return `${H.icon} ${esc(H.name)}: a shark eats ${weak.length > 1 ? `one of ${names(weak)}` : names(weak)} (the least skilled) — gone for good.`;
+      }
+      case 'kraken':
+        return sub ? `${H.icon} ${esc(H.name)}: the Kraken destroys the ${subName}${sub.mods.length ? ' and its fittings' : ''}; ${names(crew)} swim home and rest next tide.` : `${H.icon} ${esc(H.name)}: the Kraken drags off one of ${names(crew)} for good; the rest swim home and rest next tide.`;
+      case 'cave':
+        return sub ? `${H.icon} ${esc(H.name)}: the ${subName} gets stuck and is out of action for the next 2 tides.` : `${H.icon} ${esc(H.name)}: ${names(crew)} get trapped and rest for the next 2 tides.`;
+      case 'current':
+        return `${H.icon} ${esc(H.name)}: you lose 🪙${Math.min(3, gold)} of gear, and ${sub ? `the ${subName} is out next tide` : `${names(crew)} rest next tide`}.`;
+      case 'trap':
+        return `${H.icon} ${esc(H.name)}: you pay 🪙${Math.min(2, gold)} for repairs, and ${sub ? `the ${subName} is out next tide` : `${names(crew)} rest next tide`}.`;
+      default:
+        return `${H.icon} ${esc(H.name)}: ${names(crew)} ${H.fail}, and rest next tide.`;
+    }
+  }
+
   // ---------------------------------------------------------------- the dice
   const D20_SVG = (c) => `<svg viewBox="0 0 100 100" aria-hidden="true"><polygon points="50,3 93,27 93,73 50,97 7,73 7,27" fill="${c}" stroke="#fff" stroke-width="3" stroke-linejoin="round"/><polygon points="50,22 76,66 24,66" fill="rgba(255,255,255,0.18)" stroke="rgba(255,255,255,0.75)" stroke-width="2"/><path d="M50 3 50 22 M93 27 76 66 M7 27 24 66 M50 97 24 66 M50 97 76 66 M93 73 76 66 M7 73 24 66 M7 27 50 22 M93 27 50 22" stroke="rgba(255,255,255,0.5)" stroke-width="1.6" fill="none"/></svg>`;
 
@@ -782,9 +872,11 @@
     const crew = r.crewNames.map(esc).join(', ');
     const back = openModal(`<div class="roll">
         <h2>${esc(site.name)}</h2>
-        <p>${r.sk ? `<span class="who" style="color:${PCOLOR[r.pi]}">${esc(p.name)}</span>’s ${esc(E.SUB[r.sk].name)} dives with ${crew}.` : `<span class="who" style="color:${PCOLOR[r.pi]}">${esc(p.name)}</span>: ${crew} ${r.crew.length > 1 ? 'swim' : 'swims'} out from the dive boat.`}</p>
+        <p>${r.sk ? `<span class="who" style="color:${PCOLOR[r.pi]}">${esc(E.poss(p.name))}</span> ${esc(E.SUB[r.sk].name)} dives with ${crew}.` : `<span class="who" style="color:${PCOLOR[r.pi]}">${esc(p.name)}</span>: ${crew} ${r.crew.length > 1 ? 'swim' : 'swims'} out from the dive boat.`}</p>
+        <div class="roll-need">Hoping for <b>${needText(r.need)}</b> on the die</div>
         <div class="d20" id="d20">${D20_SVG(PCOLOR[r.pi])}<span>?</span></div>
-        <div class="roll-sum" id="roll-sum">Needs ${r.target} (a ${r.need}+ on the die)</div>
+        <div id="roll-track">${dieTrack(r.need)}</div>
+        <div class="roll-sum" id="roll-sum">Target ${r.target}: the die plus ${r.bonus >= 0 ? r.bonus : `(${r.bonus})`} in bonuses must reach it.</div>
         <div class="roll-verdict" id="roll-verdict"></div>
         <div class="roll-msgs" id="roll-msgs"></div>
         <div class="btn-row" style="justify-content:center"><button class="btn" id="roll-ok" hidden>${opts.auto ? 'Continue' : 'OK'}</button></div>
@@ -811,7 +903,9 @@
       die.classList.remove('spin');
       die.classList.add('land');
       num.textContent = r.d20;
-      back.querySelector('#roll-sum').innerHTML = `🎲 ${r.d20} ${r.bonus >= 0 ? '+' : '−'} ${Math.abs(r.bonus)} = <b>${r.total}</b> · needed ${r.target}${r.d20 === 20 ? ' · a natural 20!' : r.d20 === 1 ? ' · a natural 1!' : ''}`;
+      back.querySelector('#roll-track').innerHTML = dieTrack(r.need, r.d20);
+      const why = r.d20 === 20 ? 'A natural 20 always succeeds!' : r.d20 === 1 ? 'A natural 1 always fails!' : r.ok ? `That’s ${needText(r.need)}.` : `It needed ${needText(r.need)} — missed by ${r.need - r.d20}.`;
+      back.querySelector('#roll-sum').innerHTML = `The die shows <b>${r.d20}</b>. ${why}<br><small>${r.d20} ${r.bonus >= 0 ? '+' : '−'} ${Math.abs(r.bonus)} = ${r.total} against a target of ${r.target}.</small>`;
       const v = back.querySelector('#roll-verdict');
       v.className = `roll-verdict ${r.ok ? 'ok' : 'fail'}`;
       v.innerHTML = r.ok ? `${PEARL} Pearls!` : '💥 The dive failed';
@@ -824,8 +918,12 @@
         if (r.opened && r.opened.length) msgs.push(`🗺️ New routes charted to ${r.opened.map((k) => esc(E.SITE[k].name)).join(' and ')}.`);
         if (r.k === 'heart') msgs.push('💠 <b>The Heart of Atlantis!</b> The season ends after this tide.');
       } else {
+        if (r.strike) msgs.push(`<b>What went wrong:</b> ${E.HAZ[r.strike].icon} ${esc(E.HAZ[r.strike].name)} struck${r.d20 === 1 ? ' (on a natural 1 any hazard can)' : ' — nobody on the dive was ready for it'}.`);
+        else msgs.push('<b>Nobody got hurt:</b> the crew was ready for every hazard down there and came home empty-handed.');
         r.msgs.forEach((m) => msgs.push(esc(m)));
-        msgs.push(`🧭 The next dive here gets +${r.scout} from what was learned.`);
+        const losses = [].concat(r.lost ? [r.lost] : [], r.drowned || []).map(esc);
+        if (losses.length || r.wrecked) msgs.push(`<span class="loss">Lost for good: ${[...losses, ...(r.wrecked ? [`the ${esc(r.wrecked)}`] : [])].join(', ')}.</span>`);
+        msgs.push(`🧭 The next dive here, by either company, gets +${r.scout} from what was learned.`);
       }
       (r.goals || []).forEach((k) => msgs.push(`${E.GOALS[k].icon} Commission complete — <b>${esc(E.GOALS[k].name)}</b>: +${E.GOALS[k].pts} points!`));
       back.querySelector('#roll-msgs').innerHTML = msgs.map((m) => `<p>${m}</p>`).join('');
