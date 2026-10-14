@@ -57,7 +57,7 @@
   const oddsColor = (p) => (p >= 0.7 ? '#1f9d55' : p >= 0.5 ? '#c99a12' : p >= 0.3 ? '#e07b28' : '#c0392b');
 
   let G = null; // { state, mode: 'ai' | 'local' | 'sim' | 'past', level, levels, speed, view, gid, recorded, revealed }
-  const ui = { aiTimer: null, modal: false, onClose: null, busy: false, rulesTab: 'basics', lastTide: 0 };
+  const ui = { aiTimer: null, modal: false, onClose: null, busy: false, rulesTab: 'overview', lastTide: 0 };
 
   // ---------------------------------------------------------------- persistence
   function save() {
@@ -1351,88 +1351,214 @@
   }
 
   // ---------------------------------------------------------------- rules
+  const RULE_CHAPTERS = [
+    ['overview', 'Overview'],
+    ['setup', 'Setting up'],
+    ['play', 'How a season plays'],
+    ['actions', 'Your actions'],
+    ['dive', 'Diving'],
+    ['hazards', 'Hazards & penalties'],
+    ['crew', 'Divers, subs & fittings'],
+    ['chart', 'The chart & the sea'],
+    ['score', 'Scoring & winning'],
+    ['terms', 'Quick reference'],
+  ];
   function rulesBody(tab) {
     const T = E.TIER;
-    if (tab === 'basics') {
-      return `<p>You run a diving company racing a rival to the treasures of sunken Atlantis. Over <b>${E.TIDES} tides</b> you hire <b>scuba divers</b>, build <b>submarines</b> and send them on <b>expeditions</b> to the sites on the chart. Every expedition is a gamble: roll a d20, add your bonuses, and beat the target.</p>
-        <p>You can try <b>any site with any sub and any crew</b> — even with no sub at all, by swimming out from the dive boat — but deeper, harder sites pay far more and are far more dangerous. Send a rookie or a little Minnow into the Abyss and you’ll probably fail, and you may never see them again.</p>
-        <p>Better divers, divers who are <b>ready for the hazards</b> down there, divers and subs <b>built for that depth</b>, and a <b>charted route</b> all make your odds better.</p>
-        <p>The company with the most points when the season ends wins. Points come from ${PEARL} pearls, 🏆 first finds, 🏺 relic sets, 📜 commissions and leftover 🪙 gold.</p>
-        <p>You start with 🪙${E.START_GOLD}, a Minnow sub and one rookie diver.</p>`;
-    }
-    if (tab === 'map') {
-      return `<p>The chart shows every site in this game, from the harbor down to the Heart of Atlantis. Each game draws different sites. Each row is harder (and richer) than the one above it.</p>
-        <ul><li>🗺️ <b>Charted</b> sites have a route: the top row, and every site that an explored site leads to. Lines on the chart show where each site leads.</li>
-        <li>🌫️ <b>Uncharted</b> sites can still be tried, at <b>−${E.UNCHARTED}</b> to the roll. Exploring a site charts the routes beyond it — for both companies.</li>
-        <li>🧭 <b>Known waters:</b> +${E.KNOWN_BONUS} on sites linked to one your company explored.</li>
-        <li>⚑ Each site can only be explored once. Whoever explores it first takes the pearls.</li>
-        <li>💠 <b>The Heart of Atlantis</b> is sighted on tide ${E.HEART_TIDE}. Whoever finds it ends the season at the end of that tide.</li></ul>`;
-    }
-    if (tab === 'tide') {
-      return `<p>Each tide, the two companies take turns making <b>one move</b> at a time:</p>
-        <ul><li><b>🎲 Dive</b> — send a ready sub and crew to a site on the chart, or have up to ${E.SWIM_CREW} divers swim out from the boat.</li>
-        <li><b>🪙 Salvage run</b> — a safe trip: 🪙1 plus 🪙1 per diver. No dice.</li>
-        <li><b>🤿 Hire</b> a diver from the dive hall. Both companies hire from the same hall, so a good diver you don’t take may end up working for your rival.</li>
-        <li><b>🛠️ Build</b> a sub, <b>rebuild</b> one as a bigger model (pay the difference), or add a <b>fitting</b>.</li>
-        <li><b>⏭ End your tide</b> — you’re done until the next tide. The other company can keep going alone.</li></ul>
-        <p>Each sub and each diver can go out <b>once per tide</b>. When both companies have ended their tide, the next one begins: everyone collects 🪙${E.INCOME} and pays every diver’s wage (a diver you can’t pay quits). In the dive hall, the longest-waiting diver leaves, everyone still waiting gets 🪙1 cheaper (down to half price) and new divers arrive.</p>
-        <p>The <b>sea forecast</b> changes every tide — you can always see the next one coming.</p>
-        <table><tr><th>Forecast</th><th>Effect</th></tr>${E.SEA_ORDER.map((k) => `<tr><td>${E.SEA[k].icon} ${esc(E.SEA[k].name)}</td><td>${esc(E.SEA[k].note)}</td></tr>`).join('')}</table>`;
-    }
-    if (tab === 'dive') {
-      return `<p>Pick a site, a ready sub, and a crew that fits in the sub. Then roll a d20 and add:</p>
-        <ul><li>⭐ every diver’s <b>skill</b></li><li>the <b>sub’s bonus</b> (Barracuda +1, Nautilus +2, Leviathan +3)</li><li>🧭 <b>+${E.KNOWN_BONUS} for known waters</b> and <b>+1 for each earlier failed attempt</b> at that site, by anyone (up to +${E.SCOUT_MAX})</li><li>the forecast, if it helps</li></ul>
-        <p>and subtract:</p>
-        <ul><li><b>${E.UNCOVERED} for every hazard nobody is ready for</b>. A diver with that specialty, or a sub with the matching fitting, makes a hazard safe.</li>
-        <li><b>${E.UNCHARTED}</b> if the site is uncharted.</li>
-        <li><b>${E.SUB_DEEP_PEN} per zone</b> a sub is below the depth it’s built for (a Minnow only reaches the Shallows, a Barracuda the Deep).</li>
-        <li><b>${E.DIVER_DEEP_PEN} per zone</b> for every diver out of their depth (rookies are only trained for the Shallows).</li></ul>
-        <p>Beat the target to win the pearls and gold. A <b>natural 20</b> always succeeds (with 🪙2 extra loot); a <b>natural 1</b> always fails — and then any hazard can strike, even one you were ready for.</p>
-        <p>When a dive fails, one hazard nobody was ready for strikes (see Hazards). On top of that, <b>every diver out of their depth has a ${pct(E.DIVER_LOST)} chance per zone of being lost</b>, and a sub out of its depth has a ${pct(E.SUB_CRUSH)} chance per zone of being crushed.</p>
-        <p>🏊 <b>No sub?</b> Up to ${E.SWIM_CREW} divers can swim out from the dive boat instead. Swimmers get no sub bonus or fittings and take <b>−${E.SWIM_PEN}</b>, plus <b>−${E.SUB_DEEP_PEN} per zone</b> below the Shallows. If a swim below the Shallows fails, each swimmer also has a ${pct(E.SWIM_LOST)} chance per zone of being lost, and hazards that would hit a sub hit the swimmers instead (they rest, and the Kraken takes one of them).</p>
-        <p>🎖️ Every diver on a successful dive gains experience. After ${E.PROMO_XP} successful dives a diver is <b>promoted</b>: +1 skill, and trained one zone deeper.</p>
-        <p>Every site holds its own haul, set when the game starts — the chart shows each site’s pearls. Within a level, deeper sites and sites with more hazards tend to hold more.</p>
-        <table><tr><th>Level</th><th>Target</th><th>Pearls</th><th>Gold</th></tr>${[1, 2, 3, 4, 5].map((t) => {
-          const r = E.rewardRange(t);
-          return `<tr><td>${'★'.repeat(T[t].stars)} ${T[t].name}</td><td>${T[t].target}+</td><td>${PEARL}${r.lo}–${r.hi}</td><td>🪙${r.goldLo}–${r.goldHi}</td></tr>`;
-        }).join('')}</table>`;
-    }
-    if (tab === 'hazards') {
-      return `<table><tr><th>Hazard</th><th>Who is ready for it</th><th>If it strikes</th></tr>${E.HAZ_ORDER.map((h) => `<tr><td>${E.HAZ[h].icon} ${esc(E.HAZ[h].name)}</td><td>${esc(E.HAZ[h].ready)}</td><td>${esc(E.HAZ[h].effect)}</td></tr>`).join('')}</table>
-        <p>A shark always takes the least skilled diver on the crew.</p>`;
-    }
-    if (tab === 'crew') {
-      return `<h3>Divers</h3><table><tr><th>Diver</th><th>Skill</th><th>Trained to</th><th>Ready for</th><th>Hire</th><th>Wage</th></tr>${E.DIVER_ORDER.map((k) => {
-        const D = E.DIVER[k];
-        return `<tr><td>${ROLE_ICON[k]} ${esc(D.role)}</td><td>${'⭐'.repeat(D.skill)}</td><td>${E.DEPTH[D.deep].name}</td><td>${D.spec.map((h) => E.HAZ[h].icon + ' ' + esc(E.HAZ[h].name)).join(', ') || '—'}</td><td>🪙${D.cost}</td><td>🪙${D.wage}</td></tr>`;
-      }).join('')}</table>
-        <h3>Submarines</h3><table><tr><th>Sub</th><th>Seats</th><th>Built for</th><th>Bonus</th><th>Fittings</th><th>Cost</th></tr>${E.SUB_ORDER.map((k) => {
+    const n = RULE_CHAPTERS.findIndex((c) => c[0] === tab) + 1;
+    const sec = (i, title) => `<h4 class="rb-sec"><span>${n}.${i}</span> ${title}</h4>`;
+    const head = `<h3 class="rb-ch"><small>Chapter ${n}</small>${RULE_CHAPTERS[n - 1][1]}</h3>`;
+    const wage = (k) => E.DIVER[k].wage;
+    let body = '';
+    if (tab === 'overview') {
+      body = `${sec(1, 'The story')}
+        <p>You run a diving company racing a rival company to the treasures of sunken Atlantis. Over one season of <b>${E.TIDES} tides</b> you hire <b>divers</b>, build <b>submarines</b> and send them on <b>expeditions</b> to the sites on the chart.</p>
+        ${sec(2, 'How to win')}
+        <p>When the season ends, the company with the <b>most points</b> wins. Points come from ${PEARL} <b>pearls</b> you bring up, 🏆 being <b>first</b> to finish each level of expedition, 🏺 <b>relic sets</b>, 📜 <b>commissions</b> and leftover 🪙 <b>gold</b>. (See chapter 9.)</p>
+        ${sec(3, 'What’s in the game')}
+        <ul><li>🗺️ <b>The chart</b> — the dive sites, in five rows from the easy shallows down to the Heart of Atlantis.</li>
+        <li>🚩 <b>Two companies</b> — each has gold, divers, subs, pearls and relics.</li>
+        <li>🤿 <b>The dive hall</b> — ${E.MARKET_SIZE} divers looking for work, shared by both companies.</li>
+        <li>🌤️ <b>The sea forecast</b> — one sea event per tide, changing what’s easy and what’s dangerous.</li>
+        <li>📜 <b>${E.GOAL_COUNT} commissions</b> — public bonus goals that the first company to complete scores.</li>
+        <li>🎲 <b>A twenty-sided die (d20)</b> — rolled for every dive.</li></ul>
+        ${sec(4, 'The game in one paragraph')}
+        <p>Each tide, the two companies take turns doing one thing at a time — diving, hiring, building or a safe salvage run — until both have ended their tide. Then the sea changes, everyone is paid and pays wages, and the next tide begins. Every dive is a gamble: roll the d20, add your bonuses, and beat the site’s target. Win and you take its pearls; lose and a hazard may cost you gold, time, divers or even a sub.</p>`;
+    } else if (tab === 'setup') {
+      body = `${sec(1, 'The chart')}
+        <p>Each game draws its own dive sites for every row of the chart, and every site gets its own haul of pearls and gold. The top row is charted from the start; everything below has to be reached by exploring.</p>
+        ${sec(2, 'Each company starts with')}
+        <ul><li>🪙 <b>${E.START_GOLD} gold</b></li><li>🚢 <b>one Minnow</b> submarine (seats 1, built for the Shallows)</li><li>🤿 <b>one rookie diver</b></li><li>no pearls and no relics</li></ul>
+        ${sec(3, 'The dive hall')}
+        <p>${E.MARKET_SIZE} divers are drawn into the dive hall, ready to be hired by either company.</p>
+        ${sec(4, 'The forecast and commissions')}
+        <p>A sea event is drawn for every tide of the season. <b>Tide 1 is always ${E.SEA.calm.icon} ${E.SEA.calm.name}</b>, so nobody loses a diver before they can hire anyone. You can always see the current tide’s event and the next one coming. Then ${E.GOAL_COUNT} commissions are drawn for this game.</p>
+        ${sec(5, 'Who goes first')}
+        <p>One company is picked to move first on tide 1. After that, the first move <b>alternates every tide</b>.</p>
+        ${sec(6, 'Playing the computer')}
+        <p>Easy and Normal computers start like you. A <b>Hard</b> computer starts with 🪙${E.AI_HEAD_START.hard.gold} extra; a <b>Brutal</b> one starts with 🪙${E.AI_HEAD_START.brutal.gold} extra, a second rookie and a Barracuda instead of a Minnow.</p>`;
+    } else if (tab === 'play') {
+      body = `${sec(1, 'A season at a glance')}
+        <p>The game lasts <b>${E.TIDES} tides</b> (rounds). Every tide goes the same way:</p>
+        <ol class="rb-flow"><li><b>The tide begins</b> — its sea event takes effect.</li><li><b>Turns</b> — the companies take turns, one action each, back and forth.</li><li><b>Ending the tide</b> — each company ends its tide when it’s done.</li><li><b>Between the tides</b> — income, wages and the dive hall are sorted out.</li><li>The next tide begins — or the season ends.</li></ol>
+        <p>A tide counter (🌊 Tide 3 of ${E.TIDES}) is always shown at the top of the board, and a report pops up between tides showing exactly what changed.</p>
+        ${sec(2, 'The start of a tide')}
+        <p>The tide’s <b>sea event</b> lasts for the whole tide, for both companies — for example, 🌀 Riptides make currents more dangerous, and ⛈️ a Storm keeps Minnows in port. Every sub and diver that isn’t resting or out of action is <b>ready</b> again. On tide ${E.HEART_TIDE}, 💠 <b>the Heart of Atlantis is sighted</b> and can be dived for from then on.</p>
+        ${sec(3, 'Taking turns')}
+        <p>On your turn you take <b>exactly one action</b> (see chapter 4): dive, salvage, hire, build/rebuild/fit, or end your tide. Then it’s the other company’s turn. Each sub and each diver can only go out <b>once per tide</b>, so your number of dives each tide is limited by your ready subs and divers.</p>
+        ${sec(4, 'Ending your tide')}
+        <p>When you have nothing more you want to do, choose <b>⏭ End tide</b>. You can’t take any more actions this tide. If your rival hasn’t ended theirs yet, <b>they keep taking turns on their own</b> until they end it too. The tide is over once <b>both</b> companies have ended it.</p>
+        ${sec(5, 'Between the tides')}
+        <p>When both companies have ended the tide, these steps happen in order:</p>
+        <ol class="rb-flow"><li><b>Is the season over?</b> If that was tide ${E.TIDES}, or the Heart of Atlantis was found this tide, the game ends now (section ${n}.6).</li>
+        <li><b>The tide counter moves on</b> and the next sea event begins.</li>
+        <li><b>Income:</b> each company collects 🪙${E.INCOME} (🪙${E.INCOME + 3} during a ${E.SEA.gala.icon} ${E.SEA.gala.name}).</li>
+        <li><b>Wages:</b> each company pays every diver’s wage, cheapest first. A diver you can’t pay <b>quits</b> and leaves your company.</li>
+        <li><b>Rest and repairs:</b> divers who were told to rest and subs that were out of action come back when their time is up (the tide report lists who is still out).</li>
+        <li><b>The dive hall changes:</b> the diver who has waited longest leaves, everyone still waiting gets 🪙1 cheaper (down to half price), and new divers arrive until there are ${E.MARKET_SIZE} again.</li>
+        <li><b>Commissions</b> are checked for both companies.</li></ol>
+        ${sec(6, 'The end of the season')}
+        <p>The season ends after <b>tide ${E.TIDES}</b>, or at the end of the tide in which someone finds 💠 <b>the Heart of Atlantis</b> — whichever comes first. Finding the Heart doesn’t end the tide early: both companies still finish it. Then points are counted (chapter 9).</p>
+        ${sec(7, 'An example tide')}
+        <p class="rb-ex">It’s tide 3, ${E.SEA.frenzy.icon} ${E.SEA.frenzy.name}. Red moves first and hires a shark wrangler. Blue sends its Barracuda to a tricky site and fails — a current costs 🪙3, and the Barracuda is out next tide. Red dives with its new wrangler and wins 7 pearls. Blue has nothing left ready, so it ends its tide. Red does a salvage run with its rookie for 🪙2, then ends its tide too. Between the tides each company collects 🪙${E.INCOME} and pays wages, the dive hall changes, and tide 4 begins with Blue moving first.</p>`;
+    } else if (tab === 'actions') {
+      body = `<p>On your turn, take <b>one</b> of these actions.</p>
+        ${sec(1, '🎲 Dive')}
+        <p>Send one ready sub and a crew that fits in it to any site on the chart — or have up to ${E.SWIM_CREW} divers swim out from the dive boat with no sub at all. Roll the die to see if it works (chapter 5).</p>
+        ${sec(2, '🪙 Salvage run')}
+        <p>A safe trip with a ready sub and crew: gain 🪙1 plus 🪙1 per diver. No dice, no danger, no pearls. The sub and divers count as having gone out this tide.</p>
+        ${sec(3, '🤿 Hire a diver')}
+        <p>Pay a diver’s price to hire them from the dive hall. They join ready to dive this tide. Both companies hire from the same hall, so a diver you leave may end up working for your rival. You can keep up to ${E.MAX_DIVERS} divers.</p>
+        ${sec(4, '🛠️ Build, rebuild or fit')}
+        <ul><li><b>Build</b> a new sub (up to ${E.MAX_SUBS}).</li><li><b>Rebuild</b> a sub as a bigger model by paying the difference in price. It keeps its fittings.</li><li><b>Fit</b> a sub with equipment that makes one hazard safe (chapter 7).</li></ul>
+        ${sec(5, '⏭ End your tide')}
+        <p>You’re done until the next tide. See section 3.4.</p>`;
+    } else if (tab === 'dive') {
+      body = `${sec(1, 'Choosing a dive')}
+        <p>Pick a site, then a ready sub (or swim) and a crew. You can try <b>any site with any sub and any crew</b>, but deeper sites are much harder, and sending divers or subs deeper than they’re built for is dangerous. The planner shows your exact odds before you commit.</p>
+        ${sec(2, 'The number you need')}
+        <p>Every site has a <b>target</b> (by level, from ${T[1].target} for easy sites to ${T[5].target} for the Heart). Your crew’s bonuses are added to the die, so the number the die itself has to show is:</p>
+        <p class="rb-key"><b>number needed on the die = target − your total bonus</b></p>
+        <p class="rb-ex">Example: the target is 12 and your bonuses add up to +3. You need the die to show <b>9 or higher</b>.</p>
+        <p>The planner and the dice screen both show this number and highlight every winning face of the die.</p>
+        ${sec(3, 'Bonuses (added)')}
+        <ul><li>⭐ every diver’s <b>skill</b></li><li>the <b>sub’s bonus</b> (Barracuda +1, Nautilus +2, Leviathan +3)</li><li>🧭 <b>+${E.KNOWN_BONUS} for known waters</b>: a site linked to one your company explored</li><li><b>+1 for each earlier failed attempt</b> at that site, by either company (up to +${E.SCOUT_MAX})</li><li>the sea event, if it helps</li></ul>
+        ${sec(4, 'Penalties (subtracted)')}
+        <ul><li><b>−${E.UNCOVERED} for every hazard nobody is ready for</b> (chapter 6) — doubled to −${E.UNCOVERED * 2} for some hazards by the sea event</li>
+        <li><b>−${E.UNCHARTED}</b> if the site is uncharted</li>
+        <li><b>−${E.SUB_DEEP_PEN} per zone</b> the sub is below the depth it’s built for</li>
+        <li><b>−${E.DIVER_DEEP_PEN} per zone</b> for every diver out of their depth (rookies are trained only for the Shallows)</li>
+        <li>🏊 <b>−${E.SWIM_PEN}</b> for swimming with no sub, plus −${E.SUB_DEEP_PEN} per zone below the Shallows</li></ul>
+        ${sec(5, 'Rolling')}
+        <p>Roll the d20 and add your bonus. If the total reaches the target, the dive succeeds. A <b>natural 20</b> always succeeds and brings 🪙2 extra loot; a <b>natural 1</b> always fails.</p>
+        ${sec(6, 'If the dive succeeds')}
+        <ul><li>Take the site’s ${PEARL} pearls and 🪙 gold. The site is explored — nobody can dive it again.</li>
+        <li>🏆 If you’re the first company to finish an expedition of that level, score ${E.DISCOVERY_PTS} points.</li>
+        <li>🏺 Tricky and harder sites hold a <b>relic</b>.</li>
+        <li>🗺️ The routes beyond it become <b>charted</b> for both companies.</li>
+        <li>🎖️ Every diver on the crew gains experience; after ${E.PROMO_XP} successful dives a diver is <b>promoted</b> (+1 skill, trained one zone deeper).</li></ul>
+        ${sec(7, 'If the dive fails')}
+        <p>You get no pearls or gold, and you take the penalty for whatever went wrong (chapter 6). Whatever happens, the next dive at that site — by either company — gets +1 from what was learned.</p>`;
+    } else if (tab === 'hazards') {
+      body = `${sec(1, 'Being ready')}
+        <p>Each site lists its hazards. A hazard is <b>covered</b> if a diver on the crew has that specialty or the sub has the matching fitting. Every hazard nobody is ready for costs −${E.UNCOVERED} on the roll.</p>
+        ${sec(2, 'What happens when a dive fails')}
+        <ol class="rb-flow"><li><b>One hazard strikes</b>, picked at random from the hazards nobody was ready for. If you were ready for them all, nothing strikes. On a <b>natural 1</b> any hazard at the site can strike — even one you were ready for.</li>
+        <li><b>Out of their depth:</b> each diver below their training has a ${pct(E.DIVER_LOST)} chance per zone of being lost for good, and a sub below its depth has a ${pct(E.SUB_CRUSH)} chance per zone of being crushed. Swimmers below the Shallows have a ${pct(E.SWIM_LOST)} chance per zone of being lost.</li></ol>
+        <p>The dice screen shows a <b>📖 What happened</b> story and an itemised <b>⚖️ penalty</b> box, including the tide each diver or sub is back.</p>
+        ${sec(3, 'The hazards')}
+        <table><tr><th>Hazard</th><th>Who is ready for it</th><th>Penalty with a sub</th><th>Penalty when swimming</th></tr>${E.HAZ_ORDER.map((h) => `<tr><td>${E.HAZ[h].icon} ${esc(E.HAZ[h].name)}</td><td>${esc(E.HAZ[h].ready)}</td><td>${esc(E.HAZ[h].effect)}</td><td>${esc(E.HAZ[h].swim || E.HAZ[h].effect)}</td></tr>`).join('')}</table>
+        <p>A shark always takes the least skilled diver on the crew.</p>
+        ${sec(4, 'Resting and out of action')}
+        <p><b>😴 Resting</b> divers and <b>🔧 out of action</b> subs can’t dive or salvage until they’re back. “Rests next tide” means they miss the next tide and are ready the tide after.</p>`;
+    } else if (tab === 'crew') {
+      body = `${sec(1, 'Divers')}
+        <p>Each diver has a skill, a depth they’re trained for, and maybe a specialty that makes one or more hazards safe. Wages are paid between every tide.</p>
+        <table><tr><th>Diver</th><th>Skill</th><th>Trained to</th><th>Ready for</th><th>Hire</th><th>Wage</th></tr>${E.DIVER_ORDER.map((k) => {
+          const D = E.DIVER[k];
+          return `<tr><td>${ROLE_ICON[k]} ${esc(D.role)}</td><td>${'⭐'.repeat(D.skill)}</td><td>${E.DEPTH[D.deep].name}</td><td>${D.spec.map((h) => E.HAZ[h].icon + ' ' + esc(E.HAZ[h].name)).join(', ') || '—'}</td><td>🪙${D.cost}</td><td>🪙${wage(k)}</td></tr>`;
+        }).join('')}</table>
+        ${sec(2, 'Submarines')}
+        <table><tr><th>Sub</th><th>Seats</th><th>Built for</th><th>Bonus</th><th>Fittings</th><th>Cost</th></tr>${E.SUB_ORDER.map((k) => {
           const B = E.SUB[k];
           return `<tr><td>${esc(B.name)}</td><td>${B.crew}</td><td>${E.DEPTH[B.depth].name}</td><td>${B.bonus ? '+' + B.bonus : '—'}</td><td>${B.slots}</td><td>🪙${B.cost}</td></tr>`;
         }).join('')}</table>
-        <p>You can keep ${E.MAX_SUBS} subs and ${E.MAX_DIVERS} divers.</p>
-        <h3>Fittings</h3><table><tr><th>Fitting</th><th>Makes safe</th><th>Cost</th></tr>${E.MOD_ORDER.map((m) => `<tr><td>${E.MOD[m].icon} ${esc(E.MOD[m].name)}</td><td>${E.HAZ[E.MOD[m].haz].icon} ${esc(E.HAZ[E.MOD[m].haz].name)}</td><td>🪙${E.MOD[m].cost}</td></tr>`).join('')}</table>`;
+        ${sec(3, 'Fittings')}
+        <table><tr><th>Fitting</th><th>Makes safe</th><th>Cost</th></tr>${E.MOD_ORDER.map((m) => `<tr><td>${E.MOD[m].icon} ${esc(E.MOD[m].name)}</td><td>${E.HAZ[E.MOD[m].haz].icon} ${esc(E.HAZ[E.MOD[m].haz].name)}</td><td>🪙${E.MOD[m].cost}</td></tr>`).join('')}</table>
+        ${sec(4, 'Limits')}
+        <p>A company can keep up to ${E.MAX_SUBS} subs and ${E.MAX_DIVERS} divers. Up to ${E.SWIM_CREW} divers can swim out together.</p>`;
+    } else if (tab === 'chart') {
+      body = `${sec(1, 'Rows and depth')}
+        <p>The chart runs from the harbor down to the Heart of Atlantis. Each row is harder and richer than the one above, and every site is in one of three depths: 🌊 Shallows, 🌊🌊 Deep or 🌊🌊🌊 Abyss.</p>
+        <table><tr><th>Level</th><th>Target</th><th>Pearls</th><th>Gold</th></tr>${[1, 2, 3, 4, 5].map((t) => {
+          const r = E.rewardRange(t);
+          return `<tr><td>${'★'.repeat(T[t].stars)} ${T[t].name}</td><td>${T[t].target}+</td><td>${PEARL}${r.lo}–${r.hi}</td><td>🪙${r.goldLo}–${r.goldHi}</td></tr>`;
+        }).join('')}</table>
+        <p>Every site has its own haul, shown on the chart. Within a level, deeper sites and sites with more hazards tend to hold more.</p>
+        ${sec(2, 'Charted and uncharted')}
+        <ul><li>🗺️ <b>Charted</b> sites have a route: the top row, and every site an explored site leads to. Lines on the chart show the routes.</li>
+        <li>🌫️ <b>Uncharted</b> sites can still be tried, at −${E.UNCHARTED} on the roll.</li>
+        <li>🧭 <b>Known waters:</b> +${E.KNOWN_BONUS} on sites linked to one <i>your</i> company explored.</li>
+        <li>⚑ Each site can only be explored once.</li>
+        <li>💠 <b>The Heart of Atlantis</b> is sighted on tide ${E.HEART_TIDE}. Finding it ends the season at the end of that tide.</li></ul>
+        ${sec(3, 'Sea events')}
+        <p>Every tide has one sea event that lasts the whole tide for both companies.</p>
+        <table><tr><th>Event</th><th>What it does</th></tr>${E.SEA_ORDER.map((k) => `<tr><td>${E.SEA[k].icon} ${esc(E.SEA[k].name)}</td><td>${SEA_PLAIN[k] || esc(E.SEA[k].note)}</td></tr>`).join('')}</table>`;
+    } else if (tab === 'score') {
+      body = `${sec(1, 'Counting points')}
+        <p>When the season ends, each company adds up:</p>
+        <ul><li>${PEARL} <b>1 point per pearl</b></li><li>🏆 <b>${E.DISCOVERY_PTS} points</b> for each level of expedition (easy, tricky, hard, extreme, legendary) your company finished <b>first</b></li>
+        <li>🏺 <b>relic sets</b>: group your relics (👑 royal jewels, 📜 lost scrolls, 🔮 orichalcum crystals, 🏺 golden urns) into sets of different kinds: ${E.RELIC_SET.slice(1).map((pts, i) => `${i + 1} kind${i ? 's' : ''} = ${pts}`).join(', ')} points</li>
+        <li>📜 <b>commissions</b> you completed first</li><li>🪙 <b>1 point per ${E.GOLD_PER_PT} gold</b> left over</li></ul>
+        ${sec(2, 'Winning')}
+        <p>Most points wins. If it’s a tie, the company with more pearls wins, then the one with more expeditions.</p>
+        ${sec(3, 'Commissions')}
+        <p>Each game uses ${E.GOAL_COUNT} of these. They’re checked after every action and between tides; the first company to complete one scores it.</p>
+        <table><tr><th>Commission</th><th>Do this first</th><th>Points</th></tr>${E.GOAL_ORDER.map((k) => `<tr><td>${E.GOALS[k].icon} ${esc(E.GOALS[k].name)}</td><td>${esc(E.GOALS[k].text)}</td><td>+${E.GOALS[k].pts}</td></tr>`).join('')}</table>`;
+    } else {
+      const terms = [
+        ['Tide', `One round of the game. A season is ${E.TIDES} tides.`],
+        ['Action / turn', 'On your turn you take one action, then the other company takes one.'],
+        ['End tide', 'You’re done for this tide; your rival can keep going alone.'],
+        ['Ready', 'A sub or diver that hasn’t gone out this tide and isn’t resting or out of action.'],
+        ['Target', 'The total your die plus bonuses must reach.'],
+        ['Number needed', 'What the die itself has to show: the target minus your bonus.'],
+        ['Natural 20 / 1', 'The die showing 20 always succeeds; showing 1 always fails.'],
+        ['Covered hazard', 'A hazard someone on the dive is ready for. Uncovered hazards cost −' + E.UNCOVERED + '.'],
+        ['Charted', 'A site with a known route. Uncharted sites cost −' + E.UNCHARTED + '.'],
+        ['Known waters', `+${E.KNOWN_BONUS} on sites next to one your company explored.`],
+        ['Out of their depth', 'A diver or sub below the depth they’re built for. They take penalties and can be lost if the dive fails.'],
+        ['Resting', 'A diver who can’t dive or salvage until a later tide.'],
+        ['Out of action', 'A sub that can’t dive or salvage until a later tide.'],
+        ['Swimming', `Diving with no sub: up to ${E.SWIM_CREW} divers, −${E.SWIM_PEN}.`],
+        ['Salvage run', 'A safe trip for 🪙1 plus 🪙1 per diver.'],
+      ];
+      body = `${sec(1, 'Your turn, in short')}
+        <ol class="rb-flow"><li>Dive, salvage, hire, build/rebuild/fit — or end your tide.</li><li>Each sub and diver goes out once per tide.</li><li>When both companies end the tide: 🪙${E.INCOME} income, pay wages, dive hall changes, next sea event.</li></ol>
+        ${sec(2, 'Terms')}
+        <dl class="rb-terms">${terms.map(([t, d]) => `<dt>${t}</dt><dd>${d}</dd>`).join('')}</dl>`;
     }
-    return `<p>When the last tide ends (or the Heart of Atlantis is found), add up:</p>
-      <ul><li>${PEARL} every <b>pearl</b> you found</li><li>🏆 <b>${E.DISCOVERY_PTS} points</b> for each level of expedition (easy, tricky, hard, extreme, legendary) your company finished <b>first</b></li>
-      <li>🏺 <b>relic sets</b>: tricky and harder sites each hold a relic (👑 royal jewels, 📜 lost scrolls, 🔮 orichalcum crystals or 🏺 golden urns). Group your relics into sets of different kinds: ${E.RELIC_SET.slice(1).map((pts, i) => `${i + 1} kind${i ? 's' : ''} = ${pts}`).join(', ')} points.</li>
-      <li>📜 <b>commissions</b>: each game has ${E.GOAL_COUNT} public commissions. The first company to do one scores it.</li>
-      <li>🪙 <b>1 point per ${E.GOLD_PER_PT} gold</b> left over</li></ul>
-      <p>Most points wins. If it’s a tie, the company with more pearls wins, then the one with more expeditions.</p>
-      <h3>Possible commissions</h3><table><tr><th>Commission</th><th>Do this first</th><th>Points</th></tr>${E.GOAL_ORDER.map((k) => `<tr><td>${E.GOALS[k].icon} ${esc(E.GOALS[k].name)}</td><td>${esc(E.GOALS[k].text)}</td><td>+${E.GOALS[k].pts}</td></tr>`).join('')}</table>`;
+    const prev = RULE_CHAPTERS[n - 2];
+    const next = RULE_CHAPTERS[n];
+    return `${head}${body}<div class="rb-nav">${prev ? `<button class="btn ghost sm" data-tab="${prev[0]}">← ${n - 1}. ${prev[1]}</button>` : '<span></span>'}${next ? `<button class="btn sm" data-tab="${next[0]}">${n + 1}. ${next[1]} →</button>` : ''}</div>`;
   }
   function showRules(tab) {
     ui.rulesTab = tab || ui.rulesTab;
-    const tabs = { basics: '🌊 Basics', map: '🗺️ The chart', tide: '🔁 A tide', dive: '🎲 Diving', hazards: '🦈 Hazards', crew: '🤿 Divers & subs', score: '🏆 Scoring' };
-    const back = openModal(`<h2>📜 How to play Atlantis Expedition</h2>
-      <div class="rules-tabs">${Object.keys(tabs).map((k) => `<button data-tab="${k}" class="${ui.rulesTab === k ? 'on' : ''}">${tabs[k]}</button>`).join('')}</div>
-      <div class="rules-body">${rulesBody(ui.rulesTab)}</div>`, { cls: 'wide', onClose: G ? null : () => {} });
-    back.querySelector('.rules-tabs').onclick = (e) => {
+    if (!RULE_CHAPTERS.some((c) => c[0] === ui.rulesTab)) ui.rulesTab = 'overview';
+    const toc = () => RULE_CHAPTERS.map(([k, name], i) => `<button data-tab="${k}" class="${ui.rulesTab === k ? 'on' : ''}"><span>${i + 1}</span> ${name}</button>`).join('');
+    const back = openModal(`<h2>📜 Atlantis Expedition — Rulebook</h2>
+      <div class="rulebook"><nav class="rules-tabs rb-toc" aria-label="Contents"><b class="rb-toc-head">Contents</b>${toc()}</nav>
+      <article class="rules-body">${rulesBody(ui.rulesTab)}</article></div>`, { cls: 'wide rules-modal', onClose: G ? null : () => {} });
+    back.querySelector('.rulebook').onclick = (e) => {
       const b = e.target.closest('[data-tab]');
       if (!b) return;
       ui.rulesTab = b.dataset.tab;
-      back.querySelectorAll('.rules-tabs button').forEach((x) => x.classList.toggle('on', x === b));
+      back.querySelectorAll('.rb-toc button').forEach((x) => x.classList.toggle('on', x.dataset.tab === ui.rulesTab));
       back.querySelector('.rules-body').innerHTML = rulesBody(ui.rulesTab);
+      const m = back.querySelector('.modal');
+      if (m) m.scrollTop = 0;
+      const on = back.querySelector('.rb-toc button.on');
+      if (on && on.scrollIntoView) on.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     };
   }
 
