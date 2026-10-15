@@ -1,8 +1,9 @@
-// Hero League ad: comic-book energy over the game's painted city, with real cards from the deck
-// showing off the tricks that make each hero different.
+// Hero League ad: a superhero movie trailer in a 3D city plaza, with full-body cut-outs of the game's heroes,
+// the cards themselves flying through the scene, and comic-book captions.
 (function () {
   const { W, H, clamp, lerp, seg, E, rng, el, img, caption, runAd } = AD;
-  const A = (n) => `sprites/hx/${n}.png`;
+  const { world, prop } = AD3;
+  const X = (n) => `sprites/hx/${n}.png`;
   const TAU = Math.PI * 2;
   const SUIT = {
     bruiser: ['💪', '#d9473f'], speed: ['⚡', '#e0a514'], tech: ['🔧', '#3b7fd6'], mystic: ['🔮', '#9b59d0'], cosmic: ['🌌', '#4b4fc7'],
@@ -12,96 +13,310 @@
     ironclad: ['Ironclad', 'bruiser', 18], valora: ['Valora', 'bruiser', 20], blur: ['Blur', 'speed', 13], sable: ['Sorcerer Sable', 'mystic', 22],
     mirra: ['Mirra', 'mystic', 1], starbolt: ['Starbolt', 'cosmic', 25], nova: ['Nova', 'cosmic', 14], nightshade: ['Nightshade', 'shadow', 15],
     cinder: ['Cinder', 'element', 15], scout: ['Scout', 'sidekick', 10], hammer: ['Star Hammer', 'gear', 1], kaos: ['Kaos', 'villain', 40],
-    crusher: ['The Crusher', 'villain', 30], firewall: ['Firewall', 'tech', 8], mecha: ['Mecha-Max', 'tech', 26],
+    crusher: ['The Crusher', 'villain', 30], firewall: ['Firewall', 'tech', 8], mecha: ['Mecha-Max', 'tech', 26], prism: ['Prism', 'cosmic', 8],
+    gale: ['Gale', 'element', 12], tess: ['Tess', 'sidekick', 9], cape: ['Cape of Ages', 'gear', 21], whisper: ['Whisper', 'shadow', 11],
   };
+  const TALL = { crusher: 255, mecha: 240, ironclad: 225, kaos: 225, scout: 178, blur: 196 };
 
   const style = el('style', '', document.head);
   style.textContent = `
-    .plate { position: absolute; left: 0; top: 0; width: ${W}px; height: ${H}px; transform-origin: 50% 50%; will-change: transform; }
-    .plate > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
-    .tint { position: absolute; inset: 0; pointer-events: none; }
     .title .big { -webkit-text-stroke: 3px rgba(30, 10, 60, 0.7); text-shadow: 0 6px 0 rgba(40, 12, 70, 0.95), 0 14px 34px rgba(0, 0, 0, 0.6), 0 0 40px rgba(255, 200, 80, 0.35); }
     .title .mid { text-shadow: 0 5px 0 rgba(40, 12, 70, 0.9), 0 12px 26px rgba(0, 0, 0, 0.55); }
     .title .pill { background: #ffd24d; color: #3a1d00; }
-    .hcard { position: absolute; left: 0; top: 0; z-index: 100; width: 180px; height: 252px; padding: 8px; box-sizing: border-box; border-radius: 16px; transform-origin: 50% 50%;
-      background: linear-gradient(160deg, color-mix(in srgb, var(--c) 80%, #fff) 0%, var(--c) 45%, color-mix(in srgb, var(--c) 70%, #000) 100%);
-      box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.75), 0 14px 30px rgba(0, 0, 0, 0.5); }
-    .hcard .art { width: 164px; height: 164px; border-radius: 10px; overflow: hidden; background: #111; box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.3); }
-    .hcard .art img { width: 100%; height: 100%; display: block; }
-    .hcard .pw { position: absolute; left: -14px; top: -14px; width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center;
-      background: #ffd24d; color: #3a1d00; font: 30px/1 "Lilita One", sans-serif; box-shadow: 0 0 0 3px #fff, 0 6px 14px rgba(0, 0, 0, 0.45); }
-    .hcard .su { position: absolute; right: -10px; top: -10px; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center;
-      background: #fff; font-size: 24px; font-style: normal; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4); }
-    .hcard .nm { margin-top: 10px; text-align: center; color: #fff; font: 24px/1.05 "Lilita One", sans-serif; white-space: nowrap; text-shadow: 0 2px 0 rgba(0, 0, 0, 0.45); }
-    .hback { position: absolute; left: 0; top: 0; z-index: 100; width: 180px; height: 252px; border-radius: 16px; transform-origin: 50% 50%; display: grid; place-items: center;
-      background: repeating-linear-gradient(45deg, #2b1d6e 0 14px, #34248a 14px 28px); color: #ffd24d; font: 70px/1 "Lilita One", sans-serif;
-      box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.75), 0 14px 30px rgba(0, 0, 0, 0.5); }
-    .pow { position: absolute; left: 0; top: 0; z-index: 7500; white-space: nowrap; transform-origin: 50% 50%;
-      font: 74px/1 "Lilita One", sans-serif; color: #ffe14d; -webkit-text-stroke: 3px #2a0d3d; letter-spacing: 0.02em;
+    .pow { position: absolute; left: 0; top: 0; z-index: 8700; white-space: nowrap; transform-origin: 50% 50%;
+      font: 78px/1 "Lilita One", sans-serif; color: #ffe14d; -webkit-text-stroke: 3px #2a0d3d; letter-spacing: 0.02em;
       text-shadow: 0 6px 0 #2a0d3d, 0 14px 30px rgba(0, 0, 0, 0.55); }
-    .chip { position: absolute; left: 0; top: 0; z-index: 7400; white-space: nowrap; padding: 12px 26px; border-radius: 18px; transform-origin: 50% 50%;
-      background: rgba(22, 10, 48, 0.86); color: #fff; font: 40px/1 "Lilita One", sans-serif; box-shadow: 0 0 0 3px rgba(255, 210, 77, 0.8), 0 12px 30px rgba(0, 0, 0, 0.5); }
+    .chip { position: absolute; left: 0; top: 0; z-index: 8700; white-space: nowrap; padding: 12px 26px; border-radius: 18px; transform-origin: 50% 50%;
+      background: rgba(22, 10, 48, 0.86); color: #fff; font: 38px/1 "Lilita One", sans-serif; box-shadow: 0 0 0 3px rgba(255, 210, 77, 0.8), 0 12px 30px rgba(0, 0, 0, 0.5); }
     .chip.good { box-shadow: 0 0 0 3px #6fe08f, 0 12px 30px rgba(0, 0, 0, 0.5); }
     .chip.bad { box-shadow: 0 0 0 3px #ff6b5e, 0 12px 30px rgba(0, 0, 0, 0.5); }
-    .mframe { position: absolute; left: 0; top: 0; z-index: 100; width: 336px; transform-origin: 50% 50%; text-align: center; }
-    .mframe .pic { width: 336px; height: 252px; border-radius: 16px; overflow: hidden; box-shadow: 0 0 0 4px #ffd24d, 0 16px 34px rgba(0, 0, 0, 0.55); }
-    .mframe .pic img { width: 100%; height: 100%; display: block; object-fit: cover; }
-    .mframe .nm { display: inline-block; margin-top: 14px; padding: 6px 18px; border-radius: 999px; background: rgba(255, 246, 226, 0.96); color: #2a0d3d;
-      font: 28px/1.1 "Lilita One", sans-serif; white-space: nowrap; box-shadow: 0 4px 0 rgba(40, 12, 70, 0.6), 0 8px 18px rgba(0, 0, 0, 0.3); }
-    .ident { position: absolute; left: 50%; top: 46%; z-index: 100; width: 420px; height: 300px; margin: -150px 0 0 -210px; border-radius: 22px; transform-origin: 50% 50%;
-      background: linear-gradient(160deg, #3a2470, #1c0f3c); box-shadow: 0 0 0 4px #ffd24d, 0 18px 40px rgba(0, 0, 0, 0.6); text-align: center; color: #fff; }
+    .ident { position: absolute; left: 50%; top: 46%; z-index: 8700; width: 420px; height: 300px; margin: -150px 0 0 -210px; border-radius: 22px; transform-origin: 50% 50%;
+      background: linear-gradient(160deg, #3a2470, #1c0f3c); box-shadow: 0 0 0 4px #ffd24d, 0 18px 40px rgba(0, 0, 0, 0.6), 0 0 80px rgba(160, 110, 255, 0.45); text-align: center; color: #fff; }
     .ident .ic { margin-top: 26px; font-size: 96px; line-height: 1; }
     .ident .nm { margin-top: 12px; font: 50px/1 "Lilita One", sans-serif; }
     .ident .rule { margin-top: 12px; font: 600 28px/1.2 Fredoka, sans-serif; color: #ffe9a8; }
     .ident .stamp { position: absolute; right: -36px; top: -26px; padding: 8px 18px; border: 5px solid #ff4b4b; border-radius: 10px; color: #ff4b4b; background: rgba(255, 255, 255, 0.9);
-      font: 34px/1 "Lilita One", sans-serif; transform: rotate(12deg); letter-spacing: 0.04em; }
-    .pips { position: absolute; left: 50%; top: 62%; z-index: 7000; display: flex; gap: 12px; transform: translate(-50%, -50%); }
-    .pips i { width: 70px; height: 96px; border-radius: 10px; display: grid; place-items: center; font: normal 30px/1 "Lilita One", sans-serif; color: rgba(255, 255, 255, 0.55);
-      background: rgba(22, 10, 48, 0.7); box-shadow: inset 0 0 0 3px rgba(255, 210, 77, 0.35); }
-    .pips i.on { color: #3a1d00; background: #ffd24d; box-shadow: 0 0 22px rgba(255, 210, 77, 0.7); }
-    .board { position: absolute; left: 50%; top: 50%; z-index: 7000; width: 760px; transform: translate(-50%, -50%); }
-    .row { display: flex; align-items: center; gap: 18px; margin: 18px 0; padding: 14px 24px; border-radius: 18px; background: rgba(22, 10, 48, 0.82);
-      box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.25), 0 12px 26px rgba(0, 0, 0, 0.45); color: #fff; font: 40px/1 "Lilita One", sans-serif; }
-    .row .who { width: 330px; white-space: nowrap; }
-    .row .bar { flex: 1; height: 22px; border-radius: 999px; background: rgba(255, 255, 255, 0.12); overflow: hidden; }
-    .row .bar b { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, #ffb13b, #ffe14d); }
-    .row .sc { width: 110px; text-align: right; }
-    .row.win { box-shadow: 0 0 0 4px #ffd24d, 0 0 40px rgba(255, 210, 77, 0.55), 0 12px 26px rgba(0, 0, 0, 0.45); }`;
+      font: 34px/1 "Lilita One", sans-serif; transform: rotate(12deg); letter-spacing: 0.04em; }`;
 
-  // ---------------------------------------------------------------- building blocks
-  function plate(root, src) {
-    const p = el('div', 'plate', root);
-    const im = el('img', '', p);
-    im.src = src;
-    img(src);
-    return {
-      p,
-      at(s, x = 0, y = 0) {
-        p.style.transform = `translate(${x}px, ${y}px) scale(${s})`;
-      },
-    };
+  // ---------------------------------------------------------------- props
+  // A lit skyscraper, drawn once per seed.
+  function skyscraper(seed) {
+    return prop(`sky${seed}`, 260, 1000, (g, w, h) => {
+      const r = rng(seed * 13 + 5);
+      const bw = 130 + r() * 110;
+      const x0 = (w - bw) / 2;
+      const top = 40 + r() * 200;
+      const body = ['#2b3358', '#31406a', '#3a2f5e', '#283a52', '#41365f'][seed % 5];
+      const gr = g.createLinearGradient(x0, 0, x0 + bw, 0);
+      gr.addColorStop(0, body);
+      gr.addColorStop(0.6, '#5b6390');
+      gr.addColorStop(1, body);
+      g.fillStyle = gr;
+      g.fillRect(x0, top, bw, h - top);
+      if (r() < 0.5) {
+        g.fillRect(x0 + bw * 0.2, top - 60, bw * 0.6, 60);
+        g.fillStyle = '#9aa3d0';
+        g.fillRect(w / 2 - 3, top - 170, 6, 110);
+        g.fillStyle = '#ff5a5a';
+        g.beginPath();
+        g.arc(w / 2, top - 172, 7, 0, TAU);
+        g.fill();
+      }
+      const cols = Math.floor(bw / 24);
+      for (let y = top + 22; y < h - 20; y += 30) {
+        for (let i = 0; i < cols; i++) {
+          const lit = r();
+          g.fillStyle = lit < 0.42 ? ['#ffd98a', '#ffe9b8', '#9fd8ff'][Math.floor(r() * 3)] : 'rgba(10,14,40,0.55)';
+          g.fillRect(x0 + 8 + i * 24, y, 12, 16);
+        }
+      }
+    });
   }
-
-  function card(root, id) {
+  // A playing card, drawn from the game's art once that art has loaded.
+  const CARDS = {};
+  function cardProp(id) {
+    if (CARDS[id]) return CARDS[id];
+    const im = img(X(id));
+    const c = document.createElement('canvas');
+    c.width = 360;
+    c.height = 504;
+    const g = c.getContext('2d');
     const [name, suit, power] = CARD[id];
-    const c = el('div', 'hcard', root);
-    c.style.setProperty('--c', SUIT[suit][1]);
-    c.innerHTML = `<div class="art"><img src="${A(id)}"></div><b class="pw">${power}</b><i class="su">${SUIT[suit][0]}</i><div class="nm">${name}</div>`;
-    img(A(id));
-    c.pw = c.querySelector('.pw');
+    const col = SUIT[suit][1];
+    g.fillStyle = '#ffffff';
+    g.beginPath();
+    g.roundRect(0, 0, 360, 504, 32);
+    g.fill();
+    const gr = g.createLinearGradient(0, 0, 360, 504);
+    gr.addColorStop(0, AD3.mix(col, '#ffffff', 0.25));
+    gr.addColorStop(0.5, col);
+    gr.addColorStop(1, AD3.mix(col, '#000000', 0.3));
+    g.fillStyle = gr;
+    g.beginPath();
+    g.roundRect(9, 9, 342, 486, 26);
+    g.fill();
+    const ok = im.complete && im.naturalWidth;
+    if (ok) {
+      g.save();
+      g.beginPath();
+      g.roundRect(24, 24, 312, 312, 18);
+      g.clip();
+      g.drawImage(im, 24, 24, 312, 312);
+      g.restore();
+    }
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    let fs = 44;
+    g.font = `${fs}px "Lilita One"`;
+    while (g.measureText(name).width > 310 && fs > 20) g.font = `${(fs -= 2)}px "Lilita One"`;
+    g.fillStyle = 'rgba(0,0,0,0.35)';
+    g.fillText(name, 180, 412);
+    g.fillStyle = '#ffffff';
+    g.fillText(name, 180, 408);
+    g.fillStyle = '#ffd24d';
+    g.strokeStyle = '#ffffff';
+    g.lineWidth = 6;
+    g.beginPath();
+    g.arc(56, 56, 40, 0, TAU);
+    g.fill();
+    g.stroke();
+    g.fillStyle = '#3a1d00';
+    g.font = '44px "Lilita One"';
+    g.fillText(String(power), 56, 59);
+    g.fillStyle = '#ffffff';
+    g.beginPath();
+    g.arc(308, 52, 32, 0, TAU);
+    g.fill();
+    g.font = '34px sans-serif';
+    g.fillText(SUIT[suit][0], 308, 55);
+    if (ok && document.fonts.check('44px "Lilita One"')) CARDS[id] = c;
     return c;
   }
-  function put(c, x, y, s = 1, rot = 0, op = 1) {
-    c.style.display = op > 0.001 ? '' : 'none';
-    c.style.opacity = clamp(op);
-    c.style.transform = `translate(${x - 90}px, ${y - 126}px) rotate(${rot}deg) scale(${s})`;
+  const back = () => prop('cardback', 360, 504, (g) => {
+    g.fillStyle = '#ffffff';
+    g.beginPath();
+    g.roundRect(0, 0, 360, 504, 32);
+    g.fill();
+    g.save();
+    g.beginPath();
+    g.roundRect(9, 9, 342, 486, 26);
+    g.clip();
+    for (let i = -20; i < 40; i++) {
+      g.fillStyle = i % 2 ? '#2b1d6e' : '#34248a';
+      g.beginPath();
+      g.moveTo(i * 28, 0);
+      g.lineTo(i * 28 + 28, 0);
+      g.lineTo(i * 28 + 28 - 504, 504);
+      g.lineTo(i * 28 - 504, 504);
+      g.fill();
+    }
+    g.restore();
+    g.fillStyle = '#ffd24d';
+    g.font = '150px "Lilita One"';
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText('★', 180, 262);
+  });
+
+  // ---------------------------------------------------------------- the city
+  const r0 = rng(31);
+  const TOWERS = [];
+  for (let i = 0; i < 140; i++) {
+    const a = r0() * TAU;
+    const rad = 1700 + r0() * 3600;
+    const x = Math.sin(a) * rad * 1.15;
+    const z = 650 + Math.cos(a) * rad;
+    // Leave the avenue the camera flies down clear.
+    if (Math.abs(x) < 900 && z < 600) continue;
+    TOWERS.push([x, z, i % 23, 900 + r0() * 2100]);
   }
+  const SPIRES = [[-1500, 2700, 2900], [1800, 2500, 2600], [300, 3900, 3400], [-2700, 1300, 2400], [2600, 900, 2500]];
+  const LIGHTS = [[-620, 250], [620, 250], [-760, 900], [760, 900], [-300, 1500], [300, 1500]];
+
+  function lamp(R, x, z, night) {
+    R.at(x, 0, z, (g, p) => {
+      const s = p.s;
+      g.fillStyle = '#2a2d44';
+      g.fillRect(p.x - 4 * s, p.y - 210 * s, 8 * s, 210 * s);
+      g.beginPath();
+      g.ellipse(p.x, p.y - 214 * s, 18 * s, 10 * s, 0, 0, TAU);
+      g.fillStyle = '#fff1c4';
+      g.fill();
+    });
+    R.light(x, 205, z, 260, '#ffd27a', 0.25 + 0.2 * night);
+  }
+
+  function city(R, t, o = {}) {
+    const night = o.night || 0;
+    R.decal([[-260, -4000], [260, -4000], [260, 120], [-260, 120]], '#3a3d52');
+    R.decal([[-4000, 1900], [4000, 1900], [4000, 2300], [-4000, 2300]], '#3a3d52');
+    for (let i = 0; i < 18; i++) R.decal([[-12, -3800 + i * 220], [12, -3800 + i * 220], [12, -3700 + i * 220], [-12, -3700 + i * 220]], '#d9cf8a');
+    R.disc(0, 650, 820, 600, '#5d6283', '#8d93b8', 4);
+    R.disc(0, 650, 640, 470, '#666b8e', '#9da3c8', 3);
+    R.disc(0, 650, 360, 260, '#7076a0', '#b1b7da', 3);
+    if (o.fountain !== false) {
+      R.bill(X('full-fountain'), { x: 0, z: 1250, h: 330, shadowW: 0.4 });
+      for (let j = 0; j < 8; j++) {
+        const q = (t * 0.7 + j / 8) % 1;
+        R.blob((j % 2 ? 1 : -1) * (60 + q * 90), 300 - q * 200, 1240, 14 + q * 18, '#cfe8ff', 0.35 * (1 - q));
+      }
+    }
+    TOWERS.forEach(([x, z, s, h]) => R.bill(skyscraper(s), { x, z, h, shadow: false }));
+    SPIRES.forEach(([x, z, h]) => R.bill(X('full-tower'), { x, z, h, shadow: false }));
+    if (o.lamps !== false) LIGHTS.forEach(([x, z]) => lamp(R, x, z, night));
+  }
+
+  function look(R, x, y, z, tx, ty, tz) {
+    Object.assign(R.cam, { x, y, z });
+    const dx = tx - x;
+    const dz = tz - z;
+    R.cam.yaw = Math.atan2(dx, dz);
+    R.cam.pitch = Math.atan2(y - ty, Math.hypot(dx, dz));
+  }
+
+  function hero(R, id, x, z, o = {}) {
+    const t = o.t || 0;
+    const h = o.h || TALL[id] || 205;
+    R.bill(X('full-' + id), {
+      x, y: o.y || 0, z, h, dir: o.dir || 1, lift: o.lift || 0, op: o.op, flash: o.flash, flashColor: o.flashColor, bias: o.bias,
+      rot: (o.rot || 0) + Math.sin(t * 1.3 + x) * 0.8, sy: 1 + 0.015 * Math.sin(t * 2.2 + x), sx: o.sx || 1, shadowW: 0.3, shadow: o.y ? false : undefined,
+    });
+  }
+  function card(R, id, x, y, z, o = {}) {
+    R.bill(id === 'back' ? back() : cardProp(id), { x, y, z, h: o.h || 170, sx: o.sx == null ? 1 : o.sx, rot: o.rot || 0, op: o.op, shadow: false, bias: o.bias || 0, flash: o.flash, flashColor: o.flashColor });
+  }
+  // A name tag floating in the world, always in front of what is around it.
+  function tag(R, x, y, z, text, o = {}) {
+    R.at(x, y, z, (g, p) => {
+      const s = clamp(p.s * (o.k || 1), 0.4, 1.25);
+      g.globalAlpha = o.op == null ? 1 : o.op;
+      g.font = `${Math.round(28 * s)}px "Lilita One"`;
+      const w = g.measureText(text).width + 30 * s;
+      const hh = 44 * s;
+      g.fillStyle = o.bg || 'rgba(255,246,226,0.96)';
+      g.beginPath();
+      g.roundRect(p.x - w / 2, p.y - hh / 2, w, hh, hh / 2);
+      g.fill();
+      g.fillStyle = o.fg || '#2a0d3d';
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.fillText(text, p.x, p.y + 1.5 * s);
+    }, o.bias == null ? 60 : o.bias);
+  }
+  // An energy beam between two world points.
+  function beam(R, a, b, col, w, alpha, k = 1) {
+    const pa = R.project(a[0], a[1], a[2]);
+    const pb0 = R.project(b[0], b[1], b[2]);
+    if (!pa || !pb0 || alpha <= 0) return;
+    const pb = { x: lerp(pa.x, pb0.x, k), y: lerp(pa.y, pb0.y, k) };
+    R.add(Math.min(pa.d, pb0.d) - 40, () => {
+      const g = R.g;
+      g.globalCompositeOperation = 'lighter';
+      g.lineCap = 'round';
+      g.globalAlpha = alpha;
+      [[w * 2.2, col], [w, col], [w * 0.4, '#ffffff']].forEach(([lw, c]) => {
+        g.strokeStyle = c;
+        g.lineWidth = lw * pa.s;
+        g.beginPath();
+        g.moveTo(pa.x, pa.y);
+        g.lineTo(pb.x, pb.y);
+        g.stroke();
+      });
+    });
+  }
+  // A searchlight sweeping the sky behind everything.
+  function skybeam(R, x, z, t, ph, a = 1) {
+    const base = R.project(x, 150, z);
+    const tipx = x + Math.sin(t * 0.35 + ph) * 2800;
+    const tip = R.project(tipx, 5200, z + 3500);
+    if (!base || !tip) return;
+    R.add(20000, () => {
+      const g = R.g;
+      const dx = tip.x - base.x;
+      const dy = tip.y - base.y;
+      const L = Math.hypot(dx, dy) || 1;
+      const nx = -dy / L;
+      const ny = dx / L;
+      const gr = g.createLinearGradient(base.x, base.y, tip.x, tip.y);
+      gr.addColorStop(0, `rgba(230,240,255,${0.45 * a})`);
+      gr.addColorStop(1, 'rgba(230,240,255,0)');
+      g.globalCompositeOperation = 'lighter';
+      g.fillStyle = gr;
+      g.beginPath();
+      g.moveTo(base.x + nx * 6, base.y + ny * 6);
+      g.lineTo(base.x - nx * 6, base.y - ny * 6);
+      g.lineTo(tip.x - nx * 160, tip.y - ny * 160);
+      g.lineTo(tip.x + nx * 160, tip.y + ny * 160);
+      g.closePath();
+      g.fill();
+    });
+  }
+  // Glittering sparks rising around a point.
+  function sparks(R, x, y, z, t, col, n = 14, a = 1, rad = 90) {
+    for (let j = 0; j < n; j++) {
+      const q = (t * 0.9 + j / n) % 1;
+      const ang = j * 2.4;
+      R.blob(x + Math.cos(ang + t) * rad * (0.4 + q), y + q * 220, z + Math.sin(ang + t) * rad * 0.5, 7 + 5 * (1 - q), col, a * (1 - q));
+    }
+  }
+  function pillar(R, x, z, w, h, col) {
+    const c = R.project(x, h / 2, z);
+    if (!c || h <= 0) return;
+    const d = w / 2;
+    R.add(c.d + w, () => {
+      if (R.cam.x < x - d) R.poly([[x - d, 0, z + d], [x - d, 0, z - d], [x - d, h, z - d], [x - d, h, z + d]], AD3.mix(col, '#000000', 0.35));
+      if (R.cam.x > x + d) R.poly([[x + d, 0, z - d], [x + d, 0, z + d], [x + d, h, z + d], [x + d, h, z - d]], AD3.mix(col, '#000000', 0.35));
+      R.poly([[x - d, 0, z - d], [x + d, 0, z - d], [x + d, h, z - d], [x - d, h, z - d]], col, AD3.mix(col, '#ffffff', 0.4), 2);
+      R.poly([[x - d, h, z - d], [x + d, h, z - d], [x + d, h, z + d], [x - d, h, z + d]], AD3.mix(col, '#ffffff', 0.3));
+    });
+  }
+
   function word(root, cls, html) {
     const e = el('div', cls, root);
     e.innerHTML = html;
     return e;
   }
-  // A comic "POW" label that slams in at `a` and leaves at `b`.
+  // A comic "POW" that slams in at `a` and leaves at `b`.
   function slam(e, t, a, b, x, y, rot = -6) {
     const p = seg(t, a, a + 0.35);
     const q = 1 - seg(t, b - 0.3, b);
@@ -112,94 +327,92 @@
     e.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%) rotate(${rot}deg) scale(${lerp(2.2, 1, E.out(p))})`;
   }
 
-  // Comic speed rays and drifting sparks.
-  function rays(root, seed, z = 30) {
-    const c = el('canvas', 'fx', root, { zIndex: z });
-    c.width = W;
-    c.height = H;
-    const g = c.getContext('2d');
-    const r = rng(seed);
-    const sparks = Array.from({ length: 60 }, () => [r() * W, r() * H, 1 + r() * 2.5, 20 + r() * 50, r() * TAU]);
-    return (t, k = {}) => {
-      g.clearRect(0, 0, W, H);
-      const a = k.rays == null ? 0 : k.rays;
-      if (a > 0) {
-        g.save();
-        g.translate(k.x || W / 2, k.y || H / 2);
-        g.rotate(t * 0.12);
-        const n = 28;
-        for (let i = 0; i < n; i++) {
-          g.fillStyle = i % 2 ? `rgba(255,214,90,${0.16 * a})` : `rgba(255,120,60,${0.1 * a})`;
-          g.beginPath();
-          g.moveTo(0, 0);
-          g.arc(0, 0, 1600, (i / n) * TAU, ((i + 0.5) / n) * TAU);
-          g.closePath();
-          g.fill();
-        }
-        g.restore();
-      }
-      const sp = k.sparks == null ? 1 : k.sparks;
-      sparks.forEach(([x0, y0, rad, s, ph]) => {
-        const y = (((y0 - t * s) % H) + H) % H;
-        const x = x0 + Math.sin(t * 0.7 + ph) * 16;
-        g.fillStyle = `rgba(255,236,170,${(0.25 + 0.25 * Math.sin(t * 2 + ph)) * sp})`;
-        g.beginPath();
-        g.arc(x, y, rad, 0, TAU);
-        g.fill();
-      });
-    };
+  function sceneRoot(root, seed) {
+    const R = world(root, { seed });
+    el('div', 'vignette', root);
+    const flash = el('div', 'full', root, { zIndex: 8600, background: '#fff6d8', opacity: 0 });
+    R.env.ground = ['#4b5070', '#33364c'];
+    R.env.mountains = false;
+    R.env.fogNear = 2200;
+    R.env.fogFar = 8000;
+    R.env.fogMax = 0.55;
+    R.env.wind = 3;
+    return { R, flash };
   }
-
-  // Narration fraction → scene time (speech starts at `lead` and ends ~0.9s before the cut).
+  const dusk = (R, k = 0) => {
+    R.env.tod = lerp(2.25, 2.6, k);
+    R.env.sunAz = 0.2;
+    R.env.tint = '#eadcf0';
+  };
+  const night = (R) => {
+    R.env.tod = 3;
+    R.env.moonAz = 0.35;
+    R.env.tint = '#b4bbea';
+  };
   const at = (f, dur, lead = 0.6) => lead + f * Math.max(1, dur - lead - 0.9);
 
   // ---------------------------------------------------------------- scenes
+  const LINEUP = [['scout', -420, 520], ['mecha', -270, 560], ['starbolt', -100, 500], ['valora', 70, 480], ['sable', 240, 540], ['nightshade', 400, 520]];
   const scenes = [];
 
   scenes.push({
     id: 'open', min: 8, lead: 1.2,
     say: 'When the city is in trouble, one hero is never enough. You need a league.',
     build(root) {
-      const bg = plate(root, A('cover'));
-      const fx = rays(root, 1, 40);
-      el('div', 'vignette', root);
-      const title = caption(root, '<div class="big">Hero League</div>');
-      return { bg, fx, title };
+      const s = sceneRoot(root, 1);
+      s.title = caption(root, '<div class="big">Hero League</div>');
+      return s;
     },
     frame(t, dur, s) {
-      const p = E.sine(seg(t, 0, dur));
-      s.bg.at(lerp(1.3, 1.06, p), lerp(120, 0, p), lerp(-40, 0, p));
-      s.fx(t);
-      s.title.show(t, dur - 3.6, dur + 1, 'pop');
-      s.title.e.style.top = '30%';
+      const R = s.R;
+      const k = E.inOut(seg(t, 0, dur - 0.8));
+      dusk(R, k);
+      look(R, lerp(-200, 0, k), lerp(1700, 120, k), lerp(-2600, -360, k), 0, lerp(400, 190, k), lerp(1400, 600, k));
+      R.begin(t);
+      city(R, t, {});
+      skybeam(R, -900, 1700, t, 0);
+      skybeam(R, 1100, 1900, t, 2.2);
+      LINEUP.forEach(([id, x, z], i) => hero(R, id, x, z, { t: t + i }));
+      R.end();
+      s.title.e.style.top = '24%';
+      s.title.show(t, dur - 3.4, dur + 1, 'pop');
     },
   });
 
-  const TEAM = ['starbolt', 'ironclad', 'blur', 'sable', 'scout', 'hammer', 'kaos'];
-  const TEAM_AT = [0.12, 0.4, 0.47, 0.55, 0.63, 0.72, 0.86];
+  const TEAM = [['starbolt', 'Starbolt'], ['ironclad', 'Ironclad'], ['blur', 'Blur'], ['sable', 'Sorcerer Sable'], ['scout', 'Scout'], ['mecha', 'Mecha-Max'], ['kaos', 'Kaos']];
+  const TEAM_AT = [0.1, 0.38, 0.46, 0.54, 0.62, 0.71, 0.86];
   scenes.push({
     id: 'recruit', min: 11,
     say: 'Build a team of seven, from seventy-five heroes. Bruisers and speedsters, mystics and sidekicks, gadgets... and even a villain or two.',
-    build(root) {
-      const bg = plate(root, A('night'));
-      el('div', 'tint', root, { background: 'linear-gradient(rgba(20,8,50,0.35), rgba(20,8,50,0.65))', zIndex: 20 });
-      const fx = rays(root, 2, 25);
-      const cards = TEAM.map((id) => card(root, id));
-      el('div', 'vignette', root);
-      return { bg, fx, cards };
-    },
+    build: (root) => sceneRoot(root, 2),
     frame(t, dur, s) {
-      s.bg.at(1.12 + t * 0.006, lerp(40, -40, seg(t, 0, dur)), 30);
-      s.fx(t, { rays: 0.4, y: H * 0.9 });
-      s.cards.forEach((c, i) => {
-        const a = at(TEAM_AT[i], dur);
-        const p = E.out(seg(t, a, a + 0.5));
-        const k = i - 3;
-        const x = W / 2 + k * 150;
-        const y = 380 + k * k * 9 + Math.sin(t * 1.4 + i) * 5;
-        put(c, lerp(W / 2, x, p), lerp(H + 200, y, p), lerp(0.6, 1, E.back(seg(t, a, a + 0.5))), lerp(-30, k * 5, p), p > 0 ? 1 : 0);
-        c.style.zIndex = 100 + i;
+      const R = s.R;
+      dusk(R, 0.3);
+      const xs = TEAM.map((_, i) => -900 + i * 300);
+      const ts = TEAM_AT.map((f) => at(f, dur));
+      // The camera trucks along the line, arriving at each hero as they're named.
+      let tx = xs[0];
+      for (let i = 0; i < ts.length - 1; i++) if (t >= ts[i]) tx = lerp(xs[i], xs[i + 1], E.inOut(seg(t, ts[i + 1] - 0.9, ts[i + 1])));
+      if (t < ts[0]) tx = lerp(xs[0] - 300, xs[0], E.out(seg(t, 0, ts[0])));
+      R.env.focus = 520;
+      R.env.dof = 1.6;
+      look(R, tx - 160, 175, -60, tx + 30, 135, 460);
+      R.begin(t);
+      city(R, t, { fountain: false });
+      TEAM.forEach(([id, name], i) => {
+        const a = ts[i];
+        const p = seg(t, a - 0.25, a + 0.35);
+        if (p <= 0) return;
+        const x = xs[i];
+        const z = 430 + (i % 2) * 40;
+        const v = id === 'kaos';
+        hero(R, id, x, z, { t: t + i, op: clamp(p * 2), flash: 1 - p, flashColor: v ? '#ff3b3b' : '#ffffff', lift: (1 - E.out(p)) * 60 });
+        R.light(x, 120, z - 30, 260, v ? '#ff3b3b' : '#ffd27a', 0.5 * (1 - seg(t, a, a + 1.5)) + (v ? 0.25 : 0));
+        if (v) beam(R, [x - 70 + Math.sin(t * 30) * 20, 900, z], [x - 60, 190, z], '#ff4a4a', 10, Math.sin(t * 25) > 0.2 ? 0.8 * (1 - seg(t, a + 0.5, a + 1)) : 0);
+        tag(R, x, -6, z - 60, name, { op: clamp(seg(t, a, a + 0.4)) });
       });
+      R.end();
+      R.env.focus = null;
     },
   });
 
@@ -208,39 +421,41 @@
     id: 'plaza', min: 9,
     say: 'Every turn, draw a hero, then send one to the Plaza... where any rival can snap it up.',
     build(root) {
-      const bg = plate(root, A('plaza'));
-      el('div', 'tint', root, { background: 'linear-gradient(rgba(30,10,40,0.15), rgba(30,10,40,0.55))', zIndex: 20 });
-      const fx = rays(root, 3, 25);
-      const lay = PLAZA.map((id) => card(root, id));
-      const back = word(root, 'hback', '★');
-      const mine = card(root, 'blur');
-      const tag = word(root, 'chip', '🏙️ The Plaza');
-      const rival = word(root, 'chip bad', '😈 A rival grabs it!');
-      el('div', 'vignette', root);
-      return { bg, fx, lay, back, mine, tag, rival };
+      const s = sceneRoot(root, 3);
+      s.rival = word(root, 'chip bad', '😈 A rival grabs it!');
+      return s;
     },
     frame(t, dur, s) {
-      s.bg.at(lerp(1.15, 1.25, seg(t, 0, dur)), 60, lerp(10, -10, seg(t, 0, dur)));
-      s.fx(t, { sparks: 0.6 });
-      const sx = (i) => 300 + i * 170;
-      s.lay.forEach((c, i) => put(c, sx(i), 300, 0.82, (i % 2 ? 2 : -2), 1));
-      s.tag.style.transform = `translate(${W / 2}px, 110px) translate(-50%, -50%)`;
-      // Draw: a face-down card slides off the deck into your hand.
-      const d = E.inOut(seg(t, at(0.05, dur), at(0.05, dur) + 0.7));
-      const flip = seg(t, at(0.2, dur), at(0.2, dur) + 0.4);
+      const R = s.R;
+      dusk(R, 0.5);
+      const k = E.inOut(seg(t, 0, dur));
+      look(R, lerp(-120, 80, k), lerp(230, 200, k), lerp(-260, -120, k), 60, 140, 700);
+      R.begin(t);
+      city(R, t, {});
+      tag(R, 0, 330, 720, '🏙️ The Plaza', { k: 1.5 });
+      const sx = (i) => -400 + i * 200;
+      PLAZA.forEach((id, i) => card(R, id, sx(i), 40, 720, { rot: (i % 2 ? 2 : -2) }));
+      for (let i = 0; i < 5; i++) R.disc(sx(i), 720, 80, 30, 'rgba(255,214,90,0.25)', 'rgba(255,214,90,0.7)', 2);
+      // Draw: a card spins in from the deck and turns over.
+      const d = E.inOut(seg(t, at(0.04, dur), at(0.04, dur) + 0.8));
+      const flip = seg(t, at(0.2, dur), at(0.2, dur) + 0.45);
       const sq = Math.abs(Math.cos(flip * Math.PI));
-      s.back.style.display = d > 0 && flip < 0.5 ? '' : 'none';
-      s.back.style.transform = `translate(${lerp(W + 120, W / 2, d) - 90}px, ${lerp(160, 560, d) - 126}px) rotate(${lerp(25, 0, d)}deg) scale(${sq}, 1)`;
-      // ...then the hero you send goes to the Plaza, and a rival takes it.
-      const up = E.inOut(seg(t, at(0.42, dur), at(0.42, dur) + 0.8));
-      const gone = E.in(seg(t, at(0.86, dur), at(0.86, dur) + 0.7));
-      const x = lerp(lerp(W / 2, sx(4), up), W + 260, gone);
-      const y = lerp(lerp(560, 300, up), 120, gone);
-      const sc = lerp(1, 0.82, up);
-      s.mine.style.display = flip >= 0.5 ? '' : 'none';
-      s.mine.style.zIndex = 300;
-      s.mine.style.transform = `translate(${x - 90}px, ${y - 126}px) rotate(${lerp(0, 2, up) + gone * 30}deg) scale(${sc * sq}, ${sc})`;
-      slam(s.rival, t, at(0.74, dur), dur + 1, W * 0.72, 560, -4);
+      const up = E.inOut(seg(t, at(0.42, dur), at(0.42, dur) + 0.9));
+      const grab = seg(t, at(0.78, dur), at(0.78, dur) + 1.1);
+      const hold = [lerp(lerp(700, 40, d), sx(4), up), lerp(lerp(500, 70, d), 40, up), lerp(lerp(300, 140, d), 720, up)];
+      if (d > 0 && grab < 0.45) {
+        const id = flip < 0.5 ? 'back' : 'blur';
+        card(R, id, hold[0], hold[1] + Math.sin(up * Math.PI) * 140, hold[2], { sx: sq, rot: lerp(30, 0, d) + Math.sin(up * Math.PI) * 10, h: lerp(150, 170, up), bias: 20 });
+      }
+      // ...and a rival dashes through and takes it.
+      if (grab > 0) {
+        const bx = lerp(1200, -1300, grab);
+        hero(R, 'nightshade', bx, 640, { t, dir: -1, rot: -8, lift: Math.abs(Math.sin(t * 14)) * 10 });
+        if (grab >= 0.45) card(R, 'blur', bx - 40, 120, 630, { rot: -14, h: 120, bias: 10 });
+        for (let j = 0; j < 8; j++) R.blob(bx + 60 + j * 40, 60 + (j % 3) * 30, 650, 26, '#b08cff', 0.35 * (1 - j / 8));
+      }
+      R.end();
+      slam(s.rival, t, at(0.8, dur), dur + 1, W * 0.5, 620, -4);
     },
   });
 
@@ -248,104 +463,150 @@
     id: 'tricks', min: 14,
     say: 'Every hero has a trick. Valora powers up with the Star Hammer. Starbolt wipes out shadows. Firewall shields your team... and Mirra copies the mightiest hero in the room.',
     build(root) {
-      const bg = plate(root, A('night'));
-      el('div', 'tint', root, { background: 'rgba(16,6,40,0.55)', zIndex: 20 });
-      const fx = rays(root, 4, 25);
-      const pairs = [['valora', 'hammer'], ['starbolt', 'nightshade'], ['firewall', 'crusher'], ['mirra', 'kaos']].map((ids) => ids.map((id) => card(root, id)));
-      const pows = ['POWER UP!', 'BLANKED!', 'SHIELDED!', 'COPIED!'].map((w) => word(root, 'pow', w));
-      const c = el('canvas', 'fx', root, { zIndex: 7300 });
-      c.width = W;
-      c.height = H;
-      el('div', 'vignette', root);
-      return { bg, fx, pairs, pows, g: c.getContext('2d') };
+      const s = sceneRoot(root, 4);
+      s.pows = ['POWER UP!', 'BLANKED!', 'SHIELDED!', 'COPIED!'].map((w) => word(root, 'pow', w));
+      return s;
     },
     frame(t, dur, s) {
-      s.bg.at(1.2, lerp(-60, 60, seg(t, 0, dur)), -40);
-      const win = [[0.15, 0.43], [0.43, 0.58], [0.58, 0.71], [0.71, 1.2]].map(([a, b]) => [at(a, dur), Math.min(dur + 1, at(b, dur))]);
-      const cur = win.findIndex(([a, b]) => t >= a && t < b);
-      s.fx(t, { rays: cur >= 0 ? 0.5 : 0.15, y: H * 0.45 });
-      const g = s.g;
-      g.clearRect(0, 0, W, H);
-      s.pairs.forEach(([l, r], i) => {
-        const [a, b] = win[i];
-        const p = E.out(seg(t, a, a + 0.5));
-        const q = E.in(seg(t, b - 0.35, b));
-        const hit = a + (b - a) * 0.4;
-        const h = seg(t, hit, hit + 0.3);
-        const op = t >= a && t < b ? 1 : 0;
-        const bump = Math.sin(h * Math.PI) * 30;
-        put(l, lerp(-200, 470, p) + bump, 330 - q * 600, 1.15, -4, op);
-        put(r, lerp(W + 200, 810, p) - bump, 330 + q * 600, 1.15, 4, op);
-        r.style.filter = '';
-        l.style.filter = '';
-        if (i === 1) r.style.filter = `grayscale(${h}) brightness(${1 - 0.45 * h})`;
-        if (i === 3) {
-          l.pw.textContent = h >= 0.5 ? '40' : '1';
-          l.pw.style.transform = `scale(${1 + 0.6 * Math.sin(h * Math.PI)})`;
-        }
-        if (i === 0) l.pw.textContent = h >= 0.5 ? '32' : '20';
-        if (op && h > 0 && (i === 0 || i === 2 || i === 3)) {
-          // Glow around the card that benefits.
-          const cx = 470 + bump;
-          g.save();
+      const R = s.R;
+      dusk(R, 0.8);
+      const win = [[0, 0.15], [0.15, 0.43], [0.43, 0.58], [0.58, 0.71], [0.71, 1.3]].map(([a, b]) => [a ? at(a, dur) : 0, b > 1 ? dur + 1 : at(b, dur)]);
+      const beat = win.findIndex(([a, b]) => t >= a && t < b);
+      const [ba, bb] = win[Math.max(0, beat)];
+      const lt = t - ba;
+      const bk = seg(t, ba, bb);
+      // Where each pair stands, and where the camera looks from for its beat.
+      const SPOT = [null, [-520, 520], [180, 520], [-260, 980], [420, 1020]];
+      if (beat <= 0) look(R, lerp(-100, 100, bk), lerp(320, 260, bk), -520, 0, 130, 760);
+      else {
+        const [cx, cz] = SPOT[beat];
+        look(R, cx + lerp(-120, 60, bk), lerp(190, 165, bk), cz - lerp(470, 400, bk), cx + 60, 150, cz);
+        R.env.focus = 430;
+        R.env.dof = 1.3;
+      }
+      R.begin(t);
+      city(R, t, {});
+      const hit = (i) => win[i][0] + (win[i][1] - win[i][0]) * 0.38;
+      // Valora and the Star Hammer.
+      const v = seg(t, hit(1), hit(1) + 0.3);
+      hero(R, 'valora', -520, 520, { t, flash: v * 0.35 * (1 - seg(t, hit(1) + 0.6, hit(1) + 1.6)), flashColor: '#ffe27a' });
+      if (beat === 1 && v > 0) {
+        beam(R, [-560 + Math.sin(t * 40) * 30, 1400, 520], [-575, 205, 515], '#ffe27a', 12, Math.sin(t * 30) > -0.2 ? 0.9 * (1 - seg(t, hit(1) + 0.4, hit(1) + 0.9)) : 0);
+        R.light(-570, 200, 500, 420, '#ffd24d', 0.6);
+        sparks(R, -520, 40, 500, t, '#ffd24d', 18, 0.9);
+      }
+      // Starbolt blanks Nightshade.
+      const b = seg(t, hit(2), hit(2) + 0.6);
+      hero(R, 'starbolt', 120, 520, { t });
+      hero(R, 'nightshade', 360, 560, { t, dir: -1, flash: b * 0.85, flashColor: '#7a7f8c', op: 1 - 0.5 * seg(t, hit(2) + 0.8, hit(2) + 1.6) });
+      if (beat === 2 && t > hit(2) - 0.3) {
+        beam(R, [65, 175, 515], [350, 130, 555], '#ffe9a0', 16, 1 - seg(t, hit(2) + 0.5, hit(2) + 0.9), E.out(seg(t, hit(2) - 0.3, hit(2))));
+        R.light(65, 175, 510, 300, '#fff1b0', 0.6);
+      }
+      // Firewall's shield turns the Crusher away.
+      const c = seg(t, win[3][0], hit(3));
+      const bounce = E.out(seg(t, hit(3), hit(3) + 0.6));
+      const crx = lerp(lerp(500, -60, E.in(c)), 200, bounce);
+      hero(R, 'firewall', -300, 980, { t });
+      hero(R, 'crusher', crx, 1000, { t, dir: -1, op: 1 - seg(t, win[3][1] - 0.2, win[3][1] + 0.2), rot: c > 0 && c < 1 ? -6 : bounce > 0 && bounce < 1 ? 10 : 0, lift: c < 1 ? Math.abs(Math.sin(t * 12)) * 8 * c : 0 });
+      if (beat === 3) {
+        const sh = 0.35 + 0.65 * Math.max(seg(t, hit(3) - 0.1, hit(3)) * (1 - seg(t, hit(3) + 0.2, hit(3) + 0.8)), 0.4);
+        R.at(-300, 120, 960, (g, p) => {
           g.globalCompositeOperation = 'lighter';
-          const col = i === 2 ? '120,220,255' : '255,214,90';
-          const gr = g.createRadialGradient(cx, 330, 60, cx, 330, 220);
-          gr.addColorStop(0, `rgba(${col},${0.5 * h * (1 - q)})`);
-          gr.addColorStop(1, `rgba(${col},0)`);
-          g.fillStyle = gr;
-          g.fillRect(0, 0, W, H);
-          if (i === 2) {
-            g.strokeStyle = `rgba(150,230,255,${0.9 * h * (1 - q)})`;
-            g.lineWidth = 6;
+          g.strokeStyle = `rgba(140,220,255,${sh})`;
+          g.fillStyle = `rgba(90,180,255,${0.12 * sh})`;
+          g.lineWidth = 5 * p.s;
+          g.beginPath();
+          g.ellipse(p.x, p.y, 150 * p.s, 190 * p.s, 0, 0, TAU);
+          g.fill();
+          g.stroke();
+          for (let i = 0; i < 6; i++) {
+            const a = (i / 6) * TAU + t;
             g.beginPath();
-            g.ellipse(cx, 330, 150 + 6 * Math.sin(t * 6), 190 + 6 * Math.sin(t * 6), 0, 0, TAU);
+            g.moveTo(p.x, p.y);
+            g.lineTo(p.x + Math.cos(a) * 150 * p.s, p.y + Math.sin(a) * 190 * p.s);
             g.stroke();
           }
-          g.restore();
-        }
-        slam(s.pows[i], t, hit, b - 0.1, W / 2, 600, i % 2 ? 5 : -5);
-      });
+        }, -30);
+        R.light(-300, 120, 950, 300, '#7fd0ff', 0.4 * sh);
+      }
+      // Mirra copies Kaos.
+      const m = seg(t, hit(4), hit(4) + 0.8);
+      hero(R, 'mirra', 300, 1020, { t });
+      hero(R, 'kaos', 650, 1080, { t, dir: -1 });
+      if (m > 0) {
+        hero(R, 'kaos', 470, 950, { t: t + 2, op: 0.75 * m, flash: 0.45, flashColor: '#c79bff', lift: (1 - m) * 40, h: 205 });
+        beam(R, [235, 195, 1015], [470, 150, 950], '#c79bff', 8, 0.7 * (1 - seg(t, hit(4) + 0.6, hit(4) + 1.2)), E.out(seg(t, hit(4) - 0.2, hit(4) + 0.3)));
+        R.light(470, 160, 940, 300, '#b48cff', 0.5 * m);
+        sparks(R, 470, 20, 940, t, '#c79bff', 12, m);
+      }
+      R.end();
+      R.env.focus = null;
+      s.pows.forEach((e, i) => slam(e, t, hit(i + 1) + 0.15, win[i + 1][1] - 0.05, W / 2, 610, i % 2 ? 5 : -5));
     },
   });
 
-  const MISSIONS = [['invasion', 'Alien Invasion'], ['heist', 'The Bank Heist'], ['volcano', 'Volcano Rescue']];
+  const MISSIONS = [['invasion', '👽 Alien Invasion'], ['heist', '🏦 The Bank Heist'], ['volcano', '🌋 Volcano Rescue']];
   scenes.push({
     id: 'mission', min: 13.5,
     say: 'Every game has a Mission. Fight off an alien invasion, stop a bank heist, or rescue the city from a volcano. Fit the Mission and score big... or miss it, and pay the price.',
     build(root) {
-      const bg = plate(root, A('night'));
-      el('div', 'tint', root, { background: 'rgba(16,6,40,0.5)', zIndex: 20 });
-      const fx = rays(root, 5, 25);
-      const frames = MISSIONS.map(([k, n]) => {
-        const f = el('div', 'mframe', root);
-        f.innerHTML = `<div class="pic"><img src="${A('mission-' + k)}"></div><span class="nm">${n}</span>`;
-        img(A('mission-' + k));
-        return f;
-      });
-      const good = word(root, 'chip good', '✅ Mission complete: +25');
-      const bad = word(root, 'chip bad', '❌ Missing a suit: −10');
-      el('div', 'vignette', root);
-      return { bg, fx, frames, good, bad };
+      const s = sceneRoot(root, 5);
+      s.good = word(root, 'chip good', '✅ Mission complete: +25');
+      s.bad = word(root, 'chip bad', '❌ Missing a suit: −10');
+      return s;
     },
     frame(t, dur, s) {
-      s.bg.at(1.15 + t * 0.005, 0, 20);
-      s.fx(t, { rays: 0.3 });
-      const ts = [0.2, 0.36, 0.5].map((f) => at(f, dur));
-      const focus = E.inOut(seg(t, at(0.66, dur), at(0.66, dur) + 0.8));
-      s.frames.forEach((f, i) => {
-        const p = seg(t, ts[i], ts[i] + 0.5);
-        const x = 240 + i * 400;
-        const fx = lerp(x, W / 2, focus);
-        const sc = i === 0 ? lerp(1, 1.35, focus) : lerp(1, 0.7, focus);
-        const op = i === 0 ? 1 : 1 - focus;
-        f.style.display = p > 0 ? '' : 'none';
-        f.style.opacity = Math.min(clamp(p * 2), op);
-        f.style.zIndex = i === 0 ? 200 : 100;
-        f.style.transform = `translate(${fx - 168}px, ${lerp(220, 120, focus) + (1 - E.out(p)) * 50}px) scale(${sc * lerp(0.6, 1, E.back(p))}) rotate(${(i - 1) * 3 * (1 - focus)}deg)`;
+      const R = s.R;
+      night(R);
+      const focus = E.inOut(seg(t, at(0.64, dur), at(0.64, dur) + 1.4));
+      const k = E.inOut(seg(t, 0, dur));
+      look(R, lerp(0, -420, focus), lerp(70, 520, focus), lerp(-520, 820, focus), lerp(0, -560, focus), lerp(560, 720, focus), lerp(1800, 1600, focus));
+      R.begin(t);
+      city(R, t, { night: 1 });
+      skybeam(R, -900, 1700, t, 1);
+      // Saucers drift over the skyline, beams sweeping the streets.
+      [[-1300, 1100, 2700, 0], [400, 1400, 3300, 2], [1500, 950, 2400, 4]].forEach(([x, y, z, ph]) => {
+        const sx = x + Math.sin(t * 0.4 + ph) * 160;
+        const sy = y + Math.sin(t * 1.1 + ph) * 30;
+        R.bill(X('full-saucer'), { x: sx, y: sy, z, h: 190, shadow: false });
+        R.add((R.project(sx, sy / 2, z) || { d: 5000 }).d + 30, () => {
+          const top = R.project(sx, sy, z);
+          const l = R.project(sx - 260, 0, z);
+          const r = R.project(sx + 260, 0, z);
+          if (!top || !l || !r) return;
+          const g = R.g;
+          g.globalCompositeOperation = 'lighter';
+          const gr = g.createLinearGradient(0, top.y, 0, l.y);
+          gr.addColorStop(0, 'rgba(120,255,170,0.35)');
+          gr.addColorStop(1, 'rgba(120,255,170,0.05)');
+          g.fillStyle = gr;
+          g.beginPath();
+          g.moveTo(top.x - 18 * top.s, top.y);
+          g.lineTo(top.x + 18 * top.s, top.y);
+          g.lineTo(r.x, r.y);
+          g.lineTo(l.x, l.y);
+          g.closePath();
+          g.fill();
+        });
       });
-      slam(s.good, t, at(0.7, dur), dur + 1, W / 2 - 230, 620, -3);
-      slam(s.bad, t, at(0.88, dur), dur + 1, W / 2 + 250, 620, 3);
+      // The three Missions hang over the plaza like giant screens.
+      MISSIONS.forEach(([m, name], i) => {
+        const a = at([0.2, 0.36, 0.5][i], dur);
+        const p = seg(t, a, a + 0.6);
+        if (p <= 0) return;
+        const x = -560 + i * 560;
+        const op = clamp(p * 2) * (i === 0 ? 1 : 1 - focus);
+        R.bill(X('mission-' + m), { x, y: 560 + Math.sin(t + i) * 10, z: 1600, h: lerp(150, 330, E.back(p)), shadow: false, op, flash: (1 - p) * 0.8, flashColor: '#9fe6ff', bias: -400 });
+        R.light(x, 720, 1590, 480, '#7fd0ff', 0.25 * op);
+        tag(R, x, 520, 1590, name, { op, k: 1.8, bias: 420 });
+      });
+      hero(R, 'starbolt', -300, 120, { t, op: 1 - focus });
+      hero(R, 'valora', 260, 160, { t: t + 1, op: 1 - focus });
+      R.end();
+      void k;
+      slam(s.good, t, at(0.72, dur), dur + 1, W / 2 - 230, 640, -3);
+      slam(s.bad, t, at(0.88, dur), dur + 1, W / 2 + 250, 640, 3);
     },
   });
 
@@ -353,87 +614,122 @@
     id: 'identity', min: 8,
     say: 'And every league hides a secret identity... a bonus that nobody else knows about.',
     build(root) {
-      const bg = plate(root, A('lair'));
-      el('div', 'tint', root, { background: 'rgba(20,0,20,0.35)', zIndex: 20 });
-      const fx = rays(root, 6, 25);
-      const back = word(root, 'hback', '?');
-      const id = word(root, 'ident', '<div class="ic">🦇</div><div class="nm">The Vigilante</div><div class="rule">+14 for each Shadow in your hand</div><div class="stamp">TOP SECRET</div>');
-      el('div', 'vignette', root);
-      return { bg, fx, back, id };
+      const s = sceneRoot(root, 6);
+      s.id = word(root, 'ident', '<div class="ic">🦇</div><div class="nm">The Vigilante</div><div class="rule">+14 for each Shadow in your hand</div><div class="stamp">TOP SECRET</div>');
+      return s;
     },
     frame(t, dur, s) {
-      s.bg.at(lerp(1.1, 1.3, E.inOut(seg(t, 0, dur))), 0, lerp(0, 30, seg(t, 0, dur)));
-      s.fx(t, { sparks: 0.5 });
+      const R = s.R;
+      night(R);
+      R.env.fogNear = 250;
+      R.env.fogFar = 1700;
+      R.env.fogMax = 0.8;
+      R.env.hazeColor = '#241a46';
+      const k = E.inOut(seg(t, 0, dur));
+      look(R, lerp(-80, 40, k), lerp(150, 165, k), lerp(-260, 220, k), 0, 160, 760);
+      R.begin(t);
+      city(R, t, { night: 1, fountain: false });
+      R.light(0, 260, 820, 420, '#a57bff', 0.45);
+      hero(R, 'nightshade', 0, 760, { t, flash: 0.93, flashColor: '#07060f' });
+      R.blob(0, 40, 700, 260, '#2c2160', 0.5);
+      R.end();
+      R.env.fogNear = 2200;
+      R.env.fogFar = 8000;
+      R.env.fogMax = 0.55;
+      R.env.hazeColor = null;
       const f = seg(t, at(0.45, dur), at(0.45, dur) + 0.6);
-      const sx = Math.abs(Math.cos(f * Math.PI));
-      const bob = Math.sin(t * 1.5) * 6;
-      const sBack = 1.6 * lerp(0.6, 1, E.back(seg(t, 0.3, 1)));
-      s.back.style.display = f < 0.5 ? '' : 'none';
-      s.back.style.opacity = clamp(seg(t, 0.3, 0.8));
-      s.back.style.transform = `translate(${W / 2 - 90}px, ${H * 0.46 - 126 + bob}px) scale(${sBack * sx}, ${sBack})`;
-      s.id.style.display = f >= 0.5 ? '' : 'none';
-      s.id.style.transform = `translateY(${bob}px) scale(${sx}, 1)`;
+      s.id.style.display = f > 0 ? '' : 'none';
+      s.id.style.opacity = clamp(f * 2);
+      s.id.style.transform = `translateY(${Math.sin(t * 1.5) * 6 + (1 - E.out(f)) * 40}px) scale(${lerp(0.6, 1, E.back(f))}) rotateY(${(1 - E.out(f)) * 80}deg)`;
+      R.cv.style.filter = f > 0 ? `blur(${3 * f}px) brightness(${1 - 0.3 * f})` : '';
     },
   });
 
+  const TWELVE = ['cinder', 'nova', 'scout', 'mecha', 'prism', 'gale', 'tess', 'cape', 'whisper', 'ironclad', 'firewall', 'kaos'];
   scenes.push({
     id: 'clock', min: 6.5,
     say: 'When the twelfth hero lands in the Plaza... hands down!',
     build(root) {
-      const bg = plate(root, A('plaza'));
-      el('div', 'tint', root, { background: 'linear-gradient(rgba(20,8,50,0.45), rgba(20,8,50,0.75))', zIndex: 20 });
-      const fx = rays(root, 7, 25);
-      const pips = el('div', 'pips', root);
-      pips.innerHTML = Array.from({ length: 12 }, (_, i) => `<i>${i + 1}</i>`).join('');
-      const pow = word(root, 'pow', 'HANDS DOWN!');
-      const flash = el('div', 'full', root, { background: '#fff6d0', opacity: 0, zIndex: 8600 });
-      el('div', 'vignette', root);
-      return { bg, fx, pips: [...pips.children], pow, flash };
+      const s = sceneRoot(root, 7);
+      s.pow = word(root, 'pow', 'HANDS DOWN!');
+      return s;
     },
     frame(t, dur, s) {
-      s.bg.at(1.2, -80, 0);
+      const R = s.R;
+      dusk(R, 1);
       const end = dur - 1.9;
-      const n = Math.floor(seg(t, 0.5, end) * 11.999) + (t >= end ? 1 : 0);
-      s.pips.forEach((e, i) => {
-        e.classList.toggle('on', i < n);
-        const pop = i === n - 1 ? 1 + 0.25 * (1 - seg(t, 0.5 + (i / 12) * (end - 0.5), 0.8 + (i / 12) * (end - 0.5))) : 1;
-        e.style.transform = `scale(${pop})`;
+      const shake = t > end && t < end + 0.5 ? Math.sin(t * 60) * 8 * (1 - seg(t, end, end + 0.5)) : 0;
+      const k = E.inOut(seg(t, 0, dur));
+      look(R, lerp(-420, 300, k) + shake, lerp(520, 380, k), lerp(-300, -160, k), 0, 40, 760);
+      R.begin(t);
+      city(R, t, {});
+      TWELVE.forEach((id, i) => {
+        const a = 0.4 + (i / 12) * (end - 0.4);
+        const p = seg(t, a, a + 0.35);
+        if (p <= 0) return;
+        const col = i % 6;
+        const row = Math.floor(i / 6);
+        const x = -500 + col * 200;
+        const z = 640 + row * 220;
+        const fall = 1 - E.in(p);
+        card(R, id, x, fall * 700, z, { rot: fall * (i % 2 ? 30 : -30), h: 165 });
+        if (p >= 1) {
+          const q = seg(t, a + 0.35, a + 1);
+          for (let j = 0; j < 6; j++) R.blob(x + Math.cos(j) * q * 110, 10, z - 10 + Math.sin(j) * q * 40, 30 + q * 30, '#c9c2e0', 0.5 * (1 - q));
+        }
+        tag(R, x, -20, z - 20, String(i + 1), { k: 0.8, bg: i === 11 ? '#ffd24d' : 'rgba(22,10,48,0.85)', fg: i === 11 ? '#3a1d00' : '#ffffff', op: p });
       });
-      s.fx(t, { rays: t >= end ? 0.8 : 0, y: H * 0.35 });
+      R.end();
       s.flash.style.opacity = 0.7 * seg(t, end, end + 0.05) * (1 - seg(t, end + 0.05, end + 0.5));
-      slam(s.pow, t, end, dur + 1, W / 2, H * 0.3, -5);
+      slam(s.pow, t, end, dur + 1, W / 2, H * 0.24, -5);
     },
   });
 
-  const LEAGUES = [['🦸 Your league', 187], ['🤖 Titan Squad', 164], ['🌙 Night Watch', 152]];
+  const LEAGUES = [['valora', 'Your league', 187, '#ffb13b'], ['mecha', 'Titan Squad', 164, '#5b8dff'], ['nightshade', 'Night Watch', 152, '#9b6bff']];
   scenes.push({
     id: 'reveal', min: 11,
     say: 'No running scores. Work it out in your head, guess what your rivals are hiding... then flip the cards for the big reveal.',
     build(root) {
-      const bg = plate(root, A('night'));
-      el('div', 'tint', root, { background: 'rgba(16,6,40,0.6)', zIndex: 20 });
-      const fx = rays(root, 8, 25);
-      const board = el('div', 'board', root);
-      board.innerHTML = LEAGUES.map(([n]) => `<div class="row"><span class="who">${n}</span><span class="bar"><b></b></span><span class="sc">???</span></div>`).join('');
-      const crown = word(root, 'pow', '👑 WINNER!');
-      el('div', 'vignette', root);
-      return { bg, fx, rows: [...board.children], crown };
+      const s = sceneRoot(root, 8);
+      s.crown = word(root, 'pow', '👑 WINNER!');
+      const r = rng(19);
+      s.confetti = Array.from({ length: 120 }, () => [(r() - 0.5) * 1300, r() * 900, 300 + r() * 900, r(), Math.floor(r() * 5)]);
+      return s;
     },
     frame(t, dur, s) {
-      s.bg.at(1.15, 0, lerp(-20, 20, seg(t, 0, dur)));
+      const R = s.R;
+      dusk(R, 0.9);
       const go = at(0.7, dur);
       const p = E.out(seg(t, go, go + 2));
-      s.fx(t, { rays: 0.15 + 0.6 * seg(t, go + 2, go + 2.4), y: H * 0.3 });
-      s.rows.forEach((r, i) => {
-        const e = seg(t, 0.3 + i * 0.25, 0.8 + i * 0.25);
-        r.style.opacity = e;
-        r.style.transform = `translateX(${(1 - E.out(e)) * -80}px) rotate(${t < go ? Math.sin(t * 9 + i) * 0.6 : 0}deg)`;
-        const v = LEAGUES[i][1];
-        r.querySelector('.sc').textContent = t < go ? '???' : Math.round(v * p);
-        r.querySelector('.bar b').style.width = `${(v / 200) * 100 * p}%`;
-        r.classList.toggle('win', i === 0 && p >= 1);
+      const k = E.inOut(seg(t, 0, dur));
+      look(R, lerp(260, -120, k), lerp(240, 330, k), lerp(-420, -520, k), 0, lerp(160, 300, p), 760);
+      R.begin(t);
+      city(R, t, {});
+      skybeam(R, -700, 1400, t, 0.5, p);
+      skybeam(R, 800, 1500, t, 2.5, p);
+      LEAGUES.forEach(([id, name, score, col], i) => {
+        const x = (i === 0 ? 0 : i === 1 ? -380 : 380);
+        const z = 760 + (i ? 60 : 0);
+        const h = 30 + score * 1.5 * p;
+        pillar(R, x, z, 170, h, col);
+        hero(R, id, x, z - 20, { t: t + i, y: h, bias: -10 });
+        tag(R, x, -30, z - 100, name, { k: 1.1 });
+        const shown = t < go ? '???' : String(Math.round(score * p));
+        tag(R, x, h + (TALL[id] || 205) + 50, z - 20, shown, { k: 1.6, bg: i === 0 && p >= 1 ? '#ffd24d' : 'rgba(22,10,48,0.88)', fg: i === 0 && p >= 1 ? '#3a1d00' : '#ffffff' });
+        if (i === 0 && p >= 1) R.light(x, h + 120, z - 30, 380, '#ffd24d', 0.45);
       });
-      slam(s.crown, t, go + 2.1, dur + 1, W / 2, 110, -4);
+      const cf = seg(t, go + 2, go + 2.4);
+      if (cf > 0) s.confetti.forEach(([x, y0, z, ph, ci]) => {
+        const y = ((y0 - (t - go) * 120) % 900 + 900) % 900;
+        R.at(x + Math.sin(t + ph * 9) * 30, y, z, (g, q) => {
+          g.translate(q.x, q.y);
+          g.rotate(t * 3 + ph * 10);
+          g.fillStyle = ['#ffd24d', '#ff6b6b', '#6bc5ff', '#8ee06b', '#ff9de2'][ci];
+          g.fillRect(-6 * q.s, -3 * q.s, 12 * q.s, 6 * q.s);
+        });
+      });
+      R.end();
+      slam(s.crown, t, go + 2.1, dur + 1, W / 2, 90, -4);
     },
   });
 
@@ -441,16 +737,22 @@
     id: 'end', min: 8, tail: 2.4,
     say: 'Hero League. Coming soon, to Ahrens Labs.',
     build(root) {
-      const bg = plate(root, A('cover'));
-      const fx = rays(root, 9, 40);
-      el('div', 'vignette', root);
-      const title = caption(root, '<div class="big">Hero League</div><div class="sub">A superhero card game</div><div class="pill">Coming soon to ahrenslabs.com</div>');
-      return { bg, fx, title };
+      const s = sceneRoot(root, 9);
+      s.title = caption(root, '<div class="big">Hero League</div><div class="sub">A superhero card game</div><div class="pill">Coming soon to ahrenslabs.com</div>');
+      return s;
     },
     frame(t, dur, s) {
-      s.bg.at(1.08 + t * 0.004, 0, 0);
-      s.bg.p.style.filter = 'blur(3px) brightness(0.65)';
-      s.fx(t, { rays: 0.35 });
+      const R = s.R;
+      dusk(R, 0.6);
+      const a = t * 0.06 - 0.3;
+      look(R, Math.sin(a) * 1300, 700, 650 - Math.cos(a) * 1300, 0, 120, 650);
+      R.begin(t);
+      city(R, t, {});
+      skybeam(R, -900, 1700, t, 0);
+      skybeam(R, 1100, 1900, t, 2.2);
+      LINEUP.forEach(([id, x, z], i) => hero(R, id, x, z, { t: t + i }));
+      R.end();
+      R.cv.style.filter = 'blur(2px) brightness(0.72)';
       s.title.show(t, 0.3, dur + 2);
     },
   });

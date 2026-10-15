@@ -1,150 +1,291 @@
-// Cauldron Lane ad: a cosy walk through a potion-seller's month, from market to Moon Fair, told with the
-// game's painted lane, beasts and townsfolk.
+// Cauldron Lane ad: a fairy-tale movie trailer down a lantern-lit lane of potion shops, out into the wilds and on to
+// the Moon Fair, with full-body cut-outs of the game's shops, townsfolk and beasts.
 (function () {
   const { W, H, clamp, lerp, seg, E, rng, el, img, caption, runAd } = AD;
+  const { world, prop, pine, oak, bush, rock } = AD3;
   const A = (n) => `sprites/cl/${n}.png`;
   const TAU = Math.PI * 2;
 
   const style = el('style', '', document.head);
   style.textContent = `
-    .plate { position: absolute; left: 0; top: 0; width: ${W}px; height: ${H}px; transform-origin: 50% 50%; will-change: transform; }
-    .plate > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
-    .glow { position: absolute; border-radius: 50%; transform: translate(-50%, -50%); mix-blend-mode: screen; pointer-events: none; }
-    .tint { position: absolute; inset: 0; pointer-events: none; }
-    .title .big { -webkit-text-stroke: 3px rgba(50, 15, 70, 0.65); text-shadow: 0 6px 0 rgba(55, 18, 75, 0.9), 0 14px 34px rgba(0, 0, 0, 0.6), 0 0 40px rgba(170, 255, 140, 0.3); }
+    .title .big { -webkit-text-stroke: 3px rgba(50, 15, 70, 0.65); text-shadow: 0 6px 0 rgba(55, 18, 75, 0.9), 0 14px 34px rgba(0, 0, 0, 0.6), 0 0 40px rgba(170, 255, 140, 0.35); }
     .title .mid { text-shadow: 0 5px 0 rgba(55, 18, 75, 0.85), 0 12px 26px rgba(0, 0, 0, 0.55); }
-    .ring { position: absolute; left: 0; top: 0; z-index: 100; width: 190px; text-align: center; transform-origin: 50% 50%; }
-    .ring .pic { width: 160px; height: 160px; margin: 0 auto; border-radius: 50%; overflow: hidden; background: #3b2257;
-      box-shadow: 0 0 0 5px #f2c14e, 0 0 0 9px rgba(50, 20, 70, 0.7), 0 14px 30px rgba(0, 0, 0, 0.5); }
-    .ring .pic img { width: 100%; height: 100%; display: block; object-fit: cover; }
-    .ring .nm { display: inline-block; margin-top: 12px; padding: 5px 14px; border-radius: 999px; background: rgba(255, 246, 226, 0.96); color: #3a1450;
-      font: 24px/1.1 "Lilita One", sans-serif; white-space: nowrap; box-shadow: 0 4px 0 rgba(55, 18, 75, 0.55), 0 8px 18px rgba(0, 0, 0, 0.3); }
-    .ring .sub { display: block; margin-top: 6px; font: 600 20px/1 Fredoka, sans-serif; color: #fff; text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9); }
-    .ring .need { position: absolute; right: 6px; top: -8px; width: 58px; height: 58px; border-radius: 50%; display: grid; place-items: center; font-size: 30px;
-      background: #fff; box-shadow: 0 0 0 3px #f2c14e, 0 6px 14px rgba(0, 0, 0, 0.45); }
-    .chip { position: absolute; left: 0; top: 0; z-index: 7400; white-space: nowrap; padding: 12px 24px; border-radius: 18px; transform-origin: 50% 50%;
+    .title .pill { background: #8ff07a; color: #1f3a12; }
+    .chip { position: absolute; left: 0; top: 0; z-index: 8700; white-space: nowrap; padding: 12px 24px; border-radius: 18px; transform-origin: 50% 50%;
       background: rgba(40, 16, 58, 0.86); color: #fff6e2; font: 38px/1 "Lilita One", sans-serif; box-shadow: 0 0 0 3px rgba(242, 193, 78, 0.8), 0 12px 30px rgba(0, 0, 0, 0.5); }
-    .tok { position: absolute; left: 0; top: 0; z-index: 200; width: 112px; text-align: center; transform-origin: 50% 50%; }
-    .tok .ic { width: 96px; height: 96px; margin: 0 auto; border-radius: 50%; display: grid; place-items: center; font-size: 54px;
-      background: radial-gradient(circle at 35% 30%, #fffbe9, #e9dcc0); box-shadow: 0 0 0 4px #7a4fa0, 0 10px 22px rgba(0, 0, 0, 0.45); }
-    .tok .pr { display: inline-block; margin-top: 10px; padding: 4px 14px; border-radius: 999px; background: #ffd24d; color: #4a2a00; font: 26px/1 "Lilita One", sans-serif;
-      box-shadow: 0 4px 0 #b8860b; }
-    .tok.next .ic { box-shadow: 0 0 0 5px #8ff07a, 0 0 30px rgba(143, 240, 122, 0.7), 0 10px 22px rgba(0, 0, 0, 0.45); }
-    .flask { position: absolute; left: 0; top: 0; z-index: 300; width: 170px; height: 220px; transform-origin: 50% 100%; }
-    .flask svg { width: 100%; height: 100%; filter: drop-shadow(0 12px 22px rgba(0, 0, 0, 0.5)); overflow: visible; }
-    .label { position: absolute; left: 0; top: 0; z-index: 7400; white-space: nowrap; transform-origin: 50% 50%; padding: 8px 20px; border-radius: 999px;
-      background: rgba(255, 246, 226, 0.96); color: #3a1450; font: 32px/1.1 "Lilita One", sans-serif; box-shadow: 0 4px 0 rgba(55, 18, 75, 0.55), 0 10px 22px rgba(0, 0, 0, 0.35); }
-    .label b { color: #d99a00; font-weight: 400; }
-    .emo { position: absolute; left: 0; top: 0; z-index: 400; font-size: 64px; line-height: 1; transform-origin: 50% 50%; filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.5)); }
-    .shop { position: absolute; left: 0; top: 0; z-index: 150; width: 330px; padding: 18px 0; border-radius: 22px; text-align: center; transform: translate(-50%, -50%);
-      background: rgba(40, 16, 58, 0.86); color: #fff6e2; font: 40px/1 "Lilita One", sans-serif; box-shadow: 0 0 0 4px var(--c), 0 14px 30px rgba(0, 0, 0, 0.5); }
-    .shop .coins { margin-top: 12px; font: 600 34px/1 Fredoka, sans-serif; color: #ffd24d; }
-    .track { position: absolute; left: 50%; top: 58%; z-index: 150; display: grid; grid-template-columns: repeat(14, 72px); gap: 8px; transform: translate(-50%, -50%); }
-    .track i { position: relative; height: 72px; border-radius: 12px; display: grid; place-items: center; font: normal 26px/1 "Lilita One", sans-serif; color: rgba(255, 246, 226, 0.75);
-      background: rgba(40, 16, 58, 0.78); box-shadow: inset 0 0 0 3px rgba(242, 193, 78, 0.35); }
-    .track i.mk { background: rgba(80, 40, 20, 0.85); box-shadow: inset 0 0 0 3px rgba(242, 193, 78, 0.8); }
-    .track i.moon { background: radial-gradient(circle, #fff8d8, #e8c35a); color: #4a2a00; box-shadow: 0 0 26px rgba(255, 230, 140, 0.8); }
-    .pawn { position: absolute; left: 0; top: 0; z-index: 300; width: 40px; height: 40px; border-radius: 50%; border: 4px solid #fff; transform-origin: 50% 100%;
-      box-shadow: 0 6px 12px rgba(0, 0, 0, 0.5); }`;
+    .chip.good { box-shadow: 0 0 0 3px #8ff07a, 0 12px 30px rgba(0, 0, 0, 0.5); }`;
 
-  const FLASK = (c) => `<svg viewBox="0 0 100 130"><path d="M38 6h24v10h-4v24c18 7 30 24 30 44 0 26-20 42-38 42S12 110 12 84c0-20 12-37 30-44V16h-4z" fill="rgba(255,255,255,0.35)" stroke="#fff" stroke-width="4" stroke-linejoin="round"/><path d="M15 88c10-6 26-6 35 0s25 6 35 0c-1 22-18 34-35 34S16 110 15 88z" fill="${c}"/><circle cx="34" cy="70" r="6" fill="rgba(255,255,255,0.7)"/><rect x="34" y="0" width="32" height="12" rx="4" fill="#9a6a3a" stroke="#fff" stroke-width="3"/></svg>`;
+  // ---------------------------------------------------------------- small drawn props
+  const FLASK = new Path2D('M38 6h24v10h-4v24c18 7 30 24 30 44 0 26-20 42-38 42S12 110 12 84c0-20 12-37 30-44V16h-4z');
+  const LIQUID = new Path2D('M15 88c10-6 26-6 35 0s25 6 35 0c-1 22-18 34-35 34S16 110 15 88z');
+  const potion = (col) => prop(`potion${col}`, 200, 260, (g) => {
+    g.scale(2, 2);
+    g.fillStyle = 'rgba(255,255,255,0.35)';
+    g.fill(FLASK);
+    g.fillStyle = col;
+    g.fill(LIQUID);
+    g.strokeStyle = '#ffffff';
+    g.lineWidth = 4;
+    g.lineJoin = 'round';
+    g.stroke(FLASK);
+    g.fillStyle = 'rgba(255,255,255,0.7)';
+    g.beginPath();
+    g.arc(34, 70, 6, 0, TAU);
+    g.fill();
+    g.fillStyle = '#9a6a3a';
+    g.beginPath();
+    g.roundRect(34, 0, 32, 12, 4);
+    g.fill();
+    g.stroke();
+  });
+  // A round portrait of a beast (for the mermaid, who has no full-body cut-out), drawn once its art loads.
+  const MEDALS = {};
+  function medal(name) {
+    if (MEDALS[name]) return MEDALS[name];
+    const im = img(A(name));
+    const c = document.createElement('canvas');
+    c.width = 320;
+    c.height = 320;
+    const g = c.getContext('2d');
+    if (im.complete && im.naturalWidth) {
+      g.save();
+      g.beginPath();
+      g.arc(160, 160, 148, 0, TAU);
+      g.clip();
+      g.drawImage(im, 12, 12, 296, 296);
+      g.restore();
+      g.strokeStyle = '#f2c14e';
+      g.lineWidth = 12;
+      g.beginPath();
+      g.arc(160, 160, 150, 0, TAU);
+      g.stroke();
+      MEDALS[name] = c;
+    }
+    return c;
+  }
 
-  // ---------------------------------------------------------------- building blocks
-  function plate(root, src, glows = []) {
-    const p = el('div', 'plate', root);
-    const im = el('img', '', p);
-    im.src = src;
-    img(src);
-    const g = glows.map(([x, y, r, c]) => el('div', 'glow', p, { left: `${x * 100}%`, top: `${y * 100}%`, width: `${r * 2}px`, height: `${r * 2}px`, background: `radial-gradient(closest-side, ${c}, rgba(0,0,0,0))` }));
-    return {
-      p, g,
-      at(s, x = 0, y = 0) {
-        p.style.transform = `translate(${x}px, ${y}px) scale(${s})`;
-      },
-    };
+  function coinAt(R, x, y, z, r, spin, a = 1, bias = 30) {
+    if (a <= 0.01) return;
+    R.at(x, y, z, (g, p) => {
+      const rr = r * p.s;
+      if (rr < 0.6) return;
+      g.globalAlpha = a;
+      g.translate(p.x, p.y);
+      g.scale(Math.max(0.15, Math.abs(Math.cos(spin))), 1);
+      const gr = g.createRadialGradient(-rr * 0.3, -rr * 0.3, rr * 0.1, 0, 0, rr);
+      gr.addColorStop(0, '#fff6c0');
+      gr.addColorStop(0.55, '#f2c14e');
+      gr.addColorStop(1, '#a8740c');
+      g.fillStyle = gr;
+      g.beginPath();
+      g.arc(0, 0, rr, 0, TAU);
+      g.fill();
+      g.strokeStyle = 'rgba(120,70,0,0.6)';
+      g.lineWidth = rr * 0.12;
+      g.beginPath();
+      g.arc(0, 0, rr * 0.7, 0, TAU);
+      g.stroke();
+    }, bias);
   }
-  function ring(root, src, name, sub = '', need = '') {
-    const e = el('div', 'ring', root);
-    e.innerHTML = `<div class="pic"><img src="${src}"></div>${need ? `<i class="need">${need}</i>` : ''}<span class="nm">${name}</span>${sub ? `<span class="sub">${sub}</span>` : ''}`;
-    img(src);
-    return e;
+  // A burst of coins flying out of a point and tumbling down.
+  function coinBurst(R, x, y, z, t, a, seed, n = 10) {
+    const p = seg(t, a, a + 1.3);
+    if (p <= 0 || p >= 1) return;
+    const r = rng(seed);
+    for (let j = 0; j < n; j++) {
+      const ang = r() * TAU;
+      const sp = 80 + r() * 120;
+      const up = 260 + r() * 200;
+      coinAt(R, x + Math.cos(ang) * sp * p, y + up * p - 420 * p * p, z + Math.sin(ang) * sp * 0.6 * p, 15, t * 9 + j, 1 - seg(p, 0.7, 1));
+    }
+    R.light(x, y + 60, z, 240, '#ffd24d', 0.45 * (1 - p));
   }
+  // A name tag floating in the world, always in front of what is around it.
+  function tag(R, x, y, z, text, o = {}) {
+    if (o.op === 0) return;
+    R.at(x, y, z, (g, p) => {
+      const s = clamp(p.s * (o.k || 1), 0.35, 1.3) * (o.pop == null ? 1 : lerp(0.4, 1, E.back(o.pop)));
+      g.globalAlpha = o.op == null ? 1 : o.op;
+      g.font = `${Math.round(28 * s)}px "Lilita One"`;
+      const w = g.measureText(text).width + 30 * s;
+      const hh = 44 * s;
+      g.fillStyle = o.bg || 'rgba(255,246,226,0.96)';
+      g.shadowColor = 'rgba(0,0,0,0.35)';
+      g.shadowBlur = 12 * s;
+      g.beginPath();
+      g.roundRect(p.x - w / 2, p.y - hh / 2, w, hh, hh / 2);
+      g.fill();
+      g.shadowBlur = 0;
+      if (o.ring) {
+        g.strokeStyle = o.ring;
+        g.lineWidth = 4 * s;
+        g.stroke();
+      }
+      g.fillStyle = o.fg || '#3a1450';
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.fillText(text, p.x, p.y + 1.5 * s);
+    }, o.bias == null ? 80 : o.bias);
+  }
+  // A round ingredient token with an emoji (and optionally a price pill underneath).
+  function token(R, x, y, z, icon, o = {}) {
+    R.at(x, y, z, (g, p) => {
+      const s = p.s * (o.k || 1);
+      const r = 40 * s;
+      g.globalAlpha = o.op == null ? 1 : o.op;
+      if (o.glow) {
+        g.shadowColor = '#8ff07a';
+        g.shadowBlur = 30 * s * o.glow;
+      }
+      const gr = g.createRadialGradient(p.x - r * 0.3, p.y - r * 0.4, r * 0.1, p.x, p.y, r);
+      gr.addColorStop(0, '#fffbe9');
+      gr.addColorStop(1, '#e2d2b0');
+      g.fillStyle = gr;
+      g.beginPath();
+      g.arc(p.x, p.y, r, 0, TAU);
+      g.fill();
+      g.shadowBlur = 0;
+      g.strokeStyle = o.glow ? '#8ff07a' : '#7a4fa0';
+      g.lineWidth = 5 * s;
+      g.stroke();
+      g.font = `${Math.round(44 * s)}px sans-serif`;
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.fillText(icon, p.x, p.y + 3 * s);
+      if (o.price != null) {
+        g.font = `${Math.round(24 * s)}px "Lilita One"`;
+        const label = `🪙${o.price}`;
+        const w = g.measureText(label).width + 22 * s;
+        g.fillStyle = '#ffd24d';
+        g.beginPath();
+        g.roundRect(p.x - w / 2, p.y + r + 6 * s, w, 32 * s, 16 * s);
+        g.fill();
+        g.fillStyle = '#4a2a00';
+        g.fillText(label, p.x, p.y + r + 23 * s);
+      }
+    }, o.bias == null ? 40 : o.bias);
+  }
+
+  // ---------------------------------------------------------------- the lane
+  const SHOP_Z = [300, 820, 1340, 1860, 3420, 3940, 4460];
+  const LEFT = ['blue', 'green', 'red', 'purple', 'blue', 'red', 'green'];
+  const RIGHT = ['purple', 'red', 'blue', 'green', 'purple', 'green', 'blue'];
+  const HOME = [-560, 820];
+  const NEXT = [-560, 1340];
+  const CAUL = [-330, 700];
+  const PLAZA = [0, 2600];
+  const LANTERNS = [];
+  [560, 1080, 1600, 3680, 4200].forEach((z) => {
+    if (z !== 560) LANTERNS.push([-300, z]);
+    LANTERNS.push([300, z]);
+  });
+  const r0 = rng(17);
+  const TREES = [];
+  for (let i = 0; i < 110; i++) {
+    const side = i % 2 ? 1 : -1;
+    TREES.push([side * (880 + r0() * 2200), -1800 + r0() * 7400, r0() < 0.55 ? 'oak' : 'pine', Math.floor(r0() * 9), 0.85 + r0() * 0.5]);
+  }
+  const FLIES = Array.from({ length: 70 }, () => [(r0() - 0.5) * 1500, 40 + r0() * 380, r0() * 4800, r0() * TAU, 0.5 + r0()]);
+  const STALLS = [[-480, 2780], [-160, 2820], [160, 2820], [480, 2780]];
+
+  function lantern(R, x, z, glow = 1) {
+    R.bill(A('full-lantern'), { x, z, h: 250, shadowW: 0.25 });
+    R.light(x + (x < 0 ? 18 : -18), 205, z, 120, '#ffc66b', 0.24 * glow);
+  }
+  function fireflies(R, t, a = 1) {
+    FLIES.forEach(([x, y, z, ph, sp]) => {
+      const fx = x + Math.sin(t * 0.6 * sp + ph) * 60;
+      const fy = y + Math.sin(t * 0.9 * sp + ph * 2) * 30;
+      R.blob(fx, fy, z, 9, '#fff2a8', a * (0.4 + 0.4 * Math.sin(t * 2.6 * sp + ph)));
+    });
+  }
+  function steam(R, t, x, z, col = '#a8ff8a', a = 1) {
+    for (let j = 0; j < 10; j++) {
+      const q = (t * 0.45 + j / 10) % 1;
+      R.blob(x + Math.sin(t * 1.3 + j * 2) * 30 * q, 130 + q * 320, z, 26 + q * 50, col, 0.38 * a * (1 - q) * Math.min(1, q * 6));
+    }
+    R.light(x, 120, z, 260, col, 0.35 * a);
+  }
+
+  function lane(R, t, o = {}) {
+    R.decal([[-250, -4000], [250, -4000], [250, 5600], [-250, 5600]], '#7d6c5e');
+    for (let z = -3800; z < 5400; z += 120) R.decal([[-250, z], [250, z], [250, z + 8], [-250, z + 8]], 'rgba(60,45,35,0.35)');
+    R.disc(PLAZA[0], PLAZA[1], 780, 500, '#86735f', '#5d4c40', 4);
+    R.disc(PLAZA[0], PLAZA[1], 520, 330, '#8f7b66', '#6a5747', 3);
+    TREES.forEach(([x, z, k, sd, sc]) => R.bill(k === 'pine' ? pine(sd) : oak(sd, 1), { x, z, h: (k === 'pine' ? 460 : 400) * sc, shadowW: 0.25, rot: Math.sin(t * 0.8 + x) * 0.6 }));
+    SHOP_Z.forEach((z, i) => {
+      [[-560, LEFT[i]], [560, RIGHT[i]]].forEach(([x, c]) => {
+        const lit = o.lit == null ? 1 : o.lit;
+        R.bill(A('full-shop-' + c), { x, z, h: 470, dir: x < 0 ? 1 : -1, shadowW: 0.4, bias: -30, flash: o.glowShop && o.glowShop[0] === x && o.glowShop[1] === z ? o.glowShop[2] : 0, flashColor: '#c8ffb0' });
+        R.light(x + (x < 0 ? 40 : -40), 150, z - 40, 170, '#ffbe5c', 0.14 * lit);
+      });
+    });
+    LANTERNS.forEach(([x, z]) => lantern(R, x, z, o.lit == null ? 1 : o.lit));
+    if (o.cauldron !== false) {
+      R.bill(A('full-cauldron'), { x: CAUL[0], z: CAUL[1], h: 150, shadowW: 0.45 });
+      steam(R, t, CAUL[0], CAUL[1] + 5);
+    }
+    if (o.stalls) STALLS.forEach(([x, z], i) => R.bill(A('full-stall'), { x, z, h: 300, dir: i < 2 ? 1 : -1, shadowW: 0.4 }));
+    if (o.flies !== false) fireflies(R, t, o.flies || 1);
+  }
+
+  function look(R, x, y, z, tx, ty, tz) {
+    Object.assign(R.cam, { x, y, z });
+    const dx = tx - x;
+    const dz = tz - z;
+    R.cam.yaw = Math.atan2(dx, dz);
+    R.cam.pitch = Math.atan2(y - ty, Math.hypot(dx, dz));
+  }
+  // A cut-out person or beast; `walk` makes them bob along.
+  function fig(R, n, x, z, h, o = {}) {
+    const t = o.t || 0;
+    const bob = o.walk != null ? Math.abs(Math.sin(o.walk * 7)) * 8 : 0;
+    const rot = o.walk != null ? Math.sin(o.walk * 7) * 3 : Math.sin(t * 1.3 + x) * 0.8;
+    R.bill(A('full-' + n), {
+      x, y: o.y || 0, z, h, dir: o.dir || 1, lift: bob + (o.lift || 0), rot: rot + (o.rot || 0), sy: 1 + 0.015 * Math.sin(t * 2.2 + x),
+      op: o.op, flash: o.flash, flashColor: o.flashColor, bias: o.bias, shadowW: 0.3, shadow: o.y ? false : undefined,
+    });
+  }
+
   function word(root, cls, html) {
     const e = el('div', cls, root);
     e.innerHTML = html;
     return e;
   }
-  // Pop an element in at `a` (and out at `b`), centred on x, y.
-  function pop(e, t, a, b, x, y, rot = 0, from = 0.5) {
+  // Pop a DOM chip in at `a` (and out at `b`), centred on x, y.
+  function pop(e, t, a, b, x, y, rot = 0) {
     const p = seg(t, a, a + 0.45);
     const q = 1 - seg(t, b - 0.35, b);
     const vis = t >= a && t < b;
     e.style.display = vis ? '' : 'none';
     if (!vis) return;
     e.style.opacity = Math.min(p * 2, q);
-    e.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%) rotate(${rot}deg) scale(${lerp(from, 1, E.back(p))})`;
+    e.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%) rotate(${rot}deg) scale(${lerp(0.5, 1, E.back(p))})`;
   }
 
-  // Fireflies and glittering motes; optional rising steam.
-  function motes(root, seed, z = 5000) {
-    const c = el('canvas', 'fx', root, { zIndex: z });
-    c.width = W;
-    c.height = H;
-    const g = c.getContext('2d');
-    const r = rng(seed);
-    const flies = Array.from({ length: 50 }, () => [r() * W, r() * H, 1.2 + r() * 2.6, 8 + r() * 26, r() * TAU]);
-    const puffs = Array.from({ length: 26 }, () => [r(), r(), 18 + r() * 30, r() * TAU]);
-    return (t, k = {}) => {
-      g.clearRect(0, 0, W, H);
-      const a = k.flies == null ? 1 : k.flies;
-      flies.forEach(([x0, y0, rad, sp, ph]) => {
-        const y = (((y0 - t * sp) % H) + H) % H;
-        const x = x0 + Math.sin(t * 0.8 + ph) * 22;
-        const al = (0.35 + 0.35 * Math.sin(t * 2.3 + ph)) * a;
-        const gr = g.createRadialGradient(x, y, 0, x, y, rad * 4);
-        gr.addColorStop(0, `rgba(255,240,170,${al})`);
-        gr.addColorStop(1, 'rgba(255,240,170,0)');
-        g.fillStyle = gr;
-        g.beginPath();
-        g.arc(x, y, rad * 4, 0, TAU);
-        g.fill();
-      });
-      if (k.steam) {
-        const [sx, sy, col] = k.steam;
-        puffs.forEach(([u, v, rad, ph]) => {
-          const life = (t * 0.35 + v) % 1;
-          const x = sx + (u - 0.5) * 120 + Math.sin(t * 1.4 + ph) * 18 * life;
-          const y = sy - life * 260;
-          g.fillStyle = `rgba(${col},${0.22 * (1 - life) * Math.min(1, life * 6)})`;
-          g.beginPath();
-          g.arc(x, y, rad * (0.6 + life), 0, TAU);
-          g.fill();
-        });
-      }
-    };
+  function sceneRoot(root, seed) {
+    const R = world(root, { seed });
+    el('div', 'vignette', root);
+    const flash = el('div', 'full', root, { zIndex: 8600, background: '#eaffd8', opacity: 0 });
+    R.env.ground = ['#46663c', '#2f4a2a'];
+    R.env.mountains = { far: '#7d86a8', near: '#4e6650' };
+    R.env.fogNear = 1800;
+    R.env.fogFar = 7500;
+    R.env.fogMax = 0.5;
+    R.env.wind = 2;
+    return { R, flash };
   }
-
-  function coin(g, x, y, r, a = 1, spin = 0) {
-    g.save();
-    g.globalAlpha = a;
-    g.translate(x, y);
-    g.scale(Math.max(0.15, Math.abs(Math.cos(spin))), 1);
-    const gr = g.createRadialGradient(-r * 0.3, -r * 0.3, r * 0.1, 0, 0, r);
-    gr.addColorStop(0, '#fff6c0');
-    gr.addColorStop(0.55, '#f2c14e');
-    gr.addColorStop(1, '#a8740c');
-    g.fillStyle = gr;
-    g.beginPath();
-    g.arc(0, 0, r, 0, TAU);
-    g.fill();
-    g.strokeStyle = 'rgba(120,70,0,0.6)';
-    g.lineWidth = r * 0.12;
-    g.beginPath();
-    g.arc(0, 0, r * 0.7, 0, TAU);
-    g.stroke();
-    g.restore();
-  }
-
+  const dusk = (R, k = 0) => {
+    R.env.tod = lerp(2.3, 2.6, k);
+    R.env.sunAz = 0.4;
+    R.env.moonAz = -0.25;
+    R.env.tint = '#f2dcec';
+  };
+  const night = (R, az = -0.25) => {
+    R.env.tod = 3;
+    R.env.moonAz = az;
+    R.env.tint = '#bcc0ea';
+  };
   const at = (f, dur, lead = 0.6) => lead + f * Math.max(1, dur - lead - 0.9);
 
   // ---------------------------------------------------------------- scenes
@@ -154,20 +295,23 @@
     id: 'open', min: 8.5, lead: 1.2,
     say: 'Welcome to Cauldron Lane, where the potion shops stand side by side... and only one can be the richest.',
     build(root) {
-      const bg = plate(root, A('cover'), [[0.475, 0.15, 130, 'rgba(255,245,200,0.7)'], [0.11, 0.73, 90, 'rgba(160,255,120,0.55)']]);
-      const fx = motes(root, 1);
-      el('div', 'vignette', root);
-      const title = caption(root, '<div class="big">Cauldron Lane</div>');
-      return { bg, fx, title };
+      const s = sceneRoot(root, 1);
+      s.title = caption(root, '<div class="big">Cauldron Lane</div>');
+      return s;
     },
     frame(t, dur, s) {
-      const p = E.sine(seg(t, 0, dur));
-      s.bg.at(lerp(1.35, 1.05, p), lerp(0, 0, p), lerp(160, 0, p));
-      s.bg.g[0].style.opacity = 0.6 + 0.3 * Math.sin(t * 1.5);
-      s.bg.g[1].style.opacity = 0.5 + 0.4 * Math.sin(t * 2.4);
-      s.fx(t, { steam: [140, 560, '170,255,140'] });
+      const R = s.R;
+      const k = E.inOut(seg(t, 0, dur - 0.6));
+      dusk(R, k);
+      look(R, lerp(160, 40, k), lerp(1500, 175, k), lerp(-2600, -260, k), lerp(0, -60, k), lerp(500, 170, k), lerp(2600, 1300, k));
+      R.begin(t);
+      lane(R, t);
+      fig(R, 'wizard', 120, lerp(1500, 900, seg(t, 0, dur)), 205, { walk: t, dir: -1 });
+      fig(R, 'farmer', -120, lerp(450, 1050, seg(t, 0, dur)), 185, { walk: t + 0.4 });
+      fig(R, 'noble', 150, 1900, 200, { t, dir: -1 });
+      R.end();
+      s.title.e.style.top = '22%';
       s.title.show(t, dur - 3.8, dur + 1, 'pop');
-      s.title.e.style.top = '40%';
     },
   });
 
@@ -177,154 +321,211 @@
     id: 'market', min: 10.5,
     say: 'Buy silverleaf, glowcaps and moonstones at the market. But careful: the more everyone buys, the higher the price climbs.',
     build(root) {
-      const bg = plate(root, A('market'));
-      el('div', 'tint', root, { background: 'linear-gradient(rgba(40,10,50,0.05), rgba(40,10,50,0.5))', zIndex: 20 });
-      const fx = motes(root, 2);
-      const ings = ING.map(([i, n]) => word(root, 'label', `${i} ${n}`));
-      const toks = PRICES.map((p) => word(root, 'tok', `<div class="ic">🌿</div><span class="pr">🪙${p}</span>`));
-      const tag = word(root, 'chip', '📈 Every buy raises the price');
-      const c = el('canvas', 'fx', root, { zIndex: 7300 });
-      c.width = W;
-      c.height = H;
-      el('div', 'vignette', root);
-      return { bg, fx, ings, toks, tag, g: c.getContext('2d') };
+      const s = sceneRoot(root, 2);
+      s.tag = word(root, 'chip', '📈 Every buy raises the price');
+      return s;
     },
     frame(t, dur, s) {
-      s.bg.at(lerp(1.08, 1.2, seg(t, 0, dur)), lerp(30, -30, seg(t, 0, dur)), 0);
-      s.fx(t, { flies: 0.4 });
+      const R = s.R;
+      dusk(R, 0.4);
       const swap = at(0.42, dur);
-      // First the four market goods, then the silverleaf supply on its price ladder.
-      s.ings.forEach((e, i) => pop(e, t, at(0.04 + i * 0.09, dur), swap, 250 + i * 260, 150 + (i % 2) * 30, (i % 2 ? 3 : -3)));
-      const buys = [0.6, 0.72, 0.84].map((f) => at(f, dur));
-      const g = s.g;
-      g.clearRect(0, 0, W, H);
-      s.toks.forEach((e, i) => {
-        const p = seg(t, swap + i * 0.12, swap + 0.4 + i * 0.12);
-        const bought = i < 3 ? seg(t, buys[i], buys[i] + 0.6) : 0;
-        const nextIdx = buys.filter((b) => t >= b + 0.6).length;
-        e.classList.toggle('next', i === nextIdx);
-        const x = 300 + i * 136;
-        const y = 300 + (1 - E.out(p)) * 60 - E.in(bought) * 260;
-        e.style.display = p > 0 && bought < 1 ? '' : 'none';
-        e.style.opacity = Math.min(clamp(p * 2), 1 - bought);
-        e.style.transform = `translate(${x - 56}px, ${y - 60}px) scale(${lerp(0.6, 1, E.back(p)) * (i === nextIdx ? 1 + 0.05 * Math.sin(t * 6) : 1)})`;
-        if (bought > 0 && bought < 1) coin(g, x + bought * 40, 470 + bought * 120, 18, 1 - bought, t * 8);
+      const k = E.inOut(seg(t, 0, swap));
+      const pin = E.inOut(seg(t, swap - 0.6, swap + 1.4));
+      const [sx, sz] = STALLS[0];
+      look(R, lerp(lerp(-560, 520, k), sx + 60, pin), lerp(230, 270, pin), lerp(2100, 2120, pin), lerp(lerp(-480, 420, k), sx, pin), lerp(190, 300, pin), lerp(2800, 2700, pin));
+      R.begin(t);
+      lane(R, t, { stalls: true, cauldron: false, flies: 0.6 });
+      fig(R, 'knight', -330, 2640, 200, { t, dir: -1 });
+      fig(R, 'farmer', 300, 2660, 185, { t: t + 1 });
+      fig(R, 'wizard', 20, 2900, 205, { t: t + 2 });
+      // The four market goods, one over each stall.
+      STALLS.forEach(([x, z], i) => {
+        const a = at(0.04 + i * 0.09, dur);
+        const p = seg(t, a, a + 0.5);
+        if (p > 0 && t < swap + 0.4) tag(R, x, 330 + Math.sin(t * 2 + i) * 8, z - 40, `${ING[i][0]} ${ING[i][1]}`, { k: 1.25, pop: p, op: clamp(p * 2) * (1 - seg(t, swap, swap + 0.4)) });
       });
-      pop(s.tag, t, at(0.62, dur), dur + 1, W / 2, 560, -2);
+      // Then the silverleaf supply on its price ladder: each buy takes the cheapest leaf.
+      const buys = [0.6, 0.72, 0.84].map((f) => at(f, dur));
+      const next = buys.filter((b) => t >= b + 0.6).length;
+      PRICES.forEach((pr, i) => {
+        const p = seg(t, swap + 0.4 + i * 0.12, swap + 0.8 + i * 0.12);
+        if (p <= 0) return;
+        const b = i < 3 ? seg(t, buys[i], buys[i] + 0.7) : 0;
+        if (b >= 1) return;
+        const x = sx + (i - 2.5) * 92;
+        token(R, x + b * 120, 380 + (1 - E.out(p)) * 60 + E.in(b) * 200, sz - 120 - b * 150, '🌿', { price: pr, op: clamp(p * 2) * (1 - b), glow: i === next ? 0.6 + 0.4 * Math.sin(t * 6) : 0, k: i === next ? 1 + 0.06 * Math.sin(t * 6) : 1 });
+        if (i < 3) coinBurst(R, x, 300, sz - 140, t, buys[i] + 0.1, 40 + i, 6);
+      });
+      R.end();
+      pop(s.tag, t, at(0.62, dur), dur + 1, W / 2, 610, -2);
     },
   });
 
-  const BEASTS = [['griffin', 'Griffin', '2 days'], ['mermaid', 'Mermaid', '2 days'], ['unicorn', 'Unicorn', '3 days'], ['dragon', 'Dragon', '4 days']];
-  const BEAST_AT = [0.25, 0.4, 0.55, 0.72];
+  // ---------------------------------------------------------------- the wilds
+  const r1 = rng(23);
+  const FOREST = [];
+  for (let i = 0; i < 130; i++) {
+    const x = (r1() - 0.5) * 6400;
+    const z = 300 + r1() * 5200;
+    if (z < 2100 && Math.abs(x) < 1350) continue;
+    FOREST.push([x, z, r1() < 0.6 ? 'pine' : 'oak', Math.floor(r1() * 9), 0.9 + r1() * 0.6]);
+  }
+  const ROCKS = Array.from({ length: 16 }, (_, i) => [(r1() - 0.5) * 2600, 500 + r1() * 1500, i % 5]);
+  const POND = [-150, 1650];
+  const BEASTS = [
+    ['griffin', '🪶 Griffin feather', '2 days', -760, 1450],
+    ['mermaid', '🐚 Mermaid scale', '2 days', POND[0], POND[1]],
+    ['unicorn', '🦄 Unicorn hair', '3 days', 420, 1400],
+    ['dragon', '🐉 Dragon scale', '4 days', 980, 1650],
+  ];
+  const BEAST_AT = [0.2, 0.36, 0.52, 0.7];
   scenes.push({
     id: 'hunt', min: 10,
     say: 'For rarer potions, go hunting. Griffin feathers. Mermaid scales. Unicorn hair. Even dragon scales... if you can spare the days.',
     build(root) {
-      const bg = plate(root, A('wild'), [[0.71, 0.27, 110, 'rgba(255,140,60,0.6)']]);
-      el('div', 'tint', root, { background: 'linear-gradient(rgba(40,10,50,0), rgba(40,10,50,0.45))', zIndex: 20 });
-      const fx = motes(root, 3);
-      const rings = BEASTS.map(([k, n, d]) => ring(root, A('beast-' + k), n, `⏳ ${d}`));
-      el('div', 'vignette', root);
-      return { bg, fx, rings };
+      const s = sceneRoot(root, 3);
+      s.R.env.ground = ['#5c7a40', '#3c5a2c'];
+      s.R.env.mountains = { far: '#8d90b8', near: '#5d7a58' };
+      return s;
     },
     frame(t, dur, s) {
-      const p = E.inOut(seg(t, 0, dur));
-      s.bg.at(lerp(1.05, 1.3, p), lerp(0, -120, p), lerp(-20, 30, p));
-      s.bg.g[0].style.opacity = 0.5 + 0.4 * Math.sin(t * 2.6);
-      s.fx(t, { steam: [W * 0.71 - 120 * p, H * 0.28, '120,90,80'] });
-      s.rings.forEach((e, i) => {
+      const R = s.R;
+      R.env.tod = lerp(2.05, 2.3, seg(t, 0, dur));
+      R.env.sunAz = 0.15;
+      R.env.tint = '#f6e2d6';
+      const k = E.inOut(seg(t, 0.3, dur - 0.5));
+      const cx = lerp(-900, 900, k);
+      look(R, cx - 100, lerp(330, 230, k), lerp(380, 560, k), cx, 210, 1550);
+      R.begin(t);
+      R.disc(POND[0], POND[1], 330, 170, '#3d6f9a', '#6d9ac0', 4);
+      R.disc(POND[0] + 40, POND[1] - 20, 200, 90, 'rgba(160,210,240,0.35)');
+      FOREST.forEach(([x, z, kind, sd, sc]) => R.bill(kind === 'pine' ? pine(sd) : oak(sd, 1), { x, z, h: (kind === 'pine' ? 480 : 420) * sc, shadowW: 0.25, rot: Math.sin(t * 0.8 + x) * 0.8 }));
+      ROCKS.forEach(([x, z, sd]) => R.bill(rock(sd), { x, z, h: 70, shadowW: 0.3 }));
+      [[-1200, 700], [1300, 650], [-300, 900], [1500, 1100]].forEach(([x, z], i) => R.bill(bush(i + 3), { x, z, h: 90, shadowW: 0.3 }));
+      BEASTS.forEach(([n, label, days, x, z], i) => {
         const a = at(BEAST_AT[i], dur);
-        const q = seg(t, a, a + 0.5);
-        const x = 200 + i * 290;
-        const y = 330 + Math.sin(t * 1.5 + i) * 8 + (i % 2) * 40;
-        e.style.display = q > 0 ? '' : 'none';
-        e.style.opacity = clamp(q * 2);
-        e.style.transform = `translate(${x - 95}px, ${y - 90 + (1 - E.out(q)) * 60}px) scale(${lerp(0.5, 1, E.back(q))}) rotate(${Math.sin(t + i * 2) * 2}deg)`;
+        const p = seg(t, a - 0.6, a + 0.6);
+        if (p <= 0) return;
+        const e = E.out(p);
+        if (n === 'griffin') {
+          const fx = lerp(x - 900, x, e);
+          fig(R, n, fx, z, 240, { y: lerp(700, 330, e) + Math.sin(t * 3) * 25, rot: Math.sin(t * 6) * 4, t });
+          tag(R, x, 680, z, `${label} · ⏳ ${days}`, { k: 1.4, pop: seg(t, a, a + 0.5), op: clamp(seg(t, a, a + 0.3) * 2) });
+        } else if (n === 'mermaid') {
+          R.bill(medal('beast-mermaid'), { x, y: lerp(-150, 60, e), z, h: 260, clipY: 0, shadow: false });
+          for (let j = 0; j < 8; j++) {
+            const q = (seg(t, a - 0.4, a + 1.2) + j / 8) % 1;
+            R.blob(x + Math.cos(j * 0.8) * (60 + q * 160), 10 + Math.sin(q * Math.PI) * 120, z - 30, 18 + 10 * (1 - q), '#d8f0ff', 0.6 * (1 - q) * (p < 1 ? 1 : 0.4));
+          }
+          tag(R, x, 400, z, `${label} · ⏳ ${days}`, { k: 1.4, pop: seg(t, a, a + 0.5), op: clamp(seg(t, a, a + 0.3) * 2) });
+        } else if (n === 'unicorn') {
+          fig(R, n, lerp(x + 700, x, e), z, 230, { walk: p < 1 ? t * 1.4 : null, t, dir: -1 });
+          sparkle(R, x, z, t, '#f3d9ff', p);
+          tag(R, x, 340, z, `${label} · ⏳ ${days}`, { k: 1.4, pop: seg(t, a, a + 0.5), op: clamp(seg(t, a, a + 0.3) * 2) });
+        } else {
+          R.bill(rock(4), { x: x + 10, z: z + 10, h: 120, shadowW: 0.5 });
+          fig(R, n, x, z, 250, { y: lerp(400, 95, E.back(p)), t, dir: -1, bias: -5 });
+          const fire = seg(t, a + 0.7, a + 1.0) * (1 - seg(t, a + 2.4, a + 2.9));
+          for (let j = 0; j < 12; j++) {
+            const q = (t * 1.6 + j / 12) % 1;
+            R.blob(x - 120 - q * 380, 270 - q * 60 + Math.sin(j) * 20 * q, z - 20, 18 + q * 46, j % 2 ? '#ffb347' : '#ff6a2a', 0.8 * fire * (1 - q));
+          }
+          R.light(x - 260, 250, z - 20, 420, '#ff8a3a', 0.5 * fire);
+          tag(R, x, 560, z, `${label} · ⏳ ${days}`, { k: 1.4, pop: seg(t, a, a + 0.5), op: clamp(seg(t, a, a + 0.3) * 2) });
+        }
       });
+      R.end();
     },
   });
+  function sparkle(R, x, z, t, col, a = 1) {
+    for (let j = 0; j < 12; j++) {
+      const q = (t * 0.8 + j / 12) % 1;
+      R.blob(x + Math.cos(j * 2.4 + t) * 90 * (0.4 + q), 30 + q * 240, z + Math.sin(j * 2.4 + t) * 40, 6 + 5 * (1 - q), col, a * (1 - q));
+    }
+  }
 
   scenes.push({
     id: 'brew', min: 10.5,
     say: 'Back in your shop, brew them into potions. Learn a rare recipe, and you will be the only shop on the lane that can make it.',
     build(root) {
-      const bg = plate(root, A('shop'), [[0.47, 0.6, 190, 'rgba(150,255,110,0.65)']]);
-      const fx = motes(root, 4);
-      const emos = ['🦄', '🌿', '💧'].map((x) => word(root, 'emo', x));
-      const flask = word(root, 'flask', FLASK('#e9e4ff'));
-      const name = word(root, 'label', 'Unicorn Remedy <b>★★</b>');
-      const only = word(root, 'chip', '📜 Only you know this recipe');
-      const flash = el('div', 'full', root, { background: 'radial-gradient(circle at 47% 60%, rgba(220,255,200,0.95), rgba(220,255,200,0) 45%)', opacity: 0, zIndex: 250 });
-      el('div', 'vignette', root);
-      return { bg, fx, emos, flask, name, only, flash };
+      const s = sceneRoot(root, 4);
+      s.only = word(root, 'chip good', '📜 Only you know this recipe');
+      return s;
     },
     frame(t, dur, s) {
-      s.bg.at(lerp(1.05, 1.22, E.inOut(seg(t, 0, dur))), 0, lerp(0, -40, seg(t, 0, dur)));
-      s.bg.g[0].style.opacity = 0.55 + 0.35 * Math.sin(t * 3);
-      const cx = W * 0.47;
-      const cy = H * 0.6;
-      s.fx(t, { steam: [cx, cy - 20, '170,255,140'], flies: 0.6 });
-      s.emos.forEach((e, i) => {
-        const a = at(0.08 + i * 0.1, dur);
-        const p = seg(t, a, a + 1.0);
-        const sx = [180, 640, 1100][i];
-        const x = lerp(sx, cx, E.inOut(p));
-        const y = lerp(200, cy - 30, E.inOut(p)) - Math.sin(p * Math.PI) * 120;
-        e.style.display = p > 0 && p < 1 ? '' : 'none';
-        e.style.transform = `translate(${x - 32}px, ${y - 32}px) rotate(${p * 360}deg) scale(${lerp(1, 0.5, p)})`;
-      });
+      const R = s.R;
+      dusk(R, 0.7);
+      const k = E.inOut(seg(t, 0, dur));
+      const [cx, cz] = CAUL;
+      look(R, lerp(-60, -200, k), lerp(230, 175, k), lerp(240, 400, k), cx, 120, cz);
+      R.begin(t);
+      lane(R, t, { cauldron: false, flies: 0.7 });
       const done = at(0.42, dur);
-      s.flash.style.opacity = seg(t, done, done + 0.15) * (1 - seg(t, done + 0.15, done + 0.9));
-      const up = seg(t, done + 0.1, done + 0.9);
-      s.flask.style.display = up > 0 ? '' : 'none';
-      s.flask.style.transform = `translate(${cx - 85 + E.out(up) * 220}px, ${lerp(cy - 220, 160, E.out(up)) + Math.sin(t * 2) * 6}px) scale(${lerp(0.3, 1.1, E.back(up))})`;
-      pop(s.name, t, done + 0.6, dur + 1, cx + 220, 430, -2);
-      pop(s.only, t, at(0.66, dur), dur + 1, W / 2, 630, 2);
+      const boil = seg(t, done, done + 0.2) * (1 - seg(t, done + 0.3, done + 1.2));
+      R.bill(A('full-cauldron'), { x: cx, z: cz, h: 150, shadowW: 0.45, flash: 0.6 * boil, flashColor: '#d8ffc0', sy: 1 + 0.06 * boil * Math.sin(t * 40) });
+      steam(R, t, cx, cz + 5, '#a8ff8a', 1 + 1.5 * boil);
+      // Three ingredients tumble in from around the shop.
+      [['🦄', -700, 460, 560], ['🌿', -330, 560, 900], ['💧', 20, 440, 600]].forEach(([ic, x0, y0, z0], i) => {
+        const a = at(0.06 + i * 0.1, dur);
+        const p = seg(t, a, a + 1.1);
+        if (p <= 0 || p >= 1) return;
+        const e = E.inOut(p);
+        token(R, lerp(x0, cx, e), lerp(y0, 150, e) + Math.sin(p * Math.PI) * 140, lerp(z0, cz, e), ic, { k: lerp(1, 0.5, p), bias: 50 });
+      });
+      for (let j = 0; j < 14; j++) {
+        const q = seg(t, done, done + 1.2);
+        if (q <= 0 || q >= 1) break;
+        const ang = (j / 14) * TAU;
+        R.blob(cx + Math.cos(ang) * q * 220, 170 + Math.sin(ang) * q * 160 + q * 60, cz - 20, 20, j % 2 ? '#c8ff9a' : '#ffffff', 0.9 * (1 - q), 40);
+      }
+      // The finished potion rises out and hangs beside the cauldron.
+      const up = seg(t, done + 0.1, done + 1.0);
+      if (up > 0) {
+        const px = lerp(cx, cx + 150, E.out(up));
+        const py = lerp(120, 250, E.out(up)) + Math.sin(t * 2) * 8;
+        R.bill(potion('#e6dcff'), { x: px, y: py, z: cz - 70, h: lerp(40, 130, E.back(up)), shadow: false, rot: Math.sin(t * 1.5) * 5, bias: 60 });
+        R.light(px, py + 60, cz - 70, 200, '#e9dcff', 0.5);
+        sparkle(R, px, cz - 70, t, '#ffffff', up);
+        tag(R, px, py + 175, cz - 70, 'Unicorn Remedy ★★', { k: 1.15, pop: seg(t, done + 0.6, done + 1.1), op: clamp(seg(t, done + 0.6, done + 0.9) * 3), bias: 90 });
+      }
+      R.end();
+      s.flash.style.opacity = 0.5 * seg(t, done, done + 0.1) * (1 - seg(t, done + 0.1, done + 0.7));
+      pop(s.only, t, at(0.66, dur), dur + 1, W / 2, 640, 2);
     },
   });
 
-  const FOLK = [['knight', 'Sir Roland', '🛡️'], ['farmer', 'Farmer Bess', '❤️'], ['noble', 'Lady Vane', '✨']];
+  const FOLK = [['knight', 'Sir Roland', '🛡️ Protection', 200, -430, 520, '+🪙19'], ['farmer', 'Farmer Bess', '❤️ Healing', 185, -230, 590, '+🪙11'], ['noble', 'Lady Vane', '✨ Charm', 205, -40, 650, '+🪙30']];
   const FOLK_AT = [0.3, 0.55, 0.78];
   scenes.push({
     id: 'customers', min: 10.5,
     say: 'Then sell to the townsfolk who ring your doorbell. Knights want protection, farmers want healing, and the baroness wants a little charm.',
     build(root) {
-      const bg = plate(root, A('cover'));
-      el('div', 'tint', root, { background: 'rgba(30,10,50,0.35)', zIndex: 20 });
-      const fx = motes(root, 5);
-      const bell = word(root, 'chip', '🔔 Ding-a-ling!');
-      const folk = FOLK.map(([k, n, need]) => ring(root, A('folk-' + k), n, '', need));
-      const pays = ['+🪙19', '+🪙11', '+🪙30'].map((x) => word(root, 'label', x));
-      const c = el('canvas', 'fx', root, { zIndex: 7300 });
-      c.width = W;
-      c.height = H;
-      el('div', 'vignette', root);
-      return { bg, fx, bell, folk, pays, g: c.getContext('2d') };
+      const s = sceneRoot(root, 5);
+      s.bell = word(root, 'chip', '🔔 Ding-a-ling!');
+      return s;
     },
     frame(t, dur, s) {
-      s.bg.at(1.15, lerp(60, -60, seg(t, 0, dur)), 40);
-      s.bg.p.style.filter = 'blur(2px)';
-      s.fx(t);
-      pop(s.bell, t, 0.3, at(0.28, dur), W / 2, 130, -3);
-      const g = s.g;
-      g.clearRect(0, 0, W, H);
-      s.folk.forEach((e, i) => {
+      const R = s.R;
+      dusk(R, 0.9);
+      const k = E.inOut(seg(t, 0, dur));
+      look(R, lerp(300, 200, k), lerp(240, 210, k), lerp(-40, 40, k), lerp(-260, -300, k), 160, 780);
+      R.begin(t);
+      lane(R, t, { glowShop: [HOME[0], HOME[1], 0.25 * Math.max(0, Math.sin(t * 9)) * (1 - seg(t, 0.3, 2.2))] });
+      FOLK.forEach(([n, name, need, h, x, z, pay], i) => {
         const a = at(FOLK_AT[i], dur);
-        const p = E.out(seg(t, a - 0.5, a + 0.4));
-        const x = lerp(W + 150, 260 + i * 380, p);
-        const y = 330 + Math.abs(Math.sin(t * 6 + i)) * 10 * (1 - p);
-        e.style.display = p > 0 ? '' : 'none';
-        e.style.transform = `translate(${x - 95}px, ${y - 90}px) rotate(${Math.sin(t * 6 + i) * 3 * (1 - p)}deg)`;
-        const paid = seg(t, a + 0.9, a + 1.6);
-        pop(s.pays[i], t, a + 0.9, dur + 1, 260 + i * 380, 560, (i - 1) * 3);
-        const r = rng(10 + i);
-        for (let j = 0; j < 8; j++) {
-          const ang = -Math.PI / 2 + (r() - 0.5) * 2;
-          const q = seg(paid, r() * 0.3, 0.6 + r() * 0.4);
-          if (q <= 0 || q >= 1) continue;
-          coin(g, 260 + i * 380 + Math.cos(ang) * 140 * q, 470 + Math.sin(ang) * 120 * q + q * q * 120, 14, 1 - q, t * 9 + j);
-        }
+        const p = seg(t, a - 2.2, a);
+        if (p <= 0) return;
+        const e = E.out(p);
+        fig(R, n, lerp(-60, x, e), lerp(2400, z, e), h, { walk: p < 1 ? t + i : null, t, dir: x < -100 ? 1 : -1 });
+        const ask = seg(t, a - 0.1, a + 0.4);
+        if (ask > 0) tag(R, lerp(-60, x, e), h + 70, z, need, { k: 1.1, pop: ask, op: clamp(ask * 3) });
+        tag(R, x, -26, z - 10, name, { k: 0.85, op: clamp(seg(t, a, a + 0.3) * 2), bg: 'rgba(40,16,58,0.85)', fg: '#fff6e2' });
+        coinBurst(R, x, 120, z - 30, t, a + 0.9, 10 + i);
+        const paid = seg(t, a + 0.9, a + 1.3);
+        if (paid > 0) tag(R, x + 70, h + 150 + paid * 20, z - 20, pay, { k: 1.25, pop: paid, bg: '#ffd24d', fg: '#4a2a00', bias: 100 });
       });
+      R.end();
+      pop(s.bell, t, 0.3, at(0.26, dur), W / 2, 110, -3);
     },
   });
 
@@ -332,92 +533,96 @@
     id: 'rivals', min: 10,
     say: 'Short on stock? Buy from the shop next door. But every potion a rival buys from you puts coins in your pocket.',
     build(root) {
-      const bg = plate(root, A('cover'));
-      el('div', 'tint', root, { background: 'rgba(30,10,50,0.5)', zIndex: 20 });
-      const fx = motes(root, 6);
-      const me = word(root, 'shop', '🏠 Your shop<div class="coins"></div>');
-      me.style.setProperty('--c', '#8ff07a');
-      const them = word(root, 'shop', '🏚️ Next door<div class="coins"></div>');
-      them.style.setProperty('--c', '#ff8a6b');
-      const f1 = word(root, 'flask', FLASK('#e0464b'));
-      const f2 = word(root, 'flask', FLASK('#2aa8c9'));
-      const gain = word(root, 'chip', '🪙 +19 for you!');
-      const c = el('canvas', 'fx', root, { zIndex: 7300 });
-      c.width = W;
-      c.height = H;
-      el('div', 'vignette', root);
-      return { bg, fx, me, them, f1, f2, gain, g: c.getContext('2d') };
+      const s = sceneRoot(root, 6);
+      s.gain = word(root, 'chip good', '🪙 +19 for you!');
+      return s;
     },
     frame(t, dur, s) {
-      s.bg.at(1.2, 0, 20);
-      s.bg.p.style.filter = 'blur(3px)';
-      s.fx(t, { flies: 0.6 });
-      const L = 300;
-      const R = W - 300;
-      const Y = 250;
+      const R = s.R;
+      dusk(R, 1);
+      const k = E.inOut(seg(t, 0, dur));
+      const midZ = (HOME[1] + NEXT[1]) / 2;
+      look(R, lerp(250, 190, k), lerp(300, 250, k), midZ + lerp(-140, 60, k), -560, 250, midZ);
+      R.begin(t);
+      lane(R, t, { cauldron: false });
       const a1 = at(0.12, dur);
       const a2 = at(0.62, dur);
-      const p1 = E.inOut(seg(t, a1, a1 + 1.2));
-      const p2 = E.inOut(seg(t, a2, a2 + 1.2));
+      const p1 = seg(t, a1, a1 + 1.3);
+      const p2 = seg(t, a2, a2 + 1.3);
       const mine = 42 - (p1 >= 1 ? 19 : 0) + (p2 >= 1 ? 19 : 0);
       const theirs = 35 + (p1 >= 1 ? 19 : 0) - (p2 >= 1 ? 19 : 0);
-      [[s.me, L, mine], [s.them, R, theirs]].forEach(([e, x, n]) => {
-        const q = seg(t, 0.2, 0.7);
-        e.style.opacity = q;
-        e.style.left = `${x}px`;
-        e.style.top = `${Y}px`;
-        e.querySelector('.coins').textContent = `🪙 ${n}`;
-      });
-      const arc = (p) => Math.sin(p * Math.PI) * 140;
-      const fly = (e, p, x0, x1) => {
-        e.style.display = p > 0 && p < 1 ? '' : 'none';
-        e.style.transform = `translate(${lerp(x0, x1, p) - 85}px, ${Y + 140 - arc(p)}px) scale(0.55) rotate(${(x1 - x0 > 0 ? 1 : -1) * p * 20}deg)`;
-      };
-      fly(s.f1, p1, R, L);
-      fly(s.f2, p2, L, R);
-      const g = s.g;
-      g.clearRect(0, 0, W, H);
-      [[p1, L, R], [p2, R, L]].forEach(([p, x0, x1]) => {
+      const lit = (a) => seg(t, a + 1.3, a + 1.4) * (1 - seg(t, a + 1.6, a + 2.4));
+      tag(R, HOME[0] + 40, 500, HOME[1], `🏠 Your shop  🪙${mine}`, { k: 1.2, ring: '#8ff07a', op: seg(t, 0.2, 0.7), bias: 200 });
+      tag(R, NEXT[0] + 40, 500, NEXT[1], `🏚️ Next door  🪙${theirs}`, { k: 1.2, ring: '#ff8a6b', op: seg(t, 0.2, 0.7), bias: 200 });
+      // A potion one way, its price the other.
+      [[p1, NEXT, HOME, '#e0464b'], [p2, HOME, NEXT, '#2aa8c9']].forEach(([p, from, to, col], i) => {
+        if (p <= 0 || p >= 1) return;
+        const e = E.inOut(p);
+        const x = -330;
+        R.bill(potion(col), { x, y: 160 + Math.sin(e * Math.PI) * 260, z: lerp(from[1], to[1], e), h: 120, shadow: false, rot: (to[1] > from[1] ? 1 : -1) * e * 25, bias: 60 });
         for (let j = 0; j < 6; j++) {
           const q = clamp(p * 1.4 - j * 0.08);
           if (q <= 0 || q >= 1) continue;
-          coin(g, lerp(x0, x1, q), Y + 420 + Math.sin(q * Math.PI) * -120, 16, 1, t * 8 + j);
+          coinAt(R, x - 40, 90 + Math.sin(q * Math.PI) * 180, lerp(to[1], from[1], q), 16, t * 8 + j + i);
         }
       });
-      pop(s.gain, t, a2 + 1.2, dur + 1, L, 560, -3);
+      R.light(HOME[0] + 60, 250, HOME[1], 360, '#ffd24d', 0.5 * lit(a2));
+      R.end();
+      pop(s.gain, t, a2 + 1.3, dur + 1, W * 0.3, 620, -3);
     },
   });
 
   const PAWNS = ['#8ff07a', '#ff8a6b', '#6bb8ff', '#e9a7ff'];
+  const MARKETS = [4, 8, 12, 16, 20, 24];
+  const STONE = (d) => [Math.sin(d * 0.55) * 110, 300 + d * 150];
+  function pawn(R, x, y, z, col, glow) {
+    R.at(x, y, z, (g, p) => {
+      const s = p.s;
+      g.fillStyle = 'rgba(0,0,0,0.3)';
+      g.beginPath();
+      g.ellipse(p.x, p.y + (y > 0 ? y * s : 0), 26 * s, 9 * s, 0, 0, TAU);
+      g.fill();
+      if (glow) {
+        g.shadowColor = '#fff6c0';
+        g.shadowBlur = 30 * s;
+      }
+      g.fillStyle = col;
+      g.strokeStyle = '#ffffff';
+      g.lineWidth = 4 * s;
+      g.beginPath();
+      g.moveTo(p.x - 26 * s, p.y);
+      g.quadraticCurveTo(p.x - 20 * s, p.y - 50 * s, p.x - 8 * s, p.y - 58 * s);
+      g.lineTo(p.x + 8 * s, p.y - 58 * s);
+      g.quadraticCurveTo(p.x + 20 * s, p.y - 50 * s, p.x + 26 * s, p.y);
+      g.closePath();
+      g.fill();
+      g.stroke();
+      g.beginPath();
+      g.arc(p.x, p.y - 70 * s, 16 * s, 0, TAU);
+      g.fill();
+      g.stroke();
+    });
+  }
   scenes.push({
     id: 'days', min: 10,
     say: 'Every action costs days, and whoever is furthest behind always goes next. Plan carefully... the Moon Fair will not wait.',
     build(root) {
-      const bg = plate(root, A('market'));
-      el('div', 'tint', root, { background: 'rgba(30,10,50,0.62)', zIndex: 20 });
-      const fx = motes(root, 7);
-      const track = el('div', 'track', root);
-      track.innerHTML = Array.from({ length: 28 }, (_, i) => {
-        const d = i + 1;
-        return `<i class="${d === 28 ? 'moon' : [4, 8, 12, 16, 20, 24].includes(d) ? 'mk' : ''}">${d === 28 ? '🌕' : [4, 8, 12, 16, 20, 24].includes(d) ? '🛒' : d}</i>`;
-      }).join('');
-      const pawns = PAWNS.map((c) => el('div', 'pawn', root, { background: c }));
-      const tag = word(root, 'chip', '📅 28 days to the Moon Fair');
-      el('div', 'vignette', root);
-      return { bg, fx, cells: [...track.children], pawns, tag };
+      const s = sceneRoot(root, 7);
+      s.tag = word(root, 'chip', '📅 28 days to the Moon Fair');
+      return s;
     },
     frame(t, dur, s) {
-      s.bg.at(1.1, 0, 0);
-      s.fx(t, { flies: 0.5 });
-      pop(s.tag, t, 0.3, dur + 1, W / 2, 140, -2);
+      const R = s.R;
+      night(R, 0.02);
+      R.env.fogMax = 0.35;
       // Whoever is furthest behind moves next, so the pawns leapfrog each other.
       const pos = [0, 0, 0, 0];
       const cost = [2, 1, 1, 2, 2, 1, 4, 1, 2, 2, 1, 3, 2, 2, 1, 2, 3, 1, 2, 2];
       const step = (dur - 2.4) / cost.length;
       let hop = -1;
       let hp = 0;
-      cost.forEach((c, k) => {
-        const a = 1.2 + k * step;
+      cost.forEach((c, i) => {
+        const a = 1.2 + i * step;
         if (t < a) return;
         const who = pos.indexOf(Math.min(...pos));
         const p = seg(t, a, a + step * 0.8);
@@ -427,54 +632,105 @@
           pos[who] += c * E.inOut(p);
         } else pos[who] += c;
       });
-      const rect = (d) => s.cells[clamp(Math.floor(d), 0, 27)].getBoundingClientRect();
-      s.pawns.forEach((e, i) => {
-        const d = pos[i];
-        const lo = rect(d);
-        const hi = rect(Math.min(27, Math.floor(d) + 1));
-        const f = d - Math.floor(d);
-        const sameRow = Math.abs(lo.top - hi.top) < 2;
-        const x = sameRow ? lerp(lo.left, hi.left, f) : f < 0.5 ? lo.left : hi.left;
-        const y = sameRow ? lo.top : f < 0.5 ? lo.top : hi.top;
-        const lift = hop === i ? Math.sin(hp * Math.PI) * 30 : 0;
-        e.style.transform = `translate(${x + 4 + (i % 2) * 28}px, ${y - 22 + Math.floor(i / 2) * 26 - lift}px) scale(0.8)`;
-        e.style.zIndex = 300 + (hop === i ? 10 : 0);
+      const avg = pos.reduce((a, b) => a + b, 0) / 4;
+      const [fx, fz] = STONE(avg);
+      look(R, fx * 0.4 + 260, 330, fz - 560, fx * 0.3, 60, fz + 520);
+      R.begin(t);
+      lane(R, t, { cauldron: false, lit: 1.4 });
+      for (let d = 1; d <= 28; d++) {
+        const [x, z] = STONE(d);
+        const moon = d === 28;
+        const mk = MARKETS.includes(d);
+        R.disc(x, z, moon ? 80 : 50, moon ? 56 : 34, moon ? '#f4e2a0' : mk ? '#d6b05a' : '#b7a68f', moon ? '#fff4c8' : '#5d4c40', 3, 1);
+        tag(R, x, moon ? 150 : mk ? 70 : 30, z, moon ? '🌕 Moon Fair' : mk ? `🛒 ${d}` : String(d), { k: moon ? 1.4 : mk ? 0.85 : 0.7, bias: 10, bg: moon ? '#ffe9a0' : mk ? 'rgba(255,233,160,0.95)' : 'rgba(40,16,58,0.8)', fg: moon ? '#4a2a00' : mk ? '#4a2a00' : '#fff6e2' });
+        if (moon) R.light(x, 60, z, 300, '#fff1b0', 0.5);
+      }
+      pos.forEach((d, i) => {
+        const [x, z] = STONE(d);
+        const lift = hop === i ? Math.sin(hp * Math.PI) * 70 : 0;
+        pawn(R, x + (i % 2 ? 22 : -22), lift, z + (i < 2 ? -14 : 14), PAWNS[i], hop === i);
+        if (hop === i) R.light(x, 60 + lift, z, 160, PAWNS[i], 0.45);
       });
+      R.end();
+      pop(s.tag, t, 0.3, dur + 1, W / 2, 96, -2);
     },
   });
 
+  const BURSTS = Array.from({ length: 7 }, (_, i) => [(r0() - 0.5) * 2400, 1100 + r0() * 700, 4300 + r0() * 900, 0.4 + i * 1.05, ['#ffd24d', '#8ff07a', '#ff8fd0', '#9fd8ff', '#ffb347'][i % 5]]);
   scenes.push({
     id: 'fair', min: 8,
     say: 'And when the Moon Fair arrives, the richest shop on the lane wins.',
     build(root) {
-      const bg = plate(root, A('fair'), [[0.445, 0.14, 150, 'rgba(255,245,200,0.75)'], [0.51, 0.68, 110, 'rgba(255,220,120,0.6)']]);
-      const fx = motes(root, 8);
-      const c = el('canvas', 'fx', root, { zIndex: 7000 });
-      c.width = W;
-      c.height = H;
-      const win = word(root, 'chip', '🏆 The richest shop wins!');
-      el('div', 'vignette', root);
-      return { bg, fx, g: c.getContext('2d'), win };
+      const s = sceneRoot(root, 8);
+      s.win = word(root, 'chip', '🏆 The richest shop wins!');
+      return s;
     },
     frame(t, dur, s) {
-      const p = E.inOut(seg(t, 0, dur));
-      s.bg.at(lerp(1.3, 1.42, p), lerp(110, 130, p), lerp(40, 80, p));
-      s.bg.g[0].style.opacity = 0.6 + 0.3 * Math.sin(t * 1.4);
-      s.bg.g[1].style.opacity = 0.5 + 0.4 * Math.sin(t * 2.2);
-      s.fx(t);
-      const g = s.g;
-      g.clearRect(0, 0, W, H);
+      const R = s.R;
+      night(R, 0.08);
+      const k = E.inOut(seg(t, 0, dur));
+      const [px, pz] = PLAZA;
+      look(R, lerp(-200, 120, k), lerp(150, 330, k), pz - lerp(1400, 1000, k), px, lerp(260, 300, k), pz + 200);
+      R.begin(t);
+      lane(R, t, { cauldron: false, lit: 1.5 });
+      // Lanterns ring the plaza for the fair.
+      for (let i = 0; i < 10; i++) {
+        const a = (i / 10) * TAU;
+        lantern(R, px + Math.cos(a) * 650, pz + 200 + Math.sin(a) * 420, 1.3);
+      }
+      const h = 140;
+      R.at(px, 0, pz + 200, (g, p) => {
+        const s2 = p.s;
+        g.fillStyle = '#5d3c7a';
+        g.beginPath();
+        g.ellipse(p.x, p.y - h * s2, 120 * s2, 30 * s2, 0, 0, TAU);
+        g.fill();
+        g.fillRect(p.x - 120 * s2, p.y - h * s2, 240 * s2, h * s2);
+        g.fillStyle = '#7a52a0';
+        g.beginPath();
+        g.ellipse(p.x, p.y - h * s2, 120 * s2, 30 * s2, 0, 0, TAU);
+        g.fill();
+        g.strokeStyle = '#f2c14e';
+        g.lineWidth = 5 * s2;
+        g.stroke();
+      }, -20);
+      const gleam = seg(t, at(0.5, dur), at(0.5, dur) + 0.5);
+      R.bill(A('full-trophy'), { x: px, y: h, z: pz + 200, h: 240, shadow: false, flash: 0.5 * gleam * (1 - seg(t, at(0.5, dur) + 0.5, at(0.5, dur) + 1.4)), flashColor: '#fff6c0', bias: 30 });
+      R.light(px, h + 140, pz + 200, 460, '#ffd24d', 0.35 + 0.35 * gleam);
+      // The phoenix circles the fair, trailing sparks.
+      const pa = t * 0.7;
+      const phx = px + Math.cos(pa) * 800;
+      const phz = pz + 300 + Math.sin(pa) * 450;
+      fig(R, 'phoenix', phx, phz, 210, { y: 640 + Math.sin(t * 2) * 40, rot: Math.sin(t * 5) * 5, dir: Math.sin(pa) > 0 ? 1 : -1, t });
+      for (let j = 0; j < 10; j++) {
+        const b = pa - (j + 1) * 0.06;
+        R.blob(px + Math.cos(b) * 800, 720 + Math.sin(t * 2) * 40, pz + 300 + Math.sin(b) * 450, 30 - j * 2, j % 2 ? '#ffb347' : '#ff6a2a', 0.6 * (1 - j / 10));
+      }
+      R.light(phx, 730, phz, 300, '#ff9a3a', 0.35);
+      // Fireworks over the far hills.
+      BURSTS.forEach(([bx, by, bz, a, col]) => {
+        const q = seg(t, a, a + 1.6);
+        if (q <= 0 || q >= 1) return;
+        for (let j = 0; j < 18; j++) {
+          const ang = (j / 18) * TAU;
+          R.blob(bx + Math.cos(ang) * 420 * E.out(q), by + Math.sin(ang) * 420 * E.out(q) - 160 * q * q, bz, 34, col, 0.9 * (1 - q), -9000);
+        }
+        R.light(bx, by, bz, 900, col, 0.35 * (1 - q));
+      });
+      // Gold rains on the winner.
       const rain = seg(t, at(0.55, dur), at(0.55, dur) + 0.6);
       if (rain > 0) {
         const r = rng(91);
-        for (let i = 0; i < 46; i++) {
-          const x = r() * W;
-          const sp = 160 + r() * 200;
-          const y = ((t * sp + r() * H) % (H + 80)) - 40;
-          coin(g, x + Math.sin(t + i) * 20, y, 10 + r() * 8, 0.9 * rain, t * 6 + i);
+        for (let i = 0; i < 50; i++) {
+          const x = px + (r() - 0.5) * 1100;
+          const z = pz + (r() - 0.5) * 500;
+          const sp = 260 + r() * 260;
+          const y = 900 - ((t * sp + r() * 900) % 900);
+          coinAt(R, x, y, z, 14, t * 6 + i, 0.95 * rain);
         }
       }
-      pop(s.win, t, at(0.6, dur), dur + 1, W / 2, 600, -2);
+      R.end();
+      pop(s.win, t, at(0.6, dur), dur + 1, W / 2, 620, -2);
     },
   });
 
@@ -482,16 +738,21 @@
     id: 'end', min: 8, tail: 2.4,
     say: 'Cauldron Lane. Coming soon, to Ahrens Labs.',
     build(root) {
-      const bg = plate(root, A('cover'));
-      const fx = motes(root, 9);
-      el('div', 'vignette', root);
-      const title = caption(root, '<div class="big">Cauldron Lane</div><div class="sub">A potion-shop board game</div><div class="pill">Coming soon to ahrenslabs.com</div>');
-      return { bg, fx, title };
+      const s = sceneRoot(root, 9);
+      s.title = caption(root, '<div class="big">Cauldron Lane</div><div class="sub">A potion-shop board game</div><div class="pill">Coming soon to ahrenslabs.com</div>');
+      return s;
     },
     frame(t, dur, s) {
-      s.bg.at(1.08 + t * 0.004, 0, 0);
-      s.bg.p.style.filter = 'blur(3px) brightness(0.65)';
-      s.fx(t, { steam: [140, 560, '170,255,140'] });
+      const R = s.R;
+      dusk(R, 0.8);
+      const a = t * 0.05 - 0.35;
+      look(R, Math.sin(a) * 1500, 650, 1200 - Math.cos(a) * 1500, 0, 140, 1200);
+      R.begin(t);
+      lane(R, t);
+      fig(R, 'wizard', 120, 1100, 205, { t });
+      fig(R, 'knight', -140, 1500, 200, { t });
+      R.end();
+      R.cv.style.filter = 'blur(2px) brightness(0.72)';
       s.title.show(t, 0.3, dur + 2);
     },
   });

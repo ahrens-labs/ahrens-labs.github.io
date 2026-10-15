@@ -13,8 +13,8 @@
     'dino-ad': { title: 'Dino Dynasty — trailer', base: '/video/dino-ad', trailer: true, v: 9 },
     'oakhaven-ad': { title: 'Oakhaven — trailer', base: '/video/oakhaven-ad', trailer: true, v: 9 },
     'atlantis-ad': { title: 'Atlantis Expedition — trailer', base: '/video/atlantis-ad', trailer: true, v: 1 },
-    'cauldron-ad': { title: 'Cauldron Lane — trailer', base: '/video/cauldron-ad', trailer: true, v: 1 },
-    'heroes-ad': { title: 'Hero League — trailer', base: '/video/heroes-ad', trailer: true, v: 1 },
+    'cauldron-ad': { title: 'Cauldron Lane — trailer', base: '/video/cauldron-ad', trailer: true, v: 2 },
+    'heroes-ad': { title: 'Hero League — trailer', base: '/video/heroes-ad', trailer: true, v: 2 },
   };
   const V = '?v=7';
   const CC_KEY = 'ahrensTutorial.cc';
