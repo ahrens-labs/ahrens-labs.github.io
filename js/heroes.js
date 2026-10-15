@@ -22,8 +22,8 @@
   const PCOLOR = ['#e8432f', '#2f7fe0', '#2fae5a', '#9b4fd8', '#e8a317'];
   const SIGN = ['🦸', '🛡️', '🦅', '🌀', '⭐'];
   const LEAGUE_NAMES = ['Crimson League', 'Azure Guard', 'Emerald Watch', 'Violet Vanguard', 'Golden Legion'];
-  const NEG = new Set(['pen', 'penWith', 'penNot', 'blank', 'need']);
-  const SPECIAL = new Set(['clear', 'oracle', 'wild']);
+  const NEG = E.PENALTY;
+  const SPECIAL = E.SPECIAL;
   const ORD = ['1st', '2nd', '3rd', '4th', '5th'];
 
   const $ = (sel, root) => (root || document).querySelector(sel);
@@ -176,7 +176,7 @@
     if (o.big) cls.push('big');
     if (row && row.blanked) cls.push('blanked');
     if (o.cls) cls.push(o.cls);
-    const asWild = row && row.suit && row.suit !== c.suit ? `<span class="hc-wild" title="Mimic is counting as a ${esc(S.name)}">as ${S.icon}</span>` : '';
+    const asWild = row && row.suit && row.suit !== c.suit ? `<span class="hc-wild" title="${cname(id)} is counting as a ${esc(S.name)}">as ${S.icon}</span>` : '';
     const val = row ? `<span class="hc-val${row.blanked ? ' zero' : row.value < c.power ? ' down' : row.value > c.power ? ' up' : ''}" title="What this card scores in this hand">${row.blanked ? 0 : row.value}</span>` : '';
     const stamp = row && row.blanked ? `<span class="hc-stamp" title="${row.blanked === id ? 'Its condition isn’t met' : `Blanked by ${cname(row.blanked)}`}">Blanked</span>` : '';
     const clr = row && row.cleared && !row.blanked && E.isPenalty(id) ? `<span class="hc-clear" title="Penalty cleared by ${cname(row.cleared)}">🛡️</span>` : '';
@@ -475,8 +475,10 @@
   }
 
   // ---------------------------------------------------------------- the table
-  function missionCheck(hand, identity) {
-    const r = E.scoreHand(hand, st().mission, identity);
+  // What a hand scores with this league's Plaza context (Plaza cards and recruits count for some abilities).
+  const scoreOf = (pi) => E.scoreHand(pl(pi).hand, st().mission, pl(pi).identity, E.ctxOf(st(), pi));
+  function missionCheck(pi) {
+    const r = scoreOf(pi);
     const live = r.cards.filter((x) => !x.blanked);
     const has = (s) => live.filter((x) => x.suit === s).length;
     return { r, has };
@@ -485,7 +487,7 @@
     const s = st();
     const M = mission();
     const owner = handOwner();
-    const chk = !secret(owner) && showScores() ? missionCheck(pl(owner).hand, pl(owner).identity) : null;
+    const chk = !secret(owner) && showScores() ? missionCheck(owner) : null;
     const need = M.need.map((x) => `${suitTag(x, chk ? (chk.has(x) ? ' ✓' : ' ✗') : '')}`).join(' + ');
     return `<button class="mission" data-act="mission" title="About this Mission" style="--mc:${E.SUIT[M.need[0]].color}">
       <span class="ms-art"><img src="${IMG('mission-' + s.mission)}" alt="" loading="lazy"><span class="ms-tag">🎯 The Mission</span></span>
@@ -539,7 +541,7 @@
         </div></section>`;
     }
     const scored = showScores();
-    const r = E.scoreHand(p.hand, s.mission, p.identity);
+    const r = scoreOf(owner);
     const rowOf = {};
     if (scored) r.cards.forEach((x) => (rowOf[x.id] = x));
     const myDiscard = canAct() && s.phase === 'discard' && owner === s.turn;
@@ -712,6 +714,7 @@
     row.plus.forEach((x) => lines.push(`<li class="good"><span>✨ ${esc(x.text)}</span><b>+${x.n}</b></li>`));
     row.minus.forEach((x) => lines.push(`<li class="${x.n ? 'bad' : 'spec'}"><span>${x.n ? '💥' : '🛡️'} ${esc(x.text)}</span><b>${x.n ? '−' + x.n : '0'}</b></li>`));
     if (row.cleared && E.isPenalty(row.id) && !row.minus.length) lines.push(`<li class="spec"><span>🛡️ Penalty cleared by ${cname(row.cleared)}</span><b></b></li>`);
+    if (row.shielded) lines.push(`<li class="spec"><span>🛡️ Saved from blanking by ${cname(row.shielded)}</span><b></b></li>`);
     if (row.suit !== c.suit) lines.push(`<li class="spec"><span>🎭 Counting as a ${esc(E.SUIT[row.suit].name)}</span><b></b></li>`);
     lines.push(`<li class="tot"><span>Scores</span><b>${row.value}</b></li>`);
     return lines.join('');
@@ -719,7 +722,7 @@
   function showCard(id, owner) {
     const s = st();
     let row = null;
-    if (showScores() && owner != null && !secret(owner) && pl(owner).hand.includes(id)) row = E.scoreHand(pl(owner).hand, s.mission, pl(owner).identity).cards.find((x) => x.id === id);
+    if (showScores() && owner != null && !secret(owner) && pl(owner).hand.includes(id)) row = scoreOf(owner).cards.find((x) => x.id === id);
     const c = C(id);
     const body = `<div class="card-view">${cardHtml(id, { big: true, row })}
       <div class="cv-text"><h2>${cname(id)}</h2><p class="cv-suit">${suitTag(c.suit)} · power ${c.power}</p>
@@ -749,7 +752,7 @@
     const s = st();
     const M = mission();
     const owner = handOwner();
-    const r = secret(owner) || !showScores() ? null : E.scoreHand(pl(owner).hand, s.mission).mission;
+    const r = secret(owner) || !showScores() ? null : scoreOf(owner).mission;
     openModal(`<div class="mission-view"><img src="${IMG('mission-' + s.mission)}" alt="">
       <h2>${M.icon} ${esc(M.name)}</h2><p>${esc(M.story)}</p>
       <ul class="cv-rows">
@@ -817,7 +820,7 @@
     const r = showScores() ? E.score(st(), p) : null;
     openModal(`<h2>🎭 ${G.mode === 'ai' && i === 0 ? 'Your' : `${esc(p.name)}’s`} secret identity</h2>
       <div class="ident-pick one">${identTile(p.identity, 'disabled')}</div>
-      ${r ? `<p>It scored <b>${signed(r.ident)}</b>.</p>` : '<p class="muted">Blanked cards don’t count. Mimic counts as the suit it copies. It’s scored at the end, with the Mission.</p>'}`, { onClose: () => scheduleAI() });
+      ${r ? `<p>It scored <b>${signed(r.ident)}</b>.</p>` : '<p class="muted">Blanked cards don’t count. Mimic and the Hero Signal count as the suit they copy. It’s scored at the end, with the Mission.</p>'}`, { onClose: () => scheduleAI() });
   }
 
   function showMissionIntro() {
@@ -1190,13 +1193,13 @@
         ${sec(2, 'How to win')}
         <p>The league whose seven cards score the <b>most points</b> wins. Cards score their printed power, plus bonuses for good teammates, minus penalties for bad ones — and the whole team scores extra if it fits the <b>Mission</b>. Every league also has a <b>secret identity</b>: a personal goal only they know about until the end.</p>
         ${sec(3, 'What’s in the box')}
-        <ul><li>🦸 <b>${E.CARDS.length} hero cards</b> in ${E.SUITS.length} suits of 5: ${E.SUITS.map((s) => `${S[s].icon} ${S[s].plural}`).join(', ')}.</li>
+        <ul><li>🦸 <b>${E.CARDS.length} hero cards</b> in ${E.SUITS.length} suits: ${E.SUITS.map((s) => `${S[s].icon} ${S[s].plural} (${E.CARDS.filter((c) => c.suit === s).length})`).join(', ')}.</li>
         <li>🎯 <b>${E.MISSION_ORDER.length} Mission cards</b>. One is turned face up each game.</li>
         <li>🎭 <b>${E.IDENTITY_ORDER.length} Secret Identity cards</b>. Each league keeps one, face down.</li>
         <li>🏙️ <b>The Plaza board</b> with ${E.PLAZA_END} spaces for sent-away cards.</li>
         <li>No dice and no money — only the cards.</li></ul>
         ${sec(4, 'The game in one paragraph')}
-        <p>Every card is good with some cards and bad with others. Valora hits harder with the Star Hammer; Starbolt wipes out every Shadow; Spirit Guide won’t stand next to a Villain. Build a team where the bonuses stack up, and watch what the others pick up from the Plaza — sending away a card a rival needs can cost you the game.</p>`;
+        <p>Every card has its own trick. Valora hits harder with the Star Hammer; Starbolt wipes out every Shadow; Mirra copies your strongest hero; Whisper scores for every Villain still loose in the Plaza; Prism wants a team where no two cards share a suit. Build a team where the abilities stack up, and watch what the others pick up from the Plaza — sending away a card a rival needs can cost you the game.</p>`;
     } else if (tab === 'setup') {
       body = `${sec(1, 'Deal')}
         <ol class="rb-flow"><li>Shuffle all ${E.CARDS.length} hero cards into a face-down deck.</li>
@@ -1214,7 +1217,7 @@
         <p>Either take the <b>top card of the deck</b> (a surprise), or <b>recruit any card in the Plaza</b> (you know exactly what you’re getting — and so does everyone else). You can take back a card you sent there yourself on an earlier turn.</p>
         ${sec(2, 'Send one card to the Plaza')}
         <p>You now have ${E.HAND + 1} cards. Choose one and put it face up in the Plaza. You <b>can’t send back a card you just recruited from the Plaza</b> this turn, but you can send away a card you just drew from the deck.</p>
-        <p class="rb-ex">Your hand has Valora but no Star Hammer — and the Star Hammer is sitting in the Plaza. Recruit it: Valora gets +12 and the Hammer gets +8 for having a Bruiser. Then send away your weakest card. Careful: if you send away Scout, the next league might be the one with all the Bruisers.</p>
+        <p class="rb-ex">Your hand has Valora but no Star Hammer — and the Star Hammer is sitting in the Plaza. Recruit it: Valora gets +12, and the Hammer adds the power of your strongest Bruiser (Valora’s 20). Then send away your weakest card. Careful: if you send away Scout, the next league might be the one with all the Bruisers.</p>
         ${sec(3, 'Watching the others')}
         <p>When a league recruits a card from the Plaza, everyone sees it. The 👁️ next to a league shows the Plaza cards they’ve taken and still hold. Use it to guess what they’re building — and to avoid sending them what they need.</p>`;
     } else if (tab === 'cards') {
@@ -1222,29 +1225,38 @@
       body = `${sec(1, 'Anatomy of a card')}
         <div class="rb-card">${cardHtml(ex)}<ul><li><b>Power</b> (top left) — what the card scores on its own.</li><li><b>Suit</b> (top right) — ${S[C(ex).suit].icon} ${S[C(ex).suit].name}. Other cards and the Mission care about suits.</li><li><b>Ability</b> — <span class="fx pos">green</span> are bonuses, <span class="fx neg">red</span> are penalties, <span class="fx spec">blue</span> are special.</li></ul></div>
         ${sec(2, 'Bonuses')}
-        <p>“+12 with Star Hammer” means +12 if the Star Hammer is in the same hand. “+5 for each other Bruiser” counts every other Bruiser. A card never counts itself.</p>
+        <p>Bonuses come in many shapes. Read each card carefully:</p>
+        <dl class="rb-terms"><dt>With / for each</dt><dd>“+12 with Star Hammer” is +12 if the Star Hammer is in your team. “+5 for each other Bruiser” counts every other Bruiser. A card never counts itself unless it says “your team”.</dd>
+        <dt>Copy power</dt><dd>“Adds the power of your strongest Bruiser” (Star Hammer, Mirra, Cyberia, Gale, Echo) adds that card’s printed power on top.</dd>
+        <dt>Exactly / pairs / all different</dt><dd>Baton and Coven Keeper want <b>exactly</b> three of their suit — a fourth spoils it. Double Trouble and Verdant score for each <b>pair</b> of cards that share a suit. Prism scores if <b>no two</b> cards share a suit.</dd>
+        <dt>Big and small</dt><dd>Mighty Mo and Tag-Along Tess love teammates with power 20 or more; Nano Swarm loves teammates with power 10 or less.</dd>
+        <dt>The Plaza</dt><dd>Some cards score from the <b>Plaza</b> when the game ends: Whisper for each Villain left there, Dash for each Gear. Blur, Phantom and Jett score extra only if you <b>recruited them from the Plaza</b>.</dd>
+        <dt>Mission</dt><dd>Comet and Rookie score extra if your team completes the Mission.</dd></dl>
         ${sec(3, 'Penalties')}
-        <p>Penalties take points away (“−5 for each Tech”). Some penalties <b>blank</b> other cards: a blanked card scores nothing, its ability does nothing, and it doesn’t count for any suit or for the Mission. “Blanked unless you have…” cards blank themselves when their partner is missing.</p>
+        <p>Penalties take points away (“−5 for each Tech”, or Raven’s “−5 for each Shadow left in the Plaza”). Some penalties <b>blank</b> other cards: a blanked card scores nothing, its ability does nothing, and it doesn’t count for any suit or for the Mission. The Crusher blanks every card with power 8 or less. “Blanked unless you have…” cards blank themselves when their partner is missing.</p>
         ${sec(4, 'Special abilities')}
-        <dl class="rb-terms"><dt>🛡️ Clear</dt><dd>Hacklette, Penny Press and Skybase <b>clear</b> penalties: the cleared card’s penalties — including blanking and “blanked unless” — just don’t happen.</dd>
+        <dl class="rb-terms"><dt>🛡️ Clear</dt><dd>Hacklette, Penny Press, The Banisher and Skybase <b>clear</b> penalties: the cleared card’s penalties — including blanking and “blanked unless” — just don’t happen.</dd>
+        <dt>🛡️ Shield</dt><dd>Ironclad, Lucky Cape and Firewall stop cards being <b>blanked</b> (other penalties still count). Like clears, shields always work.</dd>
         <dt>🎭 Mimic</dt><dd>Counts as whichever suit scores your team best.</dd>
+        <dt>🔦 Hero Signal</dt><dd>Counts as whichever of the Mission’s two suits scores your team best.</dd>
+        <dt>⏪ Rewind</dt><dd>Your team doesn’t lose points for the Mission’s bad suit.</dd>
         <dt>🔮 Seer Sela</dt><dd>Doubles your +${E.MISSION_DONE} for completing the Mission.</dd></dl>
         ${sec(5, 'The suits')}
         <table><tr><th>Suit</th><th>Plays well with</th></tr>
-        <tr><td>${S.bruiser.icon} Bruisers</td><td>Other Bruisers, the Star Hammer, Tremor and sidekicks</td></tr>
-        <tr><td>${S.speed.icon} Speedsters</td><td>Tech, Cosmic and Sidekicks — but not Gear</td></tr>
+        <tr><td>${S.bruiser.icon} Bruisers</td><td>The Star Hammer, Tremor, Scout and big teammates. Ironclad keeps them from being blanked</td></tr>
+        <tr><td>${S.speed.icon} Speedsters</td><td>Tech and Cyberia — but not Gear. Baton wants exactly three</td></tr>
         <tr><td>${S.tech.icon} Tech</td><td>Gear, Speedsters and Robo-Pup. Hated by Sorcerer Sable and Dr. Entropy</td></tr>
-        <tr><td>${S.mystic.icon} Mystics</td><td>Cosmic heroes. Spirit Guide hates Villains</td></tr>
-        <tr><td>${S.cosmic.icon} Cosmic</td><td>Mystics and Speedsters. Starbolt blanks every Shadow</td></tr>
-        <tr><td>${S.shadow.icon} Shadows</td><td>Other Shadows, Villains and the Utility Belt. Nightshade works alone</td></tr>
-        <tr><td>${S.element.icon} Elementals</td><td>Each other and Bruisers. Stormcaller blanks all Gear</td></tr>
-        <tr><td>${S.sidekick.icon} Sidekicks</td><td>Whoever they follow: Bruisers, Speedsters, Tech — and the Jet Pack</td></tr>
-        <tr><td>${S.gear.icon} Gear</td><td>Bruisers, Tech and Sidekicks. Skybase clears every penalty</td></tr>
-        <tr><td>${S.villain.icon} Villains</td><td>Huge power with nasty penalties. Hacklette clears them; Brick Malone loves them</td></tr></table>`;
+        <tr><td>${S.mystic.icon} Mystics</td><td>Cosmic heroes. Spirit Guide hates Villains; Mirra copies anyone</td></tr>
+        <tr><td>${S.cosmic.icon} Cosmic</td><td>Mystics and the Mission. Starbolt blanks every Shadow; Nova shines alone</td></tr>
+        <tr><td>${S.shadow.icon} Shadows</td><td>Other Shadows and the Utility Belt. Nightshade works alone; Whisper watches the Plaza</td></tr>
+        <tr><td>${S.element.icon} Elementals</td><td>Each other and Bruisers. Stormcaller blanks all Gear; Magma needs a friend</td></tr>
+        <tr><td>${S.sidekick.icon} Sidekicks</td><td>Whoever they follow: Bruisers, Tech — and the Jet Pack and Lucky Cape</td></tr>
+        <tr><td>${S.gear.icon} Gear</td><td>Bruisers, Tech and Sidekicks. Skybase clears every penalty; the Hero Signal fits any Mission</td></tr>
+        <tr><td>${S.villain.icon} Villains</td><td>Huge power with nasty penalties. Hacklette clears them; Brick Malone loves them; the Ringleader needs his gang</td></tr></table>`;
     } else if (tab === 'mission') {
       body = `${sec(1, 'How the Mission scores')}
         <ol class="rb-flow"><li><b>+${E.MISSION_DONE}</b> if your team has at least one card of <b>each</b> of the Mission’s two suits — or <b>−${E.MISSION_FAIL}</b> if it’s missing either.</li><li><b>+${E.MISSION_FIT}</b> for each card of either Mission suit, so the more of your team fits the Mission, the better.</li><li>A bonus for each card of the Mission’s helpful suit.</li><li>A penalty for each card of the suit that gets in the way.</li></ol>
-        <p>Blanked cards don’t count. Mimic can count as a Mission suit. Seer Sela doubles the +${E.MISSION_DONE} for having both suits.</p>
+        <p>Blanked cards don’t count. Mimic and the Hero Signal can count as a Mission suit. Seer Sela doubles the +${E.MISSION_DONE} for having both suits, and Rewind cancels the bad-suit penalty.</p>
         <p class="rb-ex">Alien Invasion needs Cosmic and Tech. A team with two Cosmic, one Tech and one Bruiser scores +${E.MISSION_DONE} + 3 × ${E.MISSION_FIT} + ${E.MISSIONS.invasion.plus.n} = <b>+${E.MISSION_DONE + 3 * E.MISSION_FIT + E.MISSIONS.invasion.plus.n}</b>. The same team without its Tech scores −${E.MISSION_FAIL} + 2 × ${E.MISSION_FIT} + ${E.MISSIONS.invasion.plus.n} = <b>${-E.MISSION_FAIL + 2 * E.MISSION_FIT + E.MISSIONS.invasion.plus.n}</b>.</p>
         ${sec(2, 'All the Missions')}
         <table><tr><th>Mission</th><th>Have both (+${E.MISSION_FIT} each)</th><th>Bonus</th><th>Penalty</th></tr>${E.MISSION_ORDER.map((k) => {
@@ -1256,7 +1268,7 @@
         <p>At the start, each league is dealt two Secret Identity cards and keeps one, face down. It’s a personal goal: at the end it scores extra on top of your cards and the Mission. Choose with your opening hand <i>and</i> the Mission in mind.</p>
         <p>Nobody else sees your identity until the hands go down. The cards a league recruits from the Plaza are public, though — a league that keeps grabbing Shadows might be The Vigilante, so think twice before sending them another.</p>
         ${sec(2, 'How identities score')}
-        <p>They count the cards in your final seven, just like the Mission: blanked cards don’t count, and Mimic counts as the suit it copies. Seer Sela doesn’t double them.</p>
+        <p>They count the cards in your final seven, just like the Mission: blanked cards don’t count, and Mimic and the Hero Signal count as the suit they copy. Seer Sela doesn’t double them.</p>
         ${sec(3, 'All the identities')}
         <table><tr><th>Identity</th><th>Scores</th></tr>${E.IDENTITY_ORDER.map((k) => `<tr><td>${identName(k)}</td><td>${esc(E.identityText(k))}</td></tr>`).join('')}</table>`;
     } else if (tab === 'score') {
@@ -1264,7 +1276,7 @@
         <p>The game ends <b>the moment the ${E.PLAZA_END}th card lands in the Plaza</b> — usually when someone draws from the deck while the Plaza has ${E.PLAZA_END - 1}. (Recruiting from the Plaza takes a card out, so it doesn’t fill up.) It also ends if the deck runs out. Nobody gets one last turn.</p>
         <p class="rb-ex">With ${E.PLAZA_END - 1} cards in the Plaza, you decide the timing. Ahead? Draw from the deck and end it. Behind? Recruit from the Plaza and keep the game going.</p>
         ${sec(2, 'Scoring a team, step by step')}
-        <ol class="rb-flow"><li>Mimic chooses its suit.</li><li>Clear penalties (Hacklette, Penny Press, Skybase).</li><li>Blank cards — all blanking happens at the same time.</li><li>Check “blanked unless…” cards.</li><li>Each card that isn’t blanked scores its power + bonuses − penalties.</li><li>Add the Mission.</li><li>Reveal and add your secret identity.</li></ol>
+        <ol class="rb-flow"><li>Mimic and the Hero Signal choose their suits.</li><li>Clear penalties (Hacklette, Penny Press, The Banisher, Skybase) and raise shields (Ironclad, Lucky Cape, Firewall).</li><li>Blank cards — all blanking happens at the same time.</li><li>Check “blanked unless…” cards.</li><li>Each card that isn’t blanked scores its power + bonuses − penalties.</li><li>Add the Mission.</li><li>Reveal and add your secret identity.</li></ol>
         <p class="rb-ex">Nobody’s score is shown during the game — not even your own. Counting up your team (and guessing at everyone else’s) is part of the challenge. The full breakdown appears at the end.</p>
         ${sec(3, 'Winning')}
         <p>Highest total wins. If it’s a tie, the team with more card power wins; if that’s tied too, it’s a shared win.</p>`;
@@ -1279,6 +1291,8 @@
         ['Power', 'The number in the corner: what a card scores before bonuses and penalties.'],
         ['Blanked', 'Scores 0, has no ability, and has no suit.'],
         ['Clear', 'Cancels a card’s penalties, including blanking.'],
+        ['Shield', 'Stops cards being blanked. Their other penalties still count.'],
+        ['Left in the Plaza', 'The cards in the Plaza when the game ends. Some cards score (or lose points) for them.'],
         ['Mission', `The face-up goal card. Fit it for big bonuses; miss it and lose ${E.MISSION_FAIL}.`],
         ['Secret identity', 'Your hidden personal goal, chosen from two at the start and revealed at the end.'],
       ];
