@@ -485,7 +485,8 @@
       <span class="ms-art"><img src="${IMG('mission-' + s.mission)}" alt="" loading="lazy"><span class="ms-tag">🎯 The Mission</span></span>
       <span class="ms-body">
         <b class="ms-name">${M.icon} ${esc(M.name)}</b>
-        <span class="ms-line${chk ? (chk.r.mission.done ? ' ok' : ' no') : ''}">Have ${need} → <b>+${E.MISSION_DONE}</b></span>
+        <span class="ms-line${chk ? (chk.r.mission.done ? ' ok' : ' no') : ''}">Have ${need} → <b>+${E.MISSION_DONE}</b> <small>(miss: −${E.MISSION_FAIL})</small></span>
+        <span class="ms-line"><span class="good">+${E.MISSION_FIT} per ${E.SUIT[M.need[0]].icon} or ${E.SUIT[M.need[1]].icon} card${chk ? ` <small>(${chk.r.mission.fit} now)</small>` : ''}</span></span>
         <span class="ms-line"><span class="good">+${M.plus.n} per ${E.SUIT[M.plus.s].icon} ${esc(E.SUIT[M.plus.s].name)}</span> · <span class="bad">−${M.minus.n} per ${E.SUIT[M.minus.s].icon} ${esc(E.SUIT[M.minus.s].name)}</span></span>
       </span>
     </button>`;
@@ -550,10 +551,11 @@
     const m = r.mission;
     const M = mission();
     const mParts = [];
-    mParts.push(m.done ? `<span class="good">✓ ${E.SUIT[M.need[0]].icon}+${E.SUIT[M.need[1]].icon} done +${m.doneN}</span>` : `<span class="bad">✗ needs ${M.need.filter((x) => !r.cards.some((c) => !c.blanked && c.suit === x)).map((x) => `${E.SUIT[x].icon} ${E.SUIT[x].name}`).join(' and ')}</span>`);
+    mParts.push(m.done ? `<span class="good">✓ ${E.SUIT[M.need[0]].icon}+${E.SUIT[M.need[1]].icon} done +${m.doneN}</span>` : `<span class="bad">✗ needs ${M.need.filter((x) => !r.cards.some((c) => !c.blanked && c.suit === x)).map((x) => `${E.SUIT[x].icon} ${E.SUIT[x].name}`).join(' and ')} −${m.failN}</span>`);
+    if (m.fitN) mParts.push(`<span class="good">+${m.fitN} for ${plural(m.fit, 'Mission card')}</span>`);
     if (m.plusN) mParts.push(`<span class="good">+${m.plusN} ${E.SUIT[M.plus.s].plural}</span>`);
     if (m.minusN) mParts.push(`<span class="bad">−${m.minusN} ${E.SUIT[M.minus.s].plural}</span>`);
-    if (m.mult > 1) mParts.push('<span class="spec">×2 Seer Sela</span>');
+    if (m.mult > 1) mParts.push('<span class="spec">Seer Sela doubled the +' + E.MISSION_DONE + '</span>');
     return `<section class="panel hand" style="--pc:${PCOLOR[owner]}">${head}
         <div class="hand-score" title="Team score if the game ended now"><small>Team score</small><b>${sc.total}</b></div></div>
       <div class="hand-cards">${cards}</div>
@@ -737,11 +739,13 @@
       <h2>${M.icon} ${esc(M.name)}</h2><p>${esc(M.story)}</p>
       <ul class="cv-rows">
         <li><span>🎯 Have at least one ${suitTag(M.need[0])} and one ${suitTag(M.need[1])}</span><b>+${E.MISSION_DONE}</b></li>
+        <li class="bad"><span>❌ Missing either of them</span><b>−${E.MISSION_FAIL}</b></li>
+        <li class="good"><span>For each ${suitTag(M.need[0])} or ${suitTag(M.need[1])}</span><b>+${E.MISSION_FIT}</b></li>
         <li class="good"><span>For each ${suitTag(M.plus.s)}</span><b>+${M.plus.n}</b></li>
         <li class="bad"><span>For each ${suitTag(M.minus.s)}</span><b>−${M.minus.n}</b></li>
         ${r ? `<li class="tot"><span>${G.mode === 'ai' && owner === 0 ? 'Your' : `${esc(pl(owner).name)}’s`} team right now</span><b>${signed(r.total)}</b></li>` : ''}
       </ul>
-      <p class="muted">Blanked cards don’t count for the Mission. Seer Sela doubles the Mission bonuses (not the penalty).</p></div>`, { onClose: () => scheduleAI() });
+      <p class="muted">Blanked cards don’t count for the Mission. Seer Sela doubles the +${E.MISSION_DONE} for having both suits.</p></div>`, { onClose: () => scheduleAI() });
   }
   // A rival's hand is secret, but everyone saw what they took from the Plaza.
   function showKnown(i) {
@@ -759,9 +763,12 @@
       <h2>${M.icon} Today’s Mission: ${esc(M.name)}</h2><p>${esc(M.story)}</p>
       <ul class="cv-rows">
         <li><span>🎯 Have a ${suitTag(M.need[0])} and a ${suitTag(M.need[1])}</span><b>+${E.MISSION_DONE}</b></li>
+        <li class="bad"><span>❌ Missing either of them</span><b>−${E.MISSION_FAIL}</b></li>
+        <li class="good"><span>Each ${suitTag(M.need[0])} or ${suitTag(M.need[1])}</span><b>+${E.MISSION_FIT}</b></li>
         <li class="good"><span>Each ${suitTag(M.plus.s)}</span><b>+${M.plus.n}</b></li>
         <li class="bad"><span>Each ${suitTag(M.minus.s)}</span><b>−${M.minus.n}</b></li>
       </ul>
+      <p>The Mission is worth a lot — a team that misses it rarely wins.</p>
       <p>${first.ai ? `${esc(first.name)} goes first.` : 'You go first.'} Each turn: <b>draw one</b> card, then <b>send one</b> to the Plaza.</p>
       <div class="btn-row" style="justify-content:center"><button class="btn big" data-close>🦸 Let’s go</button></div></div>`);
   }
@@ -1139,7 +1146,7 @@
         ${sec(4, 'Special abilities')}
         <dl class="rb-terms"><dt>🛡️ Clear</dt><dd>Hacklette, Penny Press and Skybase <b>clear</b> penalties: the cleared card’s penalties — including blanking and “blanked unless” — just don’t happen.</dd>
         <dt>🎭 Mimic</dt><dd>Counts as whichever suit scores your team best.</dd>
-        <dt>🔮 Seer Sela</dt><dd>Doubles your Mission bonuses.</dd></dl>
+        <dt>🔮 Seer Sela</dt><dd>Doubles your +${E.MISSION_DONE} for completing the Mission.</dd></dl>
         ${sec(5, 'The suits')}
         <table><tr><th>Suit</th><th>Plays well with</th></tr>
         <tr><td>${S.bruiser.icon} Bruisers</td><td>Other Bruisers, the Star Hammer, Tremor and sidekicks</td></tr>
@@ -1154,10 +1161,11 @@
         <tr><td>${S.villain.icon} Villains</td><td>Huge power with nasty penalties. Hacklette clears them; Brick Malone loves them</td></tr></table>`;
     } else if (tab === 'mission') {
       body = `${sec(1, 'How the Mission scores')}
-        <ol class="rb-flow"><li><b>+${E.MISSION_DONE}</b> if your team has at least one card of <b>each</b> of the Mission’s two suits.</li><li>A bonus for each card of the Mission’s helpful suit.</li><li>A penalty for each card of the suit that gets in the way.</li></ol>
-        <p>Blanked cards don’t count. Mimic can count as a Mission suit. Seer Sela doubles the first two (not the penalty).</p>
+        <ol class="rb-flow"><li><b>+${E.MISSION_DONE}</b> if your team has at least one card of <b>each</b> of the Mission’s two suits — or <b>−${E.MISSION_FAIL}</b> if it’s missing either.</li><li><b>+${E.MISSION_FIT}</b> for each card of either Mission suit, so the more of your team fits the Mission, the better.</li><li>A bonus for each card of the Mission’s helpful suit.</li><li>A penalty for each card of the suit that gets in the way.</li></ol>
+        <p>Blanked cards don’t count. Mimic can count as a Mission suit. Seer Sela doubles the +${E.MISSION_DONE} for having both suits.</p>
+        <p class="rb-ex">Alien Invasion needs Cosmic and Tech. A team with two Cosmic, one Tech and one Bruiser scores +${E.MISSION_DONE} + 3 × ${E.MISSION_FIT} + ${E.MISSIONS.invasion.plus.n} = <b>+${E.MISSION_DONE + 3 * E.MISSION_FIT + E.MISSIONS.invasion.plus.n}</b>. The same team without its Tech scores −${E.MISSION_FAIL} + 2 × ${E.MISSION_FIT} + ${E.MISSIONS.invasion.plus.n} = <b>${-E.MISSION_FAIL + 2 * E.MISSION_FIT + E.MISSIONS.invasion.plus.n}</b>.</p>
         ${sec(2, 'All the Missions')}
-        <table><tr><th>Mission</th><th>Have both</th><th>Bonus</th><th>Penalty</th></tr>${E.MISSION_ORDER.map((k) => {
+        <table><tr><th>Mission</th><th>Have both (+${E.MISSION_FIT} each)</th><th>Bonus</th><th>Penalty</th></tr>${E.MISSION_ORDER.map((k) => {
           const M = E.MISSIONS[k];
           return `<tr><td>${M.icon} ${esc(M.name)}</td><td>${M.need.map((x) => S[x].icon + ' ' + S[x].name).join(' + ')}</td><td class="good">+${M.plus.n} per ${S[M.plus.s].icon}</td><td class="bad">−${M.minus.n} per ${S[M.minus.s].icon}</td></tr>`;
         }).join('')}</table>`;
@@ -1180,7 +1188,7 @@
         ['Power', 'The number in the corner: what a card scores before bonuses and penalties.'],
         ['Blanked', 'Scores 0, has no ability, and has no suit.'],
         ['Clear', 'Cancels a card’s penalties, including blanking.'],
-        ['Mission', 'The face-up goal card. Fit it for big bonuses.'],
+        ['Mission', `The face-up goal card. Fit it for big bonuses; miss it and lose ${E.MISSION_FAIL}.`],
       ];
       body = `${sec(1, 'Your turn, in short')}
         <ol class="rb-flow"><li>Draw the top card of the deck, <b>or</b> recruit a card from the Plaza.</li><li>Send one card (not one you just recruited) to the Plaza.</li><li>If the Plaza now holds ${E.PLAZA_END} cards, or the deck is empty, the game ends.</li></ol>

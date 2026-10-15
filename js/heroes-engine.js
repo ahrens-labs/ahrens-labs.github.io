@@ -6,7 +6,9 @@
   const SAVE_V = 1;
   const HAND = 7;
   const PLAZA_END = 12; // the game ends the moment the 12th card lands in the Plaza
-  const MISSION_DONE = 15;
+  const MISSION_DONE = 25; // have both Mission suits
+  const MISSION_FIT = 4; // each card of either Mission suit
+  const MISSION_FAIL = 10; // missing a Mission suit
 
   const SUIT = {
     bruiser: { name: 'Bruiser', plural: 'Bruisers', icon: '💪', color: '#d9473f' },
@@ -27,7 +29,7 @@
   //   with     +n if you also have any of the cards (c) or suits (s)
   //   without  +n if you have none of the suits
   //   variety  +n for each different suit in your hand (counting this card)
-  //   oracle   your Mission bonus is doubled
+  //   oracle   your bonus for having both Mission suits is doubled
   //   wild     counts as whichever suit scores best
   //   clear    clears the penalties of every card of the suits ('*' = every card)
   //   pen      −n for each other card of the suits                 (penalty)
@@ -57,7 +59,7 @@
     { id: 'hacklette', name: 'Hacklette', suit: 'tech', power: 6, fx: [{ t: 'clear', s: ['villain'] }], flavor: 'Shuts down evil plans from her laptop.' },
     // Mystics
     { id: 'sable', name: 'Sorcerer Sable', suit: 'mystic', power: 22, fx: [{ t: 'pen', s: ['tech'], n: 5 }], flavor: 'Magic and machines don’t mix.' },
-    { id: 'seer', name: 'Seer Sela', suit: 'mystic', power: 5, fx: [{ t: 'oracle' }], flavor: 'She saw this mission coming.' },
+    { id: 'seer', name: 'Seer Sela', suit: 'mystic', power: 1, fx: [{ t: 'oracle' }], flavor: 'She saw this mission coming.' },
     { id: 'hexa', name: 'Hexa', suit: 'mystic', power: 14, fx: [{ t: 'per', s: ['cosmic'], n: 5 }], flavor: 'Draws her spells from the stars.' },
     { id: 'spirit', name: 'Spirit Guide', suit: 'mystic', power: 10, fx: [{ t: 'without', s: ['villain'], n: 14 }], flavor: 'Won’t share a room with evil.' },
     { id: 'moth', name: 'Madame Moth', suit: 'mystic', power: 8, fx: [{ t: 'with', c: ['rampage'], n: 12 }], flavor: 'Sings Rampage to sleep.' },
@@ -106,14 +108,14 @@
 
   // The Mission: one is turned face up at the start. Hands that fit it score extra.
   const MISSIONS = {
-    invasion: { name: 'Alien Invasion', icon: '👽', need: ['cosmic', 'tech'], plus: { s: 'bruiser', n: 3 }, minus: { s: 'sidekick', n: 3 }, story: 'Saucers over the city! Beat them back with cosmic power and clever tech. Bruisers help; sidekicks get in the way.' },
-    heist: { name: 'The Bank Heist', icon: '🏦', need: ['speed', 'shadow'], plus: { s: 'gear', n: 3 }, minus: { s: 'bruiser', n: 3 }, story: 'Thieves in the vault. Catch them fast and quietly — gadgets help, but bruisers wreck the bank.' },
-    volcano: { name: 'Volcano Rescue', icon: '🌋', need: ['element', 'speed'], plus: { s: 'sidekick', n: 3 }, minus: { s: 'gear', n: 3 }, story: 'The mountain is erupting. Hold back the lava and race everyone to safety. Sidekicks help evacuate; gear melts.' },
-    robots: { name: 'Robot Uprising', icon: '🤖', need: ['tech', 'bruiser'], plus: { s: 'element', n: 3 }, minus: { s: 'mystic', n: 3 }, story: 'The city’s robots have turned. Hack them and smash them. Lightning and fire help; spells bounce off steel.' },
-    ritual: { name: 'The Dark Ritual', icon: '🕯️', need: ['mystic', 'shadow'], plus: { s: 'cosmic', n: 3 }, minus: { s: 'tech', n: 3 }, story: 'A cult is opening a portal under the city. Fight magic with magic, in the dark. Machines go haywire down there.' },
-    prison: { name: 'Prison Break', icon: '⛓️', need: ['bruiser', 'shadow'], plus: { s: 'villain', n: 5 }, minus: { s: 'cosmic', n: 3 }, story: 'Every villain is loose. Every villain in your hand counts as recaptured. Cosmic heroes are off-world.' },
-    meteor: { name: 'Meteor Strike', icon: '☄️', need: ['cosmic', 'bruiser'], plus: { s: 'speed', n: 3 }, minus: { s: 'shadow', n: 3 }, story: 'A meteor is heading for downtown. Push it back into space! Speedsters clear the streets; shadows aren’t much use.' },
-    parade: { name: 'Hero Parade', icon: '🎉', need: ['sidekick', 'gear'], plus: { s: 'speed', n: 3 }, minus: { s: 'villain', n: 5 }, story: 'The city throws a parade for its heroes. Bring the sidekicks and the shiny gear — and keep villains far away.' },
+    invasion: { name: 'Alien Invasion', icon: '👽', need: ['cosmic', 'tech'], plus: { s: 'bruiser', n: 6 }, minus: { s: 'sidekick', n: 6 }, story: 'Saucers over the city! Beat them back with cosmic power and clever tech. Bruisers help; sidekicks get in the way.' },
+    heist: { name: 'The Bank Heist', icon: '🏦', need: ['speed', 'shadow'], plus: { s: 'gear', n: 6 }, minus: { s: 'bruiser', n: 6 }, story: 'Thieves in the vault. Catch them fast and quietly — gadgets help, but bruisers wreck the bank.' },
+    volcano: { name: 'Volcano Rescue', icon: '🌋', need: ['element', 'speed'], plus: { s: 'sidekick', n: 6 }, minus: { s: 'gear', n: 6 }, story: 'The mountain is erupting. Hold back the lava and race everyone to safety. Sidekicks help evacuate; gear melts.' },
+    robots: { name: 'Robot Uprising', icon: '🤖', need: ['tech', 'bruiser'], plus: { s: 'element', n: 6 }, minus: { s: 'mystic', n: 6 }, story: 'The city’s robots have turned. Hack them and smash them. Lightning and fire help; spells bounce off steel.' },
+    ritual: { name: 'The Dark Ritual', icon: '🕯️', need: ['mystic', 'shadow'], plus: { s: 'cosmic', n: 6 }, minus: { s: 'tech', n: 6 }, story: 'A cult is opening a portal under the city. Fight magic with magic, in the dark. Machines go haywire down there.' },
+    prison: { name: 'Prison Break', icon: '⛓️', need: ['bruiser', 'shadow'], plus: { s: 'villain', n: 8 }, minus: { s: 'cosmic', n: 6 }, story: 'Every villain is loose. Every villain in your hand counts as recaptured. Cosmic heroes are off-world.' },
+    meteor: { name: 'Meteor Strike', icon: '☄️', need: ['cosmic', 'bruiser'], plus: { s: 'speed', n: 6 }, minus: { s: 'shadow', n: 6 }, story: 'A meteor is heading for downtown. Push it back into space! Speedsters clear the streets; shadows aren’t much use.' },
+    parade: { name: 'Hero Parade', icon: '🎉', need: ['sidekick', 'gear'], plus: { s: 'speed', n: 6 }, minus: { s: 'villain', n: 8 }, story: 'The city throws a parade for its heroes. Bring the sidekicks and the shiny gear — and keep villains far away.' },
   };
   const MISSION_ORDER = Object.keys(MISSIONS);
 
@@ -166,7 +168,7 @@
       case 'variety':
         return `+${f.n} for each different suit in your hand`;
       case 'oracle':
-        return `Doubles your Mission bonuses`;
+        return `Doubles your bonus for completing the Mission`;
       case 'wild':
         return `Counts as any one suit you like`;
       case 'clear':
@@ -253,14 +255,18 @@
     const count = (s) => on.filter((o) => suitOf[o.id] === s).length;
     const mult = on.some((c) => c.fx.some((f) => f.t === 'oracle')) ? 2 : 1;
     const done = M.need.every((s) => count(s) > 0);
+    const fit = M.need.reduce((t, s) => t + count(s), 0);
     const m = {
       done,
       doneN: done ? MISSION_DONE * mult : 0,
-      plusN: count(M.plus.s) * M.plus.n * mult,
+      fit,
+      fitN: fit * MISSION_FIT,
+      failN: done ? 0 : MISSION_FAIL,
+      plusN: count(M.plus.s) * M.plus.n,
       minusN: count(M.minus.s) * M.minus.n,
       mult,
     };
-    m.total = m.doneN + m.plusN - m.minusN;
+    m.total = m.doneN + m.fitN + m.plusN - m.minusN - m.failN;
     const cardsTotal = cards.reduce((t, r) => t + r.value, 0);
     return { total: cardsTotal + m.total, cardsTotal, cards, mission: m, wild: wildSuit || null };
   }
@@ -479,7 +485,7 @@
   }
 
   const api = {
-    SAVE_V, HAND, PLAZA_END, MISSION_DONE, SUIT, SUITS, CARDS, CARD, MISSIONS, MISSION_ORDER, LEVELS,
+    SAVE_V, HAND, PLAZA_END, MISSION_DONE, MISSION_FIT, MISSION_FAIL, SUIT, SUITS, CARDS, CARD, MISSIONS, MISSION_ORDER, LEVELS,
     newGame, aiHeadStart, legal, apply, aiChoose, score, ranking, winner,
     scoreHand, handScore, fxText, cardText, isPenalty, bestDiscard, unseen,
   };
