@@ -278,41 +278,41 @@
     $('#app').innerHTML = `
       <div class="setup gh">
         ${heroHtml(true)}
-        <div class="setup-card gh-card panel">
-          ${canResume ? `<div class="gh-resume"><div><b>Expedition in progress</b><span>${esc(saved.state.players.map((p) => p.name).join(' vs '))} · tide ${saved.state.tide} of ${E.TIDES}</span></div><button class="btn" id="resume">Continue</button></div>` : ''}
-          <h2>New game</h2>
-          <div class="gh-modes" id="mode">
-            <button data-v="ai" class="gh-mode ${pr.mode !== 'local' && pr.mode !== 'online' ? 'on' : ''}"><span>🤖</span><b>Computer</b><small>Race a rival company</small></button>
-            <button data-v="local" class="gh-mode ${pr.mode === 'local' ? 'on' : ''}"><span>👥</span><b>Two players</b><small>Share this device</small></button>
-            <button data-v="online" class="gh-mode ${pr.mode === 'online' ? 'on' : ''}"><span>🌐</span><b>Online</b><small>Challenge a friend</small></button>
-          </div>
+      <div class="setup-card gh-card panel">
+        ${canResume ? `<div class="gh-resume"><div><b>Expedition in progress</b><span>${esc(saved.state.players.map((p) => p.name).join(' vs '))} · tide ${saved.state.tide} of ${E.TIDES}</span></div><button class="btn" id="resume">Continue</button></div>` : ''}
+        <h2>New game</h2>
+        <div class="gh-modes" id="mode">
+          <button data-v="ai" class="gh-mode ${pr.mode !== 'local' && pr.mode !== 'online' ? 'on' : ''}"><span>🤖</span><b>Computer</b><small>Race a rival company</small></button>
+          <button data-v="local" class="gh-mode ${pr.mode === 'local' ? 'on' : ''}"><span>👥</span><b>Two players</b><small>Share this device</small></button>
+          <button data-v="online" class="gh-mode ${pr.mode === 'online' ? 'on' : ''}"><span>🌐</span><b>Online</b><small>Challenge a friend</small></button>
+        </div>
           <div class="online-only online-soon"><b>🌐 Online play opens at launch</b><p>Challenging other Ahrens Labs players arrives when Atlantis Expedition leaves the lab. For now, play the computer or a friend on this device.</p></div>
-          <div class="field names offline-only">
-            <label><span class="label">Your company</span><input id="n0" maxlength="18" value="${esc(pr.n0 || 'Coral Divers')}"></label>
-            <label class="local-only"><span class="label">Second company</span><input id="n1" maxlength="18" value="${esc(pr.n1 || 'Deep Blue Co.')}"></label>
-          </div>
-          <div class="field ai-only offline-only">
-            <span class="label">Difficulty</span>
+        <div class="field names offline-only">
+          <label><span class="label">Your company</span><input id="n0" maxlength="18" value="${esc(pr.n0 || 'Coral Divers')}"></label>
+          <label class="local-only"><span class="label">Second company</span><input id="n1" maxlength="18" value="${esc(pr.n1 || 'Deep Blue Co.')}"></label>
+        </div>
+        <div class="field ai-only offline-only">
+          <span class="label">Difficulty</span>
             <div class="seg" id="level">
               ${Object.keys(LEVEL_NAME).map((l) => `<button data-v="${l}" class="${(pr.level || 'normal') === l ? 'on' : ''}" title="${esc(LEVEL_HINT[l])}">${LEVEL_NAME[l]}</button>`).join('')}
             </div>
-          </div>
-          <div class="field offline-only">
-            <span class="label">Who starts?</span>
+        </div>
+        <div class="field offline-only">
+          <span class="label">Who starts?</span>
             <div class="seg" id="first">
               <button data-v="0" class="on">Me</button>
               <button data-v="1">Computer</button>
               <button data-v="r">🎲 Random</button>
             </div>
-          </div>
-          <button class="btn big offline-only" id="start">Start game</button>
-          <div class="gh-links">
+        </div>
+        <button class="btn big offline-only" id="start">Start game</button>
+        <div class="gh-links">
             <button class="btn ghost sm" data-tutorial="atlantis-ad">🎞️ Watch the trailer</button>
             <button class="btn ghost sm" data-tutorial="atlantis">🎬 Watch the tutorial</button>
-            <button class="btn ghost sm" id="how">📜 How to play</button>
-            <button class="btn ghost sm" id="hist">🏆 Game history</button>
-            <button class="btn ghost sm" id="sim">🧪 Computer vs computer</button>
-          </div>
+          <button class="btn ghost sm" id="how">📜 How to play</button>
+          <button class="btn ghost sm" id="hist">🏆 Game history</button>
+          <button class="btn ghost sm" id="sim">🧪 Computer vs computer</button>
+        </div>
         </div>
       </div>`;
     const setMode = (m) => {
@@ -401,7 +401,7 @@
           </div>
         </div>
         <div class="top-actions">
-          ${window.GameMusic ? GameMusic.buttonHtml('btn ghost sm', 'bt') : ''}
+        ${window.GameMusic ? GameMusic.buttonHtml('btn ghost sm', 'bt') : ''}
           ${isAdmin() && (G.mode === 'ai' || G.mode === 'local') ? `<button class="btn ghost sm${rig20On() ? ' on' : ''}" data-act="rig20" aria-pressed="${rig20On()}" title="Admin testing: make your dives always roll a natural 20">🎯<span class="bt"> 20s ${rig20On() ? 'on' : 'off'}</span></button>` : ''}
           <button class="btn ghost sm" data-act="rules" aria-label="Rules">📜<span class="bt"> Rules</span></button>
           <button class="btn ghost sm" data-act="home" aria-label="${G.mode === 'past' ? 'History' : G.mode === 'sim' ? 'Stop' : 'New game'}" title="${G.mode === 'past' ? 'Back to history' : G.mode === 'sim' ? 'Stop the simulation' : 'Start a new game (this one stays saved under Your games)'}">${home}</button>
@@ -412,17 +412,17 @@
         <section class="scores">${s.players.map((p, i) => companyCard(i, v)).join('')}</section>
         ${s.phase === 'act' ? `<div class="tide-strip"><span class="ts-tide">🌊 Tide <b>${s.tide}</b> of ${E.TIDES}${s.tide === E.TIDES ? ' · <b class="ts-last">last tide!</b>' : ''}</span><span class="ts-sea">${sea.icon} <b>${esc(sea.name)}:</b> ${SEA_PLAIN[E.sea(s)]}</span>${next ? `<span class="ts-next">Next tide: ${next.icon} ${esc(next.name)}</span>` : ''}</div>` : ''}
         ${bannerHtml()}
-        <div class="main">
+      <div class="main">
           <section class="sea">
             <div class="sec-head"><h2>🗺️ Chart of Atlantis</h2><small>${s.map.filter((x) => x.by != null).length} of ${s.map.length} sites explored</small></div>
             ${chartHtml(v)}
             <div class="legend"><span><i class="lg open"></i>Charted</span><span><i class="lg far"></i>Uncharted (−${E.UNCHARTED})</span><span><i class="lg done"></i>Explored</span><span>🏺 relic</span></div>
-          </section>
+        </section>
           <section class="panel company" style="--pc:${PCOLOR[v]}">${companyHtml(v)}</section>
         </div>
         <div class="lower">${hallHtml()}${goalsHtml()}</div>
         <section class="panel"><h3>📓 Captain’s log</h3><div class="log" id="log">${logHtml()}</div></section>
-      </div>`;
+    </div>`;
     const lg = $('#log');
     if (lg) lg.scrollTop = lg.scrollHeight;
   }
@@ -582,8 +582,8 @@
       : '';
     const acts = mine
       ? `<div class="acts">
-          <button class="btn sea" data-act="yard">🛠️ Shipyard</button>
-          <button class="btn" data-act="salvage" ${canSalvage ? '' : 'disabled'}>🪙 Salvage run</button>
+        <button class="btn sea" data-act="yard">🛠️ Shipyard</button>
+        <button class="btn" data-act="salvage" ${canSalvage ? '' : 'disabled'}>🪙 Salvage run</button>
           <button class="btn ghost" data-act="rival">👀 ${esc(pl(1 - v).name)}</button>
           <button class="btn danger" data-act="pass">⏭ End my tide</button>
         </div>`
@@ -663,7 +663,7 @@
     const tideBefore = s.tide;
     const goldBefore = pl(pi).gold;
     try {
-      E.apply(s, pi, a);
+    E.apply(s, pi, a);
     } catch (err) {
       toast(esc(err.message), 'bad');
       return;
@@ -677,7 +677,7 @@
     if (s.phase === 'act' && G.mode === 'ai' && !pl(pi).ai) G.view = 0;
     save();
     const after = () => {
-      render();
+        render();
       if (s.tide !== tideBefore) tideSplash();
       if (a.t !== 'dive' && !(G.mode === 'sim' && G.speed === 'turbo')) {
         (s.claimed || []).forEach((k) => {
@@ -1276,12 +1276,12 @@
     document.body.className = 'setup-mode';
     $('#app').innerHTML = `
       <div class="setup gh">
-        <div class="gh-top"><a class="gh-lobby" href="/board-games.html" title="Back to the game lobby">← <img class="gh-dice" src="/img/board-games-favicon-48.png?v=2" alt="" width="20" height="20"> Game lobby</a><button class="btn ghost sm" id="hist-new">🔱 New game</button></div>
+      <div class="gh-top"><a class="gh-lobby" href="/board-games.html" title="Back to the game lobby">← <img class="gh-dice" src="/img/board-games-favicon-48.png?v=2" alt="" width="20" height="20"> Game lobby</a><button class="btn ghost sm" id="hist-new">🔱 New game</button></div>
         <div class="setup-card gh-card panel hist">
           <h2>🏆 Game history</h2>
           <div id="hist-body"><p class="muted">Loading your games…</p></div>
         </div>
-      </div>`;
+    </div>`;
     $('#hist-new').onclick = () => showSetup();
     const r = await api('/api/atlantis/history');
     if (!$('#hist-body')) return;
