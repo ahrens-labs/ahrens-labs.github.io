@@ -5,6 +5,7 @@
 const LOBBIES = [
   { game: 'dino', binding: 'DINO_LOBBY' },
   { game: 'hearthhold', binding: 'HEARTHHOLD_LOBBY' },
+  { game: null, binding: 'LAB_LOBBY', fromSummary: true },
 ];
 const CURRENT = new Set(['pending', 'active']);
 
@@ -65,7 +66,7 @@ async function onlineGames(env, userId) {
       const res = await ns.get(ns.idFromName(`lobby:${userId}`)).fetch(new Request('http://do/list'));
       const data = await res.json();
       return (data.games || []).filter((g) => CURRENT.has(g.status)).map((g) => ({
-        game: l.game,
+        game: l.fromSummary ? g.game : l.game,
         id: g.id,
         status: g.status,
         me: g.me,
@@ -80,7 +81,7 @@ async function onlineGames(env, userId) {
       return [];
     }
   }));
-  return lists.flat().sort((a, b) => needsMe(b) - needsMe(a) || b.updatedAt - a.updatedAt);
+  return lists.flat().filter((g) => g.game && SAVE_GAMES.has(g.game)).sort((a, b) => needsMe(b) - needsMe(a) || b.updatedAt - a.updatedAt);
 }
 
 async function savedGames(env, userId) {

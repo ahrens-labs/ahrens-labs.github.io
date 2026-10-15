@@ -1,6 +1,6 @@
-// Atlantis Expedition — game history for the admin preview. Finished local games are kept per user in a
+import { handleLabOnlineRequest } from './lab-online.js';
+// Atlantis Expedition — game history. Finished local games are kept per user in a
 // HearthholdLobby Durable Object under its own name, so they never mix with Oakhaven's history.
-const ADMIN_EMAIL = 'calebahrens2011@gmail.com';
 const LOCAL_ID_RE = /^al[0-9a-f]{16}$/;
 const MAX_BOARD_BYTES = 64 * 1024;
 const SCORE_KEYS = ['treasure', 'discoveries', 'gold', 'expeditions', 'total'];
@@ -17,19 +17,13 @@ function bearerSession(request) {
   return m ? m[1] : null;
 }
 
-// The signed-in user, only if it's the admin account.
-async function adminUserId(env, request) {
+async function sessionUserId(env, request) {
   const sessionId = bearerSession(request);
-  if (!sessionId) return { status: 401 };
+  if (!sessionId) return null;
   const session = env.SESSION.get(env.SESSION.idFromName(sessionId));
   const sres = await session.fetch(new Request('http://do/getUserId', { method: 'GET' }));
   const { userId } = await sres.json().catch(() => ({}));
-  if (!userId) return { status: 401 };
-  const account = env.USER_ACCOUNT.get(env.USER_ACCOUNT.idFromName(userId));
-  const ares = await account.fetch(new Request('http://do/getData', { method: 'GET' }));
-  const data = ares.ok ? await ares.json().catch(() => ({})) : {};
-  const email = String((data && data.email) || '').trim().toLowerCase();
-  return email === ADMIN_EMAIL ? { userId } : { status: 403 };
+  return userId || null;
 }
 
 function historyStub(env, userId) {
@@ -73,12 +67,13 @@ function cleanBoard(b) {
   return JSON.stringify(lean).length <= MAX_BOARD_BYTES ? lean : null;
 }
 
-export async function handleAtlantisRequest(request, env, corsHeaders, path) {
+export async function handleAtlantisRequest(request, env, corsHeaders, path, opts = {}) {
+  const online = await handleLabOnlineRequest(request, env, corsHeaders, path, 'atlantis', opts);
+  if (online) return online;
   if (!env.HEARTHHOLD_LOBBY) return jsonResponse({ error: 'Not available' }, corsHeaders, 503);
-  const who = await adminUserId(env, request);
-  if (who.status === 401) return jsonResponse({ error: 'Not authenticated' }, corsHeaders, 401);
-  if (!who.userId) return jsonResponse({ error: 'Atlantis Expedition isn’t open yet' }, corsHeaders, 403);
-  const stub = historyStub(env, who.userId);
+  const userId = await sessionUserId(env, request);
+  if (!userId) return jsonResponse({ error: 'Not authenticated' }, corsHeaders, 401);
+  const stub = historyStub(env, userId);
   const url = new URL(request.url);
 
   if (path === '/api/atlantis/history' && request.method === 'GET') {

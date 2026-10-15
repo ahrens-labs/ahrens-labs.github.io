@@ -5,9 +5,9 @@
   const GAMES = {
     dino: { name: 'Dino Dynasty', icon: '🦖', page: '/dino-board-game.html', img: '/img/dino-game/cover.webp' },
     hearthhold: { name: 'Oakhaven', icon: '🏰', page: '/oakhaven.html', img: '/img/hearthhold/cover.webp' },
-    atlantis: { name: 'Atlantis Expedition', icon: '🔱', page: '/atlantis.html', img: '/img/atlantis/cover.webp', admin: true },
-    cauldron: { name: 'Cauldron Lane', icon: '⚗️', page: '/cauldron.html', img: '/img/cauldron/cover.webp?v=2', admin: true },
-    heroes: { name: 'Hero League', icon: '🦸', page: '/heroes.html', img: '/img/heroes/cover.webp', admin: true },
+    atlantis: { name: 'Atlantis Expedition', icon: '🔱', page: '/atlantis.html', img: '/img/atlantis/cover.webp' },
+    cauldron: { name: 'Cauldron Lane', icon: '⚗️', page: '/cauldron.html', img: '/img/cauldron/cover.webp?v=2' },
+    heroes: { name: 'Hero League', icon: '🦸', page: '/heroes.html', img: '/img/heroes/cover.webp' },
   };
   const LEVELS = { easy: 'Easy', normal: 'Normal', medium: 'Normal', hard: 'Hard', brutal: 'Brutal' };
   const SEASONS = ['Spring', 'Summer', 'Autumn', 'Winter'];
@@ -32,15 +32,7 @@
       return '';
     }
   };
-  // Games still in the lab only show for the admin account.
-  const isAdmin = () => {
-    try {
-      return (localStorage.getItem('ahrenslabs_email') || '').trim().toLowerCase() === 'calebahrens2011@gmail.com';
-    } catch {
-      return false;
-    }
-  };
-  const shown = (game) => GAMES[game] && (!GAMES[game].admin || isAdmin());
+  const shown = (game) => !!GAMES[game];
 
   // Local games only count once a person has made a move; online games always count.
   const hhMoved = (s) => (s.round || 1) > 1 || (s.log || []).some((e) => e && e.who != null && s.players[e.who] && !s.players[e.who].ai);
@@ -84,7 +76,7 @@
         BS.put('dino', dino.gid, dino, { mode: dino.ai != null ? 'ai' : 'local', level: dino.aiCfg && dino.aiCfg.level, names: dino.players.map((p) => p.name), round: dino.round || 1, rounds: dino.proto ? 15 : 18, moved: true });
       }
     }
-    const atl = isAdmin() && read('ahrensAtlantis.v1');
+    const atl = read('ahrensAtlantis.v1');
     const atlS = atl && atl.state;
     if (atlS && Array.isArray(atlS.map) && atl.gid && atlS.phase !== 'over' && Array.isArray(atlS.players) && Array.isArray(atlS.log) && (atl.mode === 'ai' || atl.mode === 'local')
       && (atlS.tide > 1 || atlS.log.some((l) => l && l.who != null && atlS.players[l.who] && !atlS.players[l.who].ai))

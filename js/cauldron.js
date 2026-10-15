@@ -1,4 +1,4 @@
-// Cauldron Lane — page UI. Rules live in cauldron-engine.js. Admin-only while it's being playtested.
+// Cauldron Lane — page UI. Rules live in cauldron-engine.js. 
 (function () {
   'use strict';
   const E = window.CauldronEngine;
@@ -33,7 +33,7 @@
 
   // ---------------------------------------------------------------- persistence
   function save() {
-    if (!G || G.mode === 'sim' || G.mode === 'past') return;
+    if (!G || G.mode === 'sim' || G.mode === 'past' || G.mode === 'online') { if (G && G.mode === 'online') Online.rememberOnline(); return; }
     try {
       localStorage.setItem(SAVE_KEY, JSON.stringify(G));
     } catch (e) {
@@ -44,7 +44,7 @@
   // Local games also go to the shared save list (Your games in the lobby, and the account), so several can be kept and resumed anywhere.
   function keepInSaves() {
     const BS = window.BoardSaves;
-    if (!BS || !G || (G.mode !== 'ai' && G.mode !== 'local') || !isAdmin()) return;
+    if (!BS || !G || (G.mode !== 'ai' && G.mode !== 'local')) return;
     G.gid = G.gid || newLocalId();
     const s = G.state;
     if (s.phase === 'over') {
@@ -113,10 +113,58 @@
     return { ok: res.ok, status: res.status, data };
   }
 
+  const Online = window.BoardOnline.attach({
+    apiPrefix: '/api/cauldron',
+    title: 'Cauldron Lane',
+    onlineKey: 'ahrensCauldron.online',
+    esc, toast, $, sessionId, prefs, savePrefs,
+    blurb: 'Play Cauldron Lane against another Ahrens Labs player — a quick game with a 2-minute turn clock, or a long game where you take your turn whenever you like.',
+    roundText: (g) => (g.round != null ? `day ${g.round} of ${E.DAYS}` : ''),
+    getG: () => G,
+    showSetup: (focus) => showSetup(focus),
+    isMyTurn: () => G && G.state && G.state.turn === G.me,
+    enterOnline: (v, mem) => {
+      G = {
+        mode: 'online', id: v.id, me: v.me, view: v.me, version: v.version, status: v.status, result: v.result,
+        gmode: v.mode || 'long', deadline: v.deadline || null, skew: v.now ? v.now - Date.now() : 0,
+        state: v.state, revealed: !!(mem && mem.revealed), moved: true,
+      };
+      startFrom(G);
+      if (G.status === 'over' && st().phase === 'over') showGameOver(true);
+    },
+    applyView: (v) => {
+      const prev = G.state;
+      G.version = v.version;
+      G.status = v.status;
+      G.result = v.result;
+      G.deadline = v.deadline || null;
+      if (v.now) G.skew = v.now - Date.now();
+      if (!v.state) { render(); return; }
+      G.state = v.state;
+      const opp = 1 - G.me;
+      if (prev && prev.log && v.state.log) {
+        const last = prev.log[prev.log.length - 1];
+        let from = 0;
+        if (last) for (let i = v.state.log.length - 1; i >= 0; i--) if (v.state.log[i].text === last.text) { from = i + 1; break; }
+        v.state.log.slice(from).filter((l) => l.who === opp).forEach((l) => toast(`<span class="dot" style="--pc:${PCOLOR[opp]}"></span>${esc(l.text)}`, 'ai'));
+      }
+      render();
+      if (G.gmode === 'quick' && G.status === 'active') Online.tickClock();
+      if (v.state.phase === 'over' || G.status === 'over') {
+        if (v.state.phase === 'over') showGameOver(true);
+        else if (!G.revealed) {
+          G.revealed = true;
+          const r = G.result || {};
+          openModal(`<h2>${r.winner === G.me ? '🏆 You win!' : '🏳️ Game over'}</h2><p>${esc(r.reason === 'resign' ? (r.winner === G.me ? 'They resigned.' : 'You resigned.') : r.reason === 'timeout' ? (r.winner === G.me ? 'They ran out of time.' : 'You ran out of time.') : 'This game has ended.')}</p><div class="btn-row"><button class="btn" data-close>OK</button></div>`);
+        }
+      }
+    },
+  });
+
   // ---------------------------------------------------------------- small helpers
   const st = () => G.state;
   const pl = (i) => st().players[i];
-  const humanTurn = () => st().phase === 'act' && !pl(st().turn).ai && G.mode !== 'past';
+  const humanTurn = () => st().phase === 'act' && G.mode !== 'past' && (G.mode === 'online' ? G.status === 'active' && st().turn === G.me : !pl(st().turn).ai);
   const shopName = (i) => `<b class="who" style="--pc:${PCOLOR[i]}">${esc(pl(i).name)}</b>`;
   const you = (i) => G.mode === 'ai' && i === 0;
   const whose = (i) => (you(i) ? 'your' : `${shopName(i)}’s`);
@@ -227,25 +275,13 @@
       </div></div>`;
   }
 
-  // Only the admin can see the game while it's playtested.
-  function showLocked() {
-    stopAI();
-    G = null;
-    document.body.className = 'setup-mode';
-    $('#app').innerHTML = `<div class="setup gh">${heroHtml(false)}
-      <div class="setup-card gh-card panel ol-gate">
-        <h2>🧪 Still in the lab</h2>
-        <p>Cauldron Lane is being playtested and isn’t open yet. Check back soon!</p>
-        <a class="btn big" href="/board-games.html">Back to the game shelf</a>
-      </div></div>`;
-  }
 
-  function showSetup() {
+  function showSetup(focusGame) {
     if (!sessionId()) return showGate();
-    if (!isAdmin()) return showLocked();
     stopAI();
+    Online.disconnect();
     G = null;
-    if (history.replaceState && location.search) history.replaceState(null, '', location.pathname);
+    if (history.replaceState && location.search && !focusGame && !new URLSearchParams(location.search).get('game')) history.replaceState(null, '', location.pathname);
     const pr = prefs();
     const saved = loadSave();
     const canResume = saved && saved.state.phase !== 'over' && saved.moved;
@@ -263,7 +299,7 @@
           <button data-v="local" class="gh-mode ${pr.mode === 'local' ? 'on' : ''}"><span>👥</span><b>Players</b><small>2–4 on this device</small></button>
           <button data-v="online" class="gh-mode ${pr.mode === 'online' ? 'on' : ''}"><span>🌐</span><b>Online</b><small>Challenge friends</small></button>
         </div>
-        <div class="online-only online-soon"><b>🌐 Online play opens at launch</b><p>Running shops against other Ahrens Labs players arrives when Cauldron Lane leaves the lab. For now, play the computer or friends on this device.</p></div>
+        <div class="online-only" id="online-box"></div>
         <div class="field ai-only offline-only">
           <span class="label">Rival shops</span>
           <div class="seg" id="rivals">${[1, 2, 3].map((n) => `<button data-v="${n}" class="${rivals === n ? 'on' : ''}">${n} ${n === 1 ? 'rival' : 'rivals'}</button>`).join('')}</div>
@@ -319,11 +355,13 @@
       if (b.parentNode.id === 'mode') {
         savePrefs(Object.assign(prefs(), { mode: b.dataset.v }));
         setMode(b.dataset.v);
+        if (b.dataset.v === 'online') Online.showLobby();
       }
       if (b.parentNode.id === 'seats') names();
       if (b.parentNode.id === 'level') hint();
     });
-    setMode(pr.mode === 'local' || pr.mode === 'online' ? pr.mode : 'ai');
+    setMode(focusGame ? 'online' : pr.mode === 'local' || pr.mode === 'online' ? pr.mode : 'ai');
+    if (focusGame || $('#mode .on').dataset.v === 'online') Online.showLobby(focusGame);
     hint();
     $('#how').onclick = () => showRules();
     $('#hist').onclick = () => showHistory();
@@ -352,7 +390,6 @@
   // ---------------------------------------------------------------- game screen
   function startFrom(g) {
     if (!sessionId()) return showGate();
-    if (!isAdmin()) return showLocked();
     stopAI();
     G = g;
     ui.moved = -1;
@@ -360,15 +397,18 @@
     window.scrollTo(0, 0);
     save();
     // Each saved game has its own address, so reloading reopens this game and the bare page is always home.
-    const q = G.gid && (G.mode === 'ai' || G.mode === 'local') ? `?local=${encodeURIComponent(G.gid)}` : '';
+    const q = G.mode === 'online' && G.id ? `?game=${encodeURIComponent(G.id)}` : G.gid && (G.mode === 'ai' || G.mode === 'local') ? `?local=${encodeURIComponent(G.gid)}` : '';
     if (history.replaceState && location.search !== q) history.replaceState(null, '', location.pathname + q);
     render();
+    if (G.mode === 'online' && G.gmode === 'quick' && G.status === 'active') Online.tickClock();
     if (st().phase === 'over') showGameOver(!!G.revealed);
-    else scheduleAI();
+    else if (G.mode !== 'online') scheduleAI();
+    else if (G.status === 'active') Online.connectSock();
   }
 
   function viewIndex() {
     const s = st();
+    if (G.mode === 'online') return G.view != null ? G.view : G.me;
     if (G.mode === 'local' && s.phase === 'act' && G.follow !== false) return s.turn;
     return G.view || 0;
   }
@@ -379,8 +419,8 @@
     const v = viewIndex();
     const day = E.today(s);
     const nextMarket = E.MARKET_DAYS[s.market];
-    const sub = G.mode === 'past' ? '📜 Finished game' : G.mode === 'sim' ? `🧪 ${SIM_SPEEDS[G.speed].name} · computer vs computer` : G.mode === 'local' ? `👥 ${s.players.length} players` : `🤖 vs ${plural(s.players.length - 1, 'rival')} · ${LEVEL_NAME[G.level] || ''}`;
-    const home = G.mode === 'past' ? '🏆<span class="bt"> History</span>' : G.mode === 'sim' ? '⏹<span class="bt"> Stop</span>' : '⚗️<span class="bt"> New game</span>';
+    const sub = G.mode === 'past' ? '📜 Finished game' : G.mode === 'sim' ? `🧪 ${SIM_SPEEDS[G.speed].name} · computer vs computer` : G.mode === 'online' ? `🌐 vs ${esc(pl(1 - G.me).name)}${G.gmode === 'quick' ? ' · ⚡' : ''}${G.gmode === 'quick' && G.deadline ? ' <span class="ol-clock" id="ol-clock"></span>' : ''}` : G.mode === 'local' ? `👥 ${s.players.length} players` : `🤖 vs ${plural(s.players.length - 1, 'rival')} · ${LEVEL_NAME[G.level] || ''}`;
+    const home = G.mode === 'past' ? '🏆<span class="bt"> History</span>' : G.mode === 'sim' ? '⏹<span class="bt"> Stop</span>' : G.mode === 'online' ? '🌐<span class="bt"> Game</span>' : '⚗️<span class="bt"> New game</span>';
     $('#app').innerHTML = `
       <header class="topbar">
         <div class="brand">
@@ -717,6 +757,11 @@
   function leaveGame() {
     if (G.mode === 'past') return showHistory();
     if (G.mode === 'sim') return stopSim();
+    if (G.mode === 'online') {
+      const id = G.id;
+      Online.forgetOnline();
+      return showSetup(id);
+    }
     save();
     // The current game stays saved: it's listed under Your games in the game lobby.
     if (window.BoardSaves) window.BoardSaves.flush();
@@ -725,6 +770,7 @@
 
   // ---------------------------------------------------------------- actions
   function doAction(a) {
+    if (G.mode === 'online') return Online.send(a);
     const s = st();
     const pi = s.turn;
     const actor = pl(pi);
@@ -1358,14 +1404,14 @@
     const ties = count((h) => h.winner < 0);
     const myScores = mine.map((h) => h.cats[h.me].coins);
     const stat = (n, label) => `<div class="hs"><b>${n}</b><small>${label}</small></div>`;
-    const kinds = { all: 'All', ai: '🤖 Computer', local: '👥 Same device' };
-    const icon = { ai: '🤖', local: '👥' };
+    const kinds = { all: 'All', ai: '🤖 Computer', local: '👥 Same device', online: '🌐 Online' };
+    const icon = { ai: '🤖', local: '👥', online: '🌐' };
     const row = (h) => {
       let res;
       if (h.me != null) res = h.winner < 0 ? '<span class="hg-res tie">Tie</span>' : h.winner === h.me ? '<span class="hg-res win">Win</span>' : '<span class="hg-res loss">Loss</span>';
       else res = h.winner < 0 ? '<span class="hg-res tie">Tie</span>' : `<span class="hg-res">${esc(h.names[h.winner])} won</span>`;
       const when = new Date(h.at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-      const what = [h.kind === 'ai' ? `vs ${plural(h.names.length - 1, 'computer shop')}${h.level ? ' · ' + LEVEL_NAME[h.level] : ''}` : `${h.names.length} players, one device`, when].join(' · ');
+      const what = [h.kind === 'ai' ? `vs ${plural(h.names.length - 1, 'computer shop')}${h.level ? ' · ' + LEVEL_NAME[h.level] : ''}` : h.kind === 'online' ? 'Online' : `${h.names.length} players, one device`, when].join(' · ');
       const line = h.names.map((nm, i) => `${esc(nm)} <em>${h.cats ? '🪙' + h.cats[i].coins : '–'}</em>`).join(' · ');
       const table = h.cats ? `<div class="hg-table" style="--n:${h.names.length}"><div class="hg-names"><small></small>${h.names.map((nm, i) => `<b style="--pc:${PCOLOR[i]}">${esc(nm)}</b>`).join('')}</div>${HIST_ROWS.map(([label, k]) => `<div><small>${label}</small>${h.cats.map((c) => `<span>${c[k] || 0}</span>`).join('')}</div>`).join('')}</div>` : '';
       const view = `<div class="hg-view"><button class="btn sm" data-past="${esc(h.id)}">⚗️ View the lane</button></div>`;
@@ -1595,9 +1641,11 @@
   // ---------------------------------------------------------------- start
   const params = new URLSearchParams(location.search);
   const localId = params.get('local');
+  const gameId = params.get('game');
   if (!sessionId()) showGate();
-  else if (!isAdmin()) showLocked();
-  else if (localId && /^[a-z0-9]{4,40}$/i.test(localId)) {
+  else if (gameId) {
+    showSetup(gameId);
+  } else if (localId && /^[a-z0-9]{4,40}$/i.test(localId)) {
     const here = rawSave();
     if (validSave(here) && here.gid === localId && lastStatus(localId) === 'here') startFrom(here);
     else if (window.BoardSaves) {

@@ -45,6 +45,7 @@ import { handleCauldronRequest } from './cauldron.js';
 import { handleHeroesRequest } from './heroes.js';
 import { handleBoardGamesRequest, handleBoardSavesDO, deleteBoardSaves } from './board-games.js';
 export { HearthholdGame, HearthholdLobby } from './hearthhold.js';
+export { LabGame, LabLobby } from './lab-online.js';
 import { handleLinkRequest, handleLinkConsumeBridge, handleInternalUserProfile } from './link.js';
 import {
   getAppDataKey,
@@ -269,11 +270,20 @@ export default {
           notifyChallenge: (notice) => sendHearthholdChallengeEmail(env, notice),
         });
       } else if (path.startsWith('/api/atlantis/')) {
-        return handleAtlantisRequest(request, env, corsHeaders, path);
+        return handleAtlantisRequest(request, env, corsHeaders, path, {
+          executionCtx,
+          notifyChallenge: (notice) => sendLabChallengeEmail(env, notice),
+        });
       } else if (path.startsWith('/api/cauldron/')) {
-        return handleCauldronRequest(request, env, corsHeaders, path);
+        return handleCauldronRequest(request, env, corsHeaders, path, {
+          executionCtx,
+          notifyChallenge: (notice) => sendLabChallengeEmail(env, notice),
+        });
       } else if (path.startsWith('/api/heroes/')) {
-        return handleHeroesRequest(request, env, corsHeaders, path);
+        return handleHeroesRequest(request, env, corsHeaders, path, {
+          executionCtx,
+          notifyChallenge: (notice) => sendLabChallengeEmail(env, notice),
+        });
       } else if (path.startsWith('/api/platter/')) {
         const platterRes = await handlePlatterRequest(request, env, corsHeaders, path);
         if (platterRes) return platterRes;
@@ -9300,6 +9310,57 @@ async function sendDinoChallengeEmail(env, { to, recipientName, challengerName, 
     '',
     `${challenger} challenged you to a game of Dino Dynasty.`,
     modeLine,
+    '',
+    `Accept or decline here: ${gameUrl}`,
+  ].join('\n');
+  await dispatchTransactionalEmail(env, { to, subject, html, text });
+}
+
+async function sendLabChallengeEmail(env, { to, recipientName, challengerName, gameId, mode, title, page }) {
+  if (!to || !isLikelyRealEmail(to)) return;
+  const challenger = String(challengerName || '').replace(/\s+/g, ' ').trim().slice(0, 40) || 'Someone';
+  const recipient = String(recipientName || '').replace(/\s+/g, ' ').trim().slice(0, 40) || 'there';
+  const gameTitle = String(title || 'a board game').slice(0, 60);
+  const gamePage = String(page || 'board-games.html').replace(/[^a-z0-9._-]/gi, '');
+  const gameUrl = `${sitePublicBase(env)}/${gamePage}?game=${encodeURIComponent(gameId)}`;
+  const urlHtml = escapeHtmlEmail(gameUrl);
+  const quick = mode === 'quick';
+  const pace = quick
+    ? 'It’s a quick game: once you accept, each turn has a 2-minute clock.'
+    : 'There’s no time limit — take your turn whenever you see it’s your move.';
+  const subject = `${challenger} challenged you to ${quick ? 'a quick game of ' : ''}${gameTitle}`;
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width"></head>
+<body style="margin:0;padding:24px 14px;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#0f172a;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+    <tr><td align="center">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:560px;background:#ffffff;border:1px solid #e2e8f0;border-radius:16px;overflow:hidden;">
+        <tr>
+          <td style="padding:22px 28px;background:linear-gradient(120deg,#0f766e 0%,#155e75 100%);">
+            <p style="margin:0;font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#ccfbf1;">${escapeHtmlEmail(gameTitle)} · Ahrens Labs</p>
+            <p style="margin:8px 0 0 0;font-size:22px;font-weight:900;line-height:1.25;color:#ffffff;">You’ve been challenged!</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:24px 28px;">
+            <p style="margin:0 0 12px 0;font-size:16px;font-weight:700;">Hi ${escapeHtmlEmail(recipient)},</p>
+            <p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;color:#334155;"><strong style="color:#0f172a;">${escapeHtmlEmail(challenger)}</strong> challenged you to a game of ${escapeHtmlEmail(gameTitle)}. ${pace}</p>
+            <div style="text-align:center;">
+              <a href="${urlHtml}" style="display:inline-block;padding:13px 26px;background:#0f766e;color:#ffffff !important;text-decoration:none;border-radius:999px;font-weight:800;font-size:15px;">Accept or decline</a>
+            </div>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+  const text = [
+    `Hi ${recipient},`,
+    '',
+    `${challenger} challenged you to a game of ${gameTitle}.`,
+    pace,
     '',
     `Accept or decline here: ${gameUrl}`,
   ].join('\n');

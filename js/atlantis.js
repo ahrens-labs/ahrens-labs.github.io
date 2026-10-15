@@ -1,4 +1,4 @@
-// Atlantis Expedition — page UI. Rules live in atlantis-engine.js. Admin-only while it's being playtested.
+// Atlantis Expedition — page UI. Rules live in atlantis-engine.js.
 (function () {
   'use strict';
   const E = window.AtlantisEngine;
@@ -61,7 +61,7 @@
 
   // ---------------------------------------------------------------- persistence
   function save() {
-    if (!G || G.mode === 'sim' || G.mode === 'past') return;
+    if (!G || G.mode === 'sim' || G.mode === 'past' || G.mode === 'online') { if (G && G.mode === 'online') Online.rememberOnline(); return; }
     try {
       localStorage.setItem(SAVE_KEY, JSON.stringify(G));
     } catch (e) {
@@ -73,7 +73,7 @@
   const playerMoved = (s) => s.tide > 1 || s.log.some((l) => l && l.who != null && s.players[l.who] && !s.players[l.who].ai);
   function keepInSaves() {
     const BS = window.BoardSaves;
-    if (!BS || !G || (G.mode !== 'ai' && G.mode !== 'local') || !isAdmin()) return;
+    if (!BS || !G || (G.mode !== 'ai' && G.mode !== 'local')) return;
     G.gid = G.gid || newLocalId();
     const s = G.state;
     if (s.phase === 'over') {
@@ -145,10 +145,73 @@
     return { ok: res.ok, status: res.status, data };
   }
 
+  const Online = window.BoardOnline.attach({
+    apiPrefix: '/api/atlantis',
+    title: 'Atlantis Expedition',
+    onlineKey: 'ahrensAtlantis.online',
+    esc, toast, $, sessionId, prefs, savePrefs,
+    blurb: 'Play Atlantis Expedition against another Ahrens Labs player — a quick game with a 2-minute turn clock, or a long game where you take your turn whenever you like.',
+    roundText: (g) => (g.round ? `tide ${g.round} of ${E.TIDES}` : ''),
+    getG: () => G,
+    showSetup: (focus) => showSetup(focus),
+    isMyTurn: () => G && G.state && G.state.turn === G.me,
+    enterOnline: (v, mem) => {
+      G = {
+        mode: 'online', id: v.id, me: v.me, view: v.me, version: v.version, status: v.status, result: v.result,
+        gmode: v.mode || 'long', deadline: v.deadline || null, skew: v.now ? v.now - Date.now() : 0,
+        state: v.state, revealed: !!(mem && mem.revealed),
+      };
+      startFrom(G);
+      if (G.status === 'over' && st().phase === 'over') showGameOver(true);
+      else if (G.status === 'over' && !G.revealed) {
+        G.revealed = true;
+        openModal(`<h2>${G.result && G.result.winner === G.me ? '🏆 You win!' : '🏳️ Game over'}</h2><p>${esc(onlineEndText())}</p><div class="btn-row"><button class="btn" data-close>See the chart</button><button class="btn ghost" data-ol-lobby>Your games</button></div>`).addEventListener('click', (e) => {
+          if (!e.target.closest('[data-ol-lobby]')) return;
+          ui.onClose = null; closeModal(); Online.forgetOnline(); showSetup(G.id);
+        });
+      }
+    },
+    applyView: (v) => {
+      const prev = G.state;
+      const tideBefore = prev.tide;
+      G.version = v.version;
+      G.status = v.status;
+      G.result = v.result;
+      G.deadline = v.deadline || null;
+      if (v.now) G.skew = v.now - Date.now();
+      if (!v.state) { render(); return; }
+      G.state = v.state;
+      const opp = 1 - G.me;
+      if (prev && v.state.tide === prev.tide && v.state.phase === 'act') {
+        const last = prev.log[prev.log.length - 1];
+        let from = 0;
+        if (last) for (let i = v.state.log.length - 1; i >= 0; i--) if (v.state.log[i].text === last.text && v.state.log[i].r === last.r) { from = i + 1; break; }
+        v.state.log.slice(from).filter((l) => l.who === opp).forEach((l) => toast(`<span class="dot" style="--pc:${PCOLOR[opp]}"></span>${esc(l.text)}`, 'ai'));
+      }
+      render();
+      if (G.gmode === 'quick' && G.status === 'active') Online.tickClock();
+      if (v.state.tide !== tideBefore) tideSplash();
+      if (v.state.phase === 'over' || G.status === 'over') {
+        if (v.state.phase === 'over') showGameOver(true);
+        else if (!G.revealed) {
+          G.revealed = true;
+          openModal(`<h2>${G.result && G.result.winner === G.me ? '🏆 You win!' : '🏳️ Game over'}</h2><p>${esc(onlineEndText())}</p><div class="btn-row"><button class="btn" data-close>See the chart</button></div>`);
+        }
+      }
+    },
+  });
+  function onlineEndText() {
+    const r = G.result || {};
+    const opp = st().players[1 - G.me].name;
+    if (r.reason === 'resign') return r.winner === G.me ? `${opp} resigned — you win!` : 'You resigned.';
+    if (r.reason === 'timeout') return r.winner === G.me ? `${opp} ran out of time three turns in a row — you win!` : 'You ran out of time three turns in a row, so the game is over.';
+    return 'This game has ended.';
+  }
+
   // ---------------------------------------------------------------- small helpers
   const st = () => G.state;
   const pl = (i) => st().players[i];
-  const humanTurn = () => st().phase === 'act' && !pl(st().turn).ai && G.mode !== 'past';
+  const humanTurn = () => st().phase === 'act' && G.mode !== 'past' && (G.mode === 'online' ? G.status === 'active' && st().turn === G.me : !pl(st().turn).ai);
   function toast(html, kind) {
     const root = $('#toasts');
     if (!root) return;
@@ -252,25 +315,13 @@
       </div></div>`;
   }
 
-  // Only the admin can see the game while it's playtested.
-  function showLocked() {
-    stopAI();
-    G = null;
-    document.body.className = 'setup-mode';
-    $('#app').innerHTML = `<div class="setup gh">${heroHtml(false)}
-      <div class="setup-card gh-card panel ol-gate">
-        <h2>🧪 Still in the lab</h2>
-        <p>Atlantis Expedition is being playtested and isn’t open yet. Check back soon!</p>
-        <a class="btn big" href="/board-games.html">Back to the game shelf</a>
-      </div></div>`;
-  }
 
-  function showSetup() {
+  function showSetup(focusGame) {
     if (!sessionId()) return showGate();
-    if (!isAdmin()) return showLocked();
     stopAI();
+    Online.disconnect();
     G = null;
-    if (history.replaceState && location.search) history.replaceState(null, '', location.pathname);
+    if (history.replaceState && location.search && !focusGame && !new URLSearchParams(location.search).get('game')) history.replaceState(null, '', location.pathname);
     const pr = prefs();
     const saved = loadSave();
     const canResume = saved && saved.state.phase !== 'over' && (saved.state.tide > 1 || saved.state.log.some((l) => l.who != null));
@@ -286,7 +337,7 @@
           <button data-v="local" class="gh-mode ${pr.mode === 'local' ? 'on' : ''}"><span>👥</span><b>Two players</b><small>Share this device</small></button>
           <button data-v="online" class="gh-mode ${pr.mode === 'online' ? 'on' : ''}"><span>🌐</span><b>Online</b><small>Challenge a friend</small></button>
         </div>
-          <div class="online-only online-soon"><b>🌐 Online play opens at launch</b><p>Challenging other Ahrens Labs players arrives when Atlantis Expedition leaves the lab. For now, play the computer or a friend on this device.</p></div>
+          <div class="online-only" id="online-box"></div>
         <div class="field names offline-only">
           <label><span class="label">Your company</span><input id="n0" maxlength="18" value="${esc(pr.n0 || 'Coral Divers')}"></label>
           <label class="local-only"><span class="label">Second company</span><input id="n1" maxlength="18" value="${esc(pr.n1 || 'Deep Blue Co.')}"></label>
@@ -328,9 +379,11 @@
       if (b.parentNode.id === 'mode') {
         savePrefs(Object.assign(prefs(), { mode: b.dataset.v }));
         setMode(b.dataset.v);
+        if (b.dataset.v === 'online') Online.showLobby();
       }
     });
-    setMode(pr.mode === 'local' || pr.mode === 'online' ? pr.mode : 'ai');
+    setMode(focusGame ? 'online' : pr.mode === 'local' || pr.mode === 'online' ? pr.mode : 'ai');
+    if (focusGame || $('#mode .on').dataset.v === 'online') Online.showLobby(focusGame);
     $('#how').onclick = () => showRules();
     $('#hist').onclick = () => showHistory();
     $('#sim').onclick = openSimSetup;
@@ -352,23 +405,26 @@
   // ---------------------------------------------------------------- game screen
   function startFrom(g) {
     if (!sessionId()) return showGate();
-    if (!isAdmin()) return showLocked();
     stopAI();
     G = g;
     ui.lastTide = st().tide;
     document.body.className = 'game-mode';
     window.scrollTo(0, 0);
-    save();
+    if (G.mode !== 'online') save();
+    else Online.rememberOnline();
     // Each saved game has its own address, so reloading reopens this game and the bare page is always home.
-    const q = G.gid && (G.mode === 'ai' || G.mode === 'local') ? `?local=${encodeURIComponent(G.gid)}` : '';
+    const q = G.mode === 'online' && G.id ? `?game=${encodeURIComponent(G.id)}` : G.gid && (G.mode === 'ai' || G.mode === 'local') ? `?local=${encodeURIComponent(G.gid)}` : '';
     if (history.replaceState && location.search !== q) history.replaceState(null, '', location.pathname + q);
     render();
+    if (G.mode === 'online' && G.gmode === 'quick' && G.status === 'active') Online.tickClock();
     if (st().phase === 'over') showGameOver(!!G.revealed);
-    else scheduleAI();
+    else if (G.mode !== 'online') scheduleAI();
+    else if (G.status === 'active') Online.connectSock();
   }
 
   function viewIndex() {
     const s = st();
+    if (G.mode === 'online') return G.view != null ? G.view : G.me;
     if (G.mode === 'local' && s.phase === 'act' && G.follow !== false) return s.turn;
     return G.view || 0;
   }
@@ -379,14 +435,14 @@
     const v = viewIndex();
     const sea = E.SEA[E.sea(s)];
     const next = s.tide < E.TIDES ? E.SEA[s.forecast[s.tide]] : null;
-    const sub = G.mode === 'past' ? '📜 Finished game' : G.mode === 'sim' ? `🧪 ${SIM_SPEEDS[G.speed].name} · computer vs computer` : G.mode === 'local' ? '👥 Two players' : `🤖 vs computer · ${LEVEL_NAME[G.level] || ''}`;
+    const sub = G.mode === 'past' ? '📜 Finished game' : G.mode === 'sim' ? `🧪 ${SIM_SPEEDS[G.speed].name} · computer vs computer` : G.mode === 'online' ? `🌐 vs ${esc(pl(1 - G.me).name)}${G.gmode === 'quick' ? ' · ⚡' : ''}${G.gmode === 'quick' && G.deadline ? ' <span class="ol-clock" id="ol-clock"></span>' : ''}` : G.mode === 'local' ? '👥 Two players' : `🤖 vs computer · ${LEVEL_NAME[G.level] || ''}`;
     let pips = '';
     for (let t = 1; t <= E.TIDES; t++) {
       const cls = s.phase === 'over' || t < s.tide ? 'done' : t === s.tide ? 'cur' : '';
       const heart = t === E.HEART_TIDE ? ' heart' : '';
       pips += `<span class="pip ${cls}${heart}" title="Tide ${t}${heart ? ' · the Heart of Atlantis is sighted' : ''}">${t}</span>`;
     }
-    const home = G.mode === 'past' ? '🏆<span class="bt"> History</span>' : G.mode === 'sim' ? '⏹<span class="bt"> Stop</span>' : '🔱<span class="bt"> New game</span>';
+    const home = G.mode === 'past' ? '🏆<span class="bt"> History</span>' : G.mode === 'sim' ? '⏹<span class="bt"> Stop</span>' : G.mode === 'online' ? '🌐<span class="bt"> Game</span>' : '🔱<span class="bt"> New game</span>';
     $('#app').innerHTML = `
       <header class="topbar">
         <div class="brand">
@@ -650,6 +706,11 @@
   function leaveGame() {
     if (G.mode === 'past') return showHistory();
     if (G.mode === 'sim') return stopSim();
+    if (G.mode === 'online') {
+      const id = G.id;
+      Online.forgetOnline();
+      return showSetup(id);
+    }
     save();
     // The current game stays saved: it's listed under Your games in the game lobby.
     if (window.BoardSaves) window.BoardSaves.flush();
@@ -658,6 +719,7 @@
 
   // ---------------------------------------------------------------- actions
   function doAction(a) {
+    if (G.mode === 'online') return Online.send(a);
     const s = st();
     const pi = s.turn;
     const tideBefore = s.tide;
@@ -1140,7 +1202,7 @@
         <div class="hr-verdict" aria-live="polite"></div>
         <div class="hr-sub">${sub}</div>
         <div class="hr-rows">${rows.map(([label, k]) => `<div class="hr-row"><span class="${sc[0][k] > sc[1][k] ? 'lead' : ''}">${sc[0][k]}</span><small>${label}</small><span class="${sc[1][k] > sc[0][k] ? 'lead' : ''}">${sc[1][k]}</span></div>`).join('')}</div>
-        <div class="hr-actions"><button class="btn" data-rv="close">🗺️ See the chart</button>${G.mode === 'past' ? '' : `<button class="btn" data-rv="again">${G.mode === 'sim' ? '🧪 Run again' : '🔱 Play again'}</button>`}${G.mode === 'sim' ? '' : '<button class="btn ghost" data-rv="hist">🏆 Game history</button>'}<a class="btn ghost" href="/board-games.html"><img class="gh-dice" src="/img/board-games-favicon-48.png?v=2" alt=""> All board games</a></div>
+        <div class="hr-actions"><button class="btn" data-rv="close">🗺️ See the chart</button>${G.mode === 'past' ? '' : `<button class="btn" data-rv="again">${G.mode === 'online' ? '🌐 Your games' : G.mode === 'sim' ? '🧪 Run again' : '🔱 Play again'}</button>`}${G.mode === 'sim' ? '' : '<button class="btn ghost" data-rv="hist">🏆 Game history</button>'}<a class="btn ghost" href="/board-games.html"><img class="gh-dice" src="/img/board-games-favicon-48.png?v=2" alt=""> All board games</a></div>
       </div><button class="hr-skip" data-rv="skip">Skip ▸</button>`;
     document.body.appendChild(el);
     const timers = [];
@@ -1193,6 +1255,7 @@
       }
       if (b && b.dataset.rv === 'again') {
         close();
+        if (G.mode === 'online') { Online.forgetOnline(); return showSetup(G.id); }
         if (G.mode === 'sim') return startSim({ l0: G.levels[0], l1: G.levels[1], speed: G.speed });
         try {
           localStorage.removeItem(SAVE_KEY);
@@ -1304,15 +1367,15 @@
     const ties = count((h) => h.winner < 0);
     const myScores = mine.map((h) => h.cats[h.me].total);
     const stat = (n, label) => `<div class="hs"><b>${n}</b><small>${label}</small></div>`;
-    const kinds = { all: 'All', ai: '🤖 Computer', local: '👥 Two players' };
-    const icon = { ai: '🤖', local: '👥' };
+    const kinds = { all: 'All', ai: '🤖 Computer', local: '👥 Two players', online: '🌐 Online' };
+    const icon = { ai: '🤖', local: '👥', online: '🌐' };
     const row = (h) => {
       const total = (i) => (h.cats ? h.cats[i].total : '–');
       let res;
       if (h.me != null) res = h.winner < 0 ? '<span class="hg-res tie">Tie</span>' : h.winner === h.me ? '<span class="hg-res win">Win</span>' : '<span class="hg-res loss">Loss</span>';
       else res = h.winner < 0 ? '<span class="hg-res tie">Tie</span>' : `<span class="hg-res">${esc(h.names[h.winner])} won</span>`;
       const when = new Date(h.at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-      const what = [h.kind === 'ai' ? `Computer${h.level ? ' · ' + LEVEL_NAME[h.level] : ''}` : 'Two players, one device', when].join(' · ');
+      const what = [h.kind === 'ai' ? `Computer${h.level ? ' · ' + LEVEL_NAME[h.level] : ''}` : h.kind === 'online' ? 'Online' : 'Two players, one device', when].join(' · ');
       const table = h.cats ? `<div class="hg-table">${SCORE_ROWS.map(([label, k]) => `<div><span>${h.cats[0][k] || 0}</span><small>${label}</small><span>${h.cats[1][k] || 0}</span></div>`).join('')}</div>` : '';
       const view = h.board ? `<div class="hg-view"><button class="btn sm" data-past="${esc(h.id)}">🗺️ View the chart</button></div>` : '';
       return `<details class="hg"><summary><span class="hg-icon">${icon[h.kind] || '🔱'}</span><span class="hg-main"><b>${esc(h.names[0])} <em>${total(0)}</em> – <em>${total(1)}</em> ${esc(h.names[1])}</b><small>${esc(what)}</small></span>${res}</summary>${table}${view}</details>`;
@@ -1596,9 +1659,11 @@
   // ---------------------------------------------------------------- start
   const params = new URLSearchParams(location.search);
   const localId = params.get('local');
+  const gameId = params.get('game');
   if (!sessionId()) showGate();
-  else if (!isAdmin()) showLocked();
-  else if (localId && /^[a-z0-9]{4,40}$/i.test(localId)) {
+  else if (gameId) {
+    showSetup(gameId);
+  } else if (localId && /^[a-z0-9]{4,40}$/i.test(localId)) {
     const here = rawSave();
     if (validSave(here) && here.gid === localId && lastStatus(localId) === 'here') startFrom(here);
     else if (window.BoardSaves) {

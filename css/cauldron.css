@@ -85,6 +85,29 @@ button { font-family: inherit; }
 .setup:not(.is-online) .online-only { display: none; }
 .ol-gate { text-align: center; padding: 0.6rem 0 0.2rem; }
 .ol-gate p { margin: 0 0 0.9rem; }
+
+.ol-head { display: flex; align-items: center; justify-content: space-between; }
+.ol-head .label { margin: 0; }
+.ol-list { list-style: none; margin: 0.4rem 0 0.9rem; padding: 0; display: grid; gap: 0.4rem; }
+.ol-game { display: flex; align-items: center; justify-content: space-between; gap: 0.8rem; padding: 0.55rem 0.75rem; border-radius: 12px; background: #fffdf6; box-shadow: inset 0 0 0 2px var(--parchment-2); }
+.ol-game.mine, .ol-game.invite { background: #fff4d0; box-shadow: inset 0 0 0 2px #f0c75a; }
+.ol-who small { display: block; color: #6b5a44; font-size: 0.85rem; margin-top: 0.1rem; }
+.ol-you { color: #a15c00; }
+.ol-btns { display: flex; gap: 0.35rem; flex-shrink: 0; }
+.ol-empty { padding: 0.5rem 0.2rem; }
+.ol-new { display: grid; gap: 0.5rem; }
+.ol-new label { flex: 1; }
+.ol-new input { width: 100%; padding: 0.55rem 0.7rem; border-radius: 10px; border: 2px solid var(--parchment-2); font: inherit; background: #fffdf6; }
+.ol .small { font-size: 0.85rem; margin: 0.6rem 0 0; }
+.ol-loading { text-align: center; padding: 4rem 1rem; color: #f4e6c8; font-size: 1.1rem; }
+#app.ol-wait { cursor: progress; }
+#app.ol-wait .act, #app.ol-wait button.btn:not([data-ol]):not([data-close]) { pointer-events: none; opacity: 0.85; }
+.ol-new .seg.ol-mode { margin: 0; }
+.seg.ol-mode button { display: flex; flex-direction: column; align-items: center; gap: 0.1rem; flex: 1 1 12rem; }
+.seg.ol-mode small { font-weight: 400; font-size: 0.78rem; opacity: 0.8; }
+.ol-clock { display: inline-block; margin-left: 0.5rem; padding: 0.1rem 0.55rem; border-radius: 999px; background: rgba(255, 255, 255, 0.85); color: #3b2a14; font-weight: 700; font-variant-numeric: tabular-nums; }
+.ol-clock.mine { box-shadow: 0 0 0 2px var(--gold, #c9a227); }
+.ol-clock.low { background: #ffe1dc; color: #a3241a; }
 .online-soon { padding: 0.9rem 1rem; border-radius: 14px; background: #f3e9ff; box-shadow: inset 0 0 0 2px #d4bdf0; color: #3d1d5c; }
 .online-soon p { margin: 0.3rem 0 0; }
 
