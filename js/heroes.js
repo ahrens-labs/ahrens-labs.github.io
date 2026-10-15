@@ -124,10 +124,11 @@
   // On a shared device the hand stays face down until its owner taps to see it.
   const canAct = () => humanTurn() && (G.mode !== 'local' || G.shown === st().turn);
   const you = (i) => G.mode === 'ai' && i === 0;
-  // Hands are secret while the game is on: your own in a computer game, and only the player whose turn it is on a shared device.
+  // Hands are secret while the game is on — and after it ends, until the results have been revealed: your own in a computer
+  // game, and only the player whose turn it is on a shared device.
   function secret(i) {
     const s = st();
-    if (s.phase === 'over' || G.mode === 'sim' || G.mode === 'past') return false;
+    if ((s.phase === 'over' && G.revealed) || G.mode === 'sim' || G.mode === 'past') return false;
     if (G.mode === 'ai') return i !== 0;
     return !(i === s.turn && G.shown === s.turn);
   }
@@ -817,9 +818,12 @@
     const second = n > 1 ? sc[order[1]].total : top;
     const margin = top - second;
     const sub = w < 0 ? 'Same score and the same card power.' : margin === 0 ? 'Level on points — won on card power!' : margin <= 5 ? `By just ${plural(margin, 'point')}!` : `By ${plural(margin, 'point')}.`;
-    const place = (i) => order.indexOf(i) + 1;
+    // Shared places for exact ties (same score and card power).
+    const place = (i) => 1 + sc.filter((x) => x.total > sc[i].total || (x.total === sc[i].total && x.base > sc[i].base)).length;
     const team = (i) => sorted(pl(i).hand).map((id) => face(id)).join('');
-    const side = (i) => `<div class="hr-side" style="--pc:${PCOLOR[i]}"><span class="hr-crown">👑</span><span class="hr-sign">${SIGN[i]}</span><b class="hr-name">${esc(pl(i).name)}</b><span class="hr-total">?</span><small class="hr-place">${ORD[place(i) - 1]} · ${sc[i].done ? `${M.icon} ✓` : `${M.icon} ✗`}</small><span class="hr-team">${team(i)}</span></div>`;
+    const mis = (i) => (sc[i].done ? `${M.icon} ✓` : `${M.icon} ✗`);
+    // Places and the margin stay out of the page until the announcement, so nothing gives the result away early.
+    const side = (i) => `<div class="hr-side" style="--pc:${PCOLOR[i]}"><span class="hr-crown">👑</span><span class="hr-sign">${SIGN[i]}</span><b class="hr-name">${esc(pl(i).name)}</b><span class="hr-total">?</span><small class="hr-place">${mis(i)}</small><span class="hr-team">${team(i)}</span></div>`;
     const lead = (k, i) => {
       if (!['base', 'bonus', 'mission'].includes(k)) return false;
       const vals = sc.map((x) => x[k]);
@@ -837,8 +841,8 @@
         <div class="hr-title">${M.icon} Mission debrief: ${esc(M.name)}</div>
         <div class="hr-shops n${n}">${s.players.map((_, i) => side(i)).join('')}</div>
         <div class="hr-verdict" aria-live="polite"></div>
-        <div class="hr-sub">${sub}</div>
-        <div class="hr-rows" style="--n:${n}">${SCORE_ROWS.map(([label, k]) => `<div class="hr-row"><small>${label}</small>${sc.map((x, i) => `<span class="${lead(k, i) ? 'lead' : ''}" style="--pc:${PCOLOR[i]}">${cell(k, x[k])}</span>`).join('')}</div>`).join('')}</div>
+        <div class="hr-sub"></div>
+        <div class="hr-rows" style="--n:${n}"></div>
         <div class="hr-actions"><button class="btn" data-rv="close">🦸 See every team</button>${G.mode === 'past' ? '' : `<button class="btn" data-rv="again">${G.mode === 'sim' ? '🧪 Run again' : '🦸 Play again'}</button>`}${G.mode === 'sim' ? '' : '<button class="btn ghost" data-rv="hist">🏆 Game history</button>'}<a class="btn ghost" href="/board-games.html"><img class="gh-dice" src="/img/board-games-favicon-48.png?v=2" alt=""> All board games</a></div>
       </div><button class="hr-skip" data-rv="skip">Skip ▸</button>`;
     document.body.appendChild(el);
@@ -855,6 +859,9 @@
       sides.forEach((x, i) => x.classList.add(w < 0 ? (sc[i].total === top ? 'tie' : 'lose') : i === w ? 'win' : 'lose'));
       el.querySelector('.hr-verdict').innerHTML = `<div class="hr-head">${head}</div>`;
       el.querySelectorAll('.hr-total').forEach((t, i) => (t.textContent = `⭐${sc[i].total}`));
+      el.querySelectorAll('.hr-place').forEach((t, i) => (t.textContent = `${ORD[place(i) - 1]} · ${mis(i)}`));
+      el.querySelector('.hr-sub').textContent = sub;
+      el.querySelector('.hr-rows').innerHTML = SCORE_ROWS.map(([label, k]) => `<div class="hr-row"><small>${label}</small>${sc.map((x, i) => `<span class="${lead(k, i) ? 'lead' : ''}" style="--pc:${PCOLOR[i]}">${cell(k, x[k])}</span>`).join('')}</div>`).join('');
       const happy = w < 0 || G.mode !== 'ai' || w === 0;
       if (!instant && happy) confetti();
       if (!instant) sfx(happy ? 'win' : 'lose');

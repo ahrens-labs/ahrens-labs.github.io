@@ -1168,8 +1168,10 @@
     const second = n > 1 ? sc[order[1]].coins : top;
     const margin = top - second;
     const sub = w < 0 ? 'Same coins and the same number of customers served.' : margin === 0 ? 'Level on coins — won on customers served!' : margin <= 3 ? `By just 🪙${margin}!` : `By 🪙${margin}.`;
-    const place = (i) => order.indexOf(i) + 1;
-    const side = (i) => `<div class="hr-side" style="--pc:${PCOLOR[i]}"><span class="hr-crown">👑</span><span class="hr-sign">${SIGN[i]}</span><b class="hr-name">${esc(pl(i).name)}</b><span class="hr-total">?</span><small class="hr-place">${['1st', '2nd', '3rd', '4th'][place(i) - 1]} · 😊 ${sc[i].served}</small></div>`;
+    // Shared places for exact ties (same coins and customers served).
+    const place = (i) => 1 + sc.filter((x) => x.coins > sc[i].coins || (x.coins === sc[i].coins && x.served > sc[i].served)).length;
+    // Places and the margin stay out of the page until the announcement, so nothing gives the result away early.
+    const side = (i) => `<div class="hr-side" style="--pc:${PCOLOR[i]}"><span class="hr-crown">👑</span><span class="hr-sign">${SIGN[i]}</span><b class="hr-name">${esc(pl(i).name)}</b><span class="hr-total">?</span><small class="hr-place">😊 ${sc[i].served}</small></div>`;
     const lead = (k, i) => {
       const vals = sc.map((x) => x[k]);
       const best = k === 'spent' || k === 'start' ? null : Math.max(...vals);
@@ -1185,8 +1187,8 @@
         <div class="hr-title">🌕 The Moon Fair</div>
         <div class="hr-shops n${n}">${s.players.map((_, i) => side(i)).join('')}</div>
         <div class="hr-verdict" aria-live="polite"></div>
-        <div class="hr-sub">${sub}</div>
-        <div class="hr-rows" style="--n:${n}">${SCORE_ROWS.map(([label, k]) => `<div class="hr-row"><small>${label}</small>${sc.map((x, i) => `<span class="${lead(k, i) ? 'lead' : ''}" style="--pc:${PCOLOR[i]}">${k === 'spent' && x[k] ? '−' : ''}${x[k]}</span>`).join('')}</div>`).join('')}</div>
+        <div class="hr-sub"></div>
+        <div class="hr-rows" style="--n:${n}"></div>
         <div class="hr-actions"><button class="btn" data-rv="close">⚗️ See the lane</button>${G.mode === 'past' ? '' : `<button class="btn" data-rv="again">${G.mode === 'sim' ? '🧪 Run again' : '⚗️ Play again'}</button>`}${G.mode === 'sim' ? '' : '<button class="btn ghost" data-rv="hist">🏆 Game history</button>'}<a class="btn ghost" href="/board-games.html"><img class="gh-dice" src="/img/board-games-favicon-48.png?v=2" alt=""> All board games</a></div>
       </div><button class="hr-skip" data-rv="skip">Skip ▸</button>`;
     document.body.appendChild(el);
@@ -1203,6 +1205,9 @@
       sides.forEach((x, i) => x.classList.add(w < 0 ? (place(i) === 1 || sc[i].coins === top ? 'tie' : 'lose') : i === w ? 'win' : 'lose'));
       el.querySelector('.hr-verdict').innerHTML = `<div class="hr-head">${head}</div>`;
       el.querySelectorAll('.hr-total').forEach((t, i) => (t.textContent = `🪙${sc[i].coins}`));
+      el.querySelectorAll('.hr-place').forEach((t, i) => (t.textContent = `${['1st', '2nd', '3rd', '4th'][place(i) - 1]} · 😊 ${sc[i].served}`));
+      el.querySelector('.hr-sub').textContent = sub;
+      el.querySelector('.hr-rows').innerHTML = SCORE_ROWS.map(([label, k]) => `<div class="hr-row"><small>${label}</small>${sc.map((x, i) => `<span class="${lead(k, i) ? 'lead' : ''}" style="--pc:${PCOLOR[i]}">${k === 'spent' && x[k] ? '−' : ''}${x[k]}</span>`).join('')}</div>`).join('');
       const happy = w < 0 || G.mode !== 'ai' || w === 0;
       if (!instant && happy) confetti();
       if (!instant) sfx(happy ? 'win' : 'lose');
