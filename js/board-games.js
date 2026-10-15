@@ -6,7 +6,7 @@
     dino: { name: 'Dino Dynasty', icon: '🦖', page: '/dino-board-game.html', img: '/img/dino-game/cover.webp' },
     hearthhold: { name: 'Oakhaven', icon: '🏰', page: '/oakhaven.html', img: '/img/hearthhold/cover.webp' },
     atlantis: { name: 'Atlantis Expedition', icon: '🔱', page: '/atlantis.html', img: '/img/atlantis/cover.webp', admin: true },
-    cauldron: { name: 'Cauldron Lane', icon: '⚗️', page: '/cauldron.html', img: '/img/cauldron/cover.webp', admin: true },
+    cauldron: { name: 'Cauldron Lane', icon: '⚗️', page: '/cauldron.html', img: '/img/cauldron/cover.webp?v=2', admin: true },
     heroes: { name: 'Hero League', icon: '🦸', page: '/heroes.html', img: '/img/heroes/cover.webp', admin: true },
   };
   const LEVELS = { easy: 'Easy', normal: 'Normal', medium: 'Normal', hard: 'Hard', brutal: 'Brutal' };

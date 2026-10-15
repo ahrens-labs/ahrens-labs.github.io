@@ -18,7 +18,7 @@
     fast: { name: '⏩ Fast', ai: 250 },
     watch: { name: '👀 Watch', ai: 1100 },
   };
-  const IMG = (k) => `/img/cauldron/${k}.webp`;
+  const IMG = (k) => `/img/cauldron/${k}.webp?v=2`;
   const PCOLOR = ['#d9473f', '#3b7fd6', '#3fa860', '#9b59d0'];
   const SIGN = ['⚗️', '🧪', '🌿', '🔮'];
   const SHOP_NAMES = ['The Red Cauldron', 'Blue Phial & Co.', 'Greenroot Remedy', 'Violet Moon'];
@@ -186,7 +186,7 @@
     const bubbles = Array.from({ length: 12 }, (_, i) => `<i style="left:${8 + ((i * 37) % 30)}%;animation-delay:${(i * 0.7).toFixed(1)}s;width:${6 + (i % 4) * 3}px;height:${6 + (i % 4) * 3}px"></i>`).join('');
     return `<div class="gh-top"><a class="gh-lobby" href="/board-games.html" title="Back to the game lobby">← <img class="gh-dice" src="/img/board-games-favicon-48.png?v=2" alt="" width="20" height="20"> Game lobby</a>${window.GameMusic ? GameMusic.buttonHtml('btn ghost sm gh-music', 'bt') : ''}</div>
       <div class="gh-hero">
-        <img src="${IMG('cover')}" alt="Four glowing potion shops side by side on a cobbled lane under a full moon, with a phoenix and a griffin in the sky" class="gh-hero-img">
+        <img src="${IMG('cover')}" alt="Four glowing potion shops side by side on a cobbled lane under a full moon, with a baby dragon and a phoenix chick in the sky" class="gh-hero-img">
         <div class="gh-shade"></div>
         <div class="hero-bubbles" aria-hidden="true">${bubbles}</div>
         <div class="gh-title"><h1 class="display">Cauldron Lane</h1>${withTagline ? '<p>Run a potion shop on a crowded lane. Buy herbs, hunt griffins and dragons for rare parts, and sell to townsfolk — or to the shop next door. Every action costs days, and the richest shop at the Moon Fair wins.</p>' : ''}</div>
@@ -361,7 +361,7 @@
     $('#app').innerHTML = `
       <header class="topbar">
         <div class="brand">
-          <img src="/img/cauldron-favicon-96.png?v=1" alt="" class="brand-logo" width="46" height="46">
+          <img src="/img/cauldron-favicon-96.png?v=2" alt="" class="brand-logo" width="46" height="46">
           <div><h1>Cauldron Lane</h1><small>${esc(sub)}</small></div>
         </div>
         <div class="top-mid">
