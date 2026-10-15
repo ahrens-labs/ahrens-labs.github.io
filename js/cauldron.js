@@ -119,6 +119,22 @@
   const humanTurn = () => st().phase === 'act' && !pl(st().turn).ai && G.mode !== 'past';
   const shopName = (i) => `<b class="who" style="--pc:${PCOLOR[i]}">${esc(pl(i).name)}</b>`;
   const you = (i) => G.mode === 'ai' && i === 0;
+  const whose = (i) => (you(i) ? 'your' : `${shopName(i)}’s`);
+  // One sale, said plainly: who bought what from whom, and the coins it brought in.
+  function saleHtml(x, big) {
+    const P = E.POTION[x.k];
+    const pic = x.to === 'folk' ? folkPic({ who: x.folk }) : `<span class="sale-sign" style="--pc:${PCOLOR[x.buyer]}">${SIGN[x.buyer]}</span>`;
+    const text = x.to === 'folk'
+      ? `<b>${esc(E.FOLK[x.folk].name)}</b> the ${esc(E.FOLK[x.folk].role)} bought ${whose(x.who)} <b>${esc(P.name)}</b>`
+      : `${shopName(x.buyer)} <small>(a rival shop)</small> bought ${whose(x.who)} <b>${esc(P.name)}</b> off the shelf`;
+    return `<span class="sale${big ? ' big' : ''}">${pic}<span class="sale-txt">${big ? (x.to === 'folk' ? '💰 Sold! ' : '🤝 Sold to a rival! ') : ''}${text}</span><b class="sale-coins">+🪙${x.coins}</b></span>`;
+  }
+  // Recent coins from sales float up over the shop's score card for a moment.
+  function noteGains(sold) {
+    const by = {};
+    sold.filter((x) => x.to === 'folk' || x.to === 'rival').forEach((x) => (by[x.who] = (by[x.who] || 0) + x.coins));
+    ui.gain = Object.keys(by).length ? { t: Date.now(), by } : null;
+  }
   function toast(html, kind, ms) {
     const root = $('#toasts');
     if (!root) return;
@@ -409,8 +425,15 @@
     return `<div class="co${turn ? ' turn' : ''}${v === i ? ' viewing' : ''}" style="--pc:${PCOLOR[i]}" data-view="${i}" title="Show ${esc(p.name)}’s shop">
       <span class="co-flag">${SIGN[i]}</span>
       <div class="co-name"><b>${esc(p.name)}</b>${p.ai ? `<span class="co-tag">🤖 ${LEVEL_NAME[p.level] || ''}</span>` : ''}${tag}</div>
-      <div class="co-stats"><span title="Coins">🪙 <b>${p.coins}</b></span><span title="Day on the calendar">📅 <b>${p.pos}</b></span><span title="Customers waiting">🔔 <b>${p.queue.length}</b></span><span title="Potions on the shelf">🧴 <b>${p.shelf.length}</b></span><span title="Customers served">😊 <b>${p.stats.served}</b></span></div>
+      ${gainHtml(i)}<div class="co-stats"><span title="Coins">🪙 <b>${p.coins}</b></span><span title="Day on the calendar">📅 <b>${p.pos}</b></span><span title="Customers waiting">🔔 <b>${p.queue.length}</b></span><span title="Potions on the shelf">🧴 <b>${p.shelf.length}</b></span><span title="Customers served">😊 <b>${p.stats.served}</b></span></div>
     </div>`;
+  }
+
+  function gainHtml(i) {
+    const g = ui.gain;
+    const age = g ? Date.now() - g.t : 1e9;
+    if (!g || !g.by[i] || age > 2600) return '';
+    return `<span class="co-gain" style="animation-delay:-${age}ms">+🪙${g.by[i]}</span>`;
   }
 
   function bannerHtml() {
@@ -426,7 +449,9 @@
     const ahead = s.players.filter((q, i) => i !== s.turn && q.pos < E.DAYS);
     const lead = ahead.length ? Math.min(...ahead.map((q) => q.pos)) : null;
     const when = lead == null ? 'Everyone else is at the Moon Fair, so you keep moving until you get there too.' : lead === p.pos ? 'You’re level with a rival and arrived first, so you go.' : `You keep moving until you pass day ${lead}.`;
-    return `<div class="banner mine" style="--pc:${PCOLOR[s.turn]}"><span class="dot"></span><b>${who}</b> — you’re on day ${p.pos}. ${when}</div>`;
+    const rec = E.salesSince(s, s.turn).filter((x) => x.to === 'folk' || x.to === 'rival');
+    const recap = rec.length ? `<div class="sales-recap"><div class="sr-head">💰 <b>${G.mode === 'local' ? `${esc(p.name)} sold` : 'You sold'} ${plural(rec.length, 'potion')} since ${G.mode === 'local' ? 'their' : 'your'} last turn</b><span class="sr-total">+🪙${rec.reduce((t, x) => t + x.coins, 0)}</span></div>${rec.map((x) => saleHtml(x)).join('')}</div>` : '';
+    return `<div class="banner mine" style="--pc:${PCOLOR[s.turn]}"><span class="dot"></span><b>${who}</b> — you’re on day ${p.pos}. ${when}${recap}</div>`;
   }
 
   // ---------------------------------------------------------------- the calendar track
@@ -602,10 +627,21 @@
       <div class="queue">${queue.join('')}</div>
       <h3>🧴 Shelf <small>${p.shelf.length}/${E.SHELF} · customers buy the moment something suits them</small></h3>
       <div class="shelf">${shelf.join('')}</div>
+      <h3>💰 Sales <small>${salesLine(v)}</small></h3>
+      <div class="sales-list">${recentSales(v)}</div>
       <h3>🧺 Pantry</h3>
       <div class="pantry">${pantry.length ? pantry.map((k) => tok(k, p.pantry[k])).join('') : '<p class="empty">Empty — go to market or on a hunt.</p>'}</div>
       <h3>📖 Recipe book <small>${plural(p.recipes.length, 'recipe')} of their own · tap one for details</small></h3>
       <div class="rcps book">${book}</div>`;
+  }
+
+  function salesLine(v) {
+    const st_ = pl(v).stats;
+    return `${plural(st_.served, 'customer')} served · ${plural(st_.toRivals, 'potion')} sold to rival shops`;
+  }
+  function recentSales(v) {
+    const list = (st().sales || []).filter((x) => x.who === v && (x.to === 'folk' || x.to === 'rival')).slice(-5).reverse();
+    return list.length ? list.map((x) => saleHtml(x)).join('') : '<p class="empty">Nothing sold yet. Customers buy from the shelf on their own; rival shops can buy too, at your price tag.</p>';
   }
 
   // What each action would do right now, and why it can't be done.
@@ -705,6 +741,7 @@
     }
     if (!actor.ai) G.moved = true;
     ui.moved = pi;
+    noteGains(s.sold);
     const fresh = s.log.slice(s.log.lastIndexOf(mark) + 1);
     if (G.mode === 'local' && G.follow !== false && s.phase === 'act') G.view = s.turn;
     if (G.mode === 'ai' && !actor.ai) G.view = 0;
@@ -730,13 +767,13 @@
     const s = st();
     const actor = pl(pi);
     const humanShop = (i) => !pl(i).ai;
-    if (actor.ai) {
+    // A computer shop buying from a person's shelf gets its own sale notice below.
+    if (actor.ai && !(a.t === 'visit' && humanShop(a.from))) {
       const line = fresh.find((l) => l.who === pi && !/^🔔|gave up|bought .* at /.test(l.text));
       if (line) toast(`<span class="dot" style="--pc:${PCOLOR[pi]}"></span>${esc(line.text)}`);
     }
     s.sold.forEach((x) => {
-      if (x.to === 'folk' && (humanShop(x.who) || G.mode === 'sim')) toast(`💰 ${esc(E.FOLK[x.folk].name)} bought ${esc(E.POTION[x.k].name)} at ${shopName(x.who)} for <b>🪙${x.coins}</b>.`, 'good');
-      if (x.to === 'rival' && humanShop(x.who) && pl(x.buyer).ai) toast(`🤝 ${shopName(x.buyer)} bought ${you(x.who) ? 'your' : `${esc(pl(x.who).name)}’s`} ${esc(E.POTION[x.k].name)} for <b>🪙${x.coins}</b>.`, 'good');
+      if ((x.to === 'folk' || x.to === 'rival') && (humanShop(x.who) || G.mode === 'sim')) toast(saleHtml(x, true), 'sale', 6500);
     });
     const r = s.report;
     if (!r) return;

@@ -166,6 +166,7 @@
       folkDeck: [],
       log: [],
       sold: [],
+      sales: [], // every potion sold to a customer or another shop, for "since your last turn" recaps
       report: null,
     };
     COMMONS.forEach((k) => (state.supply[k] = SUPPLY_START));
@@ -442,10 +443,17 @@
       p.coins += pay;
       p.stats.served++;
       p.stats.custCoins += pay;
-      state.sold.push({ to: 'folk', who: pi, k: s.k, coins: pay, folk: o.who });
+      recordSale(state, { to: 'folk', who: pi, k: s.k, coins: pay, folk: o.who });
       log(state, `${FOLK[o.who].name} bought ${POTION[s.k].name} at ${p.name} for 🪙${pay}.`, pi);
     });
   }
+
+  function recordSale(state, x) {
+    state.sold.push(x);
+    (state.sales || (state.sales = [])).push(x);
+  }
+  // Sales by this shop since it last took a turn (including customers served on that turn).
+  const salesSince = (state, pi) => (state.sales || []).slice(state.players[pi].seen || 0).filter((x) => x.who === pi);
 
   function apply(state, pi, a) {
     const err = legal(state, pi, a);
@@ -457,6 +465,7 @@
       p.shelf.find((x) => x.id === a.s).tag = a.tag;
       return state;
     }
+    p.seen = (state.sales || []).length;
     const days = actionDays(state, pi, a);
     if (a.t === 'market') {
       const cost = marketCost(state, a.buy);
@@ -494,7 +503,7 @@
         p.stats.spent += s.tag;
         q.stats.toRivals++;
         q.stats.rivalCoins += s.tag;
-        state.sold.push({ to: 'rival', who: a.from, buyer: pi, k: s.k, coins: s.tag });
+        recordSale(state, { to: 'rival', who: a.from, buyer: pi, k: s.k, coins: s.tag });
         p.shelf.push({ id: s.id, k: s.k, tag: Math.max(s.tag + 2, suggestTag(state, pi, s.k)) });
         return `${POTION[s.k].name} for 🪙${s.tag}`;
       });
@@ -824,7 +833,7 @@
     SUPPLY_START, GUILD_DROP, GUILD_FLOOR, GUILD_RECOVER, LEARN_COST, PATIENCE, ING, COMMONS, PARTS, BEAST, NEED, NEED_ORDER, TIER, POTION, POTION_ORDER,
     BASIC, FOLK, FOLK_ORDER, FOLK_MINS, AI,
     newGame, aiHeadStart, legal, apply, aiChoose, score, winner, ranking, clone, today, nextTurn, price, marketCost, guildMin, beastDays, restock,
-    canBrew, knows, suggestTag, brewers, rivalWants, waitDays, actionDays, bestShopping, tier, ingText, suits, payFor, wantText,
+    canBrew, knows, suggestTag, brewers, salesSince, rivalWants, waitDays, actionDays, bestShopping, tier, ingText, suits, payFor, wantText,
   };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.CauldronEngine = api;
