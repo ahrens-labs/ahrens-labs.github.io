@@ -16,7 +16,7 @@
     'cauldron-ad': { title: 'Cauldron Lane — trailer', base: '/video/cauldron-ad', trailer: true, v: 2 },
     'heroes-ad': { title: 'Hero League — trailer', base: '/video/heroes-ad', trailer: true, v: 2 },
   };
-  const V = '?v=7';
+  const V = '?v=8';
   const CC_KEY = 'ahrensTutorial.cc';
 
   const css = `
