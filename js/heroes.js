@@ -132,6 +132,9 @@
     if (G.mode === 'ai') return i !== 0;
     return !(i === s.turn && G.shown === s.turn);
   }
+  // Scoring is left to the players while the game is on: running totals, per-card values and "what if" numbers only
+  // appear once the result has been revealed, and when watching (simulations, finished games).
+  const showScores = () => G.mode === 'sim' || G.mode === 'past' || (st().phase === 'over' && !!G.revealed);
   const leagueName = (i) => `<b class="who" style="--pc:${PCOLOR[i]}">${esc(pl(i).name)}</b>`;
   const C = (id) => E.CARD[id];
   const cname = (id) => esc(C(id).name);
@@ -439,12 +442,12 @@
     const turn = playing() && s.turn === i;
     const owner = handOwner();
     const tag = turn ? `<span class="co-tag turn">${p.ai ? 'Thinking…' : G.mode === 'ai' ? 'Your turn' : 'Up now'}</span>` : '';
-    const sc = secret(i) ? null : E.score(s, p);
+    const sc = secret(i) || !showScores() ? null : E.score(s, p);
     const known = p.took.length ? `<span class="co-known" title="Cards everyone saw ${esc(p.name)} recruit from the Plaza">👁️ ${p.took.slice(-4).map((c) => face(c)).join('')}</span>` : '';
     return `<div class="co${turn ? ' turn' : ''}${owner === i ? ' viewing' : ''}" style="--pc:${PCOLOR[i]}" data-view="${i}" title="${secret(i) ? `What you know about ${esc(p.name)}` : `Show ${esc(p.name)}’s team`}">
       <span class="co-flag">${SIGN[i]}</span>
       <div class="co-name"><b>${esc(p.name)}</b>${p.ai ? `<span class="co-tag">🤖 ${LEVEL_NAME[p.level] || ''}</span>` : ''}${tag}</div>
-      <div class="co-stats"><span title="Cards in hand">🃏 <b>${p.hand.length}</b></span><span title="Heroes recruited from the Plaza">🏙️ <b>${p.stats.plaza}</b></span>${sc ? `<span title="Team score right now">⭐ <b>${sc.total}</b></span>` : '<span title="Hidden until the end">⭐ <b>?</b></span>'}${known}</div>
+      <div class="co-stats"><span title="Cards in hand">🃏 <b>${p.hand.length}</b></span><span title="Heroes recruited from the Plaza">🏙️ <b>${p.stats.plaza}</b></span>${sc ? `<span title="Team score">⭐ <b>${sc.total}</b></span>` : '<span title="Scores are counted at the end">⭐ <b>?</b></span>'}${known}</div>
     </div>`;
   }
 
@@ -465,7 +468,7 @@
       return `<div class="banner mine" style="--pc:${PCOLOR[s.turn]}">${dot}<b>${who}</b> — <b>1. Draw:</b> take the top card of the deck, or recruit any hero from the Plaza.${warn}</div>`;
     }
     const fresh = p.fresh ? ` (not ${cname(p.fresh)} — you just recruited them)` : '';
-    return `<div class="banner mine" style="--pc:${PCOLOR[s.turn]}">${dot}<b>${who}</b> — <b>2. Send one card to the Plaza</b>${fresh}. Under each card is what your team would score without it.</div>`;
+    return `<div class="banner mine" style="--pc:${PCOLOR[s.turn]}">${dot}<b>${who}</b> — <b>2. Send one card to the Plaza</b>${fresh}. Which one weakens your team least? That’s for you to work out.</div>`;
   }
 
   // ---------------------------------------------------------------- the table
@@ -479,8 +482,7 @@
     const s = st();
     const M = mission();
     const owner = handOwner();
-    const show = !secret(owner);
-    const chk = show ? missionCheck(pl(owner).hand) : null;
+    const chk = !secret(owner) && showScores() ? missionCheck(pl(owner).hand) : null;
     const need = M.need.map((x) => `${suitTag(x, chk ? (chk.has(x) ? ' ✓' : ' ✗') : '')}`).join(' + ');
     return `<button class="mission" data-act="mission" title="About this Mission" style="--mc:${E.SUIT[M.need[0]].color}">
       <span class="ms-art"><img src="${IMG('mission-' + s.mission)}" alt="" loading="lazy"><span class="ms-tag">🎯 The Mission</span></span>
@@ -532,22 +534,27 @@
           <div class="curtain"><b>📱 ${esc(p.name)}’s hand</b><span>Everyone else, look away!</span><button class="btn" data-act="reveal">👀 Show my hand</button></div>
         </div></section>`;
     }
+    const scored = showScores();
     const r = E.scoreHand(p.hand, s.mission);
     const rowOf = {};
-    r.cards.forEach((x) => (rowOf[x.id] = x));
+    if (scored) r.cards.forEach((x) => (rowOf[x.id] = x));
     const myDiscard = canAct() && s.phase === 'discard' && owner === s.turn;
     const cards = sorted(p.hand).map((id) => {
       const isNew = playing() && s.turn === owner && p.drew === id;
       let extra = '';
       if (myDiscard) {
         if (id === p.fresh) extra = '<span class="send no">Just recruited — keeps</span>';
-        else {
-          const after = E.handScore(p.hand.filter((x) => x !== id), s.mission);
-          extra = `<button class="send" data-send="${id}" title="Send ${cname(id)} to the Plaza">📤 Send <small>team → <b>${after}</b></small></button>`;
-        }
+        else extra = `<button class="send" data-send="${id}" title="Send ${cname(id)} to the Plaza">📤 Send</button>`;
       }
       return `<div class="hand-slot${isNew ? ' new' : ''}">${isNew ? `<span class="new-tag">${p.fresh === id ? '🏙️ Recruited' : '🂠 Drawn'}</span>` : ''}${cardHtml(id, { row: rowOf[id], attrs: `data-card="${id}"`, cls: 'live' })}${extra}</div>`;
     }).join('');
+    if (!scored) {
+      return `<section class="panel hand" style="--pc:${PCOLOR[owner]}">${head}
+        <div class="hand-score" title="Scores are counted when the game ends"><small>Team score</small><b>?</b></div></div>
+      <div class="hand-cards">${cards}</div>
+      <p class="hand-tip">🧮 No running totals: add up your own team — power, bonuses, penalties and the Mission. Every league’s score is revealed at the end. Tap a card to read it.</p>
+    </section>`;
+    }
     const sc = E.score(s, p);
     const m = r.mission;
     const M = mission();
@@ -558,7 +565,7 @@
     if (m.minusN) mParts.push(`<span class="bad">−${m.minusN} ${E.SUIT[M.minus.s].plural}</span>`);
     if (m.mult > 1) mParts.push('<span class="spec">Seer Sela doubled the +' + E.MISSION_DONE + '</span>');
     return `<section class="panel hand" style="--pc:${PCOLOR[owner]}">${head}
-        <div class="hand-score" title="Team score if the game ended now"><small>Team score</small><b>${sc.total}</b></div></div>
+        <div class="hand-score" title="${s.phase === 'over' ? 'Final team score' : 'Team score if the game ended now'}"><small>Team score</small><b>${sc.total}</b></div></div>
       <div class="hand-cards">${cards}</div>
       <div class="hand-sum">
         <span title="Printed power of the cards that aren’t blanked">🃏 Power <b>${sc.base}</b></span>
@@ -669,10 +676,9 @@
     const s = st();
     if (s.phase !== 'draw' || !s.deck.length) return;
     if (s.plaza.length === E.PLAZA_END - 1 || s.deck.length === 1) {
-      const now = E.handScore(pl(s.turn).hand, s.mission);
       const back = openModal(`<h2>🏁 End the game?</h2>
         <p>${s.deck.length === 1 ? 'This is the last card in the deck.' : `The Plaza has ${E.PLAZA_END - 1} cards.`} If you draw from the deck, the game ends as soon as you send a card to the Plaza.</p>
-        <p>Your team scores <b>${now}</b> right now. Recruiting from the Plaza instead keeps the game going.</p>
+        <p>Happy with your team? Recruiting from the Plaza instead keeps the game going.</p>
         <div class="btn-row"><button class="btn" id="go">🂠 Draw and finish</button><button class="btn ghost" data-close>Not yet</button></div>`, { onClose: () => {} });
       back.querySelector('#go').onclick = () => {
         closeModal(true);
@@ -701,7 +707,7 @@
   function showCard(id, owner) {
     const s = st();
     let row = null;
-    if (owner != null && !secret(owner) && pl(owner).hand.includes(id)) row = E.scoreHand(pl(owner).hand, s.mission).cards.find((x) => x.id === id);
+    if (showScores() && owner != null && !secret(owner) && pl(owner).hand.includes(id)) row = E.scoreHand(pl(owner).hand, s.mission).cards.find((x) => x.id === id);
     const c = C(id);
     const body = `<div class="card-view">${cardHtml(id, { big: true, row })}
       <div class="cv-text"><h2>${cname(id)}</h2><p class="cv-suit">${suitTag(c.suit)} · power ${c.power}</p>
@@ -714,16 +720,12 @@
   function openRecruit(id) {
     const s = st();
     const p = pl(s.turn);
-    const now = E.handScore(p.hand, s.mission);
-    const best = E.bestDiscard(p.hand.concat(id), s.mission, id, null);
-    const diff = best.v - now;
     const c = C(id);
     const back = openModal(`<div class="card-view">${cardHtml(id, { big: true })}
       <div class="cv-text"><h2>Recruit ${cname(id)}?</h2><p class="cv-suit">${suitTag(c.suit)} · power ${c.power}</p>
         <p class="cv-fx">${fxHtml(id)}</p>
         <p class="cv-flavor">“${esc(c.flavor)}”</p>
-        <div class="could ${diff > 0 ? 'good' : diff < 0 ? 'bad' : ''}">Your team scores <b>${now}</b> now. With ${cname(id)}, your best team scores <b>${best.v}</b> (${signed(diff)}) — sending <b>${cname(best.id)}</b> to the Plaza.</div>
-        <p class="muted">You can’t send ${cname(id)} straight back this turn.</p>
+        <p class="muted">You’ll then send one of your other ${plural(p.hand.length, 'card')} to the Plaza — you can’t send ${cname(id)} straight back this turn.</p>
         <div class="btn-row"><button class="btn" id="go">🦸 Recruit ${cname(id)}</button><button class="btn ghost" data-close>Keep looking</button></div>
       </div></div>`, { cls: 'wide', onClose: () => {} });
     back.querySelector('#go').onclick = () => {
@@ -735,7 +737,7 @@
     const s = st();
     const M = mission();
     const owner = handOwner();
-    const r = secret(owner) ? null : E.scoreHand(pl(owner).hand, s.mission).mission;
+    const r = secret(owner) || !showScores() ? null : E.scoreHand(pl(owner).hand, s.mission).mission;
     openModal(`<div class="mission-view"><img src="${IMG('mission-' + s.mission)}" alt="">
       <h2>${M.icon} ${esc(M.name)}</h2><p>${esc(M.story)}</p>
       <ul class="cv-rows">
@@ -1182,6 +1184,7 @@
         <p class="rb-ex">With ${E.PLAZA_END - 1} cards in the Plaza, you decide the timing. Ahead? Draw from the deck and end it. Behind? Recruit from the Plaza and keep the game going.</p>
         ${sec(2, 'Scoring a team, step by step')}
         <ol class="rb-flow"><li>Mimic chooses its suit.</li><li>Clear penalties (Hacklette, Penny Press, Skybase).</li><li>Blank cards — all blanking happens at the same time.</li><li>Check “blanked unless…” cards.</li><li>Each card that isn’t blanked scores its power + bonuses − penalties.</li><li>Add the Mission.</li></ol>
+        <p class="rb-ex">Nobody’s score is shown during the game — not even your own. Counting up your team (and guessing at everyone else’s) is part of the challenge. The full breakdown appears at the end.</p>
         ${sec(3, 'Winning')}
         <p>Highest total wins. If it’s a tie, the team with more card power wins; if that’s tied too, it’s a shared win.</p>`;
     } else if (tab === 'gallery') {
