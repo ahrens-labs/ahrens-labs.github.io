@@ -179,6 +179,11 @@
   }
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && ui.modal && !$('.modal-back.locked')) closeModal();
+    const pb = (e.key === 'Enter' || e.key === ' ') && !ui.modal && e.target.closest && e.target.closest('[data-potion]');
+    if (pb && e.target === pb) {
+      e.preventDefault();
+      showPotion(pb.dataset.potion, Number(pb.dataset.who));
+    }
   });
 
   // ---------------------------------------------------------------- home
@@ -483,9 +488,59 @@
       <div class="beasts">${cards || '<p class="empty">No sightings.</p>'}</div></div>`;
   }
 
-  function recipeCard(k, extra) {
+  // `who` makes the card open the potion's details, checked against that shop's pantry.
+  function recipeCard(k, extra, who) {
     const P = E.POTION[k];
-    return `<div class="rcp t${P.tier}">${bottle(k)}<div class="rcp-main"><b>${esc(P.name)}</b><div class="rcp-tags">${tierTag(P.tier)}${needTag(P.need)}</div><div class="rcp-ing">${toks(P.ing)}</div></div>${extra || ''}</div>`;
+    const open = who != null ? ` data-potion="${k}" data-who="${who}" role="button" tabindex="0" title="See what ${esc(P.name)} needs"` : '';
+    return `<div class="rcp t${P.tier}"${open}>${bottle(k)}<div class="rcp-main"><b>${esc(P.name)}</b><div class="rcp-tags">${tierTag(P.tier)}${needTag(P.need)}</div><div class="rcp-ing">${toks(P.ing)}${who != null ? '<span class="rcp-more">Details ›</span>' : ''}</div></div>${extra || ''}</div>`;
+  }
+
+  function potionBody(k, who) {
+    const s = st();
+    const P = E.POTION[k];
+    const p = who != null ? pl(who) : null;
+    const you = p && humanTurn() && who === s.turn && !p.ai;
+    const holder = p ? (you ? 'You have' : `${esc(p.name)} has`) : '';
+    const rows = Object.keys(P.ing).map((i) => {
+      const I = E.ING[i];
+      const n = P.ing[i];
+      const has = p ? p.pantry[i] || 0 : 0;
+      let where;
+      if (I.kind === 'common') {
+        const sup = s.supply[i];
+        where = `Common ingredient — buy it at the market (1 day, up to ${E.MARKET_BUY} tokens per trip). ${sup ? `Next one costs 🪙${E.price(s, i)}; ${sup} in stock.` : 'Sold out until the next market day restocks it.'}`;
+      } else {
+        const seen = s.beasts.filter((c) => c.k === i);
+        where = `Creature part — hunt the ${esc(I.beast)} in ${esc(E.BEAST[i].where)} (${plural(E.BEAST[i].days, 'day')}, no coins). ${seen.length ? `<span class="good">Sighted now: ${seen.map((c) => `${c.n > 1 ? 'a pair' : 'one'}, ${plural(E.beastDays(s, c), 'day')} away`).join('; ')}.</span>` : `No ${esc(I.beast)} in the bestiary right now — new sightings come on market day.`}`;
+      }
+      const ok = has >= n;
+      return `<li class="${p ? (ok ? 'have' : 'miss') : ''}">${tok(i)}<div><b>${n} × ${esc(I.name)}</b><small>${where}</small></div>${p ? `<span class="pot-has">${ok ? '✓' : '✗'} ${holder} ${has}/${n}</span>` : ''}</li>`;
+    }).join('');
+    let status = '';
+    if (p) {
+      const short = Object.keys(P.ing).filter((i) => (p.pantry[i] || 0) < P.ing[i]).map((i) => `${P.ing[i] - (p.pantry[i] || 0)} ${esc(E.ING[i].name)}`);
+      const batch = Math.min(E.BREW_MAX, ...Object.keys(P.ing).map((i) => Math.floor((p.pantry[i] || 0) / P.ing[i])));
+      const name = you ? 'You' : esc(p.name);
+      if (!E.knows(p, k)) status = `<p class="pot-sum no">📖 ${name} ${you ? 'don’t' : 'doesn’t'} know this recipe yet${short.length ? `, and would also need ${short.join(', ')}` : ''}.</p>`;
+      else if (short.length) status = `<p class="pot-sum no">🧺 ${name} still ${you ? 'need' : 'needs'} ${short.join(', ')}.</p>`;
+      else status = `<p class="pot-sum ok">⚗️ ${name} can brew ${plural(batch, 'potion')} of it now (${E.BREW_DAYS} days, up to ${E.BREW_MAX} per brew).</p>`;
+    }
+    const brewers = E.brewers(s, k);
+    const owner = P.tier === 1 ? 'A common recipe: every shop on the lane knows it.'
+      : brewers.length ? `Only ${brewers.map((i) => `<b style="color:${PCOLOR[i]}">${SIGN[i]} ${esc(pl(i).name)}</b>`).join(' and ')} can brew it — nobody else can.`
+      : s.library.includes(k) ? `It’s in the library: 🪙${E.LEARN_COST[P.tier]} and a day to buy, then only your shop can brew it.`
+      : 'Not out yet — the recipe card is still in the pile.';
+    const folk = E.FOLK_ORDER.filter((f) => E.FOLK[f].needs.includes(P.need)).map((f) => esc(E.FOLK[f].name)).join(', ');
+    const waiting = s.players.flatMap((q, qi) => q.queue.filter((o) => E.suits(o, k)).map((o) => `${esc(E.FOLK[o.who].name)} at ${SIGN[qi]} ${esc(q.name)} (pays 🪙${E.payFor(o, k)})`));
+    return `<div class="pot-head">${bottle(k, 'lg')}<div><h2>${esc(P.name)}</h2><div class="rcp-tags">${tierTag(P.tier)}${needTag(P.need)}</div></div></div>
+      <p>A ${E.TIER[P.tier].name.toLowerCase()} ${esc(E.NEED[P.need].name.toLowerCase())} potion. Customers pay <b>🪙${E.TIER[P.tier].pay}</b> or more for it; the Guild pays 🪙${s.guild[k]} right now.</p>
+      <h3>🧪 What one brew needs</h3><ul class="pot-ing">${rows}</ul>${status}
+      <h3>📖 Who can brew it</h3><p>${owner}</p>
+      <h3>🙋 Who buys it</h3><p>Anyone who needs ${needTag(P.need)}${P.tier > 1 ? ` — even picky ones who insist on ${E.TIER[P.tier].name.toLowerCase()} quality` : ' and isn’t picky about quality'}: ${folk}.</p>
+      ${waiting.length ? `<p class="good">Waiting on the lane now: ${waiting.join('; ')}.</p>` : '<p class="muted">Nobody waiting on the lane right now would take it.</p>'}`;
+  }
+  function showPotion(k, who) {
+    openModal(potionBody(k, who), { onClose: () => {} });
   }
 
   function libraryHtml() {
@@ -495,10 +550,10 @@
     const cards = s.library.map((k) => {
       const cost = E.LEARN_COST[E.tier(k)];
       const btn = can ? `<button class="btn sm" data-learn="${k}" ${p.coins < cost ? 'disabled' : ''}>${p.coins < cost ? `Need 🪙${cost}` : `Buy 🪙${cost}`}</button>` : `<span class="price">🪙${cost}</span>`;
-      return recipeCard(k, btn);
+      return recipeCard(k, btn, can ? s.turn : viewIndex());
     }).join('');
     return `<div class="panel sq library"><h3>📚 The library <small>recipe cards · 1 day + coins</small></h3>
-      <p class="muted">Every recipe here exists once. Buy it and only your shop can brew it — everyone else has to buy those potions from you.</p>
+      <p class="muted">Every recipe here exists once. Buy it and only your shop can brew it — everyone else has to buy those potions from you. Tap a recipe to see everything it needs.</p>
       <div class="rcps">${cards || '<p class="empty">The library is empty.</p>'}</div></div>`;
   }
 
@@ -538,7 +593,7 @@
     });
     for (let i = p.shelf.length; i < E.SHELF; i++) shelf.push('<div class="shelf-slot">empty</div>');
     const pantry = Object.keys(E.ING).filter((k) => p.pantry[k] > 0);
-    const book = E.POTION_ORDER.filter((k) => E.knows(p, k)).map((k) => recipeCard(k, E.tier(k) > 1 ? '<span class="own" title="Only this shop can brew it">Only here</span>' : '')).join('');
+    const book = E.POTION_ORDER.filter((k) => E.knows(p, k)).map((k) => recipeCard(k, E.tier(k) > 1 ? '<span class="own" title="Only this shop can brew it">Only here</span>' : '', v)).join('');
     const acts = mine ? actionsHtml(v) : humanTurn() ? `<div class="acts"><button class="btn end" data-view="${s.turn}">← Back to ${esc(pl(s.turn).name)}</button></div>` : '';
     return `${tabs}
       <div class="mat-head"><span class="sign" style="--pc:${PCOLOR[v]}">${SIGN[v]}</span><div><h2>${esc(p.name)}</h2><small>🪙${p.coins} · day ${p.pos} · ${plural(p.stats.served, 'customer')} served${p.ai ? ` · 🤖 ${LEVEL_NAME[p.level] || ''}` : ''}</small></div></div>
@@ -549,7 +604,7 @@
       <div class="shelf">${shelf.join('')}</div>
       <h3>🧺 Pantry</h3>
       <div class="pantry">${pantry.length ? pantry.map((k) => tok(k, p.pantry[k])).join('') : '<p class="empty">Empty — go to market or on a hunt.</p>'}</div>
-      <h3>📖 Recipe book <small>${plural(p.recipes.length, 'recipe')} of their own</small></h3>
+      <h3>📖 Recipe book <small>${plural(p.recipes.length, 'recipe')} of their own · tap one for details</small></h3>
       <div class="rcps book">${book}</div>`;
   }
 
@@ -598,6 +653,8 @@
       if (!lb.disabled && humanTurn()) openLearn(lb.dataset.learn);
       return;
     }
+    const pb = e.target.closest('[data-potion]');
+    if (pb) return showPotion(pb.dataset.potion, Number(pb.dataset.who));
     const tb = e.target.closest('[data-tag]');
     if (tb) {
       if (humanTurn()) openTag(Number(tb.dataset.tag));
