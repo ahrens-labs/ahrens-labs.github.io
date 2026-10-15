@@ -290,6 +290,8 @@
         </div>
         <button class="btn big offline-only" id="start">Open the shops</button>
         <div class="gh-links">
+          <button class="btn ghost sm" data-tutorial="cauldron-ad">🎞️ Watch the trailer</button>
+          <button class="btn ghost sm" data-tutorial="cauldron">🎬 Watch the tutorial</button>
           <button class="btn ghost sm" id="how">📜 How to play</button>
           <button class="btn ghost sm" id="hist">🏆 Game history</button>
           <button class="btn ghost sm" id="sim">🧪 Computer vs computer</button>
@@ -1455,7 +1457,8 @@
     const T = E.TIER;
     let body = '';
     if (tab === 'overview') {
-      body = `${sec(1, 'The story')}
+      body = `${window.AhrensTutorial ? '<p class="rb-video"><button class="btn sm" data-tutorial="cauldron">🎬 Watch the video tutorial</button> New to the game? The video plays a real game against the computer, step by step.</p>' : ''}
+        ${sec(1, 'The story')}
         <p>Every shop on Cauldron Lane sells potions, and the Moon Fair is ${E.DAYS} days away. You buy herbs and crystals at the market, hunt griffins, mermaids and dragons for rare parts, brew potions and sell them — to the townsfolk who come through your door, and to the <b>rival shops next door</b> when they’re short of something their own customers want.</p>
         ${sec(2, 'How to win')}
         <p>When every shop reaches the Moon Fair, the shop with the <b>most coins</b> wins. If coins are tied, the shop that served more customers wins.</p>

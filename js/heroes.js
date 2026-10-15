@@ -310,6 +310,8 @@
         </div>
         <button class="btn big offline-only" id="start">🦸 Assemble the leagues</button>
         <div class="gh-links">
+          <button class="btn ghost sm" data-tutorial="heroes-ad">🎞️ Watch the trailer</button>
+          <button class="btn ghost sm" data-tutorial="heroes">🎬 Watch the tutorial</button>
           <button class="btn ghost sm" id="how">📜 How to play</button>
           <button class="btn ghost sm" id="hist">🏆 Game history</button>
           <button class="btn ghost sm" id="sim">🧪 Computer vs computer</button>
@@ -1188,7 +1190,8 @@
     const S = E.SUIT;
     let body = '';
     if (tab === 'overview') {
-      body = `${sec(1, 'The story')}
+      body = `${window.AhrensTutorial ? '<p class="rb-video"><button class="btn sm" data-tutorial="heroes">🎬 Watch the video tutorial</button> New to the game? The video plays a real game against the computer, step by step.</p>' : ''}
+        ${sec(1, 'The story')}
         <p>The city needs heroes, and every league wants the best team. You start with seven hero cards. Each turn you <b>draw one</b> and <b>send one away</b> to the Plaza, where the other leagues — and you, later — can recruit it. When the Plaza fills up, every league lays down its seven cards and scores them.</p>
         ${sec(2, 'How to win')}
         <p>The league whose seven cards score the <b>most points</b> wins. Cards score their printed power, plus bonuses for good teammates, minus penalties for bad ones — and the whole team scores extra if it fits the <b>Mission</b>. Every league also has a <b>secret identity</b>: a personal goal only they know about until the end.</p>
