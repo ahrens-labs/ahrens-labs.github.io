@@ -9,7 +9,7 @@ const LOBBIES = [
 const CURRENT = new Set(['pending', 'active']);
 
 // Cloud saves of local games live in the player's UserAccount DO, outside the userData blob.
-const SAVE_GAMES = new Set(['dino', 'hearthhold', 'atlantis']);
+const SAVE_GAMES = new Set(['dino', 'hearthhold', 'atlantis', 'cauldron']);
 const SAVE_ID_RE = /^[a-z0-9]{4,40}$/i;
 const SAVE_MAX_BYTES = 120 * 1024;
 const SAVES_MAX_LIVE = 30;

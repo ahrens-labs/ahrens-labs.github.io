@@ -184,6 +184,7 @@
     names.map((_, i) => (first + i) % n).reverse().forEach((pi) => (state.players[pi].arr = ++state.arrSeq));
     // Later shops pick from a picked-over bestiary and library, so they open with a coin more each.
     names.forEach((_, i) => (state.players[(first + i) % n].coins += i));
+    state.players.forEach((p) => (p.start = p.coins));
     // Every shop starts knowing one rare recipe of its own, each for a different need where possible.
     const rares = shuffle(state, POTION_ORDER.filter((k) => tier(k) === 2));
     const dealt = [];
@@ -261,7 +262,10 @@
     const L = AI[level];
     const p = state.players[pi];
     p.level = level;
-    if (L && L.coins) p.coins += L.coins;
+    if (L && L.coins) {
+      p.coins += L.coins;
+      p.start += L.coins;
+    }
   }
 
   // ---------------------------------------------------------------- time
@@ -595,14 +599,15 @@
   function score(state, p) {
     return {
       coins: p.coins,
-      profit: p.coins - START_COINS,
+      start: p.start,
+      profit: p.coins - p.start,
       served: p.stats.served,
       custCoins: p.stats.custCoins,
       toRivals: p.stats.toRivals,
       rivalCoins: p.stats.rivalCoins,
       guildCoins: p.stats.guildCoins + p.stats.fair,
       spent: p.stats.spent,
-      walk: p.coins - START_COINS - p.stats.custCoins - p.stats.rivalCoins - p.stats.guildCoins - p.stats.fair + p.stats.spent,
+      walk: p.coins - p.start - p.stats.custCoins - p.stats.rivalCoins - p.stats.guildCoins - p.stats.fair + p.stats.spent,
       recipes: p.recipes.length,
       total: p.coins,
     };

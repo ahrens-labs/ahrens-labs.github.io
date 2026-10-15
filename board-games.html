@@ -122,44 +122,55 @@
 
   <script src="/js/game-music.js?v=13" data-key="lobby_music" data-sfx="none" data-src="/audio/lobby-theme.mp3?v=1" data-loop="0.5,55.884615"></script>
   <script src="/js/board-saves.js?v=2"></script>
-  <script src="/js/board-games.js?v=8"></script>
+  <script src="/js/board-games.js?v=9"></script>
   <script src="/js/tutorial-video.js?v=11"></script>
   <script>
-    // Atlantis Expedition is still in the lab: only the admin account sees it on the shelf.
+    // Atlantis Expedition and Cauldron Lane are still in the lab: only the admin account sees them on the shelf.
     (function () {
       let admin = false;
       try { admin = (localStorage.getItem('ahrenslabs_email') || '').trim().toLowerCase() === 'calebahrens2011@gmail.com'; } catch (e) { /* ignore */ }
       if (!admin) return;
-      const card = document.createElement('article');
-      card.className = 'game';
-      card.style.cssText = '--accent:#2ec4b6;--accent-2:#0b2a3f';
-      card.innerHTML = `
-        <a class="lid-link" href="/atlantis.html?home" aria-label="Play Atlantis Expedition">
+      const LAB = [
+        {
+          page: '/atlantis.html', name: 'Atlantis Expedition', accent: '#2ec4b6', accent2: '#0b2a3f', img: '/img/atlantis/cover.webp',
+          alt: 'Atlantis Expedition cover: a brass submarine and divers swimming toward the sunken city',
+          blurb: 'Hire scuba divers, build submarines and race a rival company to the treasures of the lost city. Roll a d20 for every dive — the deeper you go, the bigger the prize and the hungrier the sharks.',
+          chips: ['👥 1–2 players', '🤖 vs computer', '📱 same device', '🧪 admin preview'],
+        },
+        {
+          page: '/cauldron.html', name: 'Cauldron Lane', accent: '#9b59d0', accent2: '#2a1240', img: '/img/cauldron/cover.webp',
+          alt: 'Cauldron Lane cover: four glowing potion shops on a cobbled lane under a full moon',
+          blurb: 'Run a potion shop on a crowded lane. Buy herbs on a price ladder, hunt griffins and dragons for rare parts, and sell to townsfolk — or to the shop next door. Every action costs days, and the richest shop at the Moon Fair wins.',
+          chips: ['👥 1–4 players', '🤖 vs computer', '📱 same device', '🧪 admin preview'],
+        },
+      ];
+      const soon = document.querySelector('.shelf .game.soon');
+      LAB.forEach((g) => {
+        const card = document.createElement('article');
+        card.className = 'game';
+        card.style.cssText = `--accent:${g.accent};--accent-2:${g.accent2}`;
+        card.innerHTML = `
+        <a class="lid-link" href="${g.page}?home" aria-label="Play ${g.name}">
           <div class="box">
             <div class="lid">
-              <img src="/img/atlantis/cover.webp" alt="Atlantis Expedition cover: a brass submarine and divers swimming toward the sunken city">
+              <img src="${g.img}" alt="${g.alt}">
               <span class="shine"></span>
-              <span class="lid-title">Atlantis Expedition</span>
+              <span class="lid-title">${g.name}</span>
               <span class="badge">🧪 Admin</span>
             </div>
             <div class="box-side"></div>
           </div>
         </a>
         <div class="info">
-          <h2>Atlantis Expedition</h2>
-          <p>Hire scuba divers, build submarines and race a rival company to the treasures of the lost city. Roll a d20 for every dive — the deeper you go, the bigger the prize and the hungrier the sharks.</p>
-          <ul class="chips">
-            <li>👥 1–2 players</li>
-            <li>🤖 vs computer</li>
-            <li>📱 same device</li>
-            <li>🧪 admin preview</li>
-          </ul>
+          <h2>${g.name}</h2>
+          <p>${g.blurb}</p>
+          <ul class="chips">${g.chips.map((c) => `<li>${c}</li>`).join('')}</ul>
           <div class="actions">
-            <a class="play" href="/atlantis.html?home">Play Atlantis Expedition →</a>
+            <a class="play" href="${g.page}?home">Play ${g.name} →</a>
           </div>
         </div>`;
-      const soon = document.querySelector('.shelf .game.soon');
-      soon.parentNode.insertBefore(card, soon);
+        soon.parentNode.insertBefore(card, soon);
+      });
     })();
     // Tilt each box toward the pointer.
     document.querySelectorAll('.game:not(.soon)').forEach((g) => {

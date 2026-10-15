@@ -41,6 +41,7 @@ import { handleDinoRequest } from './dino.js';
 export { DinoGame, DinoLobby } from './dino.js';
 import { handleHearthholdRequest } from './hearthhold.js';
 import { handleAtlantisRequest } from './atlantis.js';
+import { handleCauldronRequest } from './cauldron.js';
 import { handleBoardGamesRequest, handleBoardSavesDO, deleteBoardSaves } from './board-games.js';
 export { HearthholdGame, HearthholdLobby } from './hearthhold.js';
 import { handleLinkRequest, handleLinkConsumeBridge, handleInternalUserProfile } from './link.js';
@@ -268,6 +269,8 @@ export default {
         });
       } else if (path.startsWith('/api/atlantis/')) {
         return handleAtlantisRequest(request, env, corsHeaders, path);
+      } else if (path.startsWith('/api/cauldron/')) {
+        return handleCauldronRequest(request, env, corsHeaders, path);
       } else if (path.startsWith('/api/platter/')) {
         const platterRes = await handlePlatterRequest(request, env, corsHeaders, path);
         if (platterRes) return platterRes;
