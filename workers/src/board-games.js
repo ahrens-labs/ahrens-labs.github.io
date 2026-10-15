@@ -9,7 +9,7 @@ const LOBBIES = [
 const CURRENT = new Set(['pending', 'active']);
 
 // Cloud saves of local games live in the player's UserAccount DO, outside the userData blob.
-const SAVE_GAMES = new Set(['dino', 'hearthhold', 'atlantis', 'cauldron']);
+const SAVE_GAMES = new Set(['dino', 'hearthhold', 'atlantis', 'cauldron', 'heroes']);
 const SAVE_ID_RE = /^[a-z0-9]{4,40}$/i;
 const SAVE_MAX_BYTES = 120 * 1024;
 const SAVES_MAX_LIVE = 30;
@@ -51,7 +51,7 @@ function cleanSummary(s) {
   const str = (v, n) => String(v == null ? '' : v).slice(0, n);
   if (s.mode === 'ai' || s.mode === 'local') out.mode = s.mode;
   if (s.level) out.level = str(s.level, 12);
-  if (Array.isArray(s.names)) out.names = s.names.slice(0, 2).map((n) => str(n, 24));
+  if (Array.isArray(s.names)) out.names = s.names.slice(0, 5).map((n) => str(n, 24));
   if (Number.isFinite(s.round)) out.round = Math.max(0, Math.min(99, Math.floor(s.round)));
   if (Number.isFinite(s.rounds)) out.rounds = Math.max(0, Math.min(99, Math.floor(s.rounds)));
   out.moved = s.moved !== false;

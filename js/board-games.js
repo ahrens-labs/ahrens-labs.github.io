@@ -7,6 +7,7 @@
     hearthhold: { name: 'Oakhaven', icon: '🏰', page: '/oakhaven.html', img: '/img/hearthhold/cover.webp' },
     atlantis: { name: 'Atlantis Expedition', icon: '🔱', page: '/atlantis.html', img: '/img/atlantis/cover.webp', admin: true },
     cauldron: { name: 'Cauldron Lane', icon: '⚗️', page: '/cauldron.html', img: '/img/cauldron/cover.webp', admin: true },
+    heroes: { name: 'Hero League', icon: '🦸', page: '/heroes.html', img: '/img/heroes/cover.webp', admin: true },
   };
   const LEVELS = { easy: 'Easy', normal: 'Normal', medium: 'Normal', hard: 'Hard', brutal: 'Brutal' };
   const SEASONS = ['Spring', 'Summer', 'Autumn', 'Winter'];
@@ -107,7 +108,9 @@
           ? `Tide ${r} of ${s.rounds || 10}`
           : m.game === 'cauldron'
             ? `Day ${r} of ${s.rounds || 28}`
-            : `Round ${r}${s.rounds ? ` of ${s.rounds}` : ''}`,
+            : m.game === 'heroes'
+              ? `Plaza ${s.round || 0} of ${s.rounds || 12}`
+              : `Round ${r}${s.rounds ? ` of ${s.rounds}` : ''}`,
       where: m.local === false ? 'cloud' : 'local',
       updatedAt: m.updatedAt || 0,
       removable: true,
