@@ -326,6 +326,24 @@ button { font-family: inherit; }
 .could.good { box-shadow: inset 0 0 0 2px #7ccf9a; background: #effbf3; }
 .could.bad { box-shadow: inset 0 0 0 2px #eaa199; background: #fff1ef; }
 .mission-view img { width: 100%; aspect-ratio: 4 / 3; max-height: 300px; object-fit: cover; border-radius: 14px; border: 3px solid var(--ink); margin-bottom: 0.6rem; }
+/* secret identities */
+.ident-pick { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.8rem; margin: 0.8rem 0; }
+.ident-pick.one { grid-template-columns: minmax(0, 320px); justify-content: center; }
+.ident-tile { display: grid; justify-items: center; gap: 0.3rem; padding: 1rem 0.8rem; border: 3px solid var(--ink); border-radius: 18px; cursor: pointer; font: inherit; color: var(--ink); text-align: center;
+  background: radial-gradient(rgba(20, 26, 46, 0.08) 1px, transparent 1.6px) 0 0 / 8px 8px, linear-gradient(160deg, #fff6d6, #ffe08a); box-shadow: 5px 6px 0 var(--ink); transition: transform 0.15s var(--pop), box-shadow 0.15s; }
+.ident-tile:not([disabled]):hover { transform: translateY(-3px) rotate(-1deg); box-shadow: 7px 9px 0 var(--ink); }
+.ident-tile[disabled] { cursor: default; }
+.it-icon { font-size: 2.6rem; line-height: 1; filter: drop-shadow(2px 3px 0 rgba(0, 0, 0, 0.25)); }
+.ident-tile b { font-family: "Bangers", sans-serif; font-weight: 400; font-size: 1.6rem; letter-spacing: 0.05em; line-height: 1; }
+.it-rule { font-weight: 700; color: var(--good); }
+.ident-tile small { color: var(--muted); font-style: italic; }
+.ident-chip { margin-left: auto; display: grid; justify-items: start; gap: 0.05rem; padding: 0.3rem 0.7rem; border: 2.5px solid var(--ink); border-radius: 12px; cursor: pointer; font: inherit; font-weight: 700; color: var(--ink);
+  background: linear-gradient(160deg, #fff6d6, #ffe08a); box-shadow: 3px 4px 0 var(--ink); text-align: left; }
+.ident-chip small { font-weight: 600; color: var(--good) !important; font-size: 0.75rem; }
+.ident-chip + .hand-score { margin-left: 0.6rem; }
+.hr-ident { opacity: 0.9; font-size: 0.85rem; }
+.hr-ident b { color: #7dff9e; }
+@media (max-width: 560px) { .ident-pick { grid-template-columns: 1fr; } .ident-chip { order: 3; margin-left: 0; } .hand-head { flex-wrap: wrap; } }
 .known-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 0.6rem; }
 
 /* rules */

@@ -198,6 +198,7 @@
     const root = $('#modal-root');
     root.innerHTML = `<div class="modal-back${opts.cls ? ' ' + opts.cls : ''}"><div class="modal" role="dialog" aria-modal="true">${opts.noClose ? '' : '<button class="modal-x" data-close aria-label="Close">✕</button>'}${html}</div></div>`;
     ui.modal = true;
+    ui.locked = !!opts.noClose;
     ui.onClose = opts.onClose || null;
     const back = root.firstChild;
     back.addEventListener('click', (e) => {
@@ -210,6 +211,7 @@
     if (!root || !root.firstChild) return;
     root.innerHTML = '';
     ui.modal = false;
+    ui.locked = false;
     const cb = ui.onClose;
     ui.onClose = null;
     if (silent) return;
@@ -217,7 +219,7 @@
     else scheduleAI();
   }
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && ui.modal) closeModal();
+    if (e.key === 'Escape' && ui.modal && !ui.locked) closeModal();
   });
 
   // ---------------------------------------------------------------- home
@@ -361,6 +363,7 @@
       const ai = names.map((_, i) => mode === 'ai' && i > 0);
       const state = E.newGame({ names, ai, levels: ai.map((x) => (x ? level : null)), first });
       if (mode === 'ai') names.forEach((_, i) => i > 0 && E.aiHeadStart(state, i, level));
+      aiIdentities(state);
       startFrom({ state, mode, level, view: 0, gid: newLocalId() });
       if (mode === 'ai') showMissionIntro();
     };
@@ -447,7 +450,7 @@
     return `<div class="co${turn ? ' turn' : ''}${owner === i ? ' viewing' : ''}" style="--pc:${PCOLOR[i]}" data-view="${i}" title="${secret(i) ? `What you know about ${esc(p.name)}` : `Show ${esc(p.name)}’s team`}">
       <span class="co-flag">${SIGN[i]}</span>
       <div class="co-name"><b>${esc(p.name)}</b>${p.ai ? `<span class="co-tag">🤖 ${LEVEL_NAME[p.level] || ''}</span>` : ''}${tag}</div>
-      <div class="co-stats"><span title="Cards in hand">🃏 <b>${p.hand.length}</b></span><span title="Heroes recruited from the Plaza">🏙️ <b>${p.stats.plaza}</b></span>${sc ? `<span title="Team score">⭐ <b>${sc.total}</b></span>` : '<span title="Scores are counted at the end">⭐ <b>?</b></span>'}${known}</div>
+      <div class="co-stats"><span title="Cards in hand">🃏 <b>${p.hand.length}</b></span><span title="Heroes recruited from the Plaza">🏙️ <b>${p.stats.plaza}</b></span>${sc ? `<span title="Team score">⭐ <b>${sc.total}</b></span>` : '<span title="Scores are counted at the end">⭐ <b>?</b></span>'}${p.identity || p.idOffer ? `<span title="Secret identity">🎭 <b>${p.identity && (!secret(i) || showScores()) ? E.IDENTITIES[p.identity].icon : '?'}</b></span>` : ''}${known}</div>
     </div>`;
   }
 
@@ -472,8 +475,8 @@
   }
 
   // ---------------------------------------------------------------- the table
-  function missionCheck(hand) {
-    const r = E.scoreHand(hand, st().mission);
+  function missionCheck(hand, identity) {
+    const r = E.scoreHand(hand, st().mission, identity);
     const live = r.cards.filter((x) => !x.blanked);
     const has = (s) => live.filter((x) => x.suit === s).length;
     return { r, has };
@@ -482,7 +485,7 @@
     const s = st();
     const M = mission();
     const owner = handOwner();
-    const chk = !secret(owner) && showScores() ? missionCheck(pl(owner).hand) : null;
+    const chk = !secret(owner) && showScores() ? missionCheck(pl(owner).hand, pl(owner).identity) : null;
     const need = M.need.map((x) => `${suitTag(x, chk ? (chk.has(x) ? ' ✓' : ' ✗') : '')}`).join(' + ');
     return `<button class="mission" data-act="mission" title="About this Mission" style="--mc:${E.SUIT[M.need[0]].color}">
       <span class="ms-art"><img src="${IMG('mission-' + s.mission)}" alt="" loading="lazy"><span class="ms-tag">🎯 The Mission</span></span>
@@ -527,7 +530,8 @@
     const owner = handOwner();
     const p = pl(owner);
     const hidden = secret(owner);
-    const head = `<div class="hand-head"><span class="sign" style="--pc:${PCOLOR[owner]}">${SIGN[owner]}</span><div><h2>${G.mode === 'ai' && owner === 0 ? 'Your team' : `${esc(p.name)}’s team`}</h2><small>${hidden ? 'Face down' : `${plural(p.hand.length, 'card')}`}</small></div>`;
+    const idChip = !hidden && p.identity ? `<button class="ident-chip" data-act="identity" title="Your secret identity — only you can see it">🎭 ${identName(p.identity)}<small>${esc(E.identityText(p.identity))}</small></button>` : '';
+    const head = `<div class="hand-head"><span class="sign" style="--pc:${PCOLOR[owner]}">${SIGN[owner]}</span><div><h2>${G.mode === 'ai' && owner === 0 ? 'Your team' : `${esc(p.name)}’s team`}</h2><small>${hidden ? 'Face down' : `${plural(p.hand.length, 'card')}`}</small></div>${idChip}`;
     if (hidden) {
       return `<section class="panel hand" style="--pc:${PCOLOR[owner]}">${head}</div>
         <div class="hand-cards curtained">${p.hand.map(() => backHtml()).join('')}
@@ -535,7 +539,7 @@
         </div></section>`;
     }
     const scored = showScores();
-    const r = E.scoreHand(p.hand, s.mission);
+    const r = E.scoreHand(p.hand, s.mission, p.identity);
     const rowOf = {};
     if (scored) r.cards.forEach((x) => (rowOf[x.id] = x));
     const myDiscard = canAct() && s.phase === 'discard' && owner === s.turn;
@@ -552,7 +556,7 @@
       return `<section class="panel hand" style="--pc:${PCOLOR[owner]}">${head}
         <div class="hand-score" title="Scores are counted when the game ends"><small>Team score</small><b>?</b></div></div>
       <div class="hand-cards">${cards}</div>
-      <p class="hand-tip">🧮 No running totals: add up your own team — power, bonuses, penalties and the Mission. Every league’s score is revealed at the end. Tap a card to read it.</p>
+      <p class="hand-tip">🧮 No running totals: add up your own team — power, bonuses, penalties, the Mission and your secret identity. Every league’s score is revealed at the end. Tap a card to read it.</p>
     </section>`;
     }
     const sc = E.score(s, p);
@@ -572,6 +576,7 @@
         <span class="good" title="Bonuses from card effects">✨ Bonuses <b>+${sc.bonus}</b></span>
         <span class="bad" title="Penalties from card effects">💥 Penalties <b>${sc.penalty ? '−' + sc.penalty : '0'}</b></span>
         <span title="Mission">${M.icon} Mission <b>${signed(sc.mission)}</b> <small>${mParts.join(' · ')}</small></span>
+        ${p.identity ? `<span title="Secret identity">🎭 Identity <b>${signed(sc.ident)}</b> <small>${identName(p.identity)}</small></span>` : ''}
         ${sc.blanked ? `<span class="bad" title="Blanked cards score nothing">🚫 ${plural(sc.blanked, 'card')} blanked</span>` : ''}
       </div>
     </section>`;
@@ -615,11 +620,13 @@
     if (act === 'home') return leaveGame();
     if (act === 'scorecard') return showGameOver(true);
     if (act === 'mission') return showMission();
+    if (act === 'identity') return showIdentity(handOwner());
     if (act === 'reveal') {
       if (G.mode === 'local' && humanTurn()) {
         G.shown = st().turn;
         sfx('card');
         render();
+        identityPicker();
       }
       return;
     }
@@ -648,6 +655,11 @@
       return;
     }
     if (!actor.ai) G.moved = true;
+    if (a.t === 'identity') {
+      save();
+      render();
+      return scheduleAI();
+    }
     const quiet = G.mode === 'sim' && G.speed === 'turbo';
     if (a.t === 'draw') {
       if (!quiet) sfx(a.from === 'plaza' ? 'join' : 'card');
@@ -707,7 +719,7 @@
   function showCard(id, owner) {
     const s = st();
     let row = null;
-    if (showScores() && owner != null && !secret(owner) && pl(owner).hand.includes(id)) row = E.scoreHand(pl(owner).hand, s.mission).cards.find((x) => x.id === id);
+    if (showScores() && owner != null && !secret(owner) && pl(owner).hand.includes(id)) row = E.scoreHand(pl(owner).hand, s.mission, pl(owner).identity).cards.find((x) => x.id === id);
     const c = C(id);
     const body = `<div class="card-view">${cardHtml(id, { big: true, row })}
       <div class="cv-text"><h2>${cname(id)}</h2><p class="cv-suit">${suitTag(c.suit)} · power ${c.power}</p>
@@ -757,6 +769,57 @@
       <p>${plural(p.hand.length, 'card')} in hand, face down. They’ve recruited ${plural(p.stats.plaza, 'hero')} from the Plaza and drawn ${plural(p.stats.deck, 'card')} from the deck.</p>
       ${p.took.length ? `<h3>👁️ Cards you saw them recruit (still in their hand)</h3><div class="known-row">${p.took.map((c) => cardHtml(c, { small: true })).join('')}</div>` : '<p class="muted">They haven’t kept anything from the Plaza yet.</p>'}`, { cls: 'wide', onClose: () => scheduleAI() });
   }
+  // ---------------------------------------------------------------- secret identities
+  function aiIdentities(state) {
+    state.players.forEach((p, i) => p.ai && p.idOffer && E.apply(state, i, E.aiIdentity(state, i, p.level || 'normal')));
+  }
+  const identName = (id) => `${E.IDENTITIES[id].icon} ${esc(E.IDENTITIES[id].name)}`;
+  function identTile(id, attrs) {
+    const I = E.IDENTITIES[id];
+    return `<button class="ident-tile" ${attrs || ''}><span class="it-icon">${I.icon}</span><b>${esc(I.name)}</b><span class="it-rule">${esc(E.identityText(id))}</span><small>“${esc(I.story)}”</small></button>`;
+  }
+  // A person who still holds two identity cards picks one before their first move.
+  function identityPicker() {
+    if (!G || ui.modal || G.mode === 'sim' || G.mode === 'past' || st().phase === 'over') return false;
+    const s = st();
+    let pi = null;
+    if (G.mode === 'ai' && pl(0).idOffer) pi = 0;
+    else if (G.mode === 'local' && G.shown === s.turn && pl(s.turn).idOffer) pi = s.turn;
+    if (pi == null) return false;
+    const p = pl(pi);
+    const M = mission();
+    const back = openModal(`<h2>🎭 Choose your secret identity</h2>
+      <p>${G.mode === 'local' ? `${esc(p.name)}, you’ve` : 'You’ve'} been dealt two secret identities. Keep one — it scores extra at the end, on top of the Mission. Nobody else knows which you chose until the hands go down, so watch what the other leagues recruit and guess theirs.</p>
+      <div class="ident-pick">${p.idOffer.map((id) => identTile(id, `data-ident="${id}"`)).join('')}</div>
+      <h3>Your team so far</h3><div class="known-row">${sorted(p.hand).map((c) => cardHtml(c, { small: true })).join('')}</div>
+      <p class="muted">Today’s Mission: ${M.icon} ${esc(M.name)} — ${suitTag(M.need[0])} + ${suitTag(M.need[1])}.</p>`, { cls: 'wide', noClose: true });
+    back.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-ident]');
+      if (!b) return;
+      try {
+        E.apply(st(), pi, { t: 'identity', id: b.dataset.ident });
+      } catch (err) {
+        return toast(esc(err.message), 'bad');
+      }
+      G.moved = true;
+      closeModal(true);
+      sfx('card');
+      toast(`🎭 ${G.mode === 'local' ? `${leagueName(pi)} is` : 'You are'} secretly <b>${identName(b.dataset.ident)}</b>. Keep it quiet!`);
+      save();
+      render();
+      scheduleAI();
+    });
+    return true;
+  }
+  function showIdentity(i) {
+    const p = pl(i);
+    if (!p.identity || secret(i)) return;
+    const r = showScores() ? E.score(st(), p) : null;
+    openModal(`<h2>🎭 ${G.mode === 'ai' && i === 0 ? 'Your' : `${esc(p.name)}’s`} secret identity</h2>
+      <div class="ident-pick one">${identTile(p.identity, 'disabled')}</div>
+      ${r ? `<p>It scored <b>${signed(r.ident)}</b>.</p>` : '<p class="muted">Blanked cards don’t count. Mimic counts as the suit it copies. It’s scored at the end, with the Mission.</p>'}`, { onClose: () => scheduleAI() });
+  }
+
   function showMissionIntro() {
     if (!G || G.mode !== 'ai') return;
     const s = st();
@@ -771,7 +834,7 @@
         <li class="good"><span>Each ${suitTag(M.plus.s)}</span><b>+${M.plus.n}</b></li>
         <li class="bad"><span>Each ${suitTag(M.minus.s)}</span><b>−${M.minus.n}</b></li>
       </ul>
-      <p>The Mission is worth a lot — a team that misses it rarely wins.</p>
+      <p>The Mission is worth a lot — a team that misses it rarely wins. Next you’ll pick a <b>secret identity</b> of your own.</p>
       <p>${first.ai ? `${esc(first.name)} goes first.` : 'You go first.'} Each turn: <b>draw one</b> card, then <b>send one</b> to the Plaza.</p>
       <div class="btn-row" style="justify-content:center"><button class="btn big" data-close>🦸 Let’s go</button></div></div>`);
   }
@@ -783,6 +846,7 @@
   }
   function scheduleAI() {
     stopAI();
+    if (identityPicker()) return;
     if (!G || ui.modal || !playing() || !pl(st().turn).ai || G.mode === 'past') return;
     const wait = G.mode === 'sim' ? SIM_SPEEDS[G.speed].ai : st().phase === 'draw' ? 800 : 1000;
     ui.aiTimer = setTimeout(aiStep, wait);
@@ -801,6 +865,7 @@
     ['✨ Bonuses', 'bonus'],
     ['💥 Penalties', 'penalty'],
     ['🎯 Mission', 'mission'],
+    ['🎭 Secret identity', 'ident'],
     ['🚫 Blanked cards', 'blanked'],
     ['🏙️ Recruited from the Plaza', 'plaza'],
   ];
@@ -825,14 +890,14 @@
     const team = (i) => sorted(pl(i).hand).map((id) => face(id)).join('');
     const mis = (i) => (sc[i].done ? `${M.icon} ✓` : `${M.icon} ✗`);
     // Places and the margin stay out of the page until the announcement, so nothing gives the result away early.
-    const side = (i) => `<div class="hr-side" style="--pc:${PCOLOR[i]}"><span class="hr-crown">👑</span><span class="hr-sign">${SIGN[i]}</span><b class="hr-name">${esc(pl(i).name)}</b><span class="hr-total">?</span><small class="hr-place">${mis(i)}</small><span class="hr-team">${team(i)}</span></div>`;
+    const side = (i) => `<div class="hr-side" style="--pc:${PCOLOR[i]}"><span class="hr-crown">👑</span><span class="hr-sign">${SIGN[i]}</span><b class="hr-name">${esc(pl(i).name)}</b><span class="hr-total">?</span><small class="hr-place">${mis(i)}</small>${pl(i).identity ? '<small class="hr-ident">🎭 ???</small>' : ''}<span class="hr-team">${team(i)}</span></div>`;
     const lead = (k, i) => {
-      if (!['base', 'bonus', 'mission'].includes(k)) return false;
+      if (!['base', 'bonus', 'mission', 'ident'].includes(k)) return false;
       const vals = sc.map((x) => x[k]);
       const best = Math.max(...vals);
       return vals[i] === best && vals.filter((x) => x === best).length === 1;
     };
-    const cell = (k, v) => (k === 'penalty' && v ? `−${v}` : k === 'mission' || k === 'bonus' ? signed(v) : v);
+    const cell = (k, v) => (k === 'penalty' && v ? `−${v}` : k === 'mission' || k === 'bonus' || k === 'ident' ? signed(v || 0) : v);
     document.querySelectorAll('.hl-reveal').forEach((x) => x.remove());
     const el = document.createElement('div');
     el.className = 'hl-reveal';
@@ -863,6 +928,10 @@
       el.querySelectorAll('.hr-total').forEach((t, i) => (t.textContent = `⭐${sc[i].total}`));
       el.querySelectorAll('.hr-place').forEach((t, i) => (t.textContent = `${ORD[place(i) - 1]} · ${mis(i)}`));
       el.querySelector('.hr-sub').textContent = sub;
+      sides.forEach((x, i) => {
+        const t = x.querySelector('.hr-ident');
+        if (t) t.innerHTML = `🎭 ${identName(pl(i).identity)} <b>${signed(sc[i].ident)}</b>`;
+      });
       el.querySelector('.hr-rows').innerHTML = SCORE_ROWS.map(([label, k]) => `<div class="hr-row"><small>${label}</small>${sc.map((x, i) => `<span class="${lead(k, i) ? 'lead' : ''}" style="--pc:${PCOLOR[i]}">${cell(k, x[k])}</span>`).join('')}</div>`).join('');
       const happy = w < 0 || G.mode !== 'ai' || w === 0;
       if (!instant && happy) confetti();
@@ -979,7 +1048,7 @@
   }
 
   const hist = { items: null, kind: 'all' };
-  const HIST_ROWS = [['⭐ Score', 'total'], ['🃏 Card power', 'base'], ['✨ Bonuses', 'bonus'], ['💥 Penalties', 'penalty'], ['🎯 Mission', 'mission'], ['🏙️ Recruits', 'plaza']];
+  const HIST_ROWS = [['⭐ Score', 'total'], ['🃏 Card power', 'base'], ['✨ Bonuses', 'bonus'], ['💥 Penalties', 'penalty'], ['🎯 Mission', 'mission'], ['🎭 Identity', 'ident'], ['🏙️ Recruits', 'plaza']];
 
   async function showHistory() {
     stopAI();
@@ -1087,6 +1156,7 @@
     const n = sim.levels.length;
     const state = E.newGame({ names: sim.levels.map((l, i) => LEAGUE_NAMES[i]), ai: sim.levels.map(() => true), levels: sim.levels, first: Math.floor(Math.random() * n) });
     sim.levels.forEach((l, i) => E.aiHeadStart(state, i, l));
+    aiIdentities(state);
     startFrom({ state, mode: 'sim', level: sim.levels[0], levels: sim.levels, speed: sim.speed, view: 0 });
   }
   function stopSim() {
@@ -1103,6 +1173,7 @@
     ['turn', 'Your turn'],
     ['cards', 'Reading a card'],
     ['mission', 'The Mission'],
+    ['identity', 'Secret identities'],
     ['score', 'The end & scoring'],
     ['gallery', 'Every card'],
     ['terms', 'Quick reference'],
@@ -1117,10 +1188,11 @@
       body = `${sec(1, 'The story')}
         <p>The city needs heroes, and every league wants the best team. You start with seven hero cards. Each turn you <b>draw one</b> and <b>send one away</b> to the Plaza, where the other leagues — and you, later — can recruit it. When the Plaza fills up, every league lays down its seven cards and scores them.</p>
         ${sec(2, 'How to win')}
-        <p>The league whose seven cards score the <b>most points</b> wins. Cards score their printed power, plus bonuses for good teammates, minus penalties for bad ones — and the whole team scores extra if it fits the <b>Mission</b>.</p>
+        <p>The league whose seven cards score the <b>most points</b> wins. Cards score their printed power, plus bonuses for good teammates, minus penalties for bad ones — and the whole team scores extra if it fits the <b>Mission</b>. Every league also has a <b>secret identity</b>: a personal goal only they know about until the end.</p>
         ${sec(3, 'What’s in the box')}
         <ul><li>🦸 <b>${E.CARDS.length} hero cards</b> in ${E.SUITS.length} suits of 5: ${E.SUITS.map((s) => `${S[s].icon} ${S[s].plural}`).join(', ')}.</li>
         <li>🎯 <b>${E.MISSION_ORDER.length} Mission cards</b>. One is turned face up each game.</li>
+        <li>🎭 <b>${E.IDENTITY_ORDER.length} Secret Identity cards</b>. Each league keeps one, face down.</li>
         <li>🏙️ <b>The Plaza board</b> with ${E.PLAZA_END} spaces for sent-away cards.</li>
         <li>No dice and no money — only the cards.</li></ul>
         ${sec(4, 'The game in one paragraph')}
@@ -1130,6 +1202,7 @@
         <ol class="rb-flow"><li>Shuffle all ${E.CARDS.length} hero cards into a face-down deck.</li>
         <li>Deal <b>${E.HAND} cards</b> to each league. Keep your hand secret.</li>
         <li>Shuffle the Mission cards and turn one face up. Everyone plays for the same Mission.</li>
+        <li>Deal each league <b>two Secret Identity cards</b>. Look at them, keep one face down, and put the other back in the box unseen.</li>
         <li>The Plaza starts empty.</li></ol>
         ${sec(2, 'Players')}
         <p>2 to 5 leagues. Play against 1 to 4 computer leagues, or pass one device around: each player taps to see their own hand on their turn, so everyone else should look away.</p>
@@ -1178,12 +1251,20 @@
           const M = E.MISSIONS[k];
           return `<tr><td>${M.icon} ${esc(M.name)}</td><td>${M.need.map((x) => S[x].icon + ' ' + S[x].name).join(' + ')}</td><td class="good">+${M.plus.n} per ${S[M.plus.s].icon}</td><td class="bad">−${M.minus.n} per ${S[M.minus.s].icon}</td></tr>`;
         }).join('')}</table>`;
+    } else if (tab === 'identity') {
+      body = `${sec(1, 'Keeping a secret')}
+        <p>At the start, each league is dealt two Secret Identity cards and keeps one, face down. It’s a personal goal: at the end it scores extra on top of your cards and the Mission. Choose with your opening hand <i>and</i> the Mission in mind.</p>
+        <p>Nobody else sees your identity until the hands go down. The cards a league recruits from the Plaza are public, though — a league that keeps grabbing Shadows might be The Vigilante, so think twice before sending them another.</p>
+        ${sec(2, 'How identities score')}
+        <p>They count the cards in your final seven, just like the Mission: blanked cards don’t count, and Mimic counts as the suit it copies. Seer Sela doesn’t double them.</p>
+        ${sec(3, 'All the identities')}
+        <table><tr><th>Identity</th><th>Scores</th></tr>${E.IDENTITY_ORDER.map((k) => `<tr><td>${identName(k)}</td><td>${esc(E.identityText(k))}</td></tr>`).join('')}</table>`;
     } else if (tab === 'score') {
       body = `${sec(1, 'When the game ends')}
         <p>The game ends <b>the moment the ${E.PLAZA_END}th card lands in the Plaza</b> — usually when someone draws from the deck while the Plaza has ${E.PLAZA_END - 1}. (Recruiting from the Plaza takes a card out, so it doesn’t fill up.) It also ends if the deck runs out. Nobody gets one last turn.</p>
         <p class="rb-ex">With ${E.PLAZA_END - 1} cards in the Plaza, you decide the timing. Ahead? Draw from the deck and end it. Behind? Recruit from the Plaza and keep the game going.</p>
         ${sec(2, 'Scoring a team, step by step')}
-        <ol class="rb-flow"><li>Mimic chooses its suit.</li><li>Clear penalties (Hacklette, Penny Press, Skybase).</li><li>Blank cards — all blanking happens at the same time.</li><li>Check “blanked unless…” cards.</li><li>Each card that isn’t blanked scores its power + bonuses − penalties.</li><li>Add the Mission.</li></ol>
+        <ol class="rb-flow"><li>Mimic chooses its suit.</li><li>Clear penalties (Hacklette, Penny Press, Skybase).</li><li>Blank cards — all blanking happens at the same time.</li><li>Check “blanked unless…” cards.</li><li>Each card that isn’t blanked scores its power + bonuses − penalties.</li><li>Add the Mission.</li><li>Reveal and add your secret identity.</li></ol>
         <p class="rb-ex">Nobody’s score is shown during the game — not even your own. Counting up your team (and guessing at everyone else’s) is part of the challenge. The full breakdown appears at the end.</p>
         ${sec(3, 'Winning')}
         <p>Highest total wins. If it’s a tie, the team with more card power wins; if that’s tied too, it’s a shared win.</p>`;
@@ -1199,6 +1280,7 @@
         ['Blanked', 'Scores 0, has no ability, and has no suit.'],
         ['Clear', 'Cancels a card’s penalties, including blanking.'],
         ['Mission', `The face-up goal card. Fit it for big bonuses; miss it and lose ${E.MISSION_FAIL}.`],
+        ['Secret identity', 'Your hidden personal goal, chosen from two at the start and revealed at the end.'],
       ];
       body = `${sec(1, 'Your turn, in short')}
         <ol class="rb-flow"><li>Draw the top card of the deck, <b>or</b> recruit a card from the Plaza.</li><li>Send one card (not one you just recruited) to the Plaza.</li><li>If the Plaza now holds ${E.PLAZA_END} cards, or the deck is empty, the game ends.</li></ol>

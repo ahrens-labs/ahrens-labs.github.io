@@ -61,7 +61,7 @@
     { id: 'sable', name: 'Sorcerer Sable', suit: 'mystic', power: 22, fx: [{ t: 'pen', s: ['tech'], n: 5 }], flavor: 'Magic and machines don’t mix.' },
     { id: 'seer', name: 'Seer Sela', suit: 'mystic', power: 1, fx: [{ t: 'oracle' }], flavor: 'She saw this mission coming.' },
     { id: 'hexa', name: 'Hexa', suit: 'mystic', power: 14, fx: [{ t: 'per', s: ['cosmic'], n: 5 }], flavor: 'Draws her spells from the stars.' },
-    { id: 'spirit', name: 'Spirit Guide', suit: 'mystic', power: 10, fx: [{ t: 'without', s: ['villain'], n: 14 }], flavor: 'Won’t share a room with evil.' },
+    { id: 'spirit', name: 'Spirit Guide', suit: 'mystic', power: 10, fx: [{ t: 'without', s: ['villain'], n: 22 }], flavor: 'Won’t share a room with evil.' },
     { id: 'moth', name: 'Madame Moth', suit: 'mystic', power: 8, fx: [{ t: 'with', c: ['rampage'], n: 12 }], flavor: 'Sings Rampage to sleep.' },
     // Cosmic
     { id: 'starbolt', name: 'Starbolt', suit: 'cosmic', power: 25, fx: [{ t: 'blank', s: ['shadow'] }], flavor: 'So bright no shadow survives.' },
@@ -118,6 +118,33 @@
     parade: { name: 'Hero Parade', icon: '🎉', need: ['sidekick', 'gear'], plus: { s: 'speed', n: 6 }, minus: { s: 'villain', n: 8 }, story: 'The city throws a parade for its heroes. Bring the sidekicks and the shiny gear — and keep villains far away.' },
   };
   const MISSION_ORDER = Object.keys(MISSIONS);
+
+  // Secret identities: each league is dealt two and secretly keeps one. Only revealed when the hands go down.
+  //   per      +n for each card of the suits
+  //   variety  +n for each different suit
+  //   without  +n if you have none of the suits
+  const IDENTITIES = {
+    brawler: { name: 'The Brawler', icon: '🥊', rule: { t: 'per', s: ['bruiser'], n: 10 }, story: 'Grew up fighting in the docks.' },
+    racer: { name: 'The Racer', icon: '🏁', rule: { t: 'per', s: ['speed'], n: 11 }, story: 'Never lost a race. Never will.' },
+    inventor: { name: 'The Inventor', icon: '🧪', rule: { t: 'per', s: ['tech', 'gear'], n: 7 }, story: 'Owns a secret lab under the city.' },
+    sorcerer: { name: 'The Sorcerer', icon: '📜', rule: { t: 'per', s: ['mystic'], n: 11 }, story: 'Last student of an ancient order.' },
+    stranger: { name: 'The Stranger', icon: '🛸', rule: { t: 'per', s: ['cosmic'], n: 10 }, story: 'Fell from the stars as a baby.' },
+    vigilante: { name: 'The Vigilante', icon: '🦇', rule: { t: 'per', s: ['shadow'], n: 12 }, story: 'Patrols the rooftops every night.' },
+    elemental: { name: 'The Storm-Born', icon: '🌪️', rule: { t: 'per', s: ['element'], n: 12 }, story: 'Born in the eye of a hurricane.' },
+    mentor: { name: 'The Mentor', icon: '🎓', rule: { t: 'per', s: ['sidekick'], n: 12 }, story: 'Trained half the heroes in town.' },
+    turncoat: { name: 'The Turncoat', icon: '🃏', rule: { t: 'per', s: ['villain'], n: 9 }, story: 'Used to work for the other side.' },
+    allrounder: { name: 'The Captain', icon: '🎖️', rule: { t: 'variety', n: 3 }, story: 'Can lead any team, any day.' },
+    lonewolf: { name: 'The Lone Wolf', icon: '🐺', rule: { t: 'without', s: ['sidekick', 'gear'], n: 20 }, story: 'No helpers. No gadgets. No problem.' },
+    paragon: { name: 'The Paragon', icon: '😇', rule: { t: 'without', s: ['villain'], n: 22 }, story: 'Has never broken a rule. Not once.' },
+  };
+  const IDENTITY_ORDER = Object.keys(IDENTITIES);
+  function identityText(id) {
+    const r = IDENTITIES[id].rule;
+    const names = (ss) => ss.map((x) => SUIT[x].name).join(' or ');
+    if (r.t === 'per') return `+${r.n} for each ${names(r.s)}`;
+    if (r.t === 'variety') return `+${r.n} for each different suit in your team`;
+    return `+${r.n} if you have no ${r.s.map((x) => SUIT[x].plural).join(' or ')}`;
+  }
 
   const LEVELS = {
     easy: { look: false, noise: 9, deny: 0, extra: 0 },
@@ -193,7 +220,7 @@
   // ---------------------------------------------------------------- scoring
   // Order: suits are fixed (Mimic picks one) → penalties are cleared → blanking (all at once) → "blanked unless" →
   // each card scores its power, bonuses and uncleared penalties → the Mission.
-  function scoreWith(ids, mission, wildSuit) {
+  function scoreWith(ids, mission, wildSuit, identity) {
     const cs = ids.map((id) => CARD[id]);
     const suitOf = {};
     cs.forEach((c) => (suitOf[c.id] = c.fx.some((f) => f.t === 'wild') && wildSuit ? wildSuit : c.suit));
@@ -267,19 +294,27 @@
       mult,
     };
     m.total = m.doneN + m.fitN + m.plusN - m.minusN - m.failN;
+    // The secret identity: blanked cards don't count, Mimic counts as its chosen suit.
+    let idN = 0;
+    if (identity && IDENTITIES[identity]) {
+      const r = IDENTITIES[identity].rule;
+      if (r.t === 'per') idN = r.s.reduce((t, x) => t + count(x), 0) * r.n;
+      else if (r.t === 'variety') idN = new Set(on.map((o) => suitOf[o.id])).size * r.n;
+      else if (r.t === 'without') idN = r.s.some((x) => count(x) > 0) ? 0 : r.n;
+    }
     const cardsTotal = cards.reduce((t, r) => t + r.value, 0);
-    return { total: cardsTotal + m.total, cardsTotal, cards, mission: m, wild: wildSuit || null };
+    return { total: cardsTotal + m.total + idN, cardsTotal, cards, mission: m, ident: identity ? { id: identity, n: idN } : null, wild: wildSuit || null };
   }
-  function scoreHand(ids, mission) {
-    if (!ids.some((id) => CARD[id].fx.some((f) => f.t === 'wild'))) return scoreWith(ids, mission, null);
+  function scoreHand(ids, mission, identity) {
+    if (!ids.some((id) => CARD[id].fx.some((f) => f.t === 'wild'))) return scoreWith(ids, mission, null, identity);
     let best = null;
     SUITS.forEach((s) => {
-      const r = scoreWith(ids, mission, s);
+      const r = scoreWith(ids, mission, s, identity);
       if (!best || r.total > best.total) best = r;
     });
     return best;
   }
-  const handScore = (ids, mission) => scoreHand(ids, mission).total;
+  const handScore = (ids, mission, identity) => scoreHand(ids, mission, identity).total;
 
   // ---------------------------------------------------------------- setup
   function newGame(opts) {
@@ -306,8 +341,10 @@
     state.mission = opts.mission && MISSIONS[opts.mission] ? opts.mission : MISSION_ORDER[rint(state, MISSION_ORDER.length)];
     state.deck = shuffle(state, CARDS.map((c) => c.id));
     names.forEach((name, i) => {
-      state.players.push({ name, ai: !!ai[i], level: ai[i] ? levels[i] || 'normal' : null, hand: [], fresh: null, drew: null, stats: { plaza: 0, deck: 0 }, took: [] });
+      state.players.push({ name, ai: !!ai[i], level: ai[i] ? levels[i] || 'normal' : null, hand: [], fresh: null, drew: null, stats: { plaza: 0, deck: 0 }, took: [], identity: null, idOffer: null });
     });
+    const ids = shuffle(state, IDENTITY_ORDER.slice());
+    state.players.forEach((p, i) => (p.idOffer = [ids[2 * i], ids[2 * i + 1]]));
     const first = opts.first != null ? ((opts.first % n) + n) % n : 0;
     state.first = first;
     state.turn = first;
@@ -323,7 +360,7 @@
     const p = state.players[pi];
     for (let k = 0; k < L.extra; k++) {
       p.hand.push(state.deck.pop());
-      const out = bestDiscard(p.hand, state.mission, null).id;
+      const out = bestDiscard(p.hand, state.mission, null, null, null, null, p.identity).id;
       p.hand.splice(p.hand.indexOf(out), 1);
       state.deck.unshift(out);
     }
@@ -343,8 +380,19 @@
 
   function apply(state, pi, a) {
     if (state.phase === 'over') throw new Error('The game is over.');
+    // Choosing a secret identity can happen before your first turn comes round.
+    if (a.t === 'identity') {
+      const q = state.players[pi];
+      if (!q || !q.idOffer) throw new Error('You already have a secret identity.');
+      if (!q.idOffer.includes(a.id)) throw new Error('That identity wasn’t dealt to you.');
+      q.identity = a.id;
+      q.idOffer = null;
+      log(state, `${q.name} chose a secret identity.`, pi);
+      return state;
+    }
     if (pi !== state.turn) throw new Error('It isn’t your turn.');
     const p = state.players[pi];
+    if (p.idOffer) throw new Error('Choose your secret identity first.');
     if (a.t === 'draw') {
       if (state.phase !== 'draw') throw new Error('You’ve already drawn this turn.');
       if (a.from === 'deck') {
@@ -398,11 +446,12 @@
 
   // ---------------------------------------------------------------- results
   function score(state, p) {
-    const r = scoreHand(p.hand, state.mission);
+    const r = scoreHand(p.hand, state.mission, p.identity);
     return {
       total: r.total,
       cards: r.cardsTotal,
       mission: r.mission.total,
+      ident: r.ident ? r.ident.n : 0,
       done: r.mission.done ? 1 : 0,
       blanked: r.cards.filter((c) => c.blanked).length,
       bonus: r.cards.reduce((t, c) => t + c.plus.reduce((u, x) => u + x.n, 0), 0),
@@ -425,12 +474,12 @@
 
   // ---------------------------------------------------------------- computer player
   // The best card to let go from a hand (never the one just recruited from the Plaza).
-  function bestDiscard(hand, mission, keep, L, state, pi) {
+  function bestDiscard(hand, mission, keep, L, state, pi, identity) {
     let best = null;
     hand.forEach((c) => {
       if (c === keep) return;
       const rest = hand.filter((x) => x !== c);
-      let v = handScore(rest, mission);
+      let v = handScore(rest, mission, identity);
       if (L && L.deny) v -= L.deny * gift(state, pi, c);
       if (L && L.noise) v += (Math.random() * 2 - 1) * L.noise;
       if (!best || v > best.v) best = { id: c, v };
@@ -455,14 +504,27 @@
     return CARDS.map((c) => c.id).filter((id) => !mine.has(id));
   };
 
+  // The identity that suits this hand best (with a little guesswork on Easy).
+  function aiIdentity(state, pi, level) {
+    const L = LEVELS[level] || LEVELS.normal;
+    const p = state.players[pi];
+    let best = null;
+    p.idOffer.forEach((id) => {
+      const v = handScore(p.hand, state.mission, id) + (L.noise ? (Math.random() * 2 - 1) * L.noise * 2 : 0);
+      if (!best || v > best.v) best = { id, v };
+    });
+    return { t: 'identity', id: best.id };
+  }
   function aiChoose(state, pi, level) {
     const L = LEVELS[level] || LEVELS.normal;
     const p = state.players[pi];
-    if (state.phase === 'discard') return { t: 'discard', c: bestDiscard(p.hand, state.mission, p.fresh, L, state, pi).id };
-    const now = handScore(p.hand, state.mission);
+    if (p.idOffer) return aiIdentity(state, pi, level);
+    const idt = p.identity;
+    if (state.phase === 'discard') return { t: 'discard', c: bestDiscard(p.hand, state.mission, p.fresh, L, state, pi, idt).id };
+    const now = handScore(p.hand, state.mission, idt);
     let best = null;
     state.plaza.forEach((c) => {
-      const d = bestDiscard(p.hand.concat(c), state.mission, c, null);
+      const d = bestDiscard(p.hand.concat(c), state.mission, c, null, null, null, idt);
       let v = d.v;
       if (L.noise) v += (Math.random() * 2 - 1) * L.noise;
       if (!best || v > best.v) best = { a: { t: 'draw', from: 'plaza', c }, v };
@@ -471,7 +533,7 @@
     let deckV;
     if (L.look) {
       const pool = unseen(state, pi);
-      deckV = pool.reduce((t, c) => t + Math.max(now, bestDiscard(p.hand.concat(c), state.mission, null, null).v), 0) / pool.length;
+      deckV = pool.reduce((t, c) => t + Math.max(now, bestDiscard(p.hand.concat(c), state.mission, null, null, null, null, idt).v), 0) / pool.length;
     } else deckV = now + 2;
     // Drawing from the deck with the Plaza one short of full ends the game: only do that when it's a good moment.
     if (state.plaza.length === PLAZA_END - 1 && L.look) deckV += endBias(state, pi, now);
@@ -486,6 +548,7 @@
 
   const api = {
     SAVE_V, HAND, PLAZA_END, MISSION_DONE, MISSION_FIT, MISSION_FAIL, SUIT, SUITS, CARDS, CARD, MISSIONS, MISSION_ORDER, LEVELS,
+    IDENTITIES, IDENTITY_ORDER, identityText, aiIdentity,
     newGame, aiHeadStart, legal, apply, aiChoose, score, ranking, winner,
     scoreHand, handScore, fxText, cardText, isPenalty, bestDiscard, unseen,
   };
