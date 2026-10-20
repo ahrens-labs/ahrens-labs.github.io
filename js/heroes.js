@@ -231,8 +231,8 @@
     if (o.small) cls.push('sm');
     if (o.big) cls.push('big');
     if (row && row.blanked) cls.push('blanked');
-    // Two-effect cards set their rules a little tighter so both fit.
-    if (c.fx.length > 1 && E.cardText(id).length > 48) cls.push('long');
+    // Long rules (two effects, or one wordy one) are set a little tighter so they fit.
+    if (E.cardText(id).length > (c.fx.length > 1 ? 48 : 58)) cls.push('long');
     if (o.cls) cls.push(o.cls);
     const asWild = row && row.suit && row.suit !== c.suit ? `<span class="hc-wild" title="${cname(id)} is counting as a ${esc(S.name)}">as ${S.icon}</span>` : '';
     const val = row ? `<span class="hc-val${row.blanked ? ' zero' : row.value < c.power ? ' down' : row.value > c.power ? ' up' : ''}" title="What this card scores in this hand">${row.blanked ? 0 : row.value}</span>` : '';
@@ -599,7 +599,7 @@
     const rowOf = {};
     if (scored) r.cards.forEach((x) => (rowOf[x.id] = x));
     const myDiscard = canAct() && s.phase === 'discard' && owner === s.turn;
-    const cards = sorted(p.hand).map((id) => {
+    let cards = sorted(p.hand).map((id) => {
       const isNew = playing() && s.turn === owner && p.drew === id;
       let extra = '';
       if (myDiscard) {
@@ -608,6 +608,9 @@
       }
       return `<div class="hand-slot${isNew ? ' new' : ''}">${isNew ? `<span class="new-tag">${p.fresh === id ? '🏙️ Recruited' : '🂠 Drawn'}</span>` : ''}${cardHtml(id, { row: rowOf[id], attrs: `data-card="${id}"`, cls: 'live' })}${extra}</div>`;
     }).join('');
+    if (scored && r.raised) {
+      cards += `<div class="hand-slot raised"><span class="new-tag">⛓️ From the Plaza</span>${cardHtml(r.raised, { row: rowOf[r.raised], cls: 'live', attrs: `title="${cname(r.raisedBy)} sprang ${cname(r.raised)} from the Plaza"` })}</div>`;
+    }
     if (!scored) {
       return `<section class="panel hand" style="--pc:${PCOLOR[owner]}">${head}
         <div class="hand-score" title="Scores are counted when the game ends"><small>Team score</small><b>?</b></div></div>
@@ -956,7 +959,11 @@
     const sub = w < 0 ? 'Same score and the same card power.' : margin === 0 ? 'Level on points — won on card power!' : margin <= 5 ? `By just ${plural(margin, 'point')}!` : `By ${plural(margin, 'point')}.`;
     // Shared places for exact ties (same score and card power).
     const place = (i) => 1 + sc.filter((x) => x.total > sc[i].total || (x.total === sc[i].total && x.base > sc[i].base)).length;
-    const team = (i) => sorted(pl(i).hand).map((id) => face(id)).join('');
+    // A Villain the Ringleader sprang from the Plaza plays as an extra card.
+    const team = (i) => {
+      const r = scoreOf(i);
+      return sorted(pl(i).hand).map((id) => face(id)).join('') + (r.raised ? face(r.raised, 'raised') : '');
+    };
     const mis = (i) => (sc[i].done ? `${M.icon} ✓` : `${M.icon} ✗`);
     // Places and the margin stay out of the page until the announcement, so nothing gives the result away early.
     const side = (i) => `<div class="hr-side" style="--pc:${PCOLOR[i]}"><span class="hr-crown">👑</span><span class="hr-sign">${SIGN[i]}</span><b class="hr-name">${esc(pl(i).name)}</b><span class="hr-total">?</span><small class="hr-place">${mis(i)}</small>${pl(i).identity ? '<small class="hr-ident">🎭 ???</small>' : ''}<span class="hr-team">${team(i)}</span></div>`;
@@ -1325,32 +1332,37 @@
         <p>Bonuses come in many shapes. Read each card carefully:</p>
         <dl class="rb-terms"><dt>With / for each</dt><dd>“+12 with Star Hammer” is +12 if the Star Hammer is in your team. “+5 for each other Bruiser” counts every other Bruiser. A card never counts itself unless it says “your team”.</dd>
         <dt>Copy power</dt><dd>“Adds the power of your strongest Bruiser” (Star Hammer, Mirra, Cyberia, Gale, Echo) adds that card’s printed power on top.</dd>
-        <dt>Exactly / pairs / all different</dt><dd>Baton and Coven Keeper want <b>exactly</b> three of their suit — a fourth spoils it. Double Trouble and Verdant score for each <b>pair</b> of cards that share a suit. Prism scores if <b>no two</b> cards share a suit.</dd>
+        <dt>Exactly / pairs / all different</dt><dd>Baton and Coven Keeper want <b>exactly</b> three of their suit — a fourth spoils it. Verdant scores for each <b>pair</b> of cards that share a suit. Prism scores if <b>no two</b> cards share a suit.</dd>
+        <dt>Combos</dt><dd>Some cards score a little with one partner and a lot with two: Valora gets +12 with the Star Hammer, but +40 instead with the Star Hammer <i>and</i> Ironclad. Doc Circuit, Stellara, Madame Moth and Cinder work the same way, and Seer Sela gets +50 if Coven Keeper and Mirra are both in your team.</dd>
+        <dt>Patterns</dt><dd>Double Trouble scores for every card with an <b>even</b> power — and +40 instead if every card’s power is even. Kid Kinetic does the same for <b>odd</b> powers, with +50. The Trophy Case pays +10, +30 or +60 for 3, 4 or 5+ cards of one suit, and Pip adds the power of every other Sidekick.</dd>
         <dt>Big and small</dt><dd>Mighty Mo and Tag-Along Tess love teammates with power 20 or more; Nano Swarm loves teammates with power 10 or less.</dd>
         <dt>The Plaza</dt><dd>Some cards score from the <b>Plaza</b> when the game ends: Whisper for each Villain left there, Dash for each Gear. Blur, Phantom and Jett score extra only if you <b>recruited them from the Plaza</b>.</dd>
         <dt>Mission</dt><dd>Comet and Rookie score extra if your team completes the Mission — and lose points if it fails.</dd>
         <dt>Big swings</dt><dd>A few cards can score a huge amount in the right team. <b>Juggernaut</b> scores for every card in your biggest suit. The <b>Grand Archmage</b> scores for each full set of a Mystic, a Cosmic and a Shadow. <b>Hotshot</b> scores for every card you recruited from the Plaza. The <b>Understudy</b> scores big if every other card is small. <b>The Reaper</b> scores for every blanked card in your team, and <b>Mindbender</b> for every card with a penalty.</dd></dl>
         ${sec(3, 'Penalties')}
-        <p>Penalties take points away (“−5 for each Tech”, or Raven’s “−5 for each Shadow left in the Plaza”). Some can cost a lot: <b>Singularity</b> loses points for every other big card, <b>Cataclysm</b> loses 35 if your team fails the Mission, and Juggernaut and Hotshot lose points when your team isn’t built their way. Many cards have both a bonus and a penalty — they’re only worth it in the right team. Some penalties <b>blank</b> other cards: a blanked card scores nothing, its ability does nothing, and it doesn’t count for any suit or for the Mission. The Crusher blanks every card with power 8 or less. “Blanked unless you have…” cards blank themselves when their partner is missing.</p>
+        <p>Penalties take points away (“−5 for each Tech”, or Raven’s “−5 for each Shadow left in the Plaza”). Some can cost a lot: <b>Singularity</b> loses points for every other big card, <b>Cataclysm</b> loses 35 if your team fails the Mission, and Juggernaut and Hotshot lose points when your team isn’t built their way. Many cards have both a bonus and a penalty — they’re only worth it in the right team. Some penalties <b>blank</b> other cards: a blanked card scores nothing, its ability does nothing, and it doesn’t count for any suit or for the Mission. The Crusher blanks every card with power 8 or less, and <b>Cataclysm</b> blanks every card that isn’t an Elemental, Cosmic, Bruiser or Villain. Some blanks spare a named card: Stormcaller blanks every Gear and Tech <i>except</i> Firewall. “Blanked unless you have…” cards blank themselves when their partner is missing.</p>
         ${sec(4, 'Special abilities')}
-        <dl class="rb-terms"><dt>🛡️ Clear</dt><dd>Hacklette, Penny Press, The Banisher and Skybase <b>clear</b> penalties: the cleared card’s penalties — including blanking and “blanked unless” — just don’t happen.</dd>
-        <dt>🛡️ Shield</dt><dd>Ironclad, Lucky Cape and Firewall stop cards being <b>blanked</b> (other penalties still count). Like clears, shields always work.</dd>
+        <dl class="rb-terms"><dt>🛡️ Clear</dt><dd>The Banisher, Skybase and the Containment Cell <b>clear</b> penalties: the cleared card’s penalties — including blanking and “blanked unless” — just don’t happen. Scout clears the penalty on <b>any one</b> card you choose.</dd>
+        <dt>🛡️ Shield</dt><dd>Lucky Cape and Firewall stop cards being <b>blanked</b> (other penalties still count). Like clears, shields always work.</dd>
+        <dt>✂️ Strike a word</dt><dd>Ironclad strikes the word “Bruiser” from every penalty, and Hacklette strikes “Tech”: no penalty can count, blank or hurt those cards for their suit. Dr. Entropy can’t touch your Tech while Hacklette is on the team.</dd>
+        <dt>📰 Penny Press</dt><dd>Pick one other card in your team: it counts as any suit you like.</dd>
+        <dt>⛓️ Ringleader</dt><dd>When the hands go down, he springs one Villain from the Plaza: it joins your team as an extra card and scores like the rest.</dd>
         <dt>🎭 Mimic</dt><dd>Counts as whichever suit scores your team best.</dd>
         <dt>🔦 Hero Signal</dt><dd>Counts as whichever of the Mission’s two suits scores your team best.</dd>
         <dt>⏪ Rewind</dt><dd>Your team doesn’t lose points for the Mission’s bad suit.</dd>
         <dt>🔮 Seer Sela</dt><dd>Doubles your +${E.MISSION_DONE} for completing the Mission.</dd></dl>
         ${sec(5, 'The suits')}
         <table><tr><th>Suit</th><th>Plays well with</th></tr>
-        <tr><td>${S.bruiser.icon} Bruisers</td><td>The Star Hammer, Tremor, Scout and big teammates. Ironclad keeps them from being blanked</td></tr>
+        <tr><td>${S.bruiser.icon} Bruisers</td><td>The Star Hammer, Tremor, Scout and big teammates. Ironclad strikes their name from every penalty</td></tr>
         <tr><td>${S.speed.icon} Speedsters</td><td>Tech and Cyberia — but not Gear. Baton wants exactly three</td></tr>
         <tr><td>${S.tech.icon} Tech</td><td>Gear, Speedsters and Robo-Pup. Hated by Sorcerer Sable and Dr. Entropy</td></tr>
         <tr><td>${S.mystic.icon} Mystics</td><td>Cosmic heroes. Spirit Guide hates Villains; Mirra copies anyone</td></tr>
         <tr><td>${S.cosmic.icon} Cosmic</td><td>Mystics and the Mission. Starbolt blanks every Shadow; Nova shines alone</td></tr>
         <tr><td>${S.shadow.icon} Shadows</td><td>Other Shadows and the Utility Belt. Nightshade works alone; Whisper watches the Plaza</td></tr>
-        <tr><td>${S.element.icon} Elementals</td><td>Each other and Bruisers. Stormcaller blanks all Gear; Magma needs a friend</td></tr>
+        <tr><td>${S.element.icon} Elementals</td><td>Each other and Bruisers. Stormcaller blanks Gear and Tech; Cataclysm blanks almost everyone else; Magma needs a friend</td></tr>
         <tr><td>${S.sidekick.icon} Sidekicks</td><td>Whoever they follow: Bruisers, Tech — and the Jet Pack and Lucky Cape</td></tr>
         <tr><td>${S.gear.icon} Gear</td><td>Bruisers, Tech and Sidekicks. Skybase clears every penalty; the Hero Signal fits any Mission</td></tr>
-        <tr><td>${S.villain.icon} Villains</td><td>Huge power with nasty penalties. Hacklette clears them; Brick Malone loves them; the Ringleader needs his gang</td></tr></table>`;
+        <tr><td>${S.villain.icon} Villains</td><td>Huge power with nasty penalties. The Containment Cell clears them; Brick Malone loves them; the Ringleader springs one from the Plaza</td></tr></table>`;
     } else if (tab === 'mission') {
       body = `${sec(1, 'How the Mission scores')}
         <ol class="rb-flow"><li><b>+${E.MISSION_DONE}</b> if your team has at least one card of <b>each</b> of the Mission’s two suits — or <b>−${E.MISSION_FAIL}</b> if it’s missing either.</li><li><b>+${E.MISSION_FIT}</b> for each card of either Mission suit, so the more of your team fits the Mission, the better.</li><li>A bonus for each card of the Mission’s helpful suit.</li><li>A penalty for each card of the suit that gets in the way.</li></ol>
@@ -1374,7 +1386,7 @@
         <p>The game ends <b>the moment the ${E.PLAZA_END}th card lands in the Plaza</b> — usually when someone draws from the deck while the Plaza has ${E.PLAZA_END - 1}. (Recruiting from the Plaza takes a card out, so it doesn’t fill up.) It also ends if the deck runs out. Nobody gets one last turn.</p>
         <p class="rb-ex">With ${E.PLAZA_END - 1} cards in the Plaza, you decide the timing. Ahead? Draw from the deck and end it. Behind? Recruit from the Plaza and keep the game going.</p>
         ${sec(2, 'Scoring a team, step by step')}
-        <ol class="rb-flow"><li>Mimic and the Hero Signal choose their suits.</li><li>Clear penalties (Hacklette, Penny Press, The Banisher, Skybase) and raise shields (Ironclad, Lucky Cape, Firewall).</li><li>Blank cards — all blanking happens at the same time.</li><li>Check “blanked unless…” cards.</li><li>Each card that isn’t blanked scores its power + bonuses − penalties.</li><li>Add the Mission.</li><li>Reveal and add your secret identity.</li></ol>
+        <ol class="rb-flow"><li>The Ringleader springs a Villain from the Plaza; Mimic, the Hero Signal and Penny Press choose suits.</li><li>Clear penalties (The Banisher, Skybase, the Containment Cell, Scout), strike words (Ironclad, Hacklette) and raise shields (Lucky Cape, Firewall).</li><li>Blank cards — all blanking happens at the same time.</li><li>Check “blanked unless…” cards.</li><li>Each card that isn’t blanked scores its power + bonuses − penalties.</li><li>Add the Mission.</li><li>Reveal and add your secret identity.</li></ol>
         <p class="rb-ex">Nobody’s score is shown during the game — not even your own. Counting up your team (and guessing at everyone else’s) is part of the challenge. The full breakdown appears at the end.</p>
         ${sec(3, 'Winning')}
         <p>Highest total wins. If it’s a tie, the team with more card power wins; if that’s tied too, it’s a shared win.</p>`;

@@ -561,3 +561,7 @@ button { font-family: inherit; }
 @media (prefers-reduced-motion: reduce) {
   .hero-sparks, .gh-hero-img, .hc-art img, .hc-art::after, .ms-art img, .deck-stack { animation: none !important; }
 }
+
+/* A Villain the Ringleader sprang from the Plaza */
+.hand-slot.raised .new-tag { background: #8c1c3a; color: #fff; }
+.face.raised { box-shadow: 0 0 0 2px #8c1c3a; border-radius: 50%; }
