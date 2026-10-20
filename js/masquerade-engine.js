@@ -16,7 +16,7 @@
   const CUT_IN_COST = 1;
   const WORN = 2;
   const INSULT_FAVOR = 2;
-  const WHISPER_COST = 5;
+  const WHISPER_COST = 4;
   const INTRIGUE_FAVOR = 2;
 
   // Each mask's power, and which power it can stop. cost is paid when the power is claimed, whatever happens.

@@ -289,12 +289,10 @@
           <div class="seg" id="level">${Object.keys(LEVEL_NAME).map((l) => `<button data-v="${l}" class="${(pr.level || 'normal') === l ? 'on' : ''}">${LEVEL_NAME[l]}</button>`).join('')}</div>
           <p class="muted level-hint" id="level-hint"></p>
         </div>
-        <div class="field offline-only">
-          <span class="label">Who goes first?</span>
-          <div class="seg" id="first"><button data-v="0" class="on">Me</button><button data-v="1">A rival</button><button data-v="r">🎲 Random</button></div>
-        </div>
+        <p class="muted offline-only">🎲 The seating and the first noble to move are drawn at random each ball.</p>
         <button class="btn big offline-only" id="start">🎭 Open the ball</button>
         <div class="gh-links">
+          <button class="btn ghost sm" data-tutorial="masquerade-ad">🎞️ Watch the trailer</button>
           <button class="btn ghost sm" id="how">📜 How to play</button>
           <button class="btn ghost sm" id="hist">🏆 Game history</button>
           ${isAdmin() ? '<button class="btn ghost sm" id="sim">🧪 Computer vs computer</button>' : ''}
@@ -310,8 +308,6 @@
     const setMode = (m) => {
       $('.setup').classList.toggle('is-local', m === 'local');
       $('.setup').classList.toggle('is-online', m === 'online');
-      $('#first').children[0].textContent = m === 'local' ? 'Noble 1' : 'Me';
-      $('#first').children[1].textContent = m === 'local' ? 'Noble 2' : 'A rival';
       if (m !== 'online') names();
     };
     const hint = () => ($('#level-hint').textContent = LEVEL_HINT[$('#level .on').dataset.v]);
@@ -339,15 +335,20 @@
       const level = $('#level .on').dataset.v;
       const n = mode === 'local' ? Number($('#seats .on').dataset.v) : 1 + Number($('#rivals .on').dataset.v);
       const typed = [...document.querySelectorAll('#names input')].map((x, i) => x.value.trim() || NOBLE_NAMES[i]);
-      const names = Array.from({ length: n }, (_, i) => typed[i] || NOBLE_NAMES[i]);
-      let first = $('#first .on').dataset.v;
-      first = first === 'r' ? Math.floor(Math.random() * n) : first === '1' && mode === 'ai' ? 1 + Math.floor(Math.random() * (n - 1)) : Number(first);
+      // Seats are shuffled, and whoever is drawn first moves first.
+      const seats = Array.from({ length: n }, (_, i) => ({ name: typed[i] || NOBLE_NAMES[i], ai: mode === 'ai' && i > 0 }));
+      for (let i = seats.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [seats[i], seats[j]] = [seats[j], seats[i]];
+      }
+      const names = seats.map((x) => x.name);
+      const first = Math.floor(Math.random() * n);
       const p = Object.assign(prefs(), { mode, level });
       typed.forEach((v, i) => (p['n' + i] = v));
       if (mode === 'local') p.seats = n;
       else p.rivals = n - 1;
       savePrefs(p);
-      const ai = names.map((_, i) => mode === 'ai' && i > 0);
+      const ai = seats.map((x) => x.ai);
       const state = E.newGame({ names, ai, levels: ai.map((x) => (x ? level : null)), first });
       startFrom({ state, mode, level, gid: newLocalId() });
     };

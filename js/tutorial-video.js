@@ -1,6 +1,6 @@
 // Narrated video tutorials for the board games, with chapters and optional captions.
-// - Any element with data-tutorial="dino" | "hearthhold" | "atlantis" | "cauldron" | "heroes" opens that video in a modal.
-// - "dino-ad" | "oakhaven-ad" | "atlantis-ad" | "cauldron-ad" | "heroes-ad" are the short trailers: same modal, no chapters or captions.
+// - Any element with data-tutorial="dino" | "hearthhold" | "atlantis" | "cauldron" | "heroes" | "masquerade" opens that video in a modal.
+// - "dino-ad" | "oakhaven-ad" | "atlantis-ad" | "cauldron-ad" | "heroes-ad" | "masquerade-ad" are the short trailers: same modal, no chapters or captions.
 // - AhrensTutorial.embed(id) returns markup for an inline player (e.g. a Rules tab);
 //   call AhrensTutorial.mount(container) after inserting it.
 (function () {
@@ -10,11 +10,13 @@
     atlantis: { title: 'Atlantis Expedition — video tutorial', base: '/video/atlantis-tutorial' },
     cauldron: { title: 'Cauldron Lane — video tutorial', base: '/video/cauldron-tutorial' },
     heroes: { title: 'Hero League — video tutorial', base: '/video/heroes-tutorial' },
+    masquerade: { title: 'The Masquerade Court — video tutorial', base: '/video/masquerade-tutorial' },
     'dino-ad': { title: 'Dino Dynasty — trailer', base: '/video/dino-ad', trailer: true, v: 9 },
     'oakhaven-ad': { title: 'Oakhaven — trailer', base: '/video/oakhaven-ad', trailer: true, v: 9 },
     'atlantis-ad': { title: 'Atlantis Expedition — trailer', base: '/video/atlantis-ad', trailer: true, v: 2 },
     'cauldron-ad': { title: 'Cauldron Lane — trailer', base: '/video/cauldron-ad', trailer: true, v: 2 },
     'heroes-ad': { title: 'Hero League — trailer', base: '/video/heroes-ad', trailer: true, v: 2 },
+    'masquerade-ad': { title: 'The Masquerade Court — trailer', base: '/video/masquerade-ad', trailer: true, v: 1 },
   };
   const V = '?v=8';
   const CC_KEY = 'ahrensTutorial.cc';
