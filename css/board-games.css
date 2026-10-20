@@ -97,12 +97,12 @@ h1, h2 { font-family: "Lilita One", "Fredoka", sans-serif; font-weight: 400; let
 .mg-head { display: flex; align-items: baseline; gap: 0.8rem; margin-bottom: 0.7rem; }
 .mg-head h2 { margin: 0; font-size: 1.5rem; color: #ffe08a; text-shadow: 0 3px 0 rgba(0, 0, 0, 0.45); }
 .mg-count { color: #ffb9a6; font-weight: 600; }
-.mg-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 0.8rem; }
+.mg-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr)); gap: 1.1rem 0.8rem; }
 .mg-list:empty { display: none; }
 .mg-card { position: relative; display: flex; gap: 0.75rem; align-items: center; padding: 0.6rem 0.75rem; border-radius: 12px; text-decoration: none; color: #2b1d0e; background: linear-gradient(180deg, #fbf1d9, #efdfb8); box-shadow: 0 0 0 3px #6b4a2a, 0 6px 14px rgba(0, 0, 0, 0.3); transition: transform 0.2s cubic-bezier(.34, 1.56, .64, 1), box-shadow 0.2s ease; }
 .mg-card:hover, .mg-card:focus-visible { transform: translateY(-3px); box-shadow: 0 0 0 3px #ffb300, 0 10px 20px rgba(0, 0, 0, 0.35); outline: none; }
 .mg-card.yours { box-shadow: 0 0 0 3px #b23a48, 0 6px 14px rgba(0, 0, 0, 0.3); }
-.mg-item { position: relative; display: grid; }
+.mg-item { position: relative; display: grid; min-width: 0; }
 .mg-x { position: absolute; top: -8px; right: -8px; z-index: 2; min-width: 26px; height: 26px; padding: 0 0.45rem; border: 0; border-radius: 13px; font: 700 0.8rem/26px Fredoka, sans-serif; color: #fff; background: #6b4a2a; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35); cursor: pointer; opacity: 0.85; transition: background 0.15s ease, opacity 0.15s ease; }
 .mg-x:hover, .mg-x:focus-visible { opacity: 1; background: #8a5a2e; outline: none; }
 .mg-dialog { width: min(400px, calc(100vw - 2rem)); padding: 1.2rem 1.3rem; border: 0; border-radius: 16px; color: #2b1d0e; background: linear-gradient(180deg, #fbf1d9, #efdfb8); box-shadow: 0 0 0 4px #6b4a2a, 0 18px 40px rgba(0, 0, 0, 0.5); font-family: Fredoka, system-ui, sans-serif; }
@@ -124,11 +124,11 @@ h1, h2 { font-family: "Lilita One", "Fredoka", sans-serif; font-weight: 400; let
 @keyframes mgPop { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .mg-dialog[open] { animation: none; } }
 .mg-card img { width: 72px; height: 54px; object-fit: cover; border-radius: 8px; flex: none; box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.25); }
-.mg-body { display: flex; flex-direction: column; min-width: 0; gap: 0.1rem; }
-.mg-game { font-size: 0.8rem; font-weight: 600; color: #6b4a2a; display: flex; flex-wrap: wrap; column-gap: 0.5rem; align-items: baseline; white-space: nowrap; }
+.mg-body { display: flex; flex: 1; flex-direction: column; min-width: 0; gap: 0.1rem; overflow: hidden; }
+.mg-game { font-size: 0.8rem; font-weight: 600; color: #6b4a2a; display: flex; flex-wrap: wrap; column-gap: 0.5rem; align-items: baseline; }
 .mg-game small { font-weight: 500; color: #8a6a44; }
 .mg-who { font-size: 1.05rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.mg-state { font-size: 0.85rem; color: #4a3520; }
+.mg-state { font-size: 0.85rem; color: #4a3520; overflow-wrap: anywhere; }
 .mg-state b { color: #b23a48; }
 .mg-flag { position: absolute; top: -9px; right: 10px; background: #b23a48; color: #fff; font-size: 0.72rem; font-weight: 700; padding: 0.1rem 0.5rem; border-radius: 999px; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35); animation: mgPulse 2s ease-in-out infinite; }
 .mg-note { margin: 0.4rem 0 0; color: rgba(251, 241, 217, 0.8); }

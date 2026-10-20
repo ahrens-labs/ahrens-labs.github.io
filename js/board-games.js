@@ -190,7 +190,9 @@
   function render(online, status) {
     lastOnline = online;
     lastStatus = status;
-    const items = online.map(onlineItem).concat(localGames());
+    // One card per game: the same game can be reported by both the online list and the saved games.
+    const seen = new Set();
+    const items = online.map(onlineItem).concat(localGames()).filter((it) => !seen.has(it.href) && seen.add(it.href));
     lastItems = items;
     items.sort((a, b) => (b.yours ? 1 : 0) - (a.yours ? 1 : 0) || (b.updatedAt || 0) - (a.updatedAt || 0));
     list.innerHTML = items.map(card).join('');
