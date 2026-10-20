@@ -178,3 +178,9 @@ h1, h2 { font-family: "Lilita One", "Fredoka", sans-serif; font-weight: 400; let
 .hx-note a { color: #ffe08a; }
 .hx-signin { display: inline-block; margin-top: 0.6rem; --accent: #ffb300; color: #2b1d0e; }
 @media (max-width: 560px) { .hx-view { display: none; } }
+.surprise-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.8rem; margin-top: 0.7rem !important; }
+.surprise { padding: 0.55rem 1.1rem; border: 0; border-radius: 12px; cursor: pointer; font: 700 1rem Fredoka, system-ui, sans-serif; color: #3a2508;
+  background: linear-gradient(180deg, #ffe7a0, #f0b43c); box-shadow: 0 4px 0 #9a6a1a, 0 8px 16px rgba(0, 0, 0, 0.3); transition: transform 0.12s ease; }
+.surprise:hover, .surprise:focus-visible { transform: translateY(-2px); outline: none; }
+.surprise:disabled { cursor: progress; }
+.surprise-note { color: rgba(251, 241, 217, 0.85); font-size: 0.92rem; }

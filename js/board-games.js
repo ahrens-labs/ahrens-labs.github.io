@@ -10,6 +10,30 @@
     heroes: { name: 'Hero League', icon: '🦸', page: '/heroes.html', img: '/img/heroes/cover.webp' },
     masquerade: { name: 'The Masquerade Court', icon: '🎭', page: '/masquerade.html', img: '/img/masquerade/cover.webp' },
   };
+  // "Surprise me": a random game against a random number of computer rivals (up to as many as the game seats).
+  const MAX_RIVALS = { dino: 1, hearthhold: 1, atlantis: 1, cauldron: 3, heroes: 4, masquerade: 4 };
+  const surprise = document.getElementById('surprise');
+  if (surprise) {
+    surprise.addEventListener('click', () => {
+      const keys = Object.keys(MAX_RIVALS);
+      const game = keys[Math.floor(Math.random() * keys.length)];
+      const rivals = 1 + Math.floor(Math.random() * MAX_RIVALS[game]);
+      const G = GAMES[game];
+      surprise.disabled = true;
+      surprise.textContent = `${G.icon} ${G.name}!`;
+      const note = document.getElementById('surprise-note');
+      if (note) note.textContent = `Against ${rivals} computer ${rivals === 1 ? 'rival' : 'rivals'} — here we go…`;
+      setTimeout(() => location.assign(`${G.page}?home&surprise=${rivals}`), 700);
+    });
+    // Coming back with the browser's Back button shows the page as it was left.
+    addEventListener('pageshow', (e) => {
+      if (!e.persisted) return;
+      surprise.disabled = false;
+      surprise.textContent = '🎲 Surprise me';
+      const note = document.getElementById('surprise-note');
+      if (note) note.textContent = 'A random game against a random number of computers';
+    });
+  }
   const LEVELS = { easy: 'Easy', normal: 'Normal', medium: 'Normal', hard: 'Hard', brutal: 'Brutal' };
   const SEASONS = ['Spring', 'Summer', 'Autumn', 'Winter'];
 
