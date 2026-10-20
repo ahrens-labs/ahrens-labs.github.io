@@ -25,6 +25,7 @@ const GAMES = {
     title: 'Atlantis Expedition',
     players: 2,
     roundOf: (s) => (s ? s.tide : 0),
+    logEntry: (s, text, who) => ({ t: s.tide, text, who }),
     rounds: () => Atlantis.TIDES,
     turnOf: (s) => (s && s.phase !== 'over' ? s.turn : null),
     offTurnOk: () => false,
@@ -47,6 +48,7 @@ const GAMES = {
     title: 'Cauldron Lane',
     players: 2,
     roundOf: (s) => (s ? Cauldron.today(s) : 0),
+    logEntry: (s, text, who) => ({ d: Cauldron.today(s), text, who }),
     rounds: () => Cauldron.DAYS,
     turnOf: (s) => (s && s.phase !== 'over' ? s.turn : null),
     offTurnOk: () => false,
@@ -66,6 +68,7 @@ const GAMES = {
     title: 'Hero League',
     players: 2,
     roundOf: (s) => (s ? s.turns : 0),
+    logEntry: (s, text, who) => ({ n: s.turns, text, who }),
     rounds: () => Heroes.PLAZA_END,
     turnOf: (s) => (s && s.phase !== 'over' ? s.turn : null),
     offTurnOk: (a) => a && a.t === 'identity',
@@ -326,7 +329,6 @@ function publicHeroes(state, me) {
       drew: null,
       identity: null,
       idOffer: p.idOffer ? [null, null] : null,
-      took: [],
     };
   });
   return s;
@@ -658,13 +660,7 @@ export class LabGame {
           ai: [false, false],
           first: randomInt(2),
         });
-        if (record.state.log) {
-          record.state.log.push({
-            r: cfg.roundOf(record.state) || 1,
-            text: `${record.state.players[record.state.first != null ? record.state.first : record.state.turn].name} goes first.`,
-            who: record.state.first != null ? record.state.first : record.state.turn,
-          });
-        }
+        if (record.state.log) record.state.log.push(cfg.logEntry(record.state, `${record.state.players[record.state.turn].name} goes first.`, null));
         record.status = 'active';
         record.version = 1;
         record.turn = cfg.turnOf(record.state);
@@ -744,7 +740,7 @@ export class LabGame {
     if (record.misses[pi] >= QUICK_MAX_MISSES) {
       this.finish(cfg, record, 1 - pi, 'timeout');
     } else {
-      if (state.log) state.log.push({ r: cfg.roundOf(state), text: `${state.players[pi].name} ran out of time, so the computer took the turn.`, who: pi });
+      if (state.log) state.log.push(cfg.logEntry(state, `${state.players[pi].name} ran out of time, so the computer took the turn.`, pi));
       const mark = cfg.roundOf(state);
       const turn0 = state.turn;
       for (let i = 0; i < 40 && state.phase !== 'over' && state.turn === turn0 && cfg.roundOf(state) === mark; i++) {

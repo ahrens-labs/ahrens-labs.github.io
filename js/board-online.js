@@ -200,9 +200,12 @@
     function applyView(v) {
       const G = cfg.getG();
       if (!G || G.mode !== 'online' || v.id !== G.id) return;
+      const mine = net.pending ? net.pending.a : null;
       settlePending();
       if (v.version < G.version) return;
-      cfg.applyView(v);
+      const fresh = freshLines(G.state && G.state.log, v.state && v.state.log);
+      if (fresh.some((l) => l.who === G.me && /ran out of time/.test(l.text))) toast('⏱ Your time ran out, so the computer took that turn for you.', 'bad');
+      cfg.applyView(v, fresh, mine);
       rememberOnline();
     }
 
@@ -388,5 +391,18 @@
     };
   }
 
-  root.BoardOnline = { attach };
+  // Log lines in `next` that weren't in `prev`. Logs are capped, so once they're full the old lines scroll off the
+  // front; matching the last two lines keeps a repeated move ("drew from the deck.") from being mistaken for the old one.
+  function freshLines(prev, next) {
+    if (!Array.isArray(prev) || !Array.isArray(next) || !prev.length) return [];
+    const n = prev.length;
+    const same = (a, b) => !!a && !!b && a.text === b.text && a.who === b.who;
+    if (next.length >= n && same(next[n - 1], prev[n - 1]) && (n < 2 || same(next[n - 2], prev[n - 2]))) return next.slice(n);
+    for (let i = next.length - 1; i >= 0; i--) {
+      if (same(next[i], prev[n - 1]) && (n < 2 || same(next[i - 1], prev[n - 2]))) return next.slice(i + 1);
+    }
+    return [];
+  }
+
+  root.BoardOnline = { attach, freshLines };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -171,9 +171,8 @@
         });
       }
     },
-    applyView: (v) => {
+    applyView: (v, fresh, mine) => {
       const prev = G.state;
-      const tideBefore = prev.tide;
       G.version = v.version;
       G.status = v.status;
       G.result = v.result;
@@ -181,23 +180,23 @@
       if (v.now) G.skew = v.now - Date.now();
       if (!v.state) { render(); return; }
       G.state = v.state;
-      const opp = 1 - G.me;
-      if (prev && v.state.tide === prev.tide && v.state.phase === 'act') {
-        const last = prev.log[prev.log.length - 1];
-        let from = 0;
-        if (last) for (let i = v.state.log.length - 1; i >= 0; i--) if (v.state.log[i].text === last.text && v.state.log[i].r === last.r) { from = i + 1; break; }
-        v.state.log.slice(from).filter((l) => l.who === opp).forEach((l) => toast(`<span class="dot" style="--pc:${PCOLOR[opp]}"></span>${esc(l.text)}`, 'ai'));
-      }
+      const s = v.state;
+      const dive = s.last && s.last.t === 'dive' && fresh.some((l) => l.who === s.last.pi) ? s.last : null;
+      if (mine) actionSfx(mine.t);
       render();
       if (G.gmode === 'quick' && G.status === 'active') Online.tickClock();
-      if (v.state.tide !== tideBefore) tideSplash();
-      if (v.state.phase === 'over' || G.status === 'over') {
-        if (v.state.phase === 'over') showGameOver(true);
-        else if (!G.revealed) {
+      if (!dive) [G.me, 1 - G.me].forEach((pi) => tellMove(pi, fresh, prev.players[pi].gold, pi === G.me));
+      const after = () => {
+        if (s.tide !== prev.tide) tideSplash();
+        if (!dive) tellGoals(s);
+        if (s.phase === 'over') return showGameOver(prev.phase === 'over');
+        if (G.status === 'over' && !G.revealed) {
           G.revealed = true;
           openModal(`<h2>${G.result && G.result.winner === G.me ? '🏆 You win!' : '🏳️ Game over'}</h2><p>${esc(onlineEndText())}</p><div class="btn-row"><button class="btn" data-close>See the chart</button></div>`);
         }
-      }
+      };
+      if (dive) showRoll(dive, { auto: dive.pi !== G.me, done: after });
+      else after();
     },
   });
   function onlineEndText() {
@@ -219,8 +218,9 @@
     t.className = `toast ${kind || ''}`;
     t.innerHTML = html;
     root.appendChild(t);
-    setTimeout(() => t.classList.add('out'), 2800);
-    setTimeout(() => t.remove(), 3200);
+    while (root.children.length > 3) root.firstChild.remove();
+    setTimeout(() => t.classList.add('out'), 3200);
+    setTimeout(() => t.remove(), 3600);
   }
   function sfx(k, delay) {
     if (!window.GameMusic || !G || G.mode === 'sim') return;
@@ -718,36 +718,35 @@
   }
 
   // ---------------------------------------------------------------- actions
+  // One sound per move.
+  function actionSfx(t) {
+    if (t === 'hire') sfx('join');
+    else if (t === 'build' || t === 'upgrade' || t === 'fit') sfx('build');
+    else if (t === 'salvage') sfx('coin');
+    else if (t === 'pass') sfx('turn');
+  }
   function doAction(a) {
     if (G.mode === 'online') return Online.send(a);
     const s = st();
     const pi = s.turn;
     const tideBefore = s.tide;
     const goldBefore = pl(pi).gold;
+    const mark = s.log[s.log.length - 1];
     try {
-    E.apply(s, pi, a);
+      E.apply(s, pi, a);
     } catch (err) {
       toast(esc(err.message), 'bad');
       return;
     }
-    if (a.t === 'hire') sfx('join');
-    else if (a.t === 'build' || a.t === 'upgrade' || a.t === 'fit') sfx('build');
-    else if (a.t === 'salvage') sfx('coin');
-    else if (a.t === 'pass') sfx('turn');
-    if (a.t !== 'dive' && pl(pi).gold < goldBefore && a.t !== 'salvage') sfx('pay', 160);
+    actionSfx(a.t);
+    if (a.t !== 'dive') tellMove(pi, s.log.slice(s.log.lastIndexOf(mark) + 1), goldBefore, isOwn(pi));
     if (G.mode === 'local' && G.follow !== false) G.view = s.phase === 'act' ? s.turn : G.view;
     if (s.phase === 'act' && G.mode === 'ai' && !pl(pi).ai) G.view = 0;
     save();
     const after = () => {
         render();
       if (s.tide !== tideBefore) tideSplash();
-      if (a.t !== 'dive' && !(G.mode === 'sim' && G.speed === 'turbo')) {
-        (s.claimed || []).forEach((k) => {
-          const g = s.goals.find((y) => y.k === k);
-          toast(`${E.GOALS[k].icon} <b>${esc(pl(g.by).name)}</b> completed the <b>${esc(E.GOALS[k].name)}</b> commission: +${E.GOALS[k].pts} points!`);
-          sfx('reveal');
-        });
-      }
+      if (a.t !== 'dive') tellGoals(s);
       if (s.phase === 'over') return showGameOver(false);
       scheduleAI();
     };
@@ -964,7 +963,7 @@
   // The penalty for a failed dive, item by item, with when everything comes back.
   function penaltyHtml(r, p) {
     const s = st();
-    const whose = G.mode === 'ai' && !p.ai ? 'you' : esc(p.name);
+    const whose = (G.mode === 'ai' && !p.ai) || (G.mode === 'online' && r.pi === G.me) ? 'you' : esc(p.name);
     const back = (t) => {
       if (t > E.TIDES) return 'for the rest of the season';
       const n = t - s.tide - 1;
@@ -1077,7 +1076,7 @@
       ok.hidden = false;
       ok.onclick = finish;
       ok.focus();
-      if (opts.auto) timers.push(setTimeout(finish, fast || (r.ok ? 1600 : 3200)));
+      if (opts.auto) timers.push(setTimeout(finish, fast || (r.ok ? 2200 : 4500)));
     }, landAt));
   }
 
@@ -1145,23 +1144,28 @@
     const level = G.mode === 'sim' ? G.levels[pi] : G.level;
     const a = E.aiChoose(st(), pi, level);
     const fast = G.mode === 'sim' && G.speed === 'turbo';
-    if (!fast && a.t !== 'dive') aiToast(pi, a);
     doAction(a);
   }
-  function aiToast(pi, a) {
-    const s = st();
+  // One line saying what a move did, straight from the captain's log, plus the gold it left.
+  // Your own pass isn't announced (the banner says it); dives get the roll instead.
+  function tellMove(pi, lines, goldBefore, own) {
+    if (G.mode === 'sim' && G.speed === 'turbo') return;
+    const line = lines.find((l) => l.who === pi && !/commission/.test(l.text));
+    if (!line || (own && /is done for this tide/.test(line.text))) return;
     const p = pl(pi);
-    let text = '';
-    if (a.t === 'hire') {
-      const d = s.market.find((x) => x.id === a.d);
-      text = `hires ${esc(d.name)}, ${esc(E.DIVER[d.k].role.toLowerCase())}, for 🪙${E.hireCost(d)}`;
-    } else if (a.t === 'build') text = `builds a ${esc(E.SUB[a.k].name)}`;
-    else if (a.t === 'upgrade') text = `rebuilds a ${esc(E.SUB[E.subOf(p, a.s).k].name)} as a ${esc(E.SUB[a.k].name)}`;
-    else if (a.t === 'fit') text = `fits ${esc(E.MOD[a.m].name.toLowerCase())}`;
-    else if (a.t === 'salvage') text = `goes on a salvage run (+🪙${1 + a.crew.length})`;
-    else if (a.t === 'pass') text = 'is done for this tide';
-    toast(`<span class="dot" style="--pc:${PCOLOR[pi]}"></span><b>${esc(p.name)}</b> ${text}.`);
+    const gold = p.gold === goldBefore ? '' : ` <small>· 🪙${p.gold} ${p.gold < goldBefore ? 'left' : 'now'}</small>`;
+    toast(`<span class="dot" style="--pc:${PCOLOR[pi]}"></span>${esc(line.text)}${gold}`, own ? '' : 'ai');
   }
+  function tellGoals(s) {
+    if (G.mode === 'sim' && G.speed === 'turbo') return;
+    (s.claimed || []).forEach((k) => {
+      const g = s.goals.find((y) => y.k === k);
+      if (!g || g.by == null) return;
+      toast(`${E.GOALS[k].icon} <b>${esc(pl(g.by).name)}</b> completed the <b>${esc(E.GOALS[k].name)}</b> commission: +${E.GOALS[k].pts} points!`);
+      sfx('reveal');
+    });
+  }
+  const isOwn = (pi) => (G.mode === 'online' ? pi === G.me : !pl(pi).ai);
 
   // ---------------------------------------------------------------- game over
   function showGameOver(instant) {
@@ -1676,6 +1680,7 @@
         }
       });
     } else showSetup();
-  } else showSetup();
+  } else if (params.has('history')) showHistory();
+  else showSetup();
   window.__atl = { get G() { return G; }, render, E, send: (a) => doAction(a) };
 })();

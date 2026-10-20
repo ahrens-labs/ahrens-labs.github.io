@@ -132,7 +132,7 @@
       startFrom(G);
       if (G.status === 'over' && st().phase === 'over') showGameOver(true);
     },
-    applyView: (v) => {
+    applyView: (v, fresh, mine) => {
       const prev = G.state;
       G.version = v.version;
       G.status = v.status;
@@ -141,22 +141,24 @@
       if (v.now) G.skew = v.now - Date.now();
       if (!v.state) { render(); return; }
       G.state = v.state;
-      const opp = 1 - G.me;
-      if (prev && prev.log && v.state.log) {
-        const last = prev.log[prev.log.length - 1];
-        let from = 0;
-        if (last) for (let i = v.state.log.length - 1; i >= 0; i--) if (v.state.log[i].text === last.text) { from = i + 1; break; }
-        v.state.log.slice(from).filter((l) => l.who === opp).forEach((l) => toast(`<span class="dot" style="--pc:${PCOLOR[opp]}"></span>${esc(l.text)}`, 'ai'));
+      const s = v.state;
+      const actor = prev.turn;
+      if (fresh.length) {
+        ui.moved = actor;
+        noteGains(s.sold || []);
       }
       render();
       if (G.gmode === 'quick' && G.status === 'active') Online.tickClock();
-      if (v.state.phase === 'over' || G.status === 'over') {
-        if (v.state.phase === 'over') showGameOver(true);
-        else if (!G.revealed) {
-          G.revealed = true;
-          const r = G.result || {};
-          openModal(`<h2>${r.winner === G.me ? '🏆 You win!' : '🏳️ Game over'}</h2><p>${esc(r.reason === 'resign' ? (r.winner === G.me ? 'They resigned.' : 'You resigned.') : r.reason === 'timeout' ? (r.winner === G.me ? 'They ran out of time.' : 'You ran out of time.') : 'This game has ended.')}</p><div class="btn-row"><button class="btn" data-close>OK</button></div>`);
-        }
+      if (fresh.length) {
+        if (mine) actionSfx(mine.t, s.players[G.me].coins < prev.players[G.me].coins, (s.sold || []).length > 0);
+        tell(actor, fresh);
+      }
+      if (s.phase === 'over') return showGameOver(prev.phase === 'over');
+      if (fresh.length && s.report && s.report.days.length) marketDaySplash(s.report.days);
+      if (G.status === 'over' && !G.revealed) {
+        G.revealed = true;
+        const r = G.result || {};
+        openModal(`<h2>${r.winner === G.me ? '🏆 You win!' : '🏳️ Game over'}</h2><p>${esc(r.reason === 'resign' ? (r.winner === G.me ? 'They resigned.' : 'You resigned.') : r.reason === 'timeout' ? (r.winner === G.me ? 'They ran out of time.' : 'You ran out of time.') : 'This game has ended.')}</p><div class="btn-row"><button class="btn" data-close>OK</button></div>`);
       }
     },
   });
@@ -166,7 +168,7 @@
   const pl = (i) => st().players[i];
   const humanTurn = () => st().phase === 'act' && G.mode !== 'past' && (G.mode === 'online' ? G.status === 'active' && st().turn === G.me : !pl(st().turn).ai);
   const shopName = (i) => `<b class="who" style="--pc:${PCOLOR[i]}">${esc(pl(i).name)}</b>`;
-  const you = (i) => G.mode === 'ai' && i === 0;
+  const you = (i) => (G.mode === 'ai' && i === 0) || (G.mode === 'online' && i === G.me);
   const whose = (i) => (you(i) ? 'your' : `${shopName(i)}’s`);
   // One sale, said plainly: who bought what from whom, and the coins it brought in.
   function saleHtml(x, big) {
@@ -190,7 +192,7 @@
     t.className = `toast ${kind || ''}`;
     t.innerHTML = html;
     root.appendChild(t);
-    while (root.children.length > 5) root.firstChild.remove();
+    while (root.children.length > 4) root.firstChild.remove();
     setTimeout(() => t.classList.add('out'), ms || 3200);
     setTimeout(() => t.remove(), (ms || 3200) + 400);
   }
@@ -797,37 +799,50 @@
     render();
     const quiet = G.mode === 'sim' && G.speed === 'turbo';
     if (!quiet) {
-      if (a.t === 'brew') sfx('grow');
-      else if (a.t === 'hunt') sfx('stomp');
-      else if (a.t === 'learn') sfx('card');
-      else if (a.t === 'wait') sfx('turn');
-      if (s.players.some((p, i) => p.coins < coins[i] && i === pi)) sfx('pay', 120);
-      if (s.sold.length) sfx('coin', 260);
-      tell(pi, a, fresh);
+      actionSfx(a.t, pl(pi).coins < coins[pi], s.sold.length > 0);
+      tell(pi, fresh);
     }
     if (s.phase === 'over') return showGameOver(false);
     if (!quiet && s.report && s.report.days.length) return marketDaySplash(s.report.days);
     scheduleAI();
   }
 
-  // What just happened, as toasts: the computer's move, sales, and customers coming and going at people's shops.
-  function tell(pi, a, fresh) {
+  function actionSfx(t, paid, sold) {
+    if (t === 'brew') sfx('grow');
+    else if (t === 'hunt') sfx('stomp');
+    else if (t === 'learn') sfx('card');
+    else if (t === 'wait') sfx('turn');
+    if (paid) sfx('pay', 120);
+    if (sold) sfx('coin', 260);
+  }
+  // Shops a person is watching: their own (online), or every non-computer shop on this device.
+  const watched = (i) => (G.mode === 'online' ? i === G.me : !pl(i).ai);
+  // What just happened, as toasts: one line for the move itself, then sales and customers at the shops people are
+  // watching. Several customers arriving at once share one notice.
+  function tell(pi, fresh) {
     const s = st();
-    const actor = pl(pi);
-    const humanShop = (i) => !pl(i).ai;
-    // A computer shop buying from a person's shelf gets its own sale notice below.
-    if (actor.ai && !(a.t === 'visit' && humanShop(a.from))) {
-      const line = fresh.find((l) => l.who === pi && !/^🔔|gave up|bought .* at /.test(l.text));
-      if (line) toast(`<span class="dot" style="--pc:${PCOLOR[pi]}"></span>${esc(line.text)}`);
-    }
-    s.sold.forEach((x) => {
-      if ((x.to === 'folk' || x.to === 'rival') && (humanShop(x.who) || G.mode === 'sim')) toast(saleHtml(x, true), 'sale', 6500);
+    const own = watched(pi);
+    const sold = s.sold || [];
+    // A shop buying from a watched shelf is announced by the sale notice instead.
+    const boughtFromYou = sold.some((x) => x.to === 'rival' && x.buyer === pi && x.who !== pi && watched(x.who));
+    const line = fresh.find((l) => l.who === pi && !/^🔔|gave up waiting|bought .* at .* for 🪙/.test(l.text));
+    if (line && !boughtFromYou) toast(`<span class="dot" style="--pc:${PCOLOR[pi]}"></span>${esc(line.text)}${own ? ` <small>· 🪙${pl(pi).coins} in the till</small>` : ''}`, own ? '' : 'ai', 4200);
+    sold.forEach((x) => {
+      if ((x.to === 'folk' || x.to === 'rival') && (watched(x.who) || G.mode === 'sim')) toast(saleHtml(x, true), 'sale', 6500);
     });
     const r = s.report;
     if (!r) return;
-    r.came.filter((c) => humanShop(c.who)).forEach((c) => toast(`🔔 ${esc(E.FOLK[c.o.who].name)} came into ${you(c.who) ? 'your shop' : shopName(c.who)} wanting ${E.wantText(c.o)}.`));
-    r.left.filter((c) => humanShop(c.who)).forEach((c) => toast(`😤 ${esc(E.FOLK[c.o.who].name)} gave up waiting at ${you(c.who) ? 'your shop' : shopName(c.who)}.`, 'bad'));
-    r.missed.filter((c) => humanShop(c.who)).forEach((c) => toast(`🚶 A customer saw the full queue at ${you(c.who) ? 'your shop' : shopName(c.who)} and walked on by.`, 'bad'));
+    const at = (i) => (you(i) ? 'your shop' : shopName(i));
+    const group = (list) => {
+      const by = {};
+      list.filter((c) => watched(c.who)).forEach((c) => (by[c.who] = by[c.who] || []).push(c));
+      return Object.keys(by).map((k) => [Number(k), by[k]]);
+    };
+    group(r.came).forEach(([i, cs]) => toast(cs.length === 1
+      ? `🔔 ${esc(E.FOLK[cs[0].o.who].name)} came into ${at(i)} wanting ${E.wantText(cs[0].o)}.`
+      : `🔔 ${cs.length} customers came into ${at(i)}: ${cs.map((c) => `${esc(E.FOLK[c.o.who].name)} wants ${E.wantText(c.o)}`).join('; ')}.`));
+    group(r.left).forEach(([i, cs]) => toast(`😤 ${cs.map((c) => esc(E.FOLK[c.o.who].name)).join(' and ')} gave up waiting at ${at(i)}.`, 'bad'));
+    group(r.missed).forEach(([i, cs]) => toast(`🚶 ${cs.length === 1 ? 'A customer' : `${cs.length} customers`} saw the full queue at ${at(i)} and walked on by.`, 'bad'));
   }
 
   function marketDaySplash(days) {
@@ -1658,6 +1673,7 @@
         }
       });
     } else showSetup();
-  } else showSetup();
+  } else if (params.has('history')) showHistory();
+  else showSetup();
   window.__cl = { get G() { return G; }, render, E, send: (a) => doAction(a) };
 })();

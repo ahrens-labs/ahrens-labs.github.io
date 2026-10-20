@@ -127,8 +127,32 @@
     t.className = `toast ${kind || ''}`;
     t.innerHTML = html;
     root.appendChild(t);
-    setTimeout(() => t.classList.add('out'), 2600);
-    setTimeout(() => t.remove(), 3000);
+    while (root.children.length > 3) root.firstChild.remove();
+    setTimeout(() => t.classList.add('out'), 3000);
+    setTimeout(() => t.remove(), 3400);
+  }
+  // What a move cost or brought in, e.g. "−🪵3 −🪨2" or "+🍞2 +⭐1".
+  const snap = (p) => ({ res: { ...p.res }, renown: p.renown || 0 });
+  function resDiff(before, p) {
+    const bits = E.RES.map((r) => [E.RES_ICON[r], (p.res[r] || 0) - (before.res[r] || 0)]).concat([['⭐', (p.renown || 0) - before.renown]]);
+    return bits.filter(([, n]) => n).map(([icon, n]) => `${n > 0 ? '+' : '−'}${icon}${Math.abs(n)}`).join(' ');
+  }
+  // Moves the board alone doesn't fully explain get a line saying what happened and what it cost.
+  const TOLD = new Set(['build', 'wall', 'bow', 'recruit', 'train', 'event']);
+  function tellMove(pi, text, before, kind) {
+    if (!text || (G.mode === 'sim' && G.speed === 'turbo')) return;
+    const p = st().players[pi];
+    const d = before ? resDiff(before, p) : '';
+    toast(`<span class="dot" style="--pc:${PCOLOR[pi]}"></span>${text}${d ? ` <small>· ${d}</small>` : ''}`, kind);
+  }
+  // Log lines in `next` that weren't in `prev` (the log is capped, so old lines scroll off the front).
+  function freshLines(prev, next) {
+    if (!Array.isArray(prev) || !Array.isArray(next) || !prev.length) return [];
+    const n = prev.length;
+    const same = (a, b) => !!a && !!b && a.text === b.text && a.who === b.who && a.r === b.r;
+    if (next.length >= n && same(next[n - 1], prev[n - 1]) && (n < 2 || same(next[n - 2], prev[n - 2]))) return next.slice(n);
+    for (let i = next.length - 1; i >= 0; i--) if (same(next[i], prev[n - 1]) && (n < 2 || same(next[i - 1], prev[n - 2]))) return next.slice(i + 1);
+    return [];
   }
 
   // ---------------------------------------------------------------- modal
@@ -1200,14 +1224,17 @@
     const before = s.players[pi].bld.length;
     const vilBefore = s.players[pi].vil.map((v) => ({ id: v.id, k: v.k }));
     const resBefore = { ...s.players[pi].res };
+    const was = snap(s.players[pi]);
+    let msg;
     try {
-      E.apply(s, pi, a);
+      msg = E.apply(s, pi, a);
     } catch (err) {
       toast(esc(err.message), 'bad');
       return;
     }
     const p = s.players[pi];
     actionSfx(a, p, resBefore);
+    if (TOLD.has(a.t)) tellMove(pi, `<b>${esc(p.name)}</b> ${esc(msg)}`, was);
     if (a.t === 'build' && p.bld.length > before) ui.fresh.add(p.bld[p.bld.length - 1].id);
     if (a.t === 'place') toast(`${meeple(PCOLOR[pi], 'tipm')} ${esc(s.log[s.log.length - 1].text)}`);
     const fresh = p.ai || G.mode === 'sim' ? [] : newcomers(vilBefore, p);
@@ -1222,7 +1249,6 @@
       render();
       return staff([pi], afterAction);
     }
-    if (a.t === 'recruit') toast(`${esc(p.name)} took in a <b>${E.VIL[p.vil[p.vil.length - 1].k].name}</b>.`);
     afterAction();
   }
 
@@ -1303,10 +1329,11 @@
         return wait();
       }
       const before = { ...p.res };
+      const was = snap(p);
       const vilBefore = p.vil.map((v) => ({ id: v.id, k: v.k }));
       try {
         const msg = E.apply(st(), pi, a);
-        toast(`<span class="dot" style="--pc:${PCOLOR[pi]}"></span><b>${esc(p.name)}</b> ${esc(msg)}`);
+        tellMove(pi, `<b>${esc(p.name)}</b> ${esc(msg)}`, was);
       } catch (err) {
         toast(esc(err.message), 'bad');
       }
@@ -1557,6 +1584,7 @@
     const p = s.players[pi];
     const a = E.aiChoose(s, pi, G.levels ? G.levels[pi] : G.level);
     const before = p.bld.length;
+    const was = snap(p);
     let msg;
     try {
       msg = E.apply(s, pi, a);
@@ -1566,7 +1594,7 @@
     ui.aiFast = a.t !== 'place' && a.t !== 'end';
     if (a.t === 'build' && p.bld.length > before) ui.fresh.add(p.bld[p.bld.length - 1].id);
     if ((a.t === 'wall' || a.t === 'bow') && G.view === pi) ui.freshSide = a.side;
-    if (G.mode !== 'sim' || G.speed !== 'turbo') toast(`<span class="dot" style="--pc:${PCOLOR[pi]}"></span><b>${esc(p.name)}</b> ${esc(msg)}`, 'ai');
+    if (msg) tellMove(pi, `<b>${esc(p.name)}</b> ${esc(msg)}`, a.t === 'place' || a.t === 'end' ? null : was, 'ai');
     if (s.phase === 'act' && s.turn !== pi && !s.players[s.turn].ai) sfx('turn', 300);
     afterAction();
   }
@@ -2723,6 +2751,7 @@
   // Draw a fresh server view: toasts for the opponent's moves, the dusk report, the final reveal.
   function applyView(v) {
     if (!G || G.mode !== 'online' || v.id !== G.id) return;
+    const mine = net.pending ? net.pending.a : null;
     settlePending();
     if (v.version < G.version) return;
     const prev = G.state;
@@ -2737,12 +2766,14 @@
     const opp = 1 - G.me;
     const oldIds = new Set(prev.players.flatMap((p) => p.bld.map((b) => b.id)));
     s.players.forEach((p) => p.bld.forEach((b) => !oldIds.has(b.id) && ui.fresh.add(b.id)));
-    if (s.round === prev.round && s.phase === 'act') {
-      const last = prev.log[prev.log.length - 1];
-      let from = 0;
-      if (last) for (let i = s.log.length - 1; i >= 0; i--) if (s.log[i].text === last.text && s.log[i].r === last.r) { from = i + 1; break; }
-      s.log.slice(from).filter((l) => l.who === opp).forEach((l) => toast(`<span class="dot" style="--pc:${PCOLOR[opp]}"></span>${esc(l.text)}`, 'ai'));
-    }
+    const lines = freshLines(prev.log, s.log);
+    // Their moves; once the round has moved on to dusk only their last move is told (dusk has its own report).
+    const theirs = lines.filter((l) => l.who === opp && !/ran out of time/.test(l.text));
+    (s.round === prev.round && s.phase === 'act' ? theirs.slice(-3) : theirs.slice(0, 1)).forEach((l) => toast(`<span class="dot" style="--pc:${PCOLOR[opp]}"></span>${esc(l.text)}`, 'ai'));
+    if (lines.some((l) => l.who === G.me && /ran out of time/.test(l.text))) toast('⏱ Your time ran out, so the computer took that turn for you.', 'bad');
+    // Your own move: the same line a game on this device would show.
+    const told = mine && (TOLD.has(mine.t) || mine.t === 'place') ? lines.filter((l) => l.who === G.me).pop() : null;
+    if (told) tellMove(G.me, esc(told.text), TOLD.has(mine.t) ? snap(prev.players[G.me]) : null);
     ui.pick = null;
     save();
     render();
@@ -3168,6 +3199,7 @@
       net.autoOpen = linked;
       showSetup(linked);
     }
-  } else showSetup();
+  } else if (params.has('history') && sessionId()) showHistory();
+  else showSetup();
   window.__hh = { get G() { return G; }, render, E, send: (a) => doAction(a) };
 })();

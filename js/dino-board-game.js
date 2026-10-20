@@ -344,6 +344,7 @@
   let lastWhere = null;
   let animOn = false;
   let lastTurnKey = null;
+  const turnKeysSeen = new Set();
   let lastClickRect = null;
   let prevRes = null;
   let eggsSeen = null; // your egg ids at the last board render, to hear them hatch
@@ -416,6 +417,7 @@
     eggsSeen = null;
     resFx = [{}, {}];
     lastTurnKey = null;
+    turnKeysSeen.clear();
     pendingCard = null;
   }
 
@@ -1505,14 +1507,16 @@
     for (let guard = 0; guard < 500; guard++) {
       const T = cur();
       if (!T) return;
-      const skip = (msg) => {
+      // `tell` also shows the line as a notice: a power or birth that came to nothing shouldn't pass silently.
+      const skip = (msg, tell) => {
         if (msg) logMsg(msg);
+        if (msg && tell) toast(msg, tell === 'bad' ? 'bad' : '', true);
         state.queue.shift();
       };
       if (T.t === 'roundEnd') { endRound(); continue; }
       if (T.t === 'birth' && !protoBirthCells(T.p, T)) {
         const par = state.players[T.p].board.items[T.par];
-        skip(par && !par.dead ? `🥚 ${pn(T.p)}’s ${spName(T.sp)} pair had no room for a baby.` : '');
+        skip(par && !par.dead ? `🥚 ${pn(T.p)}’s ${spName(T.sp)} pair had no room for a baby.` : '', true);
         continue;
       }
       if (T.t === 'actions' && T.remaining <= 0) { skip(); continue; }
@@ -1526,7 +1530,7 @@
         continue;
       }
       if (T.t === 'drawCard' && !state.faceUp.length && !state.deck.length) { skip('No cards left to draw.'); continue; }
-      if (T.t === 'drawCard' && state.proto && state.players[T.p].hand.length >= handMax(state.players[T.p])) { skip(`${pn(T.p)}’s hand is full, so no card was reserved.`); continue; }
+      if (T.t === 'drawCard' && state.proto && state.players[T.p].hand.length >= handMax(state.players[T.p])) { skip(`${pn(T.p)}’s hand is full, so no card was reserved.`, true); continue; }
       if (T.t === 'trex' && !trexOptions(T.p).length) { skip('No dinos left to block.'); continue; }
       if (T.t === 'fillOpp' && emptyCount(other(T.p)) === 0) { skip('Opponent has no empty squares left.'); continue; }
       if (T.t === 'drawFences' && !legalEdges(T.p).length) { skip(`${pn(T.p)} has nowhere left to draw fences.`); continue; }
@@ -1538,16 +1542,16 @@
         if (!growMore(b, it, growExtra(it))) {
           it.cells.forEach((i) => { b.cells[i] = 0; });
           delete b.items[T.id];
-          skip(`💀 ${pn(T.p)}’s baby ${spName(it.species)} had no room to grow up and died.`);
+          skip(`💀 ${pn(T.p)}’s baby ${spName(it.species)} had no room to grow up and died.`, 'bad');
           continue;
         }
       }
-      if (T.t === 'power' && powerEffect(T)[1] <= 0) { skip(`${pn(T.p)}’s ${spName(T.sp)} had nothing to take.`); continue; }
+      if (T.t === 'power' && powerEffect(T)[1] <= 0) { skip(`${pn(T.p)}’s ${spName(T.sp)} had nothing to take.`, true); continue; }
       if (T.t === 'freePlay' && !(state.proto ? protoPlayOptions(T.p, T) : playOptions(T.p, true)).some((o) => o.ok)) {
-        skip(T.off ? `${pn(T.p)}’s Oviraptor found no dino they could afford and place.` : `${pn(T.p)} has no dino worth ${T.limit || 5} or fewer points to play for free.`);
+        skip(T.off ? `${pn(T.p)}’s Oviraptor found no dino they could afford and place.` : `${pn(T.p)} has no dino worth ${T.limit || 5} or fewer points to play for free.`, true);
         continue;
       }
-      if (T.t === 'maiaBreed' && !protoBreedOptions(T.p, 0, true).some((o) => o.ok)) { skip(`${pn(T.p)}’s Maiasaura found no adult pair that could breed.`); continue; }
+      if (T.t === 'maiaBreed' && !protoBreedOptions(T.p, 0, true).some((o) => o.ok)) { skip(`${pn(T.p)}’s Maiasaura found no adult pair that could breed.`, true); continue; }
       return;
     }
   }
@@ -1714,6 +1718,12 @@
   }
 
   function protoStartRound() {
+    const mark = state.log[state.log.length - 1];
+    protoStartRoundInner();
+    const told = state.log.slice(state.log.lastIndexOf(mark) + 1).filter((l) => /^(🦤|🧾|🦴|🍗|📸|⛈️|🦠)/.test(l.m));
+    if (told.length) toast(told.map((l) => l.m).join('<br>'), '', true);
+  }
+  function protoStartRoundInner() {
     state.spaces = {};
     state.workers = state.players.map((P) => PROTO_WORKERS + P.bonusPending + (state.event === 'hiring' ? 1 : 0));
     state.players.forEach((P, p) => {
@@ -1852,7 +1862,7 @@
       O.coins -= n;
       P.coins += n;
       logMsg(`${pn(p)}’s ${spName(T.sp)} stole 🪙${n} from ${pn(other(p))}.`);
-      toast(`🦖 ${P.name} stole 🪙${n}`, 'good');
+      toast(`🦖 ${P.name} stole 🪙${n} from ${O.name}`, other(p) === homePlayer() ? 'bad' : 'good');
     } else if (n) {
       P.plants -= n;
       P.triPlants += n;
@@ -2214,12 +2224,12 @@
   }
 
   // ---------------------------------------------------------------- toasts / modal / confetti
-  function toast(msg, kind) {
+  function toast(msg, kind, html) {
     const root = document.getElementById('toasts');
     if (!root || (state && state.sim && state.sim.speed !== 'watch')) return;
     const el = document.createElement('div');
     el.className = `toast ${kind || ''}`;
-    el.innerHTML = tokify(esc(msg));
+    el.innerHTML = tokify(html ? msg : esc(msg));
     root.appendChild(el);
     while (root.children.length > 3) root.removeChild(root.firstChild);
     setTimeout(() => {
@@ -2477,6 +2487,12 @@
     }
     if (!key || key === lastTurnKey) return;
     lastTurnKey = key;
+    // Against the computer or online the banner marks each new phase; on a shared device it marks every hand-off.
+    const shared = state.ai == null && !online;
+    if (!shared && key[0] === 'p') {
+      if (turnKeysSeen.has(key)) return;
+      turnKeysSeen.add(key);
+    }
     if (!animOn || reduceMotion.matches) return;
     document.querySelectorAll('.turn-ov').forEach((x) => x.remove());
     const ov = document.createElement('div');
@@ -5057,7 +5073,7 @@
         P.meat += m;
         P.plants += pl;
         logMsg(`${pn(p)}’s ${T.who || 'Velociraptors'} stole 🍖${m} 🌿${pl} from ${pn(other(p))}!`);
-        toast(`🦖 Raid! ${P.name} stole ${T.amount} food`, 'good');
+        toast(`🦖 Raid! ${P.name} stole ${[m ? `🍖${m}` : '', pl ? `🌿${pl}` : ''].filter(Boolean).join(' ')} from ${O.name}`, other(p) === homePlayer() ? 'bad' : 'good');
         resolveCurrent();
         break;
       }
@@ -5293,7 +5309,7 @@
       O.coins -= n;
       P.coins += n;
       logMsg(`${pn(p)}’s Allosaurus stole 🪙${n} from ${pn(other(p))}.`);
-      if (n) toast(`🦖 ${P.name} stole 🪙${n}`, 'good');
+      if (n) toast(`🦖 ${P.name} stole 🪙${n} from ${O.name}`, other(p) === homePlayer() ? 'bad' : 'good');
       completeAction();
     } else if (sp === 'parasaurolophus') {
       const n = 2 * opt.count;
@@ -7769,10 +7785,25 @@
   }
 
   // Server snapshot is the source of truth for anything I didn't just send.
+  // Log lines in `next` that weren't in `prev` (the log is capped, so old lines scroll off the front).
+  function freshLog(prev, next) {
+    if (!Array.isArray(prev) || !Array.isArray(next) || !prev.length) return [];
+    const n = prev.length;
+    const same = (a, b) => !!a && !!b && a.m === b.m && a.r === b.r;
+    if (next.length >= n && same(next[n - 1], prev[n - 1]) && (n < 2 || same(next[n - 2], prev[n - 2]))) return next.slice(n);
+    for (let i = next.length - 1; i >= 0; i--) if (same(next[i], prev[n - 1]) && (n < 2 || same(next[i - 1], prev[n - 2]))) return next.slice(i + 1);
+    return [];
+  }
+
   function applyView(v) {
     if (!online || v.id !== online.id) return;
     applyMeta(v);
     if (v.state) {
+      // The other player's move: its log lines, newest last (round headers are left to the round banner).
+      if (state && v.by != null && v.by !== online.me) {
+        const lines = freshLog(state.log, v.state.log).filter((l) => !/^Round \d+ begins/.test(l.m));
+        if (lines.length) toast(lines.slice(-3).map((l) => l.m).join('<br>'), '', true);
+      }
       state = repairFences(v.state);
       ui = freshUi();
       prepareUi();
@@ -7792,6 +7823,7 @@
     prevRes = null;
     eggsSeen = null;
     lastTurnKey = null;
+    turnKeysSeen.clear();
     applyMeta(view);
     ui = freshUi();
     prepareUi();

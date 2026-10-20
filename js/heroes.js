@@ -135,7 +135,7 @@
       startFrom(G);
       if (G.status === 'over' && st().phase === 'over') showGameOver(true);
     },
-    applyView: (v) => {
+    applyView: (v, fresh, mine) => {
       const prev = G.state;
       G.version = v.version;
       G.status = v.status;
@@ -144,23 +144,30 @@
       if (v.now) G.skew = v.now - Date.now();
       if (!v.state) { render(); return; }
       G.state = v.state;
+      const s = v.state;
       const opp = 1 - G.me;
-      if (prev && prev.log && v.state.log) {
-        const last = prev.log[prev.log.length - 1];
-        let from = 0;
-        if (last) for (let i = v.state.log.length - 1; i >= 0; i--) if (v.state.log[i].text === last.text) { from = i + 1; break; }
-        v.state.log.slice(from).filter((l) => l.who === opp).forEach((l) => toast(`<span class="dot" style="--pc:${PCOLOR[opp]}"></span>${esc(l.text)}`, 'ai'));
-      }
+      const me = pl(G.me);
+      if (mine) sfx(mine.t === 'discard' ? 'place' : mine.t === 'draw' && mine.from === 'plaza' ? 'join' : 'card');
       render();
       if (G.gmode === 'quick' && G.status === 'active') Online.tickClock();
-      if (v.state.phase !== 'over' && G.status === 'active') identityPicker();
-      if (v.state.phase === 'over' || G.status === 'over') {
-        if (v.state.phase === 'over') showGameOver(true);
-        else if (!G.revealed) {
-          G.revealed = true;
-          const r = G.result || {};
-          openModal(`<h2>${r.winner === G.me ? '🏆 You win!' : '🏳️ Game over'}</h2><p>${esc(r.reason === 'resign' ? (r.winner === G.me ? 'They resigned.' : 'You resigned.') : r.reason === 'timeout' ? (r.winner === G.me ? 'They ran out of time.' : 'You ran out of time.') : 'This game has ended.')}</p><div class="btn-row"><button class="btn" data-close>OK</button></div>`);
-        }
+      // Your own move: the same notices as a game against the computer.
+      if (mine && mine.t === 'identity' && me.identity) toast(`🎭 You are secretly <b>${identName(me.identity)}</b>. Keep it quiet!`);
+      if (mine && mine.t === 'draw' && mine.from === 'deck' && me.drew) toast(`🂠 You drew <b>${cname(me.drew)}</b> (${E.SUIT[C(me.drew).suit].icon} ${C(me.drew).power}).`);
+      // Their move: one notice once their turn is done, with what they took and what they gave up.
+      const L = s.last;
+      if (L && L.who === opp && L.gave && fresh.some((l) => l.who === opp)) {
+        if (!mine) sfx('place');
+        toast(`<span class="dot" style="--pc:${PCOLOR[opp]}"></span>${leagueName(opp)} ${L.from === 'plaza' ? `recruited <b>${cname(L.took)}</b> from the Plaza` : 'drew from the deck'} and sent <b>${cname(L.gave)}</b> to the Plaza.`, 'ai');
+      }
+      if (s.phase !== 'over' && G.status === 'active') identityPicker();
+      if (s.phase === 'over') {
+        if (prev.phase !== 'over') sfx('reveal');
+        return showGameOver(prev.phase === 'over');
+      }
+      if (G.status === 'over' && !G.revealed) {
+        G.revealed = true;
+        const r = G.result || {};
+        openModal(`<h2>${r.winner === G.me ? '🏆 You win!' : '🏳️ Game over'}</h2><p>${esc(r.reason === 'resign' ? (r.winner === G.me ? 'They resigned.' : 'You resigned.') : r.reason === 'timeout' ? (r.winner === G.me ? 'They ran out of time.' : 'You ran out of time.') : 'This game has ended.')}</p><div class="btn-row"><button class="btn" data-close>OK</button></div>`);
       }
     },
   });
@@ -965,6 +972,7 @@
     el.setAttribute('aria-label', 'Final results');
     el.innerHTML = `<div class="hr-rays"></div><div class="hr-stage">
         <div class="hr-title">${M.icon} Mission debrief: ${esc(M.name)}</div>
+        ${s.ended ? `<div class="hr-why">${s.ended === 'plaza' ? `🏙️ The ${E.PLAZA_END}th hero reached the Plaza` : '🂠 The deck ran out'}${s.last && s.last.gave ? ` when ${esc(pl(s.last.who).name)} sent ${cname(s.last.gave)} there` : ''} — hands down!</div>` : ''}
         <div class="hr-shops n${n}">${s.players.map((_, i) => side(i)).join('')}</div>
         <div class="hr-verdict" aria-live="polite"></div>
         <div class="hr-sub"></div>
@@ -1402,6 +1410,7 @@
         }
       });
     } else showSetup();
-  } else showSetup();
+  } else if (params.has('history')) showHistory();
+  else showSetup();
   window.__hx = { get G() { return G; }, render, E, send: (a) => doAction(a) };
 })();

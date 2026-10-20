@@ -529,7 +529,7 @@
         const s = subOf(p, a.s);
         p.gold -= MOD[a.m].cost;
         s.mods.push(a.m);
-        log(state, `${p.name} fitted ${MOD[a.m].name.toLowerCase()} to their ${SUB[s.k].name}.`, pi);
+        log(state, `${p.name} fitted ${MOD[a.m].name.toLowerCase()} to their ${SUB[s.k].name} for 🪙${MOD[a.m].cost}.`, pi);
         break;
       }
       case 'salvage': {

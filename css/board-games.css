@@ -135,3 +135,39 @@ h1, h2 { font-family: "Lilita One", "Fredoka", sans-serif; font-weight: 400; let
 .mg-note:empty { display: none; }
 @keyframes mgPulse { 50% { transform: scale(1.08); } }
 @media (prefers-reduced-motion: reduce) { .mg-flag { animation: none; } }
+
+/* ---------- combined game history ---------- */
+.lobby-right { display: flex; align-items: center; gap: 1rem; }
+.history { margin: 2.4rem 0 0; padding: 1rem 1.1rem 1.1rem; border-radius: 16px; background: rgba(0, 0, 0, 0.22); box-shadow: inset 0 0 0 2px rgba(255, 224, 138, 0.18); scroll-margin-top: 1rem; }
+.history[hidden] { display: none; }
+.hx-sub { color: rgba(251, 241, 217, 0.7); font-size: 0.9rem; }
+.hx-stats { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0 0 0.8rem; }
+.hx-stats:empty { display: none; }
+.hx-stat { min-width: 5.2rem; padding: 0.4rem 0.7rem; border-radius: 12px; background: rgba(255, 224, 138, 0.1); text-align: center; }
+.hx-stat b { display: block; font-size: 1.35rem; color: #ffe08a; line-height: 1.1; }
+.hx-stat small { color: rgba(251, 241, 217, 0.75); font-size: 0.78rem; }
+.hx-filter { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0 0 0.8rem; }
+.hx-filter:empty { display: none; }
+.hx-filter button { border: 0; cursor: pointer; font: 600 0.85rem Fredoka, system-ui, sans-serif; padding: 0.3rem 0.75rem; border-radius: 999px; color: #fbf1d9; background: rgba(255, 255, 255, 0.08); box-shadow: inset 0 0 0 2px rgba(251, 241, 217, 0.2); }
+.hx-filter button.on { color: #2b1d0e; background: #ffe08a; box-shadow: none; }
+.hx-filter button small { opacity: 0.7; font-weight: 500; }
+.hx-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.45rem; }
+.hx-list:empty { display: none; }
+.hx-row { display: grid; grid-template-columns: 48px 1fr auto; gap: 0.7rem; align-items: center; padding: 0.45rem 0.7rem; border-radius: 12px; text-decoration: none; color: #2b1d0e; background: linear-gradient(180deg, #fbf1d9, #efdfb8); box-shadow: 0 0 0 2px #6b4a2a; }
+.hx-row:hover, .hx-row:focus-visible { box-shadow: 0 0 0 2px #ffb300; outline: none; }
+.hx-row img { width: 48px; height: 36px; object-fit: cover; border-radius: 6px; }
+.hx-main { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.hx-main b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hx-main small { color: #6b5636; font-size: 0.8rem; }
+.hx-res { font-weight: 700; font-size: 0.85rem; padding: 0.15rem 0.55rem; border-radius: 999px; background: rgba(107, 74, 42, 0.15); white-space: nowrap; }
+.hx-res.win { background: #2f6b3a; color: #fff; }
+.hx-res.loss { background: #b23a48; color: #fff; }
+.hx-res.tie { background: #c99a12; color: #2b1d0e; }
+.hx-more { display: block; margin: 0.8rem auto 0; border: 0; cursor: pointer; font: 600 0.9rem Fredoka, system-ui, sans-serif; padding: 0.4rem 1rem; border-radius: 999px; color: #ffe08a; background: rgba(255, 224, 138, 0.14); box-shadow: inset 0 0 0 2px rgba(255, 224, 138, 0.45); }
+.hx-more[hidden] { display: none; }
+@media (max-width: 560px) {
+  .hx-sub { display: none; }
+  .hx-stat { min-width: 0; flex: 1 1 0; padding: 0.35rem 0.25rem; }
+  .hx-stat b { font-size: 1.1rem; }
+  .hx-main b { white-space: normal; }
+}

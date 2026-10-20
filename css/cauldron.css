@@ -444,6 +444,8 @@ button { font-family: inherit; }
 .toast { background: #2a1240; color: var(--parch); padding: 0.55rem 1rem; border-radius: 12px; box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45), inset 0 0 0 1.5px rgba(232, 182, 76, 0.35); animation: toastIn 0.3s var(--pop); font-size: 0.9rem; text-align: center; }
 .toast.good { box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45), inset 0 0 0 1.5px rgba(120, 220, 140, 0.6); }
 .toast.bad { background: #6d1d26; }
+.toast.ai { background: #22103a; box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45), inset 0 0 0 1.5px rgba(255, 255, 255, 0.18); }
+.toast small { opacity: 0.85; white-space: nowrap; }
 .toast.out { animation: toastOut 0.4s ease forwards; }
 .toast.sale { background: linear-gradient(135deg, #1d5c38, #2a1240); padding: 0.6rem 0.8rem; font-size: 0.95rem; text-align: left; box-shadow: 0 10px 26px rgba(0, 0, 0, 0.5), inset 0 0 0 2px rgba(255, 214, 102, 0.8); }
 

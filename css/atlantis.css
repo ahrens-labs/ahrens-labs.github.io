@@ -336,6 +336,8 @@ button { font-family: inherit; }
 #toasts { position: fixed; bottom: 1rem; left: 50%; transform: translateX(-50%); z-index: 60; display: grid; gap: 0.4rem; justify-items: center; pointer-events: none; }
 .toast { background: #0d2c3e; color: var(--pearl); padding: 0.55rem 1rem; border-radius: 12px; box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4); animation: toastIn 0.3s var(--pop); font-size: 0.92rem; max-width: 90vw; }
 .toast.bad { background: #7d1f2a; }
+.toast.ai { background: #123c52; box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(255, 255, 255, 0.12); }
+.toast small { opacity: 0.85; }
 .toast.out { animation: toastOut 0.4s ease forwards; }
 .toast .dot { display: inline-block; width: 0.6em; height: 0.6em; border-radius: 50%; background: var(--pc); margin-right: 0.4rem; }
 @keyframes toastIn { from { opacity: 0; transform: translateY(14px) scale(0.92); } to { opacity: 1; transform: none; } }

@@ -94,6 +94,74 @@ async function savedGames(env, userId) {
   }
 }
 
+// ---------------------------------------------------------------- combined history
+
+// Every game's finished-game history, in one request. Dino keeps its own lobby; Oakhaven keeps history in its
+// lobby, and the other games keep theirs in a HearthholdLobby under their own name.
+const HISTORY_SOURCES = [
+  { game: 'dino', binding: 'DINO_LOBBY', name: (u) => `lobby:${u}`, path: '/history?limit=50' },
+  { game: 'hearthhold', binding: 'HEARTHHOLD_LOBBY', name: (u) => `lobby:${u}`, path: '/history' },
+  { game: 'atlantis', binding: 'HEARTHHOLD_LOBBY', name: (u) => `atlantis:${u}`, path: '/history' },
+  { game: 'cauldron', binding: 'HEARTHHOLD_LOBBY', name: (u) => `cauldron:${u}`, path: '/history' },
+  { game: 'heroes', binding: 'HEARTHHOLD_LOBBY', name: (u) => `heroes:${u}`, path: '/history' },
+];
+const HISTORY_RETURN = 120;
+const KINDS = new Set(['ai', 'local', 'online']);
+const num = (v) => (Number.isFinite(v) ? v : null);
+const str = (v, n) => String(v == null ? '' : v).slice(0, n);
+
+function dinoRow(h) {
+  if (!h || !KINDS.has(h.kind)) return null;
+  const scores = [num(h.myScore), num(h.oppScore)];
+  const names = h.kind === 'local' && Array.isArray(h.names) ? h.names.map((n) => str(n, 18)) : [null, str(h.opp || (h.kind === 'ai' ? 'Computer' : 'a player'), 18)];
+  const winner = scores[0] == null || scores[1] == null ? null : scores[0] === scores[1] ? -1 : scores[0] > scores[1] ? 0 : 1;
+  return {
+    game: 'dino', id: str(h.id, 40), kind: h.kind, at: num(h.finishedAt) || 0, names, scores,
+    me: h.kind === 'local' ? null : 0, winner, result: h.result || null, level: h.level || null, reason: h.reason || null,
+  };
+}
+
+function scoredRow(game, h) {
+  if (!h || !KINDS.has(h.kind) || !Array.isArray(h.names)) return null;
+  const scores = Array.isArray(h.cats) ? h.cats.map((c) => (c ? num(c.total) : null)) : h.names.map(() => null);
+  const me = Number.isInteger(h.me) ? h.me : null;
+  const winner = Number.isInteger(h.winner) ? h.winner : null;
+  const result = me == null || winner == null ? null : winner < 0 ? 'tie' : winner === me ? 'win' : 'loss';
+  return {
+    game, id: str(h.id, 40), kind: h.kind, at: num(h.at) || 0, names: h.names.map((n) => str(n, 18)), scores,
+    me, winner, result, level: h.level || null, reason: h.reason || null,
+  };
+}
+
+async function combinedHistory(env, userId) {
+  const lists = await Promise.all(HISTORY_SOURCES.filter((s) => env[s.binding]).map(async (s) => {
+    try {
+      const ns = env[s.binding];
+      const res = await ns.get(ns.idFromName(s.name(userId))).fetch(new Request(`http://do${s.path}`));
+      const data = await res.json();
+      const items = (data.items || []).map((h) => (s.game === 'dino' ? dinoRow(h) : scoredRow(s.game, h))).filter(Boolean);
+      // Dino pages its history, so its totals come from its own stats.
+      const st = s.game === 'dino' && data.stats ? data.stats : null;
+      const rated = items.filter((h) => h.result);
+      const stats = st
+        ? { played: st.played || 0, wins: st.wins || 0, losses: st.losses || 0, ties: st.ties || 0 }
+        : {
+          played: items.length,
+          wins: rated.filter((h) => h.result === 'win').length,
+          losses: rated.filter((h) => h.result === 'loss').length,
+          ties: rated.filter((h) => h.result === 'tie').length,
+        };
+      return { game: s.game, items, stats };
+    } catch {
+      return { game: s.game, items: [], stats: null };
+    }
+  }));
+  const stats = {};
+  lists.forEach((l) => { if (l.stats) stats[l.game] = l.stats; });
+  const items = lists.flatMap((l) => l.items).sort((a, b) => b.at - a.at).slice(0, HISTORY_RETURN);
+  return { items, stats };
+}
+
 export async function handleBoardGamesRequest(request, env, corsHeaders, path) {
   const userId = await userIdForSession(env, bearerSession(request));
   if (!userId) return jsonResponse({ error: 'Not authenticated' }, corsHeaders, 401);
@@ -101,6 +169,10 @@ export async function handleBoardGamesRequest(request, env, corsHeaders, path) {
   if (path === '/api/board-games/current' && request.method === 'GET') {
     const [games, saves] = await Promise.all([onlineGames(env, userId), savedGames(env, userId)]);
     return jsonResponse({ games, saves }, corsHeaders);
+  }
+
+  if (path === '/api/board-games/history' && request.method === 'GET') {
+    return jsonResponse(await combinedHistory(env, userId), corsHeaders);
   }
 
   if (path === '/api/board-games/save' && request.method === 'GET') {
