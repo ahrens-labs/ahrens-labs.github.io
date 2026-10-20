@@ -18,6 +18,8 @@ const LOBBY_KEEP_FINISHED = 10;
 const HISTORY_KEEP = 200;
 const BOT_LEVELS = new Set(['easy', 'normal', 'hard', 'brutal']);
 const MAX_BOT_STEPS = 400;
+// A computer noble that wants to call "Unmask!" waits a moment, so a person can beat it to the call.
+const BOT_CALL_MS = [1200, 4000];
 const isBot = (p) => !!(p && p.bot);
 
 const GAMES = {
@@ -115,8 +117,10 @@ const GAMES = {
     botNames: ['Contessa Rosa', 'Count Azzurro', 'Lady Verde', 'Baron Viola', 'Marchesa Oro'],
     roundOf: (s) => (s ? s.round : 0),
     logEntry: (s, text, who) => ({ r: s.round, text, who }),
-    // `turn` is whoever must decide next — the noble whose turn it is, or one answering a claim.
-    turnOf: (s) => (s && s.phase !== 'over' ? s.turn : null),
+    // While a claim is open everyone answers at once, so `turn` is just the first noble still deciding.
+    turnOf: (s) => (s && s.phase !== 'over' ? (Masquerade.waitingOn(s)[0] ?? null) : null),
+    waitingOn: (s) => (s ? Masquerade.waitingOn(s) : []),
+    answering: (s) => !!(s && s.pending && s.pending.stage === 'challenge'),
     offTurnOk: () => false,
     legalOk: (E, state, me, a) => E.legal(state, me, a) || null,
     afterApply: () => {},
@@ -352,7 +356,11 @@ function publicMasquerade(state, me) {
   s.seed = 0;
   s.wardrobe = s.wardrobe.map(() => null);
   if (state.phase === 'over') return s;
-  if (s.pending) delete s.pending.honest;
+  if (s.pending) {
+    delete s.pending.honest;
+    // Nobody may see who else has let a claim pass.
+    if (Array.isArray(s.pending.passed)) s.pending.passed = s.pending.passed.filter((j) => j === me);
+  }
   s.players.forEach((p, i) => {
     if (i === me) return;
     p.masks = p.masks.map((m) => (m.up === 'hidden' ? { id: m.id, k: null, up: 'hidden' } : m));
@@ -429,6 +437,11 @@ function othersText(record, me) {
   return people.join(', ') + (bots ? `${people.length ? ' + ' : ''}${bots} computer${bots > 1 ? 's' : ''}` : '');
 }
 
+// Whose move it is, from `me`'s side: if I'm among several deciding at once, it's mine.
+function turnFor(cfg, record, me) {
+  return cfg.waitingOn && record.state && cfg.waitingOn(record.state).includes(me) ? me : record.turn;
+}
+
 function summaryFor(cfg, record, me) {
   const acc = acceptedOf(record);
   return {
@@ -442,7 +455,7 @@ function summaryFor(cfg, record, me) {
     needsMe: record.status === 'pending' && me > 0 && !acc[me],
     waiting: record.status === 'pending' ? record.players.filter((p, i) => !isBot(p) && !acc[i]).map((p) => p.username) : [],
     declinedBy: record.declinedBy != null ? record.declinedBy : null,
-    turn: record.turn,
+    turn: turnFor(cfg, record, me),
     mode: record.mode || 'long',
     deadline: record.deadline || null,
     round: cfg.roundOf(record.state),
@@ -462,7 +475,7 @@ function viewFor(cfg, record, me, withState) {
     bots: record.players.map((p) => p.bot || null),
     waiting: record.status === 'pending' ? record.players.filter((p, i) => !isBot(p) && !acceptedOf(record)[i]).map((p) => p.username) : [],
     version: record.version,
-    turn: record.turn,
+    turn: turnFor(cfg, record, me),
     mode: record.mode || 'long',
     deadline: record.deadline || null,
     now: Date.now(),
@@ -701,7 +714,9 @@ export class LabGame {
 
   async scheduleAlarm(record) {
     if (record.status === 'pending') await this.storage.setAlarm(record.createdAt + pendingTtl(record));
-    else if (record.status === 'active' && record.deadline) await this.storage.setAlarm(record.deadline);
+    else if (record.status === 'active' && (record.deadline || record.botCall)) {
+      await this.storage.setAlarm(Math.min(record.deadline || Infinity, record.botCall ? record.botCall.at : Infinity));
+    }
     else await this.storage.deleteAlarm();
   }
 
@@ -729,7 +744,31 @@ export class LabGame {
   runBots(cfg, record) {
     const state = record.state;
     let moved = 0;
+    if (record.botCall && !this.botCallValid(cfg, record)) delete record.botCall;
     for (let i = 0; i < MAX_BOT_STEPS && state && state.phase !== 'over'; i++) {
+      if (cfg.answering && cfg.answering(state)) {
+        // Every computer seat makes up its mind: passes go in quietly, and the first that wants to call
+        // "Unmask!" is booked for a moment from now (see alarm()).
+        const bots = cfg.waitingOn(state).filter((j) => isBot(record.players[j]) && !(record.botCall && record.botCall.seat === j));
+        if (!bots.length) break;
+        const mark = state.log.length;
+        try {
+          bots.forEach((j) => {
+            if (cfg.E.aiChoose(state, j, record.players[j].bot).t !== 'challenge') {
+              cfg.E.apply(state, j, { t: 'pass' });
+              moved += 1;
+              return;
+            }
+            const at = Date.now() + BOT_CALL_MS[0] + Math.random() * (BOT_CALL_MS[1] - BOT_CALL_MS[0]);
+            if (!record.botCall || at < record.botCall.at) record.botCall = { seat: j, at, mark };
+          });
+        } catch {
+          break;
+        }
+        if (cfg.answering(state)) break;
+        delete record.botCall;
+        continue;
+      }
       const t = cfg.turnOf(state);
       const seat = t == null ? null : record.players[t];
       if (!isBot(seat)) break;
@@ -743,6 +782,37 @@ export class LabGame {
       }
     }
     return moved;
+  }
+
+  // A booked computer "Unmask!" only stands while that same claim is still open and the seat hasn't answered.
+  botCallValid(cfg, record) {
+    const c = record.botCall;
+    const s = record.state;
+    return !!(c && s && cfg.answering && cfg.answering(s) && s.log.length === c.mark && cfg.waitingOn(s).includes(c.seat));
+  }
+
+  // The booked computer call comes due: it challenges (if the claim is still open), then play carries on.
+  async botCallDue(record) {
+    const cfg = this.cfg(record);
+    if (cfg && this.botCallValid(cfg, record)) {
+      try {
+        cfg.E.apply(record.state, record.botCall.seat, { t: 'challenge' });
+      } catch {
+        /* the claim moved on */
+      }
+    }
+    delete record.botCall;
+    if (cfg) {
+      this.runBots(cfg, record);
+      record.turn = cfg.turnOf(record.state);
+      if (record.state.phase === 'over') this.finishFromState(cfg, record);
+      else if (record.mode === 'quick') record.deadline = Date.now() + QUICK_TURN_MS;
+    }
+    record.version += 1;
+    await this.persist(record);
+    await this.scheduleAlarm(record);
+    await this.publishLobbies(record);
+    this.broadcast(record, null);
   }
 
   finishFromState(cfg, record) {
@@ -896,7 +966,8 @@ export class LabGame {
     const a = cfg.cleanAction(body.a);
     if (!a) return fresh('That isn’t a valid action.', 400);
     const state = record.state;
-    if (!cfg.offTurnOk(a) && state.turn !== me) return fresh('It’s not your turn.');
+    const mine = cfg.waitingOn ? cfg.waitingOn(state).includes(me) : state.turn === me;
+    if (!cfg.offTurnOk(a) && !mine) return fresh('It’s not your turn.');
     const why = cfg.legalOk(cfg.E, state, me, a);
     if (why) return fresh(why);
     const prevTurn = record.turn;
@@ -912,13 +983,11 @@ export class LabGame {
     record.version += 1;
     record.turn = cfg.turnOf(state);
     if (state.phase === 'over') this.finishFromState(cfg, record);
-    await this.persist(record);
     const newTurn = record.turn !== prevTurn || cfg.roundOf(state) !== prevRound || botMoves > 0;
     if (record.status === 'active' && record.mode === 'quick' && newTurn) record.deadline = Date.now() + QUICK_TURN_MS;
-    if (record.status === 'over' || newTurn) {
-      await this.scheduleAlarm(record);
-      await this.publishLobbies(record);
-    }
+    await this.persist(record);
+    if (record.status === 'over' || newTurn || record.botCall) await this.scheduleAlarm(record);
+    if (record.status === 'over' || newTurn) await this.publishLobbies(record);
     this.broadcast(record, me, socket);
     return { status: 200, body: viewFor(cfg, record, me, true) };
   }
@@ -928,6 +997,26 @@ export class LabGame {
     if (!cfg) return;
     if (Date.now() < record.deadline - 1000) return this.scheduleAlarm(record);
     const state = record.state;
+    if (cfg.answering && cfg.answering(state)) {
+      // Out of time to answer a claim: whoever hasn't called "Unmask!" lets it pass.
+      cfg.waitingOn(state).filter((j) => !isBot(record.players[j])).forEach((j) => {
+        try {
+          cfg.E.apply(state, j, { t: 'pass' });
+        } catch {
+          /* already answered */
+        }
+      });
+      this.runBots(cfg, record);
+      record.turn = cfg.turnOf(state);
+      if (state.phase === 'over') this.finishFromState(cfg, record);
+      else record.deadline = Date.now() + QUICK_TURN_MS;
+      record.version += 1;
+      await this.persist(record);
+      await this.scheduleAlarm(record);
+      await this.publishLobbies(record);
+      this.broadcast(record, null);
+      return;
+    }
     const pi = state.turn;
     record.misses = record.misses || record.players.map(() => 0);
     record.misses[pi] = (record.misses[pi] || 0) + 1;
@@ -998,7 +1087,9 @@ export class LabGame {
   async alarm() {
     const record = await this.load();
     if (!record) return;
+    if (record.status === 'active' && record.botCall && Date.now() >= record.botCall.at - 50) return this.botCallDue(record);
     if (record.status === 'active' && record.deadline) return this.turnTimedOut(record);
+    if (record.status === 'active' && record.botCall) return this.scheduleAlarm(record);
     if (record.status !== 'pending') return;
     if (Date.now() < record.createdAt + pendingTtl(record) - 1000) {
       await this.scheduleAlarm(record);

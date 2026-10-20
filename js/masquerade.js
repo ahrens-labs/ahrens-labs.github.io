@@ -125,7 +125,7 @@
     roundText: () => '',
     getG: () => G,
     showSetup: (focus) => showSetup(focus),
-    isMyTurn: () => G && G.state && G.state.turn === G.me,
+    isMyTurn: () => G && G.state && E.waitingOn(G.state).includes(G.me),
     enterOnline: (v, mem) => {
       G = {
         mode: 'online', id: v.id, me: v.me, version: v.version, status: v.status, result: v.result,
@@ -172,9 +172,12 @@
     return s.turn != null ? s.turn : s.actor;
   }
   // On a shared device a noble's masks stay face down until they say it's them looking.
-  const privateOk = () => G.mode !== 'local' || G.shown === viewer() || st().phase === 'over';
-  const deciding = () => st().phase === 'act' && st().turn != null && isHuman(st().turn) && (G.mode !== 'online' || G.status === 'active');
-  const myDecision = () => deciding() && st().turn === viewer();
+  // (While a claim is open on a shared device everyone is looking, so nobody's masks show.)
+  const answering = () => !!(st().pending && st().pending.stage === 'challenge');
+  const privateOk = () => G.mode !== 'local' || st().phase === 'over' || (!answering() && G.shown === viewer());
+  const deciding = () => E.waitingOn(st()).some(isHuman) && (G.mode !== 'online' || G.status === 'active');
+  // On a shared device the "Unmask!" prompt is for every person at once; otherwise it's for you.
+  const myDecision = () => deciding() && (G.mode === 'local' && answering() ? true : E.waitingOn(st()).includes(viewer()));
   const nobleName = (i) => `<b class="who" style="--pc:${PCOLOR[i]}">${esc(pl(i).name)}</b>`;
   const you = (i) => (G.mode === 'ai' || G.mode === 'online') && i === viewer();
   const nameOf = (i) => (you(i) ? 'you' : esc(pl(i).name));
@@ -358,6 +361,7 @@
   function startFrom(g) {
     if (!sessionId()) return showGate();
     stopAI();
+    clearAnswers();
     G = g;
     G.shown = null;
     ui.pick = null;
@@ -412,11 +416,12 @@
     const P = s.pending;
     const me = i === v;
     const turn = s.phase === 'act' && s.actor === i;
-    const deciding = s.phase === 'act' && s.turn === i && !turn;
+    // Everyone asked about a claim shows as deciding until it's settled, so nobody can tell who has let it pass.
+    const deciding = s.phase === 'act' && !turn && (P && P.stage === 'challenge' ? P.responders.includes(i) : s.turn === i);
     let tag = '';
     if (p.out) tag = '<span class="nb-tag out">Left the ball</span>';
     else if (turn) tag = `<span class="nb-tag turn">${p.ai && s.turn === i ? 'Thinking…' : 'Their move'}</span>`;
-    else if (deciding) tag = `<span class="nb-tag ans">${P && P.stage === 'lose' ? 'Losing a mask' : 'Answering…'}</span>`;
+    else if (deciding) tag = `<span class="nb-tag ans">${P && P.stage === 'lose' ? 'Losing a mask' : P && P.stage === 'challenge' ? 'Deciding…' : 'Answering…'}</span>`;
     if (turn && you(i)) tag = '<span class="nb-tag turn">Your move</span>';
     const seen = viewerSeen();
     const tiles = p.masks.map((m) => maskTile(m, i, v, seen)).join('');
@@ -470,7 +475,13 @@
     const a = s.actor;
     if (!P) return `<div class="banner" style="--pc:${PCOLOR[a]}">${you(a) ? '<b>Your move.</b> Claim a mask’s power — any one, worn or not — or take a plain action.' : `${nobleName(a)} is choosing a move…`}</div>`;
     const claim = P.act && P.act.t === 'claim' ? `${nobleName(P.actor)} claims <b>${esc(P.act.pair ? `the ${E.PAIRS[P.act.k].name}` : M(P.act.k).name)}</b>` : '';
-    if (P.stage === 'challenge') return `<div class="banner" style="--pc:${PCOLOR[s.turn]}">${claim}. ${you(s.turn) ? '<b>Do you believe it?</b>' : `${nobleName(s.turn)} is deciding whether to call “Unmask!”…`}</div>`;
+    if (P.stage === 'challenge') {
+      const v = viewer();
+      const ask = G.mode === 'local' ? '<b>Does anyone call “Unmask!”?</b> First to speak up is the challenger.'
+        : P.responders.includes(v) && G.mode !== 'sim' ? (P.passed.includes(v) ? 'You let it pass — waiting to see whether anyone else calls “Unmask!”…' : '<b>Do you believe it?</b> Everyone decides at once — the first to call “Unmask!” is the challenger.')
+          : 'The other nobles are deciding whether to call “Unmask!”…';
+      return `<div class="banner" style="--pc:${PCOLOR[P.claimer]}">${claim}. ${ask}</div>`;
+    }
     if (P.stage === 'block' && P.act.k === 'duchess') return `<div class="banner" style="--pc:${PCOLOR[s.turn]}">${claim} for a Waltz. ${you(s.turn) ? '<b>Will you cut in?</b>' : `${nobleName(s.turn)} may cut in…`}</div>`;
     if (P.stage === 'block') return `<div class="banner" style="--pc:${PCOLOR[s.turn]}">${claim} against ${nobleName(P.act.target)}. ${you(s.turn) ? '<b>Will you block it?</b>' : `${nobleName(s.turn)} may block it…`}</div>`;
     if (P.stage === 'blockChallenge') return `<div class="banner" style="--pc:${PCOLOR[s.turn]}">${nobleName(P.claimer)} claims <b>${esc(M(P.k).name)}</b> ${P.act.k === 'duchess' ? 'to cut in' : 'to block'}. ${you(s.turn) ? '<b>Do you believe them?</b>' : `${nobleName(s.turn)} is deciding…`}</div>`;
@@ -489,10 +500,15 @@
       return `<div class="curtain"><b>📱 Pass the device to ${nobleName(s.turn)}</b><span>Everyone else, look away — masks are about to show.</span><button class="btn" data-act="show">👀 I’m ${esc(pl(s.turn).name)}</button></div>`;
     }
     if (!myDecision()) {
+      if (P && P.stage === 'challenge') {
+        const mine = P.passed.includes(v);
+        return `<h3>⏳ ${mine ? 'You let it pass' : 'Everyone is deciding'}</h3><p class="muted">${mine ? 'Waiting to see whether anyone else calls “Unmask!”…' : 'Will anyone call “Unmask!”? You’ll know the moment someone does.'}</p>${recentHtml()}`;
+      }
       const who = s.turn != null ? s.turn : s.actor;
       return `<h3>⏳ Waiting</h3><p class="muted">${nobleName(who)} ${P ? 'is answering' : 'is taking a turn'}…</p>${recentHtml()}`;
     }
     if (!P) return actionsHtml(v);
+    if (P.stage === 'challenge' && G.mode === 'local') return localChallengeHtml(P);
     if (P.stage === 'challenge') return challengeHtml(P, v);
     if (P.stage === 'block') return blockHtml(P, v);
     if (P.stage === 'blockChallenge') return blockChallengeHtml(P, v);
@@ -560,9 +576,22 @@
       <div><h3>${nobleName(P.claimer)} claims ${pair ? `the ${esc(pair.name)}` : esc(m.name)}</h3>
       ${pair ? `<p class="muted">That means wearing both <b>${esc(m.name)}</b> and <b>${esc(M(P.pair).name)}</b>.</p>` : ''}
       <p>${esc(E.powerLine(st(), P.claimer, P.act))}</p>
-      <p class="muted">Call <b>“Unmask!”</b> if you think it’s a bluff${pair ? ' — if either mask is missing, it’s a lie' : ''}. A liar loses a mask and the power fails. If they’re honest, they shuffle ${pair ? 'both masks' : 'that mask'} back into the wardrobe, draw fresh ones, and you pay ${cost}.</p>
+      <p class="muted">Everyone decides at once, and nobody knows who has let it pass — the first to call <b>“Unmask!”</b> is the challenger. Call it if you think it’s a bluff${pair ? ' — if either mask is missing, it’s a lie' : ''}. A liar loses a mask and the power fails. If they’re honest, they shuffle ${pair ? 'both masks' : 'that mask'} back into the wardrobe, draw fresh ones, and you pay ${cost}.</p>
       <p>${countHtml(P.k)}${pair ? ` ${countHtml(P.pair)}` : ''}</p>
       <div class="btn-row"><button class="btn danger" data-ans="challenge">🎭 Unmask!</button><button class="btn ghost" data-ans="pass">Let it pass</button></div></div>
+    </div>`;
+  }
+  // On a shared device: whoever speaks up first taps their name.
+  function localChallengeHtml(P) {
+    const pair = P.pair ? E.PAIRS[P.k] : null;
+    const people = E.waitingOn(st()).filter(isHuman);
+    return `<div class="ask" style="--mc:${M(P.k).color}">
+      ${pair ? `<span class="pair-imgs big">${maskImg(P.k, 'big')}${maskImg(P.pair, 'big')}</span>` : maskImg(P.k, 'big')}
+      <div><h3>${nobleName(P.claimer)} claims ${pair ? `the ${esc(pair.name)}` : esc(M(P.k).name)}</h3>
+      <p>${esc(E.powerLine(st(), P.claimer, P.act))}</p>
+      <p class="muted">Anyone may call <b>“Unmask!”</b> — the first to speak up is the challenger. A liar loses a mask; an honest noble draws a fresh mask and the challenger pays ⭐${E.INSULT_FAVOR} Favor (or a mask).</p>
+      <p>${countHtml(P.k)}${pair ? ` ${countHtml(P.pair)}` : ''}</p>
+      <div class="btn-row">${people.map((i) => `<button class="btn danger" data-ans="challenge" data-who="${i}">🎭 ${esc(pl(i).name)}: Unmask!</button>`).join('')}<button class="btn ghost" data-ans="passall">Nobody calls — let it pass</button></div></div>
     </div>`;
   }
   function blockHtml(P, v) {
@@ -656,7 +685,11 @@
         if (!worn) return confirmBluff(ans.dataset.k, () => doAction({ t: 'block', k: ans.dataset.k }), 'block');
         return doAction({ t: 'block', k: ans.dataset.k });
       }
-      return doAction({ t: ans.dataset.ans });
+      if (ans.dataset.ans === 'passall') {
+        E.waitingOn(st()).filter(isHuman).forEach((i) => G && answering() && doAction({ t: 'pass' }, i));
+        return;
+      }
+      return doAction({ t: ans.dataset.ans }, ans.dataset.who != null ? Number(ans.dataset.who) : undefined);
     }
     const lose = e.target.closest('[data-lose]');
     if (lose) return doAction({ t: 'lose', id: Number(lose.dataset.lose) });
@@ -760,10 +793,10 @@
   }
 
   // ---------------------------------------------------------------- moves
-  function doAction(a) {
+  function doAction(a, who) {
     if (G.mode === 'online') return Online.send(a);
     const s = st();
-    const pi = s.turn;
+    const pi = who != null ? who : answering() ? viewer() : s.turn;
     const mark = s.log[s.log.length - 1];
     try {
       E.apply(s, pi, a);
@@ -845,9 +878,8 @@
     stopAI();
     if (!G || G.mode === 'online' || G.mode === 'past' || ui.modal) return;
     const s = st();
-    if (s.phase !== 'act' || s.turn == null || !pl(s.turn).ai) return;
     const P = s.pending;
-    if (onlyComputersLeft()) {
+    if (s.phase === 'act' && onlyComputersLeft()) {
       if (!G.rushing) {
         G.rushing = true;
         toast('⏩ Only computer nobles are left at the ball — racing to the finish.');
@@ -855,16 +887,54 @@
       ui.aiTimer = setTimeout(rushStep, 60);
       return;
     }
+    if (s.phase === 'act' && answering()) return scheduleAnswers();
+    if (s.phase !== 'act' || s.turn == null || !pl(s.turn).ai) return;
     ui.aiTimer = setTimeout(aiStep, G.mode === 'sim' ? SIM_SPEEDS[G.speed].ai : P && P.stage === 'challenge' ? 650 : P ? 800 : 1000);
+  }
+  // A claim is open: each computer noble makes up its mind now. Those letting it pass do so quietly; those who
+  // want to call "Unmask!" wait a moment first (a person can beat them to it).
+  function scheduleAnswers() {
+    const s = st();
+    const P = s.pending;
+    const key = `${s.log.length}|${P.claimer}|${P.k}`;
+    if (!ui.answers || ui.answers.key !== key) {
+      clearAnswers();
+      ui.answers = { key, decided: [], timers: [] };
+    }
+    const fast = G.mode === 'sim' ? SIM_SPEEDS[G.speed].ai : null;
+    E.waitingOn(s).filter((i) => pl(i).ai && !ui.answers.decided.includes(i)).forEach((i) => {
+      ui.answers.decided.push(i);
+      const call = E.aiChoose(s, i, pl(i).level || G.level).t === 'challenge';
+      const wait = call ? (fast != null ? fast * (0.5 + Math.random()) : 1200 + Math.random() * 2800) : fast != null ? fast : 300 + Math.random() * 500;
+      ui.answers.timers.push(setTimeout(() => {
+        if (!G || G.state !== s || !answering() || ui.answers.key !== key || !E.waitingOn(st()).includes(i)) return;
+        if (ui.modal) {
+          // A pop-up is open: think again once it closes.
+          ui.answers.decided = ui.answers.decided.filter((x) => x !== i);
+          return;
+        }
+        doAction({ t: call ? 'challenge' : 'pass' }, i);
+      }, wait));
+    });
+  }
+  function clearAnswers() {
+    if (ui.answers) ui.answers.timers.forEach(clearTimeout);
+    ui.answers = null;
   }
   // Once every person has left the ball there's nothing to decide, so the computers play on in quick batches.
   const onlyComputersLeft = () => (G.mode === 'ai' || G.mode === 'local') && !st().players.some((p) => !p.ai && !p.out);
   function rushStep() {
     if (!G || ui.modal) return;
     const s = st();
-    for (let i = 0; i < 40 && s.phase === 'act' && s.turn != null && pl(s.turn).ai; i++) {
+    for (let i = 0; i < 40 && s.phase === 'act'; i++) {
+      const w = E.waitingOn(s);
+      if (!w.length || !w.every((x) => pl(x).ai)) break;
       try {
-        E.apply(s, s.turn, E.aiChoose(s, s.turn, pl(s.turn).level || G.level));
+        if (answering()) {
+          const calls = w.filter((x) => E.aiChoose(s, x, pl(x).level || G.level).t === 'challenge');
+          if (calls.length) E.apply(s, calls[Math.floor(Math.random() * calls.length)], { t: 'challenge' });
+          else w.forEach((x) => E.apply(s, x, { t: 'pass' }));
+        } else E.apply(s, w[0], E.aiChoose(s, w[0], pl(w[0]).level || G.level));
       } catch (err) {
         break;
       }
@@ -882,14 +952,30 @@
     clearTimeout(ui.aiTimer);
     ui.aiTimer = null;
   }
+  // A safety net: if a computer noble is due to act and nothing has changed for a while, wake it up again.
+  let stall = { sig: '', at: 0 };
+  setInterval(() => {
+    if (!G || G.mode === 'online' || G.mode === 'past' || ui.modal || st().phase !== 'act') return;
+    const s = st();
+    const sig = `${s.log.length}|${s.turn}|${s.pending ? `${s.pending.stage}:${(s.pending.passed || []).length}` : ''}`;
+    if (sig !== stall.sig) {
+      stall = { sig, at: Date.now() };
+      return;
+    }
+    if (Date.now() - stall.at < 5000 || !E.waitingOn(s).some((i) => pl(i).ai)) return;
+    stall.at = Date.now();
+    clearAnswers();
+    scheduleAI();
+  }, 1000);
   function aiStep() {
     if (!G || ui.modal) return;
     const s = st();
-    if (s.phase !== 'act' || !pl(s.turn).ai) return;
+    if (s.phase !== 'act' || s.turn == null || !pl(s.turn).ai) return;
     doAction(E.aiChoose(s, s.turn, pl(s.turn).level || G.level));
   }
 
   function leaveGame() {
+    clearAnswers();
     if (G.mode === 'past') return showHistory();
     if (G.mode === 'sim') return stopSim();
     if (G.mode === 'online') {
@@ -1129,7 +1215,7 @@
       <p class="muted">Watch what your rivals chase: a noble toasting again and again, or bluffing boldly, may be one step from their Intrigue.</p>`;
     if (tab === 'masks') return `<table class="rules-table"><tr><th>Mask</th><th>Power</th><th>Block</th></tr>${E.MASK_ORDER.map(maskRow).join('')}</table>
       <p class="muted">The Gondolier makes bluffing slippery: after a swap, the mask you were counting on might be in someone else’s hands — and they know exactly what they got.</p>`;
-    if (tab === 'unmask') return `<p>When someone claims a power — or a block — any other noble may call <b>“Unmask!”</b>. The claimer must show a mask of that kind:</p>
+    if (tab === 'unmask') return `<p>When someone claims a power, every other noble decides <b>at the same time</b> whether to call <b>“Unmask!”</b>. Nobody can see who has already let it pass, and the <b>first</b> to call it is the challenger. (A block can only be challenged by the noble who was blocked.) The claimer must show a mask of that kind:</p>
       <ul><li><b>Bluffing?</b> They lose a mask of their choice (it’s turned face up and out of play) and the power fails. A bluffed block fails, and the power goes ahead.</li>
       <li><b>Honest?</b> They show the mask, shuffle it back into the wardrobe and draw a fresh one, so nobody knows what they wear now. The power still happens. The accuser pays <b>⭐${E.INSULT_FAVOR} Favor</b> — or, with less than ⭐${E.INSULT_FAVOR}, a mask.</li></ul>
       <p class="muted">There are always ${E.COPIES} of each mask in play — between the nobles, the lost pile and the wardrobe.</p>
@@ -1180,5 +1266,5 @@
     openPast(params.get('past')).then(() => G || showHistory());
   } else if (params.has('history')) showHistory();
   else showSetup();
-  window.__mq = { get G() { return G; }, render, E, send: (a) => doAction(a) };
+  window.__mq = { get G() { return G; }, render, E, send: (a) => doAction(a), schedule: () => scheduleAI() };
 })();

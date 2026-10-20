@@ -40,7 +40,6 @@
   const PAIR_ORDER = Object.keys(PAIRS);
   // Secret goals, one per noble. `stat` is the counter that tracks it; meeting `need` reveals it for ⭐2 Favor.
   const INTRIGUES = {
-    liar: { name: 'Liar’s Luck', icon: '🤥', text: 'Have 2 of your bluffs go unchallenged.', stat: 'bluffs', need: 2 },
     sleuth: { name: 'Truth Seeker', icon: '🔎', text: 'Catch a liar with “Unmask!”.', stat: 'caught', need: 1 },
     honest: { name: 'Honest Face', icon: '😇', text: 'Be wrongly accused of lying.', stat: 'wronged', need: 1 },
     purse: { name: 'Deep Purse', icon: '💰', text: 'Hold 🪙7 at once.', stat: 'purse', need: 7 },
@@ -95,7 +94,7 @@
   const claimName = (k, pair) => (pair && PAIRS[k] ? `the ${PAIRS[k].name} (${maskName(k)} and ${maskName(PAIRS[k].with)})` : maskName(k));
   // Counters behind the Intrigues. Games saved before Intrigues existed get an empty set the first time it's needed.
   function stats(p) {
-    if (!p.stats) p.stats = { bluffs: 0, caught: 0, wronged: 0, cutIns: 0, whispers: 0, kinds: [], blocks: 0, rumours: 0, toasts: 0, pairs: 0 };
+    if (!p.stats) p.stats = { caught: 0, wronged: 0, cutIns: 0, whispers: 0, kinds: [], blocks: 0, rumours: 0, toasts: 0, pairs: 0 };
     return p.stats;
   }
   function bump(p, key, n) {
@@ -207,11 +206,11 @@
       }
       return 'That isn’t a move.';
     }
+    // Everyone answers a claim at once: the first to call "Unmask!" is the challenger.
     if (P.stage === 'challenge') {
-      if (!P.responders.includes(pi) || P.passed.includes(pi)) return 'It isn’t your turn to answer.';
-      if (a.t === 'challenge') return '';
-      if (a.t === 'pass') return pi === state.turn ? '' : 'Wait for your turn to answer.';
-      return 'Call “Unmask!” or let it pass.';
+      if (!P.responders.includes(pi)) return 'This claim isn’t yours to answer.';
+      if (P.passed.includes(pi)) return 'You’ve already let it pass.';
+      return a.t === 'challenge' || a.t === 'pass' ? '' : 'Call “Unmask!” or let it pass.';
     }
     if (pi !== state.turn) return 'It isn’t your turn to answer.';
     if (P.stage === 'block') {
@@ -270,20 +269,14 @@
       });
       Object.assign(state.last, { k: a.k, pair: act.pair, target: act.target });
       log(state, `${p.name} claims ${claimName(a.k, act.pair)}: ${powerLine(state, pi, act)}`, pi);
-      const honest = !!wearing(p, [a.k, partner].filter(Boolean));
-      state.pending = { act, actor: pi, stage: null, claimer: pi, k: a.k, pair: partner, honest, responders: [], passed: [], next: [] };
+      state.pending = { act, actor: pi, stage: null, claimer: pi, k: a.k, pair: partner, responders: [], passed: [], next: [] };
       return openChallenge(state, pi, a.k);
     }
     if (P.stage === 'challenge') {
       if (a.t === 'pass') {
         P.passed.push(pi);
-        const left = P.responders.filter((x) => !P.passed.includes(x));
-        if (left.length) {
-          state.turn = left[0];
-          return state;
-        }
+        if (P.responders.some((x) => !P.passed.includes(x))) return state;
         P.stage = null;
-        if (!P.honest) bump(state.players[P.claimer], 'bluffs');
         P.next = P.blocking ? [{ s: 'blocked' }] : [{ s: 'afterClaim' }];
         return run(state);
       }
@@ -309,7 +302,6 @@
       P.claimer = pi;
       P.k = a.k;
       P.pair = null;
-      P.honest = live(t).some((m) => m.k === a.k);
       // Only the noble who was blocked may call the blocker a liar.
       P.stage = 'blockChallenge';
       state.turn = P.actor;
@@ -318,7 +310,6 @@
     if (P.stage === 'blockChallenge') {
       if (a.t === 'pass') {
         P.stage = null;
-        if (!P.honest) bump(state.players[P.claimer], 'bluffs');
         P.next = [{ s: 'blocked' }];
         return run(state);
       }
@@ -409,14 +400,21 @@
     return run(state);
   }
 
-  // Everyone else still at the ball may call "Unmask!", in seat order from the claimer.
+  // Everyone else still at the ball may call "Unmask!" at the same time, so no single noble's turn is open.
   function openChallenge(state, claimer) {
     const P = state.pending;
     P.responders = rivalsInOrder(state, claimer);
     P.passed = [];
     P.stage = 'challenge';
-    state.turn = P.responders[0];
+    state.turn = null;
     return state;
+  }
+  // The nobles who still have a decision to make right now.
+  function waitingOn(state) {
+    if (state.phase !== 'act') return [];
+    const P = state.pending;
+    if (P && P.stage === 'challenge') return P.responders.filter((x) => !P.passed.includes(x));
+    return state.turn == null ? [] : [state.turn];
   }
 
   function resolveChallenge(state, by) {
@@ -615,7 +613,7 @@
     state.players.forEach((p, i) => {
       if (!inGame(p) || !p.intrigue || p.intrigue.done) return;
       const pr = intrigueProgress(p);
-      if (pr.have < pr.need) return;
+      if (!pr || pr.have < pr.need) return;
       const I = INTRIGUES[p.intrigue.id];
       p.intrigue.done = true;
       p.favor += INTRIGUE_FAVOR;
@@ -834,11 +832,11 @@
         v *= free;
       }
       if (!honest) {
-        const daring = L.bluff + 0.15 + (want === 'liar' ? 0.25 : 0);
+        const daring = L.bluff + 0.15;
         if (Math.random() > daring * (kinds.length > 1 ? 0.5 : 1)) return; // some nobles simply don't lie much
         const ex = kinds.length > 1 ? 1 - (1 - exposure(kinds[0])) * (1 - exposure(kinds[1])) * 0.85 : exposure(k);
         const e = ex * L.read + (1 - L.read) * 0.3;
-        v = v * (1 - e) - e * maskCost(p) + (want === 'liar' ? 3 : 0);
+        v = v * (1 - e) - e * maskCost(p);
       }
       v -= costOf(k, pair) * coin;
       opts.push({ a, v });
@@ -909,7 +907,7 @@
   const api = {
     SAVE_V, COPIES, START_DUCATS, FAVOR_WIN, TOAST_COST, SCANDAL_COST, CUT_IN_COST, INSULT_FAVOR, WHISPER_COST, INTRIGUE_FAVOR, MASKS, MASK_ORDER, PAIRS, PAIR_ORDER,
     INTRIGUES, INTRIGUE_ORDER, BLOCKER, LEVELS, newGame, legal, apply, aiChoose, score, ranking, winner, clone, live, hidden, targets, claimProblem, holdsChance,
-    knowledge, powerLine, intrigueProgress, costOf, wearing,
+    knowledge, powerLine, intrigueProgress, costOf, wearing, waitingOn,
   };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.MasqueradeEngine = api;
