@@ -133,6 +133,24 @@ button { font-family: inherit; }
 .top-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; }
 .chip { font-size: 0.82rem; font-weight: 600; padding: 0.22rem 0.6rem; border-radius: 999px; background: rgba(255, 255, 255, 0.1); box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.2); white-space: nowrap; }
 .top-actions { display: flex; gap: 0.5rem; }
+/* The viewed shop's pantry, pinned with the top bar */
+.top-pantry { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem 0.6rem; padding: 0.4rem 0.6rem; border-radius: 12px; background: rgba(0, 0, 0, 0.32); box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.12), inset 4px 0 0 var(--pc); }
+.pb-who { display: inline-flex; align-items: center; gap: 0.35rem; font-weight: 700; font-size: 0.85rem; color: #f3e6ff; white-space: nowrap; }
+.pb-who i { width: 0.65em; height: 0.65em; border-radius: 50%; background: var(--pc); }
+.pb-coins, .pb-shelf { display: inline-flex; align-items: center; gap: 0.2rem; font-size: 1rem; white-space: nowrap; }
+.pb-coins b, .pb-shelf b { font-family: "Lilita One", sans-serif; font-size: 1.2rem; color: #ffe08f; }
+.pb-group { display: inline-flex; flex-wrap: wrap; gap: 0.3rem; padding-left: 0.6rem; border-left: 1.5px solid rgba(255, 255, 255, 0.15); }
+.pb-ing { display: inline-flex; align-items: center; gap: 0.15rem; padding: 0.12rem 0.45rem; border-radius: 999px; font-size: 1rem; background: #fdf6e3; color: #2a1240; box-shadow: inset 0 0 0 1.5px #d7b98a; }
+.pb-ing.part { background: #f3e6ff; box-shadow: inset 0 0 0 1.5px #b48ad8; }
+.pb-ing b { font-family: "Lilita One", sans-serif; font-size: 1rem; min-width: 0.6em; text-align: center; }
+.pb-ing.none { opacity: 0.38; filter: grayscale(0.6); }
+@media (max-width: 720px) {
+  .top-pantry { gap: 0.25rem 0.4rem; padding: 0.3rem 0.4rem; }
+  .pb-who { display: none; }
+  .pb-group { padding-left: 0.4rem; gap: 0.2rem; }
+  .pb-ing { font-size: 0.85rem; padding: 0.08rem 0.32rem; }
+  .pb-coins b, .pb-shelf b { font-size: 1.05rem; }
+}
 .top-actions .btn { white-space: nowrap; display: inline-flex; align-items: center; }
 .top-actions .gh-dice { width: 1.2rem; height: 1.2rem; vertical-align: -0.2em; }
 
@@ -208,6 +226,7 @@ button { font-family: inherit; }
 .slot .tok { min-width: 1.5em; height: 1.5em; font-size: 0.8rem; margin-bottom: 8px; }
 .slot.next { box-shadow: inset 0 0 0 2px var(--gold-dark); background: #fff3cf; }
 .beasts { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 0.5rem; }
+.bestiary .beasts { grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 0.4rem; }
 .beast { position: relative; display: grid; border: 0; padding: 0; border-radius: 12px; overflow: hidden; cursor: pointer; font: inherit; color: #fff; text-align: left;
   background: #2a1240; box-shadow: 0 0 0 2px #7a4f2a, 0 4px 10px rgba(0, 0, 0, 0.3); aspect-ratio: 3 / 4; transition: transform 0.15s; }
 .beast:hover { transform: translateY(-2px) rotate(-0.6deg); }

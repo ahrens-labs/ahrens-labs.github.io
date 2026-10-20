@@ -12,7 +12,7 @@
   const START_CUSTOMERS = 2;
   const START_COINS = 15;
   const SHELF = 4;
-  const BESTIARY = 4;
+  const BESTIARY = 5;
   const LIBRARY = 3;
   const MARKET_BUY = 6;
   const VISIT_MAX = 2;
@@ -200,11 +200,9 @@
     state.libDeck = deck.filter((k) => tier(k) !== 4);
     deck.filter((k) => tier(k) === 4).forEach((k) => state.libDeck.splice(LIBRARY + 1 + rint(state, Math.max(1, state.libDeck.length - LIBRARY)), 0, k));
     while (state.library.length < LIBRARY && state.libDeck.length) state.library.push(state.libDeck.shift());
-    // Creature sightings: two single cards and one pair card per beast.
+    // Creature sightings: four single cards, two pairs and a herd of three per beast (bigger hunts take longer).
     PARTS.forEach((k) => {
-      state.beastDeck.push({ id: nid(state), k, n: 1, days: BEAST[k].days });
-      state.beastDeck.push({ id: nid(state), k, n: 1, days: BEAST[k].days });
-      state.beastDeck.push({ id: nid(state), k, n: 2, days: BEAST[k].days + 1 });
+      [1, 1, 1, 1, 2, 2, 3].forEach((n) => state.beastDeck.push({ id: nid(state), k, n, days: BEAST[k].days + n - 1 }));
     });
     shuffle(state, state.beastDeck);
     refillBeasts(state);

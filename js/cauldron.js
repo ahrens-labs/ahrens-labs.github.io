@@ -201,6 +201,8 @@
     if (delay) setTimeout(() => GameMusic.sfx(k), delay);
     else GameMusic.sfx(k);
   }
+  const HAUL = { 1: 'one', 2: 'a pair', 3: 'three' };
+  const haul = (c) => HAUL[c.n] || `${c.n}`;
   const tok = (k, n) => `<span class="tok ${E.ING[k].kind}" title="${esc(E.ING[k].name)}">${E.ING[k].icon}${n > 1 ? `<b>×${n}</b>` : ''}</span>`;
   const toks = (bag) => Object.keys(bag).filter((k) => bag[k] > 0).map((k) => tok(k, bag[k])).join('');
   const bottle = (k, cls) => `<span class="bottle${cls ? ' ' + cls : ''}" style="--c:${E.POTION[k].color}" aria-hidden="true"><i></i></span>`;
@@ -441,6 +443,7 @@
           <button class="btn ghost sm" data-act="home" aria-label="${G.mode === 'past' ? 'History' : G.mode === 'sim' ? 'Stop' : 'New game'}" title="${G.mode === 'past' ? 'Back to history' : G.mode === 'sim' ? 'Stop the simulation' : 'Start a new game (this one stays saved under Your games)'}">${home}</button>
           <a class="btn ghost sm" href="/board-games.html" title="Back to the game lobby" aria-label="Game lobby"><img class="gh-dice" src="/img/board-games-favicon-48.png?v=2" alt=""><span class="bt"> Lobby</span></a>
         </div>
+        ${pantryBar(v)}
       </header>
       <div class="cl">
         <section class="scores n${s.players.length}">${s.players.map((_, i) => shopCard(i, v)).join('')}</section>
@@ -459,6 +462,20 @@
     if (lg) lg.scrollTop = lg.scrollHeight;
   }
 
+  // What the viewed shop has to work with, pinned under the top bar: coins, every ingredient (none dimmed) and shelf space.
+  function pantryBar(v) {
+    const p = pl(v);
+    const n = (k) => p.pantry[k] || 0;
+    const ing = (k) => `<span class="pb-ing ${E.ING[k].kind}${n(k) ? '' : ' none'}" title="${esc(E.ING[k].name)}: ${n(k)}">${E.ING[k].icon}<b>${n(k)}</b></span>`;
+    const whose = you(v) || (G.mode === 'local' && v === st().turn) ? 'Your pantry' : `${esc(p.name)}’s pantry`;
+    return `<div class="top-pantry" style="--pc:${PCOLOR[v]}">
+      <span class="pb-who"><i></i>${whose}</span>
+      <span class="pb-coins" title="Coins">🪙<b>${p.coins}</b></span>
+      <span class="pb-group" aria-label="Market ingredients">${E.COMMONS.map(ing).join('')}</span>
+      <span class="pb-group parts" aria-label="Creature parts">${E.PARTS.map(ing).join('')}</span>
+      <span class="pb-shelf" title="Potions on the shelf">🧴<b>${p.shelf.length}/${E.SHELF}</b></span>
+    </div>`;
+  }
   function shopCard(i, v) {
     const s = st();
     const p = pl(i);
@@ -548,10 +565,10 @@
       const d = E.beastDays(s, c);
       return `<button class="beast" data-hunt="${c.id}" ${can ? '' : 'tabindex="-1"'}>
         ${beastPic(c.k)}<span class="b-days" title="Days the hunt takes">⏳ ${plural(d, 'day')}</span>${i === 0 ? '<span class="b-old" title="The oldest sighting: its tracks are fresh-trodden, so the hunt is a day shorter. It leaves on the next market day.">🐾 −1 day</span>' : ''}
-        <span class="b-name"><b>${esc(E.ING[c.k].beast)}</b><small>${c.n > 1 ? `${tok(c.k, 2)} a pair` : `${tok(c.k)} one`} · ${esc(E.BEAST[c.k].where)}</small></span>
+        <span class="b-name"><b>${esc(E.ING[c.k].beast)}</b><small>${tok(c.k, c.n)} ${haul(c)} · ${esc(E.BEAST[c.k].where)}</small></span>
       </button>`;
     }).join('');
-    return `<div class="panel sq bestiary"><h3>🐾 The bestiary <small>creature sightings · ${plural(s.beastDeck.length, 'more')} in the deck</small></h3>
+    return `<div class="panel sq bestiary"><h3>🐾 The bestiary <small>creature sightings · ${s.beastDeck.length} more in the deck</small></h3>
       <p class="muted">Hunting takes days instead of coins. Take a sighting and the next one is drawn. On market day the oldest (left) goes and a new one appears.</p>
       <div class="beasts">${cards || '<p class="empty">No sightings.</p>'}</div></div>`;
   }
@@ -579,7 +596,7 @@
         where = `Common ingredient — buy it at the market (1 day, up to ${E.MARKET_BUY} tokens per trip). ${sup ? `Next one costs 🪙${E.price(s, i)}; ${sup} in stock.` : 'Sold out until the next market day restocks it.'}`;
       } else {
         const seen = s.beasts.filter((c) => c.k === i);
-        where = `Creature part — hunt the ${esc(I.beast)} in ${esc(E.BEAST[i].where)} (${plural(E.BEAST[i].days, 'day')}, no coins). ${seen.length ? `<span class="good">Sighted now: ${seen.map((c) => `${c.n > 1 ? 'a pair' : 'one'}, ${plural(E.beastDays(s, c), 'day')} away`).join('; ')}.</span>` : `No ${esc(I.beast)} in the bestiary right now — new sightings come on market day.`}`;
+        where = `Creature part — hunt the ${esc(I.beast)} in ${esc(E.BEAST[i].where)} (${plural(E.BEAST[i].days, 'day')}, no coins). ${seen.length ? `<span class="good">Sighted now: ${seen.map((c) => `${haul(c)}, ${plural(E.beastDays(s, c), 'day')} away`).join('; ')}.</span>` : `No ${esc(I.beast)} in the bestiary right now — new sightings come on market day.`}`;
       }
       const ok = has >= n;
       return `<li class="${p ? (ok ? 'have' : 'miss') : ''}">${tok(i)}<div><b>${n} × ${esc(I.name)}</b><small>${where}</small></div>${p ? `<span class="pot-has">${ok ? '✓' : '✗'} ${holder} ${has}/${n}</span>` : ''}</li>`;
@@ -666,14 +683,14 @@
     return `${tabs}
       <div class="mat-head"><span class="sign" style="--pc:${PCOLOR[v]}">${SIGN[v]}</span><div><h2>${esc(p.name)}</h2><small>🪙${p.coins} · day ${p.pos} · ${plural(p.stats.served, 'customer')} served${p.ai ? ` · 🤖 ${LEVEL_NAME[p.level] || ''}` : ''}</small></div></div>
       ${acts}
+      <h3>🧺 Pantry</h3>
+      <div class="pantry">${pantry.length ? pantry.map((k) => tok(k, p.pantry[k])).join('') : '<p class="empty">Empty — go to market or on a hunt.</p>'}</div>
       <h3>🔔 Waiting customers <small>${p.queue.length}/${E.QUEUE}${bell && p.pos < E.DAYS ? ` · next doorbell: day ${bell}` : ''}</small></h3>
       <div class="queue">${queue.join('')}</div>
       <h3>🧴 Shelf <small>${p.shelf.length}/${E.SHELF} · customers buy the moment something suits them</small></h3>
       <div class="shelf">${shelf.join('')}</div>
       <h3>💰 Sales <small>${salesLine(v)}</small></h3>
       <div class="sales-list">${recentSales(v)}</div>
-      <h3>🧺 Pantry</h3>
-      <div class="pantry">${pantry.length ? pantry.map((k) => tok(k, p.pantry[k])).join('') : '<p class="empty">Empty — go to market or on a hunt.</p>'}</div>
       <h3>📖 Recipe book <small>${plural(p.recipes.length, 'recipe')} of their own · tap one for details</small></h3>
       <div class="rcps book">${book}</div>`;
   }
@@ -852,7 +869,7 @@
       const lines = [];
       lines.push(`🛒 <b>The market restocks:</b> ${re || 'it was already full.'}`);
       if (r.guild.length) lines.push(`🏛️ <b>Guild prices recover</b> by 🪙${E.GUILD_RECOVER} for ${r.guild.map((k) => esc(E.POTION[k].name)).join(', ')}.`);
-      if (r.beastOut) lines.push(`🐾 <b>The ${esc(E.ING[r.beastOut.k].beast)} wandered off</b> (the oldest sighting)${r.beastIn.length ? `, and ${r.beastIn.map((c) => `a ${c.n > 1 ? 'pair of ' : ''}${esc(E.ING[c.k].beast)}${c.n > 1 ? 's' : ''}`).join(' and ')} ${r.beastIn.length > 1 ? 'were' : 'was'} sighted` : ''}.`);
+      if (r.beastOut) lines.push(`🐾 <b>The ${esc(E.ING[r.beastOut.k].beast)} wandered off</b> (the oldest sighting)${r.beastIn.length ? `, and ${r.beastIn.map((c) => `${c.n === 1 ? 'a ' : c.n === 2 ? 'a pair of ' : `a herd of ${c.n} `}${esc(E.ING[c.k].beast)}${c.n > 1 ? 's' : ''}`).join(' and ')} ${r.beastIn.length > 1 ? 'were' : 'was'} sighted` : ''}.`);
       if (r.libIn) lines.push(`📚 <b>The library swaps a recipe:</b> ${esc(E.POTION[r.libOut].name)} goes back on the pile and <b>${esc(E.POTION[r.libIn].name)}</b> (${E.TIER[E.tier(r.libIn)].name}) comes in.`);
       return `<div class="md-block"><h3>🔔 Market day ${r.day}</h3><ul class="tr-list">${lines.map((l) => `<li>${l}</li>`).join('')}</ul></div>`;
     }).join('');
@@ -934,7 +951,7 @@
       return `<li class="${mine ? 'mine' : ''}">${bottle(k, 'sm')} <b>${esc(E.POTION[k].name)}</b> ${stars(E.tier(k))} ${mine ? '<span class="own">you know it</span>' : who ? `<small>brewed by ${who}</small>` : E.tier(k) > 1 && s.library.includes(k) ? '<small>in the library</small>' : '<small>recipe not out yet</small>'}</li>`;
     }).join('');
     return `<div class="hunt-head">${beastPic(c.k)}<div><h2>🏹 The ${esc(E.ING[c.k].beast)}</h2>
-      <p>Track it to ${esc(E.BEAST[c.k].where)}: <b>${plural(d, 'day')}</b>${d < c.days ? ' (the oldest sighting is a day quicker)' : ''}. Bring back <b>${c.n > 1 ? `two ${esc(E.ING[c.k].name.toLowerCase())}s` : `one ${esc(E.ING[c.k].name.toLowerCase())}`}</b> ${tok(c.k, c.n)}.</p></div></div>
+      <p>Track it to ${esc(E.BEAST[c.k].where)}: <b>${plural(d, 'day')}</b>${d < c.days ? ' (the oldest sighting is a day quicker)' : ''}. Bring back <b>${c.n > 1 ? `${['', '', 'two', 'three'][c.n] || c.n} ${esc(E.ING[c.k].name.toLowerCase())}s` : `one ${esc(E.ING[c.k].name.toLowerCase())}`}</b> ${tok(c.k, c.n)}.</p></div></div>
       <h3>Used in</h3><ul class="uses">${uses}</ul>`;
   }
   function showBeast(id) {
@@ -955,7 +972,7 @@
   function openHuntList() {
     const s = st();
     const back = openModal(`<h2>🏹 Go hunting</h2><p class="muted">Pick a sighting from the bestiary. Hunts cost days, not coins.</p>
-      <div class="beasts">${s.beasts.map((c, i) => `<button class="beast" data-pick="${c.id}">${beastPic(c.k)}<span class="b-days">⏳ ${plural(E.beastDays(s, c), 'day')}</span>${i === 0 ? '<span class="b-old">🐾 −1 day</span>' : ''}<span class="b-name"><b>${esc(E.ING[c.k].beast)}</b><small>${c.n > 1 ? `${tok(c.k, 2)} a pair` : `${tok(c.k)} one`}</small></span></button>`).join('')}</div>`, { cls: 'wide', onClose: () => {} });
+      <div class="beasts">${s.beasts.map((c, i) => `<button class="beast" data-pick="${c.id}">${beastPic(c.k)}<span class="b-days">⏳ ${plural(E.beastDays(s, c), 'day')}</span>${i === 0 ? '<span class="b-old">🐾 −1 day</span>' : ''}<span class="b-name"><b>${esc(E.ING[c.k].beast)}</b><small>${tok(c.k, c.n)} ${haul(c)}</small></span></button>`).join('')}</div>`, { cls: 'wide', onClose: () => {} });
     back.addEventListener('click', (e) => {
       const b = e.target.closest('[data-pick]');
       if (!b) return;
@@ -1555,7 +1572,7 @@
         ${sec(3, 'What’s in the box')}
         <ul><li>📅 <b>The calendar</b> — a track of ${E.DAYS + 1} spaces (day 0 to the Moon Fair) with one pawn per shop.</li>
         <li>🛒 <b>The market board</b> — a price ladder for each of the 4 common ingredients, with ingredient tokens on it.</li>
-        <li>🐾 <b>Creature cards</b> — ${E.PARTS.length} beasts, 3 sightings each; ${E.BESTIARY} are face up in the bestiary.</li>
+        <li>🐾 <b>Creature cards</b> — ${E.PARTS.length} beasts, 7 sightings each (four of one part, two pairs and a herd of three); ${E.BESTIARY} are face up in the bestiary.</li>
         <li>📚 <b>Recipe cards</b> — 4 common recipes everyone knows, and ${E.POTION_ORDER.length - 4} rare, mythic and legendary ones that exist once each; ${E.LIBRARY} are face up in the library.</li>
         <li>🧑‍🤝‍🧑 <b>Townsfolk cards</b> — the customers. Each wants one kind of potion, sometimes of a certain quality.</li>
         <li>🏪 <b>A shop mat for each player</b> — a 3-spot queue, a ${E.SHELF}-slot shelf with price tags, and a pantry.</li>
@@ -1599,7 +1616,7 @@
         ${sec(1, '🛒 Go to market — 1 day')}
         <p>Buy up to ${E.MARKET_BUY} common ingredient tokens. Each costs the price printed under it on the ladder, taking the cheapest token first (chapter 6).</p>
         ${sec(2, '🏹 Go hunting — the card’s days')}
-        <p>Take a creature card from the bestiary and gain its part (or pair of parts). A hunt costs the days on the card: 2 to 4 depending on the beast, a day more for a pair sighting, and a day less for the oldest card in the row (the leftmost). Draw a new card into the row.</p>
+        <p>Take a creature card from the bestiary and gain its parts: one, a pair, or three from a herd. A hunt costs the days on the card: 2 to 4 depending on the beast, a day more for a pair and two more for a herd, and a day less for the oldest card in the row (the leftmost). Draw a new card into the row.</p>
         ${sec(3, `⚗️ Brew — ${E.BREW_DAYS} days`)}
         <p>Brew 1 or ${E.BREW_MAX} potions whose recipes you know, paying their ingredients from your pantry, and put them on your shelf with a <b>price tag</b> each. Your shelf holds ${E.SHELF}.</p>
         ${sec(4, '🏪 Shop at a rival — 1 day')}
