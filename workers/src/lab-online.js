@@ -1,5 +1,6 @@
-// Shared online multiplayer for Atlantis Expedition, Cauldron Lane, and Hero League.
-// LabGame (one Durable Object per game) owns state and runs legal/apply from the browser engines.
+// Shared online multiplayer for Atlantis Expedition, Cauldron Lane, Hero League and The Masquerade Court.
+// LabGame (one Durable Object per game) owns state and runs legal/apply from the browser engines. Games with more
+// than two seats can mix invited players and computer players; the computer seats move on the server.
 // LabLobby (one per user) holds small summaries so the board-games shelf is a single read.
 import Atlantis from '../../js/atlantis-engine.js';
 import Cauldron from '../../js/cauldron-engine.js';
@@ -15,6 +16,9 @@ const MAX_PENDING_OUT = 5;
 const MAX_OPEN_GAMES = 20;
 const LOBBY_KEEP_FINISHED = 10;
 const HISTORY_KEEP = 200;
+const BOT_LEVELS = new Set(['easy', 'normal', 'hard', 'brutal']);
+const MAX_BOT_STEPS = 400;
+const isBot = (p) => !!(p && p.bot);
 
 const GAMES = {
   atlantis: {
@@ -24,7 +28,8 @@ const GAMES = {
     idRe: /^at[0-9a-f]{18}$/,
     page: 'atlantis.html',
     title: 'Atlantis Expedition',
-    players: 2,
+    maxPlayers: 2,
+    botNames: [],
     roundOf: (s) => (s ? s.tide : 0),
     logEntry: (s, text, who) => ({ t: s.tide, text, who }),
     rounds: () => Atlantis.TIDES,
@@ -47,7 +52,8 @@ const GAMES = {
     idRe: /^cl[0-9a-f]{18}$/,
     page: 'cauldron.html',
     title: 'Cauldron Lane',
-    players: 2,
+    maxPlayers: 4,
+    botNames: ['The Red Cauldron', 'Blue Phial & Co.', 'Greenroot Remedy', 'Violet Moon'],
     roundOf: (s) => (s ? Cauldron.today(s) : 0),
     logEntry: (s, text, who) => ({ d: Cauldron.today(s), text, who }),
     rounds: () => Cauldron.DAYS,
@@ -67,7 +73,12 @@ const GAMES = {
     idRe: /^he[0-9a-f]{18}$/,
     page: 'heroes.html',
     title: 'Hero League',
-    players: 2,
+    maxPlayers: 5,
+    botNames: ['Crimson League', 'Azure Guard', 'Emerald Watch', 'Violet Vanguard', 'Golden Legion'],
+    // A computer league picks its secret identity as soon as it sits down.
+    botSetup: (E, state, pi, level) => {
+      if (state.players[pi].idOffer) E.apply(state, pi, E.aiIdentity(state, pi, level));
+    },
     roundOf: (s) => (s ? s.turns : 0),
     logEntry: (s, text, who) => ({ n: s.turns, text, who }),
     rounds: () => Heroes.PLAZA_END,
@@ -100,7 +111,8 @@ const GAMES = {
     idRe: /^mq[0-9a-f]{18}$/,
     page: 'masquerade.html',
     title: 'The Masquerade Court',
-    players: 2,
+    maxPlayers: 5,
+    botNames: ['Contessa Rosa', 'Count Azzurro', 'Lady Verde', 'Baron Viola', 'Marchesa Oro'],
     roundOf: (s) => (s ? s.round : 0),
     logEntry: (s, text, who) => ({ r: s.round, text, who }),
     rounds: () => Masquerade.CHIMES,
@@ -401,14 +413,30 @@ GAMES.cauldron.publicState = publicCauldron;
 GAMES.heroes.cleanAction = cleanHeroes;
 GAMES.heroes.publicState = publicHeroes;
 
+function acceptedOf(record) {
+  return record.accepted || record.players.map((p, i) => i === 0 || isBot(p));
+}
+// "Alice, Bob + 2 computers" — everyone at the table except `me`.
+function othersText(record, me) {
+  const others = record.players.filter((_, i) => i !== me);
+  const people = others.filter((p) => !isBot(p) || p.left).map((p) => p.username);
+  const bots = others.length - people.length;
+  return people.join(', ') + (bots ? `${people.length ? ' + ' : ''}${bots} computer${bots > 1 ? 's' : ''}` : '');
+}
+
 function summaryFor(cfg, record, me) {
-  const opp = record.players[1 - me];
+  const acc = acceptedOf(record);
   return {
     game: cfg.key,
     id: record.id,
     status: record.status,
     me,
-    opp: opp ? opp.username : '',
+    opp: othersText(record, me),
+    names: record.players.map((p) => p.username),
+    seats: record.players.length,
+    needsMe: record.status === 'pending' && me > 0 && !acc[me],
+    waiting: record.status === 'pending' ? record.players.filter((p, i) => !isBot(p) && !acc[i]).map((p) => p.username) : [],
+    declinedBy: record.declinedBy != null ? record.declinedBy : null,
     turn: record.turn,
     mode: record.mode || 'long',
     deadline: record.deadline || null,
@@ -426,6 +454,8 @@ function viewFor(cfg, record, me, withState) {
     status: record.status,
     me,
     players: record.players.map((p) => p.username),
+    bots: record.players.map((p) => p.bot || null),
+    waiting: record.status === 'pending' ? record.players.filter((p, i) => !isBot(p) && !acceptedOf(record)[i]).map((p) => p.username) : [],
     version: record.version,
     turn: record.turn,
     mode: record.mode || 'long',
@@ -514,24 +544,41 @@ export async function handleLabOnlineRequest(request, env, corsHeaders, path, ga
   }
 
   if (path === `${base}/challenge` && request.method === 'POST') {
-    const [me, target, lobbyRes] = await Promise.all([
+    const maxSeats = cfg.maxPlayers || 2;
+    const asked = (Array.isArray(body.opponents) ? body.opponents : [body.opponent])
+      .map((x) => String(x || '').trim())
+      .filter(Boolean);
+    const bots = (Array.isArray(body.bots) ? body.bots : []).map((x) => String(x)).filter((x) => BOT_LEVELS.has(x));
+    if (!asked.length) return jsonResponse({ error: 'Invite at least one player' }, corsHeaders, 400);
+    if (1 + asked.length + bots.length > maxSeats) {
+      return jsonResponse({ error: `${cfg.title} seats at most ${maxSeats} players` }, corsHeaders, 400);
+    }
+    const [me, lobbyRes, ...targets] = await Promise.all([
       fetchProfile(env, userId),
-      resolveOpponent(env, body.opponent),
       lobbyStub(env, userId).fetch(new Request('http://do/list')),
+      ...asked.map((x) => resolveOpponent(env, x)),
     ]);
     if (!me) return jsonResponse({ error: 'Account not found' }, corsHeaders, 404);
-    if (target.error) return jsonResponse({ error: target.error }, corsHeaders, target.status);
-    const opp = target.profile;
-    if (opp.userId === userId) return jsonResponse({ error: 'You can’t challenge yourself' }, corsHeaders, 400);
+    const bad = targets.findIndex((t) => t.error);
+    if (bad >= 0) {
+      const msg = asked.length > 1 ? `${targets[bad].error} (“${asked[bad].slice(0, 40)}”)` : targets[bad].error;
+      return jsonResponse({ error: msg }, corsHeaders, targets[bad].status);
+    }
+    const opps = targets.map((t) => t.profile);
+    if (opps.some((o) => o.userId === userId)) return jsonResponse({ error: 'You can’t challenge yourself' }, corsHeaders, 400);
+    if (new Set(opps.map((o) => o.userId)).size < opps.length) return jsonResponse({ error: 'You invited the same player twice' }, corsHeaders, 400);
     const games = ((await lobbyRes.json()).games || []).filter((g) => g.game === gameKey);
     const open = games.filter((g) => g.status === 'pending' || g.status === 'active');
     if (open.length >= MAX_OPEN_GAMES) return jsonResponse({ error: `You already have ${MAX_OPEN_GAMES} open games` }, corsHeaders, 429);
     if (open.filter((g) => g.status === 'pending' && g.me === 0).length >= MAX_PENDING_OUT) {
       return jsonResponse({ error: 'Too many challenges waiting for an answer' }, corsHeaders, 429);
     }
-    if (open.some((g) => g.status === 'pending' && g.opp.toLowerCase() === opp.username.toLowerCase())) {
-      return jsonResponse({ error: `You already have a challenge open with ${opp.username}` }, corsHeaders, 409);
+    if (opps.length === 1 && !bots.length && open.some((g) => g.status === 'pending' && (g.seats || 2) === 2 && g.opp.toLowerCase() === opps[0].username.toLowerCase())) {
+      return jsonResponse({ error: `You already have a challenge open with ${opps[0].username}` }, corsHeaders, 409);
     }
+    const taken = new Set([me, ...opps].map((p) => p.username.toLowerCase()));
+    const names = (cfg.botNames || []).filter((n) => !taken.has(n.toLowerCase()));
+    const botSeats = bots.map((level, i) => ({ bot: level, username: names[i] || `Computer ${i + 1}` }));
     const gameId = newGameId(cfg);
     const res = await gameStub(env, gameId).fetch(new Request('http://do/create', {
       method: 'POST',
@@ -539,23 +586,23 @@ export async function handleLabOnlineRequest(request, env, corsHeaders, path, ga
         id: gameId,
         game: gameKey,
         mode: MODES.has(body.mode) ? body.mode : 'long',
-        players: [{ userId, username: me.username }, { userId: opp.userId, username: opp.username }],
+        players: [{ userId, username: me.username }, ...opps.map((o) => ({ userId: o.userId, username: o.username })), ...botSeats],
       }),
     }));
     if (!res.ok) return jsonResponse({ error: 'Could not create the game' }, corsHeaders, 500);
     const created = await res.json();
-    if (notifyChallenge && opp.email && opp.emailVerified) {
-      const send = notifyChallenge({
-        to: opp.email,
-        recipientName: opp.username,
+    if (notifyChallenge) {
+      const sends = opps.filter((o) => o.email && o.emailVerified).map((o) => Promise.resolve(notifyChallenge({
+        to: o.email,
+        recipientName: o.username,
         challengerName: me.username,
         gameId,
         mode: created.summary && created.summary.mode,
         gameKey,
         title: cfg.title,
         page: cfg.page,
-      });
-      if (executionCtx && executionCtx.waitUntil) executionCtx.waitUntil(Promise.resolve(send).catch(() => {}));
+      })).catch(() => {}));
+      if (executionCtx && executionCtx.waitUntil) executionCtx.waitUntil(Promise.all(sends));
     }
     return jsonResponse({ success: true, game: created.summary }, corsHeaders);
   }
@@ -605,6 +652,7 @@ export class LabGame {
     const cfg = this.cfg(record);
     if (!cfg) return;
     await Promise.all(record.players.map(async (p, i) => {
+      if (!p.userId) return;
       const summary = summaryFor(cfg, record, i);
       await lobbyStub(this.env, p.userId)
         .fetch(new Request('http://do/upsert', {
@@ -643,13 +691,79 @@ export class LabGame {
   }
 
   playerIndex(record, userId) {
-    return record ? record.players.findIndex((p) => p.userId === userId) : -1;
+    return record && userId ? record.players.findIndex((p) => p.userId === userId) : -1;
   }
 
   async scheduleAlarm(record) {
     if (record.status === 'pending') await this.storage.setAlarm(record.createdAt + pendingTtl(record));
     else if (record.status === 'active' && record.deadline) await this.storage.setAlarm(record.deadline);
     else await this.storage.deleteAlarm();
+  }
+
+  // Deal the game once everyone invited has said yes, and let any computer seats that go first play.
+  start(cfg, record) {
+    const seats = record.players;
+    record.state = cfg.E.newGame({
+      seed: randomInt(2 ** 31),
+      names: seats.map((p) => p.username.slice(0, 18)),
+      ai: seats.map(isBot),
+      levels: seats.map((p) => p.bot || 'normal'),
+      first: randomInt(seats.length),
+    });
+    if (record.state.log) record.state.log.push(cfg.logEntry(record.state, `${record.state.players[record.state.turn].name} goes first.`, null));
+    if (cfg.botSetup) seats.forEach((p, i) => isBot(p) && cfg.botSetup(cfg.E, record.state, i, p.bot));
+    record.status = 'active';
+    record.version = 1;
+    this.runBots(cfg, record);
+    record.turn = cfg.turnOf(record.state);
+    if (record.state.phase === 'over') this.finishFromState(cfg, record);
+    record.deadline = record.status === 'active' && record.mode === 'quick' ? Date.now() + QUICK_FIRST_TURN_MS : null;
+  }
+
+  // Computer seats move straight away, until it's a person's decision (or the game ends).
+  runBots(cfg, record) {
+    const state = record.state;
+    let moved = 0;
+    for (let i = 0; i < MAX_BOT_STEPS && state && state.phase !== 'over'; i++) {
+      const t = cfg.turnOf(state);
+      const seat = t == null ? null : record.players[t];
+      if (!isBot(seat)) break;
+      try {
+        const a = cfg.E.aiChoose(state, t, seat.bot);
+        if (!a) break;
+        cfg.E.apply(state, t, a);
+        moved += 1;
+      } catch {
+        break;
+      }
+    }
+    return moved;
+  }
+
+  finishFromState(cfg, record) {
+    const w = cfg.E.winner(record.state);
+    this.finish(cfg, record, w < 0 ? null : w, 'finished');
+  }
+
+  // With more than two seats, a player who resigns or keeps timing out hands their seat to the computer.
+  leaveSeat(cfg, record, pi, why) {
+    const seat = record.players[pi];
+    const state = record.state;
+    seat.bot = 'normal';
+    seat.left = why;
+    const p = state.players[pi];
+    p.ai = true;
+    p.level = 'normal';
+    if (state.log) {
+      const what = why === 'timeout' ? 'ran out of time three turns running' : 'left the game';
+      state.log.push(cfg.logEntry(state, `${p.name} ${what} — the computer plays their seat now.`, pi));
+    }
+    if (cfg.botSetup) cfg.botSetup(cfg.E, state, pi, 'normal');
+    if (record.players.every(isBot)) return this.finish(cfg, record, null, 'abandoned');
+    this.runBots(cfg, record);
+    record.turn = cfg.turnOf(state);
+    if (state.phase === 'over') this.finishFromState(cfg, record);
+    else if (record.mode === 'quick') record.deadline = Date.now() + QUICK_TURN_MS;
   }
 
   finish(cfg, record, winner, reason) {
@@ -695,8 +809,9 @@ export class LabGame {
         status: 'pending',
         mode: MODES.has(body.mode) ? body.mode : 'long',
         deadline: null,
-        misses: [0, 0],
+        misses: body.players.map(() => 0),
         players: body.players,
+        accepted: body.players.map((p, i) => i === 0 || isBot(p)),
         createdAt: now,
         updatedAt: now,
         version: 0,
@@ -722,21 +837,17 @@ export class LabGame {
 
     if (op === 'respond') {
       if (record.status !== 'pending') return Response.json({ error: 'This challenge is no longer open', ...viewFor(cfg, record, me, true) }, { status: 409 });
-      if (me !== 1) return Response.json({ error: 'Only the challenged player can answer' }, { status: 403 });
+      if (me === 0 || isBot(record.players[me])) return Response.json({ error: 'Only an invited player can answer' }, { status: 403 });
+      const acc = acceptedOf(record);
+      if (acc[me]) return Response.json({ error: 'You’ve already accepted — waiting for the others', ...viewFor(cfg, record, me, false) }, { status: 409 });
       if (!body.accept) {
         record.status = 'declined';
+        record.declinedBy = me;
       } else {
-        record.state = cfg.E.newGame({
-          seed: randomInt(2 ** 31),
-          names: record.players.map((p) => p.username.slice(0, 18)),
-          ai: [false, false],
-          first: randomInt(2),
-        });
-        if (record.state.log) record.state.log.push(cfg.logEntry(record.state, `${record.state.players[record.state.turn].name} goes first.`, null));
-        record.status = 'active';
-        record.version = 1;
-        record.turn = cfg.turnOf(record.state);
-        record.deadline = record.mode === 'quick' ? Date.now() + QUICK_FIRST_TURN_MS : null;
+        acc[me] = true;
+        record.accepted = acc;
+        record.version += 1;
+        if (acc.every(Boolean)) this.start(cfg, record);
       }
       await this.persist(record);
       await this.scheduleAlarm(record);
@@ -746,8 +857,15 @@ export class LabGame {
     }
 
     if (op === 'resign') {
-      if (record.status === 'pending') record.status = me === 0 ? 'cancelled' : 'declined';
-      else if (record.status === 'active') this.finish(cfg, record, 1 - me, 'resign');
+      if (record.status === 'pending') {
+        record.status = me === 0 ? 'cancelled' : 'declined';
+        if (me !== 0) record.declinedBy = me;
+      } else if (record.status === 'active' && record.players[me].left) {
+        return Response.json({ error: 'You’ve already left this game', ...viewFor(cfg, record, me, false) }, { status: 409 });
+      } else if (record.status === 'active' && record.players.length > 2) {
+        this.leaveSeat(cfg, record, me, 'resign');
+        record.version += 1;
+      } else if (record.status === 'active') this.finish(cfg, record, 1 - me, 'resign');
       else return Response.json({ error: 'This game is already over', ...viewFor(cfg, record, me, false) }, { status: 409 });
       await this.persist(record);
       await this.scheduleAlarm(record);
@@ -768,6 +886,7 @@ export class LabGame {
     const cfg = this.cfg(record);
     const fresh = (error, status = 409) => ({ status, body: { error, ...viewFor(cfg, record, me, true) } });
     if (record.status !== 'active') return fresh('This game is not in progress');
+    if (record.players[me].left) return fresh('You left this game — the computer plays your seat now.', 403);
     if (Number(body.base) !== record.version) return fresh('The game moved on — here is the latest.');
     const a = cfg.cleanAction(body.a);
     if (!a) return fresh('That isn’t a valid action.', 400);
@@ -784,14 +903,12 @@ export class LabGame {
       return fresh(e.message || 'Illegal move.', 400);
     }
     cfg.afterApply(state, me, a);
+    const botMoves = this.runBots(cfg, record);
     record.version += 1;
     record.turn = cfg.turnOf(state);
-    if (state.phase === 'over') {
-      const w = cfg.E.winner(state);
-      this.finish(cfg, record, w < 0 ? null : w, 'finished');
-    }
+    if (state.phase === 'over') this.finishFromState(cfg, record);
     await this.persist(record);
-    const newTurn = record.turn !== prevTurn || cfg.roundOf(state) !== prevRound;
+    const newTurn = record.turn !== prevTurn || cfg.roundOf(state) !== prevRound || botMoves > 0;
     if (record.status === 'active' && record.mode === 'quick' && newTurn) record.deadline = Date.now() + QUICK_TURN_MS;
     if (record.status === 'over' || newTurn) {
       await this.scheduleAlarm(record);
@@ -807,9 +924,16 @@ export class LabGame {
     if (Date.now() < record.deadline - 1000) return this.scheduleAlarm(record);
     const state = record.state;
     const pi = state.turn;
-    record.misses = record.misses || [0, 0];
-    record.misses[pi] += 1;
-    if (record.misses[pi] >= QUICK_MAX_MISSES) {
+    record.misses = record.misses || record.players.map(() => 0);
+    record.misses[pi] = (record.misses[pi] || 0) + 1;
+    if (isBot(record.players[pi])) {
+      this.runBots(cfg, record);
+      record.turn = cfg.turnOf(state);
+      if (state.phase === 'over') this.finishFromState(cfg, record);
+      else record.deadline = Date.now() + QUICK_TURN_MS;
+    } else if (record.misses[pi] >= QUICK_MAX_MISSES && record.players.length > 2) {
+      this.leaveSeat(cfg, record, pi, 'timeout');
+    } else if (record.misses[pi] >= QUICK_MAX_MISSES) {
       this.finish(cfg, record, 1 - pi, 'timeout');
     } else {
       if (state.log) state.log.push(cfg.logEntry(state, `${state.players[pi].name} ran out of time, so the computer took the turn.`, pi));
@@ -829,11 +953,10 @@ export class LabGame {
           break;
         }
       }
+      this.runBots(cfg, record);
       record.turn = cfg.turnOf(state);
-      if (state.phase === 'over') {
-        const w = cfg.E.winner(state);
-        this.finish(cfg, record, w < 0 ? null : w, 'finished');
-      } else record.deadline = Date.now() + QUICK_TURN_MS;
+      if (state.phase === 'over') this.finishFromState(cfg, record);
+      else record.deadline = Date.now() + QUICK_TURN_MS;
     }
     record.version += 1;
     await this.persist(record);

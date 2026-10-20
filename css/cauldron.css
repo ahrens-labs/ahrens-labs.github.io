@@ -608,3 +608,12 @@ button { font-family: inherit; }
 }
 @media (max-width: 360px) { .brand-logo { display: none; } }
 @media (prefers-reduced-motion: reduce) { .hero-bubbles, .gh-hero-img, .pawn, .beast-pic, .beast::after, .folk-pic, .co-gain { animation: none !important; } }
+.ol-more-row { display: flex; align-items: center; gap: 0.4rem; }
+.ol-more-row input { flex: 1; min-width: 0; }
+.ol-add { justify-self: start; }
+.ol-bots { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.8rem; }
+.ol-step { display: inline-flex; align-items: center; gap: 0.45rem; }
+.ol-step b { min-width: 1.4rem; text-align: center; font-size: 1.05rem; }
+.seg.ol-level[hidden] { display: none; }
+#ol-more { display: grid; gap: 0.5rem; }
+#ol-more:empty { display: none; }

@@ -1,5 +1,6 @@
-// Shared online lobby + live moves for Atlantis, Cauldron Lane, and Hero League.
-// Each game page calls BoardOnline.attach({...}) and wires enter/apply/send into its UI.
+// Shared online lobby + live moves for Atlantis, Cauldron Lane, Hero League and The Masquerade Court.
+// Each game page calls BoardOnline.attach({...}) and wires enter/apply/send into its UI. Games with more than two
+// seats (cfg.maxPlayers) can invite several players and fill the other seats with computer players.
 (function (root) {
   'use strict';
 
@@ -15,6 +16,8 @@
     const prefs = cfg.prefs;
     const savePrefs = cfg.savePrefs;
     const roundText = cfg.roundText || ((g) => (g.round ? `round ${g.round}` : ''));
+    const maxSeats = cfg.maxPlayers || 2;
+    const LEVELS = [['easy', 'Easy'], ['normal', 'Normal'], ['hard', 'Hard'], ['brutal', 'Brutal']];
     const blurb = cfg.blurb || `Play ${title} against another Ahrens Labs player — a quick game with a 2-minute turn clock, or a long game where you take your turn whenever you like.`;
 
     const net = {
@@ -70,16 +73,31 @@
       disconnect();
     }
 
+    // Summaries from before multi-seat games have no `needsMe` / `names`; they were always two players.
+    const invited = (g) => (g.needsMe != null ? g.needsMe : g.status === 'pending' && g.me === 1);
+    const nameAt = (g, i) => (g.names && g.names[i] != null ? g.names[i] : g.opp);
+    const seatsOf = (g) => g.seats || 2;
     function onlineStatus(g) {
-      if (g.status === 'pending') return g.me === 1 ? `<b>${esc(g.opp)}</b> challenged you` : `Waiting for <b>${esc(g.opp)}</b> to accept`;
+      if (g.status === 'pending') {
+        if (invited(g)) return seatsOf(g) > 2 ? `<b>${esc(nameAt(g, 0))}</b> invited you to a ${seatsOf(g)}-player game` : `<b>${esc(g.opp)}</b> challenged you`;
+        const wait = g.waiting && g.waiting.length ? g.waiting.join(', ') : g.opp;
+        return `Waiting for <b>${esc(wait)}</b> to accept`;
+      }
       if (g.status === 'active') {
         const rd = roundText(g);
-        return `${g.turn === g.me ? '<b class="ol-you">Your turn</b>' : `${esc(g.opp)}’s turn`}${rd ? ` · ${rd}` : ''} · ${g.mode === 'quick' ? '⚡ quick' : '🐢 long'}`;
+        return `${g.turn === g.me ? '<b class="ol-you">Your turn</b>' : `${esc(nameAt(g, g.turn))}’s turn`}${rd ? ` · ${rd}` : ''} · ${g.mode === 'quick' ? '⚡ quick' : '🐢 long'}`;
       }
-      if (g.status === 'declined') return `${g.me === 1 ? 'You' : esc(g.opp)} declined`;
+      if (g.status === 'declined') {
+        if (g.declinedBy != null) return `${g.declinedBy === g.me ? 'You' : esc(nameAt(g, g.declinedBy))} declined`;
+        return `${g.me === 1 ? 'You' : esc(g.opp)} declined`;
+      }
       if (g.status === 'cancelled') return 'Challenge cancelled';
       if (g.status === 'expired') return 'Nobody answered in a week';
       const r = g.result || {};
+      if (seatsOf(g) > 2) {
+        const mine = r.scores ? ` · you scored ${r.scores[g.me]}` : '';
+        return `${r.winner == null ? '🤝 No single winner' : r.winner === g.me ? '🏆 You won' : `${esc(nameAt(g, r.winner))} won`}${mine}`;
+      }
       const sc = r.scores ? ` · ${r.scores[g.me]}–${r.scores[1 - g.me]}` : '';
       const why = r.reason === 'resign' ? (r.winner === g.me ? ' — they resigned' : ' — you resigned') : r.reason === 'timeout' ? (r.winner === g.me ? ' — they ran out of time' : ' — you ran out of time') : '';
       return `${r.winner == null ? '🤝 Tie' : r.winner === g.me ? '🏆 You won' : 'You lost'}${sc}${why}`;
@@ -88,26 +106,59 @@
     function lobbyHtml(loading) {
       const games = net.lobby || [];
       const btns = (g) => {
-        if (g.status === 'pending' && g.me === 1) return `<button class="btn sm" data-ol="accept" data-id="${g.id}">Accept</button><button class="btn ghost sm" data-ol="decline" data-id="${g.id}">Decline</button>`;
-        if (g.status === 'pending') return `<button class="btn ghost sm" data-ol="cancel" data-id="${g.id}">Cancel</button>`;
+        if (g.status === 'pending' && invited(g)) return `<button class="btn sm" data-ol="accept" data-id="${g.id}">Accept</button><button class="btn ghost sm" data-ol="decline" data-id="${g.id}">Decline</button>`;
+        if (g.status === 'pending') return `<button class="btn ghost sm" data-ol="cancel" data-id="${g.id}">${g.me === 0 ? 'Cancel' : 'Leave'}</button>`;
         if (g.status === 'active') return `<button class="btn sm" data-ol="open" data-id="${g.id}">${g.turn === g.me ? 'Play' : 'Open'}</button>`;
         if (g.status === 'over') return `<button class="btn ghost sm" data-ol="open" data-id="${g.id}">View</button>`;
         return '';
       };
       const list = games.length
-        ? games.map((g) => `<li class="ol-game${g.status === 'active' && g.turn === g.me ? ' mine' : ''}${g.status === 'pending' && g.me === 1 ? ' invite' : ''}"><span class="ol-who">vs <b>${esc(g.opp)}</b><small>${onlineStatus(g)}</small></span><span class="ol-btns">${btns(g)}</span></li>`).join('')
+        ? games.map((g) => `<li class="ol-game${g.status === 'active' && g.turn === g.me ? ' mine' : ''}${invited(g) ? ' invite' : ''}"><span class="ol-who">vs <b>${esc(g.opp)}</b><small>${onlineStatus(g)}</small></span><span class="ol-btns">${btns(g)}</span></li>`).join('')
         : `<li class="muted ol-empty">${loading ? 'Loading your games…' : 'No online games yet — challenge someone below.'}</li>`;
       return `<div class="ol">
       <div class="ol-head"><span class="label">Your online games</span><button class="btn ghost sm" data-ol="refresh" title="Refresh">↻</button></div>
       ${net.err ? `<p class="bad">${esc(net.err)}</p>` : ''}
       <ul class="ol-list">${list}</ul>
       <form class="ol-new" data-ol-form>
-        <label><span class="label">Challenge a player</span><input id="ol-opp" maxlength="80" placeholder="Username or email" autocomplete="off"></label>
+        <label><span class="label">${maxSeats > 2 ? 'Invite players' : 'Challenge a player'}</span><input id="ol-opp" class="ol-opp" maxlength="80" placeholder="Username or email" autocomplete="off"></label>
+        ${maxSeats > 2 ? seatsHtml() : ''}
         <div class="seg ol-mode" id="ol-mode">${['quick', 'long'].map((m) => `<button type="button" data-v="${m}" class="${(prefs().olMode || 'quick') === m ? 'on' : ''}">${m === 'quick' ? '<b>⚡ Quick game</b><small>2 minutes per turn — play it now</small>' : '<b>🐢 Long game</b><small>No time limit — take your turn whenever, over days</small>'}</button>`).join('')}</div>
         <button class="btn" type="submit">Send challenge</button>
       </form>
-      <p class="muted small">In a quick game, if your time runs out the computer takes that turn for you; miss three turns in a row and you lose. You’ll see each other’s moves live while you both have the game open.</p>
+      <p class="muted small">In a quick game, if your time runs out the computer takes that turn for you; miss three turns in a row and you lose${maxSeats > 2 ? ' (with more than two players, the computer takes over your seat instead)' : ''}. You’ll see each other’s moves live while you both have the game open.</p>
     </div>`;
+    }
+
+    // Extra invites and computer seats, for games with room for more than two.
+    function seatsHtml() {
+      const pr = prefs();
+      const level = LEVELS.some(([k]) => k === pr.olLevel) ? pr.olLevel : 'normal';
+      return `<div id="ol-more"></div>
+        <button type="button" class="btn ghost sm ol-add" data-ol="add-opp">➕ Invite another player</button>
+        <div class="ol-bots"><span class="label">🤖 Computer players</span>
+          <div class="ol-step"><button type="button" class="btn ghost sm" data-ol="bots-" aria-label="Fewer computer players">−</button><b id="ol-bots-n">0</b><button type="button" class="btn ghost sm" data-ol="bots+" aria-label="More computer players">+</button></div>
+          <div class="seg ol-level" id="ol-level">${LEVELS.map(([k, name]) => `<button type="button" data-v="${k}" class="${k === level ? 'on' : ''}">${name}</button>`).join('')}</div>
+        </div>
+        <p class="muted small" id="ol-seats"></p>`;
+    }
+    function seatCounts() {
+      const invites = document.querySelectorAll('[data-ol-form] .ol-opp').length;
+      const bots = Number(($('#ol-bots-n') || {}).textContent || 0);
+      return { invites, bots, total: 1 + invites + bots };
+    }
+    function updateSeats() {
+      const c = seatCounts();
+      const full = c.total >= maxSeats;
+      const add = $('[data-ol="add-opp"]');
+      if (add) add.disabled = full;
+      const plus = $('[data-ol="bots+"]');
+      if (plus) plus.disabled = full;
+      const minus = $('[data-ol="bots-"]');
+      if (minus) minus.disabled = c.bots <= 0;
+      const lvl = $('#ol-level');
+      if (lvl) lvl.hidden = c.bots <= 0;
+      const note = $('#ol-seats');
+      if (note) note.textContent = `${c.total} of ${maxSeats} seats: you, ${c.invites} invited player${c.invites > 1 ? 's' : ''}${c.bots ? ` and ${c.bots} computer player${c.bots > 1 ? 's' : ''}` : ''}. The game starts once everyone invited accepts.`;
     }
 
     async function showLobby(focus) {
@@ -138,7 +189,13 @@
 
     function renderLobby() {
       const box = $('#online-box');
-      if (box) box.innerHTML = lobbyHtml(false);
+      if (!box) return;
+      box.innerHTML = lobbyHtml(false);
+      if (maxSeats > 2) {
+        const el = $('#ol-bots-n');
+        if (el) el.textContent = String(Math.max(0, Math.min(maxSeats - 2, Number(prefs().olBots) || 0)));
+        updateSeats();
+      }
     }
 
     async function openOnline(id) {
@@ -316,22 +373,25 @@
         if (!$('#online-box')) return;
         e.preventDefault();
         const inp = $('#ol-opp');
-        const opponent = inp && inp.value.trim();
-        if (!opponent) return inp && inp.focus();
+        const opponents = [...e.target.querySelectorAll('.ol-opp')].map((x) => x.value.trim()).filter(Boolean);
+        if (!opponents.length) return inp && inp.focus();
+        const nBots = maxSeats > 2 ? seatCounts().bots : 0;
+        const lvl = $('#ol-level .on');
+        const level = lvl ? lvl.dataset.v : 'normal';
         const btn = e.target.querySelector('button[type="submit"]') || e.target.querySelector('button');
         if (btn) btn.disabled = true;
         const pick = $('#ol-mode .on');
         const mode = pick ? pick.dataset.v : 'quick';
-        savePrefs(Object.assign(prefs(), { olMode: mode }));
-        const r = await api(`${prefix}/challenge`, { opponent, mode });
+        savePrefs(Object.assign(prefs(), { olMode: mode }, maxSeats > 2 ? { olBots: nBots, olLevel: level } : {}));
+        const r = await api(`${prefix}/challenge`, { opponent: opponents[0], opponents, bots: Array(nBots).fill(level), mode });
         if (btn) btn.disabled = false;
         if (!r.ok) return toast(esc(r.data.error || 'Couldn’t send the challenge.'), 'bad');
-        toast(`Challenge sent to <b>${esc(r.data.game.opp)}</b>.`);
+        toast(opponents.length > 1 || nBots ? `Invites sent — you’re playing with <b>${esc(r.data.game.opp)}</b>.` : `Challenge sent to <b>${esc(r.data.game.opp)}</b>.`);
         net.lobby = [r.data.game].concat((net.lobby || []).filter((g) => g.id !== r.data.game.id));
         renderLobby();
       });
       document.addEventListener('click', async (e) => {
-        const modeBtn = e.target.closest('#ol-mode button');
+        const modeBtn = e.target.closest('#ol-mode button, #ol-level button');
         if (modeBtn && $('#online-box')) {
           [...modeBtn.parentNode.children].forEach((x) => x.classList.toggle('on', x === modeBtn));
           return;
@@ -340,6 +400,21 @@
         if (!b || b.disabled || !$('#online-box')) return;
         const id = b.dataset.id;
         const what = b.dataset.ol;
+        if (what === 'add-opp' || what === 'drop-opp' || what === 'bots+' || what === 'bots-') {
+          if (what === 'add-opp' && seatCounts().total < maxSeats) {
+            const row = document.createElement('label');
+            row.className = 'ol-more-row';
+            row.innerHTML = '<input class="ol-opp" maxlength="80" placeholder="Username or email" autocomplete="off"><button type="button" class="btn ghost sm" data-ol="drop-opp" aria-label="Remove this player">✕</button>';
+            $('#ol-more').appendChild(row);
+            row.querySelector('input').focus();
+          } else if (what === 'drop-opp') b.closest('.ol-more-row').remove();
+          else {
+            const el = $('#ol-bots-n');
+            const n = Number(el.textContent) + (what === 'bots+' ? 1 : -1);
+            if (n >= 0 && (what === 'bots-' || seatCounts().total < maxSeats)) el.textContent = String(n);
+          }
+          return updateSeats();
+        }
         if (what === 'refresh') return showLobby();
         if (what === 'open') return openOnline(id);
         b.disabled = true;
@@ -350,7 +425,8 @@
             toast(esc(r.data.error || 'That didn’t work.'), 'bad');
             return showLobby();
           }
-          if (what === 'accept') return enterOnline(r.data);
+          if (what === 'accept' && r.data.status === 'active') return enterOnline(r.data);
+          if (what === 'accept') toast(`You’re in! Waiting for <b>${esc((r.data.waiting || []).join(', ') || 'the others')}</b> to accept.`);
           return showLobby();
         }
         if (what === 'cancel') {

@@ -118,9 +118,10 @@
   }
 
   function onlineItem(g) {
-    const yours = (g.status === 'pending' && g.me === 1) || (g.status === 'active' && g.turn === g.me);
+    const invited = g.needsMe != null ? g.needsMe : g.status === 'pending' && g.me === 1;
+    const yours = invited || (g.status === 'active' && g.turn === g.me);
     let note;
-    if (g.status === 'pending') note = g.me === 1 ? '<b>Challenged you</b> — accept or decline' : 'Waiting for them to accept';
+    if (g.status === 'pending') note = invited ? `<b>${(g.seats || 2) > 2 ? 'Invited you' : 'Challenged you'}</b> — accept or decline` : 'Waiting for them to accept';
     else note = `${yours ? '<b>Your turn</b>' : 'Their turn'}${g.round ? ` · round ${g.round}${g.game === 'hearthhold' ? ' of 12' : ''}` : ''}`;
     return {
       game: g.game,

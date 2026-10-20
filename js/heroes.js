@@ -121,7 +121,8 @@
     title: 'Hero League',
     onlineKey: 'ahrensHeroes.online',
     esc, toast, $, sessionId, prefs, savePrefs,
-    blurb: 'Play Hero League against another Ahrens Labs player — a quick game with a 2-minute turn clock, or a long game where you take your turn whenever you like.',
+    blurb: 'Play Hero League against other Ahrens Labs players — invite up to four, add computer leagues if you like, and pick a quick game with a 2-minute turn clock or a long game where you take your turn whenever you like.',
+    maxPlayers: 5,
     roundText: (g) => (g.round != null ? `Plaza progress · turn ${g.round}` : ''),
     getG: () => G,
     showSetup: (focus) => showSetup(focus),
@@ -145,7 +146,6 @@
       if (!v.state) { render(); return; }
       G.state = v.state;
       const s = v.state;
-      const opp = 1 - G.me;
       const me = pl(G.me);
       if (mine) sfx(mine.t === 'discard' ? 'place' : mine.t === 'draw' && mine.from === 'plaza' ? 'join' : 'card');
       render();
@@ -153,12 +153,18 @@
       // Your own move: the same notices as a game against the computer.
       if (mine && mine.t === 'identity' && me.identity) toast(`🎭 You are secretly <b>${identName(me.identity)}</b>. Keep it quiet!`);
       if (mine && mine.t === 'draw' && mine.from === 'deck' && me.drew) toast(`🂠 You drew <b>${cname(me.drew)}</b> (${E.SUIT[C(me.drew).suit].icon} ${C(me.drew).power}).`);
-      // Their move: one notice once their turn is done, with what they took and what they gave up.
+      // Everyone else's moves: one notice per league, with what they took and what they gave up.
       const L = s.last;
-      if (L && L.who === opp && L.gave && fresh.some((l) => l.who === opp)) {
-        if (!mine) sfx('place');
-        toast(`<span class="dot" style="--pc:${PCOLOR[opp]}"></span>${leagueName(opp)} ${L.from === 'plaza' ? `recruited <b>${cname(L.took)}</b> from the Plaza` : 'drew from the deck'} and sent <b>${cname(L.gave)}</b> to the Plaza.`, 'ai');
-      }
+      const movers = [...new Set(fresh.filter((l) => l.who != null && l.who !== G.me).map((l) => l.who))];
+      if (movers.length && !mine) sfx('place');
+      movers.slice(-3).forEach((who) => {
+        if (L && L.who === who && L.gave) {
+          toast(`<span class="dot" style="--pc:${PCOLOR[who]}"></span>${leagueName(who)} ${L.from === 'plaza' ? `recruited <b>${cname(L.took)}</b> from the Plaza` : 'drew from the deck'} and sent <b>${cname(L.gave)}</b> to the Plaza.`, 'ai');
+        } else {
+          const line = fresh.filter((l) => l.who === who).pop();
+          toast(`<span class="dot" style="--pc:${PCOLOR[who]}"></span>${esc(line.text)}`, 'ai');
+        }
+      });
       if (s.phase !== 'over' && G.status === 'active') identityPicker();
       if (s.phase === 'over') {
         if (prev.phase !== 'over') sfx('reveal');
@@ -455,7 +461,7 @@
     if (!G) return;
     const s = st();
     const M = mission();
-    const sub = G.mode === 'past' ? '📜 Finished game' : G.mode === 'sim' ? `🧪 ${SIM_SPEEDS[G.speed].name} · computer vs computer` : G.mode === 'online' ? `🌐 vs ${esc(pl(1 - G.me).name)}${G.gmode === 'quick' ? ' · ⚡' : ''}${G.gmode === 'quick' && G.deadline ? ' <span class="ol-clock" id="ol-clock"></span>' : ''}` : G.mode === 'local' ? `👥 ${s.players.length} leagues` : `🤖 vs ${plural(s.players.length - 1, 'rival')} · ${LEVEL_NAME[G.level] || ''}`;
+    const sub = G.mode === 'past' ? '📜 Finished game' : G.mode === 'sim' ? `🧪 ${SIM_SPEEDS[G.speed].name} · computer vs computer` : G.mode === 'online' ? `🌐 ${s.players.length > 2 ? `${s.players.length}-player game` : `vs ${esc(pl(1 - G.me).name)}`}${G.gmode === 'quick' ? ' · ⚡' : ''}${G.gmode === 'quick' && G.deadline ? ' <span class="ol-clock" id="ol-clock"></span>' : ''}` : G.mode === 'local' ? `👥 ${s.players.length} leagues` : `🤖 vs ${plural(s.players.length - 1, 'rival')} · ${LEVEL_NAME[G.level] || ''}`;
     const home = G.mode === 'past' ? '🏆<span class="bt"> History</span>' : G.mode === 'sim' ? '⏹<span class="bt"> Stop</span>' : G.mode === 'online' ? '🌐<span class="bt"> Game</span>' : '🦸<span class="bt"> New game</span>';
     const pz = s.plaza.length;
     $('#app').innerHTML = `
@@ -918,7 +924,7 @@
   function scheduleAI() {
     stopAI();
     if (identityPicker()) return;
-    if (!G || ui.modal || !playing() || !pl(st().turn).ai || G.mode === 'past') return;
+    if (!G || ui.modal || !playing() || !pl(st().turn).ai || G.mode === 'past' || G.mode === 'online') return;
     const wait = G.mode === 'sim' ? SIM_SPEEDS[G.speed].ai : st().phase === 'draw' ? 800 : 1000;
     ui.aiTimer = setTimeout(aiStep, wait);
   }

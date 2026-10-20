@@ -118,7 +118,8 @@
     title: 'Cauldron Lane',
     onlineKey: 'ahrensCauldron.online',
     esc, toast, $, sessionId, prefs, savePrefs,
-    blurb: 'Play Cauldron Lane against another Ahrens Labs player — a quick game with a 2-minute turn clock, or a long game where you take your turn whenever you like.',
+    blurb: 'Play Cauldron Lane against other Ahrens Labs players — invite up to three, add computer shops if you like, and pick a quick game with a 2-minute turn clock or a long game where you take your turn whenever you like.',
+    maxPlayers: 4,
     roundText: (g) => (g.round != null ? `day ${g.round} of ${E.DAYS}` : ''),
     getG: () => G,
     showSetup: (focus) => showSetup(focus),
@@ -142,7 +143,9 @@
       if (!v.state) { render(); return; }
       G.state = v.state;
       const s = v.state;
-      const actor = prev.turn;
+      // Computer shops can move straight after a person, so one update may hold several shops' turns.
+      const movers = [...new Set(fresh.filter((l) => l.who != null).map((l) => l.who))];
+      const actor = movers.length ? movers[movers.length - 1] : prev.turn;
       if (fresh.length) {
         ui.moved = actor;
         noteGains(s.sold || []);
@@ -151,6 +154,10 @@
       if (G.gmode === 'quick' && G.status === 'active') Online.tickClock();
       if (fresh.length) {
         if (mine) actionSfx(mine.t, s.players[G.me].coins < prev.players[G.me].coins, (s.sold || []).length > 0);
+        movers.slice(0, -1).filter((i) => i !== G.me).slice(-2).forEach((i) => {
+          const line = fresh.find((l) => l.who === i && !/^🔔|gave up waiting/.test(l.text));
+          if (line) toast(`<span class="dot" style="--pc:${PCOLOR[i]}"></span>${esc(line.text)}`, 'ai', 4200);
+        });
         tell(actor, fresh);
       }
       if (s.phase === 'over') return showGameOver(prev.phase === 'over');
@@ -422,7 +429,7 @@
     const v = viewIndex();
     const day = E.today(s);
     const nextMarket = E.MARKET_DAYS[s.market];
-    const sub = G.mode === 'past' ? '📜 Finished game' : G.mode === 'sim' ? `🧪 ${SIM_SPEEDS[G.speed].name} · computer vs computer` : G.mode === 'online' ? `🌐 vs ${esc(pl(1 - G.me).name)}${G.gmode === 'quick' ? ' · ⚡' : ''}${G.gmode === 'quick' && G.deadline ? ' <span class="ol-clock" id="ol-clock"></span>' : ''}` : G.mode === 'local' ? `👥 ${s.players.length} players` : `🤖 vs ${plural(s.players.length - 1, 'rival')} · ${LEVEL_NAME[G.level] || ''}`;
+    const sub = G.mode === 'past' ? '📜 Finished game' : G.mode === 'sim' ? `🧪 ${SIM_SPEEDS[G.speed].name} · computer vs computer` : G.mode === 'online' ? `🌐 ${s.players.length > 2 ? `${s.players.length}-player game` : `vs ${esc(pl(1 - G.me).name)}`}${G.gmode === 'quick' ? ' · ⚡' : ''}${G.gmode === 'quick' && G.deadline ? ' <span class="ol-clock" id="ol-clock"></span>' : ''}` : G.mode === 'local' ? `👥 ${s.players.length} players` : `🤖 vs ${plural(s.players.length - 1, 'rival')} · ${LEVEL_NAME[G.level] || ''}`;
     const home = G.mode === 'past' ? '🏆<span class="bt"> History</span>' : G.mode === 'sim' ? '⏹<span class="bt"> Stop</span>' : G.mode === 'online' ? '🌐<span class="bt"> Game</span>' : '⚗️<span class="bt"> New game</span>';
     $('#app').innerHTML = `
       <header class="topbar">
@@ -1211,7 +1218,7 @@
   }
   function scheduleAI() {
     stopAI();
-    if (!G || ui.modal || st().phase !== 'act' || !pl(st().turn).ai) return;
+    if (!G || G.mode === 'online' || ui.modal || st().phase !== 'act' || !pl(st().turn).ai) return;
     const wait = G.mode === 'sim' ? SIM_SPEEDS[G.speed].ai : 750;
     ui.aiTimer = setTimeout(aiStep, wait);
   }

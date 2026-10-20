@@ -107,7 +107,8 @@
     title: 'The Masquerade Court',
     onlineKey: 'ahrensMasquerade.online',
     esc, toast, $, sessionId, prefs, savePrefs,
-    blurb: 'Play The Masquerade Court against another Ahrens Labs player — a quick game with a 2-minute clock for every decision, or a long game where you answer whenever you like.',
+    blurb: 'Play The Masquerade Court against other Ahrens Labs players — invite up to four, add computer nobles if you like, and pick a quick game with a 2-minute clock for every decision or a long game where you answer whenever you like.',
+    maxPlayers: 5,
     roundText: (g) => (g.round ? `chime ${g.round} of ${E.CHIMES}` : ''),
     getG: () => G,
     showSetup: (focus) => showSetup(focus),
@@ -361,7 +362,7 @@
     if (!G) return;
     const s = st();
     const v = viewer();
-    const sub = G.mode === 'past' ? '📜 Finished ball' : G.mode === 'online' ? `🌐 vs ${esc(pl(1 - G.me).name)}${G.gmode === 'quick' ? ' · ⚡' : ''}${G.gmode === 'quick' && G.deadline ? ' <span class="ol-clock" id="ol-clock"></span>' : ''}` : G.mode === 'local' ? `👥 ${s.players.length} nobles` : `🤖 vs ${plural(s.players.length - 1, 'rival')} · ${LEVEL_NAME[G.level] || ''}`;
+    const sub = G.mode === 'past' ? '📜 Finished ball' : G.mode === 'online' ? `🌐 ${s.players.length > 2 ? `${s.players.length}-player game` : `vs ${esc(pl(1 - G.me).name)}`}${G.gmode === 'quick' ? ' · ⚡' : ''}${G.gmode === 'quick' && G.deadline ? ' <span class="ol-clock" id="ol-clock"></span>' : ''}` : G.mode === 'local' ? `👥 ${s.players.length} nobles` : `🤖 vs ${plural(s.players.length - 1, 'rival')} · ${LEVEL_NAME[G.level] || ''}`;
     const home = G.mode === 'past' ? '🏆<span class="bt"> History</span>' : G.mode === 'online' ? '🌐<span class="bt"> Game</span>' : '🎭<span class="bt"> New game</span>';
     $('#app').innerHTML = `
       <header class="topbar">
