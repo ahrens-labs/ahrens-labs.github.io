@@ -11,7 +11,7 @@
   const FAVOR_WIN = 7;
   const TOAST_COST = 3;
   const SCANDAL_COST = 7;
-  const CUT_IN_COST = 2;
+  const CUT_IN_COST = 1;
   const INSULT_FAVOR = 2;
 
   // Each mask's power, and which power it can stop. cost is paid when the power is claimed, whatever happens.
