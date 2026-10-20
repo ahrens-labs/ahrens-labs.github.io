@@ -445,7 +445,7 @@
     $('#app').innerHTML = `
       <header class="topbar">
         <div class="brand">
-          <img src="/img/atlantis-favicon-96.png?v=1" alt="" class="brand-logo" width="46" height="46">
+          <img src="/img/atlantis-icon-180.png?v=3" alt="" class="brand-logo" width="46" height="46">
           <div><h1>Atlantis Expedition</h1><small>${esc(sub)}</small></div>
         </div>
         <div class="top-mid">

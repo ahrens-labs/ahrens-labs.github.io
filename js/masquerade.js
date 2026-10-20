@@ -381,7 +381,7 @@
     const home = G.mode === 'past' ? '🏆<span class="bt"> History</span>' : G.mode === 'sim' ? '⏹<span class="bt"> Stop</span>' : G.mode === 'online' ? '🌐<span class="bt"> Game</span>' : '🎭<span class="bt"> New game</span>';
     $('#app').innerHTML = `
       <header class="topbar">
-        <div class="brand"><img src="/img/masquerade-favicon-96.png?v=1" alt="" class="brand-logo" width="46" height="46"><div><h1>The Masquerade Court</h1><small>${sub}</small></div></div>
+        <div class="brand"><img src="/img/masquerade-icon-180.png?v=3" alt="" class="brand-logo" width="46" height="46"><div><h1>The Masquerade Court</h1><small>${sub}</small></div></div>
         <div class="top-mid">
           <div class="top-chips"><span class="chip">⭐ ${E.FAVOR_WIN} Favor wins</span><span class="chip">🎭 or be the last still masked</span></div>
         </div>

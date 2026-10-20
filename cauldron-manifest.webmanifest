@@ -1,0 +1,48 @@
+{
+  "id": "ahrenslabs-cauldron",
+  "name": "Cauldron Lane",
+  "short_name": "Cauldron Lane",
+  "description": "Run a potion shop on a crowded lane: brew, hunt rare beasts, and sell to townsfolk before the Moon Fair.",
+  "start_url": "/cauldron.html?home",
+  "scope": "/cauldron",
+  "display": "standalone",
+  "background_color": "#28104a",
+  "theme_color": "#2a1240",
+  "orientation": "any",
+  "categories": [
+    "games",
+    "entertainment"
+  ],
+  "icons": [
+    {
+      "src": "/img/cauldron-icon-512.png?v=2",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/img/cauldron-icon-192.png?v=2",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/img/cauldron-icon-180.png?v=2",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/img/cauldron-icon-512-maskable.png?v=2",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/img/cauldron-icon-192-maskable.png?v=2",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

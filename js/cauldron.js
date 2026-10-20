@@ -434,7 +434,7 @@
     $('#app').innerHTML = `
       <header class="topbar">
         <div class="brand">
-          <img src="/img/cauldron-favicon-96.png?v=2" alt="" class="brand-logo" width="46" height="46">
+          <img src="/img/cauldron-icon-180.png?v=3" alt="" class="brand-logo" width="46" height="46">
           <div><h1>Cauldron Lane</h1><small>${esc(sub)}</small></div>
         </div>
         <div class="top-mid">
