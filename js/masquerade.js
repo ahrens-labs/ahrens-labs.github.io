@@ -1038,7 +1038,7 @@
       <ul><li><b>Bluffing?</b> They lose a mask of their choice (it’s turned face up and out of play) and the power fails. A bluffed block fails, and the power goes ahead.</li>
       <li><b>Honest?</b> They show the mask, shuffle it back into the wardrobe and draw a fresh one, so nobody knows what they wear now. The power still happens. The accuser pays <b>⭐${E.INSULT_FAVOR} Favor</b> — or, with less than ⭐${E.INSULT_FAVOR}, a mask.</li></ul>
       <p class="muted">There are always ${E.COPIES} of each mask in play — between the nobles, the lost pile and the wardrobe.</p>
-      <p class="muted">Losing both masks means leaving the ball. The Plague Doctor’s Remedy brings a lost mask back.</p>`;
+      <p class="muted">Losing both masks means leaving the ball. The Plague Doctor’s Remedy gives you a fresh mask from the wardrobe — but a lost mask is never shuffled back in; it stays face up and out of play.</p>`;
     if (tab === 'blocks') return `<p>Three powers can be blocked by the noble they target:</p>
       <ul><li>🃏 The Jester’s Rumour — blocked by 👑 the Doge.</li><li>🧪 The Poisoner’s Poison — blocked by ⚕️ the Plague Doctor.</li><li>🛶 The Gondolier’s Secret passage — blocked by 🕵️ the Spy.</li></ul>
       <p><b>Cutting in:</b> when someone claims the Duchess’s Waltz, any rival may pay the band 🪙${E.CUT_IN_COST} and claim the Duchess to take the Doge’s hand instead — the waltz wins no Favor.</p>

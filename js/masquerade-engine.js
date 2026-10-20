@@ -12,6 +12,7 @@
   const TOAST_COST = 3;
   const SCANDAL_COST = 7;
   const CUT_IN_COST = 1;
+  const WORN = 2;
   const INSULT_FAVOR = 2;
 
   // Each mask's power, and which power it can stop. cost is paid when the power is claimed, whatever happens.
@@ -20,7 +21,7 @@
     duchess: { name: 'The Duchess', icon: '💃', color: '#d9668f', power: 'Waltz', text: 'Gain ⭐1 Favor — unless a rival Duchess cuts in.' },
     jester: { name: 'The Jester', icon: '🃏', color: '#7a3fb0', power: 'Rumour', text: 'Steal ⭐1 Favor from a noble.', target: true },
     poisoner: { name: 'The Poisoner', icon: '🧪', color: '#1f7a4a', power: 'Poison', text: 'Pay 🪙4: a noble loses a mask.', target: true, cost: 4 },
-    doctor: { name: 'The Plague Doctor', icon: '⚕️', color: '#1f6f78', power: 'Remedy', text: 'Pay 🪙4: if you’ve lost a mask, take a fresh one from the wardrobe.', cost: 4, blocks: 'poisoner' },
+    doctor: { name: 'The Plague Doctor', icon: '⚕️', color: '#1f6f78', power: 'Remedy', text: 'Pay 🪙4: if you’re down to one mask, take a fresh one from the wardrobe. The lost mask stays out of play.', cost: 4, blocks: 'poisoner' },
     gondolier: { name: 'The Gondolier', icon: '🛶', color: '#2a4fa0', power: 'Secret passage', text: 'Swap one of your masks for a hidden mask of a noble. You both see what you get.', target: true },
     spy: { name: 'The Spy', icon: '🕵️', color: '#4a5263', power: 'Eavesdrop', text: 'Peek at one of a noble’s hidden masks and take 🪙1.', target: true, blocks: 'gondolier' },
   };
@@ -124,7 +125,8 @@
       if (k === 'gondolier' && !live(t).length) return `${t.name} has no masks to swap.`;
     }
     if (k === 'gondolier' && !live(p).some((m) => m.id === give)) return 'Pick one of your masks to give away.';
-    if (k === 'doctor' && !p.masks.some((m) => m.up === 'lost')) return 'The Remedy only works once you’ve lost a mask.';
+    if (k === 'doctor' && live(p).length >= WORN) return 'The Remedy only works once you’ve lost a mask.';
+    if (k === 'doctor' && !state.wardrobe.length) return 'The wardrobe is empty — there’s no fresh mask to take.';
     return '';
   }
 
@@ -417,12 +419,11 @@
         P.next.unshift({ s: 'lose', who: act.target, why: 'poison' });
         break;
       case 'doctor': {
-        const gone = p.masks.find((m) => m.up === 'lost');
-        if (gone && state.wardrobe.length) {
+        // The lost mask stays face up and out of play; the fresh one is worn beside it.
+        if (live(p).length < WORN && state.wardrobe.length) {
           const fresh = state.wardrobe.shift();
           fresh.up = 'hidden';
-          p.masks[p.masks.indexOf(gone)] = fresh;
-          toWardrobe(state, gone);
+          p.masks.push(fresh);
           log(state, `${p.name} takes a fresh mask from the wardrobe.`, pi);
         }
         break;
@@ -623,11 +624,13 @@
     // My turn: weigh every move by what it gains, what it risks, and how likely it is to work.
     const opts = [];
     const win = (gainFavor) => p.favor + gainFavor >= FAVOR_WIN;
-    opts.push({ a: { t: 'mingle' }, v: DUCAT });
-    if (p.ducats >= TOAST_COST) opts.push({ a: { t: 'toast' }, v: win(1) ? 1000 : FAVOR - TOAST_COST * DUCAT + 1.5 });
+    // Ducats are only worth what they can buy: once a scandal is affordable, more coin matters much less.
+    const coin = p.ducats >= SCANDAL_COST + 3 ? 0.4 : p.ducats >= SCANDAL_COST ? 1.2 : DUCAT;
+    opts.push({ a: { t: 'mingle' }, v: coin });
+    if (p.ducats >= TOAST_COST) opts.push({ a: { t: 'toast' }, v: win(1) ? 1000 : FAVOR - TOAST_COST * coin + 1.5 });
     if (p.ducats >= SCANDAL_COST) {
       const t = leader(state, pi);
-      if (t != null) opts.push({ a: { t: 'scandal', target: t }, v: 14 + threat(state.players[t]) * 1.2 - SCANDAL_COST * DUCAT + (live(state.players[t]).length <= 1 ? 25 : 0) });
+      if (t != null) opts.push({ a: { t: 'scandal', target: t }, v: 14 + threat(state.players[t]) * 1.2 - SCANDAL_COST * coin + (live(state.players[t]).length <= 1 ? 25 : 0) });
     }
     // How likely someone calls "Unmask!" if I claim k without wearing it.
     const exposure = (k) => {
@@ -660,18 +663,18 @@
         const e = exposure(k) * L.read + (1 - L.read) * 0.3;
         v = v * (1 - e) - e * maskCost(p);
       }
-      if (MASKS[k].cost) v -= MASKS[k].cost * DUCAT;
+      if (MASKS[k].cost) v -= MASKS[k].cost * coin;
       opts.push({ a, v });
     };
-    consider('doge', 3 * DUCAT + 0.5);
+    consider('doge', 3 * coin + 0.5);
     consider('duchess', win(1) ? 1000 : FAVOR);
     const rich = leader(state, pi, (q) => q.favor > 0);
     if (rich != null) consider('jester', win(1) ? 1000 : FAVOR * 1.6 + (state.players[rich].favor >= FAVOR_WIN - 1 ? 30 : 0), rich);
     const big = leader(state, pi);
     if (big != null) consider('poisoner', 14 + threat(state.players[big]) + (live(state.players[big]).length <= 1 ? 25 : 0), big);
-    if (p.masks.some((m) => m.up === 'lost')) consider('doctor', 26);
+    if (live(p).length < WORN) consider('doctor', 26);
     const peek = leader(state, pi, (q) => hidden(q).length > 0);
-    if (peek != null) consider('spy', DUCAT + 2.5, peek);
+    if (peek != null) consider('spy', coin + 2.5, peek);
     // Swap away my least useful mask.
     const swapTo = leader(state, pi, (q) => live(q).length > 0);
     if (swapTo != null && live(p).length) consider('gondolier', worstMask(p).k === 'gondolier' ? 1 : 3.5, swapTo, worstMask(p).id);
@@ -686,9 +689,13 @@
     const P = state.pending;
     const me = state.players[pi];
     if (Math.random() < L.wild) return Math.random() < 0.2;
-    const lie = lieChance(state, pi, P.claimer, P.k) * L.read + (1 - L.read) * 0.22;
     const act = P.act;
     const claimer = state.players[P.claimer];
+    let lie = lieChance(state, pi, P.claimer, P.k) * L.read + (1 - L.read) * 0.22;
+    // A noble on their last mask has nothing to lose by bluffing a block against poison.
+    if (P.stage === 'blockChallenge' && act.k === 'poisoner' && live(claimer).length <= 1 && lie > 0) lie = Math.max(lie, 0.5);
+    // A ball that drags on long past the usual length makes everyone more suspicious, so it can't stall.
+    if (state.round > 30) lie = Math.min(1, lie + (state.round - 30) * 0.02);
     let stake = 6;
     if (P.stage === 'blockChallenge') stake = act.k === 'poisoner' ? 16 : act.k === 'jester' ? 9 : act.k === 'duchess' ? (me.favor + 1 >= FAVOR_WIN ? 200 : 9) : 4;
     else if (act.k === 'duchess' || (act.k === 'jester' && act.target !== pi)) stake = claimer.favor + 1 >= FAVOR_WIN ? 200 : 8;
@@ -709,7 +716,7 @@
   const KEEP = { duchess: 7, doge: 6, poisoner: 5, doctor: 4, jester: 4, spy: 3, gondolier: 2 };
   function worstMask(p) {
     const ms = live(p);
-    const val = (m) => KEEP[m.k] + (m.k === 'doctor' && p.masks.some((x) => x.up === 'lost') ? 3 : 0);
+    const val = (m) => KEEP[m.k] + (m.k === 'doctor' && live(p).length < WORN ? 3 : 0);
     return ms.slice().sort((a, b) => val(a) - val(b))[0];
   }
 
