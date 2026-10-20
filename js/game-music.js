@@ -1,9 +1,11 @@
 // Background music and sound effects for the board games.
-// Configured from the script tag: data-key (saved setting), data-src + data-loop="start,end" (seconds) for the
+// Configured from the script tag: data-key (this page's old setting, read once if there's no shared one yet),
+// data-src + data-loop="start,end" (seconds) for the
 // main track, and optionally data-alt-src / data-alt-loop / data-alt-when (a CSS selector) for a second track
 // that plays instead while that selector matches, e.g. Oakhaven's night.
-// The setting cycles: music and sounds → sounds only → off. data-sfx="none" (a page with no sound effects,
-// like the lobby) makes it just music → off. Tracks are only downloaded once they're wanted,
+// The setting cycles: music and sounds → sounds only → off, and is shared by every page (and open tab).
+// data-sfx="none" (a page with no sound effects, like the lobby) makes it just music → off there.
+// Music and sound effects stop while any video with sound is playing, and come back when it stops. Tracks are only downloaded once they're wanted,
 // and only play while a game header with a [data-music] button is on screen and the tab is visible.
 // Music plays through <audio> elements (not Web Audio) so iPhones play it with the ringer switch on silent.
 // Each track is fetched into a blob first: Safari won't play media URLs from hosts that ignore Range requests.
@@ -30,18 +32,40 @@
   let unlocked = false;
   let canFade = true;
 
-  // 'all' (music + sounds), 'sfx' (sounds only) or 'off'. Older saves only ever stored 'off'.
+  // 'all' (music + sounds), 'sfx' (sounds only) or 'off', saved once for the whole site. Pages used to keep their
+  // own setting; the first page opened since then carries its setting over.
+  const KEY = 'ahrens_sound';
+  const read = (k) => {
+    try {
+      return localStorage.getItem(k);
+    } catch (e) {
+      return null;
+    }
+  };
+  const store = (v) => {
+    try {
+      localStorage.setItem(KEY, v);
+    } catch (e) {
+      /* storage blocked: the setting lasts until the page closes */
+    }
+  };
+  let fallback = 'all';
+  if (read(KEY) == null) {
+    const old = ds.key ? read(ds.key) : null;
+    fallback = old === 'off' || old === 'sfx' ? old : 'all';
+    store(fallback);
+  }
   const mode = () => {
-    const v = localStorage.getItem(ds.key);
-    return v === 'off' || (v === 'sfx' && SFX_USED) ? v : 'all';
+    const v = read(KEY) || fallback;
+    return v === 'off' || v === 'sfx' ? v : 'all';
   };
   const musicOn = () => mode() === 'all';
-  const sfxOn = () => SFX_USED && mode() !== 'off';
+  const sfxOn = () => SFX_USED && mode() !== 'off' && !videoOn();
   const nextMode = (m) => MODES[(MODES.indexOf(m) + 1) % MODES.length];
   const onScreen = () => !document.hidden && !!document.querySelector('[data-music]');
   const current = () => (alt && alt.when && document.querySelector(alt.when) ? alt : main);
-  // Hold the music while a video with sound plays (the lobby's tutorials).
-  const videoOn = () => [...document.querySelectorAll('video')].some((v) => !v.paused && !v.ended && !v.muted);
+  // Hold the music and sounds while a video with sound plays (tutorials and trailers).
+  const videoOn = () => [...document.querySelectorAll('video')].some((v) => !v.paused && !v.ended && !v.muted && v.volume > 0);
   const wanted = (t) => unlocked && musicOn() && onScreen() && !videoOn() && current() === t;
 
   const LOOK = {
@@ -177,9 +201,11 @@
   function pause(t) {
     if (!t.el || t.target === 0) return;
     t.target = 0;
-    if (document.hidden) {
+    // A video starting cuts the music straight away rather than fading it under the video's own sound.
+    if (document.hidden || videoOn()) {
       clearInterval(t.fadeTimer);
       t.el.pause();
+      if (canFade) t.el.volume = 0;
       return;
     }
     fadeTo(t, 0, 0.8, () => {
@@ -190,6 +216,7 @@
   let prefetch = 0;
   function sync() {
     tracks.forEach((t) => (wanted(t) ? play(t) : pause(t)));
+    if (videoOn()) pool.forEach((e) => e.pause());
     // Fetch the other track once the first is playing, so switching to it is instant.
     if (alt && !alt.loading && !prefetch && musicOn() && main.target > 0) {
       prefetch = setTimeout(() => {
@@ -647,12 +674,12 @@
   // media on, or autoplay allowed in its settings). Elsewhere a play() is refused and the first tap starts it.
   let autoTried = false;
   function tryAutoplay() {
-    if (autoTried || unlocked || !musicOn() || !onScreen()) return;
+    if (autoTried || unlocked || !musicOn() || !onScreen() || videoOn()) return;
     autoTried = true;
     if (navigator.getAutoplayPolicy && navigator.getAutoplayPolicy('mediaelement') !== 'allowed') return;
     const t = current();
     load(t).then(() => {
-      if (unlocked || !t.blobUrl || !musicOn() || !onScreen()) return;
+      if (unlocked || !t.blobUrl || !musicOn() || !onScreen() || videoOn()) return;
       const e = el(t);
       e.muted = false;
       const p = e.play();
@@ -673,14 +700,28 @@
     e.preventDefault();
     e.stopPropagation();
     const next = nextMode(mode());
-    localStorage.setItem(ds.key, next === 'all' ? 'on' : next);
+    fallback = next;
+    store(next);
     paintButtons();
     if (next !== 'off' && SFX_USED) renderClips();
     sync();
   });
 
   document.addEventListener('visibilitychange', sync);
-  ['play', 'pause', 'ended', 'volumechange'].forEach((t) => document.addEventListener(t, (e) => e.target.tagName === 'VIDEO' && sync(), true));
+  // Video events don't bubble, so they're caught on the way down. timeupdate is a backstop in case a start is missed.
+  ['play', 'playing', 'pause', 'ended', 'volumechange', 'emptied', 'timeupdate'].forEach((t) => document.addEventListener(t, (e) => e.target.tagName === 'VIDEO' && sync(), true));
+  // The setting changed in another tab, or this page came back from the back/forward cache.
+  addEventListener('storage', (e) => {
+    if (e.key !== KEY) return;
+    paintButtons();
+    if (mode() !== 'off' && SFX_USED && unlocked) renderClips();
+    sync();
+  });
+  addEventListener('pageshow', (e) => {
+    if (!e.persisted) return;
+    paintButtons();
+    sync();
+  });
   const ready = () => {
     paintButtons();
     tryAutoplay();
