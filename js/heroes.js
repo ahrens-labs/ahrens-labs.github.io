@@ -716,6 +716,7 @@
       toast(esc(err.message), 'bad');
       return;
     }
+    if (s.phase === 'over' && (G.mode === 'ai' || G.mode === 'local')) recordGame();
     if (!actor.ai) G.moved = true;
     if (a.t === 'identity') {
       save();
@@ -1085,14 +1086,60 @@
     crypto.getRandomValues(b);
     return 'hx' + [...b].map((x) => x.toString(16).padStart(2, '0')).join('');
   }
-  function recordGame() {
-    const g = G;
-    if (g.recorded || !sessionId()) return;
+  // Finished games wait in this browser until the server has them, so a dropped connection or an expired
+  // sign-in can't lose one: they're sent again on the next visit.
+  const HISTORY_QUEUE = 'ahrensHeroes.historyQueue';
+  const queued = () => {
+    try {
+      return JSON.parse(localStorage.getItem(HISTORY_QUEUE) || '[]');
+    } catch (e) {
+      return [];
+    }
+  };
+  function setQueued(list) {
+    try {
+      localStorage.setItem(HISTORY_QUEUE, JSON.stringify(list.slice(-8)));
+    } catch (e) {
+      // Out of room: keep the results and drop the move-by-move logs from the saved boards.
+      try {
+        localStorage.setItem(HISTORY_QUEUE, JSON.stringify(list.slice(-8).map((x) => Object.assign({}, x, { board: x.board && Object.assign({}, x.board, { log: [] }) }))));
+      } catch (err) {
+        /* storage blocked */
+      }
+    }
+  }
+  let sending = false;
+  async function sendQueued() {
+    if (sending || !sessionId()) return;
+    sending = true;
+    try {
+      for (const item of queued()) {
+        const r = await api('/api/heroes/history/record', item);
+        // A record the server turns down as invalid would never be taken, so it isn't retried.
+        if (!r.ok && r.status !== 400) break;
+        setQueued(queued().filter((x) => x.id !== item.id));
+        if (r.ok) markSaved(item.id);
+      }
+    } finally {
+      sending = false;
+    }
+  }
+  // Remember the server has this game, in the current game and in the save slot.
+  function markSaved(id) {
+    if (G && G.gid === id) G.historyOk = true;
+    const g = rawSave();
+    if (g && g.gid === id && !g.historyOk) {
+      g.historyOk = true;
+      try {
+        localStorage.setItem(SAVE_KEY, JSON.stringify(g));
+      } catch (e) {
+        /* storage full */
+      }
+    }
+  }
+  function historyItem(g) {
     const s = g.state;
-    g.gid = g.gid || newLocalId();
-    g.recorded = true;
-    save();
-    api('/api/heroes/history/record', {
+    return {
       id: g.gid,
       kind: g.mode,
       level: g.level,
@@ -1100,11 +1147,24 @@
       cats: s.players.map((p) => E.score(s, p)),
       winner: E.winner(s),
       board: s,
-    }).then((r) => {
-      if (r.ok || r.status === 400 || r.status === 403 || G !== g) return;
-      g.recorded = false;
-      save();
-    });
+    };
+  }
+  function recordGame() {
+    const g = G;
+    if (!g || g.recorded || !sessionId()) return;
+    g.gid = g.gid || newLocalId();
+    g.recorded = true;
+    save();
+    const item = historyItem(g);
+    setQueued(queued().filter((x) => x.id !== item.id).concat(item));
+    sendQueued();
+  }
+  // A finished game left in this browser's save slot that the server never confirmed goes back in the queue
+  // (games that ended while history couldn't be saved).
+  function requeueLastGame() {
+    const g = rawSave();
+    if (!g || !g.state || g.state.phase !== 'over' || g.historyOk || !g.gid || (g.mode !== 'ai' && g.mode !== 'local') || g.rigged) return;
+    if (!queued().some((x) => x.id === g.gid)) setQueued(queued().concat(historyItem(g)));
   }
 
   async function openPast(id) {
@@ -1146,48 +1206,18 @@
   function renderHistory() {
     const box = $('#hist-body');
     if (!box) return;
-    const items = hist.items.filter((h) => hist.kind === 'all' || h.kind === hist.kind);
-    const mine = items.filter((h) => h.me != null && h.cats);
-    const count = (f) => mine.filter(f).length;
-    const wins = count((h) => h.winner === h.me);
-    const ties = count((h) => h.winner < 0);
-    const myScores = mine.map((h) => h.cats[h.me].total);
-    const stat = (n, label) => `<div class="hs"><b>${n}</b><small>${label}</small></div>`;
-    const kinds = { all: 'All', ai: '🤖 Computer', local: '👥 Same device', online: '🌐 Online' };
-    const icon = { ai: '🤖', local: '👥', online: '🌐' };
-    const row = (h) => {
-      let res;
-      if (h.me != null) res = h.winner < 0 ? '<span class="hg-res tie">Tie</span>' : h.winner === h.me ? '<span class="hg-res win">Win</span>' : '<span class="hg-res loss">Loss</span>';
-      else res = h.winner < 0 ? '<span class="hg-res tie">Tie</span>' : `<span class="hg-res">${esc(h.names[h.winner])} won</span>`;
-      const when = new Date(h.at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-      const what = [h.kind === 'ai' ? `vs ${plural(h.names.length - 1, 'computer league')}${h.level ? ' · ' + LEVEL_NAME[h.level] : ''}` : h.kind === 'online' ? 'Online' : `${h.names.length} players, one device`, when].join(' · ');
-      const line = h.names.map((nm, i) => `${esc(nm)} <em>${h.cats ? '⭐' + h.cats[i].total : '–'}</em>`).join(' · ');
-      const table = h.cats ? `<div class="hg-table" style="--n:${h.names.length}"><div class="hg-names"><small></small>${h.names.map((nm, i) => `<b style="--pc:${PCOLOR[i]}">${esc(nm)}</b>`).join('')}</div>${HIST_ROWS.map(([label, k]) => `<div><small>${label}</small>${h.cats.map((c) => `<span>${c[k] || 0}</span>`).join('')}</div>`).join('')}</div>` : '';
-      const view = `<div class="hg-view"><button class="btn sm" data-past="${esc(h.id)}">🦸 See the teams</button></div>`;
-      return `<details class="hg"><summary><span class="hg-icon">${icon[h.kind] || '🦸'}</span><span class="hg-main"><b>${line}</b><small>${esc(what)}</small></span>${res}</summary>${table}${view}</details>`;
-    };
-    box.innerHTML = `
-      <div class="seg hist-kind">${Object.keys(kinds).map((k) => `<button data-k="${k}" class="${hist.kind === k ? 'on' : ''}">${kinds[k]}</button>`).join('')}</div>
-      <div class="hist-stats">
-        ${stat(items.length, 'played')}${stat(wins, 'won')}${stat(mine.length - wins - ties, 'lost')}${stat(ties, 'tied')}
-        ${stat(myScores.length ? '⭐' + Math.max(...myScores) : '–', 'best')}
-        ${stat(myScores.length ? '⭐' + Math.round(myScores.reduce((t, x) => t + x, 0) / myScores.length) : '–', 'average')}
-      </div>
-      ${items.length ? `<div class="hist-list">${items.map(row).join('')}</div>` : '<p class="muted hist-empty">No finished games yet. Games are added when the Plaza fills up.</p>'}
-      <p class="muted hist-note">Wins and scores count your games against the computer. Tap a game to see how each team scored.</p>`;
-    const list = box.querySelector('.hist-list');
-    if (list) list.addEventListener('click', (e) => {
-      const b = e.target.closest('[data-past]');
-      if (!b) return;
-      b.disabled = true;
-      openPast(b.dataset.past).finally(() => (b.disabled = false));
-    });
-    box.querySelector('.hist-kind').onclick = (e) => {
-      const b = e.target.closest('button');
-      if (!b) return;
-      hist.kind = b.dataset.k;
-      renderHistory();
-    };
+    window.BoardHistory.render(box, {
+      game: 'heroes',
+      fmt: (n) => `⭐${n}`,
+      rows: HIST_ROWS,
+      colors: PCOLOR,
+      levels: LEVEL_NAME,
+      foe: 'computer league',
+      view: '🦸 See the teams',
+      canView: () => true,
+      onView: openPast,
+      empty: 'No finished games yet. Games are added when the Plaza fills up.',
+    }, hist);
   }
 
   // ---------------------------------------------------------------- computer vs computer (admin)
@@ -1394,6 +1424,8 @@
   }
 
   // ---------------------------------------------------------------- start
+  requeueLastGame();
+  sendQueued();
   const params = new URLSearchParams(location.search);
   const localId = params.get('local');
   const gameId = params.get('game');

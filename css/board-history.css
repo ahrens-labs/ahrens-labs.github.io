@@ -1,0 +1,64 @@
+/* A game's own history screen (js/board-history.js), shared by Atlantis Expedition, Cauldron Lane and Hero League.
+   Uses the page's --muted colour; everything else is neutral so it sits on each game's light panel. */
+.bh-kind { margin-bottom: 0.8rem; }
+.bh-kind button small { opacity: 0.6; font-weight: 600; margin-left: 0.15rem; }
+.bh-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(5.4rem, 1fr)); gap: 0.45rem; margin-bottom: 0.7rem; }
+.bh-stat { text-align: center; padding: 0.5rem 0.3rem; border-radius: 12px; background: #fff; box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.08); }
+.bh-stat b { display: block; font-size: 1.25rem; line-height: 1.15; }
+.bh-stat small { color: var(--muted, #666); font-size: 0.76rem; }
+.bh-chips { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.8rem; }
+.bh-chip { padding: 0.2rem 0.6rem; border-radius: 999px; font-size: 0.8rem; background: rgba(0, 0, 0, 0.06); }
+.bh-chip b { margin-left: 0.15rem; }
+.bh-chip.streak { background: #fff1c9; font-weight: 600; }
+
+.bh-list { display: grid; gap: 0.45rem; }
+.bh-game { border-radius: 12px; background: #fff; box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.08), inset 5px 0 0 #c8c8d0; }
+.bh-game.win { box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.08), inset 5px 0 0 #3a9a48; }
+.bh-game.loss { box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.08), inset 5px 0 0 #c4493a; }
+.bh-game.tie { box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.08), inset 5px 0 0 #6b7fd0; }
+.bh-game summary { display: flex; align-items: center; gap: 0.7rem; padding: 0.55rem 0.8rem 0.55rem 1rem; cursor: pointer; list-style: none; }
+.bh-game summary::-webkit-details-marker { display: none; }
+.bh-game summary::after { content: '▾'; color: var(--muted, #666); transition: transform 0.15s ease; }
+.bh-game[open] summary::after { transform: rotate(180deg); }
+.bh-icon { font-size: 1.25rem; flex: none; }
+.bh-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.bh-main b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; }
+.bh-main small { color: var(--muted, #666); font-size: 0.8rem; }
+.bh-score { flex: none; display: flex; flex-direction: column; align-items: flex-end; line-height: 1.15; }
+.bh-score b { font-size: 1.05rem; }
+.bh-score small { font-size: 0.72rem; color: var(--muted, #666); }
+.bh-score small.up { color: #2d7d39; }
+.bh-score small.down { color: #b03a2c; }
+.bh-res { flex: none; min-width: 4.6rem; text-align: center; padding: 0.22rem 0.6rem; border-radius: 999px; font-weight: 700; font-size: 0.8rem; background: #e6e6ee; white-space: nowrap; }
+.bh-res.win { background: #cfeec0; color: #1f5b12; }
+.bh-res.loss { background: #f6d0c8; color: #7a1f12; }
+.bh-res.tie { background: #e0e6f8; color: #1d2f6b; }
+
+.bh-detail { padding: 0 0.9rem 0.85rem 1rem; border-top: 1px solid rgba(0, 0, 0, 0.08); }
+.bh-places { list-style: none; margin: 0.6rem 0; padding: 0; display: grid; gap: 0.25rem; }
+.bh-places li { display: grid; grid-template-columns: 2.4rem 1fr auto; align-items: center; gap: 0.5rem; padding: 0.25rem 0.55rem; border-radius: 8px; background: rgba(0, 0, 0, 0.035); box-shadow: inset 4px 0 0 var(--pc); }
+.bh-places li:first-child { background: #fff6d6; }
+.bh-place { font-weight: 700; font-size: 0.8rem; color: var(--muted, #666); text-align: center; }
+.bh-places b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bh-places em { font-style: normal; font-size: 0.72rem; font-weight: 700; padding: 0 0.35rem; border-radius: 6px; background: #ffe08a; color: #5a4300; margin-left: 0.25rem; }
+.bh-places li > span:last-child { font-weight: 700; }
+.bh-table { display: grid; gap: 0.15rem; font-size: 0.86rem; overflow-x: auto; }
+.bh-table > div { display: grid; grid-template-columns: minmax(7.5rem, 1.4fr) repeat(var(--n), minmax(2.6rem, 1fr)); align-items: center; text-align: center; gap: 0.3rem; }
+.bh-table small { text-align: left; }
+.bh-table span { font-weight: 600; }
+.bh-table span.me { font-weight: 800; }
+.bh-names b { font-size: 0.76rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border-bottom: 3px solid var(--pc); }
+.bh-actions { margin-top: 0.75rem; text-align: center; }
+.bh-more { text-align: center; margin-top: 0.7rem; }
+.bh-empty, .bh-note { text-align: center; }
+.bh-note a { color: inherit; font-weight: 700; }
+@media (max-width: 560px) {
+  .bh-stats { grid-template-columns: repeat(4, 1fr); gap: 0.35rem; }
+  .bh-stat { padding: 0.4rem 0.2rem; }
+  .bh-stat b { font-size: 1.05rem; }
+  .bh-stat small { font-size: 0.68rem; }
+  .bh-game summary { gap: 0.45rem; padding-left: 0.85rem; }
+  .bh-icon { display: none; }
+  .bh-score small { display: none; }
+  .bh-res { min-width: 0; }
+}

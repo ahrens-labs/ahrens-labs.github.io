@@ -414,10 +414,13 @@ export async function onlineBoard(env, gameKey, id, userId) {
 export async function handleLabOnlineRequest(request, env, corsHeaders, path, gameKey, { executionCtx, notifyChallenge } = {}) {
   const cfg = GAMES[gameKey];
   if (!cfg) return jsonResponse({ error: 'Not found' }, corsHeaders, 404);
+  const base = `/api/${gameKey}`;
+  // Anything else (game history) belongs to the game's own handler, which still needs to read the request body.
+  const ONLINE = ['live', 'games', 'challenge', 'game', 'respond', 'act', 'resign'].map((x) => `${base}/${x}`);
+  if (!ONLINE.includes(path)) return null;
   if (!env.LAB_GAME || !env.LAB_LOBBY) {
     return jsonResponse({ error: 'Online play is not available yet' }, corsHeaders, 503);
   }
-  const base = `/api/${gameKey}`;
   const url = new URL(request.url);
 
   if (path === `${base}/live`) {
@@ -497,9 +500,6 @@ export async function handleLabOnlineRequest(request, env, corsHeaders, path, ga
     }
     return jsonResponse({ success: true, game: created.summary }, corsHeaders);
   }
-
-  const onlinePaths = new Set([`${base}/game`, `${base}/respond`, `${base}/act`, `${base}/resign`]);
-  if (!onlinePaths.has(path)) return null;
 
   const id = String(body.id || url.searchParams.get('id') || '').trim();
   if (!cfg.idRe.test(id)) return jsonResponse({ error: 'Game not found' }, corsHeaders, 404);
