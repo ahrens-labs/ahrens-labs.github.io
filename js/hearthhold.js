@@ -205,7 +205,6 @@
         </div>
         <div class="setup-card gh-card panel ol-gate">
           <h2>🔒 Sign in to play</h2>
-          <p>You need an Ahrens Labs account to play — against the computer, with a friend on this device, or online against other Ahrens Labs players.</p>
           <a class="btn big" href="/account.html?return=${back}">Log in or sign up</a>
           <div class="gh-links"><button class="btn ghost sm" data-tutorial="oakhaven-ad">🎞️ Watch the trailer</button><button class="btn ghost sm" data-tutorial="hearthhold">🎬 Watch the tutorial</button></div>
         </div>

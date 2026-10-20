@@ -272,7 +272,6 @@
     $('#app').innerHTML = `<div class="setup gh">${heroHtml(false)}
       <div class="setup-card gh-card panel ol-gate">
         <h2>🔒 Sign in to play</h2>
-        <p>You need an Ahrens Labs account to play Cauldron Lane.</p>
         <a class="btn big" href="/account.html?return=${back}">Log in or sign up</a>
       </div></div>`;
   }
