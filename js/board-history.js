@@ -11,6 +11,7 @@
 //   cfg.canView   (h) => whether a board can be opened
 //   cfg.onView    (id) => a promise that opens it
 //   cfg.empty     text when there are no games
+//   cfg.ending    (h) => how the game was won, if the game says ('won as the last noble masked'); optional
 (function (root) {
   'use strict';
   const PAGE = 12;
@@ -21,8 +22,10 @@
   const ordinal = (n) => `${n}${n % 10 === 1 && n % 100 !== 11 ? 'st' : n % 10 === 2 && n % 100 !== 12 ? 'nd' : n % 10 === 3 && n % 100 !== 13 ? 'rd' : 'th'}`;
   const total = (h, i) => (h.cats && h.cats[i] ? h.cats[i].total : null);
 
-  // Everyone in finishing order: highest score first, the recorded winner ahead of anyone level with them.
+  // Everyone in finishing order: the game's own order when it kept one (a game may be won without the top score),
+  // otherwise highest score first, with the recorded winner ahead of anyone level with them.
   function standings(h) {
+    if (Array.isArray(h.order) && h.order.length === h.names.length) return h.order.slice();
     return h.names.map((_, i) => i).sort((a, b) => (total(h, b) || 0) - (total(h, a) || 0) || (b === h.winner) - (a === h.winner));
   }
   // The viewer's result in one game: 'win', 'tie' or 'loss', and their place.
@@ -89,15 +92,18 @@
       const when = new Date(h.at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
       const kindText = h.kind === 'ai' ? `🤖 ${cfg.levels[h.level] || 'Computer'}` : h.kind === 'online' ? '🌐 Online' : `👥 ${n} players, one device`;
       const why = h.reason === 'resign' ? (o && o.r === 'win' ? 'they resigned' : 'resigned') : h.reason === 'timeout' ? 'ran out of time' : '';
-      const sub = [kindText, why, when].filter(Boolean).join(' · ');
+      const how = cfg.ending && h.winner >= 0 ? cfg.ending(h) : '';
+      const sub = [kindText, why, how ? `${h.winner === h.me ? 'you' : h.names[h.winner]} ${how}` : '', when].filter(Boolean).join(' · ');
       // Your score, and how far ahead of the next team (or behind the winner) it finished.
       let score = '';
-      if (o && total(h, h.me) != null) {
+      // A game won some other way than the top score has no meaningful lead or deficit to show.
+      if (o && total(h, h.me) != null && (!Array.isArray(h.order) || h.ended === 'favor' || !h.ended)) {
         const mineT = total(h, h.me);
         const ref = o.place === 1 ? Math.max(...others.map((i) => total(h, i) || 0)) : total(h, order[0]);
         const d = mineT - ref;
         score = `<span class="bh-score"><b>${cfg.fmt(mineT)}</b><small class="${d > 0 ? 'up' : d < 0 ? 'down' : ''}">${d > 0 ? `+${d} ahead` : d < 0 ? `−${-d} behind` : 'level'}</small></span>`;
-      } else if (h.cats && h.winner >= 0) score = `<span class="bh-score"><b>${cfg.fmt(total(h, h.winner))}</b><small>winning score</small></span>`;
+      } else if (o && total(h, h.me) != null) score = `<span class="bh-score"><b>${cfg.fmt(total(h, h.me))}</b><small>your score</small></span>`;
+      else if (h.cats && h.winner >= 0) score = `<span class="bh-score"><b>${cfg.fmt(total(h, h.winner))}</b><small>winning score</small></span>`;
       const places = h.cats
         ? `<ol class="bh-places">${order.map((i, k) => `<li style="--pc:${cfg.colors[i] || '#888'}"><span class="bh-place">${k === 0 && h.winner >= 0 ? '👑' : ordinal(k + 1)}</span><b>${esc(h.names[i])}${i === h.me ? ' <em>you</em>' : ''}</b><span>${cfg.fmt(total(h, i))}</span></li>`).join('')}</ol>`
         : '';

@@ -685,6 +685,23 @@ export class HearthholdLobby {
       await this.addHistory(item, board || null);
       return Response.json({ ok: true });
     }
+    // Several finished boards in one read, and small corrections to history rows in one write.
+    if (op === '/boards' && request.method === 'POST') {
+      const { ids } = await request.json();
+      const keys = (Array.isArray(ids) ? ids : []).slice(0, 200).map((id) => `board:${id}`);
+      const found = keys.length ? await this.storage.get(keys) : new Map();
+      const boards = {};
+      found.forEach((v, k) => (boards[k.slice(6)] = v));
+      return Response.json({ boards });
+    }
+    if (op === '/patch' && request.method === 'POST') {
+      const { patches } = await request.json();
+      const list = (await this.storage.get('history')) || [];
+      const by = new Map((Array.isArray(patches) ? patches : []).map((p) => [p.id, p.fields]));
+      list.forEach((h) => by.has(h.id) && Object.assign(h, by.get(h.id)));
+      await this.storage.put('history', list);
+      return Response.json({ items: list });
+    }
     if (op === '/board') {
       const board = await this.storage.get(`board:${url.searchParams.get('id')}`);
       if (!board) return Response.json({ error: 'This game’s villages weren’t saved.' }, { status: 404 });

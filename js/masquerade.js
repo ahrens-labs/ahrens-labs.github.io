@@ -1088,7 +1088,11 @@
   }
   function historyItem(g) {
     const s = g.state;
-    return { id: g.gid, kind: g.mode, level: g.level, names: s.players.map((p) => p.name), cats: s.players.map((p) => E.score(s, p)), winner: E.winner(s), board: s };
+    return {
+      id: g.gid, kind: g.mode, level: g.level, names: s.players.map((p) => p.name), cats: s.players.map((p) => E.score(s, p)), winner: E.winner(s),
+      // Seats are drawn at random, and the winner may be the last noble masked rather than the one with the most Favor.
+      me: g.mode === 'ai' ? s.players.findIndex((p) => !p.ai) : null, ended: s.ended, order: E.ranking(s), board: s,
+    };
   }
   function recordGame() {
     const g = G;
@@ -1150,6 +1154,7 @@
       canView: () => true,
       onView: openPast,
       empty: 'No finished balls yet. Games are added the moment someone wins.',
+      ending: (h) => (h.ended === 'favor' ? `⭐ won with ${E.FAVOR_WIN} Favor` : h.ended === 'last' ? '🎭 won as the last noble masked' : ''),
     }, hist);
   }
 

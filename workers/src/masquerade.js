@@ -1,4 +1,5 @@
 import { handleLabOnlineRequest, onlineBoard } from './lab-online.js';
+import Masquerade from '../../js/masquerade-engine.js';
 // The Masquerade Court — game history. Finished local games are kept per user in a
 // HearthholdLobby Durable Object under their own name, so they never mix with the other games' history.
 const LOCAL_ID_RE = /^mq[0-9a-f]{16}$/;
@@ -8,6 +9,7 @@ const OPTIONAL_SCORE_KEYS = [];
 const MAX_PLAYERS = 5;
 const BOARD_VERSIONS = new Set([1]);
 const LEVELS = new Set(['easy', 'normal', 'hard', 'brutal']);
+const ENDINGS = new Set(['favor', 'last']);
 
 function jsonResponse(body, corsHeaders, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
@@ -59,7 +61,31 @@ function historyItem(b) {
   const cats = Array.isArray(b.cats) && b.cats.length === n ? b.cats.map(cleanCats) : null;
   const winner = int(b.winner, -1, n - 1);
   if (!kind || names.some((x) => !x) || !cats || cats.some((c) => !c) || winner == null) return null;
-  return { id: b.id, kind, at: Date.now(), names, cats, winner, me: kind === 'ai' ? 0 : null, level: kind === 'ai' && LEVELS.has(b.level) ? b.level : null };
+  // Seats are drawn at random, so the browser says which seat was the person's; a ball is won by Favor or by being
+  // the last noble masked, so the finishing order comes from the game, not from the scores.
+  const me = kind === 'ai' ? int(b.me, 0, n - 1) : null;
+  const order = Array.isArray(b.order) && b.order.length === n && new Set(b.order).size === n && b.order.every((i) => Number.isInteger(i) && i >= 0 && i < n) ? b.order : null;
+  return {
+    id: b.id, kind, at: Date.now(), names, cats, winner, me: kind === 'ai' ? (me == null ? 0 : me) : null,
+    ended: ENDINGS.has(b.ended) ? b.ended : null, order, level: kind === 'ai' && LEVELS.has(b.level) ? b.level : null,
+  };
+}
+
+// Rows saved before seats were shuffled (and before the order was kept) are worked out again from their final
+// boards, once: one read for all the boards and one write for the fixes.
+export async function repairMasqueradeHistory(stub, items) {
+  const todo = (items || []).filter((h) => (h.kind === 'ai' || h.kind === 'local') && !h.fixed);
+  if (!todo.length) return items;
+  const res = await stub.fetch(new Request('http://do/boards', { method: 'POST', body: JSON.stringify({ ids: todo.filter((h) => h.board).map((h) => h.id) }) }));
+  const { boards = {} } = await res.json().catch(() => ({}));
+  const patches = todo.map((h) => {
+    const b = boards[h.id];
+    if (!b || !Array.isArray(b.players) || b.players.length !== h.names.length || b.phase !== 'over') return { id: h.id, fields: { fixed: 1 } };
+    const me = h.kind === 'ai' ? b.players.findIndex((p) => !p.ai) : null;
+    return { id: h.id, fields: { fixed: 1, me: me < 0 ? h.me : me, winner: Masquerade.winner(b), ended: ENDINGS.has(b.ended) ? b.ended : null, order: Masquerade.ranking(b) } };
+  });
+  const out = await stub.fetch(new Request('http://do/patch', { method: 'POST', body: JSON.stringify({ patches }) }));
+  return ((await out.json().catch(() => ({}))).items) || items;
 }
 
 // The finished ballroom, so history can show it (the log goes if it's too big).
@@ -81,7 +107,8 @@ export async function handleMasqueradeRequest(request, env, corsHeaders, path, o
 
   if (path === '/api/masquerade/history' && request.method === 'GET') {
     const res = await stub.fetch(new Request('http://do/history'));
-    return jsonResponse(await res.json(), corsHeaders);
+    const data = await res.json();
+    return jsonResponse({ ...data, items: await repairMasqueradeHistory(stub, data.items) }, corsHeaders);
   }
   if (path === '/api/masquerade/history/board' && request.method === 'GET') {
     const gid = String(url.searchParams.get('id') || '');
@@ -99,6 +126,7 @@ export async function handleMasqueradeRequest(request, env, corsHeaders, path, o
       return jsonResponse({ error: 'Invalid JSON' }, corsHeaders, 400);
     }
     const item = historyItem(body);
+    if (item) item.fixed = 1;
     if (!item) return jsonResponse({ error: 'Invalid game record' }, corsHeaders, 400);
     const res = await stub.fetch(new Request('http://do/record', { method: 'POST', body: JSON.stringify({ item, board: cleanBoard(body.board) }) }));
     return jsonResponse(await res.json(), corsHeaders, res.status);

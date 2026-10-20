@@ -1,3 +1,4 @@
+import { repairMasqueradeHistory } from './masquerade.js';
 // Board game lobby: every game the signed-in player has going, across all board games, in one request —
 // online games from the lobby DOs plus cloud copies of local (vs computer / same device) games.
 
@@ -131,7 +132,7 @@ function scoredRow(game, h) {
   const result = me == null || winner == null ? null : winner < 0 ? 'tie' : winner === me ? 'win' : 'loss';
   return {
     game, id: str(h.id, 40), kind: h.kind, at: num(h.at) || 0, names: h.names.map((n) => str(n, 18)), scores,
-    me, winner, result, level: h.level || null, reason: h.reason || null,
+    me, winner, result, level: h.level || null, reason: h.reason || null, ended: h.ended || null,
     // Online games keep their final board in the game's own record.
     board: !!h.board || h.kind === 'online',
   };
@@ -141,8 +142,10 @@ async function combinedHistory(env, userId) {
   const lists = await Promise.all(HISTORY_SOURCES.filter((s) => env[s.binding]).map(async (s) => {
     try {
       const ns = env[s.binding];
-      const res = await ns.get(ns.idFromName(s.name(userId))).fetch(new Request(`http://do${s.path}`));
+      const stub = ns.get(ns.idFromName(s.name(userId)));
+      const res = await stub.fetch(new Request(`http://do${s.path}`));
       const data = await res.json();
+      if (s.game === 'masquerade') data.items = await repairMasqueradeHistory(stub, data.items);
       const items = (data.items || []).map((h) => (s.game === 'dino' ? dinoRow(h) : scoredRow(s.game, h))).filter(Boolean);
       // Dino pages its history, so its totals come from its own stats.
       const st = s.game === 'dino' && data.stats ? data.stats : null;

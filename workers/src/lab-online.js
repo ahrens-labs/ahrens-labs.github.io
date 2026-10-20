@@ -493,6 +493,9 @@ function onlineHistoryItem(cfg, record, me) {
     names: record.players.map((p) => p.username.slice(0, 18)),
     cats: s ? cfg.historyCats(cfg.E, s) : null,
     winner: record.result && record.result.winner != null ? record.result.winner : -1,
+    ended: s && s.ended ? s.ended : null,
+    order: s && cfg.E.ranking && record.result && record.result.reason === 'finished' ? cfg.E.ranking(s) : null,
+    fixed: 1,
     me,
     reason: record.result ? record.result.reason : null,
   };

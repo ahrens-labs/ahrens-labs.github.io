@@ -62,7 +62,7 @@
     easy: { noise: 8, bluff: 0.15, read: 0.25, wild: 0.12 },
     normal: { noise: 3, bluff: 0.35, read: 0.7, wild: 0.04 },
     hard: { noise: 2, bluff: 0.4, read: 0.85, wild: 0.02 },
-    brutal: { noise: 0, bluff: 0.3, read: 1, wild: 0 },
+    brutal: { noise: 0, bluff: 0.35, read: 0.95, wild: 0 },
   };
 
   // ---------------------------------------------------------------- helpers
@@ -107,6 +107,18 @@
     const st = stats(p);
     const have = I.stat === 'purse' ? p.ducats : I.stat === 'kinds' ? st.kinds.length : st[I.stat] || 0;
     return { have: Math.min(have, I.need), need: I.need };
+  }
+  // What a noble has claimed (powers and blocks) since their hand last changed in a way the table couldn't see.
+  // Everyone can follow this, and it's the main thing that gives a liar away: nobody wears three masks at once.
+  const recentOf = (p) => (p.recent = p.recent || []);
+  function noteClaim(p, kinds) {
+    recentOf(p).push(...kinds);
+  }
+  function forget(p, kinds) {
+    const r = recentOf(p);
+    kinds.forEach((k) => {
+      for (let i = r.length - 1; i >= 0; i--) if (r[i] === k) r.splice(i, 1);
+    });
   }
   const costOf = (k, pair) => (pair && PAIRS[k] && PAIRS[k].cost != null ? PAIRS[k].cost : MASKS[k].cost || 0);
 
@@ -267,6 +279,7 @@
         p.claims[k] = (p.claims[k] || 0) + 1;
         if (!st.kinds.includes(k)) st.kinds.push(k);
       });
+      noteClaim(p, [a.k, partner].filter(Boolean));
       Object.assign(state.last, { k: a.k, pair: act.pair, target: act.target });
       log(state, `${p.name} claims ${claimName(a.k, act.pair)}: ${powerLine(state, pi, act)}`, pi);
       state.pending = { act, actor: pi, stage: null, claimer: pi, k: a.k, pair: partner, responders: [], passed: [], next: [] };
@@ -295,6 +308,7 @@
       }
       const t = state.players[pi];
       t.claims[a.k] = (t.claims[a.k] || 0) + 1;
+      noteClaim(t, [a.k]);
       if (P.act.k === 'duchess') t.ducats -= CUT_IN_COST;
       log(state, P.act.k === 'duchess' ? `${t.name} claims ${maskName(a.k)}, pays the band 🪙${CUT_IN_COST} and cuts in on the waltz.` : `${t.name} claims ${maskName(a.k)} to stop it.`, pi);
       P.blocking = true;
@@ -433,6 +447,7 @@
       shown.forEach((m) => toWardrobe(state, m));
       slots.forEach((slot) => (cl.masks[slot] = state.wardrobe.shift()));
       kinds.forEach((k) => delete cl.claims[k]);
+      forget(cl, kinds);
       bump(cl, 'wronged');
       const what = kinds.length > 1 ? `${maskName(kinds[0])} and ${maskName(kinds[1])}! Both masks are` : `${maskName(P.k)}! The mask is`;
       log(state, `${cl.name} really is ${what} shuffled back into the wardrobe and ${cl.name} draws ${kinds.length > 1 ? 'fresh ones' : 'a fresh one'}.`, P.claimer);
@@ -569,6 +584,8 @@
         // A noble always knows the mask in their own hand; what they gave away, they now know is with the other.
         p.seen = p.seen.filter((x) => x.id !== theirs.id).concat({ id: mine.id, k: mine.k });
         t.seen = t.seen.filter((x) => x.id !== mine.id).concat({ id: theirs.id, k: theirs.k });
+        p.recent = [];
+        t.recent = [];
         log(state, `${p.name} slips through a secret passage and swaps a mask with ${t.name}.`, pi);
         break;
       }
@@ -590,6 +607,7 @@
     const m = p.masks.find((x) => x.id === id);
     if (!m || m.up === 'lost') return;
     m.up = 'lost';
+    forget(p, [m.k]);
     log(state, `${p.name} loses a mask: ${maskName(m.k)} is turned face up and out of play.`, pi);
     state.last = Object.assign({}, state.last, { lost: (state.last && state.last.lost || []).concat({ who: pi, k: m.k }) });
     if (!live(p).length) {
@@ -716,11 +734,21 @@
     if (h >= 1) return 0;
     if (h <= 0) return 1;
     const p = state.players[who];
-    const kinds = Object.keys(p.claims).length;
-    let b = Math.min(0.8, 0.09 + Math.max(0, kinds - live(p).length - 1) * 0.07);
+    let b = 0.09;
     // Nobles down to their last mask rarely risk a lie, and the same claim made again and again is usually true.
     if (live(p).length <= 1) b *= 0.5;
-    b *= Math.pow(0.8, Math.max(0, (p.claims[k] || 0) - 1));
+    const rec = recentOf(p);
+    const times = rec.filter((x) => x === k).length;
+    b *= Math.pow(0.8, Math.max(0, times - 1));
+    // Claims since their hand last changed that couldn't all be true (someone wearing two masks has claimed three)
+    // prove that many lies. Which ones? Spread them over the masks claimed, the least repeated most suspect.
+    const kinds = [...new Set(rec)];
+    const excess = kinds.length - live(p).length;
+    if (excess > 0) {
+      const weak = (x) => 1 / rec.filter((y) => y === x).length;
+      const share = (excess * weak(k)) / kinds.reduce((t, x) => t + weak(x), 0);
+      b = Math.max(b, Math.min(0.9, share * 0.8));
+    }
     return ((1 - h) * b) / ((1 - h) * b + h);
   }
 
@@ -789,7 +817,9 @@
       const { known } = knowledge(state, pi);
       if ((known[k] || 0) - (holds(p, k) ? 1 : 0) >= COPIES) return 0.95;
       const seenClaims = state.players.reduce((t, q, i) => t + (i === pi ? 0 : q.claims[k] || 0), 0);
-      return Math.min(0.85, 0.22 + 0.06 * (state.players.filter(inGame).length - 2) + 0.05 * seenClaims + (p.claims[k] ? 0 : 0.04));
+      // A third different claim from someone with two masks is an obvious lie.
+      const tooMany = new Set(recentOf(p).concat(k)).size > live(p).length ? 0.35 : 0;
+      return Math.min(0.92, 0.22 + 0.06 * (state.players.filter(inGame).length - 2) + 0.05 * seenClaims + (p.claims[k] ? 0 : 0.04) + tooMany);
     };
     // A Whisper: the noble and mask I'm surest of, if the odds beat the price of slander.
     if (p.ducats >= WHISPER_COST) {
