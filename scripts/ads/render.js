@@ -1,4 +1,4 @@
-// Render an ad video: node render.js dino|oakhaven|atlantis|heroes|cauldron [out.mp4]
+// Render an ad video: node render.js dino|oakhaven|atlantis|heroes|cauldron|masquerade [out.mp4]
 // Needs playwright-core + Chromium (as in ~/.cache/hhtest), ffmpeg, the Kokoro TTS venv, and cut-out sprites
 // from cutout.py (cutout-atlantis.py for Atlantis, prep-lab.py for Hero League and Cauldron Lane) in /tmp/ads/sprites.
 const fs = require('fs');
@@ -23,13 +23,15 @@ const CFG = {
   atlantis: { voice: 'am_michael', speed: 0.95, music: { main: ['atlantis-theme.mp3', 0.5, 58.1] } },
   heroes: { voice: 'am_michael', speed: 1.0, music: { main: ['heroes-theme.mp3', 0.5, 60.5] } },
   cauldron: { voice: 'bf_emma', speed: 0.95, music: { main: ['cauldron-theme.mp3', 0.5, 34.786] } },
+  masquerade: { voice: 'bm_george', speed: 0.92, music: { main: ['masquerade-theme.mp3', 0.5, 48.5] } },
 }[SCENE];
 
 function serve() {
-  const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png' };
+  const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.webp': 'image/webp', '.jpg': 'image/jpeg' };
   const srv = http.createServer((req, res) => {
     const u = decodeURIComponent(req.url.split('?')[0]);
-    const f = u.startsWith('/sprites/') ? path.join(SPRITES, u.slice(9)) : path.join(__dirname, u === '/' ? 'stage.html' : u);
+    // /sprites/ = cut-outs prepared for the ad; /img/ = the site's own art, used as it is.
+    const f = u.startsWith('/sprites/') ? path.join(SPRITES, u.slice(9)) : u.startsWith('/img/') ? path.join(REPO, u) : path.join(__dirname, u === '/' ? 'stage.html' : u);
     fs.readFile(f, (err, data) => {
       if (err) {
         res.writeHead(404);
@@ -50,7 +52,7 @@ async function open(b, port, sayDur) {
   await p.waitForFunction(() => window.TIMELINE);
   await p.evaluate(async () => {
     await document.fonts.ready;
-    await Promise.all(['44px "Lilita One"', '600 30px Fredoka', '700 30px Fredoka'].map((f) => document.fonts.load(f)));
+    await Promise.all(['44px "Lilita One"', '600 30px Fredoka', '700 30px Fredoka'].concat(window.AD_FONTS || []).map((f) => document.fonts.load(f)));
     for (let t = 0; t < window.DURATION; t += 0.5) window.frame(t);
     await AD.loaded();
     window.frame(0);
