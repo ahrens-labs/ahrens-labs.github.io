@@ -246,7 +246,8 @@
     const clr = row && row.cleared && !row.blanked && E.isPenalty(id) ? `<span class="hc-clear" title="Penalty cleared by ${cname(row.cleared)}">🛡️</span>` : '';
     const delay = `--d:${((c.i * 0.37) % 3).toFixed(2)}s`;
     return `<div class="${cls.join(' ')}" style="--sc:${E.SUIT[c.suit].color};${delay}"${o.attrs ? ' ' + o.attrs : ''}>
-      <div class="hc-art"><img src="${IMG(id)}" alt="" loading="lazy" draggable="false"><span class="hc-band">${E.SUIT[c.suit].icon} ${esc(E.SUIT[c.suit].name)}</span></div>
+      <div class="hc-art"><img src="${IMG(id)}" alt="" loading="lazy" draggable="false"></div>
+      <span class="hc-band">${E.SUIT[c.suit].icon} ${esc(E.SUIT[c.suit].name)}</span>
       <span class="hc-pow" title="Power">${c.power}</span>
       <span class="hc-suit" title="${esc(E.SUIT[c.suit].name)}">${E.SUIT[c.suit].icon}</span>${asWild}${clr}
       <div class="hc-body"><b class="hc-name${c.name.length > 15 ? ' xl' : c.name.length > 11 ? ' l' : ''}">${cname(id)}</b><p class="hc-fx">${fxHtml(id)}</p></div>
