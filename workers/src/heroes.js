@@ -1,4 +1,4 @@
-import { handleLabOnlineRequest } from './lab-online.js';
+import { handleLabOnlineRequest, onlineBoard } from './lab-online.js';
 // Hero League — game history. Finished local games are kept per user in a
 // HearthholdLobby Durable Object under their own name, so they never mix with the other games' history.
 const LOCAL_ID_RE = /^hx[0-9a-f]{16}$/;
@@ -85,6 +85,8 @@ export async function handleHeroesRequest(request, env, corsHeaders, path, opts 
   }
   if (path === '/api/heroes/history/board' && request.method === 'GET') {
     const gid = String(url.searchParams.get('id') || '');
+    const online = await onlineBoard(env, 'heroes', gid, userId);
+    if (online) return jsonResponse(online.body, corsHeaders, online.status);
     if (!LOCAL_ID_RE.test(gid)) return jsonResponse({ error: 'Game not found' }, corsHeaders, 404);
     const res = await stub.fetch(new Request(`http://do/board?id=${gid}`));
     return jsonResponse(await res.json(), corsHeaders, res.status);

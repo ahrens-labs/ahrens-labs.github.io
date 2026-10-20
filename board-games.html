@@ -21,7 +21,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Lilita+One&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/css/board-games.css?v=11">
+  <link rel="stylesheet" href="/css/board-games.css?v=12">
   <link rel="stylesheet" href="/css/emoji.css">
 </head>
 <body>
@@ -29,7 +29,7 @@
     <div class="lobby-nav">
       <a class="back" href="/coding-lab.html">← Ahrens Labs</a>
       <span class="lobby-right">
-        <a class="back hx-jump" href="#history" hidden>🏆 Game history</a>
+        <a class="back" href="/game-history.html">🏆 Game history</a>
         <button type="button" class="music-btn lobby-music" data-music data-label="ml">🎵<span class="ml"> Music</span></button>
       </span>
     </div>
@@ -194,20 +194,11 @@
       </article>
     </section>
     <div class="plank" aria-hidden="true"></div>
-
-    <section class="history" id="history" aria-labelledby="gh-title" hidden>
-      <div class="mg-head"><h2 id="gh-title">🏆 Game history</h2><span class="hx-sub">Every finished game, across all the boxes</span></div>
-      <div class="hx-stats"></div>
-      <div class="hx-filter" role="tablist" aria-label="Filter by game"></div>
-      <ol class="hx-list"></ol>
-      <p class="mg-note hx-note">Loading your games…</p>
-      <button type="button" class="hx-more" hidden>Show more</button>
-    </section>
   </main>
 
   <script src="/js/game-music.js?v=14" data-key="lobby_music" data-sfx="none" data-src="/audio/lobby-theme.mp3?v=1" data-loop="0.5,55.884615"></script>
   <script src="/js/board-saves.js?v=2"></script>
-  <script src="/js/board-games.js?v=14"></script>
+  <script src="/js/board-games.js?v=15"></script>
   <script src="/js/tutorial-video.js?v=15"></script>
 </body>
 </html>

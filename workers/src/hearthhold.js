@@ -322,6 +322,14 @@ export async function handleHearthholdRequest(request, env, corsHeaders, path, {
 
   if (path === '/api/oakhaven/history/board' && request.method === 'GET') {
     const gid = String(url.searchParams.get('id') || '');
+    // A finished online game's own record is its saved board; one that ended early is shown as it stood.
+    if (GAME_ID_RE.test(gid)) {
+      const res = await gameStub(env, gid).fetch(new Request('http://do/get', { method: 'POST', body: JSON.stringify({ userId }) }));
+      if (!res.ok) return jsonResponse({ error: 'Game not found' }, corsHeaders, 404);
+      const v = await res.json();
+      if (v.status !== 'over' || !v.state) return jsonResponse({ error: 'That game hasn’t finished yet.' }, corsHeaders, 409);
+      return jsonResponse({ state: Object.assign(v.state, { phase: 'over' }), me: v.me }, corsHeaders);
+    }
     if (!LOCAL_ID_RE.test(gid)) return jsonResponse({ error: 'Game not found' }, corsHeaders, 404);
     const res = await lobbyStub(env, userId).fetch(new Request(`http://do/board?id=${gid}`));
     return jsonResponse(await res.json(), corsHeaders, res.status);

@@ -118,6 +118,7 @@ function dinoRow(h) {
   return {
     game: 'dino', id: str(h.id, 40), kind: h.kind, at: num(h.finishedAt) || 0, names, scores,
     me: h.kind === 'local' ? null : 0, winner, result: h.result || null, level: h.level || null, reason: h.reason || null,
+    board: !!h.board, gameId: h.kind === 'online' && h.gameId ? str(h.gameId, 40) : null,
   };
 }
 
@@ -130,6 +131,8 @@ function scoredRow(game, h) {
   return {
     game, id: str(h.id, 40), kind: h.kind, at: num(h.at) || 0, names: h.names.map((n) => str(n, 18)), scores,
     me, winner, result, level: h.level || null, reason: h.reason || null,
+    // Online games keep their final board in the game's own record.
+    board: !!h.board || h.kind === 'online',
   };
 }
 

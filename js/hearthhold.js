@@ -332,7 +332,7 @@
     save();
     // Each game has its own address, so reloading reopens this game and the bare page is always home.
     if (G.mode !== 'online') {
-      const q = G.gid && (G.mode === 'ai' || G.mode === 'local') ? `?local=${encodeURIComponent(G.gid)}` : '';
+      const q = G.mode === 'past' && G.gid ? `?past=${encodeURIComponent(G.gid)}` : G.gid && (G.mode === 'ai' || G.mode === 'local') ? `?local=${encodeURIComponent(G.gid)}` : '';
       if (history.replaceState && location.search !== q) history.replaceState(null, '', location.pathname + q);
     }
     render();
@@ -2326,7 +2326,7 @@
     const state = r.ok && r.data && r.data.state;
     if (!state || !Array.isArray(state.players) || state.phase !== 'over') return toast(esc((r.data && r.data.error) || 'Couldn’t load that game.'), 'bad');
     const h = (hist.items || []).find((x) => x.id === id);
-    startFrom({ state, mode: 'past', level: h && h.level, view: h && h.me === 1 ? 1 : 0, gid: id, revealed: true });
+    startFrom({ state, mode: 'past', level: h && h.level, view: r.data.me != null ? r.data.me : h && h.me === 1 ? 1 : 0, gid: id, revealed: true });
   }
 
   const hist = { items: null, kind: 'all' };
@@ -2395,9 +2395,7 @@
       const table = h.cats
         ? `<div class="hg-table">${SCORE_ROWS.map(([label, k]) => `<div><span>${h.cats[a][k] || 0}</span><small>${label}</small><span>${h.cats[b][k] || 0}</span></div>`).join('')}</div>`
         : '';
-      const view = h.kind === 'online' && /^hh[0-9a-f]{18}$/.test(h.id)
-        ? `<a class="btn sm" href="/oakhaven.html?game=${h.id}">🏘️ View the villages</a>`
-        : h.board ? `<button class="btn sm" data-past="${esc(h.id)}">🏘️ View the villages</button>` : '';
+      const view = h.board || h.kind === 'online' ? `<button class="btn sm" data-past="${esc(h.id)}">🏘️ View the villages</button>` : '';
       return `<details class="hg"><summary><span class="hg-icon">${icon[h.kind] || '🏰'}</span><span class="hg-main"><b>${esc(h.names[a])} <em>${total(a)}</em> – <em>${total(b)}</em> ${esc(h.names[b])}</b><small>${esc(what)}</small></span>${res}</summary>${table}${view ? `<div class="hg-view">${view}</div>` : ''}</details>`;
     };
     box.innerHTML = `
@@ -3199,6 +3197,10 @@
       net.autoOpen = linked;
       showSetup(linked);
     }
+  } else if (params.get('past') && sessionId()) {
+    // A finished game linked from game history: show its villages, or the history if it can't be opened.
+    $('#app').innerHTML = '<p class="loading-save">Loading that game…</p>';
+    openPast(params.get('past')).then(() => G || showHistory());
   } else if (params.has('history') && sessionId()) showHistory();
   else showSetup();
   window.__hh = { get G() { return G; }, render, E, send: (a) => doAction(a) };

@@ -171,3 +171,10 @@ h1, h2 { font-family: "Lilita One", "Fredoka", sans-serif; font-weight: 400; let
   .hx-stat b { font-size: 1.1rem; }
   .hx-main b { white-space: normal; }
 }
+.history:first-child { margin-top: 0; }
+.hx-end { display: flex; flex-direction: column; align-items: flex-end; gap: 0.2rem; }
+.hx-view { font-size: 0.75rem; font-weight: 600; color: #6b4a2a; white-space: nowrap; }
+.hx-row:hover .hx-view, .hx-row:focus-visible .hx-view { color: #b23a48; }
+.hx-note a { color: #ffe08a; }
+.hx-signin { display: inline-block; margin-top: 0.6rem; --accent: #ffb300; color: #2b1d0e; }
+@media (max-width: 560px) { .hx-view { display: none; } }

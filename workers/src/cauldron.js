@@ -1,4 +1,4 @@
-import { handleLabOnlineRequest } from './lab-online.js';
+import { handleLabOnlineRequest, onlineBoard } from './lab-online.js';
 // Cauldron Lane — game history. Finished local games are kept per user in a
 // HearthholdLobby Durable Object under their own name, so they never mix with the other games' history.
 const LOCAL_ID_RE = /^cl[0-9a-f]{16}$/;
@@ -84,6 +84,8 @@ export async function handleCauldronRequest(request, env, corsHeaders, path, opt
   }
   if (path === '/api/cauldron/history/board' && request.method === 'GET') {
     const gid = String(url.searchParams.get('id') || '');
+    const online = await onlineBoard(env, 'cauldron', gid, userId);
+    if (online) return jsonResponse(online.body, corsHeaders, online.status);
     if (!LOCAL_ID_RE.test(gid)) return jsonResponse({ error: 'Game not found' }, corsHeaders, 404);
     const res = await stub.fetch(new Request(`http://do/board?id=${gid}`));
     return jsonResponse(await res.json(), corsHeaders, res.status);

@@ -413,7 +413,7 @@
     if (G.mode !== 'online') save();
     else Online.rememberOnline();
     // Each saved game has its own address, so reloading reopens this game and the bare page is always home.
-    const q = G.mode === 'online' && G.id ? `?game=${encodeURIComponent(G.id)}` : G.gid && (G.mode === 'ai' || G.mode === 'local') ? `?local=${encodeURIComponent(G.gid)}` : '';
+    const q = G.mode === 'online' && G.id ? `?game=${encodeURIComponent(G.id)}` : G.mode === 'past' && G.gid ? `?past=${encodeURIComponent(G.gid)}` : G.gid && (G.mode === 'ai' || G.mode === 'local') ? `?local=${encodeURIComponent(G.gid)}` : '';
     if (history.replaceState && location.search !== q) history.replaceState(null, '', location.pathname + q);
     render();
     if (G.mode === 'online' && G.gmode === 'quick' && G.status === 'active') Online.tickClock();
@@ -1331,7 +1331,7 @@
     if (!state || !Array.isArray(state.players) || state.phase !== 'over') return toast(esc((r.data && r.data.error) || 'Couldn’t load that game.'), 'bad');
     if (state.v !== E.SAVE_V) return toast('That game was played before the chart of Atlantis was drawn, so its board can’t be shown.', 'bad');
     const h = (hist.items || []).find((x) => x.id === id);
-    startFrom({ state, mode: 'past', level: h && h.level, view: 0, gid: id, revealed: true });
+    startFrom({ state, mode: 'past', level: h && h.level, view: r.data.me != null ? r.data.me : h && h.me != null ? h.me : 0, gid: id, revealed: true });
   }
 
   const hist = { items: null, kind: 'all' };
@@ -1381,7 +1381,7 @@
       const when = new Date(h.at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
       const what = [h.kind === 'ai' ? `Computer${h.level ? ' · ' + LEVEL_NAME[h.level] : ''}` : h.kind === 'online' ? 'Online' : 'Two players, one device', when].join(' · ');
       const table = h.cats ? `<div class="hg-table">${SCORE_ROWS.map(([label, k]) => `<div><span>${h.cats[0][k] || 0}</span><small>${label}</small><span>${h.cats[1][k] || 0}</span></div>`).join('')}</div>` : '';
-      const view = h.board ? `<div class="hg-view"><button class="btn sm" data-past="${esc(h.id)}">🗺️ View the chart</button></div>` : '';
+      const view = h.board || h.kind === 'online' ? `<div class="hg-view"><button class="btn sm" data-past="${esc(h.id)}">🗺️ View the chart</button></div>` : '';
       return `<details class="hg"><summary><span class="hg-icon">${icon[h.kind] || '🔱'}</span><span class="hg-main"><b>${esc(h.names[0])} <em>${total(0)}</em> – <em>${total(1)}</em> ${esc(h.names[1])}</b><small>${esc(what)}</small></span>${res}</summary>${table}${view}</details>`;
     };
     box.innerHTML = `
@@ -1680,6 +1680,10 @@
         }
       });
     } else showSetup();
+  } else if (params.get('past')) {
+    // A finished game linked from game history: show its board, or the history if it can't be opened.
+    $('#app').innerHTML = '<p class="loading-save">Loading that game…</p>';
+    openPast(params.get('past')).then(() => G || showHistory());
   } else if (params.has('history')) showHistory();
   else showSetup();
   window.__atl = { get G() { return G; }, render, E, send: (a) => doAction(a) };

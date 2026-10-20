@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Game history — Ahrens Labs Board Games</title>
+  <meta name="description" content="Every board game you’ve finished on Ahrens Labs, with the final board of each one.">
+  <meta name="theme-color" content="#1e4d39">
+  <link rel="icon" type="image/png" sizes="32x32" href="/img/board-games-favicon-32.png?v=2">
+  <link rel="icon" type="image/png" sizes="16x16" href="/img/board-games-favicon-16.png?v=2">
+  <link rel="icon" type="image/png" sizes="48x48" href="/img/board-games-favicon-48.png?v=2">
+  <link rel="icon" type="image/png" sizes="96x96" href="/img/board-games-favicon-96.png?v=2">
+  <link rel="icon" type="image/png" sizes="256x256" href="/img/board-games-favicon-256.png?v=2">
+  <link rel="icon" href="/img/board-games-icon.ico?v=2" sizes="any">
+  <link rel="apple-touch-icon" sizes="180x180" href="/img/board-games-icon-180.png?v=2">
+  <link rel="manifest" href="/board-games-manifest.webmanifest?v=2">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Board Games">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Lilita+One&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/board-games.css?v=12">
+  <link rel="stylesheet" href="/css/emoji.css">
+</head>
+<body>
+  <header class="lobby-top">
+    <div class="lobby-nav">
+      <a class="back" href="/board-games.html">← Board game shelf</a>
+    </div>
+    <div class="lobby-title">
+      <img class="dice" src="/img/board-games-favicon-256.png?v=2" alt="" width="64" height="64">
+      <div>
+        <h1>Game history</h1>
+        <p>Every game you’ve finished, across all the boxes. Tap a game to see its final board.</p>
+      </div>
+    </div>
+  </header>
+
+  <main class="shelf-wrap">
+    <section class="history" id="history" aria-label="Your finished games">
+      <div class="hx-stats"></div>
+      <div class="hx-filter" role="tablist" aria-label="Filter by game"></div>
+      <ol class="hx-list"></ol>
+      <p class="mg-note hx-note">Loading your games…</p>
+      <button type="button" class="hx-more" hidden>Show more</button>
+    </section>
+  </main>
+
+  <script src="/js/game-history.js?v=1"></script>
+</body>
+</html>

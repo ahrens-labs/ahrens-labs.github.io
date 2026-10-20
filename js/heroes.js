@@ -429,7 +429,7 @@
     window.scrollTo(0, 0);
     save();
     // Each saved game has its own address, so reloading reopens this game and the bare page is always home.
-    const q = G.mode === 'online' && G.id ? `?game=${encodeURIComponent(G.id)}` : G.gid && (G.mode === 'ai' || G.mode === 'local') ? `?local=${encodeURIComponent(G.gid)}` : '';
+    const q = G.mode === 'online' && G.id ? `?game=${encodeURIComponent(G.id)}` : G.mode === 'past' && G.gid ? `?past=${encodeURIComponent(G.gid)}` : G.gid && (G.mode === 'ai' || G.mode === 'local') ? `?local=${encodeURIComponent(G.gid)}` : '';
     if (history.replaceState && location.search !== q) history.replaceState(null, '', location.pathname + q);
     render();
     if (G.mode === 'online' && G.gmode === 'quick' && G.status === 'active') Online.tickClock();
@@ -1113,7 +1113,7 @@
     if (!state || !Array.isArray(state.players) || state.phase !== 'over') return toast(esc((r.data && r.data.error) || 'Couldn’t load that game.'), 'bad');
     if (state.v !== E.SAVE_V) return toast('That game was played on an older version of Hero League, so it can’t be shown.', 'bad');
     const h = (hist.items || []).find((x) => x.id === id);
-    startFrom({ state, mode: 'past', level: h && h.level, view: 0, gid: id, revealed: true });
+    startFrom({ state, mode: 'past', level: h && h.level, view: r.data.me != null ? r.data.me : h && h.me != null ? h.me : 0, gid: id, revealed: true });
   }
 
   const hist = { items: null, kind: 'all' };
@@ -1413,6 +1413,10 @@
         }
       });
     } else showSetup();
+  } else if (params.get('past')) {
+    // A finished game linked from game history: show its board, or the history if it can't be opened.
+    $('#app').innerHTML = '<p class="loading-save">Loading that game…</p>';
+    openPast(params.get('past')).then(() => G || showHistory());
   } else if (params.has('history')) showHistory();
   else showSetup();
   window.__hx = { get G() { return G; }, render, E, send: (a) => doAction(a) };

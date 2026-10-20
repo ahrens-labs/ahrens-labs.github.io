@@ -298,6 +298,7 @@ function publicAtlantis(state, me) {
 
 function publicCauldron(state, me) {
   if (!state) return null;
+  if (state.phase === 'over') return Object.assign(Cauldron.clone(state), { seed: 0 });
   const s = Cauldron.clone(state);
   s.seed = 0;
   s.beastDeck = new Array((state.beastDeck || []).length).fill(null);
@@ -396,6 +397,18 @@ function pendingTtl(record) {
 
 function cfgForId(id) {
   return Object.values(GAMES).find((c) => c.idRe.test(id)) || null;
+}
+
+// The last board of a finished online game, for game history. The game's own record is the saved copy, so
+// nothing is duplicated; a game that ended by resigning or timing out is shown as it stood.
+export async function onlineBoard(env, gameKey, id, userId) {
+  const cfg = GAMES[gameKey];
+  if (!cfg || !cfg.idRe.test(id) || !env.LAB_GAME) return null;
+  const res = await gameStub(env, id).fetch(new Request('http://do/get', { method: 'POST', body: JSON.stringify({ userId }) }));
+  if (!res.ok) return { status: res.status, body: { error: 'Game not found' } };
+  const v = await res.json();
+  if (v.status !== 'over' || !v.state) return { status: 409, body: { error: 'That game hasn’t finished yet.' } };
+  return { status: 200, body: { state: Object.assign(v.state, { phase: 'over' }), me: v.me } };
 }
 
 export async function handleLabOnlineRequest(request, env, corsHeaders, path, gameKey, { executionCtx, notifyChallenge } = {}) {

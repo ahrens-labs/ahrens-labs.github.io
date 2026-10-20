@@ -1,4 +1,4 @@
-import { handleLabOnlineRequest } from './lab-online.js';
+import { handleLabOnlineRequest, onlineBoard } from './lab-online.js';
 // Atlantis Expedition — game history. Finished local games are kept per user in a
 // HearthholdLobby Durable Object under its own name, so they never mix with Oakhaven's history.
 const LOCAL_ID_RE = /^al[0-9a-f]{16}$/;
@@ -82,6 +82,8 @@ export async function handleAtlantisRequest(request, env, corsHeaders, path, opt
   }
   if (path === '/api/atlantis/history/board' && request.method === 'GET') {
     const gid = String(url.searchParams.get('id') || '');
+    const online = await onlineBoard(env, 'atlantis', gid, userId);
+    if (online) return jsonResponse(online.body, corsHeaders, online.status);
     if (!LOCAL_ID_RE.test(gid)) return jsonResponse({ error: 'Game not found' }, corsHeaders, 404);
     const res = await stub.fetch(new Request(`http://do/board?id=${gid}`));
     return jsonResponse(await res.json(), corsHeaders, res.status);
