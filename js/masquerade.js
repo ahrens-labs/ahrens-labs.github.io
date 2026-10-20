@@ -762,7 +762,36 @@
     const s = st();
     if (s.phase !== 'act' || s.turn == null || !pl(s.turn).ai) return;
     const P = s.pending;
+    if (onlyComputersLeft()) {
+      if (!G.rushing) {
+        G.rushing = true;
+        toast('⏩ Only computer nobles are left at the ball — racing to the finish.');
+      }
+      ui.aiTimer = setTimeout(rushStep, 60);
+      return;
+    }
     ui.aiTimer = setTimeout(aiStep, G.mode === 'sim' ? SIM_SPEEDS[G.speed].ai : P && P.stage === 'challenge' ? 650 : P ? 800 : 1000);
+  }
+  // Once every person has left the ball there's nothing to decide, so the computers play on in quick batches.
+  const onlyComputersLeft = () => (G.mode === 'ai' || G.mode === 'local') && !st().players.some((p) => !p.ai && !p.out);
+  function rushStep() {
+    if (!G || ui.modal) return;
+    const s = st();
+    for (let i = 0; i < 40 && s.phase === 'act' && s.turn != null && pl(s.turn).ai; i++) {
+      try {
+        E.apply(s, s.turn, E.aiChoose(s, s.turn, pl(s.turn).level || G.level));
+      } catch (err) {
+        break;
+      }
+    }
+    if (s.phase === 'over') recordGame();
+    save();
+    render();
+    if (s.phase === 'over') {
+      setTimeout(() => G && G.state === s && showGameOver(false), 400);
+      return;
+    }
+    scheduleAI();
   }
   function stopAI() {
     clearTimeout(ui.aiTimer);
