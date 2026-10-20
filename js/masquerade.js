@@ -5,7 +5,13 @@
   const SAVE_KEY = 'ahrensMasquerade.v1';
   const PREFS_KEY = 'ahrensMasquerade.prefs';
   const API_BASE = window.AHRENS_LABS_API_BASE || 'https://chess-accounts.matthewahrens.workers.dev';
+  const ADMIN_EMAIL = 'calebahrens2011@gmail.com';
   const LEVEL_NAME = { easy: 'Easy', normal: 'Normal', hard: 'Hard', brutal: 'Brutal' };
+  const SIM_SPEEDS = {
+    turbo: { name: '⚡ Turbo', ai: 0 },
+    fast: { name: '⏩ Fast', ai: 250 },
+    watch: { name: '👀 Watch', ai: 1000 },
+  };
   const LEVEL_HINT = {
     easy: 'Rarely bluffs, often guesses, and believes most of what it hears.',
     normal: 'Bluffs now and then and calls “Unmask!” when a claim looks shaky.',
@@ -22,12 +28,12 @@
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
   const plural = (n, one, many) => `${n} ${n === 1 ? one : many || one + 's'}`;
 
-  let G = null; // { state, mode: 'ai' | 'local' | 'online' | 'past', level, shown, gid, moved, recorded, revealed }
+  let G = null; // { state, mode: 'ai' | 'local' | 'online' | 'past' | 'sim', level, levels, speed, shown, gid, moved, recorded, revealed }
   const ui = { aiTimer: null, modal: false, locked: false, onClose: null, rulesTab: 'overview', pick: null };
 
   // ---------------------------------------------------------------- persistence
   function save() {
-    if (!G || G.mode === 'past' || G.mode === 'online') {
+    if (!G || G.mode === 'past' || G.mode === 'online' || G.mode === 'sim') {
       if (G && G.mode === 'online') Online.rememberOnline();
       return;
     }
@@ -48,7 +54,7 @@
       return;
     }
     if (!G.moved) return;
-    BS.put('masquerade', G.gid, G, { mode: G.mode, level: G.level, names: s.players.map((p) => p.name), round: s.round, rounds: E.CHIMES, moved: true });
+    BS.put('masquerade', G.gid, G, { mode: G.mode, level: G.level, names: s.players.map((p) => p.name), favor: Math.max(...s.players.map((p) => p.favor)), moved: true });
   }
   addEventListener('boardsaves:removed', (e) => {
     if (G && G.gid && e.detail.some((m) => m.game === 'masquerade' && m.id === G.gid)) toast('This game was removed from Your games on another device, so it won’t be saved any more.', 'bad');
@@ -80,6 +86,13 @@
       /* ignore */
     }
   }
+  function isAdmin() {
+    try {
+      return (localStorage.getItem('ahrenslabs_email') || '').trim().toLowerCase() === ADMIN_EMAIL;
+    } catch (e) {
+      return false;
+    }
+  }
   function sessionId() {
     try {
       return localStorage.getItem('ahrenslabs_sessionId') || '';
@@ -109,7 +122,7 @@
     esc, toast, $, sessionId, prefs, savePrefs,
     blurb: 'Play The Masquerade Court against other Ahrens Labs players — invite up to four, add computer nobles if you like, and pick a quick game with a 2-minute clock for every decision or a long game where you answer whenever you like.',
     maxPlayers: 5,
-    roundText: (g) => (g.round ? `chime ${g.round} of ${E.CHIMES}` : ''),
+    roundText: () => '',
     getG: () => G,
     showSetup: (focus) => showSetup(focus),
     isMyTurn: () => G && G.state && G.state.turn === G.me,
@@ -177,7 +190,7 @@
     setTimeout(() => t.remove(), (ms || 3800) + 400);
   }
   function sfx(k, delay) {
-    if (!window.GameMusic) return;
+    if (!window.GameMusic || (G && G.mode === 'sim' && G.speed !== 'watch')) return;
     if (delay) setTimeout(() => GameMusic.sfx(k), delay);
     else GameMusic.sfx(k);
   }
@@ -222,7 +235,7 @@
         <img src="${IMG('cover')}" alt="Masked nobles in a candlelit Venetian ballroom: a duchess, a jester and a plague doctor share a secret" class="gh-hero-img">
         <div class="gh-shade"></div>
         <div class="hero-sparks" aria-hidden="true">${sparks}</div>
-        <div class="gh-title"><h1 class="display">The Masquerade Court</h1>${withTagline ? '<p>Wear two masks. Claim any power you like — truthfully or not. Call out the liars, win the Doge’s Favor, and still be masked when midnight strikes.</p>' : ''}</div>
+        <div class="gh-title"><h1 class="display">The Masquerade Court</h1>${withTagline ? '<p>Wear two masks. Claim any power you like — truthfully or not. Call out the liars, and win the Doge’s Favor before anyone else.</p>' : ''}</div>
       </div>`;
   }
   function showGate() {
@@ -254,7 +267,7 @@
       <div class="setup gh">
         ${heroHtml(true)}
       <div class="setup-card gh-card panel">
-        ${canResume ? `<div class="gh-resume"><div><b>A ball in progress</b><span>${esc(saved.state.players.map((p) => p.name).join(' · '))} · chime ${saved.state.round} of ${E.CHIMES}</span></div><button class="btn" id="resume">Continue</button></div>` : ''}
+        ${canResume ? `<div class="gh-resume"><div><b>A ball in progress</b><span>${esc(saved.state.players.map((p) => p.name).join(' · '))} · top Favor ⭐${Math.max(...saved.state.players.map((p) => p.favor))} of ${E.FAVOR_WIN}</span></div><button class="btn" id="resume">Continue</button></div>` : ''}
         <h2>New game</h2>
         <div class="gh-modes" id="mode">
           <button data-v="ai" class="gh-mode ${pr.mode !== 'local' && pr.mode !== 'online' ? 'on' : ''}"><span>🤖</span><b>Computer</b><small>Rival nobles</small></button>
@@ -284,6 +297,7 @@
         <div class="gh-links">
           <button class="btn ghost sm" id="how">📜 How to play</button>
           <button class="btn ghost sm" id="hist">🏆 Game history</button>
+          ${isAdmin() ? '<button class="btn ghost sm" id="sim">🧪 Computer vs computer</button>' : ''}
         </div>
       </div>
       </div>`;
@@ -318,6 +332,7 @@
     hint();
     $('#how').onclick = () => showRules();
     $('#hist').onclick = () => showHistory();
+    if ($('#sim')) $('#sim').onclick = openSimSetup;
     if ($('#resume')) $('#resume').onclick = () => startFrom(saved);
     $('#start').onclick = () => {
       const mode = $('#mode .on').dataset.v;
@@ -362,19 +377,18 @@
     if (!G) return;
     const s = st();
     const v = viewer();
-    const sub = G.mode === 'past' ? '📜 Finished ball' : G.mode === 'online' ? `🌐 ${s.players.length > 2 ? `${s.players.length}-player game` : `vs ${esc(pl(1 - G.me).name)}`}${G.gmode === 'quick' ? ' · ⚡' : ''}${G.gmode === 'quick' && G.deadline ? ' <span class="ol-clock" id="ol-clock"></span>' : ''}` : G.mode === 'local' ? `👥 ${s.players.length} nobles` : `🤖 vs ${plural(s.players.length - 1, 'rival')} · ${LEVEL_NAME[G.level] || ''}`;
-    const home = G.mode === 'past' ? '🏆<span class="bt"> History</span>' : G.mode === 'online' ? '🌐<span class="bt"> Game</span>' : '🎭<span class="bt"> New game</span>';
+    const sub = G.mode === 'past' ? '📜 Finished ball' : G.mode === 'sim' ? `🧪 ${SIM_SPEEDS[G.speed].name} · computer vs computer` : G.mode === 'online' ? `🌐 ${s.players.length > 2 ? `${s.players.length}-player game` : `vs ${esc(pl(1 - G.me).name)}`}${G.gmode === 'quick' ? ' · ⚡' : ''}${G.gmode === 'quick' && G.deadline ? ' <span class="ol-clock" id="ol-clock"></span>' : ''}` : G.mode === 'local' ? `👥 ${s.players.length} nobles` : `🤖 vs ${plural(s.players.length - 1, 'rival')} · ${LEVEL_NAME[G.level] || ''}`;
+    const home = G.mode === 'past' ? '🏆<span class="bt"> History</span>' : G.mode === 'sim' ? '⏹<span class="bt"> Stop</span>' : G.mode === 'online' ? '🌐<span class="bt"> Game</span>' : '🎭<span class="bt"> New game</span>';
     $('#app').innerHTML = `
       <header class="topbar">
         <div class="brand"><img src="/img/masquerade-favicon-96.png?v=1" alt="" class="brand-logo" width="46" height="46"><div><h1>The Masquerade Court</h1><small>${sub}</small></div></div>
         <div class="top-mid">
-          <div class="clock" title="Midnight strikes after ${E.CHIMES} rounds: then the most Favor wins">🕰️ <span>Chime <b>${s.round}</b> of ${E.CHIMES}</span>${pips(s.round, E.CHIMES, 'chimes')}</div>
           <div class="top-chips"><span class="chip">⭐ ${E.FAVOR_WIN} Favor wins</span><span class="chip">🎭 or be the last still masked</span></div>
         </div>
         <div class="top-actions">
           ${window.GameMusic ? GameMusic.buttonHtml('btn ghost sm', 'bt') : ''}
           <button class="btn ghost sm" data-act="rules" aria-label="Rules">📜<span class="bt"> Rules</span></button>
-          <button class="btn ghost sm" data-act="home" aria-label="${G.mode === 'past' ? 'History' : 'New game'}">${home}</button>
+          <button class="btn ghost sm" data-act="home" aria-label="${G.mode === 'past' ? 'History' : G.mode === 'sim' ? 'Stop' : 'New game'}">${home}</button>
           <a class="btn ghost sm" href="/board-games.html" aria-label="Game lobby"><img class="gh-dice" src="/img/board-games-favicon-48.png?v=2" alt=""><span class="bt"> Lobby</span></a>
         </div>
       </header>
@@ -427,7 +441,7 @@
     const over = st().phase === 'over';
     if (m.up === 'lost') return `<span class="tile lost" title="${esc(M(m.k).name)} — lost">${maskImg(m.k)}<i>✗</i></span>`;
     const mine = owner === v && privateOk();
-    if (m.k && (mine || over || G.mode === 'past')) return `<span class="tile face${mine && !over ? ' secret' : ''}" title="${esc(M(m.k).name)}${mine && !over ? ' — only you can see this' : ''}">${maskImg(m.k)}</span>`;
+    if (m.k && (mine || over || G.mode === 'past' || G.mode === 'sim')) return `<span class="tile face${mine && !over ? ' secret' : ''}" title="${esc(M(m.k).name)}${mine && !over ? ' — only you can see this' : ''}">${maskImg(m.k)}</span>`;
     const known = seen.find((x) => x.id === m.id);
     if (known) return `<span class="tile back peeked" title="You know this is ${esc(M(known.k).name)}"><img src="${IMG('back')}" alt=""><i>${M(known.k).icon}</i></span>`;
     return '<span class="tile back" title="A hidden mask"><img src="' + IMG('back') + '" alt=""></span>';
@@ -455,7 +469,7 @@
   // ---------------------------------------------------------------- the middle: what to do now
   function stageHtml() {
     const s = st();
-    if (s.phase === 'over') return `<h3>🕛 Midnight</h3><p class="muted">Every mask has come off. <button class="btn sm" data-act="reveal">See the results</button></p>`;
+    if (s.phase === 'over') return `<h3>🎭 The ball is over</h3><p class="muted">Every mask has come off. <button class="btn sm" data-act="reveal">See the results</button></p>`;
     if (G.mode === 'past') return '<h3>📜 A finished ball</h3>';
     const P = s.pending;
     const v = viewer();
@@ -572,13 +586,13 @@
       const holder = st().players.findIndex((q, i) => i !== v && q.masks.some((m) => m.id === x.id && m.up === 'hidden'));
       return holder >= 0 ? `<li>${M(x.k).icon} ${nobleName(holder)} wears <b>${esc(M(x.k).name)}</b></li>` : '';
     }).filter(Boolean);
-    return `<h3>🎭 ${you(v) || G.mode === 'local' ? 'Your masks' : `${esc(p.name)}’s masks`} <small>only you can see the hidden ones</small></h3>
+    return `<h3>🎭 ${you(v) || G.mode === 'local' ? 'Your masks' : `${esc(p.name)}’s masks`} <small>${G.mode === 'sim' ? 'whoever is deciding right now' : 'only you can see the hidden ones'}</small></h3>
       <div class="mcards">${p.masks.map(card).join('')}</div>
       ${seen.length ? `<h3>👁️ What you know</h3><ul class="known">${seen.join('')}</ul>` : ''}`;
   }
 
   function logHtml() {
-    return st().log.slice(-80).map((l) => `<p${l.who == null ? ' class="sys"' : ''} style="--pc:${l.who != null ? PCOLOR[l.who] : 'transparent'}"><small>${l.r}</small> ${esc(l.text)}</p>`).join('');
+    return st().log.slice(-80).map((l) => `<p${l.who == null ? ' class="sys"' : ''} style="--pc:${l.who != null ? PCOLOR[l.who] : 'transparent'}">${esc(l.text)}</p>`).join('');
   }
 
   // ---------------------------------------------------------------- clicks
@@ -709,7 +723,7 @@
 
   // What just happened, said once: a short notice for each new line, and a reveal when a mask is unmasked.
   function tellFresh(lines, prev) {
-    if (!lines.length) return;
+    if (!lines.length || (G.mode === 'sim' && G.speed === 'turbo')) return;
     const s = st();
     const v = viewer();
     const ch = s.last && s.last.challenge;
@@ -719,7 +733,7 @@
       toast(`${l.who != null ? `<span class="dot" style="--pc:${PCOLOR[l.who]}"></span>` : ''}${esc(l.text)}`, /loses a mask|bluffing|leaves/.test(l.text) ? 'bad' : '');
     });
     if (ch && lines.some((l) => /calls “Unmask!”/.test(l.text))) {
-      const involved = ch.by === v || ch.of === v || G.mode === 'local';
+      const involved = G.mode === 'sim' ? G.speed === 'watch' : ch.by === v || ch.of === v || G.mode === 'local';
       if (involved) unmaskReveal(ch);
       sfx(ch.truth ? (ch.of === v ? 'good' : 'bad') : ch.of === v ? 'bad' : 'good', 300);
     }
@@ -738,7 +752,7 @@
       <p>${ch.truth ? `${esc(of)} really is ${esc(M(k).name)} — the mask is shuffled back into the wardrobe and ${esc(of)} draws a fresh one. ${esc(by)} pays for the insult.` : `${esc(of)} was bluffing and loses a mask.`}</p>
       ${lost ? `<div class="um-lost">${lost}</div>` : ''}
       <div class="btn-row" style="justify-content:center"><button class="btn" data-close>Back to the ball</button></div></div>`, { cls: 'locked' });
-    if (G.mode === 'ai' && ch.by !== viewer() && ch.of !== viewer()) setTimeout(() => ui.modal && $('.unmask') && closeModal(), 2600);
+    if (G.mode === 'sim' || (G.mode === 'ai' && ch.by !== viewer() && ch.of !== viewer())) setTimeout(() => ui.modal && $('.unmask') && closeModal(), 2600);
   }
 
   // ---------------------------------------------------------------- the computer nobles
@@ -748,7 +762,7 @@
     const s = st();
     if (s.phase !== 'act' || s.turn == null || !pl(s.turn).ai) return;
     const P = s.pending;
-    ui.aiTimer = setTimeout(aiStep, P && P.stage === 'challenge' ? 650 : P ? 800 : 1000);
+    ui.aiTimer = setTimeout(aiStep, G.mode === 'sim' ? SIM_SPEEDS[G.speed].ai : P && P.stage === 'challenge' ? 650 : P ? 800 : 1000);
   }
   function stopAI() {
     clearTimeout(ui.aiTimer);
@@ -763,6 +777,7 @@
 
   function leaveGame() {
     if (G.mode === 'past') return showHistory();
+    if (G.mode === 'sim') return stopSim();
     if (G.mode === 'online') {
       const id = G.id;
       Online.forgetOnline();
@@ -778,7 +793,7 @@
     const s = st();
     const w = E.winner(s);
     const order = E.ranking(s);
-    const why = s.ended === 'favor' ? `⭐ ${esc(pl(w).name)} won ${E.FAVOR_WIN} Favor with the Doge` : s.ended === 'last' ? `🎭 ${esc(pl(w).name)} was the last noble still masked` : `🕛 Midnight struck after ${E.CHIMES} chimes — the most Favor wins`;
+    const why = s.ended === 'favor' ? `⭐ ${esc(pl(w).name)} won ${E.FAVOR_WIN} Favor with the Doge` : s.ended === 'last' ? `🎭 ${esc(pl(w).name)} was the last noble still masked` : '🕛 Midnight struck — the most Favor won';
     const head = w < 0 ? '🤝 The Doge can’t choose — it’s a tie!' : you(w) ? '🏆 You are the star of the ball!' : `🏆 ${esc(pl(w).name)} is the star of the ball!`;
     const row = (i, k) => {
       const p = pl(i);
@@ -800,13 +815,14 @@
       <div class="fin-rows">${order.map(row).join('')}</div>
       <div class="btn-row" style="justify-content:center">
         <button class="btn" data-close>🎭 See the ballroom</button>
-        ${G.mode === 'past' ? '' : `<button class="btn ghost" data-fin="again">${G.mode === 'online' ? '🌐 Your games' : '🎭 Play again'}</button>`}
+        ${G.mode === 'past' ? '' : `<button class="btn ghost" data-fin="again">${G.mode === 'online' ? '🌐 Your games' : G.mode === 'sim' ? '🧪 Run again' : '🎭 Play again'}</button>`}
         <button class="btn ghost" data-fin="hist">🏆 Game history</button>
       </div></div>`, { cls: 'wide', onClose: () => render() }).addEventListener('click', (e) => {
       const b = e.target.closest('[data-fin]');
       if (!b) return;
       closeModal(true);
       if (b.dataset.fin === 'hist') return showHistory();
+      if (G.mode === 'sim') return startSim({ levels: G.levels, speed: G.speed });
       if (G.mode === 'online') {
         Online.forgetOnline();
         return showSetup(G.id);
@@ -932,8 +948,48 @@
       view: '🎭 See the ballroom',
       canView: () => true,
       onView: openPast,
-      empty: 'No finished balls yet. Games are added the moment midnight strikes — or someone wins.',
+      empty: 'No finished balls yet. Games are added the moment someone wins.',
     }, hist);
+  }
+
+  // ---------------------------------------------------------------- computer vs computer (admin)
+  function openSimSetup() {
+    const sim = Object.assign({ nobles: 4, levels: ['hard', 'normal', 'easy', 'brutal', 'normal'], speed: 'fast' }, prefs().sim);
+    const draw = () => `<h2>🧪 Computer vs computer</h2>
+      <p class="muted">Admin only. Computer nobles play a whole ball while you watch, every mask face up. Nothing is saved or added to game history.</p>
+      <div class="field"><span class="label">Nobles</span><div class="seg" data-k="nobles">${[2, 3, 4, 5].map((n) => `<button data-v="${n}" class="${sim.nobles === n ? 'on' : ''}">${n}</button>`).join('')}</div></div>
+      ${Array.from({ length: sim.nobles }, (_, i) => `<div class="field"><span class="label" style="color:${PCOLOR[i]}">${SIGN[i]} ${esc(NOBLE_NAMES[i])}</span><div class="seg" data-k="l${i}">${Object.keys(LEVEL_NAME).map((l) => `<button data-v="${l}" class="${sim.levels[i] === l ? 'on' : ''}">${LEVEL_NAME[l]}</button>`).join('')}</div></div>`).join('')}
+      <div class="field"><span class="label">Speed</span><div class="seg" data-k="speed">${Object.keys(SIM_SPEEDS).map((v) => `<button data-v="${v}" class="${sim.speed === v ? 'on' : ''}">${SIM_SPEEDS[v].name}</button>`).join('')}</div></div>
+      <button class="btn big" id="sim-go">▶ Start</button>`;
+    const back = openModal('<div id="dlg"></div>');
+    const root = back.querySelector('#dlg');
+    root.innerHTML = draw();
+    root.addEventListener('click', (e) => {
+      const b = e.target.closest('.seg button');
+      if (b) {
+        const k = b.parentNode.dataset.k;
+        if (k === 'nobles') sim.nobles = Number(b.dataset.v);
+        else if (k === 'speed') sim.speed = b.dataset.v;
+        else sim.levels[Number(k.slice(1))] = b.dataset.v;
+        root.innerHTML = draw();
+        return;
+      }
+      if (e.target.closest('#sim-go')) {
+        savePrefs(Object.assign(prefs(), { sim }));
+        startSim({ levels: sim.levels.slice(0, sim.nobles), speed: sim.speed });
+      }
+    });
+  }
+  function startSim(sim) {
+    closeModal(true);
+    const n = sim.levels.length;
+    const state = E.newGame({ names: NOBLE_NAMES.slice(0, n), ai: sim.levels.map(() => true), levels: sim.levels, first: Math.floor(Math.random() * n) });
+    startFrom({ state, mode: 'sim', level: sim.levels[0], levels: sim.levels, speed: sim.speed });
+  }
+  function stopSim() {
+    stopAI();
+    closeModal(true);
+    showSetup();
   }
 
   // ---------------------------------------------------------------- rules
@@ -942,7 +998,7 @@
     const maskRow = (k) => `<tr><td>${maskImg(k, 'tiny')} <b>${esc(M(k).name)}</b></td><td><b>${esc(M(k).power)}</b>: ${esc(M(k).text)}</td><td>${esc(blocksLine(k)) || '—'}</td></tr>`;
     if (tab === 'overview') return `<p>Venice, carnival night. Every noble at the Doge’s ball wears <b>two masks, face down</b>. Each mask has a power — but on your turn you may claim <b>any</b> mask’s power, whether you’re wearing it or not.</p>
       <p>Everyone else can call <b>“Unmask!”</b> on a claim they don’t believe. Liars lose a mask. Honest nobles shuffle the mask they showed back into the wardrobe and draw a fresh one — and the accuser pays for the insult.</p>
-      <p>Win by earning <b>⭐${E.FAVOR_WIN} Favor</b> with the Doge, by being the <b>last noble still masked</b>, or by having the most Favor when <b>midnight</b> strikes after ${E.CHIMES} rounds.</p>
+      <p>Win by earning <b>⭐${E.FAVOR_WIN} Favor</b> with the Doge, or by being the <b>last noble still masked</b>. There’s no clock — the ball goes on until one of those happens.</p>
       <ul><li>🎭 ${E.MASK_ORDER.length} kinds of mask, ${E.COPIES} of each. The rest wait in the wardrobe.</li><li>🪙 Each noble starts with ${E.START_DUCATS} ducats and no Favor.</li><li>📰 The Gazette records every claim — and each noble’s row shows which masks they’ve claimed, so you can catch a liar who claims too many.</li></ul>`;
     if (tab === 'turn') return `<p>On your turn, do <b>one</b> thing:</p>
       <ul><li>🪙 <b>Mingle</b> — take 🪙1.</li><li>🥂 <b>Toast the Doge</b> — pay 🪙${E.TOAST_COST} to win ⭐1 Favor.</li><li>📜 <b>Start a scandal</b> — pay 🪙${E.SCANDAL_COST}: a noble loses a mask.</li><li>🎭 <b>Claim a mask’s power</b> — any of the seven. Others may call “Unmask!”.</li></ul>
@@ -958,7 +1014,7 @@
       <ul><li>🃏 The Jester’s Rumour — blocked by 👑 the Doge.</li><li>🧪 The Poisoner’s Poison — blocked by ⚕️ the Plague Doctor.</li><li>🛶 The Gondolier’s Secret passage — blocked by 🕵️ the Spy.</li></ul>
       <p><b>Cutting in:</b> when someone claims the Duchess’s Waltz, any rival may pay the band 🪙${E.CUT_IN_COST} and claim the Duchess to take the Doge’s hand instead — the waltz wins no Favor.</p>
       <p>A block is a claim too: only the noble who was blocked may call “Unmask!” on it.</p>`;
-    return `<ul><li>⭐ Reach <b>${E.FAVOR_WIN} Favor</b> and you win at once.</li><li>🎭 Be the <b>last noble still masked</b> and you win.</li><li>🕛 After <b>${E.CHIMES} rounds</b> midnight strikes: the most Favor wins. Ties go to the noble still at the ball with more masks, then more ducats.</li></ul>
+    return `<ul><li>⭐ Reach <b>${E.FAVOR_WIN} Favor</b> and you win at once.</li><li>🎭 Be the <b>last noble still masked</b> and you win.</li><li>🕰️ There are no rounds — the ball goes on until someone does one of those.</li></ul>
       <p class="muted">Favor comes from the Duchess’s Waltz, the Jester’s Rumour, and toasts — and goes when you accuse an honest noble. Waltzes can be cut in on, so a toast is the one sure way to win Favor.</p>`;
   }
   function showRules(tab) {

@@ -115,7 +115,6 @@ const GAMES = {
     botNames: ['Contessa Rosa', 'Count Azzurro', 'Lady Verde', 'Baron Viola', 'Marchesa Oro'],
     roundOf: (s) => (s ? s.round : 0),
     logEntry: (s, text, who) => ({ r: s.round, text, who }),
-    rounds: () => Masquerade.CHIMES,
     // `turn` is whoever must decide next — the noble whose turn it is, or one answering a claim.
     turnOf: (s) => (s && s.phase !== 'over' ? s.turn : null),
     offTurnOk: () => false,

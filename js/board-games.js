@@ -104,7 +104,7 @@
             : m.game === 'heroes'
               ? `Plaza ${s.round || 0} of ${s.rounds || 12}`
               : m.game === 'masquerade'
-                ? `Chime ${r} of ${s.rounds || 12}`
+                ? `Top Favor ⭐${s.favor || 0} of 7`
                 : `Round ${r}${s.rounds ? ` of ${s.rounds}` : ''}`,
       where: m.local === false ? 'cloud' : 'local',
       updatedAt: m.updatedAt || 0,

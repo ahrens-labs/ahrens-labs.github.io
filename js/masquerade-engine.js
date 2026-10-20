@@ -1,8 +1,7 @@
 // The Masquerade Court — rules engine and computer player. No DOM access, so it also runs in Node and on the server.
 // Each noble wears two masks, face down. On your turn you may claim any mask's power — whether you wear it or not.
 // Anyone may call "Unmask!": a liar loses a mask; an honest noble shuffles the shown mask back into the wardrobe and
-// draws a fresh one, and the accuser pays ⭐2 Favor for the insult (or a mask, with less to give). First to 7 Favor wins; so does the last noble still masked; at midnight (after 12
-// rounds) the most Favor wins.
+// draws a fresh one, and the accuser pays ⭐2 Favor for the insult (or a mask, with less to give). First to 7 Favor wins; so does the last noble still masked.
 (function (root) {
   'use strict';
 
@@ -10,7 +9,6 @@
   const COPIES = 3;
   const START_DUCATS = 2;
   const FAVOR_WIN = 7;
-  const CHIMES = 12;
   const TOAST_COST = 3;
   const SCANDAL_COST = 7;
   const CUT_IN_COST = 2;
@@ -106,7 +104,7 @@
     state.first = first;
     state.actor = first;
     state.turn = first;
-    log(state, `The ball begins. ${n} nobles are masked; the first to win ⭐${FAVOR_WIN} Favor with the Doge — or the last still masked — wins. Midnight strikes after ${CHIMES} rounds.`);
+    log(state, `The ball begins. ${n} nobles are masked; the first to win ⭐${FAVOR_WIN} Favor with the Doge — or the last still masked — wins.`);
     return state;
   }
 
@@ -488,7 +486,6 @@
     state.ended = why;
     if (why === 'favor') log(state, `${state.players[w].name} has won ⭐${FAVOR_WIN} Favor — the Doge names them the star of the ball!`);
     else if (why === 'last') log(state, `${state.players[w].name} is the last noble still masked and wins the ball!`);
-    else log(state, '🕛 Midnight! Every mask comes off, and the Doge crowns the noble with the most Favor.');
     state.players.forEach((p) => p.masks.forEach((m) => m.up === 'hidden' && (m.revealed = true)));
     return true;
   }
@@ -508,10 +505,6 @@
         state.turn = j;
         break;
       }
-    }
-    if (state.round > CHIMES) {
-      state.round = CHIMES;
-      finish(state, 'midnight', null);
     }
     return state;
   }
@@ -721,7 +714,7 @@
   }
 
   const api = {
-    SAVE_V, COPIES, START_DUCATS, FAVOR_WIN, CHIMES, TOAST_COST, SCANDAL_COST, CUT_IN_COST, INSULT_FAVOR, MASKS, MASK_ORDER, BLOCKER, LEVELS,
+    SAVE_V, COPIES, START_DUCATS, FAVOR_WIN, TOAST_COST, SCANDAL_COST, CUT_IN_COST, INSULT_FAVOR, MASKS, MASK_ORDER, BLOCKER, LEVELS,
     newGame, legal, apply, aiChoose, score, ranking, winner, clone, live, hidden, targets, claimProblem, holdsChance, knowledge, powerLine,
   };
   if (typeof module === 'object' && module.exports) module.exports = api;
