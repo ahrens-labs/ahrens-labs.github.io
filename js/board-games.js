@@ -8,6 +8,7 @@
     atlantis: { name: 'Atlantis Expedition', icon: '🔱', page: '/atlantis.html', img: '/img/atlantis/cover.webp' },
     cauldron: { name: 'Cauldron Lane', icon: '⚗️', page: '/cauldron.html', img: '/img/cauldron/cover.webp?v=2' },
     heroes: { name: 'Hero League', icon: '🦸', page: '/heroes.html', img: '/img/heroes/cover.webp' },
+    masquerade: { name: 'The Masquerade Court', icon: '🎭', page: '/masquerade.html', img: '/img/masquerade/cover.webp' },
   };
   const LEVELS = { easy: 'Easy', normal: 'Normal', medium: 'Normal', hard: 'Hard', brutal: 'Brutal' };
   const SEASONS = ['Spring', 'Summer', 'Autumn', 'Winter'];
@@ -102,7 +103,9 @@
             ? `Day ${r} of ${s.rounds || 28}`
             : m.game === 'heroes'
               ? `Plaza ${s.round || 0} of ${s.rounds || 12}`
-              : `Round ${r}${s.rounds ? ` of ${s.rounds}` : ''}`,
+              : m.game === 'masquerade'
+                ? `Chime ${r} of ${s.rounds || 12}`
+                : `Round ${r}${s.rounds ? ` of ${s.rounds}` : ''}`,
       where: m.local === false ? 'cloud' : 'local',
       updatedAt: m.updatedAt || 0,
       removable: true,

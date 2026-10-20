@@ -43,6 +43,7 @@ import { handleHearthholdRequest } from './hearthhold.js';
 import { handleAtlantisRequest } from './atlantis.js';
 import { handleCauldronRequest } from './cauldron.js';
 import { handleHeroesRequest } from './heroes.js';
+import { handleMasqueradeRequest } from './masquerade.js';
 import { handleBoardGamesRequest, handleBoardSavesDO, deleteBoardSaves } from './board-games.js';
 export { HearthholdGame, HearthholdLobby } from './hearthhold.js';
 export { LabGame, LabLobby } from './lab-online.js';
@@ -281,6 +282,11 @@ export default {
         });
       } else if (path.startsWith('/api/heroes/')) {
         return handleHeroesRequest(request, env, corsHeaders, path, {
+          executionCtx,
+          notifyChallenge: (notice) => sendLabChallengeEmail(env, notice),
+        });
+      } else if (path.startsWith('/api/masquerade/')) {
+        return handleMasqueradeRequest(request, env, corsHeaders, path, {
           executionCtx,
           notifyChallenge: (notice) => sendLabChallengeEmail(env, notice),
         });

@@ -10,7 +10,7 @@ const LOBBIES = [
 const CURRENT = new Set(['pending', 'active']);
 
 // Cloud saves of local games live in the player's UserAccount DO, outside the userData blob.
-const SAVE_GAMES = new Set(['dino', 'hearthhold', 'atlantis', 'cauldron', 'heroes']);
+const SAVE_GAMES = new Set(['dino', 'hearthhold', 'atlantis', 'cauldron', 'heroes', 'masquerade']);
 const SAVE_ID_RE = /^[a-z0-9]{4,40}$/i;
 const SAVE_MAX_BYTES = 120 * 1024;
 const SAVES_MAX_LIVE = 30;
@@ -104,6 +104,7 @@ const HISTORY_SOURCES = [
   { game: 'atlantis', binding: 'HEARTHHOLD_LOBBY', name: (u) => `atlantis:${u}`, path: '/history' },
   { game: 'cauldron', binding: 'HEARTHHOLD_LOBBY', name: (u) => `cauldron:${u}`, path: '/history' },
   { game: 'heroes', binding: 'HEARTHHOLD_LOBBY', name: (u) => `heroes:${u}`, path: '/history' },
+  { game: 'masquerade', binding: 'HEARTHHOLD_LOBBY', name: (u) => `masquerade:${u}`, path: '/history' },
 ];
 const HISTORY_RETURN = 120;
 const KINDS = new Set(['ai', 'local', 'online']);

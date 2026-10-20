@@ -4,6 +4,7 @@
 import Atlantis from '../../js/atlantis-engine.js';
 import Cauldron from '../../js/cauldron-engine.js';
 import Heroes from '../../js/heroes-engine.js';
+import Masquerade from '../../js/masquerade-engine.js';
 
 const PENDING_TTL_MS = { quick: 24 * 60 * 60 * 1000, long: 7 * 24 * 60 * 60 * 1000 };
 const MODES = new Set(['quick', 'long']);
@@ -92,7 +93,30 @@ const GAMES = {
     cleanAction: null,
     publicState: null,
   },
+  masquerade: {
+    key: 'masquerade',
+    E: Masquerade,
+    idPrefix: 'mq',
+    idRe: /^mq[0-9a-f]{18}$/,
+    page: 'masquerade.html',
+    title: 'The Masquerade Court',
+    players: 2,
+    roundOf: (s) => (s ? s.round : 0),
+    logEntry: (s, text, who) => ({ r: s.round, text, who }),
+    rounds: () => Masquerade.CHIMES,
+    // `turn` is whoever must decide next — the noble whose turn it is, or one answering a claim.
+    turnOf: (s) => (s && s.phase !== 'over' ? s.turn : null),
+    offTurnOk: () => false,
+    legalOk: (E, state, me, a) => E.legal(state, me, a) || null,
+    afterApply: () => {},
+    scoreTotal: (E, state, p) => E.score(state, p).total,
+    historyCats: (E, state) => state.players.map((p) => E.score(state, p)),
+    cleanAction: null,
+    publicState: null,
+  },
 };
+GAMES.masquerade.cleanAction = cleanMasquerade;
+GAMES.masquerade.publicState = publicMasquerade;
 
 function sameMove(a, b) {
   if (!a || !b || a.t !== b.t) return false;
@@ -285,6 +309,41 @@ function cleanHeroes(a) {
   }
   if (a.t === 'discard') return isStr(a.c, 40) ? { t: 'discard', c: a.c } : null;
   return null;
+}
+
+const MASK_KINDS = new Set(Masquerade.MASK_ORDER);
+function cleanMasquerade(a) {
+  if (!a || typeof a !== 'object' || typeof a.t !== 'string') return null;
+  const idx = (n) => Number.isInteger(n) && n >= 0 && n < 8;
+  switch (a.t) {
+    case 'mingle': case 'toast': case 'pass': case 'challenge':
+      return { t: a.t };
+    case 'scandal':
+      return idx(a.target) ? { t: 'scandal', target: a.target } : null;
+    case 'claim':
+      if (!MASK_KINDS.has(a.k)) return null;
+      return { t: 'claim', k: a.k, target: idx(a.target) ? a.target : null, give: isInt(a.give) ? a.give : null };
+    case 'block':
+      return MASK_KINDS.has(a.k) ? { t: 'block', k: a.k } : null;
+    case 'lose':
+      return isInt(a.id) ? { t: 'lose', id: a.id } : null;
+    default:
+      return null;
+  }
+}
+// Every other noble's hidden masks, what they've peeked at, and the wardrobe stay on the server until midnight.
+function publicMasquerade(state, me) {
+  if (!state) return null;
+  const s = Masquerade.clone(state);
+  s.seed = 0;
+  s.wardrobe = s.wardrobe.map(() => null);
+  if (state.phase === 'over') return s;
+  s.players.forEach((p, i) => {
+    if (i === me) return;
+    p.masks = p.masks.map((m) => (m.up === 'hidden' ? { id: m.id, k: null, up: 'hidden' } : m));
+    p.seen = [];
+  });
+  return s;
 }
 
 function publicAtlantis(state, me) {

@@ -11,6 +11,7 @@
     atlantis: { name: 'Atlantis Expedition', icon: '🔱', page: '/atlantis.html', history: '/atlantis.html?history', img: '/img/atlantis/cover.webp', view: '🗺️ View the chart' },
     cauldron: { name: 'Cauldron Lane', icon: '⚗️', page: '/cauldron.html', history: '/cauldron.html?history', img: '/img/cauldron/cover.webp?v=2', view: '⚗️ View the lane' },
     heroes: { name: 'Hero League', icon: '🦸', page: '/heroes.html', history: '/heroes.html?history', img: '/img/heroes/cover.webp', view: '🦸 See the teams' },
+    masquerade: { name: 'The Masquerade Court', icon: '🎭', page: '/masquerade.html', history: '/masquerade.html?history', img: '/img/masquerade/cover.webp', view: '🎭 See the ballroom' },
   };
   const KIND = { ai: '🤖 vs computer', local: '👥 same device', online: '🌐 online' };
   const LEVELS = { easy: 'Easy', normal: 'Normal', medium: 'Normal', hard: 'Hard', brutal: 'Brutal' };
