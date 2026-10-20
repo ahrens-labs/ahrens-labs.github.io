@@ -296,6 +296,7 @@
         <button class="btn big offline-only" id="start">🎭 Open the ball</button>
         <div class="gh-links">
           <button class="btn ghost sm" data-tutorial="masquerade-ad">🎞️ Watch the trailer</button>
+          <button class="btn ghost sm" data-tutorial="masquerade">🎬 Watch the tutorial</button>
           <button class="btn ghost sm" id="how">📜 How to play</button>
           <button class="btn ghost sm" id="hist">🏆 Game history</button>
           ${isAdmin() ? '<button class="btn ghost sm" id="sim">🧪 Computer vs computer</button>' : ''}
@@ -306,7 +307,7 @@
       const m = $('#mode .on').dataset.v;
       const n = m === 'local' ? Number($('#seats .on').dataset.v) : 1;
       const keep = [...document.querySelectorAll('#names input')].map((x) => x.value);
-      $('#names').innerHTML = Array.from({ length: n }, (_, i) => `<label style="--pc:${PCOLOR[i]}"><span class="label"><i class="sw"></i>${m === 'local' ? `Noble ${i + 1}` : 'Your noble'}</span><input id="n${i}" maxlength="18" value="${esc(keep[i] || pr['n' + i] || NOBLE_NAMES[i])}"></label>`).join('');
+      $('#names').innerHTML = Array.from({ length: n }, (_, i) => `<label><span class="label">${m === 'local' ? `Noble ${i + 1}` : 'Your noble'}</span><input id="n${i}" maxlength="18" value="${esc(keep[i] || pr['n' + i] || NOBLE_NAMES[i])}"></label>`).join('');
     };
     const setMode = (m) => {
       $('.setup').classList.toggle('is-local', m === 'local');
@@ -576,7 +577,7 @@
       <div><h3>${nobleName(P.claimer)} claims ${pair ? `the ${esc(pair.name)}` : esc(m.name)}</h3>
       ${pair ? `<p class="muted">That means wearing both <b>${esc(m.name)}</b> and <b>${esc(M(P.pair).name)}</b>.</p>` : ''}
       <p>${esc(E.powerLine(st(), P.claimer, P.act))}</p>
-      <p class="muted">Everyone decides at once, and nobody knows who has let it pass — the first to call <b>“Unmask!”</b> is the challenger. Call it if you think it’s a bluff${pair ? ' — if either mask is missing, it’s a lie' : ''}. A liar loses a mask and the power fails. If they’re honest, they shuffle ${pair ? 'both masks' : 'that mask'} back into the wardrobe, draw fresh ones, and you pay ${cost}.</p>
+      <p class="muted">Everyone decides at once, and nobody knows who has let it pass — the first to call <b>“Unmask!”</b> is the challenger. Call it if you think it’s a bluff${pair ? ' — if either mask is missing, it’s a lie' : ''}. A liar loses a mask and the power fails. If they’re honest, they shuffle ${pair ? 'both masks' : 'that mask'} back into the wardrobe, draw ${pair ? 'fresh ones' : 'a fresh one'}, and you pay ${cost}.</p>
       <p>${countHtml(P.k)}${pair ? ` ${countHtml(P.pair)}` : ''}</p>
       <div class="btn-row"><button class="btn danger" data-ans="challenge">🎭 Unmask!</button><button class="btn ghost" data-ans="pass">Let it pass</button></div></div>
     </div>`;
@@ -1196,7 +1197,7 @@
   const RULE_TABS = [['overview', 'The ball'], ['turn', 'Your turn'], ['masks', 'The masks'], ['pairs', 'Pairs'], ['whisper', 'Whispers'], ['unmask', '“Unmask!”'], ['blocks', 'Blocks'], ['intrigue', 'Intrigues'], ['winning', 'Winning']];
   function rulesBody(tab) {
     const maskRow = (k) => `<tr><td>${maskImg(k, 'tiny')} <b>${esc(M(k).name)}</b></td><td><b>${esc(M(k).power)}</b>: ${esc(M(k).text)}</td><td>${esc(blocksLine(k)) || '—'}</td></tr>`;
-    if (tab === 'overview') return `<p>Venice, carnival night. Every noble at the Doge’s ball wears <b>two masks, face down</b>. Each mask has a power — but on your turn you may claim <b>any</b> mask’s power, whether you’re wearing it or not.</p>
+    if (tab === 'overview') return `${window.AhrensTutorial ? '<p class="rb-video"><button class="btn sm" data-tutorial="masquerade">🎬 Watch the video tutorial</button> New to the ball? The video plays a real game against the computer, step by step.</p>' : ''}<p>Venice, carnival night. Every noble at the Doge’s ball wears <b>two masks, face down</b>. Each mask has a power — but on your turn you may claim <b>any</b> mask’s power, whether you’re wearing it or not.</p>
       <p>Everyone else can call <b>“Unmask!”</b> on a claim they don’t believe. Liars lose a mask. Honest nobles shuffle the mask they showed back into the wardrobe and draw a fresh one — and the accuser pays for the insult.</p>
       <p>Win by earning <b>⭐${E.FAVOR_WIN} Favor</b> with the Doge, or by being the <b>last noble still masked</b>. There’s no clock — the ball goes on until one of those happens.</p>
       <ul><li>🎭 ${E.MASK_ORDER.length} kinds of mask, ${E.COPIES} of each. The rest wait in the wardrobe.</li><li>🪙 Each noble starts with ${E.START_DUCATS} ducats and no Favor.</li><li>📰 The Gazette records every claim — and each noble’s row shows which masks they’ve claimed, so you can catch a liar who claims too many.</li></ul>`;

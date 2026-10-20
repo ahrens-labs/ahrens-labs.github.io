@@ -769,7 +769,7 @@
       if (holds(p, bk)) return { t: 'block', k: bk };
       // Bluff a block: always worth it if the poison would end the ball for you anyway.
       if (P.act.k === 'poisoner' && live(p).length <= 1) return { t: 'block', k: bk };
-      const odds = (plot(p) === 'wall' ? 0.2 : 0) + P.act.k === 'poisoner' ? L.bluff * 0.8 : P.act.k === 'jester' ? L.bluff * (p.favor >= FAVOR_WIN - 2 ? 0.9 : 0.4) : L.bluff * 0.25;
+      const odds = (plot(p) === 'wall' ? 0.2 : 0) + (P.act.k === 'poisoner' ? L.bluff * 0.8 : P.act.k === 'jester' ? L.bluff * (p.favor >= FAVOR_WIN - 2 ? 0.9 : 0.4) : L.bluff * 0.25);
       return Math.random() < odds ? { t: 'block', k: bk } : { t: 'pass' };
     }
     // My turn: weigh every move by what it gains, what it risks, and how likely it is to work.
