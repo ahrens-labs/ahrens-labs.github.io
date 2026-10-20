@@ -22,7 +22,7 @@
   const PCOLOR = ['#d6453c', '#3d86d9', '#2fae6a', '#a35ad8', '#e0a91d'];
   const SIGN = ['🌹', '🦢', '🍀', '🔮', '⭐'];
   const NOBLE_NAMES = ['Contessa Rosa', 'Count Azzurro', 'Lady Verde', 'Baron Viola', 'Marchesa Oro'];
-  const WHY = { lie: 'caught bluffing', wrong: 'a false accusation', poison: 'poison', scandal: 'a scandal' };
+  const WHY = { lie: 'caught bluffing', wrong: 'a false accusation', poison: 'poison', scandal: 'a scandal', slander: 'a whisper that wasn’t true', whisper: 'a true whisper' };
 
   const $ = (sel, root) => (root || document).querySelector(sel);
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -420,16 +420,27 @@
     const seen = viewerSeen();
     const tiles = p.masks.map((m) => maskTile(m, i, v, seen)).join('');
     const claims = E.MASK_ORDER.filter((k) => p.claims[k]).map((k) => `<span class="rumour" title="${esc(p.name)} has claimed ${esc(M(k).name)} ${plural(p.claims[k], 'time')}">${M(k).icon}${p.claims[k] > 1 ? `<b>×${p.claims[k]}</b>` : ''}</span>`).join('');
-    const pick = ui.pick && ui.pick.need === 'target' && E.targets(s, viewer()).includes(i) && !(ui.pick.k && E.claimProblem(s, viewer(), ui.pick.k, i, ui.pick.give || (E.live(pl(viewer()))[0] || {}).id));
+    const pick = ui.pick && ui.pick.need === 'target' && E.targets(s, viewer()).includes(i) && !(ui.pick.k && E.claimProblem(s, viewer(), ui.pick.k, i, ui.pick.give || (E.live(pl(viewer()))[0] || {}).id, !!ui.pick.pair));
     return `<div class="noble${turn ? ' turn' : ''}${deciding ? ' deciding' : ''}${p.out ? ' out' : ''}${me ? ' me' : ''}${pick ? ' pickable' : ''}" style="--pc:${PCOLOR[i]}" ${pick ? `data-target="${i}" role="button" tabindex="0" title="Choose ${esc(p.name)}"` : ''}>
       <div class="nb-head"><span class="nb-sign">${SIGN[i]}</span><b class="nb-name">${esc(p.name)}${you(i) ? ' <em>you</em>' : ''}</b>${p.ai && G.mode !== 'past' ? `<span class="nb-ai">🤖 ${LEVEL_NAME[p.level] || ''}</span>` : ''}</div>
       ${tag}
       <div class="nb-favor" title="${p.favor} of ${E.FAVOR_WIN} Favor">⭐ <b>${p.favor}</b>${pips(p.favor, E.FAVOR_WIN, 'favor')}</div>
       <div class="nb-stats"><span title="Ducats">🪙 <b>${p.ducats}</b></span><span title="Masks still worn">🎭 <b>${E.live(p).length}</b></span></div>
       <div class="nb-masks">${tiles}</div>
-      <div class="nb-rumours" title="Every mask this noble has claimed tonight">${claims ? `<small>Claimed:</small>${claims}` : '<small>No claims yet</small>'}</div>
+      <div class="nb-rumours" title="Every mask this noble has claimed since they last showed one">${claims ? `<small>Claimed:</small>${claims}` : '<small>No claims yet</small>'}</div>
+      ${intrigueLine(i, v)}
       ${pick ? '<span class="nb-pick">👉 Choose</span>' : ''}
     </div>`;
+  }
+  // Each noble's secret Intrigue: hidden from everyone else until it comes true (or the ball ends).
+  function intrigueLine(i, v) {
+    const ig = pl(i).intrigue;
+    if (!ig) return '';
+    const I = E.INTRIGUES[ig.id];
+    const open = I && (ig.done || st().phase === 'over' || G.mode === 'past' || G.mode === 'sim' || (i === v && privateOk()));
+    if (!open) return '<div class="nb-intrigue" title="A secret goal worth Favor when it comes true">📜 A secret Intrigue</div>';
+    const pr = E.intrigueProgress(pl(i));
+    return `<div class="nb-intrigue${ig.done ? ' done' : ''}" title="${esc(I.text)}">${I.icon} ${esc(I.name)} ${ig.done ? '✓' : `<small>${pr ? `${pr.have}/${pr.need}` : ''}</small>`}</div>`;
   }
   // The masks the viewer has peeked at (or been handed), by card.
   function viewerSeen() {
@@ -457,7 +468,7 @@
     if (G.mode === 'online' && G.status !== 'active') return '<div class="banner">The game has ended.</div>';
     const a = s.actor;
     if (!P) return `<div class="banner" style="--pc:${PCOLOR[a]}">${you(a) ? '<b>Your move.</b> Claim a mask’s power — any one, worn or not — or take a plain action.' : `${nobleName(a)} is choosing a move…`}</div>`;
-    const claim = P.act && P.act.t === 'claim' ? `${nobleName(P.actor)} claims <b>${esc(M(P.act.k).name)}</b>` : '';
+    const claim = P.act && P.act.t === 'claim' ? `${nobleName(P.actor)} claims <b>${esc(P.act.pair ? `the ${E.PAIRS[P.act.k].name}` : M(P.act.k).name)}</b>` : '';
     if (P.stage === 'challenge') return `<div class="banner" style="--pc:${PCOLOR[s.turn]}">${claim}. ${you(s.turn) ? '<b>Do you believe it?</b>' : `${nobleName(s.turn)} is deciding whether to call “Unmask!”…`}</div>`;
     if (P.stage === 'block' && P.act.k === 'duchess') return `<div class="banner" style="--pc:${PCOLOR[s.turn]}">${claim} for a Waltz. ${you(s.turn) ? '<b>Will you cut in?</b>' : `${nobleName(s.turn)} may cut in…`}</div>`;
     if (P.stage === 'block') return `<div class="banner" style="--pc:${PCOLOR[s.turn]}">${claim} against ${nobleName(P.act.target)}. ${you(s.turn) ? '<b>Will you block it?</b>' : `${nobleName(s.turn)} may block it…`}</div>`;
@@ -511,15 +522,30 @@
       return `<button class="power${why ? ' off' : ''}${ui.pick && ui.pick.k === k ? ' picked' : ''}" data-claim="${k}" ${why ? 'disabled' : ''} style="--mc:${m.color}">
         ${maskImg(k)}<span class="pw-body"><span class="pw-top"><b>${m.icon} ${esc(m.name)}</b>${why ? `<span class="pw-why">${esc(why)}</span>` : tag}</span><span class="pw-name">${esc(m.power)}</span><span class="pw-text">${esc(m.text)}</span>${block}</span></button>`;
     };
+    const anyPairTarget = (k) => E.targets(s, v).some((t) => !E.claimProblem(s, v, k, t, null, true));
+    const pairCard = (k) => {
+      const pr = E.PAIRS[k];
+      const both = !!E.wearing(p, [k, pr.with]);
+      const cost = E.costOf(k, true);
+      const why = cost && p.ducats < cost ? `Needs 🪙${cost}` : pr.target ? (anyPairTarget(k) ? '' : 'No one to target') : E.claimProblem(s, v, k, null, null, true);
+      const tag = both ? '<span class="pw-tag worn">✓ You wear both</span>' : '<span class="pw-tag bluff">🎭 Bluff</span>';
+      const stop = k === 'duchess' ? 'A rival Duchess can still cut in' : E.BLOCKER[k] ? `Blocked by ${M(E.BLOCKER[k]).name}, like the ${M(k).power}` : 'Can’t be blocked — only challenged';
+      return `<button class="power pair${why ? ' off' : ''}${ui.pick && ui.pick.k === k && ui.pick.pair ? ' picked' : ''}" data-pair="${k}" ${why ? 'disabled' : ''} style="--mc:${M(k).color}">
+        <span class="pair-imgs">${maskImg(k, 'mini')}${maskImg(pr.with, 'mini')}</span><span class="pw-body"><span class="pw-top"><b>${esc(pr.name)}</b>${why ? `<span class="pw-why">${esc(why)}</span>` : tag}</span><span class="pw-name">${esc(M(k).name)} + ${esc(M(pr.with).name)}</span><span class="pw-text">${esc(pr.text)}</span><small class="pw-block">🛡️ ${esc(stop)}</small></span></button>`;
+    };
     const basic = (t, icon, label, text, why) => `<button class="basic${why ? ' off' : ''}" data-basic="${t}" ${why ? 'disabled' : ''}><span>${icon}</span><b>${label}</b><small>${why || text}</small></button>`;
-    const picking = ui.pick ? `<div class="picking">👉 ${ui.pick.need === 'target' ? `Choose a noble above for <b>${esc(ui.pick.k ? M(ui.pick.k).power : 'the scandal')}</b>.` : ''} <button class="btn ghost sm" data-act="cancel">Cancel</button></div>` : '';
+    const pickWhat = !ui.pick ? '' : ui.pick.whisper ? 'your whisper' : ui.pick.k ? (ui.pick.pair ? `the ${E.PAIRS[ui.pick.k].name}` : M(ui.pick.k).power) : 'the scandal';
+    const picking = ui.pick ? `<div class="picking">👉 ${ui.pick.need === 'target' ? `Choose a noble above for <b>${esc(pickWhat)}</b>.` : ''} <button class="btn ghost sm" data-act="cancel">Cancel</button></div>` : '';
     return `<h3>🎭 Your move <small>claim any mask — the ones you don’t wear are bluffs</small></h3>
       ${picking}
       <div class="powers">${E.MASK_ORDER.map(power).join('')}</div>
+      <h3>🤝 Pair powers <small>claim two masks at once — both must be real</small></h3>
+      <div class="powers pairs">${E.PAIR_ORDER.map(pairCard).join('')}</div>
       <h3>🥂 Or simply…</h3>
       <div class="basics">
         ${basic('mingle', '🪙', 'Mingle', 'Take 🪙1. Nobody can stop it.')}
         ${basic('toast', '🥂', 'Toast the Doge', `Pay 🪙${E.TOAST_COST}: win ⭐1 Favor. Nobody can stop it.`, p.ducats < E.TOAST_COST ? `Needs 🪙${E.TOAST_COST}` : '')}
+        ${basic('whisper', '🗣️', 'Whisper', `Pay 🪙${E.WHISPER_COST}: name a mask a noble wears. Right — it’s torn off. Wrong — you pay ${insultCost(p)}.`, p.ducats < E.WHISPER_COST ? `Needs 🪙${E.WHISPER_COST}` : '')}
         ${basic('scandal', '📜', 'Start a scandal', `Pay 🪙${E.SCANDAL_COST}: a noble loses a mask. Nobody can stop it.`, p.ducats < E.SCANDAL_COST ? `Needs 🪙${E.SCANDAL_COST}` : '')}
       </div>`;
   }
@@ -527,12 +553,14 @@
     const m = M(P.k);
     const me = pl(v);
     const cost = insultCost(me);
+    const pair = P.pair ? E.PAIRS[P.k] : null;
     return `<div class="ask" style="--mc:${m.color}">
-      ${maskImg(P.k, 'big')}
-      <div><h3>${nobleName(P.claimer)} claims ${esc(m.name)}</h3>
+      ${pair ? `<span class="pair-imgs big">${maskImg(P.k, 'big')}${maskImg(P.pair, 'big')}</span>` : maskImg(P.k, 'big')}
+      <div><h3>${nobleName(P.claimer)} claims ${pair ? `the ${esc(pair.name)}` : esc(m.name)}</h3>
+      ${pair ? `<p class="muted">That means wearing both <b>${esc(m.name)}</b> and <b>${esc(M(P.pair).name)}</b>.</p>` : ''}
       <p>${esc(E.powerLine(st(), P.claimer, P.act))}</p>
-      <p class="muted">Call <b>“Unmask!”</b> if you think it’s a bluff. A liar loses a mask and the power fails. If they’re honest, they shuffle that mask back into the wardrobe, draw a fresh one, and you pay ${cost}.</p>
-      <p>${countHtml(P.k)}</p>
+      <p class="muted">Call <b>“Unmask!”</b> if you think it’s a bluff${pair ? ' — if either mask is missing, it’s a lie' : ''}. A liar loses a mask and the power fails. If they’re honest, they shuffle ${pair ? 'both masks' : 'that mask'} back into the wardrobe, draw fresh ones, and you pay ${cost}.</p>
+      <p>${countHtml(P.k)}${pair ? ` ${countHtml(P.pair)}` : ''}</p>
       <div class="btn-row"><button class="btn danger" data-ans="challenge">🎭 Unmask!</button><button class="btn ghost" data-ans="pass">Let it pass</button></div></div>
     </div>`;
   }
@@ -544,14 +572,14 @@
       return `<div class="ask" style="--mc:${M('duchess').color}">
       ${maskImg('duchess', 'big')}
       <div><h3>${nobleName(P.actor)} waltzes with the Doge</h3>
-      <p>Unless someone cuts in, they win ⭐1 Favor (they have ⭐${d.favor} of ${E.FAVOR_WIN}). Pay the band 🪙${E.CUT_IN_COST} and claim the Duchess to take the Doge’s hand — ${worn ? '<b class="good">you wear her.</b>' : '<b class="bad">you don’t wear her, so it would be a bluff</b> (if they call “Unmask!”, you lose a mask and they waltz anyway).'}</p>
+      <p>Unless someone cuts in, they win ⭐${P.act.pair ? 2 : 1} Favor (they have ⭐${d.favor} of ${E.FAVOR_WIN}). Pay the band 🪙${E.CUT_IN_COST} and claim the Duchess to take the Doge’s hand — ${worn ? '<b class="good">you wear her.</b>' : '<b class="bad">you don’t wear her, so it would be a bluff</b> (if they call “Unmask!”, you lose a mask and they waltz anyway).'}</p>
       <div class="btn-row"><button class="btn" data-ans="block" data-k="duchess">💃 Cut in (🪙${E.CUT_IN_COST})</button><button class="btn ghost" data-ans="pass">Let them dance</button></div></div>
     </div>`;
     }
-    const what = { jester: 'lose ⭐1 Favor to their rumour', poisoner: 'lose a mask to the poison', gondolier: 'have a mask swapped' }[P.act.k];
+    const what = { jester: P.act.pair ? 'lose ⭐1 Favor and 🪙2 to their rumour' : 'lose ⭐1 Favor to their rumour', poisoner: 'lose a mask to the poison', gondolier: 'have a mask swapped' }[P.act.k];
     return `<div class="ask" style="--mc:${M(P.act.k).color}">
       ${maskImg(P.act.k, 'big')}
-      <div><h3>${nobleName(P.actor)} uses ${esc(M(P.act.k).power)} on you</h3>
+      <div><h3>${nobleName(P.actor)} uses ${esc(P.act.pair ? `the ${E.PAIRS[P.act.k].name}` : M(P.act.k).power)} on you</h3>
       <p>Unless you stop it, you’ll ${what}. ${esc(M(bk).name)} can block it — ${worn ? '<b class="good">and you wear it.</b>' : '<b class="bad">you don’t wear it, so blocking would be a bluff</b> (if they call “Unmask!”, you lose a mask and it happens anyway).'}</p>
       <div class="btn-row"><button class="btn" data-ans="block" data-k="${bk}">${M(bk).icon} Block as ${esc(M(bk).name)}</button><button class="btn ghost" data-ans="pass">Let it happen</button></div></div>
     </div>`;
@@ -586,7 +614,11 @@
       const holder = st().players.findIndex((q, i) => i !== v && q.masks.some((m) => m.id === x.id && m.up === 'hidden'));
       return holder >= 0 ? `<li>${M(x.k).icon} ${nobleName(holder)} wears <b>${esc(M(x.k).name)}</b></li>` : '';
     }).filter(Boolean);
+    const I = p.intrigue && E.INTRIGUES[p.intrigue.id];
+    const pr = E.intrigueProgress(p);
+    const intrigue = I ? `<div class="intrigue${p.intrigue.done ? ' done' : ''}"><span class="ig-icon">${I.icon}</span><div><b>${p.intrigue.done ? 'Intrigue revealed' : 'Secret Intrigue'}: ${esc(I.name)}</b><span>${esc(I.text)}</span><small>${p.intrigue.done ? `✓ Done — it won ⭐${E.INTRIGUE_FAVOR} Favor` : `${pr.have} of ${pr.need} · worth ⭐${E.INTRIGUE_FAVOR} Favor the moment it comes true`}</small></div></div>` : '';
     return `<h3>🎭 ${you(v) || G.mode === 'local' ? 'Your masks' : `${esc(p.name)}’s masks`} <small>${G.mode === 'sim' ? 'whoever is deciding right now' : 'only you can see the hidden ones'}</small></h3>
+      ${intrigue}
       <div class="mcards">${p.masks.map(card).join('')}</div>
       ${seen.length ? `<h3>👁️ What you know</h3><ul class="known">${seen.join('')}</ul>` : ''}`;
   }
@@ -606,10 +638,12 @@
     if (!myDecision()) return;
     const c = e.target.closest('[data-claim]');
     if (c && !c.disabled) return startClaim(c.dataset.claim);
+    const pc = e.target.closest('[data-pair]');
+    if (pc && !pc.disabled) return startClaim(pc.dataset.pair, true);
     const b = e.target.closest('[data-basic]');
     if (b && !b.disabled) {
-      if (b.dataset.basic === 'scandal') {
-        ui.pick = { need: 'target', scandal: true };
+      if (b.dataset.basic === 'scandal' || b.dataset.basic === 'whisper') {
+        ui.pick = { need: 'target', [b.dataset.basic]: true };
         return render();
       }
       return doAction({ t: b.dataset.basic });
@@ -647,18 +681,39 @@
       return render();
     }
   }
-  function startClaim(k) {
+  function startClaim(k, pair) {
     const m = M(k);
-    if (!m.target) return claim({ t: 'claim', k });
-    ui.pick = { need: 'target', k };
+    if (!m.target) return claim({ t: 'claim', k, ...(pair ? { pair: true } : {}) });
+    ui.pick = { need: 'target', k, pair: !!pair };
     render();
   }
   function pickTarget(t) {
     const pk = ui.pick;
     ui.pick = null;
     if (pk.scandal) return doAction({ t: 'scandal', target: t });
+    if (pk.whisper) return chooseWhisper(t);
     if (pk.k === 'gondolier') return chooseGive(t);
-    claim({ t: 'claim', k: pk.k, target: t });
+    claim({ t: 'claim', k: pk.k, target: t, ...(pk.pair ? { pair: true } : {}) });
+  }
+  // A Whisper: which mask do you say they're wearing? What you've seen and what they've claimed helps you choose.
+  function chooseWhisper(t) {
+    const v = viewer();
+    const q = pl(t);
+    const seen = (pl(v).seen || []).filter((x) => q.masks.some((m) => m.id === x.id && m.up === 'hidden'));
+    const opt = (k) => {
+      const sure = seen.some((x) => x.k === k);
+      const claimed = q.claims[k] || 0;
+      return `<button class="lose-opt whisper-opt${sure ? ' sure' : ''}" data-wk="${k}" style="--mc:${M(k).color}">${maskImg(k)}<b>${esc(M(k).name)}</b><small>${sure ? '👁️ You’ve seen it on them' : claimed ? `Claimed ×${claimed}` : 'Never claimed'}</small><small class="muted">${(E.knowledge(st(), v).known[k] || 0)} of ${E.COPIES} seen</small></button>`;
+    };
+    const back = openModal(`<h2>🗣️ Whisper about ${esc(q.name)}</h2>
+      <p>Which mask is ${esc(q.name)} wearing? Right, and it’s torn off. Wrong, and you pay ${insultCost(pl(v))} for the slander. (🪙${E.WHISPER_COST} either way.)</p>
+      <div class="lose-pick whisper-pick">${E.MASK_ORDER.map(opt).join('')}</div>`, { onClose: () => render() });
+    back.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-wk]');
+      if (!b) return;
+      closeModal(true);
+      doAction({ t: 'whisper', target: t, k: b.dataset.wk });
+    });
   }
   // The Gondolier: which of your masks goes to the other noble.
   function chooseGive(t) {
@@ -675,12 +730,24 @@
   }
   // Claiming a mask you don't wear is a bluff: say so before it's done.
   function claim(a) {
-    const worn = E.live(pl(viewer())).some((x) => x.k === a.k);
+    const worn = !!E.wearing(pl(viewer()), [a.k, a.pair ? E.PAIRS[a.k].with : null].filter(Boolean));
     if (worn) return doAction(a);
-    confirmBluff(a.k, () => doAction(a), 'claim');
+    confirmBluff(a.k, () => doAction(a), 'claim', a.pair);
   }
-  function confirmBluff(k, go, what) {
+  function confirmBluff(k, go, what, pair) {
     const m = M(k);
+    if (pair) {
+      const w = M(E.PAIRS[k].with);
+      const back = openModal(`<div class="bluff-ask"><span class="pair-imgs big">${maskImg(k, 'big')}${maskImg(E.PAIRS[k].with, 'big')}</span><div><h2>🎭 A bluff</h2>
+        <p>You don’t wear both <b>${esc(m.name)}</b> and <b>${esc(w.name)}</b>. Claim the ${esc(E.PAIRS[k].name)} anyway — and hope nobody calls <b>“Unmask!”</b></p>
+        <p class="muted">If someone does, you lose a mask and the power fails${E.costOf(k, true) ? ` (the 🪙${E.costOf(k, true)} is spent either way)` : ''}.</p>
+        <div class="btn-row"><button class="btn danger" data-go>🎭 Bluff it</button><button class="btn ghost" data-close>Think again</button></div></div></div>`, { onClose: () => render() });
+      back.querySelector('[data-go]').onclick = () => {
+        closeModal(true);
+        go();
+      };
+      return;
+    }
     const back = openModal(`<div class="bluff-ask">${maskImg(k, 'big')}<div><h2>🎭 A bluff</h2>
       <p>You don’t wear <b>${esc(m.name)}</b>. ${what === 'block' ? 'Block anyway' : 'Claim it anyway'} — and hope nobody calls <b>“Unmask!”</b></p>
       <p class="muted">If someone does, you lose a mask${what === 'block' ? ' and it happens anyway' : ' and the power fails'}${m.cost && what !== 'block' ? ` (the 🪙${m.cost} is spent either way)` : ''}.</p>
@@ -737,8 +804,25 @@
       if (involved) unmaskReveal(ch);
       sfx(ch.truth ? (ch.of === v ? 'good' : 'bad') : ch.of === v ? 'bad' : 'good', 300);
     }
+    const wh = s.last && s.last.t === 'whisper' ? s.last : null;
+    if (wh && lines.some((l) => /to whisper that/.test(l.text))) {
+      const involved = G.mode === 'sim' ? G.speed === 'watch' : wh.who === v || wh.target === v || G.mode === 'local';
+      if (involved) whisperReveal(wh);
+      sfx(wh.truth ? (wh.target === v ? 'bad' : 'good') : wh.who === v ? 'bad' : 'good', 300);
+    }
     if (lines.some((l) => l.who != null && /takes 🪙|pocketed|won ⭐|wins ⭐|gains/.test(l.text))) sfx('coin', 150);
     void prev;
+  }
+  function whisperReveal(wh) {
+    const by = pl(wh.who).name;
+    const of = pl(wh.target).name;
+    openModal(`<div class="unmask ${wh.truth ? 'lie' : 'truth'}">
+      <div class="um-title">🗣️ A whisper</div>
+      <p><b>${esc(by)}</b> whispered that <b>${esc(of)}</b> is wearing <b>${esc(M(wh.k).name)}</b>.</p>
+      <div class="um-card ${wh.truth ? 'shake' : 'flip'}">${wh.truth ? maskImg(wh.k, 'big') : `<img class="mk-img big" src="${IMG('back')}" alt="">`}<span class="um-verdict">${wh.truth ? '✓ True!' : '✗ Not so!'}</span></div>
+      <p>${wh.truth ? `${esc(of)}’s ${esc(M(wh.k).name)} is torn off and out of play.` : `${esc(of)} wears no ${esc(M(wh.k).name)}, so ${esc(by)} pays for the slander.`}</p>
+      <div class="btn-row" style="justify-content:center"><button class="btn" data-close>Back to the ball</button></div></div>`, { cls: 'locked' });
+    if (G.mode === 'sim' || (G.mode === 'ai' && wh.who !== viewer() && wh.target !== viewer())) setTimeout(() => ui.modal && $('.unmask') && closeModal(), 2600);
   }
   function unmaskReveal(ch) {
     const k = ch.k;
@@ -747,9 +831,9 @@
     const lost = (st().last.lost || []).map((x) => `<span class="lost-mask">${maskImg(x.k)}<small>${esc(pl(x.who).name)} lost ${esc(M(x.k).name)}</small></span>`).join('');
     openModal(`<div class="unmask ${ch.truth ? 'truth' : 'lie'}">
       <div class="um-title">🎭 “Unmask!”</div>
-      <p><b>${esc(by)}</b> challenged <b>${esc(of)}</b>’s claim to be <b>${esc(M(k).name)}</b>.</p>
-      <div class="um-card ${ch.truth ? 'flip' : 'shake'}">${ch.truth ? maskImg(k, 'big') : `<img class="mk-img big" src="${IMG('back')}" alt="">`}<span class="um-verdict">${ch.truth ? '✓ Honest!' : '✗ A bluff!'}</span></div>
-      <p>${ch.truth ? `${esc(of)} really is ${esc(M(k).name)} — the mask is shuffled back into the wardrobe and ${esc(of)} draws a fresh one. ${esc(by)} pays for the insult.` : `${esc(of)} was bluffing and loses a mask.`}</p>
+      <p><b>${esc(by)}</b> challenged <b>${esc(of)}</b>’s claim to be <b>${esc(M(k).name)}</b>${ch.pair ? ` and <b>${esc(M(ch.pair).name)}</b>` : ''}.</p>
+      <div class="um-card ${ch.truth ? 'flip' : 'shake'}">${ch.truth ? (ch.pair ? `<span class="pair-imgs big">${maskImg(k, 'big')}${maskImg(ch.pair, 'big')}</span>` : maskImg(k, 'big')) : `<img class="mk-img big" src="${IMG('back')}" alt="">`}<span class="um-verdict">${ch.truth ? '✓ Honest!' : '✗ A bluff!'}</span></div>
+      <p>${ch.truth ? `${esc(of)} really is ${esc(M(k).name)}${ch.pair ? ` and ${esc(M(ch.pair).name)} — both masks are` : ' — the mask is'} shuffled back into the wardrobe and ${esc(of)} draws ${ch.pair ? 'fresh ones' : 'a fresh one'}. ${esc(by)} pays for the insult.` : `${esc(of)} was bluffing and loses a mask.`}</p>
       ${lost ? `<div class="um-lost">${lost}</div>` : ''}
       <div class="btn-row" style="justify-content:center"><button class="btn" data-close>Back to the ball</button></div></div>`, { cls: 'locked' });
     if (G.mode === 'sim' || (G.mode === 'ai' && ch.by !== viewer() && ch.of !== viewer())) setTimeout(() => ui.modal && $('.unmask') && closeModal(), 2600);
@@ -831,7 +915,7 @@
         <b class="fin-name">${SIGN[i]} ${esc(p.name)}${you(i) ? ' <em>you</em>' : ''}</b>
         <span class="fin-favor">⭐ ${p.favor}</span>
         <span class="fin-masks">${p.masks.map((m) => `<span class="tile ${m.up === 'lost' ? 'lost' : 'face'}" title="${esc(M(m.k).name)}">${maskImg(m.k)}${m.up === 'lost' ? '<i>✗</i>' : ''}</span>`).join('')}</span>
-        <small class="fin-note">${p.out ? 'left the ball' : `${plural(E.live(p).length, 'mask')} · 🪙${p.ducats}`}</small>
+        <small class="fin-note">${p.out ? 'left the ball' : `${plural(E.live(p).length, 'mask')} · 🪙${p.ducats}`}${p.intrigue && E.INTRIGUES[p.intrigue.id] ? ` · ${E.INTRIGUES[p.intrigue.id].icon} ${esc(E.INTRIGUES[p.intrigue.id].name)} ${p.intrigue.done ? '✓' : '✗'}` : ''}</small>
       </div>`;
     };
     if (!instant) sfx(w >= 0 && you(w) ? 'win' : w >= 0 && (G.mode === 'ai' || G.mode === 'online') ? 'lose' : 'reveal');
@@ -1022,7 +1106,7 @@
   }
 
   // ---------------------------------------------------------------- rules
-  const RULE_TABS = [['overview', 'The ball'], ['turn', 'Your turn'], ['masks', 'The masks'], ['unmask', '“Unmask!”'], ['blocks', 'Blocks'], ['winning', 'Winning']];
+  const RULE_TABS = [['overview', 'The ball'], ['turn', 'Your turn'], ['masks', 'The masks'], ['pairs', 'Pairs'], ['whisper', 'Whispers'], ['unmask', '“Unmask!”'], ['blocks', 'Blocks'], ['intrigue', 'Intrigues'], ['winning', 'Winning']];
   function rulesBody(tab) {
     const maskRow = (k) => `<tr><td>${maskImg(k, 'tiny')} <b>${esc(M(k).name)}</b></td><td><b>${esc(M(k).power)}</b>: ${esc(M(k).text)}</td><td>${esc(blocksLine(k)) || '—'}</td></tr>`;
     if (tab === 'overview') return `<p>Venice, carnival night. Every noble at the Doge’s ball wears <b>two masks, face down</b>. Each mask has a power — but on your turn you may claim <b>any</b> mask’s power, whether you’re wearing it or not.</p>
@@ -1030,8 +1114,18 @@
       <p>Win by earning <b>⭐${E.FAVOR_WIN} Favor</b> with the Doge, or by being the <b>last noble still masked</b>. There’s no clock — the ball goes on until one of those happens.</p>
       <ul><li>🎭 ${E.MASK_ORDER.length} kinds of mask, ${E.COPIES} of each. The rest wait in the wardrobe.</li><li>🪙 Each noble starts with ${E.START_DUCATS} ducats and no Favor.</li><li>📰 The Gazette records every claim — and each noble’s row shows which masks they’ve claimed, so you can catch a liar who claims too many.</li></ul>`;
     if (tab === 'turn') return `<p>On your turn, do <b>one</b> thing:</p>
-      <ul><li>🪙 <b>Mingle</b> — take 🪙1.</li><li>🥂 <b>Toast the Doge</b> — pay 🪙${E.TOAST_COST} to win ⭐1 Favor.</li><li>📜 <b>Start a scandal</b> — pay 🪙${E.SCANDAL_COST}: a noble loses a mask.</li><li>🎭 <b>Claim a mask’s power</b> — any of the seven. Others may call “Unmask!”.</li></ul>
+      <ul><li>🪙 <b>Mingle</b> — take 🪙1.</li><li>🥂 <b>Toast the Doge</b> — pay 🪙${E.TOAST_COST} to win ⭐1 Favor.</li><li>🗣️ <b>Whisper</b> — pay 🪙${E.WHISPER_COST} and name a mask a noble wears. Right, and it’s torn off; wrong, and you pay ⭐${E.INSULT_FAVOR} Favor (or a mask).</li><li>📜 <b>Start a scandal</b> — pay 🪙${E.SCANDAL_COST}: a noble loses a mask.</li><li>🤝 <b>Claim a pair</b> — two masks at once, for a stronger power.</li><li>🎭 <b>Claim a mask’s power</b> — any of the seven. Others may call “Unmask!”.</li></ul>
       <p>The plain actions can’t be challenged or blocked. A claimed power can be challenged by anyone, and some can be blocked — by the noble they’re aimed at, or, for a Waltz, by any rival who cuts in.</p>`;
+    if (tab === 'pairs') return `<p>Claim <b>two masks at once</b> for a stronger version of the first mask’s power. Anyone may call “Unmask!” — and the claim is only honest if you wear <b>both</b>. If either is missing, it’s a bluff and you lose a mask.</p>
+      <table class="rules-table"><tr><th>Pair</th><th>Masks</th><th>Power</th></tr>${E.PAIR_ORDER.map((k) => `<tr><td><b>${esc(E.PAIRS[k].name)}</b></td><td>${maskImg(k, 'tiny')} ${maskImg(E.PAIRS[k].with, 'tiny')}</td><td>${esc(E.PAIRS[k].text)}</td></tr>`).join('')}</table>
+      <p class="muted">Blocks still work on pairs: the Doge stops the Court Fool, the Plague Doctor stops the Apothecary, and a rival Duchess can cut in on the Royal Court’s waltz. An honest pair sends both masks back into the wardrobe.</p>`;
+    if (tab === 'whisper') return `<p>Instead of claiming, you can <b>whisper</b>: pay 🪙${E.WHISPER_COST}, pick a noble, and name a mask you think they’re wearing.</p>
+      <ul><li><b>Right?</b> That mask is torn off and out of play — they don’t get to choose.</li><li><b>Wrong?</b> You pay for the slander: ⭐${E.INSULT_FAVOR} Favor, or a mask if you have less.</li></ul>
+      <p>A whisper can’t be challenged or blocked. It rewards paying attention: the Spy’s peeks, the Gondolier’s swaps, and every honest claim tell you something. Which means claiming a mask you really wear can give it away.</p>
+      <p class="muted">Each noble’s card shows the masks they’ve claimed since they last showed one. When an honest mask is shown and shuffled away, its claims are wiped — it isn’t there any more.</p>`;
+    if (tab === 'intrigue') return `<p>Every noble is dealt one <b>secret Intrigue</b> — a goal only they know. The moment it comes true it’s revealed and wins <b>⭐${E.INTRIGUE_FAVOR} Favor</b>, which can win the ball outright.</p>
+      <table class="rules-table"><tr><th>Intrigue</th><th>Comes true when you…</th></tr>${E.INTRIGUE_ORDER.map((k) => `<tr><td>${E.INTRIGUES[k].icon} <b>${esc(E.INTRIGUES[k].name)}</b></td><td>${esc(E.INTRIGUES[k].text)}</td></tr>`).join('')}</table>
+      <p class="muted">Watch what your rivals chase: a noble toasting again and again, or bluffing boldly, may be one step from their Intrigue.</p>`;
     if (tab === 'masks') return `<table class="rules-table"><tr><th>Mask</th><th>Power</th><th>Block</th></tr>${E.MASK_ORDER.map(maskRow).join('')}</table>
       <p class="muted">The Gondolier makes bluffing slippery: after a swap, the mask you were counting on might be in someone else’s hands — and they know exactly what they got.</p>`;
     if (tab === 'unmask') return `<p>When someone claims a power — or a block — any other noble may call <b>“Unmask!”</b>. The claimer must show a mask of that kind:</p>

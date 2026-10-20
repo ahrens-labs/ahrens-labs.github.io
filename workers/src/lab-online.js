@@ -333,7 +333,9 @@ function cleanMasquerade(a) {
       return idx(a.target) ? { t: 'scandal', target: a.target } : null;
     case 'claim':
       if (!MASK_KINDS.has(a.k)) return null;
-      return { t: 'claim', k: a.k, target: idx(a.target) ? a.target : null, give: isInt(a.give) ? a.give : null };
+      return { t: 'claim', k: a.k, target: idx(a.target) ? a.target : null, give: isInt(a.give) ? a.give : null, ...(a.pair === true ? { pair: true } : {}) };
+    case 'whisper':
+      return idx(a.target) && MASK_KINDS.has(a.k) ? { t: 'whisper', target: a.target, k: a.k } : null;
     case 'block':
       return MASK_KINDS.has(a.k) ? { t: 'block', k: a.k } : null;
     case 'lose':
@@ -342,17 +344,21 @@ function cleanMasquerade(a) {
       return null;
   }
 }
-// Every other noble's hidden masks, what they've peeked at, and the wardrobe stay on the server until midnight.
+// Every other noble's hidden masks, what they've peeked at, their secret Intrigue and its progress (which would give
+// away bluffs), whether the claim on the table is honest, and the wardrobe stay on the server until the ball ends.
 function publicMasquerade(state, me) {
   if (!state) return null;
   const s = Masquerade.clone(state);
   s.seed = 0;
   s.wardrobe = s.wardrobe.map(() => null);
   if (state.phase === 'over') return s;
+  if (s.pending) delete s.pending.honest;
   s.players.forEach((p, i) => {
     if (i === me) return;
     p.masks = p.masks.map((m) => (m.up === 'hidden' ? { id: m.id, k: null, up: 'hidden' } : m));
     p.seen = [];
+    p.stats = null;
+    if (p.intrigue && !p.intrigue.done) p.intrigue = { id: null, done: false };
   });
   return s;
 }
