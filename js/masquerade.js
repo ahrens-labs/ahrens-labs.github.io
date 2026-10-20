@@ -425,7 +425,6 @@
   function maskTile(m, owner, v, seen) {
     const over = st().phase === 'over';
     if (m.up === 'lost') return `<span class="tile lost" title="${esc(M(m.k).name)} — lost">${maskImg(m.k)}<i>✗</i></span>`;
-    if (m.up === 'proven') return `<span class="tile proven" title="${esc(M(m.k).name)} — proven: it can’t be challenged">${maskImg(m.k)}<i>🔒</i></span>`;
     const mine = owner === v && privateOk();
     if (m.k && (mine || over || G.mode === 'past')) return `<span class="tile face${mine && !over ? ' secret' : ''}" title="${esc(M(m.k).name)}${mine && !over ? ' — only you can see this' : ''}">${maskImg(m.k)}</span>`;
     const known = seen.find((x) => x.id === m.id);
@@ -433,11 +432,8 @@
     return '<span class="tile back" title="A hidden mask"><img src="' + IMG('back') + '" alt=""></span>';
   }
 
-  const blocksLine = (k) => {
-    const m = M(k);
-    if (!m.blocks) return '';
-    return k === 'duchess' ? `Blocks ${M(m.blocks).power} · cuts in on a Waltz (🪙${E.CUT_IN_COST})` : `Blocks ${M(m.blocks).power}`;
-  };
+  const blocksLine = (k) => (k === 'duchess' ? `Cuts in on a Waltz (🪙${E.CUT_IN_COST})` : M(k).blocks ? `Blocks ${M(M(k).blocks).power}` : '');
+  const insultCost = (p) => (p.favor >= E.INSULT_FAVOR ? `⭐${E.INSULT_FAVOR} Favor` : 'a mask');
 
   function bannerHtml() {
     const s = st();
@@ -494,10 +490,9 @@
     const power = (k) => {
       const m = M(k);
       const worn = E.live(p).some((x) => x.k === k);
-      const proven = E.proven(p, k);
       const why = m.target ? (anyTarget(k) ? (m.cost && p.ducats < m.cost ? `Needs 🪙${m.cost}` : '') : 'No one to target') : E.claimProblem(s, v, k);
-      const tag = proven ? '<span class="pw-tag proven">🔒 Proven</span>' : worn ? '<span class="pw-tag worn">✓ You wear it</span>' : '<span class="pw-tag bluff">🎭 Bluff</span>';
-      const block = m.blocks ? `<small class="pw-block">🛡️ ${esc(blocksLine(k))}</small>` : '';
+      const tag = worn ? '<span class="pw-tag worn">✓ You wear it</span>' : '<span class="pw-tag bluff">🎭 Bluff</span>';
+      const block = blocksLine(k) ? `<small class="pw-block">🛡️ ${esc(blocksLine(k))}</small>` : '';
       return `<button class="power${why ? ' off' : ''}${ui.pick && ui.pick.k === k ? ' picked' : ''}" data-claim="${k}" ${why ? 'disabled' : ''} style="--mc:${m.color}">
         ${maskImg(k)}<span class="pw-body"><span class="pw-top"><b>${m.icon} ${esc(m.name)}</b>${why ? `<span class="pw-why">${esc(why)}</span>` : tag}</span><span class="pw-name">${esc(m.power)}</span><span class="pw-text">${esc(m.text)}</span>${block}</span></button>`;
     };
@@ -516,12 +511,12 @@
   function challengeHtml(P, v) {
     const m = M(P.k);
     const me = pl(v);
-    const cost = me.favor > 0 ? '⭐1 Favor' : 'a mask';
+    const cost = insultCost(me);
     return `<div class="ask" style="--mc:${m.color}">
       ${maskImg(P.k, 'big')}
       <div><h3>${nobleName(P.claimer)} claims ${esc(m.name)}</h3>
       <p>${esc(E.powerLine(st(), P.claimer, P.act))}</p>
-      <p class="muted">Call <b>“Unmask!”</b> if you think it’s a bluff. A liar loses a mask and the power fails. If they’re honest, their mask is proven for good and you pay ${cost}.</p>
+      <p class="muted">Call <b>“Unmask!”</b> if you think it’s a bluff. A liar loses a mask and the power fails. If they’re honest, they shuffle that mask back into the wardrobe, draw a fresh one, and you pay ${cost}.</p>
       <p>${countHtml(P.k)}</p>
       <div class="btn-row"><button class="btn danger" data-ans="challenge">🎭 Unmask!</button><button class="btn ghost" data-ans="pass">Let it pass</button></div></div>
     </div>`;
@@ -551,7 +546,7 @@
     return `<div class="ask" style="--mc:${M(P.k).color}">
       ${maskImg(P.k, 'big')}
       <div><h3>${nobleName(P.claimer)} ${P.act.k === 'duchess' ? 'cuts in as' : 'blocks with'} ${esc(M(P.k).name)}</h3>
-      <p>Believe them and your ${esc(M(P.act.k).power)} is stopped. Call “Unmask!”: if they’re bluffing they lose a mask and your power goes ahead; if they’re honest, you pay ${me.favor > 0 ? '⭐1 Favor' : 'a mask'}.</p>
+      <p>Believe them and your ${esc(M(P.act.k).power)} is stopped. Call “Unmask!”: if they’re bluffing they lose a mask and your power goes ahead; if they’re honest, they draw a fresh mask and you pay ${insultCost(me)}.</p>
       <p>${countHtml(P.k)}</p>
       <div class="btn-row"><button class="btn danger" data-ans="challenge">🎭 Unmask!</button><button class="btn ghost" data-ans="pass">Accept the block</button></div></div>
     </div>`;
@@ -559,12 +554,9 @@
   function loseHtml(v) {
     const p = pl(v);
     const P = st().pending;
-    const note = P.onlyProven
-      ? 'Your proven masks are famous, so poison and scandal strike them first. Choose which proven mask goes.'
-      : 'It’s turned face up and out of play. A face-down mask you keep can still be bluffed around; a proven one can’t be challenged.';
     return `<h3>💔 You must lose a mask <small>${esc(WHY[P.why] || '')}</small></h3>
-      <p class="muted">${note}</p>
-      <div class="lose-pick">${E.losable(st(), v).map((m) => `<button class="lose-opt" data-lose="${m.id}" style="--mc:${M(m.k).color}">${maskImg(m.k)}<b>${esc(M(m.k).name)}</b><small>${m.up === 'proven' ? '🔒 proven' : '🙈 hidden'}</small></button>`).join('')}</div>`;
+      <p class="muted">It’s turned face up and out of play. Keep the mask you’d rather wear — and bluff around.</p>
+      <div class="lose-pick">${E.live(p).map((m) => `<button class="lose-opt" data-lose="${m.id}" style="--mc:${M(m.k).color}">${maskImg(m.k)}<b>${esc(M(m.k).name)}</b><small>🙈 hidden</small></button>`).join('')}</div>`;
   }
 
   function myMasksHtml(v) {
@@ -572,8 +564,8 @@
     if (!privateOk()) return `<h3>🎭 Behind the mask</h3><div class="curtain small"><b>Masks hidden</b><span>${esc(p.name)}, tap to look — make sure nobody else can see.</span><button class="btn sm" data-act="show">👀 Show ${esc(p.name)}’s masks</button></div>`;
     const card = (m) => {
       const mk = M(m.k);
-      const st_ = m.up === 'lost' ? '<span class="mc-state lost">✗ Lost</span>' : m.up === 'proven' ? '<span class="mc-state proven">🔒 Proven — face up</span>' : '<span class="mc-state">🙈 Hidden</span>';
-      return `<div class="mcard ${m.up}" style="--mc:${mk.color}">${maskImg(m.k)}<div class="mc-body"><b>${mk.icon} ${esc(mk.name)}</b><span>${esc(mk.power)}: ${esc(mk.text)}</span>${mk.blocks ? `<small>🛡️ ${esc(blocksLine(m.k))}</small>` : ''}${st_}</div></div>`;
+      const st_ = m.up === 'lost' ? '<span class="mc-state lost">✗ Lost</span>' : '<span class="mc-state">🙈 Hidden</span>';
+      return `<div class="mcard ${m.up}" style="--mc:${mk.color}">${maskImg(m.k)}<div class="mc-body"><b>${mk.icon} ${esc(mk.name)}</b><span>${esc(mk.power)}: ${esc(mk.text)}</span>${blocksLine(m.k) ? `<small>🛡️ ${esc(blocksLine(m.k))}</small>` : ''}${st_}</div></div>`;
     };
     const seen = (p.seen || []).map((x) => {
       const holder = st().players.findIndex((q, i) => i !== v && q.masks.some((m) => m.id === x.id && m.up === 'hidden'));
@@ -658,7 +650,7 @@
     const p = pl(viewer());
     const back = openModal(`<h2>🛶 Which mask do you give ${esc(pl(t).name)}?</h2>
       <p>You’ll get one of their hidden masks at random — and you’ll both see what you got.</p>
-      <div class="lose-pick">${E.live(p).map((m) => `<button class="lose-opt" data-give="${m.id}" style="--mc:${M(m.k).color}">${maskImg(m.k)}<b>${esc(M(m.k).name)}</b><small>${m.up === 'proven' ? '🔒 proven' : '🙈 hidden'}</small></button>`).join('')}</div>`, { onClose: () => render() });
+      <div class="lose-pick">${E.live(p).map((m) => `<button class="lose-opt" data-give="${m.id}" style="--mc:${M(m.k).color}">${maskImg(m.k)}<b>${esc(M(m.k).name)}</b><small>🙈 hidden</small></button>`).join('')}</div>`, { onClose: () => render() });
     back.addEventListener('click', (e) => {
       const b = e.target.closest('[data-give]');
       if (!b) return;
@@ -742,7 +734,7 @@
       <div class="um-title">🎭 “Unmask!”</div>
       <p><b>${esc(by)}</b> challenged <b>${esc(of)}</b>’s claim to be <b>${esc(M(k).name)}</b>.</p>
       <div class="um-card ${ch.truth ? 'flip' : 'shake'}">${ch.truth ? maskImg(k, 'big') : `<img class="mk-img big" src="${IMG('back')}" alt="">`}<span class="um-verdict">${ch.truth ? '✓ Honest!' : '✗ A bluff!'}</span></div>
-      <p>${ch.truth ? `${esc(of)} really is ${esc(M(k).name)} — the mask is now <b>proven</b>, face up for the rest of the ball. ${esc(by)} pays for the insult.` : `${esc(of)} was bluffing and loses a mask.`}</p>
+      <p>${ch.truth ? `${esc(of)} really is ${esc(M(k).name)} — the mask is shuffled back into the wardrobe and ${esc(of)} draws a fresh one. ${esc(by)} pays for the insult.` : `${esc(of)} was bluffing and loses a mask.`}</p>
       ${lost ? `<div class="um-lost">${lost}</div>` : ''}
       <div class="btn-row" style="justify-content:center"><button class="btn" data-close>Back to the ball</button></div></div>`, { cls: 'locked' });
     if (G.mode === 'ai' && ch.by !== viewer() && ch.of !== viewer()) setTimeout(() => ui.modal && $('.unmask') && closeModal(), 2600);
@@ -946,9 +938,9 @@
   // ---------------------------------------------------------------- rules
   const RULE_TABS = [['overview', 'The ball'], ['turn', 'Your turn'], ['masks', 'The masks'], ['unmask', '“Unmask!”'], ['blocks', 'Blocks'], ['winning', 'Winning']];
   function rulesBody(tab) {
-    const maskRow = (k) => `<tr><td>${maskImg(k, 'tiny')} <b>${esc(M(k).name)}</b></td><td><b>${esc(M(k).power)}</b>: ${esc(M(k).text)}</td><td>${M(k).blocks ? esc(blocksLine(k)) : '—'}</td></tr>`;
+    const maskRow = (k) => `<tr><td>${maskImg(k, 'tiny')} <b>${esc(M(k).name)}</b></td><td><b>${esc(M(k).power)}</b>: ${esc(M(k).text)}</td><td>${esc(blocksLine(k)) || '—'}</td></tr>`;
     if (tab === 'overview') return `<p>Venice, carnival night. Every noble at the Doge’s ball wears <b>two masks, face down</b>. Each mask has a power — but on your turn you may claim <b>any</b> mask’s power, whether you’re wearing it or not.</p>
-      <p>Everyone else can call <b>“Unmask!”</b> on a claim they don’t believe. Liars lose a mask. Honest nobles have their mask turned face up — <b>proven</b> for the rest of the ball — and the accuser pays for the insult.</p>
+      <p>Everyone else can call <b>“Unmask!”</b> on a claim they don’t believe. Liars lose a mask. Honest nobles shuffle the mask they showed back into the wardrobe and draw a fresh one — and the accuser pays for the insult.</p>
       <p>Win by earning <b>⭐${E.FAVOR_WIN} Favor</b> with the Doge, by being the <b>last noble still masked</b>, or by having the most Favor when <b>midnight</b> strikes after ${E.CHIMES} rounds.</p>
       <ul><li>🎭 ${E.MASK_ORDER.length} kinds of mask, ${E.COPIES} of each. The rest wait in the wardrobe.</li><li>🪙 Each noble starts with ${E.START_DUCATS} ducats and no Favor.</li><li>📰 The Gazette records every claim — and each noble’s row shows which masks they’ve claimed, so you can catch a liar who claims too many.</li></ul>`;
     if (tab === 'turn') return `<p>On your turn, do <b>one</b> thing:</p>
@@ -958,13 +950,13 @@
       <p class="muted">The Gondolier makes bluffing slippery: after a swap, the mask you were counting on might be in someone else’s hands — and they know exactly what they got.</p>`;
     if (tab === 'unmask') return `<p>When someone claims a power — or a block — any other noble may call <b>“Unmask!”</b>. The claimer must show a mask of that kind:</p>
       <ul><li><b>Bluffing?</b> They lose a mask of their choice (it’s turned face up and out of play) and the power fails. A bluffed block fails, and the power goes ahead.</li>
-      <li><b>Honest?</b> Their mask is turned face up and stays that way — <b>proven</b>. Nobody can challenge that power from them again, but now everyone knows. The accuser pays <b>⭐1 Favor</b>, or a mask if they have no Favor.</li></ul>
-      <p><b>Fame has a price:</b> a proven mask can’t be challenged, but poison and scandal strike proven masks first.</p>
+      <li><b>Honest?</b> They show the mask, shuffle it back into the wardrobe and draw a fresh one, so nobody knows what they wear now. The power still happens. The accuser pays <b>⭐${E.INSULT_FAVOR} Favor</b> — or, with less than ⭐${E.INSULT_FAVOR}, a mask.</li></ul>
+      <p class="muted">There are always ${E.COPIES} of each mask in play — between the nobles, the lost pile and the wardrobe.</p>
       <p class="muted">Losing both masks means leaving the ball. The Plague Doctor’s Remedy brings a lost mask back.</p>`;
     if (tab === 'blocks') return `<p>Three powers can be blocked by the noble they target:</p>
-      <ul><li>🃏 The Jester’s Rumour — blocked by 💃 the Duchess.</li><li>🧪 The Poisoner’s Poison — blocked by ⚕️ the Plague Doctor.</li><li>🛶 The Gondolier’s Secret passage — blocked by 🕵️ the Spy.</li></ul>
+      <ul><li>🃏 The Jester’s Rumour — blocked by 👑 the Doge.</li><li>🧪 The Poisoner’s Poison — blocked by ⚕️ the Plague Doctor.</li><li>🛶 The Gondolier’s Secret passage — blocked by 🕵️ the Spy.</li></ul>
       <p><b>Cutting in:</b> when someone claims the Duchess’s Waltz, any rival may pay the band 🪙${E.CUT_IN_COST} and claim the Duchess to take the Doge’s hand instead — the waltz wins no Favor.</p>
-      <p>A block is a claim too: only the noble who was blocked may call “Unmask!” on it. A proven blocking mask can’t be challenged.</p>`;
+      <p>A block is a claim too: only the noble who was blocked may call “Unmask!” on it.</p>`;
     return `<ul><li>⭐ Reach <b>${E.FAVOR_WIN} Favor</b> and you win at once.</li><li>🎭 Be the <b>last noble still masked</b> and you win.</li><li>🕛 After <b>${E.CHIMES} rounds</b> midnight strikes: the most Favor wins. Ties go to the noble still at the ball with more masks, then more ducats.</li></ul>
       <p class="muted">Favor comes from the Duchess’s Waltz, the Jester’s Rumour, and toasts — and goes when you accuse an honest noble. Waltzes can be cut in on, so a toast is the one sure way to win Favor.</p>`;
   }

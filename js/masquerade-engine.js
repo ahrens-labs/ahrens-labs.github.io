@@ -1,7 +1,7 @@
 // The Masquerade Court — rules engine and computer player. No DOM access, so it also runs in Node and on the server.
 // Each noble wears two masks, face down. On your turn you may claim any mask's power — whether you wear it or not.
-// Anyone may call "Unmask!": a liar loses a mask; an honest noble's mask is turned face up for good (proven), and the
-// accuser pays ⭐1 Favor for the insult (or a mask, with no Favor to give). First to 7 Favor wins; so does the last noble still masked; at midnight (after 12
+// Anyone may call "Unmask!": a liar loses a mask; an honest noble shuffles the shown mask back into the wardrobe and
+// draws a fresh one, and the accuser pays ⭐2 Favor for the insult (or a mask, with less to give). First to 7 Favor wins; so does the last noble still masked; at midnight (after 12
 // rounds) the most Favor wins.
 (function (root) {
   'use strict';
@@ -14,11 +14,12 @@
   const TOAST_COST = 3;
   const SCANDAL_COST = 7;
   const CUT_IN_COST = 2;
+  const INSULT_FAVOR = 2;
 
   // Each mask's power, and which power it can stop. cost is paid when the power is claimed, whatever happens.
   const MASKS = {
-    doge: { name: 'The Doge', icon: '👑', color: '#b8282e', power: 'Patronage', text: 'Take 🪙3 from the Doge’s treasury.' },
-    duchess: { name: 'The Duchess', icon: '💃', color: '#d9668f', power: 'Waltz', text: 'Gain ⭐1 Favor — unless a rival Duchess cuts in.', blocks: 'jester' },
+    doge: { name: 'The Doge', icon: '👑', color: '#b8282e', power: 'Patronage', text: 'Take 🪙3 from the Doge’s treasury.', blocks: 'jester' },
+    duchess: { name: 'The Duchess', icon: '💃', color: '#d9668f', power: 'Waltz', text: 'Gain ⭐1 Favor — unless a rival Duchess cuts in.' },
     jester: { name: 'The Jester', icon: '🃏', color: '#7a3fb0', power: 'Rumour', text: 'Steal ⭐1 Favor from a noble.', target: true },
     poisoner: { name: 'The Poisoner', icon: '🧪', color: '#1f7a4a', power: 'Poison', text: 'Pay 🪙4: a noble loses a mask.', target: true, cost: 4 },
     doctor: { name: 'The Plague Doctor', icon: '⚕️', color: '#1f6f78', power: 'Remedy', text: 'Pay 🪙4: if you’ve lost a mask, take a fresh one from the wardrobe.', cost: 4, blocks: 'poisoner' },
@@ -31,13 +32,11 @@
   MASK_ORDER.forEach((k) => MASKS[k].blocks && (BLOCKER[MASKS[k].blocks] = k));
   // Any rival may cut in on a Waltz by claiming the Duchess; the other blocks belong to the noble targeted.
   BLOCKER.duchess = 'duchess';
-  // Poison and scandal hit famous (proven) masks first.
-  const FAME_HITS = { poison: 1, scandal: 1 };
 
   const LEVELS = {
     easy: { noise: 8, bluff: 0.15, read: 0.25, wild: 0.12 },
     normal: { noise: 3, bluff: 0.35, read: 0.7, wild: 0.04 },
-    hard: { noise: 1, bluff: 0.45, read: 0.9, wild: 0.01 },
+    hard: { noise: 2, bluff: 0.4, read: 0.85, wild: 0.02 },
     brutal: { noise: 0, bluff: 0.3, read: 1, wild: 0 },
   };
 
@@ -167,7 +166,7 @@
     if (P.stage === 'blockChallenge') return a.t === 'pass' || a.t === 'challenge' ? '' : 'Call “Unmask!” or accept the block.';
     if (P.stage === 'lose') {
       if (a.t !== 'lose') return 'Choose a mask to lose.';
-      return losable(state, pi).some((m) => m.id === a.id) ? '' : P.onlyProven ? 'It has to be one of your proven masks.' : 'Pick one of your masks.';
+      return live(p).some((m) => m.id === a.id) ? '' : 'Pick one of your masks.';
     }
     return 'That isn’t a move.';
   }
@@ -206,11 +205,6 @@
       Object.assign(state.last, { k: a.k, target: act.target });
       log(state, `${p.name} claims ${maskName(a.k)}: ${powerLine(state, pi, act)}`, pi);
       state.pending = { act, actor: pi, stage: null, claimer: pi, k: a.k, responders: [], passed: [], next: [] };
-      if (proven(p, a.k)) {
-        log(state, `${p.name}’s ${maskName(a.k)} is already proven — nobody can challenge it.`);
-        state.pending.next = [{ s: 'afterClaim' }];
-        return run(state);
-      }
       return openChallenge(state, pi, a.k);
     }
     if (P.stage === 'challenge') {
@@ -246,12 +240,6 @@
       P.blocker = pi;
       P.claimer = pi;
       P.k = a.k;
-      if (proven(t, a.k)) {
-        log(state, `${t.name}’s ${maskName(a.k)} is proven, so the block stands.`);
-        P.stage = null;
-        P.next = [{ s: 'blocked' }];
-        return run(state);
-      }
       // Only the noble who was blocked may call the blocker a liar.
       P.stage = 'blockChallenge';
       state.turn = P.actor;
@@ -268,13 +256,11 @@
     if (P.stage === 'lose') {
       loseMask(state, pi, a.id, P.why);
       P.stage = null;
-      P.onlyProven = false;
       return run(state);
     }
     return state;
   }
 
-  const proven = (p, k) => p.masks.some((m) => m.k === k && m.up === 'proven');
   function powerLine(state, pi, act) {
     const t = act.target != null ? state.players[act.target].name : '';
     switch (act.k) {
@@ -298,11 +284,13 @@
     }
     return out;
   }
-  // The masks a noble may give up right now: proven ones first when poison or scandal strikes.
-  function losable(state, pi) {
-    const ms = live(state.players[pi]);
-    const P = state.pending;
-    return P && P.onlyProven ? ms.filter((m) => m.up === 'proven') : ms;
+  // Put a mask back in the wardrobe, face down; anyone who had peeked at it loses track of it.
+  function toWardrobe(state, m) {
+    m.up = 'hidden';
+    delete m.revealed;
+    state.players.forEach((q) => (q.seen = q.seen.filter((x) => x.id !== m.id)));
+    state.wardrobe.push(m);
+    shuffle(state, state.wardrobe);
   }
 
   // Everyone else still at the ball may call "Unmask!", in seat order from the claimer.
@@ -319,21 +307,23 @@
     const P = state.pending;
     const c = state.players[by];
     const cl = state.players[P.claimer];
-    const mask = cl.masks.find((m) => m.k === P.k && m.up === 'hidden');
+    const mask = live(cl).find((m) => m.k === P.k);
     log(state, `${c.name} calls “Unmask!” on ${cl.name}.`, by);
     state.last = Object.assign({}, state.last, { challenge: { by, of: P.claimer, k: P.k, truth: !!mask } });
     P.stage = null;
     if (mask) {
-      // Honest: the mask is turned face up and stays that way; the challenger pays with a mask.
-      mask.up = 'proven';
-      log(state, `${cl.name} really is ${maskName(P.k)}! The mask is turned face up — proven for the rest of the ball.`, P.claimer);
-      // A false accusation costs the accuser Favor; with none to give, a mask.
-      if (c.favor > 0) {
-        c.favor -= 1;
-        log(state, `${c.name} pays for the insult with ⭐1 Favor.`, by);
+      // Honest: the shown mask goes back into the wardrobe and the claimer draws a fresh one.
+      const slot = cl.masks.indexOf(mask);
+      toWardrobe(state, mask);
+      cl.masks[slot] = state.wardrobe.shift();
+      log(state, `${cl.name} really is ${maskName(P.k)}! The mask is shuffled back into the wardrobe and ${cl.name} draws a fresh one.`, P.claimer);
+      // A false accusation costs the accuser Favor; without enough to give, a mask.
+      if (c.favor >= INSULT_FAVOR) {
+        c.favor -= INSULT_FAVOR;
+        log(state, `${c.name} pays for the insult with ⭐${INSULT_FAVOR} Favor.`, by);
         P.next = P.blocking ? [{ s: 'blocked' }] : [{ s: 'afterClaim' }];
       } else {
-        log(state, `${c.name} has no Favor to lose, so pays with a mask.`, by);
+        log(state, `${c.name} hasn’t ⭐${INSULT_FAVOR} Favor to lose, so pays with a mask.`, by);
         P.next = [{ s: 'lose', who: by, why: 'wrong' }].concat(P.blocking ? [{ s: 'blocked' }] : [{ s: 'afterClaim' }]);
       }
     } else {
@@ -359,12 +349,9 @@
       if (step.s === 'lose') {
         const v = state.players[step.who];
         if (!inGame(v)) continue;
-        P.onlyProven = !!FAME_HITS[step.why] && v.masks.some((m) => m.up === 'proven');
-        if (P.onlyProven) log(state, `${v.name}’s proven mask is famous — that’s the one that has to go.`);
-        const ms = losable(state, step.who);
+        const ms = live(v);
         if (ms.length <= 1) {
           if (ms.length) loseMask(state, step.who, ms[0].id, step.why);
-          P.onlyProven = false;
           continue;
         }
         P.stage = 'lose';
@@ -437,9 +424,7 @@
           const fresh = state.wardrobe.shift();
           fresh.up = 'hidden';
           p.masks[p.masks.indexOf(gone)] = fresh;
-          gone.up = 'hidden';
-          state.wardrobe.push(gone);
-          shuffle(state, state.wardrobe);
+          toWardrobe(state, gone);
           log(state, `${p.name} takes a fresh mask from the wardrobe.`, pi);
         }
         break;
@@ -582,7 +567,6 @@
   function holdsChance(state, pi, who, k) {
     const me = state.players[pi];
     const p = state.players[who];
-    if (p.masks.some((m) => m.k === k && m.up === 'proven')) return 1;
     const hid = hidden(p);
     if (hid.some((m) => m.k === k && me.seen.some((x) => x.id === m.id))) return 1;
     const unseenHere = hid.filter((m) => !me.seen.some((x) => x.id === m.id)).length;
@@ -599,7 +583,10 @@
     if (h <= 0) return 1;
     const p = state.players[who];
     const kinds = Object.keys(p.claims).length;
-    const b = Math.min(0.8, 0.16 + Math.max(0, kinds - live(p).length) * 0.14);
+    let b = Math.min(0.8, 0.09 + Math.max(0, kinds - live(p).length - 1) * 0.07);
+    // Nobles down to their last mask rarely risk a lie, and the same claim made again and again is usually true.
+    if (live(p).length <= 1) b *= 0.5;
+    b *= Math.pow(0.8, Math.max(0, (p.claims[k] || 0) - 1));
     return ((1 - h) * b) / ((1 - h) * b + h);
   }
 
@@ -620,7 +607,7 @@
     const P = state.pending;
     const p = state.players[pi];
     const jitter = () => (Math.random() * 2 - 1) * L.noise;
-    if (P && P.stage === 'lose') return { t: 'lose', id: worstMask(p, losable(state, pi)).id };
+    if (P && P.stage === 'lose') return { t: 'lose', id: worstMask(p).id };
     if (P && P.stage === 'challenge') return challengeOrPass(state, pi, L) ? { t: 'challenge' } : { t: 'pass' };
     if (P && P.stage === 'blockChallenge') return challengeOrPass(state, pi, L) ? { t: 'challenge' } : { t: 'pass' };
     if (P && P.stage === 'block') {
@@ -660,7 +647,6 @@
       const a = { t: 'claim', k, target, give };
       if (claimProblem(state, pi, k, target, give)) return;
       const honest = holds(p, k);
-      const sure = proven(p, k);
       let v = gain;
       // A blockable power may be stopped by its target.
       if (BLOCKER[k] && target != null) {
@@ -680,7 +666,7 @@
         if (Math.random() > L.bluff + 0.15) return; // some nobles simply don't lie much
         const e = exposure(k) * L.read + (1 - L.read) * 0.3;
         v = v * (1 - e) - e * maskCost(p);
-      } else if (!sure) v -= 0.6; // claiming honestly can still get the mask proven, which tells everyone
+      }
       if (MASKS[k].cost) v -= MASKS[k].cost * DUCAT;
       opts.push({ a, v });
     };
@@ -706,7 +692,7 @@
   function challengeOrPass(state, pi, L) {
     const P = state.pending;
     const me = state.players[pi];
-    if (Math.random() < L.wild) return Math.random() < 0.5;
+    if (Math.random() < L.wild) return Math.random() < 0.2;
     const lie = lieChance(state, pi, P.claimer, P.k) * L.read + (1 - L.read) * 0.22;
     const act = P.act;
     const claimer = state.players[P.claimer];
@@ -719,22 +705,24 @@
     else if (act.k === 'doctor') stake = 9;
     else if (act.k === 'gondolier') stake = act.target === pi ? 6 : 2;
     else if (act.k === 'spy') stake = act.target === pi ? 4 : 2;
-    const gain = lie * (stake + maskCost(claimer) * 0.6);
-    const risk = (1 - lie) * (me.favor > 0 ? FAVOR * (me.favor >= FAVOR_WIN - 1 ? 2 : 1) : maskCost(me));
+    // Knocking out a noble on their last mask wins the ball outright only when just two are left.
+    const knock = live(claimer).length > 1 ? maskCost(claimer) * 0.6 : state.players.filter(inGame).length <= 2 ? 80 : 22;
+    const gain = lie * (stake + knock);
+    const risk = (1 - lie) * (me.favor >= INSULT_FAVOR ? FAVOR * INSULT_FAVOR * (me.favor >= FAVOR_WIN - 2 ? 1.5 : 1) : maskCost(me));
     return gain - risk > 0;
   }
 
-  // The mask a noble would rather lose: a known one before a hidden one, and the least useful kind.
+  // The mask a noble would rather lose: the least useful kind.
   const KEEP = { duchess: 7, doge: 6, poisoner: 5, doctor: 4, jester: 4, spy: 3, gondolier: 2 };
-  function worstMask(p, from) {
-    const ms = from || live(p);
-    const val = (m) => KEEP[m.k] + (m.up === 'hidden' ? 1.5 : 0) + (m.k === 'doctor' && p.masks.some((x) => x.up === 'lost') ? 3 : 0);
+  function worstMask(p) {
+    const ms = live(p);
+    const val = (m) => KEEP[m.k] + (m.k === 'doctor' && p.masks.some((x) => x.up === 'lost') ? 3 : 0);
     return ms.slice().sort((a, b) => val(a) - val(b))[0];
   }
 
   const api = {
-    SAVE_V, COPIES, START_DUCATS, FAVOR_WIN, CHIMES, TOAST_COST, SCANDAL_COST, CUT_IN_COST, MASKS, MASK_ORDER, BLOCKER, LEVELS,
-    newGame, legal, apply, aiChoose, score, ranking, winner, clone, live, hidden, targets, claimProblem, proven, holdsChance, knowledge, powerLine, losable,
+    SAVE_V, COPIES, START_DUCATS, FAVOR_WIN, CHIMES, TOAST_COST, SCANDAL_COST, CUT_IN_COST, INSULT_FAVOR, MASKS, MASK_ORDER, BLOCKER, LEVELS,
+    newGame, legal, apply, aiChoose, score, ranking, winner, clone, live, hidden, targets, claimProblem, holdsChance, knowledge, powerLine,
   };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.MasqueradeEngine = api;

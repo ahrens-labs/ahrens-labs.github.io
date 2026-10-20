@@ -158,7 +158,6 @@ button { font-family: inherit; }
 .tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .tile i { position: absolute; right: 2px; bottom: 2px; font-style: normal; font-size: 0.85rem; background: rgba(255, 255, 255, 0.9); border-radius: 6px; padding: 0 0.15rem; line-height: 1.2; }
 .tile.secret { box-shadow: 0 0 0 2px #7ac7d0, 0 3px 6px rgba(0, 0, 0, 0.3); }
-.tile.proven { box-shadow: 0 0 0 3px var(--gold), 0 0 12px rgba(232, 184, 74, 0.6); }
 .tile.lost img { filter: grayscale(1) brightness(0.55); }
 .tile.lost i { background: #b02a2a; color: #fff; }
 .tile.peeked i { font-size: 1rem; }
@@ -186,7 +185,6 @@ button { font-family: inherit; }
 .pw-tag, .pw-why { display: inline-block; flex: none; white-space: nowrap; font-size: 0.7rem; font-weight: 700; padding: 0.08rem 0.45rem; border-radius: 999px; }
 .pw-tag.worn { background: #d7f1dc; color: var(--good); }
 .pw-tag.bluff { background: #f6dbe2; color: #8d1f3a; }
-.pw-tag.proven { background: #fff0c4; color: #7a5410; }
 .pw-why { background: #eee; color: var(--muted); }
 .basics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem; }
 .basic { display: flex; flex-direction: column; align-items: center; gap: 0.15rem; padding: 0.6rem 0.4rem; border: 0; border-radius: 12px; cursor: pointer; font: inherit; color: var(--ink);
@@ -224,12 +222,10 @@ button { font-family: inherit; }
 .mcard .mk-img { width: 96px; height: 96px; border-radius: 12px; object-fit: cover; }
 .mcard.lost .mk-img { filter: grayscale(1) brightness(0.6); }
 .mcard.lost { opacity: 0.7; }
-.mcard.proven { box-shadow: inset 0 0 0 3px var(--gold), 0 0 14px rgba(232, 184, 74, 0.45); }
 .mc-body { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.85rem; }
 .mc-body b { font-size: 1rem; }
 .mc-body small { color: var(--teal); font-weight: 600; }
 .mc-state { justify-self: start; align-self: flex-start; font-size: 0.74rem; font-weight: 700; padding: 0.06rem 0.45rem; border-radius: 999px; background: #e9eef7; }
-.mc-state.proven { background: #fff0c4; color: #7a5410; }
 .mc-state.lost { background: #f3d6d6; color: var(--bad); }
 .known { margin: 0; padding-left: 1.1rem; font-size: 0.88rem; }
 
