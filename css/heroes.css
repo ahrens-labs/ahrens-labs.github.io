@@ -219,6 +219,8 @@ button { font-family: inherit; }
 .hc-name { font-family: "Bangers", sans-serif; font-weight: 400; font-size: 1.12em; letter-spacing: 0.04em; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hc-sn { font-size: 0.6em; font-weight: 700; text-transform: uppercase; letter-spacing: 0.09em; color: color-mix(in srgb, var(--sc) 75%, #000); line-height: 1.1; }
 .hc-fx { margin: 0.1em 0 0; font-size: 0.68em; line-height: 1.17; font-weight: 600; }
+.hc.long .hc-fx { font-size: 0.6em; line-height: 1.1; }
+.hc.long .hc-sn { display: none; }
 .fx { display: block; word-spacing: 0.08em; }
 .fx.pos { color: var(--good); }
 .fx.neg { color: var(--bad); }

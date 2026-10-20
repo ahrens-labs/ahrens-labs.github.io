@@ -38,6 +38,12 @@
   //   free      +n if this card was recruited from the Plaza
   //   plaza     +n for each card of the suits left in the Plaza at the end
   //   onMission +n if the team completes the Mission
+  //   most      +n for each card in your biggest suit (counting this card)
+  //   set       +n for each full set of the suits, one card of each (counting this card)
+  //   took      +n for each other card you recruited from the Plaza
+  //   blanked   +n for each other card in your team that was blanked
+  //   withPen   +n for each other card that has a penalty
+  //   allSmall  +n if every other card has power k or less
   //   oracle    your bonus for having both Mission suits is doubled
   //   wild      counts as whichever suit scores best
   //   agent     counts as whichever Mission suit scores best
@@ -50,26 +56,32 @@
   //   penPlaza  −n for each card of the suits left in the Plaza      (penalty)
   //   blank     blanks every other card of the suits, or with power k or less (penalty)
   //   need      this card is blanked unless you have one of c / s    (penalty)
-  const PENALTY = new Set(['pen', 'penWith', 'penNot', 'penPlaza', 'blank', 'need']);
+  //   penVariety −n for each different suit in your team (counting this card)   (penalty)
+  //   penDealt  −n for each other card you didn't recruit from the Plaza          (penalty)
+  //   penBig    −n for each other card with power k or more                       (penalty)
+  //   offMission −n if the team doesn't complete the Mission                      (penalty)
+  const PENALTY = new Set(['pen', 'penWith', 'penNot', 'penPlaza', 'blank', 'need', 'penVariety', 'penDealt', 'penBig', 'offMission']);
   const SPECIAL = new Set(['clear', 'oracle', 'wild', 'agent', 'shield', 'nomiss']);
   const CARDS = [
     // Bruisers
-    { id: 'ironclad', name: 'Ironclad', suit: 'bruiser', power: 18, fx: [{ t: 'shield', s: ['bruiser'] }], flavor: 'Steel skin. Nothing gets through.' },
+    { id: 'ironclad', name: 'Ironclad', suit: 'bruiser', power: 18, fx: [{ t: 'shield', s: ['bruiser'] }, { t: 'per', s: ['bruiser'], n: 4 }], flavor: 'Steel skin. Nothing gets through.' },
     { id: 'valora', name: 'Valora', suit: 'bruiser', power: 20, fx: [{ t: 'with', c: ['hammer'], n: 12 }], flavor: 'Only she can lift the Star Hammer.' },
     { id: 'rampage', name: 'Rampage', suit: 'bruiser', power: 25, fx: [{ t: 'need', s: ['mystic', 'sidekick'] }], flavor: 'Mighty, if someone keeps him calm.' },
     { id: 'bedrock', name: 'Bedrock', suit: 'bruiser', power: 10, fx: [{ t: 'per', s: ['element'], n: 5 }], flavor: 'Made of mountain.' },
     { id: 'brick', name: 'Brick Malone', suit: 'bruiser', power: 4, fx: [{ t: 'per', s: ['villain'], n: 6 }], flavor: 'Lives for a good scrap.' },
     { id: 'twins', name: 'Double Trouble', suit: 'bruiser', power: 8, fx: [{ t: 'pairs', n: 7 }], flavor: 'Twins who finish each other’s punches.' },
     { id: 'mightymo', name: 'Mighty Mo', suit: 'bruiser', power: 6, fx: [{ t: 'big', k: 20, n: 5 }], flavor: 'Small kid, giant fists, big heroes to look up to.' },
+    { id: 'juggernaut', name: 'Juggernaut', suit: 'bruiser', power: 14, fx: [{ t: 'most', n: 8 }, { t: 'penVariety', n: 5 }], flavor: 'Unstoppable — once the whole team charges the same way.' },
     // Speedsters
     { id: 'blur', name: 'Blur', suit: 'speed', power: 13, fx: [{ t: 'free', n: 15 }], flavor: 'Grabs any job left lying around.' },
     { id: 'flashfire', name: 'Flashfire', suit: 'speed', power: 16, fx: [{ t: 'with', c: ['cinder'], n: 12 }], flavor: 'Runs so fast her trail catches fire.' },
     { id: 'zip', name: 'Zip', suit: 'speed', power: 10, fx: [{ t: 'with', s: ['tech'], n: 14 }], flavor: 'Rocket skates, built by a friend.' },
-    { id: 'velocity', name: 'Velocity', suit: 'speed', power: 24, fx: [{ t: 'pen', s: ['gear'], n: 5 }], flavor: 'Travels light. Very light.' },
+    { id: 'velocity', name: 'Velocity', suit: 'speed', power: 24, fx: [{ t: 'per', s: ['speed'], n: 4 }, { t: 'pen', s: ['gear'], n: 6 }], flavor: 'Travels light. Very light.' },
     { id: 'kinetic', name: 'Kid Kinetic', suit: 'speed', power: 3, fx: [{ t: 'variety', n: 3 }], flavor: 'Wants to team up with everyone.' },
     { id: 'baton', name: 'Baton', suit: 'speed', power: 8, fx: [{ t: 'exact', s: ['speed'], k: 3, n: 24 }], flavor: 'Runs relays — always a team of exactly three.' },
     { id: 'rewind', name: 'Rewind', suit: 'speed', power: 17, fx: [{ t: 'nomiss' }], flavor: 'Runs back in time to undo a mistake.' },
     { id: 'dash', name: 'Dash', suit: 'speed', power: 10, fx: [{ t: 'plaza', s: ['gear'], n: 4 }], flavor: 'Picks up every gadget left in the Plaza.' },
+    { id: 'hotshot', name: 'Hotshot', suit: 'speed', power: 10, fx: [{ t: 'took', n: 8 }, { t: 'penDealt', n: 5 }], flavor: 'Only works with heroes she found herself.' },
     // Tech
     { id: 'mecha', name: 'Mecha-Max', suit: 'tech', power: 26, fx: [{ t: 'need', s: ['gear'] }], flavor: 'A walking tank that needs a charge.' },
     { id: 'gizmo', name: 'Gizmo', suit: 'tech', power: 12, fx: [{ t: 'per', s: ['gear', 'tech'], n: 5 }], flavor: 'Can fix anything with a paperclip.' },
@@ -78,66 +90,74 @@
     { id: 'hacklette', name: 'Hacklette', suit: 'tech', power: 6, fx: [{ t: 'clear', s: ['villain'] }], flavor: 'Shuts down evil plans from her laptop.' },
     { id: 'nano', name: 'Nano Swarm', suit: 'tech', power: 5, fx: [{ t: 'small', k: 10, n: 4 }], flavor: 'A million tiny robots. They like tiny heroes.' },
     { id: 'firewall', name: 'Firewall', suit: 'tech', power: 8, fx: [{ t: 'shield', s: ['*'] }], flavor: 'Nothing gets past her shield.' },
+    { id: 'overclock', name: 'Overclock', suit: 'tech', power: 22, fx: [{ t: 'per', s: ['gear'], n: 9 }, { t: 'pen', s: ['tech'], n: 7 }], flavor: 'Runs so hot the other machines melt.' },
     // Mystics
-    { id: 'sable', name: 'Sorcerer Sable', suit: 'mystic', power: 22, fx: [{ t: 'pen', s: ['tech'], n: 5 }], flavor: 'Magic and machines don’t mix.' },
+    { id: 'sable', name: 'Sorcerer Sable', suit: 'mystic', power: 22, fx: [{ t: 'per', s: ['mystic'], n: 5 }, { t: 'pen', s: ['tech'], n: 7 }], flavor: 'Magic and machines don’t mix.' },
     { id: 'seer', name: 'Seer Sela', suit: 'mystic', power: 1, fx: [{ t: 'oracle' }], flavor: 'She saw this mission coming.' },
     { id: 'hexa', name: 'Hexa', suit: 'mystic', power: 14, fx: [{ t: 'per', s: ['cosmic'], n: 5 }], flavor: 'Draws her spells from the stars.' },
-    { id: 'spirit', name: 'Spirit Guide', suit: 'mystic', power: 10, fx: [{ t: 'without', s: ['villain'], n: 22 }], flavor: 'Won’t share a room with evil.' },
+    { id: 'spirit', name: 'Spirit Guide', suit: 'mystic', power: 10, fx: [{ t: 'without', s: ['villain'], n: 22 }, { t: 'pen', s: ['shadow'], n: 6 }], flavor: 'Won’t share a room with evil.' },
     { id: 'moth', name: 'Madame Moth', suit: 'mystic', power: 8, fx: [{ t: 'with', c: ['rampage'], n: 12 }], flavor: 'Sings Rampage to sleep.' },
     { id: 'mirra', name: 'Mirra', suit: 'mystic', power: 1, fx: [{ t: 'double', s: ['*'] }], flavor: 'Her magic mirror copies the mightiest hero in the room.' },
     { id: 'coven', name: 'Coven Keeper', suit: 'mystic', power: 8, fx: [{ t: 'exact', s: ['mystic'], k: 3, n: 24 }], flavor: 'Magic works best in threes.' },
     { id: 'banisher', name: 'The Banisher', suit: 'mystic', power: 21, fx: [{ t: 'clear', s: ['shadow', 'element'] }], flavor: 'Calms every wild spirit.' },
+    { id: 'archmage', name: 'Grand Archmage', suit: 'mystic', power: 10, fx: [{ t: 'set', s: ['mystic', 'cosmic', 'shadow'], n: 20 }, { t: 'pen', s: ['tech'], n: 6 }], flavor: 'Weaves magic, starlight and shadow into one great spell.' },
     // Cosmic
     { id: 'starbolt', name: 'Starbolt', suit: 'cosmic', power: 25, fx: [{ t: 'blank', s: ['shadow'] }], flavor: 'So bright no shadow survives.' },
     { id: 'stellara', name: 'Stellara', suit: 'cosmic', power: 16, fx: [{ t: 'with', c: ['starbolt'], n: 14 }], flavor: 'Starbolt’s twin sister.' },
     { id: 'stargazer', name: 'Old Stargazer', suit: 'cosmic', power: 6, fx: [{ t: 'per', s: ['cosmic', 'mystic'], n: 5 }], flavor: 'Has watched the sky for a thousand years.' },
     { id: 'comet', name: 'Comet', suit: 'cosmic', power: 12, fx: [{ t: 'onMission', n: 12 }], flavor: 'Never misses a target.' },
-    { id: 'gravitas', name: 'Gravitas', suit: 'cosmic', power: 28, fx: [{ t: 'pen', s: ['sidekick'], n: 6 }], flavor: 'Too much gravity for little heroes.' },
+    { id: 'gravitas', name: 'Gravitas', suit: 'cosmic', power: 28, fx: [{ t: 'big', k: 20, n: 3 }, { t: 'pen', s: ['sidekick'], n: 8 }], flavor: 'Too much gravity for little heroes.' },
     { id: 'prism', name: 'Prism', suit: 'cosmic', power: 8, fx: [{ t: 'rainbow', n: 35 }], flavor: 'Splits light into every colour.' },
     { id: 'nova', name: 'Nova', suit: 'cosmic', power: 14, fx: [{ t: 'without', s: ['cosmic'], n: 16 }], flavor: 'Shines brightest on her own.' },
+    { id: 'singularity', name: 'Singularity', suit: 'cosmic', power: 45, fx: [{ t: 'penBig', k: 15, n: 8 }], flavor: 'A walking black hole. Big heroes get pulled in.' },
     // Shadows
-    { id: 'nightshade', name: 'Nightshade', suit: 'shadow', power: 15, fx: [{ t: 'without', s: ['sidekick'], n: 15 }], flavor: 'Works alone. Always.' },
+    { id: 'nightshade', name: 'Nightshade', suit: 'shadow', power: 15, fx: [{ t: 'without', s: ['sidekick'], n: 15 }, { t: 'pen', s: ['gear'], n: 5 }], flavor: 'Works alone. Always.' },
     { id: 'shade', name: 'Shade', suit: 'shadow', power: 11, fx: [{ t: 'per', s: ['shadow'], n: 7 }], flavor: 'Leader of the rooftop crew.' },
     { id: 'whisper', name: 'Whisper', suit: 'shadow', power: 11, fx: [{ t: 'plaza', s: ['villain'], n: 4 }], flavor: 'Keeps tabs on every villain on the loose.' },
-    { id: 'nyx', name: 'Nyx', suit: 'shadow', power: 18, fx: [{ t: 'pen', s: ['element'], n: 4 }], flavor: 'Hates bright, noisy heroes.' },
+    { id: 'nyx', name: 'Nyx', suit: 'shadow', power: 18, fx: [{ t: 'per', s: ['shadow'], n: 6 }, { t: 'pen', s: ['element'], n: 6 }], flavor: 'Hates bright, noisy heroes.' },
     { id: 'mimic', name: 'Mimic', suit: 'shadow', power: 12, fx: [{ t: 'wild' }], flavor: 'Becomes whoever the team needs.' },
     { id: 'phantom', name: 'Phantom', suit: 'shadow', power: 9, fx: [{ t: 'free', n: 15 }], flavor: 'Slips into any team unseen.' },
-    { id: 'raven', name: 'Raven', suit: 'shadow', power: 22, fx: [{ t: 'penPlaza', s: ['shadow'], n: 5 }], flavor: 'Never leaves a teammate behind.' },
+    { id: 'raven', name: 'Raven', suit: 'shadow', power: 22, fx: [{ t: 'per', s: ['shadow'], n: 4 }, { t: 'penPlaza', s: ['shadow'], n: 5 }], flavor: 'Never leaves a teammate behind.' },
+    { id: 'reaper', name: 'The Reaper', suit: 'shadow', power: 12, fx: [{ t: 'blank', s: ['sidekick'] }, { t: 'blanked', n: 16 }], flavor: 'Collects every hero who falls.' },
     // Elementals
     { id: 'cinder', name: 'Cinder', suit: 'element', power: 15, fx: [{ t: 'with', c: ['flashfire'], n: 10 }], flavor: 'Flashfire’s best friend.' },
-    { id: 'frostbite', name: 'Frostbite', suit: 'element', power: 18, fx: [{ t: 'penWith', c: ['cinder'], n: 12 }], flavor: 'Melts near Cinder.' },
+    { id: 'frostbite', name: 'Frostbite', suit: 'element', power: 18, fx: [{ t: 'per', s: ['element'], n: 4 }, { t: 'penWith', c: ['cinder'], n: 15 }], flavor: 'Melts near Cinder.' },
     { id: 'tremor', name: 'Tremor', suit: 'element', power: 13, fx: [{ t: 'per', s: ['bruiser'], n: 3 }], flavor: 'Shakes the ground for the big hitters.' },
-    { id: 'storm', name: 'Stormcaller', suit: 'element', power: 21, fx: [{ t: 'blank', s: ['gear'] }], flavor: 'Lightning fries every gadget.' },
+    { id: 'storm', name: 'Stormcaller', suit: 'element', power: 21, fx: [{ t: 'per', s: ['element'], n: 4 }, { t: 'blank', s: ['gear'] }], flavor: 'Lightning fries every gadget.' },
     { id: 'tidal', name: 'Tidal', suit: 'element', power: 14, fx: [{ t: 'per', s: ['element'], n: 5 }], flavor: 'Brings the elements together.' },
     { id: 'magma', name: 'Magma', suit: 'element', power: 25, fx: [{ t: 'need', s: ['element'] }], flavor: 'Needs a friend to keep the lava flowing.' },
     { id: 'gale', name: 'Gale', suit: 'element', power: 10, fx: [{ t: 'double', s: ['element'] }], flavor: 'Fans every flame into a firestorm.' },
     { id: 'verdant', name: 'Verdant', suit: 'element', power: 9, fx: [{ t: 'pairs', n: 6 }], flavor: 'Everything grows better in pairs.' },
+    { id: 'cataclysm', name: 'Cataclysm', suit: 'element', power: 27, fx: [{ t: 'per', s: ['element'], n: 4 }, { t: 'offMission', n: 35 }], flavor: 'Saves the day — or levels the city trying.' },
     // Sidekicks
     { id: 'scout', name: 'Scout', suit: 'sidekick', power: 10, fx: [{ t: 'with', s: ['bruiser'], n: 12 }], flavor: 'Carries the big hero’s cape.' },
-    { id: 'pip', name: 'Pip', suit: 'sidekick', power: 13, fx: [{ t: 'per', s: ['sidekick'], n: 7 }], flavor: 'Founded the Sidekick Club.' },
+    { id: 'pip', name: 'Pip', suit: 'sidekick', power: 13, fx: [{ t: 'per', s: ['sidekick'], n: 7 }, { t: 'pen', s: ['villain'], n: 6 }], flavor: 'Founded the Sidekick Club.' },
     { id: 'robopup', name: 'Robo-Pup', suit: 'sidekick', power: 12, fx: [{ t: 'with', s: ['tech'], n: 12 }], flavor: 'Good boy. Laser eyes.' },
     { id: 'jett', name: 'Jett', suit: 'sidekick', power: 8, fx: [{ t: 'free', n: 14 }], flavor: 'Always one step behind. On purpose.' },
-    { id: 'penny', name: 'Penny Press', suit: 'sidekick', power: 12, fx: [{ t: 'clear', s: ['bruiser', 'speed'] }], flavor: 'Her headlines keep heroes out of trouble.' },
+    { id: 'penny', name: 'Penny Press', suit: 'sidekick', power: 12, fx: [{ t: 'clear', s: ['bruiser', 'speed'] }, { t: 'per', s: ['bruiser', 'speed'], n: 3 }], flavor: 'Her headlines keep heroes out of trouble.' },
     { id: 'tess', name: 'Tag-Along Tess', suit: 'sidekick', power: 6, fx: [{ t: 'big', k: 20, n: 5 }], flavor: 'Follows the big heroes everywhere.' },
     { id: 'rookie', name: 'Rookie', suit: 'sidekick', power: 7, fx: [{ t: 'onMission', n: 12 }], flavor: 'First mission. It has to go perfectly.' },
     { id: 'echo', name: 'Echo', suit: 'sidekick', power: 14, fx: [{ t: 'double', s: ['sidekick'] }], flavor: 'Copies whatever her best friend does.' },
+    { id: 'understudy', name: 'Understudy', suit: 'sidekick', power: 5, fx: [{ t: 'allSmall', k: 14, n: 40 }, { t: 'pen', s: ['villain'], n: 5 }], flavor: 'Steps up when there’s no big star in the room.' },
     // Gear
     { id: 'hammer', name: 'Star Hammer', suit: 'gear', power: 1, fx: [{ t: 'double', s: ['bruiser'] }], flavor: 'Forged in a dying star.' },
     { id: 'core', name: 'Power Core', suit: 'gear', power: 6, fx: [{ t: 'per', s: ['tech'], n: 7 }], flavor: 'Runs every machine in the city.' },
-    { id: 'jetpack', name: 'Jet Pack', suit: 'gear', power: 14, fx: [{ t: 'with', s: ['sidekick'], n: 12 }], flavor: 'Sidekicks love a jet pack.' },
+    { id: 'jetpack', name: 'Jet Pack', suit: 'gear', power: 14, fx: [{ t: 'with', s: ['sidekick'], n: 12 }, { t: 'pen', s: ['bruiser'], n: 4 }], flavor: 'Sidekicks love a jet pack.' },
     { id: 'belt', name: 'Utility Belt', suit: 'gear', power: 12, fx: [{ t: 'per', s: ['shadow', 'sidekick'], n: 4 }], flavor: 'A pouch for every problem.' },
     { id: 'skybase', name: 'Skybase', suit: 'gear', power: 1, fx: [{ t: 'clear', s: ['*'] }], flavor: 'The league’s floating headquarters.' },
     { id: 'cape', name: 'Lucky Cape', suit: 'gear', power: 21, fx: [{ t: 'shield', s: ['sidekick'] }], flavor: 'No sidekick wearing it has ever been stopped.' },
     { id: 'signal', name: 'Hero Signal', suit: 'gear', power: 8, fx: [{ t: 'agent' }], flavor: 'Calls whoever the Mission needs.' },
     { id: 'trophy', name: 'Trophy Case', suit: 'gear', power: 6, fx: [{ t: 'without', s: ['gear'], n: 18 }], flavor: 'One trophy, polished every day.' },
+    { id: 'cell', name: 'Containment Cell', suit: 'gear', power: 4, fx: [{ t: 'per', s: ['villain'], n: 7 }, { t: 'clear', s: ['villain'] }], flavor: 'Every villain you catch makes the league look good.' },
     // Villains
     { id: 'entropy', name: 'Dr. Entropy', suit: 'villain', power: 31, fx: [{ t: 'blank', s: ['tech'] }], flavor: 'Every machine he touches breaks.' },
     { id: 'puppeteer', name: 'The Puppeteer', suit: 'villain', power: 30, fx: [{ t: 'blank', s: ['sidekick'] }], flavor: 'Pulls the strings of little heroes.' },
-    { id: 'vex', name: 'Viper Vex', suit: 'villain', power: 28, fx: [{ t: 'pen', s: ['sidekick', 'mystic'], n: 6 }], flavor: 'Her venom cuts through any spell.' },
+    { id: 'vex', name: 'Viper Vex', suit: 'villain', power: 28, fx: [{ t: 'per', s: ['villain'], n: 4 }, { t: 'pen', s: ['sidekick', 'mystic'], n: 6 }], flavor: 'Her venom cuts through any spell.' },
     { id: 'stoneglare', name: 'Stoneglare', suit: 'villain', power: 30, fx: [{ t: 'blank', s: ['bruiser'] }], flavor: 'One look turns muscle to stone.' },
-    { id: 'kaos', name: 'Kaos', suit: 'villain', power: 40, fx: [{ t: 'penNot', s: ['villain'], n: 4 }], flavor: 'Wants to watch the whole city fall.' },
+    { id: 'kaos', name: 'Kaos', suit: 'villain', power: 38, fx: [{ t: 'per', s: ['villain'], n: 5 }, { t: 'penNot', s: ['villain'], n: 7 }], flavor: 'Wants to watch the whole city fall.' },
     { id: 'ringleader', name: 'Ringleader', suit: 'villain', power: 31, fx: [{ t: 'need', s: ['villain'] }], flavor: 'Nothing without his gang.' },
     { id: 'crusher', name: 'The Crusher', suit: 'villain', power: 30, fx: [{ t: 'blank', k: 8 }], flavor: 'Picks on anyone smaller.' },
+    { id: 'mindbender', name: 'Mindbender', suit: 'villain', power: 16, fx: [{ t: 'withPen', n: 5 }, { t: 'blank', s: ['mystic'] }], flavor: 'Feeds on every hero with a weakness.' },
   ];
   const CARD = {};
   CARDS.forEach((c, i) => {
@@ -253,6 +273,28 @@
         return `+${f.n} for each ${names(f.s, ' or ')} left in the Plaza`;
       case 'onMission':
         return `+${f.n} if your team completes the Mission`;
+      case 'most':
+        return `+${f.n} for each card in your biggest suit`;
+      case 'set': {
+        const ns = f.s.map((x) => SUIT[x].name);
+        return `+${f.n} for each full set of ${ns.slice(0, -1).join(', ')} and ${ns[ns.length - 1]}`;
+      }
+      case 'took':
+        return `+${f.n} for each other card recruited from the Plaza`;
+      case 'blanked':
+        return `+${f.n} for each other blanked card`;
+      case 'withPen':
+        return `+${f.n} for each other card with a penalty`;
+      case 'allSmall':
+        return `+${f.n} if every other card has power ${f.k} or less`;
+      case 'penVariety':
+        return `−${f.n} for each suit in your team`;
+      case 'penDealt':
+        return `−${f.n} for each other card not from the Plaza`;
+      case 'penBig':
+        return `−${f.n} for each other card with power ${f.k} or more`;
+      case 'offMission':
+        return `−${f.n} if your team fails the Mission`;
       case 'oracle':
         return `Doubles your bonus for completing the Mission`;
       case 'wild':
@@ -366,6 +408,16 @@
         } else if (f.t === 'free') n = (ctx.took || []).includes(c.id) ? f.n : 0;
         else if (f.t === 'plaza' || f.t === 'penPlaza') n = inPlaza(f.s) * f.n;
         else if (f.t === 'onMission') n = done ? f.n : 0;
+        else if (f.t === 'most') n = Math.max(...SUITS.map(count)) * f.n;
+        else if (f.t === 'set') n = Math.min(...f.s.map(count)) * f.n;
+        else if (f.t === 'took') n = others(c).filter((o) => (ctx.took || []).includes(o.id)).length * f.n;
+        else if (f.t === 'blanked') n = cs.filter((o) => o.id !== c.id && blankedBy[o.id]).length * f.n;
+        else if (f.t === 'withPen') n = others(c).filter((o) => o.fx.some((x) => PENALTY.has(x.t))).length * f.n;
+        else if (f.t === 'allSmall') n = others(c).length && others(c).every((o) => o.power <= f.k) ? f.n : 0;
+        else if (f.t === 'penVariety') n = new Set(on.map((o) => suitOf[o.id])).size * f.n;
+        else if (f.t === 'penDealt') n = others(c).filter((o) => !(ctx.took || []).includes(o.id)).length * f.n;
+        else if (f.t === 'penBig') n = others(c).filter((o) => o.power >= f.k).length * f.n;
+        else if (f.t === 'offMission') n = done ? 0 : f.n;
         else if (f.t === 'pen') n = others(c).filter((o) => f.s.includes(suitOf[o.id])).length * f.n;
         else if (f.t === 'penWith') n = others(c).some((o) => f.c.includes(o.id)) ? f.n : 0;
         else if (f.t === 'penNot') n = others(c).filter((o) => !f.s.includes(suitOf[o.id])).length * f.n;
@@ -409,9 +461,9 @@
   function scoreHand(ids, mission, identity, ctx) {
     const picks = [];
     ids.forEach((id) => {
-      const f = CARD[id].fx[0];
-      if (f.t === 'wild') picks.push([id, SUITS]);
-      else if (f.t === 'agent') picks.push([id, MISSIONS[mission].need]);
+      const fx = CARD[id].fx;
+      if (fx.some((f) => f.t === 'wild')) picks.push([id, SUITS]);
+      else if (fx.some((f) => f.t === 'agent')) picks.push([id, MISSIONS[mission].need]);
     });
     if (!picks.length) return scoreWith(ids, mission, null, identity, ctx);
     let best = null;

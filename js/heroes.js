@@ -231,6 +231,8 @@
     if (o.small) cls.push('sm');
     if (o.big) cls.push('big');
     if (row && row.blanked) cls.push('blanked');
+    // Two-effect cards set their rules a little tighter so both fit.
+    if (c.fx.length > 1 && E.cardText(id).length > 48) cls.push('long');
     if (o.cls) cls.push(o.cls);
     const asWild = row && row.suit && row.suit !== c.suit ? `<span class="hc-wild" title="${cname(id)} is counting as a ${esc(S.name)}">as ${S.icon}</span>` : '';
     const val = row ? `<span class="hc-val${row.blanked ? ' zero' : row.value < c.power ? ' down' : row.value > c.power ? ' up' : ''}" title="What this card scores in this hand">${row.blanked ? 0 : row.value}</span>` : '';
@@ -1296,9 +1298,10 @@
         <dt>Exactly / pairs / all different</dt><dd>Baton and Coven Keeper want <b>exactly</b> three of their suit — a fourth spoils it. Double Trouble and Verdant score for each <b>pair</b> of cards that share a suit. Prism scores if <b>no two</b> cards share a suit.</dd>
         <dt>Big and small</dt><dd>Mighty Mo and Tag-Along Tess love teammates with power 20 or more; Nano Swarm loves teammates with power 10 or less.</dd>
         <dt>The Plaza</dt><dd>Some cards score from the <b>Plaza</b> when the game ends: Whisper for each Villain left there, Dash for each Gear. Blur, Phantom and Jett score extra only if you <b>recruited them from the Plaza</b>.</dd>
-        <dt>Mission</dt><dd>Comet and Rookie score extra if your team completes the Mission.</dd></dl>
+        <dt>Mission</dt><dd>Comet and Rookie score extra if your team completes the Mission.</dd>
+        <dt>Big swings</dt><dd>A few cards can score a huge amount in the right team. <b>Juggernaut</b> scores for every card in your biggest suit. The <b>Grand Archmage</b> scores for each full set of a Mystic, a Cosmic and a Shadow. <b>Hotshot</b> scores for every card you recruited from the Plaza. The <b>Understudy</b> scores big if every other card is small. <b>The Reaper</b> scores for every blanked card in your team, and <b>Mindbender</b> for every card with a penalty.</dd></dl>
         ${sec(3, 'Penalties')}
-        <p>Penalties take points away (“−5 for each Tech”, or Raven’s “−5 for each Shadow left in the Plaza”). Some penalties <b>blank</b> other cards: a blanked card scores nothing, its ability does nothing, and it doesn’t count for any suit or for the Mission. The Crusher blanks every card with power 8 or less. “Blanked unless you have…” cards blank themselves when their partner is missing.</p>
+        <p>Penalties take points away (“−5 for each Tech”, or Raven’s “−5 for each Shadow left in the Plaza”). Some can cost a lot: <b>Singularity</b> loses points for every other big card, <b>Cataclysm</b> loses 35 if your team fails the Mission, and Juggernaut and Hotshot lose points when your team isn’t built their way. Many cards have both a bonus and a penalty — they’re only worth it in the right team. Some penalties <b>blank</b> other cards: a blanked card scores nothing, its ability does nothing, and it doesn’t count for any suit or for the Mission. The Crusher blanks every card with power 8 or less. “Blanked unless you have…” cards blank themselves when their partner is missing.</p>
         ${sec(4, 'Special abilities')}
         <dl class="rb-terms"><dt>🛡️ Clear</dt><dd>Hacklette, Penny Press, The Banisher and Skybase <b>clear</b> penalties: the cleared card’s penalties — including blanking and “blanked unless” — just don’t happen.</dd>
         <dt>🛡️ Shield</dt><dd>Ironclad, Lucky Cape and Firewall stop cards being <b>blanked</b> (other penalties still count). Like clears, shields always work.</dd>
