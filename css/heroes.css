@@ -171,12 +171,12 @@ button { font-family: inherit; }
   background: color-mix(in srgb, var(--sc) 16%, #fff); color: color-mix(in srgb, var(--sc) 70%, #000); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--sc) 50%, #fff); }
 
 /* ---------- hero cards ---------- */
-.hc { --w: 132px; position: relative; width: var(--w); aspect-ratio: 5 / 7; border-radius: 12px; padding: 5px; font-size: 14px; color: var(--ink); display: flex; flex-direction: column; overflow: hidden; flex: none;
+.hc { --w: 140px; position: relative; width: var(--w); aspect-ratio: 5 / 7; border-radius: 12px; padding: 5px; font-size: 15px; color: var(--ink); display: flex; flex-direction: column; overflow: hidden; flex: none;
   background: linear-gradient(160deg, color-mix(in srgb, var(--sc) 80%, #fff), color-mix(in srgb, var(--sc) 75%, #000));
   box-shadow: 0 0 0 2.5px var(--ink), 0 6px 14px rgba(0, 0, 0, 0.4); transition: transform 0.18s ease, box-shadow 0.18s ease; user-select: none; }
-.hc.sm { --w: 100%; font-size: 10.5px; padding: 3px; border-radius: 9px; box-shadow: 0 0 0 2px var(--ink), 0 3px 8px rgba(0, 0, 0, 0.4); }
+.hc.sm { --w: 100%; font-size: 11.5px; padding: 3px; border-radius: 9px; box-shadow: 0 0 0 2px var(--ink), 0 3px 8px rgba(0, 0, 0, 0.4); }
 .hc.big { --w: 250px; font-size: 22px; padding: 7px; border-radius: 16px; }
-.hc-art { position: relative; flex: 0 0 57%; border-radius: 8px; overflow: hidden; background: #0d1430; box-shadow: inset 0 0 0 1.5px rgba(0, 0, 0, 0.35); }
+.hc-art { position: relative; flex: 0 0 50%; border-radius: 8px; overflow: hidden; background: #0d1430; box-shadow: inset 0 0 0 1.5px rgba(0, 0, 0, 0.35); }
 .hc.sm .hc-art { border-radius: 6px; }
 .hc-art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 22%; transform-origin: 50% 90%;
   animation: idle 4.6s ease-in-out var(--d, 0s) infinite; }
@@ -216,11 +216,13 @@ button { font-family: inherit; }
 .hc-clear { position: absolute; top: 2.25em; right: 3px; z-index: 2; font-size: 0.95em; filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.6)); }
 .hc-body { flex: 1; display: flex; flex-direction: column; gap: 0.1em; min-height: 0; margin-top: 4px; padding: 0.28em 0.4em 0.3em; border-radius: 6px; background: var(--paper); overflow: hidden; }
 .hc.sm .hc-body { margin-top: 3px; padding: 0.2em 0.3em; border-radius: 5px; }
-.hc-name { font-family: "Bangers", sans-serif; font-weight: 400; font-size: 1.12em; letter-spacing: 0.04em; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.hc-sn { font-size: 0.6em; font-weight: 700; text-transform: uppercase; letter-spacing: 0.09em; color: color-mix(in srgb, var(--sc) 75%, #000); line-height: 1.1; }
-.hc-fx { margin: 0.1em 0 0; font-size: 0.68em; line-height: 1.17; font-weight: 600; }
-.hc.long .hc-fx { font-size: 0.6em; line-height: 1.1; }
-.hc.long .hc-sn { display: none; }
+.hc-name { font-family: "Bangers", sans-serif; font-weight: 400; font-size: 1.2em; letter-spacing: 0.04em; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hc-name.l { font-size: 1.05em; }
+.hc-name.xl { font-size: 0.92em; }
+.hc-band { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; padding: 0.12em 0.3em; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-size: 0.7em; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: #fff; background: color-mix(in srgb, var(--sc) 88%, #000); text-shadow: 0 1px 1px rgba(0, 0, 0, 0.45); }
+.hc-fx { margin: 0.1em 0 0; font-size: 0.76em; line-height: 1.2; font-weight: 600; }
+.hc.long .hc-fx { font-size: 0.68em; line-height: 1.15; }
 .fx { display: block; word-spacing: 0.08em; }
 .fx.pos { color: var(--good); }
 .fx.neg { color: var(--bad); }
@@ -545,12 +547,12 @@ button { font-family: inherit; }
   .deck { width: 76px; }
   .deck-stack .hb-logo { font-size: 1.6em; }
   .plaza { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; padding: 7px; }
-  .hc.sm { font-size: 9.5px; }
+  .hc.sm { font-size: 10.5px; }
   .hand-head h2 { font-size: 1.3rem; }
   .hand-score b { font-size: 1.8rem; }
   .hand-cards { flex-wrap: nowrap; justify-content: flex-start; overflow-x: auto; scroll-snap-type: x mandatory; padding: 0.8rem 0.2rem 0.5rem; margin: 0 -0.4rem; }
   .hand-slot { scroll-snap-align: start; }
-  .hand-slot .hc { --w: 124px; font-size: 12.5px; }
+  .hand-slot .hc { --w: 130px; font-size: 13.5px; }
   .hist-stats { grid-template-columns: repeat(3, 1fr); }
   .modal { padding: 1.1rem 1rem; }
   .hr-shops.n3, .hr-shops.n4, .hr-shops.n5 { --n: 2; }
