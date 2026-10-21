@@ -256,6 +256,46 @@
       ${val}${stamp}${o.extra || ''}
     </div>`;
   }
+  // Every card name shows in full: one too long for its card is set smaller until it fits, and wraps onto a second
+  // line rather than get too small to read. Cards are drawn at many widths (the Plaza shrinks with the screen).
+  const NAME_MIN_PX = 8;
+  function fitNames() {
+    const names = [...document.querySelectorAll('.hc-name')];
+    names.forEach((el) => {
+      el.style.fontSize = '';
+      el.classList.remove('wrap');
+    });
+    const fits = names.map((el) => {
+      const w = el.clientWidth;
+      if (!w || el.scrollWidth <= w + 0.5) return null;
+      const fs = parseFloat(getComputedStyle(el).fontSize);
+      return { el, size: Math.floor(fs * (w / el.scrollWidth) * 4) / 4 };
+    }).filter(Boolean);
+    fits.forEach((f) => {
+      if (f.size >= NAME_MIN_PX) f.el.style.fontSize = `${f.size}px`;
+      else {
+        f.el.style.fontSize = `${NAME_MIN_PX}px`;
+        f.el.classList.add('wrap');
+      }
+    });
+    fits.forEach((f) => {
+      for (let k = 0; k < 6 && !f.el.classList.contains('wrap') && f.el.scrollWidth > f.el.clientWidth + 0.5; k++) f.el.style.fontSize = `${parseFloat(f.el.style.fontSize) - 0.25}px`;
+    });
+  }
+  let fitQueued = false;
+  const queueFit = () => {
+    if (fitQueued) return;
+    fitQueued = true;
+    requestAnimationFrame(() => {
+      fitQueued = false;
+      fitNames();
+    });
+  };
+  new MutationObserver((list) => {
+    if (list.some((m) => [...m.addedNodes].some((n) => n.nodeType === 1 && (n.classList.contains('hc') || n.querySelector('.hc-name'))))) queueFit();
+  }).observe(document.body, { childList: true, subtree: true });
+  addEventListener('resize', queueFit);
+  if (document.fonts) document.fonts.ready.then(queueFit);
   const backHtml = (cls) => `<div class="hc back${cls ? ' ' + cls : ''}"><span class="hb-logo">🦸</span></div>`;
   const face = (id, cls) => `<img class="face${cls ? ' ' + cls : ''}" src="${IMG(id)}" alt="${cname(id)}" title="${cname(id)} · ${E.SUIT[C(id).suit].icon} ${esc(E.SUIT[C(id).suit].name)}" width="28" height="28" loading="lazy">`;
 
