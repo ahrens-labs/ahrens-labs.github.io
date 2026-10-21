@@ -196,6 +196,126 @@ async function testShareBatch() {
   assert.ok(map.has('share_a'));
 }
 
+function sharedCardEnv() {
+  return { DECK_DB: createMemoryDb(), APP_DATA_ENCRYPTION_KEY: KEY, DECK_D1_PRIMARY: '1' };
+}
+
+async function seedSharedCard(env, { ownerChecklistDone = false, ownerUpdatedAt = 100 } = {}) {
+  const ownerCard = {
+    id: 'c1',
+    title: 'Groceries',
+    createdAt: 10,
+    updatedAt: ownerUpdatedAt,
+    checklist: [{ id: 'i1', text: 'milk', done: ownerChecklistDone, doneAt: null }],
+    sharedId: 'share_c',
+    sharedOut: true,
+  };
+  await d1PutUserDeckData(env, 'owner', {
+    decks: [{ id: 'd1', name: 'Home', createdAt: 1, updatedAt: 1, cards: [ownerCard], stacks: [] }],
+    lastUpdated: 200,
+  });
+  await d1PutShare(env, {
+    id: 'share_c',
+    type: 'card',
+    ownerUserId: 'owner',
+    ownerUsername: 'owner',
+    label: 'Groceries',
+    // Initial share payloads are snapshotted before the owner card gains its sharedId.
+    payload: {
+      id: 'c1',
+      title: 'Groceries',
+      createdAt: 10,
+      updatedAt: 100,
+      checklist: [{ id: 'i1', text: 'milk', done: false, doneAt: null }],
+    },
+    members: [{ userId: 'mate', role: 'editor', username: 'mate', email: 'm@x.com', addedAt: 1 }],
+    createdAt: 50,
+    updatedAt: 150,
+  });
+  const refDeck = {
+    id: 'ref1',
+    name: 'Groceries',
+    createdAt: 60,
+    updatedAt: 60,
+    cards: [],
+    stacks: [],
+    sharedRef: { sharedId: 'share_c', type: 'card', ownerUserId: 'owner', ownerUsername: 'owner', role: 'editor' },
+  };
+  await d1PutUserDeckData(env, 'mate', { decks: [refDeck], lastUpdated: 300 });
+}
+
+async function testSharedCardChecklistReachesOwner() {
+  const { processDeckSyncPayload, hydrateDeckDataForUser, getDeckDataForUser } = await import('../src/deck.js');
+  const env = sharedCardEnv();
+  await seedSharedCard(env);
+
+  const mateLoaded = await hydrateDeckDataForUser(env, 'mate', await getDeckDataForUser(env, 'mate'));
+  const mateDecks = JSON.parse(JSON.stringify(mateLoaded.decks));
+  const mateCard = mateDecks[0].cards[0];
+  assert.equal(mateCard.id, 'c1');
+  mateCard.checklist[0].done = true;
+  mateCard.checklist[0].doneAt = 500;
+  mateCard.updatedAt = 500;
+  await processDeckSyncPayload(env, 'mate', { decks: mateDecks, baseLastUpdated: 300 }, 'mate-client');
+
+  const share = await d1GetShare(env, 'share_c');
+  assert.equal(share.payload.checklist[0].done, true, 'collaborator edit must reach the share record');
+
+  const ownerLoaded = await hydrateDeckDataForUser(env, 'owner', await getDeckDataForUser(env, 'owner'));
+  const ownerCard = ownerLoaded.decks[0].cards[0];
+  assert.equal(ownerCard.checklist[0].done, true, 'owner must see collaborator checklist edit');
+  assert.equal(ownerCard.sharedId, 'share_c');
+}
+
+async function testOwnerNewerEditNotRolledBackByShare() {
+  const { hydrateDeckDataForUser, getDeckDataForUser } = await import('../src/deck.js');
+  const env = sharedCardEnv();
+  await seedSharedCard(env, { ownerChecklistDone: true, ownerUpdatedAt: 900 });
+  const ownerLoaded = await hydrateDeckDataForUser(env, 'owner', await getDeckDataForUser(env, 'owner'));
+  assert.equal(ownerLoaded.decks[0].cards[0].checklist[0].done, true);
+}
+
+async function testSharedDeckCardEditReachesOwner() {
+  const { processDeckSyncPayload, hydrateDeckDataForUser, getDeckDataForUser } = await import('../src/deck.js');
+  const env = sharedCardEnv();
+  const card = { id: 'c1', title: 'Task', createdAt: 10, updatedAt: 100, checklist: [{ id: 'i1', text: 'a', done: false }] };
+  const other = { id: 'c2', title: 'Other', createdAt: 10, updatedAt: 100, checklist: [] };
+  await d1PutUserDeckData(env, 'owner', {
+    decks: [{ id: 'd1', name: 'Team', createdAt: 1, updatedAt: 1, sharedId: 'share_d', sharedOut: true, cards: [card, other], stacks: [] }],
+    lastUpdated: 200,
+  });
+  await d1PutShare(env, {
+    id: 'share_d',
+    type: 'deck',
+    ownerUserId: 'owner',
+    ownerUsername: 'owner',
+    label: 'Team',
+    payload: { name: 'Team', cards: [card, other], stacks: [], createdAt: 1 },
+    members: [{ userId: 'mate', role: 'editor', username: 'mate', email: 'm@x.com', addedAt: 1 }],
+    createdAt: 50,
+    updatedAt: 150,
+  });
+  await d1PutUserDeckData(env, 'mate', {
+    decks: [{
+      id: 'ref1', name: 'Team', createdAt: 60, updatedAt: 60, cards: [], stacks: [],
+      sharedRef: { sharedId: 'share_d', type: 'deck', ownerUserId: 'owner', ownerUsername: 'owner', role: 'editor' },
+    }],
+    lastUpdated: 300,
+  });
+
+  const mateLoaded = await hydrateDeckDataForUser(env, 'mate', await getDeckDataForUser(env, 'mate'));
+  const mateDecks = JSON.parse(JSON.stringify(mateLoaded.decks));
+  mateDecks[0].cards[0].checklist[0].done = true;
+  mateDecks[0].cards[0].updatedAt = 500;
+  await processDeckSyncPayload(env, 'mate', { decks: mateDecks, baseLastUpdated: 300 }, 'mate-client');
+
+  const ownerLoaded = await hydrateDeckDataForUser(env, 'owner', await getDeckDataForUser(env, 'owner'));
+  const ownerDeck = ownerLoaded.decks[0];
+  assert.equal(ownerDeck.cards.length, 2);
+  assert.equal(ownerDeck.cards.find((c) => c.id === 'c1').checklist[0].done, true);
+  assert.equal(ownerDeck.sharedId, 'share_d');
+}
+
 async function testFlags() {
   assert.equal(deckD1WriteEnabled({ DECK_DB: {} }), true);
   assert.equal(deckD1PrimaryEnabled({ DECK_DB: {}, DECK_D1_PRIMARY: '1' }), true);
@@ -204,5 +324,8 @@ async function testFlags() {
 await testUserBlobRoundTrip();
 await testLegacyDecksJsonArray();
 await testShareBatch();
+await testSharedCardChecklistReachesOwner();
+await testOwnerNewerEditNotRolledBackByShare();
+await testSharedDeckCardEditReachesOwner();
 await testFlags();
 console.log('deck-d1 tests passed');

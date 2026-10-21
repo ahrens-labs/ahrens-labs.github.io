@@ -489,40 +489,59 @@ function mergeStackFromShareRecord(stack, record) {
   return preserveShareMeta({ ...payload }, stack);
 }
 
-function applyNestedSharePayload(deck, shareCache, userId) {
-  let next = deck;
+/**
+ * Owners keep their own copy of what they shared, so collaborator edits arrive only via the
+ * share record. Take the payload's version per card when it is newer; never roll back owner edits.
+ */
+function hydrateOwnedCardFromShareRecord(card, record) {
+  const payload = record?.payload;
+  if (record?.type !== 'card' || !payload || typeof payload !== 'object') return card;
+  if (payload.id && payload.id !== card.id) return card;
+  if (deckEntityTime(payload) <= deckEntityTime(card)) return card;
+  return preserveShareMeta({ ...payload, id: card.id }, card);
+}
+
+function hydrateOwnedTreeFromShareRecord(entry, record, tombstones) {
+  const payload = record?.payload;
+  if (record?.type !== 'deck' || !payload || typeof payload !== 'object') return entry;
+  const key = '__share';
+  const { decks, changed } = mergeDeckTrees(
+    [{ id: key, cards: entry.cards || [], stacks: entry.stacks || [] }],
+    [{ id: key, cards: payload.cards || [], stacks: payload.stacks || [] }],
+    tombstones || {}
+  );
+  if (!changed || !decks[0]) return entry;
+  const next = { ...entry, cards: decks[0].cards };
+  if (Array.isArray(entry.stacks)) next.stacks = decks[0].stacks;
+  return mergeDeckShareMetadata(next, entry);
+}
+
+function hydrateCardFromShareCache(card, shareCache, userId) {
+  const record = card?.sharedId ? shareCache.get(card.sharedId) : null;
+  if (!record) return card;
+  if (shouldHydrateEntryFromShareRecord(card, record, userId)) {
+    const payload = record.payload;
+    const merged = payload && typeof payload === 'object' ? { ...payload } : { ...card };
+    return preserveShareMeta(merged, card);
+  }
+  if (userOwnsShareRecord(record, userId)) return hydrateOwnedCardFromShareRecord(card, record);
+  return card;
+}
+
+function applyNestedSharePayload(deck, shareCache, userId, tombstones) {
   const stacks = (deck.stacks || []).map((stack) => {
-    if (stack.sharedId && shareCache.has(stack.sharedId)) {
-      const record = shareCache.get(stack.sharedId);
-      if (shouldHydrateEntryFromShareRecord(stack, record, userId)) {
-        return mergeStackFromShareRecord(stack, record);
-      }
+    const record = stack.sharedId ? shareCache.get(stack.sharedId) : null;
+    if (record && shouldHydrateEntryFromShareRecord(stack, record, userId)) {
+      return mergeStackFromShareRecord(stack, record);
     }
-    const cards = (stack.cards || []).map((card) => {
-      if (card.sharedId && shareCache.has(card.sharedId)) {
-        const record = shareCache.get(card.sharedId);
-        if (!shouldHydrateEntryFromShareRecord(card, record, userId)) return card;
-        const payload = record?.payload;
-        const merged = payload && typeof payload === 'object' ? { ...payload } : { ...card };
-        return preserveShareMeta(merged, card);
-      }
-      return card;
-    });
-    return cards === stack.cards ? stack : { ...stack, cards };
+    const next = record && userOwnsShareRecord(record, userId)
+      ? hydrateOwnedTreeFromShareRecord(stack, record, tombstones)
+      : stack;
+    const cards = (next.cards || []).map((card) => hydrateCardFromShareCache(card, shareCache, userId));
+    return { ...next, cards };
   });
-  if (stacks !== deck.stacks) next = { ...next, stacks };
-  const cards = (deck.cards || []).map((card) => {
-    if (card.sharedId && shareCache.has(card.sharedId)) {
-      const record = shareCache.get(card.sharedId);
-      if (!shouldHydrateEntryFromShareRecord(card, record, userId)) return card;
-      const payload = record?.payload;
-      const merged = payload && typeof payload === 'object' ? { ...payload } : { ...card };
-      return preserveShareMeta(merged, card);
-    }
-    return card;
-  });
-  if (cards !== deck.cards) next = { ...next, cards };
-  return next;
+  const cards = (deck.cards || []).map((card) => hydrateCardFromShareCache(card, shareCache, userId));
+  return { ...deck, stacks, cards };
 }
 
 export async function hydrateDeckDataForUser(env, userId, deckData) {
@@ -568,19 +587,22 @@ export async function hydrateDeckDataForUser(env, userId, deckData) {
     return { ...deckData, decks };
   }
 
+  const tombstones = normalizeDeckTombstones(deckData?.tombstones, Date.now());
   const hydrated = decks.map((deck) => {
     const shareId = deckShareId(deck);
-    if (shareId && shareCache.has(shareId)) {
-      const record = shareCache.get(shareId);
-      if (shouldHydrateEntryFromShareRecord(deck, record, userId)) {
-        return applyNestedSharePayload(
-          applySharePayloadToDeckEntry(deck, record),
-          shareCache,
-          userId
-        );
-      }
+    const record = shareId ? shareCache.get(shareId) : null;
+    if (record && shouldHydrateEntryFromShareRecord(deck, record, userId)) {
+      return applyNestedSharePayload(
+        applySharePayloadToDeckEntry(deck, record),
+        shareCache,
+        userId,
+        tombstones
+      );
     }
-    return applyNestedSharePayload(deck, shareCache, userId);
+    const base = record && deck.sharedId === shareId && userOwnsShareRecord(record, userId)
+      ? hydrateOwnedTreeFromShareRecord(deck, record, tombstones)
+      : deck;
+    return applyNestedSharePayload(base, shareCache, userId, tombstones);
   });
 
   return {
@@ -710,7 +732,9 @@ function dedupeOwnedShareLinks(decks) {
 function collectSharePushTargets(decks) {
   const targets = [];
   for (const deck of decks || []) {
-    const deckShare = deck.sharedId || null;
+    // Shared-in reference decks are how collaborators edit; pushShareUpdate merges per entity
+    // by updatedAt, so a stale reference copy cannot roll back newer share content.
+    const deckShare = deckShareId(deck);
     if (deckShare) targets.push({ shareId: deckShare, deckEntry: deck });
     for (const stack of deck.stacks || []) {
       if (stack.sharedId) {
