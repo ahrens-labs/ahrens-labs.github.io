@@ -51,14 +51,15 @@
   };
   const SUB_ORDER = ['minnow', 'barracuda', 'nautilus', 'leviathan'];
 
+  // Sub fittings. Each shows the icon of the hazard it makes safe.
   const MOD = {
-    tanks: { name: 'Oxygen tanks', icon: '🧯', haz: 'air', cost: 3 },
-    cage: { name: 'Shark cage', icon: '🔒', haz: 'shark', cost: 3 },
-    drill: { name: 'Drill arm', icon: '🔩', haz: 'cave', cost: 3 },
-    fins: { name: 'Stabilisers', icon: '🪁', haz: 'current', cost: 3 },
-    lamps: { name: 'Floodlights', icon: '🔦', haz: 'dark', cost: 3 },
-    decoder: { name: 'Glyph decoder', icon: '📜', haz: 'trap', cost: 3 },
-    harpoon: { name: 'Harpoon', icon: '🔱', haz: 'kraken', cost: 5 },
+    tanks: { name: 'Oxygen tanks', icon: '🫧', haz: 'air', cost: 3 },
+    cage: { name: 'Shark cage', icon: '🦈', haz: 'shark', cost: 3 },
+    drill: { name: 'Drill arm', icon: '🪨', haz: 'cave', cost: 3 },
+    fins: { name: 'Stabilisers', icon: '🌀', haz: 'current', cost: 3 },
+    lamps: { name: 'Floodlights', icon: '🌑', haz: 'dark', cost: 3 },
+    decoder: { name: 'Glyph decoder', icon: '🗿', haz: 'trap', cost: 3 },
+    harpoon: { name: 'Harpoon', icon: '🐙', haz: 'kraken', cost: 5 },
   };
   const MOD_ORDER = ['tanks', 'cage', 'drill', 'fins', 'lamps', 'decoder', 'harpoon'];
 
