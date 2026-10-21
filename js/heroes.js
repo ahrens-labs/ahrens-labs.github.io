@@ -238,6 +238,7 @@
     const cls = ['hc', `s-${c.suit}`];
     if (o.small) cls.push('sm');
     if (o.big) cls.push('big');
+    if (row) cls.push('scored');
     if (row && row.blanked) cls.push('blanked');
     // Long rules (two effects, or one wordy one) are set a little tighter so they fit.
     if (E.cardText(id).length > (c.fx.length > 1 ? 48 : 58)) cls.push('long');
