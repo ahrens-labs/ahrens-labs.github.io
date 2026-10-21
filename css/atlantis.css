@@ -199,6 +199,17 @@ button { font-family: inherit; }
 .node.heart.open .nd-dot, .node.heart.far .nd-dot { box-shadow: 0 0 0 3px #7ff4ff, 0 0 30px rgba(127, 244, 255, 0.7); filter: none; animation: heartGlow 2.4s ease-in-out infinite; }
 @keyframes heartGlow { 50% { box-shadow: 0 0 0 3px #7ff4ff, 0 0 46px rgba(127, 244, 255, 0.95); } }
 .node:hover .nd-dot, .node:focus-visible .nd-dot { transform: scale(1.08); }
+.chart-in { position: absolute; inset: 0; }
+/* Eight sites to a row: smaller sites on a taller chart, inset so the end sites' names stay on it. */
+.chart.wide { height: 860px; }
+.chart.wide .chart-in { inset: 0 16px; }
+.chart.wide .node { width: 104px; transform: translate(-50%, -26px); }
+.chart.wide .nd-dot { width: 50px; height: 50px; }
+.chart.wide .node.heart .nd-dot { width: 66px; height: 66px; }
+.chart.wide .nd-flag { width: 28px; height: 28px; font-size: 0.95rem; }
+.chart.wide .nd-name { font-size: 0.74rem; }
+.chart.wide .nd-meta { font-size: 0.66rem; letter-spacing: 0; }
+.chart.wide .nd-odds { top: -15px; left: 50%; transform: translateX(-50%); font-size: 0.66rem; }
 .legend { display: flex; flex-wrap: wrap; gap: 0.3rem 1rem; margin-top: 0.6rem; font-size: 0.8rem; color: #bfe0ea; }
 .legend span { display: inline-flex; align-items: center; gap: 0.35rem; }
 .lg { width: 14px; height: 14px; border-radius: 50%; display: inline-block; }
@@ -432,6 +443,17 @@ button { font-family: inherit; }
   .nd-name { font-size: 0.68rem; }
   .nd-meta { font-size: 0.62rem; letter-spacing: 0; }
   .nd-odds { font-size: 0.64rem; left: calc(50% + 10px); }
+  .chart.wide { height: 980px; }
+  .chart.wide .chart-in { inset: 0 14px 0 12px; }
+  .chart.wide .node { width: 66px; transform: translate(-50%, -17px); gap: 0; }
+  .chart.wide .nd-dot { width: 34px; height: 34px; }
+  .chart.wide .node.heart .nd-dot { width: 48px; height: 48px; }
+  .chart.wide .nd-stars { font-size: 0.5rem; padding: 0.05rem 0.2rem; }
+  .chart.wide .nd-flag { width: 20px; height: 20px; font-size: 0.7rem; }
+  .chart.wide .nd-scout { font-size: 0.56rem; }
+  .chart.wide .nd-name { margin-top: 0.15rem; font-size: 0.6rem; }
+  .chart.wide .nd-meta { font-size: 0.54rem; }
+  .chart.wide .nd-odds { top: -12px; left: 50%; font-size: 0.56rem; padding: 0.04rem 0.3rem; }
   .sea { padding: 0.6rem; }
   .hall-grid { grid-template-columns: 1fr; }
   .modal { padding: 1.1rem 1rem; }

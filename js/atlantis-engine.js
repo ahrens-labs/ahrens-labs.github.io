@@ -114,21 +114,33 @@
     amphora: { name: 'Amphora Field', short: 'Amphorae', tier: 1, depth: 1, haz: ['air'], blurb: 'Hundreds of sealed jars. Some hold pearls.' },
     garden: { name: 'Kelp Garden', short: 'Kelp Garden', tier: 1, depth: 1, haz: ['current'], blurb: 'The queen’s garden, gone wild under the waves.' },
     docks: { name: 'Old Harbor Docks', short: 'Old Docks', tier: 1, depth: 1, haz: ['shark'], blurb: 'Trading ships sank here with their cargo.' },
+    wreck: { name: 'Merchant Shipwreck', short: 'Shipwreck', tier: 1, depth: 1, haz: ['air'], blurb: 'A galley split in two, its hold spilling silver.' },
+    meadow: { name: 'Turtle Meadow', short: 'Turtle Meadow', tier: 1, depth: 1, haz: ['current'], blurb: 'Sea turtles graze over a meadow of bronze coins.' },
+    bells: { name: 'Sunken Bell Tower', short: 'Bell Tower', tier: 1, depth: 1, haz: ['dark'], blurb: 'Its bronze bells still ring when the tide turns.' },
     baths: { name: 'Royal Baths', short: 'Royal Baths', tier: 2, depth: 1, haz: ['air', 'cave'], relic: 'urn', blurb: 'Marble pools, golden taps, narrow pipes.' },
     arena: { name: 'Water Arena', short: 'Arena', tier: 2, depth: 2, haz: ['shark', 'current'], relic: 'crown', blurb: 'Champions’ crowns still lie in the sand.' },
     mosaic: { name: 'Mosaic Plaza', short: 'Mosaic Plaza', tier: 2, depth: 2, haz: ['dark', 'trap'], relic: 'crystal', blurb: 'Every tile is a tiny gem. Some tiles are traps.' },
     aqueduct: { name: 'Broken Aqueduct', short: 'Aqueduct', tier: 2, depth: 1, haz: ['cave', 'current'], relic: 'urn', blurb: 'Water still roars through the old channels.' },
     barracks: { name: 'Sunken Barracks', short: 'Barracks', tier: 2, depth: 2, haz: ['trap', 'air'], relic: 'crown', blurb: 'Orichalcum shields, guarded by old tricks.' },
     archive: { name: 'Flooded Archive', short: 'Archive', tier: 2, depth: 2, haz: ['dark', 'air'], relic: 'scroll', blurb: 'Golden scrolls deep inside a lightless hall.' },
+    theater: { name: 'Drowned Theater', short: 'Theater', tier: 2, depth: 2, haz: ['dark', 'current'], relic: 'crown', blurb: 'Golden masks still watch from the empty seats.' },
+    oysters: { name: 'Royal Pearl Farm', short: 'Pearl Farm', tier: 2, depth: 1, haz: ['shark', 'air'], relic: 'urn', blurb: 'Giant oysters in neat rows, and the jars their keepers left.' },
+    bridge: { name: 'Fallen Sky Bridge', short: 'Sky Bridge', tier: 2, depth: 2, haz: ['cave', 'trap'], relic: 'scroll', blurb: 'Its builders carved their secrets into the rails.' },
+    glassworks: { name: 'Glassblowers’ Quarter', short: 'Glassworks', tier: 2, depth: 2, haz: ['air', 'dark'], relic: 'crystal', blurb: 'Crystal vases, still sealed inside their kilns.' },
     temple: { name: 'Temple of Poseidon', short: 'Poseidon’s Temple', tier: 3, depth: 2, haz: ['trap', 'dark', 'shark'], relic: 'urn', blurb: 'The sea god’s trident rests on the altar.' },
     observatory: { name: 'Star Observatory', short: 'Observatory', tier: 3, depth: 2, haz: ['current', 'air'], relic: 'scroll', blurb: 'A brass star-map worth a kingdom.' },
     palace: { name: 'Coral Palace', short: 'Coral Palace', tier: 3, depth: 2, haz: ['shark', 'cave', 'trap'], relic: 'crown', blurb: 'The royal jewels, behind walls of living coral.' },
     mint: { name: 'Orichalcum Mint', short: 'The Mint', tier: 3, depth: 3, haz: ['trap', 'cave'], relic: 'crystal', blurb: 'Where Atlantis made its glowing coins.' },
     library: { name: 'Great Library', short: 'Great Library', tier: 3, depth: 3, haz: ['dark', 'air', 'trap'], relic: 'scroll', blurb: 'Crystal books that still glow when you touch them.' },
+    tidehall: { name: 'Hall of Tides', short: 'Hall of Tides', tier: 3, depth: 2, haz: ['current', 'dark', 'air'], relic: 'crystal', blurb: 'A great hall where the sea rushes in and out like breath.' },
+    armada: { name: 'Lost Royal Fleet', short: 'Lost Fleet', tier: 3, depth: 3, haz: ['shark', 'current'], relic: 'urn', blurb: 'Warships of Atlantis, sunk with the royal tribute.' },
+    oracle: { name: 'Oracle’s Grotto', short: 'Oracle’s Grotto', tier: 3, depth: 2, haz: ['cave', 'dark'], relic: 'crown', blurb: 'The oracle’s jeweled circlet lies among her prophecies.' },
     throne: { name: 'Throne of the Sea Kings', short: 'Sea Throne', tier: 4, depth: 3, haz: ['trap', 'kraken', 'dark'], relic: 'crown', blurb: 'A throne carved from one enormous pearl.' },
     vault: { name: 'Golden Vault', short: 'Golden Vault', tier: 4, depth: 3, haz: ['trap', 'cave', 'air'], relic: 'urn', blurb: 'Locked for ten thousand years. Very locked.' },
     trench: { name: 'Abyssal Trench Gate', short: 'Trench Gate', tier: 4, depth: 3, haz: ['current', 'dark', 'kraken'], relic: 'crystal', blurb: 'The gate to the deepest district of all.' },
     forge: { name: 'Volcano Forge', short: 'Volcano Forge', tier: 4, depth: 3, haz: ['cave', 'current', 'air'], relic: 'crystal', blurb: 'Hot vents, molten gold, very little room.' },
+    lair: { name: 'The Kraken’s Lair', short: 'Kraken’s Lair', tier: 4, depth: 3, haz: ['kraken', 'cave', 'shark'], relic: 'crown', blurb: 'The crowns of a hundred lost captains, in the Kraken’s nest.' },
+    citadel: { name: 'Black Citadel', short: 'Black Citadel', tier: 4, depth: 3, haz: ['trap', 'current', 'dark'], relic: 'scroll', blurb: 'The war council’s golden battle plans, behind a hundred traps.' },
     heart: { name: 'The Heart of Atlantis', short: 'The Heart', tier: 5, depth: 3, haz: ['trap', 'kraken', 'dark'], blurb: 'The glowing crystal that once powered the whole city.' },
   };
   const SITE_ORDER = Object.keys(SITE);
@@ -142,29 +154,61 @@
     return { lo: TIER[t].treasure - TIER[t].spread + Math.min(...bumps), hi: TIER[t].treasure + TIER[t].spread + Math.max(...bumps), goldLo: Math.max(1, TIER[t].gold - 1), goldHi: TIER[t].gold + 1 };
   }
 
-  // The chart: rows of sites from the harbor down to the Heart. LINKS[row][i] lists the sites in the next row that site i leads to.
-  const ROWS = [
-    { tier: 1, xs: [10, 30, 50, 70, 90] },
-    { tier: 2, xs: [10, 30, 50, 70, 90] },
-    { tier: 3, xs: [12.5, 37.5, 62.5, 87.5] },
-    { tier: 4, xs: [25, 50, 75] },
-    { tier: 5, xs: [50] },
-  ];
-  const LINKS = [
-    [[0, 1], [1, 2], [2], [3], [3, 4]],
-    [[0], [0, 1], [1, 2], [2, 3], [3]],
-    [[0], [0, 1], [1, 2], [2]],
-    [[0], [0], [0]],
-  ];
-  const SLOTS = [];
-  ROWS.forEach((r, row) => r.xs.forEach((x, i) => SLOTS.push({ row, i, tier: r.tier, x, kids: [], parents: [] })));
-  const slotAt = (row, i) => SLOTS.findIndex((s) => s.row === row && s.i === i);
-  LINKS.forEach((row, ri) => row.forEach((kids, i) => kids.forEach((j) => {
-    const a = slotAt(ri, i);
-    const b = slotAt(ri + 1, j);
-    SLOTS[a].kids.push(b);
-    SLOTS[b].parents.push(a);
-  })));
+  // The chart: rows of sites from the harbor down to the Heart. links[row][i] lists the sites in the next row that site i leads to.
+  // A game's map stores slot numbers, so a saved game keeps the chart it was dealt (state.chart; games before charts were numbered use 1).
+  // Wide rows stagger their sites up and down (dy, in % of the chart's height) so neighbours' names don't collide.
+  const CHARTS = {
+    1: {
+      ys: [16, 34, 52, 70, 86],
+      rows: [
+        { tier: 1, xs: [10, 30, 50, 70, 90] },
+        { tier: 2, xs: [10, 30, 50, 70, 90] },
+        { tier: 3, xs: [12.5, 37.5, 62.5, 87.5] },
+        { tier: 4, xs: [25, 50, 75] },
+        { tier: 5, xs: [50] },
+      ],
+      links: [
+        [[0, 1], [1, 2], [2], [3], [3, 4]],
+        [[0], [0, 1], [1, 2], [2, 3], [3]],
+        [[0], [0, 1], [1, 2], [2]],
+        [[0], [0], [0]],
+      ],
+    },
+    2: {
+      ys: [14, 34, 56, 76, 90],
+      rows: [
+        { tier: 1, xs: [7, 19.3, 31.6, 43.9, 56.1, 68.4, 80.7, 93], dy: 5 },
+        { tier: 2, xs: [7, 19.3, 31.6, 43.9, 56.1, 68.4, 80.7, 93], dy: 5 },
+        { tier: 3, xs: [9, 25.4, 41.8, 58.2, 74.6, 91], dy: 3 },
+        { tier: 4, xs: [12, 31, 50, 69, 88], dy: 2 },
+        { tier: 5, xs: [50] },
+      ],
+      links: [
+        [[0, 1], [1, 2], [2, 3], [3], [4], [4, 5], [5, 6], [6, 7]],
+        [[0], [0, 1], [1, 2], [2], [3], [3, 4], [4, 5], [5]],
+        [[0], [0, 1], [1, 2], [2, 3], [3, 4], [4]],
+        [[0], [0], [0], [0], [0]],
+      ],
+    },
+  };
+  const CHART = 2;
+  function buildChart(c) {
+    const slots = [];
+    c.rows.forEach((r, row) => r.xs.forEach((x, i) => slots.push({ row, i, tier: r.tier, x, y: c.ys[row] + (r.dy && r.xs.length > 1 ? (i % 2 ? r.dy : -r.dy) : 0), kids: [], parents: [] })));
+    const slotAt = (row, i) => slots.findIndex((s) => s.row === row && s.i === i);
+    c.links.forEach((row, ri) => row.forEach((kids, i) => kids.forEach((j) => {
+      const a = slotAt(ri, i);
+      const b = slotAt(ri + 1, j);
+      slots[a].kids.push(b);
+      slots[b].parents.push(a);
+    })));
+    return slots;
+  }
+  const CHART_SLOTS = {};
+  Object.keys(CHARTS).forEach((k) => (CHART_SLOTS[k] = buildChart(CHARTS[k])));
+  const SLOTS = CHART_SLOTS[CHART];
+  const ROWS = CHARTS[CHART].rows;
+  const slotsOf = (state) => CHART_SLOTS[(state && state.chart) || 1];
 
   // Commissions: public goals. The first company to meet one scores it.
   const GOALS = {
@@ -249,6 +293,7 @@
     const state = {
       v: SAVE_V,
       seed: (opts.seed != null ? opts.seed : Math.floor(Math.random() * 2 ** 31)) | 0,
+      chart: CHART,
       tide: 1,
       phase: 'act',
       first: opts.first === 1 ? 1 : 0,
@@ -356,11 +401,12 @@
   }
   // Any unexplored site can be tried (the Heart only once it's sighted on tide HEART_TIDE), but a site is
   // only charted once a site leading to it has been explored; diving somewhere uncharted is much harder.
-  const charted = (state, x) => SLOTS[x.n].row === 0 || SLOTS[x.n].parents.some((n) => state.map[n].by != null);
+  const slotOf = (state, x) => slotsOf(state)[x.n];
+  const charted = (state, x) => slotOf(state, x).row === 0 || slotOf(state, x).parents.some((n) => state.map[n].by != null);
   const isOpen = (state, x) => x.by == null && (x.k !== 'heart' || state.tide >= HEART_TIDE);
   const openSites = (state) => state.map.filter((x) => isOpen(state, x));
-  const linked = (x) => SLOTS[x.n].parents.concat(SLOTS[x.n].kids);
-  const knownWaters = (state, pi, x) => linked(x).some((n) => state.map[n].by === pi);
+  const linked = (state, x) => slotOf(state, x).parents.concat(slotOf(state, x).kids);
+  const knownWaters = (state, pi, x) => linked(state, x).some((n) => state.map[n].by === pi);
 
   function relicPoints(relics) {
     const c = {};
@@ -860,7 +906,7 @@
     if (site.relic) gain += relicPoints(p.relics.concat(site.relic)) - relicPoints(p.relics) + 0.5;
     if (x.k === 'heart') gain += 4;
     // Opening deeper routes matters early on; late in the season there's no time to use them.
-    gain += SLOTS[x.n].kids.filter((n) => state.map[n].by == null && !charted(state, state.map[n])).length * (tidesLeft(state) >= 4 ? 0.4 : 0.1);
+    gain += slotOf(state, x).kids.filter((n) => state.map[n].by == null && !charted(state, state.map[n])).length * (tidesLeft(state) >= 4 ? 0.4 : 0.1);
     if (level !== 'easy') {
       gain += goalGain(state, pi, (q) => {
         q.found.push(x.k);
@@ -1166,7 +1212,7 @@
     let succ = findGain(state, pi, x, w, gv) + ctx.goal[x.id];
     if (!ctx.rough) {
       succ += EV.deny * (ctx.deny[x.id] || 0);
-      if (ctx.F > 0.5) succ += SLOTS[x.n].kids.filter((n) => state.map[n].by == null && !charted(state, state.map[n])).length * EV.chart;
+      if (ctx.F > 0.5) succ += slotOf(state, x).kids.filter((n) => state.map[n].by == null && !charted(state, state.map[n])).length * EV.chart;
       succ += crew.filter((d) => (d.xp || 0) + 1 === PROMO_XP).length * EV.promo * ctx.F;
       // The Heart ends the season: good when this company scores slower than its rival from here on, bad when faster.
       if (x.k === 'heart') succ -= ctx.F * (ctx.myRate - ctx.rivalRate);
@@ -1318,7 +1364,7 @@
   const api = {
     SAVE_V, TIDES, HEART_TIDE, START_GOLD, INCOME, MAX_SUBS, MAX_DIVERS, MARKET_SIZE, UNCOVERED, SCOUT_MAX, KNOWN_BONUS, PROMO_XP, DISCOVERY_PTS, GOLD_PER_PT, GOAL_COUNT,
     HAZ, HAZ_ORDER, DEPTH, SUB, SUB_ORDER, MOD, MOD_ORDER, DIVER, DIVER_ORDER, TIER, SITE, SITE_ORDER, SEA, SEA_ORDER, SEA_DOUBLE, AI_LEVEL, AI_HEAD_START,
-    RELIC, RELIC_ORDER, RELIC_SET, GOALS, GOAL_ORDER, ROWS, SLOTS,
+    RELIC, RELIC_ORDER, RELIC_SET, GOALS, GOAL_ORDER, ROWS, SLOTS, CHARTS, slotsOf,
     newGame, aiHeadStart, legal, apply, chance, score, rewardRange, winner, aiChoose, bestCrew, clone, upgradeCost, hireCost, relicPoints,
     sea, diverReady, subReady, readyDivers, readySubs, wagesOf, crewRoom, maxDepth, tidesLeft, siteOf, targetOf, rewardOf, expOf, subOf, diverOf,
     isOpen, openSites, charted, knownWaters, promoted, skillOf, deepOf, poss,

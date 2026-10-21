@@ -528,31 +528,31 @@
   }
 
   // ---------------------------------------------------------------- the chart
-  const ROW_Y = [16, 34, 52, 70, 86];
   const HARBOR_Y = 4;
   function chartHtml(v) {
     const s = st();
     const canPlan = humanTurn();
     const actor = canPlan ? s.turn : v;
+    const slots = E.slotsOf(s);
     const lines = [];
-    E.SLOTS.filter((slot) => slot.row === 0).forEach((slot) => lines.push(`<line x1="50" y1="${HARBOR_Y}" x2="${slot.x}" y2="${ROW_Y[0]}" class="route"/>`));
-    E.SLOTS.forEach((slot, n) => slot.kids.forEach((k) => {
+    slots.filter((slot) => slot.row === 0).forEach((slot) => lines.push(`<line x1="50" y1="${HARBOR_Y}" x2="${slot.x}" y2="${slot.y}" class="route"/>`));
+    slots.forEach((slot, n) => slot.kids.forEach((k) => {
       const a = s.map[n];
       const b = s.map[k];
       const cls = a.by != null ? (b.by != null ? 'done' : 'route') : '';
-      lines.push(`<line x1="${slot.x}" y1="${ROW_Y[slot.row]}" x2="${E.SLOTS[k].x}" y2="${ROW_Y[E.SLOTS[k].row]}" class="${cls}"${a.by != null ? ` style="--pc:${PCOLOR[a.by]}"` : ''}/>`);
+      lines.push(`<line x1="${slot.x}" y1="${slot.y}" x2="${slots[k].x}" y2="${slots[k].y}" class="${cls}"${a.by != null ? ` style="--pc:${PCOLOR[a.by]}"` : ''}/>`);
     }));
-    return `<div class="chart">
+    return `<div class="chart${slots.length > 20 ? ' wide' : ''}"><div class="chart-in">
       <svg class="chart-lines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">${lines.join('')}</svg>
       <div class="harbor" style="top:${HARBOR_Y}%">⚓ Harbor</div>
       ${s.map.map((x) => nodeHtml(x, actor, canPlan)).join('')}
-    </div>`;
+    </div></div>`;
   }
 
   function nodeHtml(x, actor, canPlan) {
     const s = st();
     const site = E.SITE[x.k];
-    const slot = E.SLOTS[x.n];
+    const slot = E.slotsOf(s)[x.n];
     const done = x.by != null;
     const open = E.isOpen(s, x);
     const state = done ? 'done' : !open ? 'hidden' : E.charted(s, x) ? 'open' : 'far';
@@ -563,7 +563,7 @@
     }
     const meta = `${state === 'hidden' ? '' : `<span class="nd-haul">${PEARL}${E.rewardOf(s, x).treasure}</span>`}${site.haz.map((h) => E.HAZ[h].icon).join('')}${site.relic ? E.RELIC[site.relic].icon : ''}`;
     const label = state === 'hidden' ? `🔒 Tide ${E.HEART_TIDE}` : esc(site.short);
-    return `<button class="node t${site.tier} ${state}${x.k === 'heart' ? ' heart' : ''}" data-site="${x.id}" style="left:${slot.x}%;top:${ROW_Y[slot.row]}%;--bg:url('${expImg(x)}')${done ? `;--pc:${PCOLOR[x.by]}` : ''}" title="${esc(site.name)} · ${E.TIER[site.tier].name} · ${E.rewardOf(s, x).treasure} pearls">
+    return `<button class="node t${site.tier} ${state}${x.k === 'heart' ? ' heart' : ''}" data-site="${x.id}" style="left:${slot.x}%;top:${slot.y}%;--bg:url('${expImg(x)}')${done ? `;--pc:${PCOLOR[x.by]}` : ''}" title="${esc(site.name)} · ${E.TIER[site.tier].name} · ${E.rewardOf(s, x).treasure} pearls">
       <span class="nd-dot"><span class="nd-stars">${stars(site.tier)}</span>${done ? `<span class="nd-flag">${FLAG[x.by]}</span>` : ''}${x.scout && !done ? `<span class="nd-scout">🧭${x.scout}</span>` : ''}</span>
       ${badge}
       <span class="nd-name">${label}</span>
@@ -575,7 +575,7 @@
   function showSite(x) {
     const s = st();
     const site = E.SITE[x.k];
-    const slot = E.SLOTS[x.n];
+    const slot = E.slotsOf(s)[x.n];
     const r = E.rewardOf(s, x);
     const names = (ns) => ns.map((n) => esc(E.SITE[s.map[n].k].name)).join(', ');
     let status;
