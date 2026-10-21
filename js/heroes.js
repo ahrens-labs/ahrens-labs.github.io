@@ -126,7 +126,7 @@
     roundText: (g) => (g.round != null ? `Plaza progress · turn ${g.round}` : ''),
     getG: () => G,
     showSetup: (focus) => showSetup(focus),
-    isMyTurn: () => G && G.state && G.state.turn === G.me,
+    isMyTurn: () => G && G.state && E.waitingOn(G.state).includes(G.me),
     enterOnline: (v, mem) => {
       G = {
         mode: 'online', id: v.id, me: v.me, view: v.me, version: v.version, status: v.status, result: v.result,
@@ -165,7 +165,7 @@
           toast(`<span class="dot" style="--pc:${PCOLOR[who]}"></span>${esc(line.text)}`, 'ai');
         }
       });
-      if (s.phase !== 'over' && G.status === 'active') identityPicker();
+      if (s.phase !== 'over' && G.status === 'active') identityPicker() || suitPicker();
       if (s.phase === 'over') {
         if (prev.phase !== 'over') sfx('reveal');
         return showGameOver(prev.phase === 'over');
@@ -182,6 +182,8 @@
   const st = () => G.state;
   const pl = (i) => st().players[i];
   const playing = () => st().phase === 'draw' || st().phase === 'discard';
+  // The seat a shared device is passed to: whoever's turn it is, or the next league still choosing suits.
+  const activeSeat = () => (st().phase === 'suits' ? E.waitingOn(st())[0] ?? st().turn : st().turn);
   const humanTurn = () => playing() && G.mode !== 'past' && G.mode !== 'sim' && (G.mode === 'online' ? G.status === 'active' && st().turn === G.me : !pl(st().turn).ai);
   // On a shared device the hand stays face down until its owner taps to see it.
   const canAct = () => humanTurn() && (G.mode !== 'local' || G.shown === st().turn);
@@ -192,7 +194,7 @@
     const s = st();
     if ((s.phase === 'over' && G.revealed) || G.mode === 'sim' || G.mode === 'past') return false;
     if (G.mode === 'ai' || G.mode === 'online') return i !== (G.mode === 'online' ? G.me : 0);
-    return !(i === s.turn && G.shown === s.turn);
+    return !(i === activeSeat() && G.shown === i);
   }
   // Scoring is left to the players while the game is on: running totals, per-card values and "what if" numbers only
   // appear once the result has been revealed, and when watching (simulations, finished games).
@@ -443,7 +445,7 @@
     else if (G.mode !== 'online') scheduleAI();
     else if (G.status === 'active') {
       Online.connectSock();
-      identityPicker();
+      identityPicker() || suitPicker();
     }
   }
 
@@ -452,7 +454,7 @@
     const s = st();
     if (s.phase !== 'over') {
       if (G.mode === 'ai' || G.mode === 'online') return G.mode === 'online' ? G.me : 0;
-      if (G.mode === 'local') return s.turn;
+      if (G.mode === 'local') return activeSeat();
       if (G.mode === 'sim' && G.follow !== false) return s.turn;
     }
     return G.view || 0;
@@ -502,9 +504,10 @@
   function leagueCard(i) {
     const s = st();
     const p = pl(i);
-    const turn = playing() && s.turn === i;
+    const choosing = s.phase === 'suits' && !p.suits;
+    const turn = (playing() && s.turn === i) || choosing;
     const owner = handOwner();
-    const tag = turn ? `<span class="co-tag turn">${p.ai ? 'Thinking…' : G.mode === 'ai' ? 'Your turn' : 'Up now'}</span>` : '';
+    const tag = choosing ? '<span class="co-tag turn">Choosing suits…</span>' : turn ? `<span class="co-tag turn">${p.ai ? 'Thinking…' : G.mode === 'ai' ? 'Your turn' : 'Up now'}</span>` : '';
     const sc = secret(i) || !showScores() ? null : E.score(s, p);
     const known = p.took.length ? `<span class="co-known" title="Cards everyone saw ${esc(p.name)} recruit from the Plaza">👁️ ${p.took.slice(-4).map((c) => face(c)).join('')}</span>` : '';
     return `<div class="co${turn ? ' turn' : ''}${owner === i ? ' viewing' : ''}" style="--pc:${PCOLOR[i]}" data-view="${i}" title="${secret(i) ? `What you know about ${esc(p.name)}` : `Show ${esc(p.name)}’s team`}">
@@ -521,8 +524,17 @@
       return `<div class="banner">📜 ${w < 0 ? 'A tie!' : `${esc(pl(w).name)} won`} · tap a league to see its team · <button class="btn sm" data-act="scorecard">🏆 Scorecard</button></div>`;
     }
     if (s.phase === 'over') return `<div class="banner mine">🏁 ${s.ended === 'deck' ? 'The deck ran out' : `The ${E.PLAZA_END}th hero reached the Plaza`} — hands down! Tap a league to see its team. <button class="btn sm" data-act="scorecard">🏆 See who won</button></div>`;
-    const p = pl(s.turn);
     const dot = `<span class="dot"></span>`;
+    if (s.phase === 'suits') {
+      const pi = activeSeat();
+      const q = pl(pi);
+      const mine = G.mode === 'online' ? !pl(G.me).suits : G.mode === 'ai' ? !pl(0).suits : true;
+      if (G.mode === 'local' && G.shown !== pi) return `<div class="banner mine pass" style="--pc:${PCOLOR[pi]}">${dot}🏁 Hands down! 📱 Pass the device to <b>${esc(q.name)}</b> to choose suits before scoring. <button class="btn sm" data-act="reveal">👀 I’m ${esc(q.name)} — choose my suits</button></div>`;
+      if (mine) return `<div class="banner mine" style="--pc:${PCOLOR[G.mode === 'online' ? G.me : G.mode === 'ai' ? 0 : pi]}">${dot}🏁 Hands down! <b>Choose your suits</b> for Mimic, the Hero Signal or Penny Press before the scores are counted. <button class="btn sm" data-act="suits">🎭 Choose suits</button></div>`;
+      const waiting = E.waitingOn(s).map((j) => esc(pl(j).name)).join(', ');
+      return `<div class="banner">${dot}🏁 Hands down! Waiting for ${waiting} to choose suits before scoring…</div>`;
+    }
+    const p = pl(s.turn);
     if (p.ai) return `<div class="banner" style="--pc:${PCOLOR[s.turn]}">${dot}${esc(p.name)} is ${s.phase === 'draw' ? 'choosing a card' : 'deciding who to send to the Plaza'}…</div>`;
     if (G.mode === 'local' && G.shown !== s.turn) return `<div class="banner mine pass" style="--pc:${PCOLOR[s.turn]}">${dot}📱 Pass the device to <b>${esc(p.name)}</b>. <button class="btn sm" data-act="reveal">👀 I’m ${esc(p.name)} — show my hand</button></div>`;
     const who = G.mode === 'local' ? `${esc(p.name)}, your turn` : 'Your turn';
@@ -536,7 +548,7 @@
 
   // ---------------------------------------------------------------- the table
   // What a hand scores with this league's Plaza context (Plaza cards and recruits count for some abilities).
-  const scoreOf = (pi) => E.scoreHand(pl(pi).hand, st().mission, pl(pi).identity, E.ctxOf(st(), pi));
+  const scoreOf = (pi) => E.scoreFor(st(), pi);
   function missionCheck(pi) {
     const r = scoreOf(pi);
     const live = r.cards.filter((x) => !x.blanked);
@@ -687,14 +699,15 @@
     if (act === 'mission') return showMission();
     if (act === 'identity') return showIdentity(handOwner());
     if (act === 'reveal') {
-      if (G.mode === 'local' && humanTurn()) {
-        G.shown = st().turn;
+      if (G.mode === 'local' && (humanTurn() || st().phase === 'suits')) {
+        G.shown = activeSeat();
         sfx('card');
         render();
-        identityPicker();
+        identityPicker() || suitPicker();
       }
       return;
     }
+    if (act === 'suits') return suitPicker();
     if (!canAct()) return;
     if (act === 'deck') return drawDeck();
   });
@@ -740,7 +753,7 @@
       if (!quiet) sfx('place');
       if (G.mode === 'local' && s.phase !== 'over') {
         G.shown = null;
-        if (!quiet) toast(`${leagueName(pi)} sent <b>${cname(a.c)}</b> to the Plaza. Pass the device to ${leagueName(s.turn)}.`);
+        if (!quiet) toast(`${leagueName(pi)} sent <b>${cname(a.c)}</b> to the Plaza. Pass the device to ${leagueName(activeSeat())}.`);
       } else if (actor.ai && !quiet && (G.mode !== 'sim' || G.speed === 'watch')) {
         const L = s.last;
         toast(`<span class="dot" style="--pc:${PCOLOR[pi]}"></span>${leagueName(pi)} ${L.from === 'plaza' ? `recruited <b>${cname(L.took)}</b> from the Plaza` : 'drew from the deck'} and sent <b>${cname(L.gave)}</b> to the Plaza.`);
@@ -889,6 +902,87 @@
     });
     return true;
   }
+  // ---------------------------------------------------------------- suits at the end
+  // When the hands go down, Mimic and the Hero Signal need a suit, and Penny Press may give one other card a new one.
+  function suitSeat() {
+    if (!G || G.mode === 'sim' || G.mode === 'past' || st().phase !== 'suits') return null;
+    if (G.mode === 'ai') return pl(0).suits ? null : 0;
+    if (G.mode === 'online') return G.status === 'active' && !pl(G.me).suits ? G.me : null;
+    const pi = activeSeat();
+    return G.shown === pi && !pl(pi).suits ? pi : null;
+  }
+  function suitPicker() {
+    if (!G || ui.modal) return false;
+    const pi = suitSeat();
+    if (pi == null) return false;
+    const s = st();
+    const p = pl(pi);
+    const M = mission();
+    const ch = E.suitChoices(p.hand, s.mission);
+    const pick = { w: {}, re: null };
+    const suitBtn = (t, on, attrs) => `<button class="sp-suit${on ? ' on' : ''}" style="--sc:${E.SUIT[t].color}" ${attrs}>${E.SUIT[t].icon} ${esc(E.SUIT[t].name)}</button>`;
+    const body = () => {
+      const own = ch.own.map((x) => `<div class="sp-row">${cardHtml(x.id, { small: true })}<div class="sp-opts">
+        <p><b>${cname(x.id)}</b> counts as ${x.suits.length < E.SUITS.length ? 'one of the Mission’s suits' : 'any suit you like'}:</p>
+        <div class="sp-suits">${x.suits.map((t) => suitBtn(t, pick.w[x.id] === t, `data-own="${x.id}" data-suit="${t}"`)).join('')}</div></div></div>`).join('');
+      let re = '';
+      if (ch.recolor) {
+        const c = pick.re && pick.re.c;
+        re = `<div class="sp-row">${cardHtml(ch.recolor.by, { small: true })}<div class="sp-opts">
+          <p><b>${cname(ch.recolor.by)}</b> can make one other card count as a different suit — or leave them all as they are.</p>
+          <div class="sp-cards"><button class="sp-card none${c ? '' : ' on'}" data-re-card="">✋ No change</button>${ch.recolor.cards.map((id) => `<button class="sp-card${c === id ? ' on' : ''}" data-re-card="${id}">${face(id)}<span>${cname(id)}</span></button>`).join('')}</div>
+          ${c ? `<p>${cname(c)} counts as:</p><div class="sp-suits">${E.SUITS.filter((t) => t !== C(c).suit).map((t) => suitBtn(t, pick.re.s === t, `data-re-suit="${t}"`)).join('')}</div>` : ''}</div></div>`;
+      }
+      const ready = ch.own.every((x) => pick.w[x.id]) && (!pick.re || pick.re.s);
+      return `${own}${re}<p class="muted">Today’s Mission: ${M.icon} ${esc(M.name)} — ${suitTag(M.need[0])} + ${suitTag(M.need[1])}${p.identity ? ` · your secret identity: ${identName(p.identity)}` : ''}</p>
+        <div class="btn-row"><button class="btn" data-lock ${ready ? '' : 'disabled'}>✅ Lock in and score</button></div>`;
+    };
+    const back = openModal(`<h2>🎭 ${G.mode === 'local' ? `${esc(p.name)}, choose` : 'Choose'} your suits</h2>
+      <p>The hands are down! Before the scores are counted, decide what these cards count as. No scores are shown until every league has chosen, so work out what’s best for your team.</p>
+      <div class="sp-body">${body()}</div>`, { cls: 'wide', noClose: true });
+    const box = back.querySelector('.sp-body');
+    back.addEventListener('click', (e) => {
+      const own = e.target.closest('[data-own]');
+      const card = e.target.closest('[data-re-card]');
+      const re = e.target.closest('[data-re-suit]');
+      if (own) pick.w[own.dataset.own] = own.dataset.suit;
+      else if (card) pick.re = card.dataset.reCard ? { c: card.dataset.reCard, s: null } : null;
+      else if (re) pick.re.s = re.dataset.reSuit;
+      else if (e.target.closest('[data-lock]')) return lockSuits(pi, { t: 'suits', w: pick.w, re: pick.re });
+      else return;
+      box.innerHTML = body();
+    });
+    return true;
+  }
+  function lockSuits(pi, a) {
+    if (G.mode === 'online') {
+      closeModal(true);
+      return Online.send(a);
+    }
+    const s = st();
+    try {
+      E.apply(s, pi, a);
+    } catch (err) {
+      return toast(esc(err.message), 'bad');
+    }
+    G.moved = true;
+    closeModal(true);
+    sfx('card');
+    if (s.phase === 'over') {
+      recordGame();
+      save();
+      render();
+      sfx('reveal');
+      setTimeout(() => G && G.state === s && showGameOver(false), 700);
+      return;
+    }
+    if (G.mode === 'local') {
+      G.shown = null;
+      toast(`${leagueName(pi)} chose their suits. Pass the device to ${leagueName(activeSeat())}.`);
+    }
+    save();
+    render();
+  }
   function showIdentity(i) {
     const p = pl(i);
     if (!p.identity || secret(i)) return;
@@ -924,7 +1018,7 @@
   }
   function scheduleAI() {
     stopAI();
-    if (identityPicker()) return;
+    if (identityPicker() || suitPicker()) return;
     if (!G || ui.modal || !playing() || !pl(st().turn).ai || G.mode === 'past' || G.mode === 'online') return;
     const wait = G.mode === 'sim' ? SIM_SPEEDS[G.speed].ai : st().phase === 'draw' ? 800 : 1000;
     ui.aiTimer = setTimeout(aiStep, wait);
@@ -1351,10 +1445,10 @@
         <dl class="rb-terms"><dt>🛡️ Clear</dt><dd>The Banisher, Skybase and the Containment Cell <b>clear</b> penalties: the cleared card’s penalties — including blanking and “blanked unless” — just don’t happen. Scout clears the penalty on <b>any one</b> card you choose.</dd>
         <dt>🛡️ Shield</dt><dd>Lucky Cape and Firewall stop cards being <b>blanked</b> (other penalties still count). Like clears, shields always work.</dd>
         <dt>✂️ Strike a word</dt><dd>Ironclad strikes the word “Bruiser” from every penalty, and Hacklette strikes “Tech”: no penalty can count, blank or hurt those cards for their suit. Dr. Entropy can’t touch your Tech while Hacklette is on the team.</dd>
-        <dt>📰 Penny Press</dt><dd>Pick one other card in your team: it counts as any suit you like.</dd>
+        <dt>📰 Penny Press</dt><dd>When the hands go down, you may pick one other card in your team (not Mimic or the Hero Signal): it counts as any suit you choose.</dd>
         <dt>⛓️ Ringleader</dt><dd>When the hands go down, he springs one Villain from the Plaza: it joins your team as an extra card and scores like the rest.</dd>
-        <dt>🎭 Mimic</dt><dd>Counts as whichever suit scores your team best.</dd>
-        <dt>🔦 Hero Signal</dt><dd>Counts as whichever of the Mission’s two suits scores your team best.</dd>
+        <dt>🎭 Mimic</dt><dd>When the hands go down, you choose which suit it counts as.</dd>
+        <dt>🔦 Hero Signal</dt><dd>When the hands go down, you choose which of the Mission’s two suits it counts as.</dd>
         <dt>⏪ Rewind</dt><dd>Your team doesn’t lose points for the Mission’s bad suit.</dd>
         <dt>🔮 Seer Sela</dt><dd>Doubles your +${E.MISSION_DONE} for completing the Mission.</dd></dl>
         ${sec(5, 'The suits')}
@@ -1392,7 +1486,7 @@
         <p>The game ends <b>the moment the ${E.PLAZA_END}th card lands in the Plaza</b> — usually when someone draws from the deck while the Plaza has ${E.PLAZA_END - 1}. (Recruiting from the Plaza takes a card out, so it doesn’t fill up.) It also ends if the deck runs out. Nobody gets one last turn.</p>
         <p class="rb-ex">With ${E.PLAZA_END - 1} cards in the Plaza, you decide the timing. Ahead? Draw from the deck and end it. Behind? Recruit from the Plaza and keep the game going.</p>
         ${sec(2, 'Scoring a team, step by step')}
-        <ol class="rb-flow"><li>The Ringleader springs a Villain from the Plaza; Mimic, the Hero Signal and Penny Press choose suits.</li><li>Clear penalties (The Banisher, Skybase, the Containment Cell, Scout), strike words (Ironclad, Hacklette) and raise shields (Lucky Cape, Firewall).</li><li>Blank cards — all blanking happens at the same time.</li><li>Check “blanked unless…” cards.</li><li>Each card that isn’t blanked scores its power + bonuses − penalties.</li><li>Add the Mission.</li><li>Reveal and add your secret identity.</li></ol>
+        <ol class="rb-flow"><li>Leagues with Mimic, the Hero Signal or Penny Press choose their suits — no scores are shown until everyone has. Then the Ringleader springs a Villain from the Plaza.</li><li>Clear penalties (The Banisher, Skybase, the Containment Cell, Scout), strike words (Ironclad, Hacklette) and raise shields (Lucky Cape, Firewall).</li><li>Blank cards — all blanking happens at the same time.</li><li>Check “blanked unless…” cards.</li><li>Each card that isn’t blanked scores its power + bonuses − penalties.</li><li>Add the Mission.</li><li>Reveal and add your secret identity.</li></ol>
         <p class="rb-ex">Nobody’s score is shown during the game — not even your own. Counting up your team (and guessing at everyone else’s) is part of the challenge. The full breakdown appears at the end.</p>
         ${sec(3, 'Winning')}
         <p>Highest total wins. If it’s a tie, the team with more card power wins; if that’s tied too, it’s a shared win.</p>`;

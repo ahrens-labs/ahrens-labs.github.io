@@ -77,16 +77,29 @@ const GAMES = {
     title: 'Hero League',
     maxPlayers: 5,
     botNames: ['Crimson League', 'Azure Guard', 'Emerald Watch', 'Violet Vanguard', 'Golden Legion'],
-    // A computer league picks its secret identity as soon as it sits down.
+    // A computer league picks its secret identity as soon as it sits down (and its suits, if the hands are already down).
     botSetup: (E, state, pi, level) => {
       if (state.players[pi].idOffer) E.apply(state, pi, E.aiIdentity(state, pi, level));
+      if (state.phase === 'suits' && !state.players[pi].suits) E.apply(state, pi, E.aiChoose(state, pi, level));
     },
     roundOf: (s) => (s ? s.turns : 0),
     logEntry: (s, text, who) => ({ n: s.turns, text, who }),
     rounds: () => Heroes.PLAZA_END,
-    turnOf: (s) => (s && s.phase !== 'over' ? s.turn : null),
+    // When the hands go down, everyone holding Mimic, the Hero Signal or Penny Press chooses suits at the same time.
+    turnOf: (s) => (s && s.phase !== 'over' ? (Heroes.waitingOn(s)[0] ?? null) : null),
+    waitingOn: (s) => (s ? Heroes.waitingOn(s) : []),
+    allAtOnce: (s) => !!(s && s.phase === 'suits'),
     offTurnOk: (a) => a && a.t === 'identity',
     legalOk: (E, state, me, a) => {
+      if (a.t === 'suits') {
+        if (state.phase !== 'suits') return 'There are no suits to choose right now.';
+        try {
+          E.checkSuits(state, me, a);
+          return null;
+        } catch (e) {
+          return e.message || 'Illegal move.';
+        }
+      }
       if (a.t === 'identity') {
         try {
           const q = state.players[me];
@@ -323,6 +336,12 @@ function cleanHeroes(a) {
     return null;
   }
   if (a.t === 'discard') return isStr(a.c, 40) ? { t: 'discard', c: a.c } : null;
+  if (a.t === 'suits') {
+    const w = {};
+    if (a.w && typeof a.w === 'object') Object.entries(a.w).slice(0, 8).forEach(([k, v]) => isStr(k, 40) && isStr(v, 40) && (w[k] = v));
+    const re = a.re && isStr(a.re.c, 40) && isStr(a.re.s, 40) ? { c: a.re.c, s: a.re.s } : null;
+    return { t: 'suits', w, re };
+  }
   return null;
 }
 
@@ -414,6 +433,7 @@ function publicHeroes(state, me) {
       drew: null,
       identity: null,
       idOffer: p.idOffer ? [null, null] : null,
+      suits: p.suits ? { w: {}, re: null } : p.suits,
     };
   });
   return s;
@@ -1000,6 +1020,26 @@ export class LabGame {
     if (!cfg) return;
     if (Date.now() < record.deadline - 1000) return this.scheduleAlarm(record);
     const state = record.state;
+    if (cfg.allAtOnce && cfg.allAtOnce(state)) {
+      // Out of time for a decision everyone makes together: the computer makes it for whoever hasn't.
+      cfg.waitingOn(state).forEach((j) => {
+        try {
+          cfg.E.apply(state, j, cfg.E.aiChoose(state, j, 'normal'));
+        } catch {
+          /* already decided */
+        }
+      });
+      this.runBots(cfg, record);
+      record.turn = cfg.turnOf(state);
+      if (state.phase === 'over') this.finishFromState(cfg, record);
+      else record.deadline = Date.now() + QUICK_TURN_MS;
+      record.version += 1;
+      await this.persist(record);
+      await this.scheduleAlarm(record);
+      await this.publishLobbies(record);
+      this.broadcast(record, null);
+      return;
+    }
     if (cfg.answering && cfg.answering(state)) {
       // Out of time to answer a claim: whoever hasn't called "Unmask!" lets it pass.
       cfg.waitingOn(state).filter((j) => !isBot(record.players[j])).forEach((j) => {

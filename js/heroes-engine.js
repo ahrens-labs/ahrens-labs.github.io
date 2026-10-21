@@ -53,8 +53,8 @@
   //   clearOne  clears the penalty on any one other card (Island)
   //   raise     when the hands go down, one card of the suits from the Plaza joins your team as an extra card (Necromancer)
   //   oracle    your bonus for having both Mission suits is doubled
-  //   wild      counts as whichever suit scores best
-  //   agent     counts as whichever Mission suit scores best
+  //   wild      counts as any suit its owner chooses when the hands go down
+  //   agent     counts as whichever Mission suit its owner chooses when the hands go down
   //   clear     clears the penalties of every card of the suits ('*' = every card)
   //   shield    cards of the suits can't be blanked ('*' = every card)
   //   nomiss    the Mission's bad suit costs nothing
@@ -523,21 +523,63 @@
     const cardsTotal = cards.reduce((t, r) => t + r.value, 0);
     return { total: cardsTotal + m.total + idN, cardsTotal, cards, mission: m, ident: identity ? { id: identity, n: idN } : null, wild: wilds || null };
   }
+  // Suit choices are the players' own: when the hands go down, Mimic and the Hero Signal are given a suit and Penny Press
+  // may give one other card a new one (not Mimic or the Hero Signal, which choose for themselves).
+  const choosesOwn = (id) => CARD[id].fx.some((f) => f.t === 'wild' || f.t === 'agent');
+  function suitChoices(hand, mission) {
+    const M = MISSIONS[mission];
+    const own = hand.filter(choosesOwn).map((id) => ({ id, suits: CARD[id].fx.some((f) => f.t === 'wild') ? SUITS.slice() : M.need.slice() }));
+    const by = hand.find((id) => CARD[id].fx.some((f) => f.t === 'recolor'));
+    return { own, recolor: by ? { by, cards: hand.filter((o) => o !== by && !choosesOwn(o)) } : null };
+  }
+  const needsSuits = (hand, mission) => {
+    const c = suitChoices(hand, mission);
+    return c.own.length > 0 || !!c.recolor;
+  };
+  // A player's choices, checked against their hand: { w: { card: suit }, re: { c: card, s: suit } | null }.
+  function checkSuits(state, pi, a) {
+    const p = state.players[pi];
+    const c = suitChoices(p.hand, state.mission);
+    const w = {};
+    c.own.forEach((x) => {
+      const s = a && a.w && a.w[x.id];
+      if (!x.suits.includes(s)) throw new Error(`Choose a suit for ${CARD[x.id].name}.`);
+      w[x.id] = s;
+    });
+    let re = null;
+    if (a && a.re) {
+      if (!c.recolor || !c.recolor.cards.includes(a.re.c)) throw new Error('Penny Press can’t change that card.');
+      if (!SUITS.includes(a.re.s) || a.re.s === CARD[a.re.c].suit) throw new Error('Pick a different suit for that card.');
+      re = { c: a.re.c, s: a.re.s };
+    }
+    return { w, re };
+  }
   // Cards that make a choice try every one they're allowed, and the best total counts: Mimic and the Hero Signal pick
   // their own suit, Penny Press another card's, Scout which penalty to clear, and Ringleader which Villain to bring.
-  function scoreChoices(ids, mission, identity, ctx) {
+  // fixed: the suits a player chose when the hands went down — those are used as they are. If Penny Press ends up
+  // blanked, the card it changed keeps its own suit.
+  function scoreChoices(ids, mission, identity, ctx, fixed) {
+    const r = bestChoice(ids, mission, identity, ctx, fixed);
+    if (fixed && fixed.re && r.total === -Infinity) return bestChoice(ids, mission, identity, ctx, Object.assign({}, fixed, { re: null }));
+    return r;
+  }
+  function bestChoice(ids, mission, identity, ctx, fixed) {
     const picks = [];
     const M = MISSIONS[mission];
     ids.forEach((id) => {
       const fx = CARD[id].fx;
-      if (fx.some((f) => f.t === 'wild')) picks.push(SUITS.map((x) => ({ w: { [id]: x } })));
-      else if (fx.some((f) => f.t === 'agent')) picks.push(M.need.map((x) => ({ w: { [id]: x } })));
-      if (fx.some((f) => f.t === 'recolor')) {
+      const mine = fixed && fixed.w && fixed.w[id];
+      if (fx.some((f) => f.t === 'wild')) picks.push(mine ? [{ w: { [id]: mine } }] : SUITS.map((x) => ({ w: { [id]: x } })));
+      else if (fx.some((f) => f.t === 'agent')) picks.push(mine ? [{ w: { [id]: mine } }] : M.need.map((x) => ({ w: { [id]: x } })));
+      if (fx.some((f) => f.t === 'recolor') && fixed) {
+        const re = fixed.re;
+        picks.push(re && re.c !== id && ids.includes(re.c) ? [{ w: { [re.c]: re.s }, by: id }] : [{}]);
+      } else if (fx.some((f) => f.t === 'recolor')) {
         // Only suits something rewards are worth trying (moving a card out of a penalised suit is covered by any of them).
         const useful = new Set(M.need.concat(M.plus.s));
         ids.forEach((o) => CARD[o].fx.forEach((f) => !PENALTY.has(f.t) && (f.s || []).forEach((x) => x !== '*' && useful.add(x))));
         if (identity && IDENTITIES[identity] && IDENTITIES[identity].rule.s) IDENTITIES[identity].rule.s.forEach((x) => useful.add(x));
-        picks.push([{}].concat(ids.filter((o) => o !== id).flatMap((o) => [...useful].filter((x) => x !== CARD[o].suit).map((x) => ({ w: { [o]: x }, by: id })))));
+        picks.push([{}].concat(ids.filter((o) => o !== id && !choosesOwn(o)).flatMap((o) => [...useful].filter((x) => x !== CARD[o].suit).map((x) => ({ w: { [o]: x }, by: id })))));
       }
       if (fx.some((f) => f.t === 'clearOne')) picks.push([{}].concat(ids.filter((o) => o !== id && isPenalty(o)).map((o) => ({ clear: { [o]: id }, by: id }))));
     });
@@ -581,25 +623,25 @@
   const PLAZA_FX = new Set(['plaza', 'penPlaza', 'raise']);
   const TOOK_FX = new Set(['free', 'took', 'penDealt']);
   const memo = new Map();
-  function scoreHand(ids, mission, identity, ctx) {
+  function scoreHand(ids, mission, identity, ctx, fixed) {
     ctx = ctx || NO_CTX;
     const uses = (set) => ids.some((id) => CARD[id].fx.some((f) => set.has(f.t)));
-    const key = `${ids.slice().sort().join(',')}|${mission}|${identity || ''}|${uses(PLAZA_FX) ? (ctx.plaza || []).join(',') : ''}|${uses(TOOK_FX) ? (ctx.took || []).filter((t) => ids.includes(t)).sort().join(',') : ''}`;
+    const key = `${ids.slice().sort().join(',')}|${mission}|${identity || ''}|${uses(PLAZA_FX) ? (ctx.plaza || []).join(',') : ''}|${uses(TOOK_FX) ? (ctx.took || []).filter((t) => ids.includes(t)).sort().join(',') : ''}|${fixed ? JSON.stringify(fixed) : ''}`;
     let r = memo.get(key);
     if (!r) {
-      r = scoreFresh(ids, mission, identity, ctx);
+      r = scoreFresh(ids, mission, identity, ctx, fixed);
       if (memo.size > 30000) memo.clear();
       memo.set(key, r);
     }
     return r;
   }
-  function scoreFresh(ids, mission, identity, ctx) {
-    let best = scoreChoices(ids, mission, identity, ctx);
+  function scoreFresh(ids, mission, identity, ctx, fixed) {
+    let best = scoreChoices(ids, mission, identity, ctx, fixed);
     const raiser = ids.find((id) => CARD[id].fx.some((f) => f.t === 'raise'));
     if (raiser) {
       const f = CARD[raiser].fx.find((x) => x.t === 'raise');
       (ctx.plaza || []).filter((p) => f.s.includes(CARD[p].suit) && !ids.includes(p)).forEach((p) => {
-        const r = scoreChoices(ids.concat(p), mission, identity, { plaza: ctx.plaza.filter((x) => x !== p), took: ctx.took });
+        const r = scoreChoices(ids.concat(p), mission, identity, { plaza: ctx.plaza.filter((x) => x !== p), took: ctx.took }, fixed);
         if (r.total > best.total) best = Object.assign(r, { raised: p, raisedBy: raiser });
       });
     }
@@ -681,6 +723,19 @@
       log(state, `${q.name} chose a secret identity.`, pi);
       return state;
     }
+    // Once the hands are down, everyone with a suit to choose does so at the same time.
+    if (a.t === 'suits') {
+      if (state.phase !== 'suits') throw new Error('There are no suits to choose right now.');
+      const q = state.players[pi];
+      if (!q || q.suits) throw new Error('You’ve already chosen your suits.');
+      q.suits = checkSuits(state, pi, a);
+      log(state, `${q.name} chose their suits.`, pi);
+      if (state.players.every((x) => x.suits)) {
+        state.phase = 'over';
+        log(state, 'Every league has chosen. Time to score!');
+      }
+      return state;
+    }
     if (pi !== state.turn) throw new Error('It isn’t your turn.');
     const p = state.players[pi];
     if (p.idOffer) throw new Error('Choose your secret identity first.');
@@ -724,8 +779,8 @@
       log(state, `${p.name} sent ${CARD[a.c].name} to the Plaza.`, pi);
       if (state.plaza.length >= PLAZA_END || !state.deck.length) {
         state.ended = state.plaza.length >= PLAZA_END ? 'plaza' : 'deck';
-        state.phase = 'over';
         log(state, state.ended === 'plaza' ? `The ${PLAZA_END}th hero reached the Plaza. Hands down — time to score!` : 'The deck ran out. Hands down — time to score!');
+        handsDown(state);
         return state;
       }
       state.turn = (pi + 1) % state.players.length;
@@ -735,9 +790,47 @@
     throw new Error('Unknown move.');
   }
 
+  // Hands down: computer leagues settle their suits at once; people holding Mimic, the Hero Signal or Penny Press choose theirs.
+  function handsDown(state) {
+    state.players.forEach((p, i) => {
+      if (!needsSuits(p.hand, state.mission)) p.suits = { w: {}, re: null };
+      else p.suits = p.ai ? aiSuits(state, i) : null;
+    });
+    if (state.players.every((p) => p.suits)) {
+      state.phase = 'over';
+      return;
+    }
+    state.phase = 'suits';
+    log(state, 'Before the scores are counted, leagues with Mimic, the Hero Signal or Penny Press choose their suits.');
+  }
+  // The suits that score this hand best.
+  function aiSuits(state, pi) {
+    const p = state.players[pi];
+    const c = suitChoices(p.hand, state.mission);
+    const r = scoreHand(p.hand, state.mission, p.identity, ctxOf(state, pi));
+    const w = {};
+    c.own.forEach((x) => (w[x.id] = (r.wild && r.wild[x.id]) || x.suits[0]));
+    let re = null;
+    if (c.recolor && r.wild) {
+      const k = c.recolor.cards.find((o) => r.wild[o] && r.wild[o] !== CARD[o].suit);
+      if (k) re = { c: k, s: r.wild[k] };
+    }
+    return { w, re };
+  }
+  // Who still has a decision to make: everyone choosing suits at the end, otherwise whoever's turn it is.
+  function waitingOn(state) {
+    if (state.phase === 'over') return [];
+    if (state.phase === 'suits') return state.players.map((_, i) => i).filter((i) => !state.players[i].suits);
+    return [state.turn];
+  }
+
   // ---------------------------------------------------------------- results
+  const scoreFor = (state, pi) => {
+    const p = state.players[pi];
+    return scoreHand(p.hand, state.mission, p.identity, ctxOf(state, pi), p.suits || null);
+  };
   function score(state, p) {
-    const r = scoreHand(p.hand, state.mission, p.identity, { plaza: state.plaza, took: p.took });
+    const r = scoreHand(p.hand, state.mission, p.identity, { plaza: state.plaza, took: p.took }, p.suits || null);
     return {
       total: r.total,
       cards: r.cardsTotal,
@@ -810,6 +903,7 @@
   function aiChoose(state, pi, level) {
     const L = LEVELS[level] || LEVELS.normal;
     const p = state.players[pi];
+    if (state.phase === 'suits') return Object.assign({ t: 'suits' }, aiSuits(state, pi));
     if (p.idOffer) return aiIdentity(state, pi, level);
     const idt = p.identity;
     const ctx = ctxOf(state, pi);
@@ -845,7 +939,8 @@
     PENALTY, SPECIAL, ctxOf,
     SAVE_V, HAND, PLAZA_END, MISSION_DONE, MISSION_FIT, MISSION_FAIL, SUIT, SUITS, CARDS, CARD, MISSIONS, MISSION_ORDER, LEVELS,
     IDENTITIES, IDENTITY_ORDER, identityText, aiIdentity,
-    newGame, aiHeadStart, legal, apply, aiChoose, score, ranking, winner,
+    newGame, aiHeadStart, legal, apply, aiChoose, score, ranking, winner, waitingOn,
+    suitChoices, needsSuits, checkSuits, scoreFor,
     scoreHand, handScore, fxText, cardText, isPenalty, bestDiscard, unseen,
   };
   if (typeof module === 'object' && module.exports) module.exports = api;

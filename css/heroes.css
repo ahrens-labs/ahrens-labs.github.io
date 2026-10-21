@@ -375,6 +375,18 @@ button { font-family: inherit; }
 .hr-ident b { color: #7dff9e; }
 @media (max-width: 560px) { .ident-pick { grid-template-columns: 1fr; } .ident-chip { order: 3; margin-left: 0; } .hand-head { flex-wrap: wrap; } }
 .known-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 0.6rem; }
+/* choosing suits when the hands go down */
+.sp-row { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 0.9rem; align-items: start; padding: 0.8rem 0; border-bottom: 2px dashed var(--paper-2); }
+.sp-opts p { margin: 0 0 0.45rem; }
+.sp-suits, .sp-cards { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.5rem; }
+.sp-suit, .sp-card { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.35rem 0.7rem; border-radius: 999px; cursor: pointer; font: inherit; font-weight: 700; font-size: 0.9rem; color: var(--ink);
+  border: 2px solid color-mix(in srgb, var(--sc, #5d6275) 55%, #fff); background: color-mix(in srgb, var(--sc, #5d6275) 12%, #fff); transition: transform 0.12s var(--pop), box-shadow 0.12s; }
+.sp-card { padding: 0.2rem 0.65rem 0.2rem 0.2rem; }
+.sp-card.none { padding: 0.35rem 0.7rem; }
+.sp-suit:hover, .sp-card:hover { transform: translateY(-2px); }
+.sp-suit.on, .sp-card.on { color: #fff; border-color: var(--ink); background: color-mix(in srgb, var(--sc, #2a5fb8) 85%, #000); box-shadow: 3px 3px 0 var(--ink); }
+.sp-body > .muted { margin: 0.8rem 0 0; }
+@media (max-width: 560px) { .sp-row { grid-template-columns: 84px minmax(0, 1fr); gap: 0.6rem; } }
 
 /* rules */
 .rules-tabs { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-bottom: 0.8rem; }
