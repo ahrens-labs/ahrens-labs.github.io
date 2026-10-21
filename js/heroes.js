@@ -1604,5 +1604,20 @@
     openPast(params.get('past')).then(() => G || showHistory());
   } else if (params.has('history')) showHistory();
   else showSetup();
+  // Phones: the table (Mission, deck and Plaza), your team and the Daily Hero each get a tab along the bottom, and the
+  // game turns to the one your next step needs: the table to draw, your team to send a card.
+  if (window.PhoneTabs) {
+    PhoneTabs.init({
+      root: '.hl',
+      accent: '#ffd23f',
+      tabs: [
+        { id: 'table', icon: '🏙️', label: 'Plaza', show: '.hl section.table-sec' },
+        { id: 'team', icon: '🦸', label: 'My team', show: '.hl section.panel.hand' },
+        { id: 'log', icon: '📰', label: 'Daily Hero', show: '.hl > section.panel:not(.hand)' },
+      ],
+      auto: () => (G && G.state && canAct() ? (st().phase === 'discard' ? 'team' : 'table') : null),
+      marks: () => ({ team: !!(G && G.state && canAct() && st().phase === 'discard') }),
+    });
+  }
   window.__hx = { cardHtml, get G() { return G; }, render, E, send: (a) => doAction(a) };
 })();

@@ -595,3 +595,9 @@ button { font-family: inherit; }
 .seg.ol-level[hidden] { display: none; }
 #ol-more { display: grid; gap: 0.5rem; }
 #ol-more:empty { display: none; }
+
+/* Phones: the card art's idle motion and glints stop, so the screen isn't redrawn all game long. */
+@media (max-width: 640px) {
+  .hc-art img, .hc-art::after, .ms-art img { animation: none !important; }
+  .co-name { flex-wrap: wrap; row-gap: 0.15rem; }
+}

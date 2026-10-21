@@ -409,6 +409,27 @@
       </div>`;
     const lg = $('#log');
     if (lg) lg.scrollTop = lg.scrollHeight;
+    phoneFocus();
+  }
+
+  // On a phone the decision panel sits above the nobles. A new decision for you brings it into view (answers are
+  // timed), and choosing a target brings the nobles' cards into view.
+  const PHONE = window.matchMedia('(max-width: 640px)');
+  function phoneFocus() {
+    if (!PHONE.matches || G.mode === 'sim' || G.mode === 'past') return;
+    const s = st();
+    const P = s.pending;
+    const key = s.phase === 'act' && myDecision() ? `${s.log.length}:${P ? P.stage : 'turn'}` : null;
+    const pick = ui.pick ? 'pick' : null;
+    const under = ($('.topbar') || { offsetHeight: 0 }).offsetHeight;
+    const into = (el) => {
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      if (r.top < under || r.top > innerHeight * 0.55) window.scrollTo(0, Math.max(0, r.top + scrollY - under - 8));
+    };
+    if (pick && ui.focused !== pick) into($('.nobles'));
+    else if (key && key !== ui.focused) into($('.mq-main .stage'));
+    ui.focused = pick || key;
   }
 
   function nobleHtml(i, v) {
@@ -553,7 +574,7 @@
     };
     const basic = (t, icon, label, text, why) => `<button class="basic${why ? ' off' : ''}" data-basic="${t}" ${why ? 'disabled' : ''}><span>${icon}</span><b>${label}</b><small>${why || text}</small></button>`;
     const pickWhat = !ui.pick ? '' : ui.pick.whisper ? 'your whisper' : ui.pick.k ? (ui.pick.pair ? `the ${E.PAIRS[ui.pick.k].name}` : M(ui.pick.k).power) : 'the scandal';
-    const picking = ui.pick ? `<div class="picking">👉 ${ui.pick.need === 'target' ? `Choose a noble above for <b>${esc(pickWhat)}</b>.` : ''} <button class="btn ghost sm" data-act="cancel">Cancel</button></div>` : '';
+    const picking = ui.pick ? `<div class="picking">👉 ${ui.pick.need === 'target' ? `Choose a noble for <b>${esc(pickWhat)}</b> — tap their card.` : ''} <button class="btn ghost sm" data-act="cancel">Cancel</button></div>` : '';
     return `<h3>🎭 Your move <small>claim any mask — the ones you don’t wear are bluffs</small></h3>
       ${picking}
       <div class="powers">${E.MASK_ORDER.map(power).join('')}</div>

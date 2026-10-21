@@ -1734,5 +1734,19 @@
     openPast(params.get('past')).then(() => G || showHistory());
   } else if (params.has('history')) showHistory();
   else showSetup();
+  // Phones: your shop (where your moves are), the calendar, the town square and the ledger each get a tab along the bottom.
+  if (window.PhoneTabs) {
+    PhoneTabs.init({
+      root: '.cl',
+      accent: '#c38bff',
+      tabs: [
+        { id: 'shop', icon: '⚗️', label: 'My shop', show: '.cl section.panel.shop' },
+        { id: 'lane', icon: '📅', label: 'Calendar', show: '.cl section.board-sec' },
+        { id: 'town', icon: '🏙️', label: 'Town', show: '.cl section.square' },
+        { id: 'ledger', icon: '📜', label: 'Ledger', show: '.cl > section.panel' },
+      ],
+      auto: () => (G && G.state && humanTurn() ? 'shop' : null),
+    });
+  }
   window.__cl = { get G() { return G; }, render, E, send: (a) => doAction(a) };
 })();

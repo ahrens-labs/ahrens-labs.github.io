@@ -1717,5 +1717,19 @@
     openPast(params.get('past')).then(() => G || showHistory());
   } else if (params.has('history')) showHistory();
   else showSetup();
+  // Phones: the chart, your company, the dive hall and the rest each get a tab along the bottom.
+  if (window.PhoneTabs) {
+    PhoneTabs.init({
+      root: '.at',
+      accent: '#2ec4b6',
+      tabs: [
+        { id: 'chart', icon: '🗺️', label: 'Chart', show: '.at section.sea' },
+        { id: 'company', icon: '⚓', label: 'Company', show: '.at section.panel.company' },
+        { id: 'hall', icon: '🤿', label: 'Dive hall', show: '.at section.panel.hall' },
+        { id: 'more', icon: '📜', label: 'Goals · log', show: '.at section.panel.goals, .at > section.panel' },
+      ],
+      auto: () => (G && G.state && humanTurn() ? 'chart' : null),
+    });
+  }
   window.__atl = { get G() { return G; }, render, E, send: (a) => doAction(a) };
 })();

@@ -340,3 +340,30 @@ button { font-family: inherit; }
 .whisper-pick .lose-opt { min-width: 112px; }
 .whisper-opt.sure { box-shadow: inset 0 0 0 3px var(--teal); }
 .rb-video { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.7rem; padding: 0.6rem 0.8rem; border-radius: 12px; background: rgba(201, 162, 39, 0.14); font-size: 0.93rem; }
+
+/* Phones: the title wraps instead of running under the buttons, and what you have to decide comes first —
+   the stage, then the nobles (tap one to choose a target), then your masks and the Gazette. */
+@media (max-width: 640px) {
+  .brand > div { min-width: 0; }
+  .brand h1 { white-space: normal; font-size: 0.98rem; }
+  .brand-logo { width: 38px; height: 38px; }
+  .mq { display: flex; flex-direction: column; gap: 10px; }
+  .mq-main { display: contents; }
+  .mq > .banner { order: 1; }
+  .mq-main > .stage { order: 2; }
+  .mq > .nobles { order: 3; gap: 8px; }
+  .mq-main > .mine { order: 4; }
+  .mq > .gazette { order: 5; }
+  .noble { padding: 0.5rem 0.55rem 0.55rem; gap: 0.25rem; }
+  .nb-rumours { min-height: 0; }
+  .powers { gap: 0.4rem; margin-bottom: 0.6rem; }
+  .power { grid-template-columns: 44px minmax(0, 1fr); gap: 0.5rem; padding: 0.35rem 0.45rem; }
+  .power .mk-img { width: 44px; height: 44px; border-radius: 8px; }
+  .power.pair { grid-template-columns: 60px minmax(0, 1fr); }
+  .power .pair-imgs .mk-img { width: 36px; height: 36px; }
+  .power .pair-imgs .mk-img + .mk-img { margin-top: 10px; }
+  .pw-text { font-size: 0.8rem; line-height: 1.2; }
+  .basics { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.4rem; }
+  .basic { flex-direction: row; justify-content: flex-start; gap: 0.45rem; padding: 0.5rem 0.55rem; text-align: left; }
+  .basic span { font-size: 1.2rem; }
+}

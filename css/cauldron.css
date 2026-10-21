@@ -617,3 +617,10 @@ button { font-family: inherit; }
 .seg.ol-level[hidden] { display: none; }
 #ol-more { display: grid; gap: 0.5rem; }
 #ol-more:empty { display: none; }
+
+/* Phones: the creatures' and townsfolk's idle motion stops, so the screen isn't redrawn all game long. */
+@media (max-width: 640px) {
+  .beast-pic, .folk-pic, .beast::after { animation: none !important; }
+  .co-name { flex-wrap: wrap; row-gap: 0.15rem; }
+  .beast::after { display: none; }
+}
