@@ -8,10 +8,10 @@
   const GAMES = {
     dino: { name: 'Dino Dynasty', icon: '🦖', page: '/dino-board-game.html', history: '/dino-history.html', img: '/img/dino-game/cover.webp', view: '🦖 View the parks' },
     hearthhold: { name: 'Oakhaven', icon: '🏰', page: '/oakhaven.html', history: '/oakhaven.html?history', img: '/img/hearthhold/cover.webp', view: '🏘️ View the villages' },
-    atlantis: { name: 'Atlantis Expedition', icon: '🔱', page: '/atlantis.html', history: '/atlantis.html?history', img: '/img/atlantis/cover.webp', view: '🗺️ View the chart' },
-    cauldron: { name: 'Cauldron Lane', icon: '⚗️', page: '/cauldron.html', history: '/cauldron.html?history', img: '/img/cauldron/cover.webp?v=2', view: '⚗️ View the lane' },
-    heroes: { name: 'Hero League', icon: '🦸', page: '/heroes.html', history: '/heroes.html?history', img: '/img/heroes/cover.webp', view: '🦸 See the teams' },
-    masquerade: { name: 'The Masquerade Court', icon: '🎭', page: '/masquerade.html', history: '/masquerade.html?history', img: '/img/masquerade/cover.webp', view: '🎭 See the ballroom' },
+    atlantis: { name: 'Atlantis Expedition', icon: '🔱', page: '/atlantis.html', history: '/atlantis.html?history', img: '/img/atlantis/cover.webp?v=2', view: '🗺️ View the chart' },
+    cauldron: { name: 'Cauldron Lane', icon: '⚗️', page: '/cauldron.html', history: '/cauldron.html?history', img: '/img/cauldron/cover.webp?v=3', view: '⚗️ View the lane' },
+    heroes: { name: 'Hero League', icon: '🦸', page: '/heroes.html', history: '/heroes.html?history', img: '/img/heroes/cover.webp?v=2', view: '🦸 See the teams' },
+    masquerade: { name: 'The Masquerade Court', icon: '🎭', page: '/masquerade.html', history: '/masquerade.html?history', img: '/img/masquerade/cover.webp?v=2', view: '🎭 See the ballroom' },
   };
   const KIND = { ai: '🤖 vs computer', local: '👥 same device', online: '🌐 online' };
   const LEVELS = { easy: 'Easy', normal: 'Normal', medium: 'Normal', hard: 'Hard', brutal: 'Brutal' };

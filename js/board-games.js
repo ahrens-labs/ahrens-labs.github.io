@@ -5,10 +5,10 @@
   const GAMES = {
     dino: { name: 'Dino Dynasty', icon: '🦖', page: '/dino-board-game.html', img: '/img/dino-game/cover.webp' },
     hearthhold: { name: 'Oakhaven', icon: '🏰', page: '/oakhaven.html', img: '/img/hearthhold/cover.webp' },
-    atlantis: { name: 'Atlantis Expedition', icon: '🔱', page: '/atlantis.html', img: '/img/atlantis/cover.webp' },
-    cauldron: { name: 'Cauldron Lane', icon: '⚗️', page: '/cauldron.html', img: '/img/cauldron/cover.webp?v=2' },
-    heroes: { name: 'Hero League', icon: '🦸', page: '/heroes.html', img: '/img/heroes/cover.webp' },
-    masquerade: { name: 'The Masquerade Court', icon: '🎭', page: '/masquerade.html', img: '/img/masquerade/cover.webp' },
+    atlantis: { name: 'Atlantis Expedition', icon: '🔱', page: '/atlantis.html', img: '/img/atlantis/cover.webp?v=2' },
+    cauldron: { name: 'Cauldron Lane', icon: '⚗️', page: '/cauldron.html', img: '/img/cauldron/cover.webp?v=3' },
+    heroes: { name: 'Hero League', icon: '🦸', page: '/heroes.html', img: '/img/heroes/cover.webp?v=2' },
+    masquerade: { name: 'The Masquerade Court', icon: '🎭', page: '/masquerade.html', img: '/img/masquerade/cover.webp?v=2' },
   };
   // "Surprise me": a random game against a random number of computer rivals (up to as many as the game seats).
   const MAX_RIVALS = { dino: 1, hearthhold: 1, atlantis: 1, cauldron: 3, heroes: 4, masquerade: 4 };
