@@ -76,6 +76,7 @@ const HEADER_NAV_ALLOWED_IDS = new Set([
   'musicLab',
   'languageLab',
   'writingLab',
+  'ahrensGames',
   'dungeonGame',
   'classify',
   'tether',
