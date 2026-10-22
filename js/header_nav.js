@@ -3,7 +3,10 @@
   if (typeof window === 'undefined') return;
 
   const STORAGE_KEY = 'ahrenslabs_headerNav';
-  const DEFAULT_NAV_IDS = ['home', 'labs', 'chessEngine', 'account'];
+  const DEFAULT_NAV_IDS = ['home', 'labs', 'projects', 'chessEngine', 'account'];
+  // Header links saved on this device before Projects became a default get it once; saving links again marks them current.
+  const VERSION_KEY = 'ahrenslabs_headerNav_v';
+  const NAV_VERSION = '2';
 
   /** @typedef {{ id: string, label: string, href: string, icon?: string, children?: Array<{ id: string, label: string, href: string, icon?: string }> }} NavEntry */
 
@@ -156,11 +159,21 @@
     return selected;
   }
 
+  function withProjects(ids) {
+    if (ids.includes('projects')) return ids;
+    const out = ids.slice();
+    const at = out.indexOf('labs');
+    out.splice(at >= 0 ? at + 1 : Math.min(1, out.length), 0, 'projects');
+    return out;
+  }
+
   function getStoredNavIds() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return DEFAULT_NAV_IDS.slice();
-      return normalizeNavIds(JSON.parse(raw));
+      const ids = normalizeNavIds(JSON.parse(raw));
+      if (localStorage.getItem(VERSION_KEY) === NAV_VERSION) return ids;
+      return saveNavIdsToLocal(withProjects(ids));
     } catch {
       return DEFAULT_NAV_IDS.slice();
     }
@@ -169,6 +182,7 @@
   function saveNavIdsToLocal(ids) {
     const normalized = normalizeNavIds(ids);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
+    localStorage.setItem(VERSION_KEY, NAV_VERSION);
     return normalized;
   }
 

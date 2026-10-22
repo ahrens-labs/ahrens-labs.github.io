@@ -59,7 +59,7 @@ import {
 /** Stored on `emailPreferences.digestTimeZone` for compatibility; digest send time uses UTC (see `getDigestSendUtcHM`). */
 const DEFAULT_DIGEST_TIMEZONE = 'Etc/UTC';
 
-const HEADER_NAV_DEFAULT_IDS = ['home', 'labs', 'chessEngine', 'account'];
+const HEADER_NAV_DEFAULT_IDS = ['home', 'labs', 'projects', 'chessEngine', 'account'];
 const HEADER_NAV_ALLOWED_IDS = new Set([
   'home',
   'labs',
@@ -101,6 +101,16 @@ function sanitizeHeaderNavItems(raw) {
     }
   }
   return out.length ? out : HEADER_NAV_DEFAULT_IDS.slice();
+}
+
+// The Projects dropdown became a default. Header links saved before then get it once (after Labs); once someone saves
+// their header links again (headerNavV2), their choice stands.
+function withProjectsDefault(items) {
+  if (items.includes('projects')) return items;
+  const out = items.slice();
+  const at = out.indexOf('labs');
+  out.splice(at >= 0 ? at + 1 : Math.min(1, out.length), 0, 'projects');
+  return out;
 }
 
 /** Only this logged-in account may POST /api/admin/broadcast-email */
@@ -11223,7 +11233,8 @@ export class UserAccount {
       };
     }
     if (Array.isArray(userData.headerNavItems) && userData.headerNavItems.length > 0) {
-      out.headerNavItems = sanitizeHeaderNavItems(userData.headerNavItems);
+      const items = sanitizeHeaderNavItems(userData.headerNavItems);
+      out.headerNavItems = userData.headerNavV2 ? items : withProjectsDefault(items);
     }
     const chessForLb = out.games?.chess;
     if (userData.leaderboardRowColor == null || userData.leaderboardRowColor === '') {
@@ -11435,6 +11446,7 @@ export class UserAccount {
     }
     const sanitized = sanitizeHeaderNavItems(body.items);
     userData.headerNavItems = sanitized;
+    userData.headerNavV2 = true;
     await this.storage.put('userData', userData);
     return { success: true, headerNavItems: sanitized };
   }

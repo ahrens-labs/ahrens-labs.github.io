@@ -2247,7 +2247,7 @@
 
     function getHeaderNavIdsForUser(user) {
       const nav = window.AhrensHeaderNav;
-      if (!nav) return ['home', 'labs', 'chessEngine', 'account'];
+      if (!nav) return ['home', 'labs', 'projects', 'chessEngine', 'account'];
       if (user && Array.isArray(user.headerNavItems)) {
         return nav.normalizeNavIds(user.headerNavItems);
       }
@@ -2285,7 +2285,7 @@
 
     function getHeaderNavIdsFromForm() {
       const nav = window.AhrensHeaderNav;
-      if (!nav) return ['home', 'labs', 'chessEngine', 'account'];
+      if (!nav) return ['home', 'labs', 'projects', 'chessEngine', 'account'];
       const checked = new Set();
       document.querySelectorAll('#header-nav-options input[type="checkbox"]:checked').forEach((el) => {
         checked.add(el.value);
