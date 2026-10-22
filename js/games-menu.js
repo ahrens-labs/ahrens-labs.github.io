@@ -70,8 +70,8 @@
   drawer.setAttribute('aria-label', 'Ahrens Games');
   drawer.setAttribute('aria-hidden', 'true');
   drawer.innerHTML = `
-    <div class="gm-head"><img src="/img/ahrens-games-logo.webp?v=3" alt=""><b>Ahrens <span>Games</span></b><button type="button" class="gm-x" aria-label="Close menu">✕</button></div>
-    <a href="/board-games.html"${cur('board-games')}><img src="/img/board-games-favicon-48.png?v=5" alt="">All games</a>
+    <div class="gm-head"><img src="/img/ahrens-games-logo.webp?v=4" alt=""><b>Ahrens <span>Games</span></b><button type="button" class="gm-x" aria-label="Close menu">✕</button></div>
+    <a href="/board-games.html"${cur('board-games')}><img src="/img/board-games-favicon-48.png?v=6" alt="">All games</a>
     <a href="/game-history.html"${cur('game-history')}><span class="gm-i" aria-hidden="true">🏆</span>Game history</a>
     <p class="gm-label">Games</p>
     ${GAMES.map((g) => `<a href="${g.href}"${cur(g.page)}><img src="${g.icon}" alt="" loading="lazy">${g.name}</a>`).join('')}
