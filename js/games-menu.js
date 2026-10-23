@@ -73,6 +73,7 @@
     <div class="gm-head"><img src="/img/ahrens-games-logo.webp?v=8" alt=""><b>Ahrens <span>Games</span></b><button type="button" class="gm-x" aria-label="Close menu">✕</button></div>
     <a href="/ahrens-games"${cur('ahrens-games')}><img src="/img/board-games-favicon-48.png?v=10" alt="">All games</a>
     <a href="/game-history.html"${cur('game-history')}><span class="gm-i" aria-hidden="true">🏆</span>Game history</a>
+    <a href="/ahrens-games/settings"${cur('settings')}><span class="gm-i" aria-hidden="true">⚙️</span>Settings</a>
     <p class="gm-label">Games</p>
     ${GAMES.map((g) => `<a href="${g.href}"${cur(g.page)}><img src="${g.icon}" alt="" loading="lazy">${g.name}</a>`).join('')}
     <div class="gm-foot">

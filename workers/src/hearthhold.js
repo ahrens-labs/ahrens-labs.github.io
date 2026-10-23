@@ -3,6 +3,7 @@
 // same rules engine the browser uses, so a player can only make legal moves. HearthholdLobby (one per
 // user) keeps small summaries so the game list is a single read.
 import E from '../../js/hearthhold-engine.js';
+import { trackTurns, nextReminderAt, remindersDue, sendDueReminders } from './game-reminders.js';
 
 const PENDING_TTL_MS = { quick: 24 * 60 * 60 * 1000, long: 7 * 24 * 60 * 60 * 1000 };
 const MODES = new Set(['quick', 'long']);
@@ -75,6 +76,7 @@ async function fetchProfile(env, userId) {
       username: String(data.username || 'Player').slice(0, 40),
       email: normalizeEmail(data.email || ''),
       emailVerified: data.emailVerified !== false,
+      challengeEmails: !(data.gamesSettings && data.gamesSettings.challengeEmails === false),
     };
   } catch {
     return null;
@@ -365,7 +367,7 @@ export async function handleHearthholdRequest(request, env, corsHeaders, path, {
     }));
     if (!res.ok) return jsonResponse({ error: 'Could not create the game' }, corsHeaders, 500);
     const created = await res.json();
-    if (notifyChallenge && opp.email && opp.emailVerified) {
+    if (notifyChallenge && opp.email && opp.emailVerified && opp.challengeEmails) {
       const send = notifyChallenge({ to: opp.email, recipientName: opp.username, challengerName: me.username, gameId, mode: created.summary && created.summary.mode });
       if (executionCtx && executionCtx.waitUntil) executionCtx.waitUntil(Promise.resolve(send).catch(() => {}));
     }
@@ -408,8 +410,21 @@ export class HearthholdGame {
 
   async persist(record) {
     record.updatedAt = Date.now();
+    trackTurns(record, record.status === 'active' ? [record.turn] : [], record.movedBy);
+    delete record.movedBy;
     this.record = record;
     await this.storage.put('game', record);
+  }
+
+  async remind(record) {
+    await sendDueReminders(this.env, record, {
+      title: 'Oakhaven',
+      page: 'oakhaven.html',
+      id: record.id,
+      userIdOf: (i) => record.players[i] && record.players[i].userId,
+      others: (i) => record.players.filter((p, j) => j !== i).map((p) => p.username),
+    });
+    await this.persist(record);
   }
 
   async publishLobbies(record) {
@@ -442,8 +457,11 @@ export class HearthholdGame {
   }
 
   async scheduleAlarm(record) {
-    if (record.status === 'pending') await this.storage.setAlarm(record.createdAt + pendingTtl(record));
-    else if (record.status === 'active' && record.deadline) await this.storage.setAlarm(record.deadline);
+    const at = [];
+    if (record.status === 'pending') at.push(record.createdAt + pendingTtl(record));
+    if (record.status === 'active') at.push(record.deadline, nextReminderAt(record));
+    const next = Math.min(...at.filter(Boolean));
+    if (Number.isFinite(next)) await this.storage.setAlarm(next);
     else await this.storage.deleteAlarm();
   }
 
@@ -569,6 +587,7 @@ export class HearthholdGame {
     if (me === state.turn && record.misses) record.misses[me] = 0;
     E.apply(state, me, a);
     if (state.phase === 'dusk') E.resolveDusk(state);
+    record.movedBy = me;
     record.version += 1;
     record.turn = turnOf(state);
     if (state.phase === 'over') {
@@ -651,8 +670,9 @@ export class HearthholdGame {
   async alarm() {
     const record = await this.load();
     if (!record) return;
+    if (record.status === 'active' && remindersDue(record)) await this.remind(record);
     if (record.status === 'active' && record.deadline) return this.turnTimedOut(record);
-    if (record.status !== 'pending') return;
+    if (record.status !== 'pending') return this.scheduleAlarm(record);
     if (Date.now() < record.createdAt + pendingTtl(record) - 1000) {
       await this.scheduleAlarm(record);
       return;

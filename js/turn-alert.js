@@ -76,7 +76,19 @@
     applyIcon();
   }
 
+  // Ahrens Games settings (saved per account by the settings page and the lobby).
+  const gamesSettings = () => {
+    try {
+      const uid = localStorage.getItem('ahrenslabs_userId');
+      const key = `ahrensGames.settings${localStorage.getItem('ahrenslabs_sessionId') && uid ? `:${uid}` : ''}`;
+      return JSON.parse(localStorage.getItem(key) || '{}') || {};
+    } catch {
+      return {};
+    }
+  };
+
   function tick() {
+    if (gamesSettings().tabAlerts === false) return set(false);
     let any = false;
     for (const fn of checks) {
       try {

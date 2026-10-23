@@ -4,6 +4,17 @@
 (function (root) {
   'use strict';
 
+  // Ahrens Games settings (saved per account by the settings page and the lobby).
+  const gamesSettings = () => {
+    try {
+      const uid = localStorage.getItem('ahrenslabs_userId');
+      const key = `ahrensGames.settings${localStorage.getItem('ahrenslabs_sessionId') && uid ? `:${uid}` : ''}`;
+      return JSON.parse(localStorage.getItem(key) || '{}') || {};
+    } catch {
+      return {};
+    }
+  };
+
   function attach(cfg) {
     const apiBase = cfg.apiBase || root.AHRENS_LABS_API_BASE || 'https://chess-accounts.matthewahrens.workers.dev';
     const prefix = cfg.apiPrefix; // e.g. '/api/atlantis'
@@ -270,13 +281,16 @@
 
     // The server plays computer seats instantly; an update can carry a snapshot after each of their moves, and
     // they're shown one at a time so you can follow what every computer did (straight to the end in a hidden tab).
-    const STEP_MS = 1300;
+    // How long each computer move stays on screen, from the player's Ahrens Games settings.
+    const SPEEDS = { slow: 2200, normal: 1300, fast: 650, off: 0 };
+    let STEP_MS = SPEEDS.normal;
     const replay = { queue: [], timer: null };
     function applyView(v) {
       const G = cfg.getG();
       if (!G || G.mode !== 'online' || v.id !== G.id) return;
+      STEP_MS = SPEEDS[gamesSettings().replaySpeed] ?? SPEEDS.normal;
       // The last snapshot is the final state itself, which comes next anyway.
-      const steps = v.steps && v.steps.length > 1 && !document.hidden ? v.steps.slice(0, -1) : null;
+      const steps = v.steps && v.steps.length > 1 && !document.hidden && STEP_MS ? v.steps.slice(0, -1) : null;
       const { steps: _s, ...last } = v;
       if (!steps && !replay.queue.length && !replay.timer) return showView(last);
       if (steps) steps.forEach((st) => replay.queue.push({ ...last, state: st.state, by: st.by, status: 'active', result: null }));

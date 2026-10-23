@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Settings — Ahrens Games</title>
+  <meta name="description" content="Ahrens Games settings: turn reminder emails, challenge emails, tab alerts, computer move speed and sound.">
+  <meta name="theme-color" content="#0a1228">
+  <link rel="icon" type="image/png" sizes="32x32" href="/img/board-games-favicon-32.png?v=10">
+  <link rel="icon" type="image/png" sizes="16x16" href="/img/board-games-favicon-16.png?v=10">
+  <link rel="icon" type="image/png" sizes="96x96" href="/img/board-games-favicon-96.png?v=10">
+  <link rel="icon" href="/img/board-games-icon.ico?v=10" sizes="any">
+  <link rel="apple-touch-icon" sizes="180x180" href="/img/board-games-icon-180.png?v=10">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Montserrat:wght@700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/board-games.css?v=22">
+  <link rel="stylesheet" href="/css/emoji.css">
+</head>
+<body>
+  <header class="lobby-top">
+    <div class="lobby-nav">
+      <a class="back" href="/ahrens-games">← Ahrens Games</a>
+      <a class="back" href="/game-history.html">🏆 Game history</a>
+    </div>
+    <div class="lobby-title gs-title">
+      <img class="brand-mark" src="/img/ahrens-games-logo.webp?v=8" alt="Ahrens Games logo" width="74" height="74">
+      <div>
+        <h1>Settings</h1>
+        <p>Choose how Ahrens Games keeps you posted and how it plays.</p>
+      </div>
+    </div>
+  </header>
+
+  <main class="gs" id="gs">
+    <section class="gs-card" id="gs-email">
+      <h2>📧 Email</h2>
+      <p class="gs-note" id="gs-signin" hidden><a href="/account-dashboard.html">Log in</a> to get email reminders and choose which emails you get.</p>
+      <p class="gs-note gs-warn" id="gs-unverified" hidden>Your email address isn’t confirmed yet, so emails can’t be sent. Confirm it from your <a href="/account-dashboard.html">account</a>.</p>
+      <div class="gs-row">
+        <label class="gs-switch"><input type="checkbox" id="turnReminders" aria-label="Remind me when it’s my move" data-account><span></span></label>
+        <div class="gs-text">
+          <b>Remind me when it’s my move</b>
+          <span>In long online games, email me if a game has been waiting on me for
+            <select id="reminderDays" data-account aria-label="Days before a reminder">
+              <option value="1">1 day</option>
+              <option value="2">2 days</option>
+              <option value="3">3 days</option>
+              <option value="5">5 days</option>
+              <option value="7">7 days</option>
+            </select>. One reminder per turn.</span>
+        </div>
+      </div>
+      <div class="gs-row">
+        <label class="gs-switch"><input type="checkbox" id="challengeEmails" aria-label="Email me when I’m challenged" data-account><span></span></label>
+        <div class="gs-text">
+          <b>Email me when I’m challenged</b>
+          <span>When another player challenges or invites you to an online game.</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="gs-card">
+      <h2>🔔 Alerts</h2>
+      <div class="gs-row">
+        <label class="gs-switch"><input type="checkbox" id="tabAlerts" aria-label="Show when it’s my turn in the tab"><span></span></label>
+        <div class="gs-text">
+          <b>Show when it’s my turn in the tab</b>
+          <span>The tab title starts with “!” and its icon gets a dot while an online game is waiting on you.</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="gs-card">
+      <h2>🤖 Computer players online</h2>
+      <p class="gs-note">When an online game has computer players, how quickly their moves are shown to you.</p>
+      <div class="gs-seg" role="radiogroup" aria-label="Computer move speed" id="replaySpeed">
+        <button type="button" role="radio" data-v="slow">🐢 Slow</button>
+        <button type="button" role="radio" data-v="normal">Normal</button>
+        <button type="button" role="radio" data-v="fast">⚡ Fast</button>
+        <button type="button" role="radio" data-v="off">Instant</button>
+      </div>
+    </section>
+
+    <section class="gs-card">
+      <h2>🎵 Sound</h2>
+      <p class="gs-note">For every game on this device.</p>
+      <div class="gs-seg" role="radiogroup" aria-label="Sound" id="sound">
+        <button type="button" role="radio" data-v="all">🎵 Music and sounds</button>
+        <button type="button" role="radio" data-v="sfx">🔈 Sounds only</button>
+        <button type="button" role="radio" data-v="off">🔇 Off</button>
+      </div>
+    </section>
+
+    <section class="gs-card">
+      <h2>👋 Welcome tour</h2>
+      <p class="gs-note">The short tour of Ahrens Games you saw the first time.</p>
+      <a class="gs-btn" href="/ahrens-games?intro">Show the tour again</a>
+    </section>
+
+    <p class="gs-saved" id="gs-saved" aria-live="polite"></p>
+  </main>
+
+  <script src="/js/account_session.js"></script>
+  <script src="/js/games-settings.js?v=1"></script>
+  <script src="/js/games-menu.js?v=10"></script>
+</body>
+</html>

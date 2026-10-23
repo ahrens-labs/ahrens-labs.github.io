@@ -284,6 +284,13 @@
         const games = (data.games || []).filter((g) => shown(g.game));
         if (BS && data.saves) BS.merge(data.saves);
         if (window.AhrensGamesIntro && 'introSeen' in data) window.AhrensGamesIntro.fromServer(data.introSeen);
+        if (data.settings) {
+          try {
+            localStorage.setItem(`ahrensGames.settings:${localStorage.getItem('ahrenslabs_userId') || ''}`, JSON.stringify(data.settings));
+          } catch {
+            /* storage blocked */
+          }
+        }
         try {
           sessionStorage.setItem(CACHE_KEY, JSON.stringify(games));
         } catch {

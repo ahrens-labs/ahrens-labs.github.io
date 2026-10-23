@@ -1,3 +1,4 @@
+import { trackTurns, nextReminderAt, remindersDue, sendDueReminders } from './game-reminders.js';
 // Shared online multiplayer for Atlantis Expedition, Cauldron Lane, Hero League and The Masquerade Court.
 // LabGame (one Durable Object per game) owns state and runs legal/apply from the browser engines. Games with more
 // than two seats can mix invited players and computer players; the computer seats move on the server.
@@ -208,6 +209,7 @@ async function fetchProfile(env, userId) {
       username: String(data.username || 'Player').slice(0, 40),
       email: normalizeEmail(data.email || ''),
       emailVerified: data.emailVerified !== false,
+      challengeEmails: !(data.gamesSettings && data.gamesSettings.challengeEmails === false),
     };
   } catch {
     return null;
@@ -638,7 +640,7 @@ export async function handleLabOnlineRequest(request, env, corsHeaders, path, ga
     if (!res.ok) return jsonResponse({ error: 'Could not create the game' }, corsHeaders, 500);
     const created = await res.json();
     if (notifyChallenge) {
-      const sends = opps.filter((o) => o.email && o.emailVerified).map((o) => Promise.resolve(notifyChallenge({
+      const sends = opps.filter((o) => o.email && o.emailVerified && o.challengeEmails).map((o) => Promise.resolve(notifyChallenge({
         to: o.email,
         recipientName: o.username,
         challengerName: me.username,
@@ -690,8 +692,31 @@ export class LabGame {
 
   async persist(record) {
     record.updatedAt = Date.now();
+    trackTurns(record, this.waitingPeople(record), record.movedBy);
+    delete record.movedBy;
     this.record = record;
     await this.storage.put('game', record);
+  }
+
+  // People (not computer seats) whose decision the game is waiting on.
+  waitingPeople(record) {
+    const cfg = this.cfg(record);
+    if (!cfg || record.status !== 'active' || !record.state) return [];
+    const seats = cfg.waitingOn ? cfg.waitingOn(record.state) : [cfg.turnOf(record.state)];
+    return seats.filter((i) => i != null && record.players[i] && !isBot(record.players[i]) && !record.players[i].left);
+  }
+
+  async remind(record) {
+    const cfg = this.cfg(record);
+    if (!cfg) return;
+    await sendDueReminders(this.env, record, {
+      title: cfg.title,
+      page: cfg.page,
+      id: record.id,
+      userIdOf: (i) => record.players[i] && record.players[i].userId,
+      others: (i) => record.players.filter((p, j) => j !== i).map((p) => p.username),
+    });
+    await this.persist(record);
   }
 
   async publishLobbies(record) {
@@ -741,10 +766,11 @@ export class LabGame {
   }
 
   async scheduleAlarm(record) {
-    if (record.status === 'pending') await this.storage.setAlarm(record.createdAt + pendingTtl(record));
-    else if (record.status === 'active' && (record.deadline || record.botCall)) {
-      await this.storage.setAlarm(Math.min(record.deadline || Infinity, record.botCall ? record.botCall.at : Infinity));
-    }
+    const at = [];
+    if (record.status === 'pending') at.push(record.createdAt + pendingTtl(record));
+    if (record.status === 'active') at.push(record.deadline, record.botCall && record.botCall.at, nextReminderAt(record));
+    const next = Math.min(...at.filter(Boolean));
+    if (Number.isFinite(next)) await this.storage.setAlarm(next);
     else await this.storage.deleteAlarm();
   }
 
@@ -1013,6 +1039,7 @@ export class LabGame {
       return fresh(e.message || 'Illegal move.', 400);
     }
     cfg.afterApply(state, me, a);
+    record.movedBy = me;
     const steps = [snapshot(state, me)];
     const botMoves = this.runBots(cfg, record, steps);
     const shown = botMoves ? steps : null;
@@ -1145,10 +1172,10 @@ export class LabGame {
   async alarm() {
     const record = await this.load();
     if (!record) return;
+    if (record.status === 'active' && remindersDue(record)) await this.remind(record);
     if (record.status === 'active' && record.botCall && Date.now() >= record.botCall.at - 50) return this.botCallDue(record);
     if (record.status === 'active' && record.deadline) return this.turnTimedOut(record);
-    if (record.status === 'active' && record.botCall) return this.scheduleAlarm(record);
-    if (record.status !== 'pending') return;
+    if (record.status !== 'pending') return this.scheduleAlarm(record);
     if (Date.now() < record.createdAt + pendingTtl(record) - 1000) {
       await this.scheduleAlarm(record);
       return;

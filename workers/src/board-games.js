@@ -20,6 +20,21 @@ const TOMBSTONE_MS = 365 * 86400000;
 const INDEX_KEY = 'bgsIndex';
 // Set once the player has seen the lobby's welcome tour (kept under the bgs prefix so account deletion clears it).
 const INTRO_KEY = 'bgsIntroSeen';
+
+// Ahrens Games settings live in the account (userData.gamesSettings) so the game servers see them too: turn
+// reminder emails and challenge emails honour them. Only known keys and values are kept.
+const REMINDER_DAYS = [1, 2, 3, 5, 7];
+const REPLAY_SPEEDS = ['slow', 'normal', 'fast', 'off'];
+function cleanGamesSettings(s) {
+  const out = {};
+  if (!s || typeof s !== 'object') return out;
+  ['turnReminders', 'challengeEmails', 'tabAlerts'].forEach((k) => {
+    if (typeof s[k] === 'boolean') out[k] = s[k];
+  });
+  if (REMINDER_DAYS.includes(Number(s.reminderDays))) out.reminderDays = Number(s.reminderDays);
+  if (REPLAY_SPEEDS.includes(s.replaySpeed)) out.replaySpeed = s.replaySpeed;
+  return out;
+}
 const bodyKey = (game, id) => `bgs:${game}:${id}`;
 
 function jsonResponse(body, corsHeaders, status = 200) {
@@ -91,9 +106,9 @@ async function savedGames(env, userId) {
   try {
     const res = await accountStub(env, userId).fetch(new Request('http://do/boardSaves/index'));
     const data = await res.json();
-    return { saves: Object.values(data.index || {}), introSeen: !!data.introSeen };
+    return { saves: Object.values(data.index || {}), introSeen: !!data.introSeen, settings: data.settings || {} };
   } catch {
-    return { saves: [], introSeen: true };
+    return { saves: [], introSeen: true, settings: null };
   }
 }
 
@@ -176,8 +191,25 @@ export async function handleBoardGamesRequest(request, env, corsHeaders, path) {
   if (!userId) return jsonResponse({ error: 'Not authenticated' }, corsHeaders, 401);
 
   if (path === '/api/board-games/current' && request.method === 'GET') {
-    const [games, { saves, introSeen }] = await Promise.all([onlineGames(env, userId), savedGames(env, userId)]);
-    return jsonResponse({ games, saves, introSeen }, corsHeaders);
+    const [games, { saves, introSeen, settings }] = await Promise.all([onlineGames(env, userId), savedGames(env, userId)]);
+    return jsonResponse({ games, saves, introSeen, ...(settings ? { settings } : {}) }, corsHeaders);
+  }
+
+  if (path === '/api/board-games/settings') {
+    if (request.method === 'GET') {
+      const res = await accountStub(env, userId).fetch(new Request('http://do/boardSaves/settings'));
+      return jsonResponse(await res.json().catch(() => ({ settings: {} })), corsHeaders);
+    }
+    if (request.method === 'POST') {
+      let body;
+      try {
+        body = await request.json();
+      } catch {
+        return jsonResponse({ error: 'Bad JSON' }, corsHeaders, 400);
+      }
+      const res = await accountStub(env, userId).fetch(new Request('http://do/boardSaves/settings', { method: 'POST', body: JSON.stringify(cleanGamesSettings(body && body.settings)) }));
+      return jsonResponse(await res.json().catch(() => ({ error: 'Could not save' })), corsHeaders, res.ok ? 200 : 500);
+    }
   }
 
   if (path === '/api/board-games/intro-seen' && request.method === 'POST') {
@@ -235,7 +267,17 @@ export async function handleBoardSavesDO(storage, request, path) {
   if (!path.startsWith('/boardSaves/')) return null;
   const index = (await storage.get(INDEX_KEY)) || {};
   if (path === '/boardSaves/index') {
-    return Response.json({ index, introSeen: !!(await storage.get(INTRO_KEY)) });
+    const [intro, userData] = await Promise.all([storage.get(INTRO_KEY), storage.get('userData')]);
+    return Response.json({ index, introSeen: !!intro, settings: cleanGamesSettings(userData && userData.gamesSettings) });
+  }
+  if (path === '/boardSaves/settings') {
+    const userData = await storage.get('userData');
+    if (!userData) return Response.json({ error: 'Account not found' }, { status: 404 });
+    if (request.method === 'POST') {
+      userData.gamesSettings = { ...cleanGamesSettings(userData.gamesSettings), ...cleanGamesSettings(await request.json()) };
+      await storage.put('userData', userData);
+    }
+    return Response.json({ settings: cleanGamesSettings(userData.gamesSettings), email: !!userData.email, emailVerified: userData.emailVerified !== false });
   }
   if (path === '/boardSaves/intro' && request.method === 'POST') {
     await storage.put(INTRO_KEY, Date.now());

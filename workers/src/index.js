@@ -6846,6 +6846,14 @@ function sitePublicBase(env) {
   return siteMarketingBase(env);
 }
 
+// Game objects (Durable Objects in this same Worker) send turn reminders through these; see game-reminders.js.
+globalThis.__ahrensMail = {
+  send: (env, msg) => dispatchTransactionalEmail(env, msg),
+  site: (env) => sitePublicBase(env),
+  esc: (s) => escapeHtmlEmail(s),
+  real: (email) => isLikelyRealEmail(email),
+};
+
 /** Links in product/marketing emails (welcome, challenge emails). Defaults to ahrenslabs.com. */
 function siteMarketingBase(env) {
   return String(env.PUBLIC_SITE_BASE || 'https://ahrenslabs.com').replace(/\/$/, '');

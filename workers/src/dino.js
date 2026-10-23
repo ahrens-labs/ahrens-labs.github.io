@@ -1,3 +1,4 @@
+import { trackTurns, nextReminderAt, remindersDue, sendDueReminders } from './game-reminders.js';
 // Dino Board Game — online games between Ahrens Labs accounts.
 // DinoGame (one Durable Object per game) holds the shared game state, turn clock and live sockets.
 // DinoLobby (one per user) holds small summaries so the game list is a single read.
@@ -72,6 +73,7 @@ async function fetchProfile(env, userId) {
       username: String(data.username || 'Player').slice(0, 40),
       email: normalizeEmail(data.email || ''),
       emailVerified: data.emailVerified !== false,
+      challengeEmails: !(data.gamesSettings && data.gamesSettings.challengeEmails === false),
     };
   } catch {
     return null;
@@ -323,7 +325,7 @@ export async function handleDinoRequest(request, env, corsHeaders, path, { execu
     }));
     if (!res.ok) return jsonResponse({ error: 'Could not create the game' }, corsHeaders, 500);
     const created = await res.json();
-    if (notifyChallenge && opp.email && opp.emailVerified) {
+    if (notifyChallenge && opp.email && opp.emailVerified && opp.challengeEmails) {
       const send = notifyChallenge({ to: opp.email, recipientName: opp.username, challengerName: me.username, mode, gameId });
       if (executionCtx && executionCtx.waitUntil) executionCtx.waitUntil(Promise.resolve(send).catch(() => {}));
     }
@@ -372,8 +374,21 @@ export class DinoGame {
 
   async persist(record) {
     record.updatedAt = Date.now();
+    trackTurns(record, record.status === 'active' ? [record.turn] : [], record.movedBy);
+    delete record.movedBy;
     this.record = record;
     await this.storage.put('game', record);
+  }
+
+  async remind(record) {
+    await sendDueReminders(this.env, record, {
+      title: 'Dino Dynasty',
+      page: 'dino-board-game.html',
+      id: record.id,
+      userIdOf: (i) => record.players[i] && record.players[i].userId,
+      others: (i) => record.players.filter((p, j) => j !== i).map((p) => p.username),
+    });
+    await this.persist(record);
   }
 
   async publishLobbies(record) {
@@ -403,8 +418,11 @@ export class DinoGame {
   }
 
   async scheduleAlarm(record) {
-    if (record.status === 'pending') await this.storage.setAlarm(record.createdAt + PENDING_TTL_MS[record.mode]);
-    else if (record.status === 'active' && record.deadline) await this.storage.setAlarm(record.deadline + QUICK_FORFEIT_GRACE_MS);
+    const at = [];
+    if (record.status === 'pending') at.push(record.createdAt + PENDING_TTL_MS[record.mode]);
+    if (record.status === 'active') at.push(record.deadline && record.deadline + QUICK_FORFEIT_GRACE_MS, nextReminderAt(record));
+    const next = Math.min(...at.filter(Boolean));
+    if (Number.isFinite(next)) await this.storage.setAlarm(next);
     else await this.storage.deleteAlarm();
   }
 
@@ -527,6 +545,7 @@ export class DinoGame {
     const prevTurn = record.turn;
     record.state = state;
     record.version += 1;
+    record.movedBy = me;
     record.turn = dinoTurnOwner(state);
     const over = state.queue[0] && state.queue[0].t === 'gameOver';
     if (over) {
@@ -578,6 +597,7 @@ export class DinoGame {
   async alarm() {
     const record = await this.load();
     if (!record) return;
+    if (record.status === 'active' && remindersDue(record)) await this.remind(record);
     const now = Date.now();
     if (record.status === 'pending' && now >= record.createdAt + PENDING_TTL_MS[record.mode] - 1000) {
       record.status = 'expired';
