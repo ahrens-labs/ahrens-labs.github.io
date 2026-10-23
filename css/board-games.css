@@ -27,7 +27,7 @@ h1, h2 { font-family: "Montserrat", "Fredoka", sans-serif; font-weight: 800; let
 .brand-mark { width: 5.4rem; height: 5.4rem; filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.55)); display: inline-block; flex: 0 0 auto; transition: transform 0.3s cubic-bezier(.34, 1.56, .64, 1); }
 .brand-mark:hover { transform: rotate(-6deg) scale(1.06); }
 .lobby-title h1 { margin: 0; font-size: clamp(2rem, 5vw, 3rem); line-height: 1.05; color: #ffd21f; text-transform: uppercase; letter-spacing: 0.03em; text-shadow: 0 4px 0 rgba(0, 0, 0, 0.5); }
-.lobby-title h1 span { color: #004cd6; }
+.lobby-title h1 span { color: #fff; }
 .lobby-title p { margin: 0.2rem 0 0; color: rgba(226, 235, 255, 0.85); font-size: 1.05rem; }
 
 .shelf-wrap { max-width: 1180px; margin: 1.6rem auto 3rem; padding: 0 1.4rem; }
