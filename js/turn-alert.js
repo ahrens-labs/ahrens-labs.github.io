@@ -100,5 +100,6 @@
     if (t) new MutationObserver(() => on && applyTitle()).observe(t, { childList: true, characterData: true, subtree: true });
   });
 
-  window.TurnAlert = { set, watch, get on() { return on; } };
+  // Background tabs run timers as rarely as once a minute; pages call check() the moment a game update lands.
+  window.TurnAlert = { set, watch, check: () => checks.length && tick(), get on() { return on; } };
 })();

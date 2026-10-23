@@ -263,10 +263,14 @@
   });
   lastFetch = Date.now();
   load();
-  // While someone else is moving in one of your online games, check now and then so the tab can tell you when
-  // it's your turn again, even in the background. Nothing to wait for means no polling.
+  // Keep checking, even in a background tab, so the tab can tell you when it's your turn: every minute while
+  // someone else is moving in one of your games, otherwise every few minutes in case a new challenge arrives.
+  let quietTicks = 0;
   setInterval(() => {
-    if (cached.some((g) => !myMove(g))) refresh();
+    if (cached.some((g) => !myMove(g)) || ++quietTicks >= 3) {
+      quietTicks = 0;
+      refresh();
+    }
   }, 60000);
 
   function load() {

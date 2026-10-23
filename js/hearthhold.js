@@ -2834,6 +2834,7 @@
       if (m.type === 'state' && m.by === G.me && m.version <= G.version) return;
       applyView(m);
     });
+    ws.addEventListener('message', () => window.TurnAlert && window.TurnAlert.check());
     ws.addEventListener('close', () => {
       if (net.sock !== ws) return;
       net.sock = null;
@@ -2856,9 +2857,13 @@
   function startPoll() {
     if (net.poll) return;
     net.poll = setInterval(async () => {
-      if (!G || G.mode !== 'online' || document.hidden || net.sock) return;
+      if (!G || G.mode !== 'online' || net.sock) return;
+      // A hidden tab still checks (once a minute) so its turn alert can change while you're elsewhere.
+      if (document.hidden && Date.now() - (net.polled || 0) < 60000) return;
+      net.polled = Date.now();
       const r = await api(`/api/oakhaven/game?id=${encodeURIComponent(G.id)}&v=${G.version}`);
       if (r.ok && !r.data.unchanged) applyView(r.data);
+      if (window.TurnAlert) window.TurnAlert.check();
     }, 20000);
   }
   document.addEventListener('visibilitychange', () => {

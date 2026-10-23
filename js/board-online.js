@@ -271,6 +271,7 @@
       if (fresh.some((l) => l.who === G.me && /ran out of time/.test(l.text))) toast('⏱ Your time ran out, so the computer took that turn for you.', 'bad');
       cfg.applyView(v, fresh, mine);
       rememberOnline();
+      if (root.TurnAlert) root.TurnAlert.check();
     }
 
     function connectSock() {
@@ -328,7 +329,10 @@
       if (net.poll) return;
       net.poll = setInterval(async () => {
         const G = cfg.getG();
-        if (!G || G.mode !== 'online' || document.hidden || net.sock) return;
+        if (!G || G.mode !== 'online' || net.sock) return;
+        // A hidden tab still checks (once a minute) so its turn alert can change while you're elsewhere.
+        if (document.hidden && Date.now() - (net.polled || 0) < 60000) return;
+        net.polled = Date.now();
         const r = await api(`${prefix}/game?id=${encodeURIComponent(G.id)}&v=${G.version}`);
         if (r.ok && !r.data.unchanged) applyView(r.data);
       }, 20000);

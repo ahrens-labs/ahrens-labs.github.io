@@ -7900,7 +7900,7 @@
   }
 
   function connectSock() {
-    if (!online || sock || document.hidden) return;
+    if (!online || sock) return;
     const url = `${API_BASE.replace(/^http/, 'ws')}/api/dino/live?id=${encodeURIComponent(online.id)}&session=${encodeURIComponent(sessionId())}`;
     let ws;
     try {
@@ -7941,6 +7941,7 @@
         applyView(m);
       }
     });
+    ws.addEventListener('message', () => window.TurnAlert && window.TurnAlert.check());
     ws.addEventListener('close', () => {
       if (sock !== ws) return;
       sock = null;
@@ -7964,8 +7965,14 @@
     pollTimer = setInterval(() => refreshOnline(false), online.mode === 'quick' ? 4000 : 20000);
   }
 
+  let hiddenPolled = 0;
   async function refreshOnline(force) {
-    if (!online || (!force && document.hidden)) return;
+    if (!online) return;
+    // A hidden tab still checks (once a minute) so its turn alert can change while you're elsewhere.
+    if (!force && document.hidden) {
+      if (Date.now() - hiddenPolled < 60000) return;
+      hiddenPolled = Date.now();
+    }
     const id = online.id;
     const r = await api(`/api/dino/game?id=${encodeURIComponent(id)}&v=${force ? 0 : online.version}`);
     if (!r.ok || !online || online.id !== id) return;
@@ -7973,9 +7980,8 @@
     if (r.data.unchanged) {
       applyMeta(r.data);
       renderTop();
-      return;
-    }
-    applyView(r.data);
+    } else applyView(r.data);
+    if (window.TurnAlert) window.TurnAlert.check();
   }
 
   async function openOnlineGame(id) {
