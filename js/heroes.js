@@ -333,7 +333,7 @@
   // ---------------------------------------------------------------- home
   function heroHtml(withTagline) {
     const sparks = Array.from({ length: 14 }, (_, i) => `<i style="left:${4 + ((i * 41) % 92)}%;top:${6 + ((i * 29) % 50)}%;animation-delay:${(i * 0.45).toFixed(2)}s"></i>`).join('');
-    return `<div class="gh-top"><a class="gh-lobby" href="/board-games.html" title="Back to the game lobby">← <img class="gh-dice" src="/img/board-games-favicon-48.png?v=6" alt="" width="20" height="20"> Game lobby</a>${window.GameMusic ? GameMusic.buttonHtml('btn ghost sm gh-music', 'bt') : ''}</div>
+    return `<div class="gh-top"><a class="gh-lobby" href="/board-games.html" title="Back to the game lobby">← <img class="gh-dice" src="/img/board-games-favicon-48.png?v=7" alt="" width="20" height="20"> Game lobby</a>${window.GameMusic ? GameMusic.buttonHtml('btn ghost sm gh-music', 'bt') : ''}</div>
       <div class="gh-hero">
         <img src="${IMG('cover')}" alt="Six superheroes on a rooftop at dusk while an alien mothership hovers over the city" class="gh-hero-img">
         <div class="gh-shade"></div>
@@ -526,7 +526,7 @@
           ${window.GameMusic ? GameMusic.buttonHtml('btn ghost sm', 'bt') : ''}
           <button class="btn ghost sm" data-act="rules" aria-label="Rules">📜<span class="bt"> Rules</span></button>
           <button class="btn ghost sm" data-act="home" aria-label="${G.mode === 'past' ? 'History' : G.mode === 'sim' ? 'Stop' : 'New game'}" title="${G.mode === 'past' ? 'Back to history' : G.mode === 'sim' ? 'Stop the simulation' : 'Start a new game (this one stays saved under Your games)'}">${home}</button>
-          <a class="btn ghost sm" href="/board-games.html" title="Back to the game lobby" aria-label="Game lobby"><img class="gh-dice" src="/img/board-games-favicon-48.png?v=6" alt=""><span class="bt"> Lobby</span></a>
+          <a class="btn ghost sm" href="/board-games.html" title="Back to the game lobby" aria-label="Game lobby"><img class="gh-dice" src="/img/board-games-favicon-48.png?v=7" alt=""><span class="bt"> Lobby</span></a>
         </div>
       </header>
       <div class="hl">
@@ -1128,7 +1128,7 @@
         <div class="hr-verdict" aria-live="polite"></div>
         <div class="hr-sub"></div>
         <div class="hr-rows" style="--n:${n}"></div>
-        <div class="hr-actions"><button class="btn" data-rv="close">🦸 See every team</button>${G.mode === 'past' ? '' : `<button class="btn" data-rv="again">${G.mode === 'sim' ? '🧪 Run again' : '🦸 Play again'}</button>`}${G.mode === 'sim' ? '' : '<button class="btn ghost" data-rv="hist">🏆 Game history</button>'}<a class="btn ghost" href="/board-games.html"><img class="gh-dice" src="/img/board-games-favicon-48.png?v=6" alt=""> All board games</a></div>
+        <div class="hr-actions"><button class="btn" data-rv="close">🦸 See every team</button>${G.mode === 'past' ? '' : `<button class="btn" data-rv="again">${G.mode === 'sim' ? '🧪 Run again' : '🦸 Play again'}</button>`}${G.mode === 'sim' ? '' : '<button class="btn ghost" data-rv="hist">🏆 Game history</button>'}<a class="btn ghost" href="/board-games.html"><img class="gh-dice" src="/img/board-games-favicon-48.png?v=7" alt=""> All board games</a></div>
       </div><button class="hr-skip" data-rv="skip">Skip ▸</button>`;
     document.body.appendChild(el);
     const timers = [];
@@ -1333,7 +1333,7 @@
     document.body.className = 'setup-mode';
     $('#app').innerHTML = `
       <div class="setup gh">
-      <div class="gh-top"><a class="gh-lobby" href="/board-games.html" title="Back to the game lobby">← <img class="gh-dice" src="/img/board-games-favicon-48.png?v=6" alt="" width="20" height="20"> Game lobby</a><button class="btn ghost sm" id="hist-new">🦸 New game</button></div>
+      <div class="gh-top"><a class="gh-lobby" href="/board-games.html" title="Back to the game lobby">← <img class="gh-dice" src="/img/board-games-favicon-48.png?v=7" alt="" width="20" height="20"> Game lobby</a><button class="btn ghost sm" id="hist-new">🦸 New game</button></div>
         <div class="setup-card gh-card panel hist">
           <h2>🏆 Game history</h2>
           <div id="hist-body"><p class="muted">Loading your games…</p></div>
