@@ -20,6 +20,10 @@ const BOT_LEVELS = new Set(['easy', 'normal', 'hard', 'brutal']);
 const MAX_BOT_STEPS = 400;
 // A computer noble that wants to call "Unmask!" waits a moment, so a person can beat it to the call.
 const BOT_CALL_MS = [1200, 4000];
+// Computer moves are played instantly on the server, so each update also carries a snapshot after every move
+// (the last few) and the page plays them back one at a time instead of jumping straight to the result.
+const MAX_STEPS = 12;
+const snapshot = (state, by) => ({ by, state: structuredClone(state) });
 const isBot = (p) => !!(p && p.bot);
 
 const GAMES = {
@@ -485,7 +489,7 @@ function summaryFor(cfg, record, me) {
   };
 }
 
-function viewFor(cfg, record, me, withState) {
+function viewFor(cfg, record, me, withState, steps) {
   return {
     game: cfg.key,
     id: record.id,
@@ -501,6 +505,7 @@ function viewFor(cfg, record, me, withState) {
     now: Date.now(),
     result: record.result || null,
     ...(withState ? { state: cfg.publicState(record.state, me) } : {}),
+    ...(withState && steps && steps.length ? { steps: steps.slice(-MAX_STEPS).map((st) => ({ by: st.by, state: cfg.publicState(st.state, me) })) } : {}),
   };
 }
 
@@ -715,7 +720,7 @@ export class LabGame {
     }));
   }
 
-  broadcast(record, by, skip) {
+  broadcast(record, by, skip, steps) {
     const cfg = this.cfg(record);
     if (!cfg) return;
     for (const ws of this.ctx.getWebSockets()) {
@@ -724,7 +729,7 @@ export class LabGame {
       const me = record.players.findIndex((p) => p.userId === uid);
       if (me < 0) continue;
       try {
-        ws.send(JSON.stringify({ type: 'state', by, ...viewFor(cfg, record, me, true) }));
+        ws.send(JSON.stringify({ type: 'state', by, ...viewFor(cfg, record, me, true, steps) }));
       } catch {
         /* closed */
       }
@@ -764,7 +769,7 @@ export class LabGame {
   }
 
   // Computer seats move straight away, until it's a person's decision (or the game ends).
-  runBots(cfg, record) {
+  runBots(cfg, record, steps) {
     const state = record.state;
     let moved = 0;
     if (record.botCall && !this.botCallValid(cfg, record)) delete record.botCall;
@@ -800,6 +805,11 @@ export class LabGame {
         if (!a) break;
         cfg.E.apply(state, t, a);
         moved += 1;
+        // One snapshot per computer turn (when the decision passes to someone else), not per action.
+        if (steps && (state.phase === 'over' || cfg.turnOf(state) !== t)) {
+          steps.push(snapshot(state, t));
+          if (steps.length > MAX_STEPS) steps.shift();
+        }
       } catch {
         break;
       }
@@ -825,8 +835,9 @@ export class LabGame {
       }
     }
     delete record.botCall;
+    const steps = cfg ? [snapshot(record.state, null)] : null;
     if (cfg) {
-      this.runBots(cfg, record);
+      this.runBots(cfg, record, steps);
       record.turn = cfg.turnOf(record.state);
       if (record.state.phase === 'over') this.finishFromState(cfg, record);
       else if (record.mode === 'quick') record.deadline = Date.now() + QUICK_TURN_MS;
@@ -835,7 +846,7 @@ export class LabGame {
     await this.persist(record);
     await this.scheduleAlarm(record);
     await this.publishLobbies(record);
-    this.broadcast(record, null);
+    this.broadcast(record, null, null, steps && steps.length > 1 ? steps : null);
   }
 
   finishFromState(cfg, record) {
@@ -1002,7 +1013,9 @@ export class LabGame {
       return fresh(e.message || 'Illegal move.', 400);
     }
     cfg.afterApply(state, me, a);
-    const botMoves = this.runBots(cfg, record);
+    const steps = [snapshot(state, me)];
+    const botMoves = this.runBots(cfg, record, steps);
+    const shown = botMoves ? steps : null;
     record.version += 1;
     record.turn = cfg.turnOf(state);
     if (state.phase === 'over') this.finishFromState(cfg, record);
@@ -1011,8 +1024,8 @@ export class LabGame {
     await this.persist(record);
     if (record.status === 'over' || newTurn || record.botCall) await this.scheduleAlarm(record);
     if (record.status === 'over' || newTurn) await this.publishLobbies(record);
-    this.broadcast(record, me, socket);
-    return { status: 200, body: viewFor(cfg, record, me, true) };
+    this.broadcast(record, me, socket, shown);
+    return { status: 200, body: viewFor(cfg, record, me, true, shown) };
   }
 
   async turnTimedOut(record) {
@@ -1020,6 +1033,7 @@ export class LabGame {
     if (!cfg) return;
     if (Date.now() < record.deadline - 1000) return this.scheduleAlarm(record);
     const state = record.state;
+    const steps = [];
     if (cfg.allAtOnce && cfg.allAtOnce(state)) {
       // Out of time for a decision everyone makes together: the computer makes it for whoever hasn't.
       cfg.waitingOn(state).forEach((j) => {
@@ -1029,7 +1043,7 @@ export class LabGame {
           /* already decided */
         }
       });
-      this.runBots(cfg, record);
+      this.runBots(cfg, record, steps);
       record.turn = cfg.turnOf(state);
       if (state.phase === 'over') this.finishFromState(cfg, record);
       else record.deadline = Date.now() + QUICK_TURN_MS;
@@ -1037,7 +1051,7 @@ export class LabGame {
       await this.persist(record);
       await this.scheduleAlarm(record);
       await this.publishLobbies(record);
-      this.broadcast(record, null);
+      this.broadcast(record, null, null, steps.length ? steps : null);
       return;
     }
     if (cfg.answering && cfg.answering(state)) {
@@ -1049,7 +1063,7 @@ export class LabGame {
           /* already answered */
         }
       });
-      this.runBots(cfg, record);
+      this.runBots(cfg, record, steps);
       record.turn = cfg.turnOf(state);
       if (state.phase === 'over') this.finishFromState(cfg, record);
       else record.deadline = Date.now() + QUICK_TURN_MS;
@@ -1057,14 +1071,14 @@ export class LabGame {
       await this.persist(record);
       await this.scheduleAlarm(record);
       await this.publishLobbies(record);
-      this.broadcast(record, null);
+      this.broadcast(record, null, null, steps.length ? steps : null);
       return;
     }
     const pi = state.turn;
     record.misses = record.misses || record.players.map(() => 0);
     record.misses[pi] = (record.misses[pi] || 0) + 1;
     if (isBot(record.players[pi])) {
-      this.runBots(cfg, record);
+      this.runBots(cfg, record, steps);
       record.turn = cfg.turnOf(state);
       if (state.phase === 'over') this.finishFromState(cfg, record);
       else record.deadline = Date.now() + QUICK_TURN_MS;
@@ -1086,11 +1100,12 @@ export class LabGame {
           }
           if (!a) break;
           cfg.E.apply(state, pi, a);
+          steps.push(snapshot(state, pi));
         } catch {
           break;
         }
       }
-      this.runBots(cfg, record);
+      this.runBots(cfg, record, steps);
       record.turn = cfg.turnOf(state);
       if (state.phase === 'over') this.finishFromState(cfg, record);
       else record.deadline = Date.now() + QUICK_TURN_MS;
@@ -1099,7 +1114,7 @@ export class LabGame {
     await this.persist(record);
     await this.scheduleAlarm(record);
     await this.publishLobbies(record);
-    this.broadcast(record, null);
+    this.broadcast(record, null, null, steps.length ? steps : null);
   }
 
   async webSocketMessage(ws, message) {

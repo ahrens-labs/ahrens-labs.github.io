@@ -234,6 +234,13 @@
       if (!G || G.mode !== 'online') return;
       if (G.status !== 'active') return toast('This game is over.');
       if (net.pending) return toast('One moment…');
+      if (replay.queue.length) {
+        // Still showing the computers' moves: jump to the latest position rather than act on an older one.
+        const latest = replay.queue[replay.queue.length - 1];
+        stopReplay();
+        showView(latest);
+        return toast('Caught up with everyone’s moves — take a look, then make yours.');
+      }
       net.pending = { a, at: Date.now() };
       const app = $('#app');
       if (app) app.classList.add('ol-wait');
@@ -261,7 +268,35 @@
       if (app) app.classList.remove('ol-wait');
     }
 
+    // The server plays computer seats instantly; an update can carry a snapshot after each of their moves, and
+    // they're shown one at a time so you can follow what every computer did (straight to the end in a hidden tab).
+    const STEP_MS = 1300;
+    const replay = { queue: [], timer: null };
     function applyView(v) {
+      const G = cfg.getG();
+      if (!G || G.mode !== 'online' || v.id !== G.id) return;
+      // The last snapshot is the final state itself, which comes next anyway.
+      const steps = v.steps && v.steps.length > 1 && !document.hidden ? v.steps.slice(0, -1) : null;
+      const { steps: _s, ...last } = v;
+      if (!steps && !replay.queue.length && !replay.timer) return showView(last);
+      if (steps) steps.forEach((st) => replay.queue.push({ ...last, state: st.state, by: st.by, status: 'active', result: null }));
+      replay.queue.push(last);
+      if (!replay.timer) nextStep();
+    }
+    function nextStep() {
+      const v = replay.queue.shift();
+      replay.timer = null;
+      if (!v) return;
+      showView(v);
+      if (replay.queue.length) replay.timer = setTimeout(nextStep, document.hidden ? 0 : STEP_MS);
+    }
+    function stopReplay() {
+      clearTimeout(replay.timer);
+      replay.timer = null;
+      replay.queue.length = 0;
+    }
+
+    function showView(v) {
       const G = cfg.getG();
       if (!G || G.mode !== 'online' || v.id !== G.id) return;
       const mine = net.pending ? net.pending.a : null;
@@ -339,6 +374,7 @@
     }
 
     function disconnect() {
+      stopReplay();
       clearInterval(net.poll);
       net.poll = null;
       clearInterval(net.ping);
