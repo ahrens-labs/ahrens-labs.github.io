@@ -1,6 +1,6 @@
 // Render an ad video: node render.js dino|oakhaven|atlantis|heroes|cauldron|masquerade [out.mp4]
 // Needs playwright-core + Chromium (as in ~/.cache/hhtest), ffmpeg, the Kokoro TTS venv, and cut-out sprites
-// from cutout.py (cutout-atlantis.py for Atlantis, prep-lab.py for Hero League and Cauldron Lane) in /tmp/ads/sprites.
+// from cutout.py (cutout-atlantis.py for Atlantis, prep-lab.py for Hero League, Cauldron Lane and the Masquerade Court) in /tmp/ads/sprites.
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');

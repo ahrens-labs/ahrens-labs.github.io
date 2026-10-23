@@ -1,9 +1,9 @@
-"""Prepare the Hero League and Cauldron Lane trailer art.
+"""Prepare the Hero League, Cauldron Lane and Masquerade Court trailer art.
 
-usage: ~/.cache/adenv/bin/python prep-lab.py OUT_DIR
-Cuts the full-body characters and props out of the 2x2 sheets in scripts/ads/heroes and scripts/ads/cauldron
-(trimmed, transparent), and copies the covers, card art, missions, beasts and townsfolk portraits:
-OUT_DIR/hx/<name>.png and OUT_DIR/cl/<name>.png.
+usage: ~/.cache/adenv/bin/python prep-lab.py OUT_DIR [hx|cl|mq ...]
+Cuts the full-body characters and props out of the 2x2 sheets in scripts/ads/heroes, scripts/ads/cauldron and
+scripts/ads/masquerade (trimmed, transparent), and copies each game's card art and covers:
+OUT_DIR/hx/<name>.png, OUT_DIR/cl/<name>.png and OUT_DIR/mq/<name>.png. Name games to prepare only those.
 """
 import sys, pathlib
 import numpy as np
@@ -16,6 +16,7 @@ IMG = HERE.parents[1] / 'img'
 OUT = pathlib.Path(sys.argv[1])
 session = new_session('isnet-general-use')
 
+GAMES = {'hx': 'heroes', 'cl': 'cauldron', 'mq': 'masquerade'}
 SHEETS = {
     'hx': {
         'heroes-a': ['valora', 'starbolt', 'mirra', 'firewall'],
@@ -28,6 +29,12 @@ SHEETS = {
         'beasts': ['griffin', 'dragon', 'unicorn', 'phoenix'],
         'shops': ['shop-red', 'shop-blue', 'shop-green', 'shop-purple'],
         'props': ['cauldron', 'stall', 'lantern', 'trophy'],
+    },
+    'mq': {
+        'nobles-a': ['doge', 'duchess', 'jester', 'poisoner'],
+        'nobles-b': ['doctor', 'gondolier', 'spy', 'dancer'],
+        'props': ['gondola', 'lamp', 'pole', 'maskstand'],
+        'buildings': ['palazzo-pink', 'palazzo-gold', 'campanile', 'palace'],
     },
 }
 
@@ -54,7 +61,8 @@ def cut(im, path):
     print(path.name, c.size, flush=True)
 
 
-for short, game in (('hx', 'heroes'), ('cl', 'cauldron')):
+for short in sys.argv[2:] or GAMES:
+    game = GAMES[short]
     out = OUT / short
     out.mkdir(parents=True, exist_ok=True)
     for sheet, names in SHEETS[short].items():

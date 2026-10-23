@@ -16,7 +16,7 @@
     'atlantis-ad': { title: 'Atlantis Expedition — trailer', base: '/video/atlantis-ad', trailer: true, v: 2 },
     'cauldron-ad': { title: 'Cauldron Lane — trailer', base: '/video/cauldron-ad', trailer: true, v: 2 },
     'heroes-ad': { title: 'Hero League — trailer', base: '/video/heroes-ad', trailer: true, v: 2 },
-    'masquerade-ad': { title: 'The Masquerade Court — trailer', base: '/video/masquerade-ad', trailer: true, v: 1 },
+    'masquerade-ad': { title: 'The Masquerade Court — trailer', base: '/video/masquerade-ad', trailer: true, v: 2 },
   };
   const V = '?v=8';
   const CC_KEY = 'ahrensTutorial.cc';
