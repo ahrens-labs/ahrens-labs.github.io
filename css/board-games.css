@@ -7,6 +7,7 @@ body {
   color: #eef3ff;
   background:
     radial-gradient(ellipse at 50% -15%, rgba(47, 140, 255, 0.32), transparent 60%),
+    radial-gradient(ellipse at 88% -8%, rgba(255, 210, 31, 0.16), transparent 42%),
     radial-gradient(ellipse at 50% 120%, rgba(0, 0, 0, 0.6), transparent 65%),
     repeating-conic-gradient(rgba(255, 255, 255, 0.022) 0 25%, transparent 0 50%) 0 0 / 56px 56px,
     linear-gradient(180deg, #0d1a38, #0a1228 55%, #05080f);
@@ -16,22 +17,22 @@ body {
 h1, h2 { font-family: "Montserrat", "Fredoka", sans-serif; font-weight: 800; letter-spacing: 0.01em; }
 
 .lobby-top { max-width: 1180px; margin: 0 auto; padding: 1.2rem 1.4rem 0.4rem; }
-.back { color: #8cc4ff; text-decoration: none; font-weight: 600; font-size: 0.95rem; }
+.back { color: #ffd21f; text-decoration: none; font-weight: 600; font-size: 0.95rem; }
 .lobby-nav { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
-.lobby-music { border: 0; cursor: pointer; font: inherit; font-weight: 600; font-size: 0.9rem; padding: 0.35rem 0.85rem; border-radius: 999px; background: rgba(80, 160, 255, 0.16); color: #8cc4ff; box-shadow: inset 0 0 0 2px rgba(80, 160, 255, 0.5); transition: background 0.15s; }
-.lobby-music:hover { background: rgba(80, 160, 255, 0.28); }
+.lobby-music { border: 0; cursor: pointer; font: inherit; font-weight: 600; font-size: 0.9rem; padding: 0.35rem 0.85rem; border-radius: 999px; background: rgba(255, 210, 31, 0.14); color: #ffd21f; box-shadow: inset 0 0 0 2px rgba(255, 210, 31, 0.55); transition: background 0.15s; }
+.lobby-music:hover { background: rgba(255, 210, 31, 0.26); }
 .lobby-music.off { color: rgba(226, 235, 255, 0.7); box-shadow: inset 0 0 0 2px rgba(226, 235, 255, 0.3); background: transparent; }
 .back:hover { text-decoration: underline; }
 .lobby-title { display: flex; align-items: center; gap: 1rem; margin-top: 0.8rem; }
 .brand-mark { width: 5.4rem; height: 5.4rem; filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.55)); display: inline-block; flex: 0 0 auto; transition: transform 0.3s cubic-bezier(.34, 1.56, .64, 1); }
 .brand-mark:hover { transform: rotate(-6deg) scale(1.06); }
 .lobby-title h1 { margin: 0; font-size: clamp(2rem, 5vw, 3rem); line-height: 1.05; color: #fff; text-transform: uppercase; letter-spacing: 0.03em; text-shadow: 0 4px 0 rgba(0, 0, 0, 0.5); }
-.lobby-title h1 span { color: #3a9bff; }
+.lobby-title h1 span { color: #ffd21f; }
 .lobby-title p { margin: 0.2rem 0 0; color: rgba(226, 235, 255, 0.85); font-size: 1.05rem; }
 
 .shelf-wrap { max-width: 1180px; margin: 1.6rem auto 3rem; padding: 0 1.4rem; }
 .shelf { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 2.2rem 1.8rem; align-items: start; }
-.plank { height: 14px; margin-top: 1.8rem; border-radius: 7px; background: linear-gradient(90deg, #0b1530, #1f6fe0 50%, #0b1530); box-shadow: 0 10px 20px rgba(0, 0, 0, 0.45), inset 0 2px 0 rgba(160, 205, 255, 0.35); }
+.plank { height: 14px; margin-top: 1.8rem; border-radius: 7px; background: linear-gradient(90deg, #0b1530, #1f6fe0 32%, #ffd21f 50%, #1f6fe0 68%, #0b1530); box-shadow: 0 10px 20px rgba(0, 0, 0, 0.45), inset 0 2px 0 rgba(255, 240, 180, 0.4); }
 
 .game { display: flex; flex-direction: column; gap: 1rem; text-decoration: none; color: inherit; animation: arrive 0.6s cubic-bezier(.34, 1.56, .64, 1) both; }
 .game:nth-child(2) { animation-delay: 0.12s; }
@@ -95,12 +96,12 @@ h1, h2 { font-family: "Montserrat", "Fredoka", sans-serif; font-weight: 800; let
 .my-games { margin: 0 0 2rem; padding: 1rem 1.1rem 1.1rem; border-radius: 16px; background: rgba(0, 0, 0, 0.22); box-shadow: inset 0 0 0 2px rgba(80, 160, 255, 0.18); }
 .my-games[hidden] { display: none; }
 .mg-head { display: flex; align-items: baseline; gap: 0.8rem; margin-bottom: 0.7rem; }
-.mg-head h2 { margin: 0; font-size: 1.5rem; color: #8cc4ff; text-shadow: 0 3px 0 rgba(0, 0, 0, 0.45); }
+.mg-head h2 { margin: 0; font-size: 1.5rem; color: #ffd21f; text-shadow: 0 3px 0 rgba(0, 0, 0, 0.45); }
 .mg-count { color: #9cc8ff; font-weight: 600; }
 .mg-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr)); gap: 1.1rem 0.8rem; }
 .mg-list:empty { display: none; }
 .mg-card { position: relative; display: flex; gap: 0.75rem; align-items: center; padding: 0.6rem 0.75rem; border-radius: 12px; text-decoration: none; color: #0a0f1c; background: linear-gradient(180deg, #ffffff, #eaf1fc); box-shadow: 0 0 0 3px #0b1530, 0 6px 14px rgba(0, 0, 0, 0.3); transition: transform 0.2s cubic-bezier(.34, 1.56, .64, 1), box-shadow 0.2s ease; }
-.mg-card:hover, .mg-card:focus-visible { transform: translateY(-3px); box-shadow: 0 0 0 3px #2f8cff, 0 10px 20px rgba(0, 0, 0, 0.35); outline: none; }
+.mg-card:hover, .mg-card:focus-visible { transform: translateY(-3px); box-shadow: 0 0 0 3px #ffd21f, 0 10px 20px rgba(0, 0, 0, 0.35); outline: none; }
 .mg-card.yours { box-shadow: 0 0 0 3px #b23a48, 0 6px 14px rgba(0, 0, 0, 0.3); }
 .mg-item { position: relative; display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; }
 .mg-card { min-width: 0; }
@@ -145,17 +146,17 @@ h1, h2 { font-family: "Montserrat", "Fredoka", sans-serif; font-weight: 800; let
 .hx-stats { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0 0 0.8rem; }
 .hx-stats:empty { display: none; }
 .hx-stat { min-width: 5.2rem; padding: 0.4rem 0.7rem; border-radius: 12px; background: rgba(80, 160, 255, 0.1); text-align: center; }
-.hx-stat b { display: block; font-size: 1.35rem; color: #8cc4ff; line-height: 1.1; }
+.hx-stat b { display: block; font-size: 1.35rem; color: #ffd21f; line-height: 1.1; }
 .hx-stat small { color: rgba(226, 235, 255, 0.75); font-size: 0.78rem; }
 .hx-filter { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0 0 0.8rem; }
 .hx-filter:empty { display: none; }
 .hx-filter button { border: 0; cursor: pointer; font: 600 0.85rem Fredoka, system-ui, sans-serif; padding: 0.3rem 0.75rem; border-radius: 999px; color: #eef3ff; background: rgba(255, 255, 255, 0.08); box-shadow: inset 0 0 0 2px rgba(226, 235, 255, 0.2); }
-.hx-filter button.on { color: #fff; background: #1f6fe0; box-shadow: none; }
+.hx-filter button.on { color: #0a0f1c; background: #ffd21f; box-shadow: none; }
 .hx-filter button small { opacity: 0.7; font-weight: 500; }
 .hx-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.45rem; }
 .hx-list:empty { display: none; }
 .hx-row { display: grid; grid-template-columns: 48px 1fr auto; gap: 0.7rem; align-items: center; padding: 0.45rem 0.7rem; border-radius: 12px; text-decoration: none; color: #0a0f1c; background: linear-gradient(180deg, #ffffff, #eaf1fc); box-shadow: 0 0 0 2px #0b1530; }
-.hx-row:hover, .hx-row:focus-visible { box-shadow: 0 0 0 2px #2f8cff; outline: none; }
+.hx-row:hover, .hx-row:focus-visible { box-shadow: 0 0 0 2px #ffd21f; outline: none; }
 .hx-row img { width: 48px; height: 36px; object-fit: cover; border-radius: 6px; }
 .hx-main { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
 .hx-main b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -164,7 +165,7 @@ h1, h2 { font-family: "Montserrat", "Fredoka", sans-serif; font-weight: 800; let
 .hx-res.win { background: #2f6b3a; color: #fff; }
 .hx-res.loss { background: #b23a48; color: #fff; }
 .hx-res.tie { background: #c99a12; color: #0a0f1c; }
-.hx-more { display: block; margin: 0.8rem auto 0; border: 0; cursor: pointer; font: 600 0.9rem Fredoka, system-ui, sans-serif; padding: 0.4rem 1rem; border-radius: 999px; color: #8cc4ff; background: rgba(80, 160, 255, 0.14); box-shadow: inset 0 0 0 2px rgba(80, 160, 255, 0.45); }
+.hx-more { display: block; margin: 0.8rem auto 0; border: 0; cursor: pointer; font: 600 0.9rem Fredoka, system-ui, sans-serif; padding: 0.4rem 1rem; border-radius: 999px; color: #ffd21f; background: rgba(255, 210, 31, 0.12); box-shadow: inset 0 0 0 2px rgba(255, 210, 31, 0.5); }
 .hx-more[hidden] { display: none; }
 @media (max-width: 560px) {
   .hx-sub { display: none; }
@@ -176,20 +177,20 @@ h1, h2 { font-family: "Montserrat", "Fredoka", sans-serif; font-weight: 800; let
 .hx-end { display: flex; flex-direction: column; align-items: flex-end; gap: 0.2rem; }
 .hx-view { font-size: 0.75rem; font-weight: 600; color: #0b1530; white-space: nowrap; }
 .hx-row:hover .hx-view, .hx-row:focus-visible .hx-view { color: #b23a48; }
-.hx-note a { color: #8cc4ff; }
+.hx-note a { color: #ffd21f; }
 .hx-signin { display: inline-block; margin-top: 0.6rem; --accent: #2f8cff; color: #0a0f1c; }
 @media (max-width: 560px) { .hx-view { display: none; } }
 .lobby-title > div:not(.surprise-box) { flex: 1 1 22rem; min-width: 0; }
 .surprise-box { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 0.45rem; max-width: 14rem; padding: 0.8rem 1rem; border-radius: 16px; text-align: center;
-  background: rgba(0, 0, 0, 0.22); box-shadow: inset 0 0 0 2px rgba(80, 160, 255, 0.18); }
+  background: rgba(0, 0, 0, 0.22); box-shadow: inset 0 0 0 2px rgba(255, 210, 31, 0.3); }
 .surprise-box .surprise-note { font-size: 0.82rem; line-height: 1.3; }
 @media (max-width: 760px) {
   .lobby-title { flex-wrap: wrap; }
   .lobby-title > div:not(.surprise-box) { flex: 1 1 0; }
   .surprise-box { flex: 1 1 100%; max-width: none; flex-direction: row; justify-content: flex-start; gap: 0.8rem; padding: 0.6rem 0.8rem; text-align: left; }
 }
-.surprise { flex: none; padding: 0.55rem 1.1rem; border: 0; border-radius: 12px; cursor: pointer; font: 700 1rem Fredoka, system-ui, sans-serif; color: #fff;
-  background: linear-gradient(180deg, #4aa3ff, #1f6fe0); box-shadow: 0 4px 0 #0b3d8f, 0 8px 16px rgba(0, 0, 0, 0.35); transition: transform 0.12s ease; }
+.surprise { flex: none; padding: 0.55rem 1.1rem; border: 0; border-radius: 12px; cursor: pointer; font: 700 1rem Fredoka, system-ui, sans-serif; color: #0a0f1c;
+  background: linear-gradient(180deg, #ffe466, #ffc800); box-shadow: 0 4px 0 #b38600, 0 8px 16px rgba(0, 0, 0, 0.35); transition: transform 0.12s ease; }
 .surprise:hover, .surprise:focus-visible { transform: translateY(-2px); outline: none; }
 .surprise:disabled { cursor: progress; }
 .surprise-note { color: rgba(226, 235, 255, 0.85); font-size: 0.92rem; }
