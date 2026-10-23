@@ -3004,6 +3004,7 @@
     ? `<button class="btn sm ghost" data-act="onlineLeave" aria-label="My games">🏠<span class="lb-t"> My games</span></button>${online.status === 'active' ? '<button class="btn sm ghost" data-act="onlineResign" aria-label="Resign">🏳️<span class="lb-t"> Resign</span></button>' : ''}`
     : state.sim ? '<button class="btn sm ghost" data-act="simStop" aria-label="Exit simulation">⏹<span class="lb-t"> Exit simulation</span></button>'
       : state.past ? '<a class="btn sm ghost" href="/dino-history.html" aria-label="Back to history">🏆<span class="lb-t"> Back to history</span></a>' : '<button class="btn sm ghost" data-act="newGame" aria-label="New game">🥚<span class="lb-t"> New game</span></button>'}
+        <a class="btn sm ghost" href="/ahrens-games/settings" title="Ahrens Games settings" aria-label="Settings">⚙️<span class="lb-t"> Settings</span></a>
         <a class="btn sm ghost" href="/ahrens-games" title="Back to the game lobby" aria-label="Game lobby"><img class="gh-dice" src="/img/board-games-favicon-48.png?v=8" alt=""><span class="lb-t"> Lobby</span></a>
       </div>`);
   }

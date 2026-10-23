@@ -126,6 +126,7 @@ h1, h2 { font-family: "Montserrat", "Fredoka", sans-serif; font-weight: 800; let
 @keyframes mgPop { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .mg-dialog[open] { animation: none; } }
 .mg-card img { width: 72px; height: 54px; object-fit: cover; border-radius: 8px; flex: none; box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.25); }
+.mg-card img.mg-logo, .mg-dialog-game img.mg-logo { width: 54px; height: 54px; object-fit: contain; border-radius: 0; box-shadow: none; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.3)); }
 .mg-body { display: flex; flex: 1; flex-direction: column; min-width: 0; gap: 0.1rem; overflow: hidden; }
 .mg-game { font-size: 0.8rem; font-weight: 600; color: #0b1530; display: flex; flex-wrap: wrap; column-gap: 0.5rem; align-items: baseline; }
 .mg-game small { font-weight: 500; color: #5f6e8c; }

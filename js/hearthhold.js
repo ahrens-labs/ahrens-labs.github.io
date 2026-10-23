@@ -368,7 +368,8 @@
           <button class="btn ghost sm" id="rules-btn" aria-label="Rules">📜<span class="bt"> Rules</span></button>
           ${G && G.mode === 'sim' ? '<button class="btn ghost sm" id="sim-speed"></button>' : ''}
           <button class="btn ghost sm" id="new-btn">${G && G.mode === 'online' ? '🌐<span class="bt"> Game</span>' : G && G.mode === 'sim' ? '⏹<span class="bt"> Stop</span>' : G && G.mode === 'past' ? '🏆<span class="bt"> History</span>' : '🏰<span class="bt"> New game</span>'}</button>
-          <a class="btn ghost sm" href="/ahrens-games" title="All board games" aria-label="All board games"><img class="gh-dice" src="/img/board-games-favicon-48.png?v=8" alt=""></a>
+          <a class="btn ghost sm" href="/ahrens-games/settings" title="Ahrens Games settings" aria-label="Settings">⚙️<span class="bt"> Settings</span></a>
+          <a class="btn ghost sm" href="/ahrens-games" title="Back to the game lobby" aria-label="Game lobby"><img class="gh-dice" src="/img/board-games-favicon-48.png?v=8" alt=""><span class="bt"> Lobby</span></a>
         </div>
       </header>
       <section class="threats" id="threats"></section>

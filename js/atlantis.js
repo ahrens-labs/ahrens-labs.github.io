@@ -456,10 +456,11 @@
           </div>
         </div>
         <div class="top-actions">
-        ${window.GameMusic ? GameMusic.buttonHtml('btn ghost sm', 'bt') : ''}
           ${isAdmin() && (G.mode === 'ai' || G.mode === 'local') ? `<button class="btn ghost sm${rig20On() ? ' on' : ''}" data-act="rig20" aria-pressed="${rig20On()}" title="Admin testing: make your dives always roll a natural 20">🎯<span class="bt"> 20s ${rig20On() ? 'on' : 'off'}</span></button>` : ''}
+          ${window.GameMusic ? GameMusic.buttonHtml('btn ghost sm', 'bt') : ''}
           <button class="btn ghost sm" data-act="rules" aria-label="Rules">📜<span class="bt"> Rules</span></button>
           <button class="btn ghost sm" data-act="home" aria-label="${G.mode === 'past' ? 'History' : G.mode === 'sim' ? 'Stop' : 'New game'}" title="${G.mode === 'past' ? 'Back to history' : G.mode === 'sim' ? 'Stop the simulation' : 'Start a new game (this one stays saved under Your games)'}">${home}</button>
+          <a class="btn ghost sm" href="/ahrens-games/settings" title="Ahrens Games settings" aria-label="Settings">⚙️<span class="bt"> Settings</span></a>
           <a class="btn ghost sm" href="/ahrens-games" title="Back to the game lobby" aria-label="Game lobby"><img class="gh-dice" src="/img/board-games-favicon-48.png?v=8" alt=""><span class="bt"> Lobby</span></a>
         </div>
       </header>
@@ -732,7 +733,7 @@
     const goldBefore = pl(pi).gold;
     const mark = s.log[s.log.length - 1];
     try {
-      E.apply(s, pi, a);
+    E.apply(s, pi, a);
     } catch (err) {
       toast(esc(err.message), 'bad');
       return;
@@ -1371,7 +1372,7 @@
     if (!g || g.recorded || g.rigged || !sessionId()) return;
     g.gid = g.gid || newLocalId();
     g.recorded = true;
-    save();
+      save();
     const item = historyItem(g);
     setQueued(queued().filter((x) => x.id !== item.id).concat(item));
     sendQueued();

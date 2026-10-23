@@ -3,12 +3,12 @@
   const API_BASE = window.AHRENS_LABS_API_BASE || 'https://chess-accounts.matthewahrens.workers.dev';
   const CACHE_KEY = 'ahrensBoardGames.current';
   const GAMES = {
-    dino: { name: 'Dino Dynasty', icon: '🦖', page: '/dino-board-game.html', img: '/img/dino-game/cover.webp' },
-    hearthhold: { name: 'Oakhaven', icon: '🏰', page: '/oakhaven.html', img: '/img/hearthhold/cover.webp' },
-    atlantis: { name: 'Atlantis Expedition', icon: '🔱', page: '/atlantis.html', img: '/img/atlantis/cover.webp?v=2' },
-    cauldron: { name: 'Cauldron Lane', icon: '⚗️', page: '/cauldron.html', img: '/img/cauldron/cover.webp?v=3' },
-    heroes: { name: 'Hero League', icon: '🦸', page: '/heroes.html', img: '/img/heroes/cover.webp?v=2' },
-    masquerade: { name: 'The Masquerade Court', icon: '🎭', page: '/masquerade.html', img: '/img/masquerade/cover.webp?v=2' },
+    dino: { name: 'Dino Dynasty', icon: '🦖', page: '/dino-board-game.html', img: '/img/dino-game/cover.webp', logo: '/img/dino-favicon-128.png?v=2' },
+    hearthhold: { name: 'Oakhaven', icon: '🏰', page: '/oakhaven.html', img: '/img/hearthhold/cover.webp', logo: '/img/oakhaven-favicon-128.png?v=2' },
+    atlantis: { name: 'Atlantis Expedition', icon: '🔱', page: '/atlantis.html', img: '/img/atlantis/cover.webp?v=2', logo: '/img/atlantis-favicon-128.png?v=3' },
+    cauldron: { name: 'Cauldron Lane', icon: '⚗️', page: '/cauldron.html', img: '/img/cauldron/cover.webp?v=3', logo: '/img/cauldron-favicon-128.png?v=3' },
+    heroes: { name: 'Hero League', icon: '🦸', page: '/heroes.html', img: '/img/heroes/cover.webp?v=2', logo: '/img/heroes-favicon-128.png?v=3' },
+    masquerade: { name: 'The Masquerade Court', icon: '🎭', page: '/masquerade.html', img: '/img/masquerade/cover.webp?v=2', logo: '/img/masquerade-favicon-128.png?v=3' },
   };
   // "Surprise me": a random game against a random number of computer rivals (up to as many as the game seats).
   const MAX_RIVALS = { dino: 1, hearthhold: 1, atlantis: 1, cauldron: 3, heroes: 4, masquerade: 4 };
@@ -164,7 +164,7 @@
     const tag = it.where === 'online' ? '🌐 Online' : session() ? '☁️ Saved to your account' : '💾 This device';
     const x = it.removable ? `<button class="mg-x" data-remove="${esc(it.game)}" data-id="${esc(it.id)}" title="Remove this saved game" aria-label="Remove this saved game">✕</button>` : '';
     return `<div class="mg-item"><a class="mg-card${it.yours ? ' yours' : ''}" href="${it.href}">
-      <img src="${G.img}" alt="" loading="lazy">
+      <img class="mg-logo" src="${G.logo}" alt="" loading="lazy">
       <span class="mg-body">
         <span class="mg-game">${G.icon} ${G.name}<small>${tag}</small></span>
         <b class="mg-who">${esc(it.who)}</b>
@@ -199,7 +199,7 @@
     dialog.returnValue = '';
     dialog.innerHTML = `<form method="dialog">
       <h2>Remove this game?</h2>
-      <div class="mg-dialog-game"><img src="${G.img}" alt=""><span><b>${G.icon} ${G.name}</b><span>${esc(it.who)}</span><small>${esc(it.note)}</small></span></div>
+      <div class="mg-dialog-game"><img class="mg-logo" src="${G.logo}" alt=""><span><b>${G.icon} ${G.name}</b><span>${esc(it.who)}</span><small>${esc(it.note)}</small></span></div>
       <p>It will be gone from Your games${session() ? ' on all your devices' : ''}. This can’t be undone.</p>
       <div class="mg-dialog-btns"><button value="cancel" class="mg-keep" autofocus>Keep it</button><button value="remove" class="mg-remove">Remove game</button></div>
     </form>`;
