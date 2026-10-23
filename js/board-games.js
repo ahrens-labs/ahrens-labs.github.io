@@ -141,9 +141,11 @@
     return BS.list().filter((m) => shown(m.game) && (!m.summary || m.summary.moved !== false)).map(savedItem);
   }
 
+  const invitedMe = (g) => (g.needsMe != null ? g.needsMe : g.status === 'pending' && g.me === 1);
+  const myMove = (g) => invitedMe(g) || (g.status === 'active' && g.turn === g.me);
   function onlineItem(g) {
-    const invited = g.needsMe != null ? g.needsMe : g.status === 'pending' && g.me === 1;
-    const yours = invited || (g.status === 'active' && g.turn === g.me);
+    const invited = invitedMe(g);
+    const yours = myMove(g);
     let note;
     if (g.status === 'pending') note = invited ? `<b>${(g.seats || 2) > 2 ? 'Invited you' : 'Challenged you'}</b> — accept or decline` : 'Waiting for them to accept';
     else note = `${yours ? '<b>Your turn</b>' : 'Their turn'}${g.round ? ` · round ${g.round}${g.game === 'hearthhold' ? ' of 12' : ''}` : ''}`;
@@ -242,6 +244,8 @@
   }
   render(cached, signedIn ? 'loading' : 'done');
   if (!signedIn) return;
+  const alertTurns = () => window.TurnAlert && window.TurnAlert.set(cached.some(myMove));
+  alertTurns();
 
   // Coming back to this tab picks up games removed or played on other devices (at most every 20s).
   let lastFetch = 0;
@@ -259,6 +263,11 @@
   });
   lastFetch = Date.now();
   load();
+  // While someone else is moving in one of your online games, check now and then so the tab can tell you when
+  // it's your turn again, even in the background. Nothing to wait for means no polling.
+  setInterval(() => {
+    if (cached.some((g) => !myMove(g))) refresh();
+  }, 60000);
 
   function load() {
     fetch(`${API_BASE}/api/board-games/current`, { headers: { Authorization: `Bearer ${session()}` } })
@@ -278,6 +287,7 @@
         }
         cached = games;
         render(games, 'done');
+        alertTurns();
       })
       .catch(() => render(cached, 'error'));
   }

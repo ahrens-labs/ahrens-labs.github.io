@@ -20,6 +20,13 @@
     const LEVELS = [['easy', 'Easy'], ['normal', 'Normal'], ['hard', 'Hard'], ['brutal', 'Brutal']];
     const blurb = cfg.blurb || `Play ${title} against another Ahrens Labs player — a quick game with a 2-minute turn clock, or a long game where you take your turn whenever you like.`;
 
+    if (root.TurnAlert && cfg.isMyTurn) {
+      root.TurnAlert.watch(() => {
+        const G = cfg.getG();
+        return !!G && G.mode === 'online' && G.status === 'active' && cfg.isMyTurn();
+      });
+    }
+
     const net = {
       lobby: null,
       err: '',

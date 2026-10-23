@@ -104,6 +104,7 @@
   const season = () => E.seasonOf(st().round);
   const tonight = () => st().threats[st().round - 1];
   const humanTurn = () => st().phase === 'act' && !st().players[st().turn].ai;
+  if (window.TurnAlert) window.TurnAlert.watch(() => !!G && G.mode === 'online' && G.status === 'active' && st().phase === 'act' && st().turn === G.me);
   const myTurnHere = () => humanTurn() && st().turn === G.view && (G.mode !== 'online' || G.view === G.me);
   // May the viewer move villagers in the village on screen right now?
   const canManage = () => st().phase === 'act' && !me().ai && (G.mode === 'local' ? st().turn === G.view : G.mode === 'online' ? G.view === G.me && G.status === 'active' : true);

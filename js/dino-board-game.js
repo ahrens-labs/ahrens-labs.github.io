@@ -7652,6 +7652,7 @@
   function onlineMyTurn() {
     return !!online && online.status === 'active' && onlineOwner() === online.me;
   }
+  if (window.TurnAlert) window.TurnAlert.watch(onlineMyTurn);
 
   function onlineBlocked() {
     return !!online && (!onlineMyTurn() || online.timedOut);
