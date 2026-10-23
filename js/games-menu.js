@@ -39,11 +39,8 @@
   html.gm-open .gm-drawer { transform: none; }
   .gm-head { display: flex; align-items: center; gap: 0.6rem; padding: 0.2rem 0.3rem 0.8rem; margin-bottom: 0.3rem; border-bottom: 1px solid rgba(120, 170, 255, 0.2); }
   .gm-head img { width: 44px; height: 44px; }
-  .gm-word { display: inline-flex; flex-direction: column; gap: 0.1em; font-size: 1.32rem; line-height: 0.95; text-transform: uppercase; }
-  .gm-word .a { font: 900 1em "Archivo", "Montserrat", sans-serif; font-stretch: 125%; color: #fff; }
-  .gm-word .g { display: flex; align-items: center; gap: 0.4em; font: 800 0.42em "Archivo", "Montserrat", sans-serif; font-stretch: 125%; color: #ffd21f; }
-  .gm-word .g i { font-style: normal; letter-spacing: 0.5em; margin-right: -0.5em; }
-  .gm-word .g::before, .gm-word .g::after { content: ""; flex: 1; height: 0.18em; border-radius: 999px; background: currentColor; }
+  .gm-head b { font: 800 1.15rem "Montserrat", "Fredoka", sans-serif; letter-spacing: 0.03em; text-transform: uppercase; }
+  .gm-head b span { color: #3a9bff; }
   .gm-x { margin-left: auto; width: 36px; height: 36px; border: 0; border-radius: 10px; cursor: pointer; font-size: 1.1rem; color: #cfe0ff; background: rgba(255, 255, 255, 0.07); }
   .gm-x:hover, .gm-x:focus-visible { background: rgba(255, 255, 255, 0.15); outline: none; }
   .gm-label { margin: 0.7rem 0.4rem 0.2rem; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #8cb4ef; }
@@ -55,12 +52,6 @@
   .gm-foot { margin-top: auto; padding-top: 0.8rem; border-top: 1px solid rgba(120, 170, 255, 0.2); }
   @media (prefers-reduced-motion: reduce) { .gm-drawer, .gm-back { transition: none; } }`;
   document.head.appendChild(css);
-  if (!document.querySelector('link[href*="family=Archivo"]')) {
-    const font = document.createElement('link');
-    font.rel = 'stylesheet';
-    font.href = 'https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@125,800;125,900&display=swap';
-    document.head.appendChild(font);
-  }
 
   const burger = document.createElement('button');
   burger.type = 'button';
@@ -79,7 +70,7 @@
   drawer.setAttribute('aria-label', 'Ahrens Games');
   drawer.setAttribute('aria-hidden', 'true');
   drawer.innerHTML = `
-    <div class="gm-head"><img src="/img/ahrens-games-logo.webp?v=6" alt=""><span class="gm-word"><span class="a">Ahrens</span> <span class="g"><i>Games</i></span></span><button type="button" class="gm-x" aria-label="Close menu">✕</button></div>
+    <div class="gm-head"><img src="/img/ahrens-games-logo.webp?v=6" alt=""><b>Ahrens <span>Games</span></b><button type="button" class="gm-x" aria-label="Close menu">✕</button></div>
     <a href="/board-games.html"${cur('board-games')}><img src="/img/board-games-favicon-48.png?v=8" alt="">All games</a>
     <a href="/game-history.html"${cur('game-history')}><span class="gm-i" aria-hidden="true">🏆</span>Game history</a>
     <p class="gm-label">Games</p>
