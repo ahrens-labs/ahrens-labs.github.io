@@ -233,7 +233,7 @@
   // ---------------------------------------------------------------- home
   function heroHtml(withTagline) {
     const sparks = Array.from({ length: 16 }, (_, i) => `<i style="left:${4 + ((i * 37) % 92)}%;top:${6 + ((i * 23) % 60)}%;animation-delay:${(i * 0.4).toFixed(2)}s"></i>`).join('');
-    return `<div class="gh-top"><a class="gh-lobby" href="/board-games.html" title="Back to the game lobby">← <img class="gh-dice" src="/img/board-games-favicon-48.png?v=8" alt="" width="20" height="20"> Game lobby</a>${window.GameMusic ? GameMusic.buttonHtml('btn ghost sm gh-music', 'bt') : ''}</div>
+    return `<div class="gh-top"><a class="gh-lobby" href="/ahrens-games" title="Back to the game lobby">← <img class="gh-dice" src="/img/board-games-favicon-48.png?v=8" alt="" width="20" height="20"> Game lobby</a>${window.GameMusic ? GameMusic.buttonHtml('btn ghost sm gh-music', 'bt') : ''}</div>
       <div class="gh-hero">
         <img src="${IMG('cover')}" alt="Masked nobles in a candlelit Venetian ballroom: a duchess, a jester and a plague doctor share a secret" class="gh-hero-img">
         <div class="gh-shade"></div>
@@ -395,7 +395,7 @@
           ${window.GameMusic ? GameMusic.buttonHtml('btn ghost sm', 'bt') : ''}
           <button class="btn ghost sm" data-act="rules" aria-label="Rules">📜<span class="bt"> Rules</span></button>
           <button class="btn ghost sm" data-act="home" aria-label="${G.mode === 'past' ? 'History' : G.mode === 'sim' ? 'Stop' : 'New game'}">${home}</button>
-          <a class="btn ghost sm" href="/board-games.html" aria-label="Game lobby"><img class="gh-dice" src="/img/board-games-favicon-48.png?v=8" alt=""><span class="bt"> Lobby</span></a>
+          <a class="btn ghost sm" href="/ahrens-games" aria-label="Game lobby"><img class="gh-dice" src="/img/board-games-favicon-48.png?v=8" alt=""><span class="bt"> Lobby</span></a>
         </div>
       </header>
       <div class="mq">
@@ -1144,7 +1144,7 @@
     document.body.className = 'setup-mode';
     $('#app').innerHTML = `
       <div class="setup gh">
-      <div class="gh-top"><a class="gh-lobby" href="/board-games.html">← <img class="gh-dice" src="/img/board-games-favicon-48.png?v=8" alt="" width="20" height="20"> Game lobby</a><button class="btn ghost sm" id="hist-new">🎭 New game</button></div>
+      <div class="gh-top"><a class="gh-lobby" href="/ahrens-games">← <img class="gh-dice" src="/img/board-games-favicon-48.png?v=8" alt="" width="20" height="20"> Game lobby</a><button class="btn ghost sm" id="hist-new">🎭 New game</button></div>
         <div class="setup-card gh-card panel hist">
           <h2>🏆 Game history</h2>
           <div id="hist-body"><p class="muted">Loading your games…</p></div>

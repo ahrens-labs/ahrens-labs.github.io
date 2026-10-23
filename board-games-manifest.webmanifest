@@ -3,7 +3,7 @@
   "name": "Ahrens Games",
   "short_name": "Ahrens Games",
   "description": "Ahrens Games: Dino Dynasty, Oakhaven, Atlantis Expedition, Cauldron Lane, Hero League and The Masquerade Court.",
-  "start_url": "/board-games.html",
+  "start_url": "/ahrens-games",
   "scope": "/",
   "display": "standalone",
   "background_color": "#070b16",

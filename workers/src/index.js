@@ -9338,7 +9338,7 @@ async function sendLabChallengeEmail(env, { to, recipientName, challengerName, g
   const challenger = String(challengerName || '').replace(/\s+/g, ' ').trim().slice(0, 40) || 'Someone';
   const recipient = String(recipientName || '').replace(/\s+/g, ' ').trim().slice(0, 40) || 'there';
   const gameTitle = String(title || 'a board game').slice(0, 60);
-  const gamePage = String(page || 'board-games.html').replace(/[^a-z0-9._-]/gi, '');
+  const gamePage = String(page || 'ahrens-games').replace(/[^a-z0-9._-]/gi, '');
   const gameUrl = `${sitePublicBase(env)}/${gamePage}?game=${encodeURIComponent(gameId)}`;
   const urlHtml = escapeHtmlEmail(gameUrl);
   const quick = mode === 'quick';
