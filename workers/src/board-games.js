@@ -18,6 +18,8 @@ const SAVES_MAX_LIVE = 30;
 const SAVE_OPS_MAX = 10;
 const TOMBSTONE_MS = 365 * 86400000;
 const INDEX_KEY = 'bgsIndex';
+// Set once the player has seen the lobby's welcome tour (kept under the bgs prefix so account deletion clears it).
+const INTRO_KEY = 'bgsIntroSeen';
 const bodyKey = (game, id) => `bgs:${game}:${id}`;
 
 function jsonResponse(body, corsHeaders, status = 200) {
@@ -89,9 +91,9 @@ async function savedGames(env, userId) {
   try {
     const res = await accountStub(env, userId).fetch(new Request('http://do/boardSaves/index'));
     const data = await res.json();
-    return Object.values(data.index || {});
+    return { saves: Object.values(data.index || {}), introSeen: !!data.introSeen };
   } catch {
-    return [];
+    return { saves: [], introSeen: true };
   }
 }
 
@@ -174,8 +176,13 @@ export async function handleBoardGamesRequest(request, env, corsHeaders, path) {
   if (!userId) return jsonResponse({ error: 'Not authenticated' }, corsHeaders, 401);
 
   if (path === '/api/board-games/current' && request.method === 'GET') {
-    const [games, saves] = await Promise.all([onlineGames(env, userId), savedGames(env, userId)]);
-    return jsonResponse({ games, saves }, corsHeaders);
+    const [games, { saves, introSeen }] = await Promise.all([onlineGames(env, userId), savedGames(env, userId)]);
+    return jsonResponse({ games, saves, introSeen }, corsHeaders);
+  }
+
+  if (path === '/api/board-games/intro-seen' && request.method === 'POST') {
+    await accountStub(env, userId).fetch(new Request('http://do/boardSaves/intro', { method: 'POST' }));
+    return jsonResponse({ ok: true }, corsHeaders);
   }
 
   if (path === '/api/board-games/history' && request.method === 'GET') {
@@ -228,7 +235,11 @@ export async function handleBoardSavesDO(storage, request, path) {
   if (!path.startsWith('/boardSaves/')) return null;
   const index = (await storage.get(INDEX_KEY)) || {};
   if (path === '/boardSaves/index') {
-    return Response.json({ index });
+    return Response.json({ index, introSeen: !!(await storage.get(INTRO_KEY)) });
+  }
+  if (path === '/boardSaves/intro' && request.method === 'POST') {
+    await storage.put(INTRO_KEY, Date.now());
+    return Response.json({ ok: true });
   }
   if (path === '/boardSaves/get') {
     const url = new URL(request.url);

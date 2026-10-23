@@ -194,3 +194,42 @@ h1, h2 { font-family: "Montserrat", "Fredoka", sans-serif; font-weight: 800; let
 .surprise:hover, .surprise:focus-visible { transform: translateY(-2px); outline: none; }
 .surprise:disabled { cursor: progress; }
 .surprise-note { color: rgba(226, 235, 255, 0.85); font-size: 0.92rem; }
+
+/* Welcome tour, shown once per account. */
+.gi { width: min(560px, calc(100vw - 1.5rem)); max-height: calc(100dvh - 1.5rem); padding: 1.6rem 1.6rem 1.1rem; border: 0; border-radius: 22px; overflow: auto;
+  color: #eef3ff; font-family: "Fredoka", system-ui, sans-serif; text-align: center;
+  background: radial-gradient(ellipse at 50% -10%, rgba(47, 140, 255, 0.35), transparent 60%), linear-gradient(180deg, #0f1d40, #0a1228);
+  box-shadow: 0 0 0 3px #ffd21f, 0 24px 60px rgba(0, 0, 0, 0.6); }
+.gi::backdrop { background: rgba(4, 8, 20, 0.72); backdrop-filter: blur(3px); }
+.gi-step { min-height: 300px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.gi-step.in { animation: gi-in 0.35s ease both; }
+@keyframes gi-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.gi h2 { margin: 0.3rem 0 0.5rem; font-size: 1.6rem; color: #fff; }
+.gi p { margin: 0 0 0.6rem; color: rgba(226, 235, 255, 0.9); font-size: 1.05rem; line-height: 1.45; }
+.gi-logo { width: min(260px, 70%); height: auto; margin: 0 auto 0.4rem; display: block; }
+.gi-games { list-style: none; margin: 0.6rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.6rem; width: 100%; }
+.gi-games li { border-radius: 12px; overflow: hidden; background: #0b1530; box-shadow: 0 0 0 2px rgba(255, 210, 31, 0.45); }
+.gi-games img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; }
+.gi-games span { display: block; padding: 0.3rem 0.35rem 0.4rem; font-size: 0.82rem; font-weight: 600; line-height: 1.2; }
+.gi-ways { list-style: none; margin: 0.4rem 0 0; padding: 0; display: grid; gap: 0.55rem; width: 100%; text-align: left; }
+.gi-ways li { display: grid; gap: 0.1rem; padding: 0.65rem 0.85rem; border-radius: 14px; background: rgba(255, 255, 255, 0.06); box-shadow: inset 0 0 0 2px rgba(80, 160, 255, 0.22); }
+.gi-ways b { color: #ffd21f; font-weight: 700; font-size: 1.05rem; }
+.gi-ways span { color: rgba(226, 235, 255, 0.88); font-size: 0.95rem; }
+.gi-foot { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; margin-top: 1.1rem; }
+.gi-dots { display: flex; gap: 0.4rem; }
+.gi-dots i { width: 9px; height: 9px; border-radius: 50%; background: rgba(226, 235, 255, 0.3); transition: background 0.2s, transform 0.2s; }
+.gi-dots i.on { background: #ffd21f; transform: scale(1.25); }
+.gi-nav { display: flex; gap: 0.5rem; }
+.gi button { font: 700 1rem "Fredoka", system-ui, sans-serif; cursor: pointer; border: 0; border-radius: 12px; padding: 0.55rem 1rem; }
+.gi-next { color: #fff; background: linear-gradient(180deg, #4aa3ff, #1f6fe0); box-shadow: 0 4px 0 #0b3d8f; }
+.gi-next:hover { filter: brightness(1.08); }
+.gi-back { color: #eef3ff; background: rgba(255, 255, 255, 0.1); }
+.gi-skip { color: rgba(226, 235, 255, 0.7); background: transparent; padding-left: 0.2rem; }
+.gi-skip:hover { color: #fff; }
+@media (max-width: 520px) {
+  .gi { padding: 1.2rem 1rem 0.9rem; }
+  .gi-step { min-height: 0; }
+  .gi h2 { font-size: 1.35rem; }
+  .gi-games { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (prefers-reduced-motion: reduce) { .gi-step.in { animation: none; } }

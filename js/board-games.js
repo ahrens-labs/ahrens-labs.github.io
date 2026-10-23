@@ -270,6 +270,7 @@
       .then((data) => {
         const games = (data.games || []).filter((g) => shown(g.game));
         if (BS && data.saves) BS.merge(data.saves);
+        if (window.AhrensGamesIntro && 'introSeen' in data) window.AhrensGamesIntro.fromServer(data.introSeen);
         try {
           sessionStorage.setItem(CACHE_KEY, JSON.stringify(games));
         } catch {
