@@ -45,7 +45,7 @@
       label: 'Projects',
       href: 'coding-lab.html',
       children: [
-        { id: 'ahrensGames', label: 'Ahrens Games', href: 'board-games.html', icon: 'img/board-games-favicon-48.png?v=8' },
+        { id: 'ahrensGames', label: 'Ahrens Games', href: 'board-games.html', icon: 'img/board-games-favicon-48.png?v=9' },
         { id: 'dungeonGame', label: 'Dungeon Game', href: 'dungeon_game.html' },
         { id: 'classify', label: 'Classify', href: '/classify', icon: 'img/classify-logo-128.png' },
         { id: 'tether', label: 'Tether', href: 'tether.html', icon: 'img/tether-favicon-48.png' },
