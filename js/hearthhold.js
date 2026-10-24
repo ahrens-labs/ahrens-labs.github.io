@@ -366,6 +366,7 @@
         <div class="top-actions">
           ${window.GameMusic ? GameMusic.buttonHtml('btn ghost sm', 'bt') : ''}
           <button class="btn ghost sm" id="rules-btn" aria-label="Rules">📜<span class="bt"> Rules</span></button>
+          ${G && G.mode === 'online' && G.status === 'active' ? '<button class="btn ghost sm" id="resign-btn" aria-label="Resign">🏳️<span class="bt"> Resign</span></button>' : ''}
           ${G && G.mode === 'sim' ? '<button class="btn ghost sm" id="sim-speed"></button>' : ''}
           <button class="btn ghost sm" id="new-btn">${G && G.mode === 'online' ? '🌐<span class="bt"> Game</span>' : G && G.mode === 'sim' ? '⏹<span class="bt"> Stop</span>' : G && G.mode === 'past' ? '🏆<span class="bt"> History</span>' : '🏰<span class="bt"> New game</span>'}</button>
           <a class="btn ghost sm" href="/ahrens-games/settings" title="Ahrens Games settings" aria-label="Settings">⚙️<span class="bt"> Settings</span></a>
@@ -406,6 +407,8 @@
     };
     $('#rules-btn').onclick = () => showRules();
     $('#new-btn').onclick = newGame;
+    const resignBtn = $('#resign-btn');
+    if (resignBtn) resignBtn.onclick = () => onlineMenu();
     if ($('#sim-speed')) {
       const paint = () => ($('#sim-speed').textContent = SIM_SPEEDS[G.speed].name);
       paint();

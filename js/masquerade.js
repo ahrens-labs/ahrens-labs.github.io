@@ -393,6 +393,7 @@
         </div>
         <div class="top-actions">
           ${window.GameMusic ? GameMusic.buttonHtml('btn ghost sm', 'bt') : ''}
+          ${G.mode === 'online' && G.status === 'active' ? '<button class="btn ghost sm" data-act="resignOnline" aria-label="Resign">🏳️<span class="bt"> Resign</span></button>' : ''}
           <button class="btn ghost sm" data-act="rules" aria-label="Rules">📜<span class="bt"> Rules</span></button>
           <button class="btn ghost sm" data-act="home" aria-label="${G.mode === 'past' ? 'History' : G.mode === 'sim' ? 'Stop' : 'New game'}" title="${G.mode === 'past' ? 'Back to history' : G.mode === 'sim' ? 'Stop the simulation' : 'Start a new game (this one stays saved under Your games)'}">${home}</button>
           <a class="btn ghost sm" href="/ahrens-games/settings" title="Ahrens Games settings" aria-label="Settings">⚙️<span class="bt"> Settings</span></a>
@@ -728,6 +729,7 @@
   function onAct(a) {
     if (a === 'rules') return showRules();
     if (a === 'home') return leaveGame();
+    if (a === 'resignOnline') { if (confirm('Resign this game? Your opponent wins right away.')) return Online.resign(); return; }
     if (a === 'reveal') return showGameOver(true);
     if (a === 'cancel') {
       ui.pick = null;
