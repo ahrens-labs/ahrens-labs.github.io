@@ -249,6 +249,64 @@
 
   // Coming back to this tab picks up games removed or played on other devices (at most every 20s).
   let lastFetch = 0;
+  const liveSockets = new Map();
+  const liveSocketPings = new WeakMap();
+  let liveRefreshTimer = null;
+  const livePath = {
+    dino: '/api/dino/live',
+    hearthhold: '/api/oakhaven/live',
+    atlantis: '/api/atlantis/live',
+    cauldron: '/api/cauldron/live',
+    heroes: '/api/heroes/live',
+    masquerade: '/api/masquerade/live',
+  };
+  function syncLiveSockets(games) {
+    const current = new Map((games || [])
+      .filter((g) => livePath[g.game] && g.id && (g.status === 'pending' || g.status === 'active'))
+      .map((g) => [`${g.game}:${g.id}`, g]));
+    for (const [key, ws] of liveSockets) {
+      if (current.has(key)) continue;
+      liveSockets.delete(key);
+      clearInterval(liveSocketPings.get(ws));
+      try { ws.close(); } catch { /* already closed */ }
+    }
+    for (const [key, game] of current) {
+      const existing = liveSockets.get(key);
+      if (existing && (existing.readyState === WebSocket.CONNECTING || existing.readyState === WebSocket.OPEN)) continue;
+      const path = livePath[game.game];
+      const wsUrl = `${API_BASE.replace(/^http/, 'ws')}${path}?id=${encodeURIComponent(game.id)}&session=${encodeURIComponent(session())}`;
+      let ws;
+      try {
+        ws = new WebSocket(wsUrl);
+      } catch {
+        continue;
+      }
+      liveSockets.set(key, ws);
+      liveSocketPings.set(ws, setInterval(() => {
+        if (ws.readyState === WebSocket.OPEN) {
+          try { ws.send('ping'); } catch { /* connection closed */ }
+        }
+      }, 30000));
+      ws.addEventListener('message', (event) => {
+        let message;
+        try { message = JSON.parse(event.data); } catch { return; }
+        if (!message || message.type !== 'state') return;
+        // The first frame is the current snapshot. Refreshing also catches updates that raced
+        // with the initial lobby request; later frames keep the turn dot and cards current.
+        clearTimeout(liveRefreshTimer);
+        liveRefreshTimer = setTimeout(() => refresh(true), 150);
+      });
+      ws.addEventListener('close', () => {
+        clearInterval(liveSocketPings.get(ws));
+        if (liveSockets.get(key) !== ws) return;
+        liveSockets.delete(key);
+        setTimeout(() => syncLiveSockets(cached), 3000);
+      });
+      ws.addEventListener('error', () => {
+        try { ws.close(); } catch { /* already closed */ }
+      });
+    }
+  }
   const refresh = (afterResume = false) => {
     if (!session() || (!afterResume && Date.now() - lastFetch < 20000)) return;
     lastFetch = Date.now();
@@ -267,15 +325,15 @@
   addEventListener('online', () => refresh(true));
   lastFetch = Date.now();
   load();
-  // Keep checking, even in a background tab, so the tab can tell you when it's your turn: every minute while
-  // someone else is moving in one of your games, otherwise every few minutes in case a new challenge arrives.
+  // Fallback polling discovers new challenges and recovers if a live socket cannot connect.
+  // Check every 30 seconds while an online game is waiting on the other player, otherwise every 90 seconds.
   let quietTicks = 0;
   setInterval(() => {
     if (cached.some((g) => !myMove(g)) || ++quietTicks >= 3) {
       quietTicks = 0;
       refresh();
     }
-  }, 60000);
+  }, 30000);
 
   function load() {
     fetch(`${API_BASE}/api/board-games/current`, { headers: { Authorization: `Bearer ${session()}` } })
@@ -301,6 +359,7 @@
           /* storage blocked */
         }
         cached = games;
+        syncLiveSockets(games);
         render(games, 'done');
         alertTurns();
       })
