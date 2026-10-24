@@ -249,8 +249,8 @@
 
   // Coming back to this tab picks up games removed or played on other devices (at most every 20s).
   let lastFetch = 0;
-  const refresh = () => {
-    if (!session() || Date.now() - lastFetch < 20000) return;
+  const refresh = (afterResume = false) => {
+    if (!session() || (!afterResume && Date.now() - lastFetch < 20000)) return;
     lastFetch = Date.now();
     load();
   };
@@ -259,8 +259,12 @@
   });
   addEventListener('focus', refresh);
   addEventListener('pageshow', (e) => {
-    if (e.persisted) refresh();
+    if (e.persisted) refresh(true);
   });
+  // Chrome can freeze a background page while the Chromebook sleeps. Refresh as soon as the
+  // page is resumed so the cached turn state and favicon are updated without opening the tab.
+  document.addEventListener('resume', () => refresh(true));
+  addEventListener('online', () => refresh(true));
   lastFetch = Date.now();
   load();
   // Keep checking, even in a background tab, so the tab can tell you when it's your turn: every minute while
