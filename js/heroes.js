@@ -738,7 +738,11 @@
     const act = b.dataset.act;
     if (act === 'rules') return showRules();
     if (act === 'home') return leaveGame();
-    if (act === 'resignOnline') { if (confirm('Resign this game? Your opponent wins right away.')) return Online.resign(); return; }
+    if (act === 'resignOnline') {
+      const modal = openModal(`<h2>🏳️ Resign this game?</h2><p>Your opponent wins right away.</p><div class="btn-row"><button class="btn lava" data-resign-confirm>Yes, resign</button><button class="btn ghost" data-close>Keep playing</button></div>`);
+      modal.addEventListener('click', (e) => { if (e.target.closest('[data-resign-confirm]')) { closeModal(); Online.resign(); } });
+      return;
+    }
     if (act === 'scorecard') return showGameOver(true);
     if (act === 'mission') return showMission();
     if (act === 'identity') return showIdentity(handOwner());

@@ -729,7 +729,11 @@
   function onAct(a) {
     if (a === 'rules') return showRules();
     if (a === 'home') return leaveGame();
-    if (a === 'resignOnline') { if (confirm('Resign this game? Your opponent wins right away.')) return Online.resign(); return; }
+    if (a === 'resignOnline') {
+      const modal = openModal(`<h2>🏳️ Resign this game?</h2><p>Your opponent wins right away.</p><div class="btn-row"><button class="btn lava" data-resign-confirm>Yes, resign</button><button class="btn ghost" data-close>Keep playing</button></div>`);
+      modal.addEventListener('click', (e) => { if (e.target.closest('[data-resign-confirm]')) { closeModal(); Online.resign(); } });
+      return;
+    }
     if (a === 'reveal') return showGameOver(true);
     if (a === 'cancel') {
       ui.pick = null;
