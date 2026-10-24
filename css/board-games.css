@@ -16,29 +16,15 @@ body {
 }
 h1, h2 { font-family: "Montserrat", "Fredoka", sans-serif; font-weight: 800; letter-spacing: 0.01em; }
 
-/* Use the shared Ahrens Labs navigation at the top of the lobby. */
-.site-lobby-header { width: 100%; margin: 0; padding: 1rem 1.2rem; }
-.site-lobby-header .header-content { width: min(100%, 1180px); flex-direction: row; gap: 1rem; }
-.site-lobby-header .logo-link { flex: 0 0 auto; }
-.site-lobby-header .header-logo { width: 64px; height: 64px; object-fit: contain; }
-.site-lobby-header .header-content h1 { margin: 0; white-space: nowrap; }
-.site-lobby-header nav { flex: 1 1 auto; }
-.site-lobby-header nav ul { justify-content: flex-end; }
-.site-lobby-header nav a { color: #fff; }
-.site-lobby-auth { position: absolute; right: 0; top: -0.65rem; display: flex; align-items: center; gap: 0.5rem; }
-.site-lobby-auth button { border: 0; border-radius: 6px; padding: 0.4rem 0.8rem; color: #fff; font: 600 0.85rem Inter, sans-serif; cursor: pointer; }
-#header-login-btn { background: #3498db; }
-#header-signup-btn { background: #2ecc71; }
-
 .lobby-top { max-width: 1180px; margin: 0 auto; padding: 1.2rem 1.4rem 0.4rem; }
-.back { color: #ffd21f; text-decoration: none; font-weight: 600; font-size: 0.95rem; }
+.back { display: inline-flex; align-items: center; padding: 0.5rem 0.95rem; border-radius: 999px; color: #fff6e2; background: rgba(0, 0, 0, 0.28); box-shadow: inset 0 0 0 1.5px rgba(255, 236, 200, 0.35); text-decoration: none; font-weight: 600; font-size: 0.95rem; transition: background 0.15s; }
+.back:hover { background: rgba(0, 0, 0, 0.42); }
 .lobby-nav { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
-.lobby-right { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 1.1rem; }
+.lobby-right { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 0.5rem; }
 .lobby-nav [aria-current="page"] { color: #fff; }
 .lobby-music { border: 0; cursor: pointer; font: inherit; font-weight: 600; font-size: 0.9rem; padding: 0.35rem 0.85rem; border-radius: 999px; background: rgba(255, 210, 31, 0.14); color: #ffd21f; box-shadow: inset 0 0 0 2px rgba(255, 210, 31, 0.55); transition: background 0.15s; }
 .lobby-music:hover { background: rgba(255, 210, 31, 0.26); }
 .lobby-music.off { color: rgba(226, 235, 255, 0.7); box-shadow: inset 0 0 0 2px rgba(226, 235, 255, 0.3); background: transparent; }
-.back:hover { text-decoration: underline; }
 .lobby-title { display: flex; align-items: center; gap: 1rem; margin-top: 0.8rem; }
 .brand-mark { width: 5.4rem; height: 5.4rem; filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.55)); display: inline-block; flex: 0 0 auto; transition: transform 0.3s cubic-bezier(.34, 1.56, .64, 1); }
 .brand-mark:hover { transform: rotate(-6deg) scale(1.06); }
@@ -103,12 +89,6 @@ h1, h2 { font-family: "Montserrat", "Fredoka", sans-serif; font-weight: 800; let
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
 @media (max-width: 560px) {
-  .site-lobby-header { padding: 0.8rem; }
-  .site-lobby-header .header-content { flex-wrap: wrap; justify-content: center; padding-top: 2rem; }
-  .site-lobby-header .header-content h1 { font-size: 1.5rem; }
-  .site-lobby-header nav { flex-basis: 100%; }
-  .site-lobby-header nav ul { justify-content: center; }
-  .site-lobby-auth { top: -1.65rem; right: 0; }
   .lobby-nav { align-items: flex-start; }
   .lobby-right { gap: 0.45rem 0.7rem; font-size: 0.85rem; }
   .shelf { grid-template-columns: 1fr; }
