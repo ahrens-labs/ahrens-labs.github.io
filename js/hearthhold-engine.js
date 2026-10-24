@@ -1631,7 +1631,7 @@
   // ---------------------------------------------------------------- computer player
   const VAL = { food: 0.3, wood: 0.35, stone: 0.42, iron: 0.55, gold: 0.38, renown: 1 };
   // How the computer weighs a position (tuned by self-play).
-  const EW = { fut: 0.5, forge: 0.45, foodCap: 2, short: 3.5, supper: 4, cold: 2, cap: 0.9, room: 0.6, emptyJob: 0.6, idle: 0.4, t0: 1, t1: 0.75, t2: 0.5, lossNear: 1, lossFar: 0.8, gap: 0.35, wage1: 6.6, wage3: 1.4, goal0: 0.35, goal1: 0.5, aim: 0.3, leave: 3.2, stone: 4.5, burn: 3, win: 1 };
+  const EW = { fut: 0.5, forge: 0.45, foodCap: 2, short: 3.5, supper: 4, cold: 2, cap: 0.9, room: 0.6, emptyJob: 0.6, idle: 0.4, t0: 1, t1: 0.75, t2: 0.5, lossNear: 1.5, lossFar: 1.1, gap: 0.65, wage1: 6.6, wage3: 1.4, goal0: 0.35, goal1: 0.5, aim: 0.8, leave: 3.2, stone: 4.5, burn: 3, win: 2 };
 
   function upcoming(state, n) {
     return state.threats.slice(state.round - 1, state.round - 1 + n);
