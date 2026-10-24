@@ -9,7 +9,9 @@
   let originals = null;
   let badge = null;
   let badgeFor = '';
+  let remoteOn = false;
   const checks = [];
+  const API_BASE = window.AHRENS_LABS_API_BASE || 'https://chess-accounts.matthewahrens.workers.dev';
 
   const iconLinks = () => [...document.querySelectorAll('link[rel~="icon"]')];
   function baseIcon() {
@@ -89,7 +91,7 @@
 
   function tick() {
     if (gamesSettings().tabAlerts === false) return set(false);
-    let any = false;
+    let any = remoteOn;
     for (const fn of checks) {
       try {
         if (fn()) any = true;
@@ -105,6 +107,36 @@
     if (checks.length === 1) setInterval(tick, 1000);
     tick();
   }
+
+  // Keep game tabs informed even when their own game hasn't been opened. This lets any
+  // already-loaded game page show its favicon alert while it sits in the background.
+  async function refreshOnlineTurns() {
+    let session = '';
+    try {
+      session = localStorage.getItem('ahrenslabs_sessionId') || '';
+    } catch {
+      return;
+    }
+    if (!session) {
+      remoteOn = false;
+      tick();
+      return;
+    }
+    try {
+      const response = await fetch(`${API_BASE}/api/board-games/current`, { headers: { Authorization: `Bearer ${session}` } });
+      if (!response.ok) return;
+      const data = await response.json();
+      remoteOn = (data.games || []).some((g) =>
+        (g.needsMe != null ? g.needsMe : g.status === 'pending' && g.me === 1) ||
+        (g.status === 'active' && g.turn === g.me)
+      );
+      tick();
+    } catch {
+      // Keep the last known alert state when the network is unavailable.
+    }
+  }
+  refreshOnlineTurns();
+  setInterval(refreshOnlineTurns, 60000);
 
   // Pages that rewrite their title (e.g. "Your turn — …") keep the "! " in front.
   addEventListener('DOMContentLoaded', () => {
