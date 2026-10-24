@@ -514,6 +514,7 @@
     if (s.phase === 'over') return `<div class="banner mine">🌕 The Moon Fair is over. <button class="btn sm" data-act="scorecard">🏆 See who won</button></div>`;
     const p = pl(s.turn);
     if (p.ai) return `<div class="banner" style="--pc:${PCOLOR[s.turn]}"><span class="dot"></span>${esc(p.name)} is on day ${p.pos}, furthest back on the calendar, so they move next…</div>`;
+    if (G.mode === 'online' && !humanTurn()) return `<div class="banner"><span class="dot"></span>Waiting for ${esc(p.name)} to take their turn…</div>`;
     const who = G.mode === 'local' ? `${esc(p.name)}, your move` : 'Your move';
     const ahead = s.players.filter((q, i) => i !== s.turn && q.pos < E.DAYS);
     const lead = ahead.length ? Math.min(...ahead.map((q) => q.pos)) : null;

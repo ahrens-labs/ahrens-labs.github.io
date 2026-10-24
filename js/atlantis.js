@@ -510,6 +510,10 @@
       const waiting = human >= 0 && s.passed[human] ? ` You’ve ended tide ${s.tide}; tide ${s.tide + 1 > E.TIDES ? '— the last one —' : s.tide + 1} starts when they end theirs.` : '';
       return `<div class="banner" style="--pc:${PCOLOR[s.turn]}"><span class="dot"></span>${esc(p.name)} is planning their next move…${waiting}</div>`;
     }
+    if (G.mode === 'online' && (!humanTurn() || s.passed[G.me])) {
+      const waiting = s.passed[G.me] ? `You’ve ended tide ${s.tide}; waiting for ${esc(p.name)} to end theirs.` : `Waiting for ${esc(p.name)} to take their turn…`;
+      return `<div class="banner"><span class="dot"></span>${waiting}</div>`;
+    }
     const who = G.mode === 'local' ? `${esc(p.name)}, your move` : 'Your move';
     const otherDone = s.passed[1 - s.turn] ? ` ${esc(pl(1 - s.turn).name)} is done for this tide, so you can keep going until you end yours.` : '';
     return `<div class="banner mine" style="--pc:${PCOLOR[s.turn]}"><span class="dot"></span><b>${who}:</b> pick a site on the chart to dive, hire from the dive hall, build or salvage.${otherDone}</div>`;

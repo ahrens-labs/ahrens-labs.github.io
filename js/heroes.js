@@ -579,6 +579,7 @@
     }
     const p = pl(s.turn);
     if (p.ai) return `<div class="banner" style="--pc:${PCOLOR[s.turn]}">${dot}${esc(p.name)} is ${s.phase === 'draw' ? 'choosing a card' : 'deciding who to send to the Plaza'}…</div>`;
+    if (G.mode === 'online' && !humanTurn()) return `<div class="banner">${dot}Waiting for ${esc(p.name)} to take their turn…</div>`;
     if (G.mode === 'local' && G.shown !== s.turn) return `<div class="banner mine pass" style="--pc:${PCOLOR[s.turn]}">${dot}📱 Pass the device to <b>${esc(p.name)}</b>. <button class="btn sm" data-act="reveal">👀 I’m ${esc(p.name)} — show my hand</button></div>`;
     const who = G.mode === 'local' ? `${esc(p.name)}, your turn` : 'Your turn';
     if (s.phase === 'draw') {
