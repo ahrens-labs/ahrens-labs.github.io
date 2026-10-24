@@ -16,6 +16,20 @@ body {
 }
 h1, h2 { font-family: "Montserrat", "Fredoka", sans-serif; font-weight: 800; letter-spacing: 0.01em; }
 
+/* Use the shared Ahrens Labs navigation at the top of the lobby. */
+.site-lobby-header { width: 100%; margin: 0; padding: 1rem 1.2rem; }
+.site-lobby-header .header-content { width: min(100%, 1180px); flex-direction: row; gap: 1rem; }
+.site-lobby-header .logo-link { flex: 0 0 auto; }
+.site-lobby-header .header-logo { width: 64px; height: 64px; object-fit: contain; }
+.site-lobby-header .header-content h1 { margin: 0; white-space: nowrap; }
+.site-lobby-header nav { flex: 1 1 auto; }
+.site-lobby-header nav ul { justify-content: flex-end; }
+.site-lobby-header nav a { color: #fff; }
+.site-lobby-auth { position: absolute; right: 0; top: -0.65rem; display: flex; align-items: center; gap: 0.5rem; }
+.site-lobby-auth button { border: 0; border-radius: 6px; padding: 0.4rem 0.8rem; color: #fff; font: 600 0.85rem Inter, sans-serif; cursor: pointer; }
+#header-login-btn { background: #3498db; }
+#header-signup-btn { background: #2ecc71; }
+
 .lobby-top { max-width: 1180px; margin: 0 auto; padding: 1.2rem 1.4rem 0.4rem; }
 .back { color: #ffd21f; text-decoration: none; font-weight: 600; font-size: 0.95rem; }
 .lobby-nav { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
@@ -89,6 +103,12 @@ h1, h2 { font-family: "Montserrat", "Fredoka", sans-serif; font-weight: 800; let
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
 @media (max-width: 560px) {
+  .site-lobby-header { padding: 0.8rem; }
+  .site-lobby-header .header-content { flex-wrap: wrap; justify-content: center; padding-top: 2rem; }
+  .site-lobby-header .header-content h1 { font-size: 1.5rem; }
+  .site-lobby-header nav { flex-basis: 100%; }
+  .site-lobby-header nav ul { justify-content: center; }
+  .site-lobby-auth { top: -1.65rem; right: 0; }
   .lobby-nav { align-items: flex-start; }
   .lobby-right { gap: 0.45rem 0.7rem; font-size: 0.85rem; }
   .shelf { grid-template-columns: 1fr; }

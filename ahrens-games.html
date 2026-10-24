@@ -21,10 +21,31 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Montserrat:wght@700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
   <link rel="stylesheet" href="/css/board-games.css?v=24">
   <link rel="stylesheet" href="/css/emoji.css">
+  <script src="/js/account_session.js"></script>
+  <script src="/js/script.js"></script>
+  <script src="/js/header_nav.js"></script>
 </head>
 <body>
+  <header class="site-lobby-header">
+    <div class="header-content">
+      <a href="/index.html" class="logo-link"><img src="/img/EagleLogo.png" alt="Ahrens Labs logo" class="header-logo"></a>
+      <h1>Ahrens Labs</h1>
+      <nav><ul>
+        <li><a href="/index.html">Home</a></li>
+        <li><a href="/labs.html">Labs &amp; Projects</a></li>
+        <li><a href="/account-dashboard.html">Account</a></li>
+        <li><a href="/chess_engine.html">Chess Engine</a></li>
+      </ul></nav>
+      <div id="header-auth-buttons" class="site-lobby-auth">
+        <button id="header-login-btn" onclick="window.location.href='/account.html'">Login</button>
+        <button id="header-signup-btn" onclick="window.location.href='/account.html'">Sign Up</button>
+        <span id="header-username" style="display:none"></span>
+      </div>
+    </div>
+  </header>
   <header class="lobby-top">
     <div class="lobby-nav">
       <a class="back" href="/coding-lab.html">← Ahrens Labs</a>
@@ -66,6 +87,7 @@
           <h2>Dino Dynasty</h2>
           <p>Fence your land, feed your dinos and build the best dino park in 15 rounds. Breed pairs, dodge disasters and outscore your rivals.</p>
           <ul class="chips">
+            <li>⏱️ 15–20 min</li>
             <li>👥 1–2 players</li>
             <li>🤖 vs computer</li>
             <li>📱 same device</li>
@@ -94,6 +116,7 @@
           <h2>Oakhaven</h2>
           <p>Raise a medieval village over three years. House and feed your people, hire chefs, carpenters and knights, and hold the walls when trolls, griffins and dragons attack.</p>
           <ul class="chips">
+            <li>⏱️ 30 min</li>
             <li>👥 1–2 players</li>
             <li>🤖 vs computer</li>
             <li>📱 same device</li>
@@ -122,6 +145,7 @@
           <h2>Atlantis Expedition</h2>
           <p>Hire scuba divers, build submarines and race a rival company to the treasures of the lost city. Roll a d20 for every dive — the deeper you go, the bigger the prize and the hungrier the sharks.</p>
           <ul class="chips">
+            <li>⏱️ 15 min</li>
             <li>👥 1–2 players</li>
             <li>🤖 vs computer</li>
             <li>📱 same device</li>
@@ -150,6 +174,7 @@
           <h2>Cauldron Lane</h2>
           <p>Run a potion shop on a crowded lane. Buy herbs on a price ladder, hunt griffins and dragons for rare parts, and sell to townsfolk — or to the shop next door. Every action costs days, and the richest shop at the Moon Fair wins.</p>
           <ul class="chips">
+            <li>⏱️ 10 min</li>
             <li>👥 1–4 players</li>
             <li>🤖 vs computer</li>
             <li>📱 same device</li>
@@ -178,6 +203,7 @@
           <h2>Hero League</h2>
           <p>Build the best team of seven heroes. Each turn draw a card and send one to the Plaza, where anyone can recruit it. Combos, rivalries and a secret-weapon villain or two — and the team that fits the Mission scores big.</p>
           <ul class="chips">
+            <li>⏱️ 5–10 min</li>
             <li>👥 1–5 players</li>
             <li>🤖 vs computer</li>
             <li>📱 same device</li>
@@ -205,6 +231,7 @@
           <h2>The Masquerade Court</h2>
           <p>Every noble wears hidden masks — and may claim any power at all. Bluff, call each other out, and be first to win the Doge's favor. Rivals can cut in on your waltz, and a wrong accusation costs you two favor.</p>
           <ul class="chips">
+            <li>⏱️ 5–10 min</li>
             <li>👥 2–5 players</li>
             <li>🤖 vs computer</li>
             <li>📱 same device</li>
@@ -221,7 +248,6 @@
     <div class="plank" aria-hidden="true"></div>
   </main>
 
-  <script src="/js/account_session.js"></script>
   <script src="/js/game-music.js?v=14" data-key="lobby_music" data-sfx="none" data-src="/audio/lobby-theme.mp3?v=2" data-loop="0.5,55.884615"></script>
   <script src="/js/board-saves.js?v=2"></script>
   <script src="/js/turn-alert.js?v=3"></script>
