@@ -267,7 +267,7 @@ function cleanAction(a) {
   if (!a || typeof a !== 'object' || typeof a.t !== 'string') return null;
   switch (a.t) {
     case 'hire':
-      return isStr(a.d, 40) ? { t: 'hire', d: a.d } : null;
+      return (isInt(a.d) || isStr(a.d, 40)) ? { t: 'hire', d: a.d } : null;
     case 'build':
       return isStr(a.k, 40) ? { t: 'build', k: a.k } : null;
     case 'upgrade':
