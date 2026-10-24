@@ -91,7 +91,9 @@
 
   function tick() {
     if (gamesSettings().tabAlerts === false) return set(false);
-    let any = remoteOn;
+    // Game pages have their own live turn check. The account-wide lobby result can be
+    // stale briefly after a move, so only use it on pages without a local game check.
+    let any = checks.length ? false : remoteOn;
     for (const fn of checks) {
       try {
         if (fn()) any = true;
@@ -136,7 +138,13 @@
     }
   }
   refreshOnlineTurns();
-  setInterval(refreshOnlineTurns, 60000);
+  setInterval(refreshOnlineTurns, 15000);
+  document.addEventListener('resume', refreshOnlineTurns);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') refreshOnlineTurns();
+  });
+  addEventListener('focus', refreshOnlineTurns);
+  addEventListener('online', refreshOnlineTurns);
 
   // Pages that rewrite their title (e.g. "Your turn — …") keep the "! " in front.
   addEventListener('DOMContentLoaded', () => {
