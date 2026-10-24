@@ -156,9 +156,9 @@ h1, h2 { font-family: "Montserrat", "Fredoka", sans-serif; font-weight: 800; let
 .hx-filter button small { opacity: 0.7; font-weight: 500; }
 .hx-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.45rem; }
 .hx-list:empty { display: none; }
-.hx-row { display: grid; grid-template-columns: 48px 1fr auto; gap: 0.7rem; align-items: center; padding: 0.45rem 0.7rem; border-radius: 12px; text-decoration: none; color: #0a0f1c; background: linear-gradient(180deg, #ffffff, #eaf1fc); box-shadow: 0 0 0 2px #0b1530; }
+.hx-row { display: grid; grid-template-columns: 54px 1fr auto; gap: 0.7rem; align-items: center; padding: 0.45rem 0.7rem; border-radius: 12px; text-decoration: none; color: #0a0f1c; background: linear-gradient(180deg, #ffffff, #eaf1fc); box-shadow: 0 0 0 2px #0b1530; }
 .hx-row:hover, .hx-row:focus-visible { box-shadow: 0 0 0 2px #ffd21f; outline: none; }
-.hx-row img { width: 48px; height: 36px; object-fit: cover; border-radius: 6px; }
+.hx-row img.hx-logo { width: 54px; height: 54px; object-fit: contain; border-radius: 0; box-shadow: none; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.2)); }
 .hx-main { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
 .hx-main b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hx-main small { color: #4a5875; font-size: 0.8rem; }

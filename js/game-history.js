@@ -6,12 +6,12 @@
   const FRESH_MS = 30 * 1000;
   const PAGE = 25;
   const GAMES = {
-    dino: { name: 'Dino Dynasty', icon: '🦖', page: '/dino-board-game.html', history: '/dino-history.html', img: '/img/dino-game/cover.webp', view: '🦖 View the parks' },
-    hearthhold: { name: 'Oakhaven', icon: '🏰', page: '/oakhaven.html', history: '/oakhaven.html?history', img: '/img/hearthhold/cover.webp', view: '🏘️ View the villages' },
-    atlantis: { name: 'Atlantis Expedition', icon: '🔱', page: '/atlantis.html', history: '/atlantis.html?history', img: '/img/atlantis/cover.webp?v=2', view: '🗺️ View the chart' },
-    cauldron: { name: 'Cauldron Lane', icon: '⚗️', page: '/cauldron.html', history: '/cauldron.html?history', img: '/img/cauldron/cover.webp?v=3', view: '⚗️ View the lane' },
-    heroes: { name: 'Hero League', icon: '🦸', page: '/heroes.html', history: '/heroes.html?history', img: '/img/heroes/cover.webp?v=2', view: '🦸 See the teams' },
-    masquerade: { name: 'The Masquerade Court', icon: '🎭', page: '/masquerade.html', history: '/masquerade.html?history', img: '/img/masquerade/cover.webp?v=2', view: '🎭 See the ballroom' },
+    dino: { name: 'Dino Dynasty', icon: '🦖', page: '/dino-board-game.html', history: '/dino-history.html', logo: '/img/dino-favicon-128.png?v=2', view: '🦖 View the parks' },
+    hearthhold: { name: 'Oakhaven', icon: '🏰', page: '/oakhaven.html', history: '/oakhaven.html?history', logo: '/img/oakhaven-favicon-128.png?v=2', view: '🏘️ View the villages' },
+    atlantis: { name: 'Atlantis Expedition', icon: '🔱', page: '/atlantis.html', history: '/atlantis.html?history', logo: '/img/atlantis-favicon-128.png?v=3', view: '🗺️ View the chart' },
+    cauldron: { name: 'Cauldron Lane', icon: '⚗️', page: '/cauldron.html', history: '/cauldron.html?history', logo: '/img/cauldron-favicon-128.png?v=3', view: '⚗️ View the lane' },
+    heroes: { name: 'Hero League', icon: '🦸', page: '/heroes.html', history: '/heroes.html?history', logo: '/img/heroes-favicon-128.png?v=3', view: '🦸 See the teams' },
+    masquerade: { name: 'The Masquerade Court', icon: '🎭', page: '/masquerade.html', history: '/masquerade.html?history', logo: '/img/masquerade-favicon-128.png?v=3', view: '🎭 See the ballroom' },
   };
   const KIND = { ai: '🤖 vs computer', local: '👥 same device', online: '🌐 online' };
   const LEVELS = { easy: 'Easy', normal: 'Normal', medium: 'Normal', hard: 'Hard', brutal: 'Brutal' };
@@ -77,7 +77,7 @@
     const meta = [`${G.icon} ${G.name}`, `${KIND[h.kind] || ''}${h.kind === 'ai' && LEVELS[h.level] ? ` · ${LEVELS[h.level]}` : ''}${why}`, when].filter(Boolean).join(' · ');
     const board = hasBoard(h);
     return `<li><a class="hx-row" href="${hrefOf(h)}" title="${board ? `Open this game’s final board` : `Open ${esc(G.name)} history`}">
-      <img src="${G.img}" alt="" loading="lazy">
+      <img class="hx-logo" src="${G.logo}" alt="" loading="lazy">
       <span class="hx-main"><b>${esc(who)}${sc ? ` <span class="hx-score">· ${esc(sc)}</span>` : ''}</b><small>${esc(meta)}</small></span>
       <span class="hx-end">${resultHtml(h)}${board ? `<small class="hx-view">${esc(G.view)} →</small>` : ''}</span></a></li>`;
   }
