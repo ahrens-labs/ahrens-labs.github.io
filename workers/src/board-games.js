@@ -28,7 +28,7 @@ const REPLAY_SPEEDS = ['slow', 'normal', 'fast', 'off'];
 function cleanGamesSettings(s) {
   const out = {};
   if (!s || typeof s !== 'object') return out;
-  ['turnReminders', 'challengeEmails', 'tabAlerts'].forEach((k) => {
+  ['turnReminders', 'challengeEmails', 'tabAlerts', 'phonePush'].forEach((k) => {
     if (typeof s[k] === 'boolean') out[k] = s[k];
   });
   if (REMINDER_DAYS.includes(Number(s.reminderDays))) out.reminderDays = Number(s.reminderDays);

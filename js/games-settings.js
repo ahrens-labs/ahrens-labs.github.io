@@ -42,6 +42,7 @@
     $('reminderDays').value = String(settings.reminderDays);
     $('reminderDays').disabled = !settings.turnReminders || !signedIn || !loaded;
     $('challengeEmails').checked = !!settings.challengeEmails;
+    $('phonePush').checked = !!settings.phonePush;
     document.querySelectorAll('[data-account]').forEach((el) => {
       if (el.id !== 'reminderDays') el.disabled = !signedIn || !loaded;
     });
@@ -86,6 +87,7 @@
   $('turnReminders').addEventListener('change', (e) => save({ turnReminders: e.target.checked }));
   $('reminderDays').addEventListener('change', (e) => save({ reminderDays: Number(e.target.value) }));
   $('challengeEmails').addEventListener('change', (e) => save({ challengeEmails: e.target.checked }));
+  $('phonePush').addEventListener('change', (e) => save({ phonePush: e.target.checked }));
   $('tabAlerts').addEventListener('change', (e) => save({ tabAlerts: e.target.checked }));
   $('replaySpeed').addEventListener('click', (e) => {
     const b = e.target.closest('button[data-v]');
