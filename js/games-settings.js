@@ -3,7 +3,7 @@
 // localStorage for the game pages. Sound is a setting of this device (the games' shared ahrens_sound).
 (() => {
   const API_BASE = window.AHRENS_LABS_API_BASE || 'https://chess-accounts.matthewahrens.workers.dev';
-  const DEFAULTS = { turnReminders: true, reminderDays: 3, challengeEmails: true, tabAlerts: true, replaySpeed: 'normal' };
+  const DEFAULTS = { turnReminders: true, reminderDays: 3, challengeEmails: true, tabAlerts: true, replaySpeed: 'normal', phonePush: true };
   const SOUND_KEY = 'ahrens_sound';
   const read = (k) => {
     try {
