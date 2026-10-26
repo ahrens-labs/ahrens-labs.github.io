@@ -1,6 +1,13 @@
 (() => {
   'use strict';
   const app = document.querySelector('#app');
+  let isAdmin = false;
+  try { isAdmin = (localStorage.getItem('ahrenslabs_email') || '').trim().toLowerCase() === 'calebahrens2011@gmail.com'; }
+  catch { isAdmin = false; }
+  if (!isAdmin) {
+    app.innerHTML = '<section class="panel" style="margin:48px auto;max-width:560px;text-align:center"><h1>Whiteout Station</h1><p>This game is currently in private testing.</p><a class="btn secondary" href="/ahrens-games.html">Back to Ahrens Games</a></section>';
+    return;
+  }
   const ROLES = [
     {id:'weather',name:'Meteorologist',icon:'🌦️',knows:'Your forecast shows where the next storm will strike.',special:'Forecast: shield a region from this round’s storm.'},
     {id:'engineer',name:'Engineer',icon:'🧰',knows:'You know the hidden condition of the station’s critical systems.',special:'Field repair: fix the radio or generator, or reinforce the station.'},

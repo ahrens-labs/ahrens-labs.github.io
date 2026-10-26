@@ -12,6 +12,13 @@
     { href: '/heroes.html?home', name: 'Hero League', icon: '/img/heroes-favicon-48.png', page: 'heroes' },
     { href: '/masquerade.html?home', name: 'The Masquerade Court', icon: '/img/masquerade-favicon-48.png', page: 'masquerade' },
   ];
+  const isAdmin = () => {
+    try { return (localStorage.getItem('ahrenslabs_email') || '').trim().toLowerCase() === 'calebahrens2011@gmail.com'; }
+    catch { return false; }
+  };
+  if (!isAdmin()) {
+    for (let i = GAMES.length - 1; i >= 0; i--) if (GAMES[i].page === 'whiteout') GAMES.splice(i, 1);
+  }
   const here = (location.pathname.split('/').pop() || '').replace(/\.html$/, '');
   const cur = (page) => (page === here ? ' aria-current="page" class="on"' : '');
 
