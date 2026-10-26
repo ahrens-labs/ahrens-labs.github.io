@@ -47,8 +47,8 @@
   html.gm-open .gm-drawer { transform: none; }
   .gm-head { display: flex; align-items: center; gap: 0.6rem; padding: 0.2rem 0.3rem 0.8rem; margin-bottom: 0.3rem; border-bottom: 1px solid rgba(120, 170, 255, 0.2); }
   .gm-head img { width: 44px; height: 44px; }
-  .gm-head b { font: 800 1.15rem "Montserrat", "Fredoka", sans-serif; letter-spacing: 0.03em; text-transform: uppercase; }
-  .gm-head b span { color: #3a9bff; }
+  .gm-head b { font: 800 1.15rem "Montserrat", "Fredoka", sans-serif; letter-spacing: 0.03em; text-transform: uppercase; color: #ffd21f; }
+  .gm-head b span { color: #fff; }
   .gm-x { margin-left: auto; width: 36px; height: 36px; border: 0; border-radius: 10px; cursor: pointer; font-size: 1.1rem; color: #cfe0ff; background: rgba(255, 255, 255, 0.07); }
   .gm-x:hover, .gm-x:focus-visible { background: rgba(255, 255, 255, 0.15); outline: none; }
   .gm-label { margin: 0.7rem 0.4rem 0.2rem; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #8cb4ef; }
