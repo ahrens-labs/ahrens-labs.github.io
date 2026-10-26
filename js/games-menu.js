@@ -7,6 +7,7 @@
     { href: '/dino-board-game.html?home', name: 'Dino Dynasty', icon: '/img/dino-favicon-48.png', page: 'dino-board-game' },
     { href: '/oakhaven.html?home', name: 'Oakhaven', icon: '/img/oakhaven-favicon-48.png', page: 'oakhaven' },
     { href: '/atlantis.html?home', name: 'Atlantis Expedition', icon: '/img/atlantis-favicon-48.png', page: 'atlantis' },
+    { href: '/whiteout.html', name: 'Whiteout Station', icon: '/img/whiteout-cover.svg', page: 'whiteout' },
     { href: '/cauldron.html?home', name: 'Cauldron Lane', icon: '/img/cauldron-favicon-48.png', page: 'cauldron' },
     { href: '/heroes.html?home', name: 'Hero League', icon: '/img/heroes-favicon-48.png', page: 'heroes' },
     { href: '/masquerade.html?home', name: 'The Masquerade Court', icon: '/img/masquerade-favicon-48.png', page: 'masquerade' },
