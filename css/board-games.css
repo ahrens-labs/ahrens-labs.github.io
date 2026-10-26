@@ -37,6 +37,7 @@ h1, h2 { font-family: "Montserrat", "Fredoka", sans-serif; font-weight: 800; let
 .plank { height: 14px; margin-top: 1.8rem; border-radius: 7px; background: linear-gradient(90deg, #0b1530, #1f6fe0 32%, #ffd21f 50%, #1f6fe0 68%, #0b1530); box-shadow: 0 10px 20px rgba(0, 0, 0, 0.45), inset 0 2px 0 rgba(255, 240, 180, 0.4); }
 
 .game { display: flex; flex-direction: column; gap: 1rem; text-decoration: none; color: inherit; animation: arrive 0.6s cubic-bezier(.34, 1.56, .64, 1) both; }
+.game[hidden] { display: none !important; }
 .game:nth-child(2) { animation-delay: 0.12s; }
 .game:nth-child(3) { animation-delay: 0.24s; }
 .box {

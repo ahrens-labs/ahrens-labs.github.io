@@ -5,5 +5,8 @@
   } catch {
     isAdmin = false;
   }
-  if (isAdmin) document.querySelectorAll('[data-admin-only]').forEach((el) => { el.hidden = false; });
+  document.querySelectorAll('[data-admin-only]').forEach((el) => {
+    el.hidden = !isAdmin;
+    if (!isAdmin) el.style.display = 'none';
+  });
 })();
