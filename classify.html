@@ -19481,6 +19481,12 @@
             const assignmentMode = (isExactDateFixed && isExactDateFixedTimeValue(inputTimeValue)) ? 'FIXED' : 'ADJUSTABLE';
             const repeatNoAutoTime = !weekDueOnly && repeatRule.type === 'daily' && !inputTimeValue;
             const existingTask = editingId ? tasks.find(t => t.id === editingId) : null;
+            const movedRecurringEventDate = Boolean(
+                existingTask?.repeatGroupId &&
+                isExactDateSchedule &&
+                existingTask.date &&
+                date !== existingTask.date
+            );
             const preserveStartedTargetWeekSlot = scheduleType === 'week'
                 && Boolean(existingTask)
                 && isAssignmentStarted(existingTask);
@@ -19633,8 +19639,12 @@
                         if(t.repeatGroupId !== groupId) return t;
                         const isEditedInstance = t.id === editingId;
                         const instanceWeekKey = isEditedInstance
-                            ? (week || t.repeatWeekKey || t.week || startWeekKey)
+                            ? (isExactDateSchedule && date
+                                ? (getWeekKeyFromDateStr(date) || t.repeatWeekKey || t.week || startWeekKey)
+                                : (week || t.repeatWeekKey || t.week || startWeekKey))
                             : (t.repeatWeekKey || t.week || startWeekKey);
+                        const occurrenceDate = isEditedInstance && isExactDateSchedule ? normalizedTaskData.date : t.date;
+                        const occurrenceDateSource = isEditedInstance && isExactDateSchedule ? normalizedTaskData.dateSource : t.dateSource;
                         const instanceDueDate = weekDueOnly
                             ? (isEditedInstance
                                 ? (dueDate || dueDateRaw || getWeekDueDateForRepeat(instanceWeekKey, normalizedTaskData))
@@ -19672,7 +19682,8 @@
                                 ? 'week'
                                 : (isEditedInstance ? scheduleType : (isTargetWeekAssignment(t) ? 'week' : t.scheduleType)),
                             assignmentMode: weekDueOnly ? 'ADJUSTABLE' : (isExactDateSchedule ? instanceAssignmentMode : t.assignmentMode),
-                            date: weekDueOnly ? null : t.date,
+                            date: weekDueOnly ? null : occurrenceDate,
+                            dateSource: weekDueOnly ? null : occurrenceDateSource,
                             dueDate: instanceDueDate,
                             week: instanceWeekKey,
                             time: instanceTime,
@@ -19687,7 +19698,7 @@
                             repeatRule,
                             weekDueOnly,
                             repeatNoAutoTime,
-                            repeatWeekKey: (isEditedInstance && weekDueOnly) ? instanceWeekKey : t.repeatWeekKey
+                            repeatWeekKey: (isEditedInstance && (weekDueOnly || isExactDateSchedule)) ? instanceWeekKey : t.repeatWeekKey
                         };
                         return normalizeTask(updated);
                     });
@@ -19703,6 +19714,9 @@
                         }
                     }
                     enforceRepeatGroupFixedTimes(groupId);
+                    if(movedRecurringEventDate && existingTask?.date) {
+                        recordRepeatDateSkip(groupId, existingTask.date);
+                    }
                     const groupTasks = tasks.filter(t => t.repeatGroupId === groupId);
                     const weekKeys = Array.from(new Set(groupTasks.map(t => t.repeatWeekKey).filter(Boolean))).sort((a, b) => a.localeCompare(b));
                     let activeWeek = weekKeys.find(wk => groupTasks.filter(t => t.repeatWeekKey === wk).some(t => !t.completed));
@@ -19711,7 +19725,7 @@
                         syncRepeatExceptionsForWeek(groupId, activeWeek);
                         tasks = tasks.filter(t => {
                             if(t.repeatGroupId !== groupId || t.completed) return true;
-                            return !taskOccurrenceDateInWeek(t, activeWeek);
+                            return !(t.id === editingId && movedRecurringEventDate) && !taskOccurrenceDateInWeek(t, activeWeek);
                         });
                         addRepeatWeekOccurrences(groupId, activeWeek, repeatRule, template);
                     } else if(activeWeek && weekDueOnly) {
