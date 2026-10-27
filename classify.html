@@ -4309,7 +4309,6 @@
             if(assignmentHasScheduledTime(task, dateStr)) return false;
 
             if(dateStr) {
-                if(!task.time) return true;
                 if(task.date === dateStr && isPastUnstartedAutoSlotToday(task, dateStr)) return true;
                 if(task.date && task.date !== dateStr) return true;
                 return !taskHasEffectiveScheduleOnDate(task, dateStr, scheduleCache);
@@ -8398,6 +8397,7 @@
 
         function getWeekTasksMissingSchedule(weekKey, { includeFlexible = true } = {}) {
             const { startStr, endStr } = getWeekBoundsFromWeekKey(weekKey);
+            const scheduleCache = new Map();
             const inScope = (t) => {
                 if(t.completed) return false;
                 if(isTaskTargetedForWeek(t, weekKey, includeFlexible)) return true;
@@ -8406,7 +8406,7 @@
             return tasks.filter(t => {
                 if(!inScope(t)) return false;
                 if(t.repeatNoAutoTime) return false;
-                if(t.date && t.time) return false;
+                if(t.date && t.date >= startStr && t.date <= endStr && taskHasEffectiveScheduleOnDate(t, t.date, scheduleCache)) return false;
                 return true;
             });
         }
