@@ -8472,7 +8472,10 @@
   const localId = linkedGame || pastGame ? null : params.get('local');
   // ?home (from the game shelf): the start screen, not whatever was played last.
   const home = params.has('home') && !linkedGame && !pastGame && !localId;
-  if (home && history.replaceState) history.replaceState(null, '', location.pathname);
+  if (home) {
+    setupTouched = true;
+    if (history.replaceState) history.replaceState(null, '', location.pathname);
+  }
   const here = localId ? load() : null;
   state = here && here.gid === localId ? here : null;
   if (!state && localId && /^[a-z0-9]{4,40}$/i.test(localId) && window.BoardSaves) {
