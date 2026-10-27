@@ -246,9 +246,9 @@
           ${canResume ? `<div class="gh-resume"><div><b>Game in progress</b><span>${esc(saved.state.players.map((p) => p.name).join(' vs '))} · ${E.SEASON[E.seasonOf(saved.state.round)].name}, year ${E.yearOf(saved.state.round)}</span>${window.BoardSaves && window.BoardSaves.list('hearthhold').length > 1 ? '<a class="gh-more" href="/ahrens-games#my-games">All your saved games →</a>' : ''}</div><button class="btn" id="resume">Continue</button></div>` : ''}
           <h2>New game</h2>
           <div class="gh-modes" id="mode">
-            <button data-v="ai" class="gh-mode ${pr.mode !== 'local' && pr.mode !== 'online' ? 'on' : ''}"><span>🤖</span><b>Computer</b><small>You build one village</small></button>
-            <button data-v="local" class="gh-mode ${pr.mode === 'local' ? 'on' : ''}"><span>👥</span><b>Two players</b><small>Share this device</small></button>
-            <button data-v="online" class="gh-mode ${pr.mode === 'online' ? 'on' : ''}"><span>🌐</span><b>Online</b><small>Challenge a friend</small></button>
+            <button data-v="ai" class="gh-mode on"><span>🤖</span><b>Computer</b><small>You build one village</small></button>
+            <button data-v="local" class="gh-mode"><span>👥</span><b>Two players</b><small>Share this device</small></button>
+            <button data-v="online" class="gh-mode"><span>🌐</span><b>Online</b><small>Challenge a friend</small></button>
           </div>
           <div class="online-only" id="online-box"></div>
           <div class="field names offline-only">
@@ -294,7 +294,7 @@
         setMode(b.dataset.v);
       }
     });
-    setMode(focusGame ? 'online' : pr.mode === 'local' || pr.mode === 'online' ? pr.mode : 'ai');
+    setMode(focusGame ? 'online' : 'ai');
     if (focusGame) [...$('#mode').children].forEach((x) => x.classList.toggle('on', x.dataset.v === 'online'));
     $('#how').onclick = () => showRules();
     $('#hist').onclick = () => showHistory();

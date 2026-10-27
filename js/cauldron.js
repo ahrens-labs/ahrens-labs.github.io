@@ -305,9 +305,9 @@
         ${canResume ? `<div class="gh-resume"><div><b>Shop open</b><span>${esc(saved.state.players.map((p) => p.name).join(' vs '))} · day ${E.today(saved.state)} of ${E.DAYS}</span></div><button class="btn" id="resume">Continue</button></div>` : ''}
         <h2>New game</h2>
         <div class="gh-modes" id="mode">
-          <button data-v="ai" class="gh-mode ${pr.mode !== 'local' && pr.mode !== 'online' ? 'on' : ''}"><span>🤖</span><b>Computer</b><small>Out-sell rival shops</small></button>
-          <button data-v="local" class="gh-mode ${pr.mode === 'local' ? 'on' : ''}"><span>👥</span><b>Players</b><small>2–4 on this device</small></button>
-          <button data-v="online" class="gh-mode ${pr.mode === 'online' ? 'on' : ''}"><span>🌐</span><b>Online</b><small>Challenge friends</small></button>
+          <button data-v="ai" class="gh-mode on"><span>🤖</span><b>Computer</b><small>Out-sell rival shops</small></button>
+          <button data-v="local" class="gh-mode"><span>👥</span><b>Players</b><small>2–4 on this device</small></button>
+          <button data-v="online" class="gh-mode"><span>🌐</span><b>Online</b><small>Challenge friends</small></button>
         </div>
         <div class="online-only" id="online-box"></div>
         <div class="field ai-only offline-only">
@@ -370,7 +370,7 @@
       if (b.parentNode.id === 'seats') names();
       if (b.parentNode.id === 'level') hint();
     });
-    setMode(focusGame ? 'online' : pr.mode === 'local' || pr.mode === 'online' ? pr.mode : 'ai');
+    setMode(focusGame ? 'online' : 'ai');
     if (focusGame || $('#mode .on').dataset.v === 'online') Online.showLobby(focusGame);
     hint();
     $('#how').onclick = () => showRules();
