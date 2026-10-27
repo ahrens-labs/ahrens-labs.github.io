@@ -19383,7 +19383,12 @@
                 const firstIncomplete = getRepeatGroupFirstIncompleteWeekKey(groupTasks);
                 if(!firstIncomplete) return;
                 const beforeLen = tasks.length;
-                tasks = tasks.filter(t => !(t.repeatGroupId === groupId && t.repeatWeekKey && t.repeatWeekKey > firstIncomplete));
+                tasks = tasks.filter(t => !(
+                    t.repeatGroupId === groupId &&
+                    !t.completed &&
+                    t.repeatWeekKey &&
+                    t.repeatWeekKey > firstIncomplete
+                ));
                 removed += Math.max(0, beforeLen - tasks.length);
             });
             return removed;
