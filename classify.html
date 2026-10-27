@@ -22094,7 +22094,7 @@
                 updated += finalDependencyClears;
             }
 
-            persistSmartScheduleTimesForWeek(weekKey, true);
+            updated += persistSmartScheduleTimesForWeek(weekKey, true);
 
             const depOrdered = round.depOrdered;
             const missingTasks = getWeekTasksMissingSchedule(weekKey);
