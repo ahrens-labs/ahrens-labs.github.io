@@ -2415,6 +2415,8 @@ async function handleClassifySync(request, env, corsHeaders) {
     body: JSON.stringify(classifyData)
   });
   await userAccount.fetch(updateReq);
+  const savedRes = await userAccount.fetch(new Request('http://do/getClassifyData', { method: 'GET' }));
+  const savedData = await savedRes.json().catch(() => ({}));
 
   await notifyClassifySync(env, userResult.userId, {
     type: 'classify',
@@ -2422,7 +2424,18 @@ async function handleClassifySync(request, env, corsHeaders) {
     sourceClientId: readClassifySyncClientId(request),
   });
 
-  return new Response(JSON.stringify({ success: true }), {
+  return new Response(JSON.stringify({
+    success: true,
+    completionStates: Array.isArray(savedData?.tasks)
+      ? savedData.tasks.map(task => ({
+          id: task.id,
+          completed: Boolean(task.completed),
+          completedDate: task.completedDate || null,
+          actualMinutes: task.actualMinutes ?? null,
+          completionUpdatedAt: Number(task.completionUpdatedAt) || null,
+        }))
+      : [],
+  }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
 }
@@ -12273,6 +12286,35 @@ export class UserAccount {
     const incomingTasks = Array.isArray(classifyData?.tasks) ? classifyData.tasks : null;
     const existingTasks = Array.isArray(existing.tasks) ? existing.tasks : [];
     let nextPayload = { ...classifyData };
+    if (incomingTasks) {
+      const existingById = new Map(existingTasks.filter(task => task?.id).map(task => [String(task.id), task]));
+      const completionRevision = value => {
+        const explicit = Number(value?.completionUpdatedAt);
+        if (Number.isFinite(explicit) && explicit > 0) return explicit;
+        if (value?.completed) {
+          const completedAt = Date.parse(String(value.completedDate || ''));
+          return Number.isFinite(completedAt) && completedAt > 0 ? completedAt : 1;
+        }
+        return 0;
+      };
+      nextPayload.tasks = incomingTasks.map(task => {
+        const previous = task?.id ? existingById.get(String(task.id)) : null;
+        if (!previous) return task;
+        const previousRevision = completionRevision(previous);
+        const incomingRevision = completionRevision(task);
+        const sameRevisionConflict = previousRevision === incomingRevision && Boolean(previous.completed) !== Boolean(task?.completed);
+        if (previousRevision > incomingRevision || sameRevisionConflict) {
+          return {
+            ...task,
+            completed: Boolean(previous.completed),
+            completedDate: previous.completedDate || null,
+            actualMinutes: previous.actualMinutes ?? null,
+            completionUpdatedAt: Number(previous.completionUpdatedAt) || null,
+          };
+        }
+        return task;
+      });
+    }
     if (
       incomingTasks &&
       incomingTasks.length === 0 &&

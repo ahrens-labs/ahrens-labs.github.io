@@ -5162,6 +5162,39 @@
             runClassifyCloudSyncPass().catch(() => {});
         }
 
+        function getCompletionRevision(task) {
+            const explicit = Number(task?.completionUpdatedAt);
+            if(Number.isFinite(explicit) && explicit > 0) return explicit;
+            if(task?.completed) {
+                const completedAt = Date.parse(String(task.completedDate || ''));
+                return Number.isFinite(completedAt) && completedAt > 0 ? completedAt : 1;
+            }
+            return 0;
+        }
+
+        function applyAcceptedCompletionStates(states) {
+            if(!Array.isArray(states) || states.length === 0) return;
+            const byId = new Map(states.filter(state => state?.id).map(state => [String(state.id), state]));
+            let changed = false;
+            tasks = tasks.map(task => {
+                const accepted = byId.get(String(task.id));
+                if(!accepted) return task;
+                if(getCompletionRevision(accepted) <= getCompletionRevision(task)) return task;
+                changed = true;
+                return {
+                    ...task,
+                    completed: Boolean(accepted.completed),
+                    completedDate: accepted.completedDate || null,
+                    actualMinutes: accepted.actualMinutes ?? null,
+                    completionUpdatedAt: Number(accepted.completionUpdatedAt) || null,
+                };
+            });
+            if(changed) {
+                persistClassifyLocally();
+                renderAll({ light: true, skipDashboardSchedule: true });
+            }
+        }
+
         function flushClassifyCloudSync() {
             if (cloudSyncInFlight) {
                 cloudSyncPending = true;
@@ -5184,7 +5217,7 @@
             const sessionId = localStorage.getItem('ahrenslabs_sessionId');
             if (!sessionId) return;
             try {
-                await fetch(`${window.AHRENS_LABS_API_BASE || window.AHRENS_API_URL}/api/classify/sync`, {
+                const response = await fetch(`${window.AHRENS_LABS_API_BASE || window.AHRENS_API_URL}/api/classify/sync`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -5193,6 +5226,10 @@
                     },
                     body: JSON.stringify(buildClassifyCloudPayload())
                 });
+                if(response.ok) {
+                    const result = await response.json().catch(() => ({}));
+                    applyAcceptedCompletionStates(result.completionStates);
+                }
                 await updateClassifySyncFingerprint();
             } catch (error) {
                 console.error('Failed to sync classify data to cloud:', error);
@@ -5202,7 +5239,7 @@
         const EXACT_TASK_SNAPSHOT_KEYS = [
             'title', 'subject', 'date', 'eventDate', 'dateSource', 'dueDate', 'due', 'week',
             'scheduleType', 'weekDueOnly', 'assignmentMode', 'time', 'timeSource', 'startedAt',
-            'dueTime', 'duration', 'actualMinutes', 'color',
+            'dueTime', 'duration', 'actualMinutes', 'completionUpdatedAt', 'color',
             'mustBeBefore', 'mustBeAfter', 'mustBeDifferentDay', 'mustBeBeforeIds', 'mustBeAfterIds',
             'avoidScheduleDates', 'notes', 'completed', 'completedDate', 'splitGroupId', 'splitPercent',
             'repeatGroupId', 'repeatWeekKey', 'repeatRule', 'repeatNoAutoTime', 'repeatType', 'repeatDays'
@@ -7539,6 +7576,9 @@
                 dueTime: task.dueTime || null,
                 duration: normalizedDuration,
                 actualMinutes,
+                completionUpdatedAt: Number.isFinite(Number(task.completionUpdatedAt))
+                    ? Math.max(0, Math.round(Number(task.completionUpdatedAt)))
+                    : null,
                 color: task.color || null,
                 mustBeBefore,
                 mustBeAfter,
@@ -15658,8 +15698,9 @@
                     return false;
                 }
                 mutateClassifyData(() => {
+                    const completionUpdatedAt = Date.now();
                     tasks = tasks.map(t => t.id === taskId
-                        ? { ...t, completed: false, completedDate: null, actualMinutes: null }
+                        ? { ...t, completed: false, completedDate: null, actualMinutes: null, completionUpdatedAt }
                         : t);
                     if(task.repeatGroupId) clearRepeatOccurrenceException(task.repeatGroupId, task);
                 }, getCommandLineScheduleRefreshOptions(task));
@@ -17832,6 +17873,7 @@
             if(mode === 'partial') {
                 task.completed = true;
                 task.completedDate = getDateStrLocal();
+                task.completionUpdatedAt = Date.now();
                 task.actualMinutes = null;
                 clearCompletedTaskStartedState(task);
 
@@ -17845,6 +17887,7 @@
                     title: `${partialBaseTitle} (${partialRemainingPercent}% remaining)`,
                     completed: false,
                     completedDate: null,
+                    completionUpdatedAt: Date.now(),
                     actualMinutes: null,
                     duration: partialRemaining,
                     time: null,
@@ -17868,6 +17911,7 @@
                 task.actualMinutes = Number.isFinite(minutes) && minutes > 0 ? minutes : null;
                 task.completed = true;
                 task.completedDate = getDateStrLocal();
+                task.completionUpdatedAt = Date.now();
                 clearCompletedTaskStartedState(task);
                 if(task.repeatGroupId) recordRepeatOccurrenceException(task.repeatGroupId, task);
             }
@@ -17903,6 +17947,7 @@
             task.actualMinutes = Number.isFinite(baseDuration) && baseDuration > 0 ? baseDuration : null;
             task.completed = true;
             task.completedDate = getDateStrLocal();
+            task.completionUpdatedAt = Date.now();
             clearCompletedTaskStartedState(task);
             if(task.repeatGroupId) recordRepeatOccurrenceException(task.repeatGroupId, task);
             pruneRepeatDuplicatesAfterCompletion(task);
@@ -19268,6 +19313,7 @@
                     timeSource: null,
                     completed: false,
                     completedDate: null,
+                    completionUpdatedAt: Date.now(),
                     repeatGroupId: groupId,
                     repeatWeekKey: weekKey,
                     repeatRule: rule,
@@ -19311,6 +19357,7 @@
                     timeSource: fixedTime ? 'user' : null,
                     completed: false,
                     completedDate: null,
+                    completionUpdatedAt: Date.now(),
                     repeatGroupId: groupId,
                     repeatWeekKey: weekKey,
                     repeatRule: rule,
@@ -19504,6 +19551,7 @@
                 notes: document.getElementById('inputNotes').value.substring(0, 500),
                 completed: editingId ? (tasks.find(t => t.id === editingId)?.completed || false) : false,
                 completedDate: editingId ? (tasks.find(t => t.id === editingId)?.completedDate) : null,
+                completionUpdatedAt: existingTask?.completionUpdatedAt || null,
                 repeatRule,
                 weekDueOnly,
                 repeatNoAutoTime
@@ -19849,6 +19897,7 @@
                     task.completed = false;
                     task.completedDate = null;
                     task.actualMinutes = null;
+                    task.completionUpdatedAt = Date.now();
                     if(task.repeatGroupId) clearRepeatOccurrenceException(task.repeatGroupId, task);
                     finalizeClassifyModalSave({
                         seedTaskIds: [id],
@@ -19979,6 +20028,7 @@
                 completed: false,
                 completedDate: null,
                 actualMinutes: null,
+                completionUpdatedAt: null,
                 repeatGroupId: null,
                 repeatWeekKey: null,
                 repeatRule: normalizeRepeatRule({ type: 'none' })
