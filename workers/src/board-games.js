@@ -124,7 +124,7 @@ const HISTORY_SOURCES = [
   { game: 'heroes', binding: 'HEARTHHOLD_LOBBY', name: (u) => `heroes:${u}`, path: '/history' },
   { game: 'masquerade', binding: 'HEARTHHOLD_LOBBY', name: (u) => `masquerade:${u}`, path: '/history' },
 ];
-const HISTORY_RETURN = 120;
+const HISTORY_RETURN = 1700;
 const KINDS = new Set(['ai', 'local', 'online']);
 const num = (v) => (Number.isFinite(v) ? v : null);
 const str = (v, n) => String(v == null ? '' : v).slice(0, n);
@@ -162,6 +162,15 @@ async function combinedHistory(env, userId) {
       const stub = ns.get(ns.idFromName(s.name(userId)));
       const res = await stub.fetch(new Request(`http://do${s.path}`));
       const data = await res.json();
+      if (s.game === 'dino' && Number(data.total) > (data.items || []).length) {
+        const offsets = [];
+        for (let offset = (data.items || []).length; offset < Math.min(Number(data.total), 500); offset += 50) offsets.push(offset);
+        const pages = await Promise.all(offsets.map(async (offset) => {
+          const page = await stub.fetch(new Request(`http://do${s.path}&offset=${offset}`));
+          return (await page.json()).items || [];
+        }));
+        data.items = (data.items || []).concat(...pages);
+      }
       if (s.game === 'masquerade') data.items = await repairMasqueradeHistory(stub, data.items);
       const items = (data.items || []).map((h) => (s.game === 'dino' ? dinoRow(h) : scoredRow(s.game, h))).filter(Boolean);
       // Dino pages its history, so its totals come from its own stats.

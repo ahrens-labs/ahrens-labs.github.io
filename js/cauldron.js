@@ -1477,6 +1477,8 @@
   const HIST_ROWS = [['🪙 Coins', 'coins'], ['😊 Served', 'served'], ['💰 From customers', 'custCoins'], ['🤝 Sold to shops', 'rivalCoins'], ['🏛️ Guild & Fair', 'guildCoins'], ['🛒 Spent', 'spent']];
 
   async function showHistory() {
+    location.href = '/game-history.html?game=cauldron';
+    return;
     stopAI();
     G = null;
     document.body.className = 'setup-mode';

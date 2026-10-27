@@ -1336,6 +1336,8 @@
   const HIST_ROWS = [['⭐ Score', 'total'], ['🃏 Card power', 'base'], ['✨ Bonuses', 'bonus'], ['💥 Penalties', 'penalty'], ['🎯 Mission', 'mission'], ['🎭 Identity', 'ident'], ['🏙️ Recruits', 'plaza']];
 
   async function showHistory() {
+    location.href = '/game-history.html?game=heroes';
+    return;
     stopAI();
     G = null;
     document.body.className = 'setup-mode';

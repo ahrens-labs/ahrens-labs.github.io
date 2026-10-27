@@ -1146,6 +1146,8 @@
   }
   const hist = { items: null, kind: 'all' };
   async function showHistory() {
+    location.href = '/game-history.html?game=masquerade';
+    return;
     stopAI();
     G = null;
     document.body.className = 'setup-mode';

@@ -6,12 +6,12 @@
   const FRESH_MS = 30 * 1000;
   const PAGE = 25;
   const GAMES = {
-    dino: { name: 'Dino Dynasty', icon: '🦖', page: '/dino-board-game.html', history: '/dino-history.html', logo: '/img/dino-favicon-128.png?v=2', view: '🦖 View the parks' },
-    hearthhold: { name: 'Oakhaven', icon: '🏰', page: '/oakhaven.html', history: '/oakhaven.html?history', logo: '/img/oakhaven-favicon-128.png?v=2', view: '🏘️ View the villages' },
-    atlantis: { name: 'Atlantis Expedition', icon: '🔱', page: '/atlantis.html', history: '/atlantis.html?history', logo: '/img/atlantis-favicon-128.png?v=3', view: '🗺️ View the chart' },
-    cauldron: { name: 'Cauldron Lane', icon: '⚗️', page: '/cauldron.html', history: '/cauldron.html?history', logo: '/img/cauldron-favicon-128.png?v=3', view: '⚗️ View the lane' },
-    heroes: { name: 'Hero League', icon: '🦸', page: '/heroes.html', history: '/heroes.html?history', logo: '/img/heroes-favicon-128.png?v=3', view: '🦸 See the teams' },
-    masquerade: { name: 'The Masquerade Court', icon: '🎭', page: '/masquerade.html', history: '/masquerade.html?history', logo: '/img/masquerade-favicon-128.png?v=3', view: '🎭 See the ballroom' },
+    dino: { name: 'Dino Dynasty', icon: '🦖', page: '/dino-board-game.html', history: '/game-history.html?game=dino', logo: '/img/dino-favicon-128.png?v=2', view: '🦖 View the parks' },
+    hearthhold: { name: 'Oakhaven', icon: '🏰', page: '/oakhaven.html', history: '/game-history.html?game=hearthhold', logo: '/img/oakhaven-favicon-128.png?v=2', view: '🏘️ View the villages' },
+    atlantis: { name: 'Atlantis Expedition', icon: '🔱', page: '/atlantis.html', history: '/game-history.html?game=atlantis', logo: '/img/atlantis-favicon-128.png?v=3', view: '🗺️ View the chart' },
+    cauldron: { name: 'Cauldron Lane', icon: '⚗️', page: '/cauldron.html', history: '/game-history.html?game=cauldron', logo: '/img/cauldron-favicon-128.png?v=3', view: '⚗️ View the lane' },
+    heroes: { name: 'Hero League', icon: '🦸', page: '/heroes.html', history: '/game-history.html?game=heroes', logo: '/img/heroes-favicon-128.png?v=3', view: '🦸 See the teams' },
+    masquerade: { name: 'The Masquerade Court', icon: '🎭', page: '/masquerade.html', history: '/game-history.html?game=masquerade', logo: '/img/masquerade-favicon-128.png?v=3', view: '🎭 See the ballroom' },
   };
   const KIND = { ai: '🤖 vs computer', local: '👥 same device', online: '🌐 online' };
   const LEVELS = { easy: 'Easy', normal: 'Normal', medium: 'Normal', hard: 'Hard', brutal: 'Brutal' };
@@ -110,9 +110,8 @@
     const items = d.items.filter((h) => GAMES[h.game] && (view.game === 'all' || h.game === view.game));
     $('.hx-list').innerHTML = items.slice(0, view.shown).map(row).join('');
     $('.hx-more').hidden = items.length <= view.shown;
-    const own = view.game !== 'all' ? `<a href="${GAMES[view.game].history}">All of your ${esc(GAMES[view.game].name)} games, with every score →</a>` : '';
     $('.hx-note').innerHTML = items.length
-      ? (stats.dino && stats.dino.played > 50 && (view.game === 'all' || view.game === 'dino') && items.length <= view.shown ? 'Older Dino Dynasty games are in <a href="/dino-history.html">its own history</a>.' : own)
+      ? ''
       : 'No finished games yet. Games show up here when they end.';
   }
 

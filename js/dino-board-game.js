@@ -3003,7 +3003,7 @@
         ${online
     ? `<button class="btn sm ghost" data-act="onlineLeave" aria-label="My games">🏠<span class="lb-t"> My games</span></button>${online.status === 'active' ? '<button class="btn sm ghost" data-act="onlineResign" aria-label="Resign">🏳️<span class="lb-t"> Resign</span></button>' : ''}`
     : state.sim ? '<button class="btn sm ghost" data-act="simStop" aria-label="Exit simulation">⏹<span class="lb-t"> Exit simulation</span></button>'
-      : state.past ? '<a class="btn sm ghost" href="/dino-history.html" aria-label="Back to history">🏆<span class="lb-t"> Back to history</span></a>' : '<button class="btn sm ghost" data-act="newGame" aria-label="New game">🥚<span class="lb-t"> New game</span></button>'}
+      : state.past ? '<a class="btn sm ghost" href="/game-history.html?game=dino" aria-label="Back to history">🏆<span class="lb-t"> Back to history</span></a>' : '<button class="btn sm ghost" data-act="newGame" aria-label="New game">🥚<span class="lb-t"> New game</span></button>'}
         <a class="btn sm ghost" href="/ahrens-games/settings" title="Ahrens Games settings" aria-label="Settings">⚙️<span class="lb-t"> Settings</span></a>
         <a class="btn sm ghost" href="/ahrens-games" title="Back to the game lobby" aria-label="Game lobby"><img class="gh-dice" src="/img/board-games-favicon-48.png?v=8" alt=""><span class="lb-t"> Lobby</span></a>
       </div>`);
@@ -4048,9 +4048,9 @@
     : online
     ? '<div class="btn-row"><button class="btn big" data-act="olRematch">🦖 Rematch</button><button class="btn big ghost" data-act="onlineLeave">🏠 My games</button></div>'
     : state.past
-    ? '<div class="btn-row"><a class="btn big" href="/dino-history.html">🏆 Back to history</a><a class="btn big ghost" href="/dino-board-game.html">🦖 Play</a></div>'
+    ? '<div class="btn-row"><a class="btn big" href="/game-history.html?game=dino">🏆 Back to history</a><a class="btn big ghost" href="/dino-board-game.html">🦖 Play</a></div>'
     : '<button class="btn big" data-act="newGame">🥚 Play again</button>'}
-      ${state.sim ? '' : `<div class="btn-row"><button class="btn ghost" data-act="replayReveal">🎬 Replay the reveal</button>${state.past ? '' : '<a class="btn ghost" href="/dino-history.html">🏆 Game history</a>'}</div>`}`;
+      ${state.sim ? '' : `<div class="btn-row"><button class="btn ghost" data-act="replayReveal">🎬 Replay the reveal</button>${state.past ? '' : '<a class="btn ghost" href="/game-history.html?game=dino">🏆 Game history</a>'}</div>`}`;
   }
 
   // ---------------------------------------------------------------- selection validation
@@ -4288,7 +4288,7 @@
           </div>
         </div>
         <button class="btn big start-game" data-act="setupStart" data-first="${setupFirst}">Start game</button>
-        <div class="gh-links"><button class="btn ghost sm" data-act="rules">📜 How to play</button><button class="btn ghost sm" data-tutorial="dino-ad">🎞️ Watch the trailer</button><a class="btn ghost sm" href="/dino-history.html">🏆 Game history</a>${isAdmin() ? '<button class="btn ghost sm" data-act="simOpen">🧪 Computer vs computer</button>' : ''}</div>
+        <div class="gh-links"><button class="btn ghost sm" data-act="rules">📜 How to play</button><button class="btn ghost sm" data-tutorial="dino-ad">🎞️ Watch the trailer</button><a class="btn ghost sm" href="/game-history.html?game=dino">🏆 Game history</a>${isAdmin() ? '<button class="btn ghost sm" data-act="simOpen">🧪 Computer vs computer</button>' : ''}</div>
       </div>
     </div>`);
     renderLobby();

@@ -1408,6 +1408,8 @@
   const SCORE_ROWS = [[`${PEARL} Pearls`, 'treasure'], ['🏆 First finds', 'discoveries'], ['🏺 Relic sets', 'relics'], ['📜 Commissions', 'goals'], ['🪙 Gold', 'gold'], ['🗺️ Expeditions', 'expeditions']];
 
   async function showHistory() {
+    location.href = '/game-history.html?game=atlantis';
+    return;
     stopAI();
     G = null;
     document.body.className = 'setup-mode';

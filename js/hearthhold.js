@@ -2345,6 +2345,8 @@
   ];
 
   async function showHistory() {
+    location.href = '/game-history.html?game=hearthhold';
+    return;
     clearTimeout(ui.aiTimer);
     stopOnline();
     G = null;
@@ -3210,7 +3212,7 @@
     // A finished game linked from game history: show its villages, or the history if it can't be opened.
     $('#app').innerHTML = '<p class="loading-save">Loading that game…</p>';
     openPast(params.get('past')).then(() => G || showHistory());
-  } else if (params.has('history') && sessionId()) showHistory();
+  } else if (params.has('history')) showHistory();
   else showSetup();
   window.__hh = { get G() { return G; }, render, E, send: (a) => doAction(a) };
 })();
