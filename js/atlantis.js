@@ -636,7 +636,7 @@
         <div><small>${plural(B.crew, 'seat')} · built for the ${esc(E.DEPTH[B.depth].name)}${B.bonus ? ` · +${B.bonus} to rolls` : ''}</small><div class="tags">${mods}${free > 0 ? `<span class="tag">${plural(free, 'free fitting slot')}</span>` : ''}</div></div></div>`;
     }).join('') || '<p class="empty">No submarines — your divers can still swim out from the boat, or build one at the shipyard.</p>';
     const divers = p.divers.map((d) => `<div class="card${E.diverReady(s, d) ? '' : ' dim'}">${diverPic(d)}<b>${esc(d.name)}</b>${diverStatus(s, d)}<div><small>${diverLine(d)}</small><div class="tags">${depthTag(d)}${specTags(d)}</div></div></div>`).join('') || '<p class="empty">No divers — hire some at the dive hall.</p>';
-    const canSalvage = E.readyDivers(s, p).length > 0;
+    const canSalvage = E.readySubs(s, p).length && E.readyDivers(s, p).length;
     const relicCount = (r) => p.relics.filter((y) => y === r).length;
     const relics = p.relics.length
       ? `<h3>🏺 Relics <small>${plural(E.relicPoints(p.relics), 'point')}</small></h3><div class="tags">${E.RELIC_ORDER.filter(relicCount).map((r) => `<span class="tag">${E.RELIC[r].icon} ${esc(E.RELIC[r].name)} ×${relicCount(r)}</span>`).join('')}</div>`
@@ -843,11 +843,11 @@
         plan.s = sub.id;
         // A salvage run doesn't need skill: send the least skilled divers and keep the best for real dives.
         plan.crew = E.readyDivers(s, p).slice().sort((a, b) => E.DIVER[a.k].skill - E.DIVER[b.k].skill).slice(0, E.SUB[sub.k].crew).map((d) => d.id);
-      } else plan.s = 'swim';
+      }
     }
     if (plan.s == null) {
       const first = p.subs.find((sub) => E.subReady(s, sub));
-      plan.s = first ? first.id : 'swim';
+      plan.s = first ? first.id : x ? 'swim' : null;
     }
     const subWhy = (sub) => {
       if (sub.stuck >= s.tide) return 'Out of action';
@@ -862,7 +862,7 @@
       const seats = sub ? E.SUB[sub.k].crew : swim ? E.SWIM_CREW : 0;
       const head = x
         ? `<div class="plan-head"><img src="${expImg(x)}" alt=""><div><h2>${esc(site.name)}</h2><div class="haz">${site.haz.map((h) => hz(h)).join('')}${E.charted(s, x) ? '' : `<span class="hz risk">🌫️ Uncharted</span>`}</div><small class="muted">${E.TIER[site.tier].name} · ${E.DEPTH[site.depth].name} · roll ${E.TIER[site.tier].target}+ · reward ${PEARL}${E.rewardOf(s, x).treasure} 🪙${E.rewardOf(s, x).gold}${site.relic ? ` · ${E.RELIC[site.relic].icon} relic` : ''}</small></div></div>`
-        : `<h2>🪙 Salvage run</h2><p class="muted">A safe trip to pick over old wrecks. No dice, no danger: earns 🪙1 plus 🪙1 per diver. The sub (if used) and divers are out for the rest of this tide.</p>`;
+        : `<h2>🪙 Salvage run</h2><p class="muted">A safe trip to pick over old wrecks. No dice, no danger: earns 🪙1 plus 🪙1 per diver. The sub and divers are out for the rest of this tide.</p>`;
       const subs = p.subs.map((q) => {
         const why = subWhy(q);
         const B = E.SUB[q.k];
@@ -871,7 +871,7 @@
       }).join('') + (x ? (() => {
         const deep = subGap(null) ? `<em class="warn">⚠️ Too deep: −${E.SUB_DEEP_PEN * subGap(null)}</em>` : '';
         return `<button data-sub="swim" class="${swim ? 'on' : ''}${deep ? ' risky' : ''}">${swimPic}<b>No sub: swim</b><small>${plural(E.SWIM_CREW, 'diver')} · −${E.SWIM_PEN}${deep}</small></button>`;
-      })() : `<button data-sub="swim" class="${swim ? 'on' : ''}"><b>No sub: use the dive boat</b><small>${plural(E.SWIM_CREW, 'diver')}</small></button>`);
+      })() : '');
       const divers = p.divers.map((d) => {
         const why = diverWhy(d);
         const D = E.DIVER[d.k];
@@ -902,12 +902,12 @@
             <li>🧭 The next dive here (by either company) gets +1.</li>
           </ul></div>
         </div>`;
-      } else if (!x && (sub || swim) && plan.crew.length) {
+      } else if (!x && sub && plan.crew.length) {
         box = `<div class="odds-box" style="--oc:#8ff0b4"><div class="odds-big"><span>Salvage</span><b>🪙${1 + plan.crew.length}</b></div></div>`;
       }
       const go = x ? `🎲 Dive!` : `🪙 Go salvaging`;
       return `${head}
-        <h3>${x ? '🚢 Submarine' : '🚢 Salvage party'}${x ? ' <small class="muted">or swim out from the dive boat</small>' : ''}</h3><div class="pick" id="pk-sub">${subs || '<p class="empty">No subs.</p>'}</div>
+        <h3>🚢 Submarine${x ? ' <small class="muted">or swim out from the dive boat</small>' : ''}</h3><div class="pick" id="pk-sub">${subs || '<p class="empty">No subs.</p>'}</div>
         <h3>🤿 Crew <small class="muted">${plan.crew.length}/${seats} ${swim ? 'swimmers' : 'seats'}</small></h3><div class="pick" id="pk-crew">${divers || '<p class="empty">No divers.</p>'}</div>
         ${box}
         <div class="btn-row"><button class="btn big" id="plan-go" ${(sub || swim) && plan.crew.length ? '' : 'disabled'}>${go}</button></div>`;
@@ -942,7 +942,7 @@
       if (e.target.closest('#plan-go')) {
         closeModal(true);
         if (x && rig20On()) G.rigged = true;
-        doAction(x ? { t: 'dive', x: x.id, s: plan.s === 'swim' ? null : plan.s, crew: plan.crew.slice(), ...(rig20On() ? { rig20: true } : {}) } : { t: 'salvage', s: plan.s === 'swim' ? null : plan.s, crew: plan.crew.slice() });
+        doAction(x ? { t: 'dive', x: x.id, s: plan.s === 'swim' ? null : plan.s, crew: plan.crew.slice(), ...(rig20On() ? { rig20: true } : {}) } : { t: 'salvage', s: plan.s, crew: plan.crew.slice() });
       }
     });
   }
