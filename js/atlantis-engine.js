@@ -510,7 +510,7 @@
       }
       case 'dive':
       case 'salvage': {
-        const swim = a.t === 'dive' && a.s == null;
+        const swim = a.s == null;
         const s = swim ? null : subOf(p, a.s);
         if (!swim && !s) return 'Pick a sub.';
         if (s && !subReady(state, s)) return s.k === 'minnow' && sea(state) === 'storm' ? 'Minnows stay in port during a storm.' : s.stuck >= state.tide ? 'That sub is out of action.' : 'That sub has already been out this tide.';
@@ -580,14 +580,14 @@
         break;
       }
       case 'salvage': {
-        const s = subOf(p, a.s);
+        const s = a.s == null ? null : subOf(p, a.s);
         const crew = a.crew.map((id) => diverOf(p, id));
         const gain = 1 + crew.length;
-        s.used = true;
+        if (s) s.used = true;
         crew.forEach((d) => (d.used = true));
         p.gold += gain;
-        state.last = { t: 'salvage', pi, s: s.id, crew: a.crew.slice(), gold: gain };
-        log(state, `${poss(p.name)} ${SUB[s.k].name} went on a salvage run and brought back 🪙${gain}.`, pi);
+        state.last = { t: 'salvage', pi, s: s ? s.id : null, crew: a.crew.slice(), gold: gain };
+        log(state, `${poss(p.name)}${s ? ` ${SUB[s.k].name}` : ' crew'} went on a salvage run and brought back 🪙${gain}.`, pi);
         break;
       }
       case 'dive':
@@ -969,9 +969,8 @@
         const dv = diveValue(state, pi, x, s, crew, level);
         out.push({ a: { t: 'dive', x: x.id, s: s ? s.id : null, crew: crew.map((d) => d.id) }, v: dv.v, p: dv.p });
       }
-      if (!s) continue;
-      const crew = crewPool.slice(0, SUB[s.k].crew);
-      if (crew.length) out.push({ a: { t: 'salvage', s: s.id, crew: crew.map((d) => d.id) }, v: (1 + crew.length) * 0.35 - 0.05 });
+      const crew = crewPool.slice(0, s ? SUB[s.k].crew : SWIM_CREW);
+      if (crew.length) out.push({ a: { t: 'salvage', s: s ? s.id : null, crew: crew.map((d) => d.id) }, v: (1 + crew.length) * 0.35 - 0.05 });
     }
 
     if (left >= 2 && p.divers.length < MAX_DIVERS) {
@@ -1353,11 +1352,11 @@
     }
     if (buy) return buy.a;
     // Leftover subs and divers bring in a little gold.
-    const left = now.subs.filter((s) => !s.used);
-    if (left.length && now.divers.length) {
-      const s = left.sort((a, b) => SUB[b.k].crew - SUB[a.k].crew)[0];
-      const crew = now.divers.slice(0, SUB[s.k].crew);
-      if ((1 + crew.length) * ctx.gv > 0.05) return { t: 'salvage', s: s.id, crew: crew.map((d) => d.id) };
+    const left = now.subs.filter((s) => !s.used && s.stuck < now.tide);
+    if (now.divers.length) {
+      const s = left.sort((a, b) => SUB[b.k].crew - SUB[a.k].crew)[0] || null;
+      const crew = now.divers.slice(0, s ? SUB[s.k].crew : SWIM_CREW);
+      if ((1 + crew.length) * ctx.gv > 0.05) return { t: 'salvage', s: s ? s.id : null, crew: crew.map((d) => d.id) };
     }
     return { t: 'pass' };
   }
