@@ -44,6 +44,7 @@ button { font-family: inherit; }
   background: linear-gradient(180deg, #ffe08f, var(--brass)); box-shadow: 0 4px 0 var(--brass-dark), 0 6px 14px rgba(0, 0, 0, 0.25);
   cursor: pointer; transition: transform 0.1s ease, box-shadow 0.1s ease, filter 0.15s ease;
 }
+.btn[hidden] { display: none; }
 .btn:hover:not(:disabled) { filter: brightness(1.07); transform: translateY(-1px); }
 .btn:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 1px 0 var(--brass-dark); }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; }
