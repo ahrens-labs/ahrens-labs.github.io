@@ -7592,7 +7592,8 @@
                 repeatWeekKey: repeatGroupId ? (task.repeatWeekKey || normalizedWeek) : null,
                 repeatRule,
                 weekDueOnly,
-                repeatNoAutoTime
+                repeatNoAutoTime,
+                repeatDateModeOverride: task.repeatDateModeOverride === 'ADJUSTABLE' ? 'ADJUSTABLE' : null
             });
         }
 
@@ -7913,6 +7914,7 @@
             recordRepeatGroupFixedWeekdayTime(groupId, weekday, profile.time);
             (tasks || []).forEach(task => {
                 if(task.repeatGroupId !== groupId) return;
+                if(task.repeatDateModeOverride === 'ADJUSTABLE') return;
                 if(!includeCompleted && task.completed) return;
                 if(task.weekDueOnly || task.scheduleType !== 'date') return;
                 if(isAssignmentStarted(task)) return;
@@ -7926,6 +7928,7 @@
             const groupTasks = tasks.filter(t => t.repeatGroupId === groupId);
             groupTasks.forEach(task => {
                 if(task.completed || task.weekDueOnly || task.scheduleType !== 'date') return;
+                if(task.repeatDateModeOverride === 'ADJUSTABLE') return;
                 if(isAssignmentStarted(task)) return;
                 const profile = getRepeatFixedTimeProfileForOccurrence(groupTasks, {
                     dateStr: task.date,
@@ -7938,6 +7941,7 @@
 
         function isRepeatFixedTimeTask(task) {
             if(!task?.repeatGroupId || task.weekDueOnly || task.scheduleType !== 'date') return false;
+            if(task.repeatDateModeOverride === 'ADJUSTABLE') return false;
             if(isAssignmentStarted(task)) return false;
             const profile = getRepeatFixedTimeProfileForOccurrence(
                 tasks.filter(t => t.repeatGroupId === task.repeatGroupId),
@@ -7951,6 +7955,7 @@
                 return false;
             }
             if(isAssignmentStarted(task)) return false;
+            if(task.repeatDateModeOverride === 'ADJUSTABLE') return false;
             if(task.time && (isFixedTask(task) || task.timeSource === 'user')) return false;
             const groupTasks = tasks.filter(t => t.repeatGroupId === task.repeatGroupId);
             const profile = getRepeatFixedTimeProfileForOccurrence(groupTasks, {
@@ -19709,6 +19714,7 @@
                         let instanceTime = t.time;
                         let instanceTimeSource = t.timeSource;
                         let instanceAssignmentMode = t.assignmentMode;
+                        let repeatDateModeOverride = t.repeatDateModeOverride || null;
                         if(weekDueOnly) {
                             instanceTime = null;
                             instanceTimeSource = null;
@@ -19718,10 +19724,15 @@
                                 instanceTime = inputTimeValue;
                                 instanceTimeSource = inputTimeValue ? 'user' : null;
                                 instanceAssignmentMode = assignmentMode;
+                                repeatDateModeOverride = null;
                             } else if(groupFixedProfile) {
                                 instanceTime = null;
                                 instanceTimeSource = null;
                                 instanceAssignmentMode = 'ADJUSTABLE';
+                                repeatDateModeOverride = 'ADJUSTABLE';
+                            } else {
+                                // Preserve an explicit per-occurrence mode even when the series has no fixed profile.
+                                repeatDateModeOverride = 'ADJUSTABLE';
                             }
                         }
                         const updated = {
@@ -19751,6 +19762,7 @@
                             repeatRule,
                             weekDueOnly,
                             repeatNoAutoTime,
+                            repeatDateModeOverride,
                             repeatWeekKey: (isEditedInstance && (weekDueOnly || isExactDateSchedule)) ? instanceWeekKey : t.repeatWeekKey
                         };
                         return normalizeTask(updated);
