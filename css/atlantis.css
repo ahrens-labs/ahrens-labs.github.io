@@ -316,6 +316,9 @@ button { font-family: inherit; }
 .roll { text-align: center; padding: 0.4rem 0 0.2rem; }
 .d20 { width: 120px; height: 120px; margin: 0.4rem auto 0.6rem; display: grid; place-items: center; position: relative; }
 .d20 svg { position: absolute; inset: 0; width: 100%; height: 100%; filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.4)); }
+.d20 svg polygon:first-child { transition: fill 0.35s ease; }
+.d20.success svg polygon:first-child { fill: #1f9d55; }
+.d20.failure svg polygon:first-child { fill: #c7473a; }
 .d20 span { position: relative; font-family: "Lilita One", sans-serif; font-size: 2.6rem; color: #fff; text-shadow: 0 2px 0 rgba(0, 0, 0, 0.4); }
 .d20.spin svg { animation: dspin 0.25s linear infinite; }
 .d20.land { animation: dland 0.45s var(--pop); }

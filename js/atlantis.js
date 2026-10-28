@@ -1022,7 +1022,7 @@
         <p>${r.sk ? `<span class="who" style="color:${PCOLOR[r.pi]}">${esc(E.poss(p.name))}</span> ${esc(E.SUB[r.sk].name)} dives with ${crew}.` : `<span class="who" style="color:${PCOLOR[r.pi]}">${esc(p.name)}</span>: ${crew} ${r.crew.length > 1 ? 'swim' : 'swims'} out from the dive boat.`}</p>
         ${r.crewK ? `<div class="roll-crew">${r.crew.map((id, i) => diverPic({ id, k: r.crewK[i] }, 'diving')).join('')}</div>` : ''}
         <div class="roll-need">Hoping for <b>${needText(r.need)}</b> on the die</div>
-        <div class="d20" id="d20">${D20_SVG(PCOLOR[r.pi])}<span>?</span></div>
+        <div class="d20" id="d20">${D20_SVG('#78858c')}<span>?</span></div>
         <div id="roll-track">${dieTrack(r.need)}</div>
         <div class="roll-sum" id="roll-sum">Target ${r.target}: the die plus ${r.bonus >= 0 ? r.bonus : `(${r.bonus})`} in bonuses must reach it.</div>
         <div class="roll-verdict" id="roll-verdict"></div>
@@ -1051,6 +1051,7 @@
       clearInterval(spin);
       die.classList.remove('spin');
       die.classList.add('land');
+      die.classList.add(r.ok ? 'success' : 'failure');
       num.textContent = r.d20;
       back.querySelector('#roll-track').innerHTML = dieTrack(r.need, r.d20);
       back.querySelectorAll('.roll-crew .pic').forEach((el, i) => {
