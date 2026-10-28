@@ -1027,11 +1027,14 @@
         <div class="roll-sum" id="roll-sum">Target ${r.target}: the die plus ${r.bonus >= 0 ? r.bonus : `(${r.bonus})`} in bonuses must reach it.</div>
         <div class="roll-verdict" id="roll-verdict"></div>
         <div class="roll-msgs" id="roll-msgs"></div>
+        <div class="btn-row" style="justify-content:center"><button class="btn" id="roll-start">🎲 Roll</button></div>
         <div class="btn-row" style="justify-content:center"><button class="btn" id="roll-ok" hidden>${opts.auto ? 'Continue' : 'OK'}</button></div>
       </div>`, { noClose: true, cls: 'locked' });
     const die = back.querySelector('#d20');
     const num = die.querySelector('span');
     let done = false;
+    let started = false;
+    let spin;
     const finish = () => {
       if (done) return;
       done = true;
@@ -1042,12 +1045,16 @@
       opts.done();
     };
     const timers = [];
-    die.classList.add('spin');
-    sfx('dice');
-    const spin = setInterval(() => (num.textContent = 1 + Math.floor(Math.random() * 20)), 70);
     const rival = opts.auto && !fast;
     const landAt = fast ? Math.min(900, fast / 2) : rival ? 650 : 1200;
-    timers.push(setTimeout(() => {
+    const start = () => {
+      if (started || done) return;
+      started = true;
+      back.querySelector('#roll-start').hidden = true;
+      die.classList.add('spin');
+      sfx('dice');
+      spin = setInterval(() => (num.textContent = 1 + Math.floor(Math.random() * 20)), 70);
+      timers.push(setTimeout(() => {
       clearInterval(spin);
       die.classList.remove('spin');
       die.classList.add('land');
@@ -1090,7 +1097,10 @@
       ok.onclick = finish;
       ok.focus();
       if (opts.auto) timers.push(setTimeout(finish, fast || (r.ok ? 2200 : 4500)));
-    }, landAt));
+      }, landAt));
+    };
+    back.querySelector('#roll-start').onclick = start;
+    if (opts.auto) start();
   }
 
   // ---------------------------------------------------------------- shipyard
