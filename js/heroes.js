@@ -283,6 +283,16 @@
       for (let k = 0; k < 6 && !f.el.classList.contains('wrap') && f.el.scrollWidth > f.el.clientWidth + 0.5; k++) f.el.style.fontSize = `${parseFloat(f.el.style.fontSize) - 0.25}px`;
     });
   }
+  function fitPlazaText() {
+    document.querySelectorAll('.pz-slot .hc-fx').forEach((el) => {
+      el.style.fontSize = '';
+      let size = parseFloat(getComputedStyle(el).fontSize);
+      while (el.clientHeight && el.scrollHeight > el.clientHeight + 1 && size > 2) {
+        size = Math.max(2, size - 0.25);
+        el.style.fontSize = `${size}px`;
+      }
+    });
+  }
   let fitQueued = false;
   const queueFit = () => {
     if (fitQueued) return;
@@ -290,6 +300,7 @@
     requestAnimationFrame(() => {
       fitQueued = false;
       fitNames();
+      fitPlazaText();
     });
   };
   new MutationObserver((list) => {
