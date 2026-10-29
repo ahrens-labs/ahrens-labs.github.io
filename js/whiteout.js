@@ -1,6 +1,13 @@
 (() => {
   'use strict';
   const app = document.querySelector('#app');
+  let sessionId = '';
+  try { sessionId = localStorage.getItem('ahrenslabs_sessionId') || ''; } catch {}
+  if (!sessionId) {
+    const back = encodeURIComponent(location.pathname.replace(/^\//, '') + location.search);
+    app.innerHTML = `<section class="panel private-card"><h1>Whiteout Station</h1><h2>🔒 Sign in to play</h2><a class="btn" href="/account.html?return=${back}">Log in or sign up</a></section>`;
+    return;
+  }
   let isAdmin = false;
   try { isAdmin = (localStorage.getItem('ahrenslabs_email') || '').trim().toLowerCase() === 'calebahrens2011@gmail.com'; }
   catch { isAdmin = false; }
