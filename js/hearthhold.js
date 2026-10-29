@@ -47,7 +47,7 @@
   function save() {
     if (G && (G.mode === 'sim' || G.mode === 'past')) return;
     try {
-      if (G && G.mode === 'online') localStorage.setItem(ONLINE_KEY, JSON.stringify({ id: G.id, revealed: !!G.revealed, duskSeen: G.duskSeen || 0 }));
+      if (G && G.mode === 'online') localStorage.setItem(ONLINE_KEY, JSON.stringify({ id: G.id, revealed: !!G.revealed, duskSeen: G.duskSeen || 0, openSeen: G.openSeen || [] }));
       else localStorage.setItem(SAVE_KEY, JSON.stringify(G));
     } catch (e) {
       /* storage full or blocked: the game still works, it just won't resume */
@@ -2675,6 +2675,7 @@
       state: s,
       revealed: same ? mem.revealed : false,
       duskSeen: same ? mem.duskSeen : 0,
+      openSeen: same && Array.isArray(mem.openSeen) ? mem.openSeen : [],
     };
     if (history.replaceState) history.replaceState(null, '', `${location.pathname}?game=${v.id}`);
     startFrom(G);
