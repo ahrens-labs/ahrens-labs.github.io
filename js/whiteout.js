@@ -1,11 +1,24 @@
 (() => {
   'use strict';
   const app = document.querySelector('#app');
-  let sessionId = '';
-  try { sessionId = localStorage.getItem('ahrenslabs_sessionId') || ''; } catch {}
-  if (!sessionId) {
+  const hasAccount = () => {
+    try { return !!localStorage.getItem('ahrenslabs_sessionId'); } catch { return false; }
+  };
+  function accountGate() {
     const back = encodeURIComponent(location.pathname.replace(/^\//, '') + location.search);
     app.innerHTML = `<section class="panel private-card"><h1>Whiteout Station</h1><h2>🔒 Sign in to play</h2><a class="btn" href="/account.html?return=${back}">Log in or sign up</a></section>`;
+  }
+  app.addEventListener('click', (event) => {
+    if (hasAccount() || event.target.closest('a[href^="/account.html"]')) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    accountGate();
+  }, true);
+  addEventListener('storage', (event) => {
+    if (event.key === 'ahrenslabs_sessionId' && !hasAccount()) location.reload();
+  });
+  if (!hasAccount()) {
+    accountGate();
     return;
   }
   let isAdmin = false;
@@ -109,6 +122,6 @@
     game.log.push(...messages,`Storm intensity rises to ${t.storm}/${game.max.storm}. One supply was used.`);game.round++;game.phase='active';game.plans=Array(game.roles.length).fill(null);game.signalsThisRound=[];renderActive();
   }
   function end(){shell(`<section class="hero"><div class="snow"></div><div class="hero-copy"><h1>${game.result?'Rescue!':'Whiteout'}</h1><p>Whiteout Research Station · ${DIFF[game.diff].name}</p></div></section><section class="panel phase end"><h2>${game.result?'The crew made it home!':'Mission lost'}</h2><p>${game.result?'The radio, verified research, and airstrip all came together before the storm.':'The crew could not complete the mission before one of the station’s threats overwhelmed it.'}</p><h3>Final report</h3>${tracks()}<ul class="log">${game.log.slice(-9).reverse().map(x=>`<li>${esc(x)}</li>`).join('')}</ul><div class="footer-actions"><button class="btn" id="again">Play again</button><a class="btn secondary" href="/ahrens-games.html">Back to Ahrens Games</a></div></section>`);$('#again').onclick=home}
-  function render(){if(!game){home();return}if(game.phase==='brief')brief();else if(game.phase==='plan')plan();else renderActive()}
+  function render(){if(!hasAccount()){game=null;accountGate();return}if(!game){home();return}if(game.phase==='brief')brief();else if(game.phase==='plan')plan();else renderActive()}
   home();
 })();

@@ -502,6 +502,7 @@
   }
 
   function render() {
+    if (!sessionId()) return showGate();
     if (!G) return;
     const s = st();
     const M = mission();
@@ -777,6 +778,7 @@
 
   // ---------------------------------------------------------------- actions
   function doAction(a) {
+    if (!sessionId()) return showGate();
     if (G.mode === 'online') return Online.send(a);
     const s = st();
     const pi = s.turn;
@@ -1587,6 +1589,9 @@
   }
 
   // ---------------------------------------------------------------- start
+  addEventListener('storage', (event) => {
+    if (event.key === 'ahrenslabs_sessionId' && !sessionId()) location.reload();
+  });
   requeueLastGame();
   sendQueued();
   const params = new URLSearchParams(location.search);

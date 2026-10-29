@@ -424,6 +424,7 @@
   }
 
   function render() {
+    if (!sessionId()) return showGate();
     if (!G) return;
     renderTop();
     renderThreats();
@@ -1219,6 +1220,7 @@
   }
 
   function doAction(a) {
+    if (!sessionId()) return showGate();
     if (G.mode === 'online') {
       actionSfx(a);
       return sendOnline(a);
@@ -3154,6 +3156,9 @@
   }
 
   // ---------------------------------------------------------------- boot
+  addEventListener('storage', (event) => {
+    if (event.key === 'ahrenslabs_sessionId' && !sessionId()) location.reload();
+  });
   const saved = loadSave();
   // Some systems draw the 🪙 emoji silver; gold is always shown as a drawn gold coin.
   const COIN = '🪙';

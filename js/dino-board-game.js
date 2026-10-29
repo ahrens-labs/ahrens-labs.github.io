@@ -7538,6 +7538,9 @@
       return '';
     }
   }
+  addEventListener('storage', (event) => {
+    if (event.key === 'ahrenslabs_sessionId' && !sessionId()) location.reload();
+  });
 
   function myUsername() {
     try {
