@@ -558,6 +558,7 @@
   function nodeHtml(x, actor, canPlan) {
     const s = st();
     const site = E.SITE[x.k];
+    const reward = E.rewardOf(s, x);
     const slot = E.slotsOf(s)[x.n];
     const done = x.by != null;
     const open = E.isOpen(s, x);
@@ -567,12 +568,13 @@
       const o = canPlan ? bestOdds(actor, x) : null;
       if (o) badge = `<span class="nd-odds" style="--oc:${oddsColor(o.p)}">${pct(o.p)}</span>`;
     }
-    const meta = `${state === 'hidden' ? '' : `<span class="nd-haul">${PEARL}${E.rewardOf(s, x).treasure}</span>`}${site.haz.map((h) => E.HAZ[h].icon).join('')}${site.relic ? E.RELIC[site.relic].icon : ''}`;
+    const meta = `${site.haz.map((h) => E.HAZ[h].icon).join('')}${site.relic ? E.RELIC[site.relic].icon : ''}`;
     const label = state === 'hidden' ? `🔒 Tide ${E.HEART_TIDE}` : esc(site.short);
-    return `<button class="node t${site.tier} ${state}${x.k === 'heart' ? ' heart' : ''}" data-site="${x.id}" style="left:${slot.x}%;top:${slot.y}%;--bg:url('${expImg(x)}')${done ? `;--pc:${PCOLOR[x.by]}` : ''}" title="${esc(site.name)} · ${E.TIER[site.tier].name} · ${E.rewardOf(s, x).treasure} pearls">
+    return `<button class="node t${site.tier} ${state}${x.k === 'heart' ? ' heart' : ''}" data-site="${x.id}" style="left:${slot.x}%;top:${slot.y}%;--bg:url('${expImg(x)}')${done ? `;--pc:${PCOLOR[x.by]}` : ''}" title="${esc(site.name)} · ${E.TIER[site.tier].name} · ${reward.treasure} pearls · ${reward.gold} coins">
       <span class="nd-dot"><span class="nd-stars">${stars(site.tier)}</span>${done ? `<span class="nd-flag">${FLAG[x.by]}</span>` : ''}${x.scout && !done ? `<span class="nd-scout">🧭${x.scout}</span>` : ''}</span>
       ${badge}
       <span class="nd-name">${label}</span>
+      ${state === 'hidden' ? '' : `<span class="nd-rewards"><span>${PEARL}<b>${reward.treasure}</b></span><span>🪙<b>${reward.gold}</b></span></span>`}
       <span class="nd-meta">${meta}</span>
     </button>`;
   }

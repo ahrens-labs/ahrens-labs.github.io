@@ -186,8 +186,10 @@ button { font-family: inherit; }
 .nd-scout { position: absolute; top: -6px; left: -10px; font-size: 0.66rem; font-weight: 700; padding: 0.05rem 0.3rem; border-radius: 999px; background: #0d2c3e; color: #9ff6ff; }
 .nd-name { margin-top: 0.25rem; font-weight: 700; font-size: 0.8rem; line-height: 1.1; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9); max-width: 100%; }
 .nd-meta { font-size: 0.72rem; line-height: 1; letter-spacing: 0.04em; }
-.nd-haul { margin-right: 0.25em; font-weight: 800; color: #fff; letter-spacing: 0; }
-.nd-haul .pearl { margin-right: 0.08em; }
+.nd-rewards { display: flex; align-items: center; gap: 0.3rem; padding: 0.12rem 0.3rem; border-radius: 999px; background: rgba(3, 14, 24, 0.9); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5); font-size: 0.66rem; line-height: 1; white-space: nowrap; }
+.nd-rewards span { display: inline-flex; align-items: center; gap: 0.08rem; }
+.nd-rewards b { font-weight: 800; }
+.nd-rewards .pearl { width: 0.85em; height: 0.85em; }
 .nd-odds { position: absolute; top: -8px; left: calc(50% + 16px); padding: 0.08rem 0.4rem; border-radius: 999px; font-weight: 700; font-size: 0.72rem; background: var(--oc, #555); color: #fff;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5); }
 .node.open .nd-dot { box-shadow: 0 0 0 3px #ffe08f, 0 0 18px rgba(255, 224, 143, 0.55), 0 6px 14px rgba(0, 0, 0, 0.5); }
@@ -447,6 +449,7 @@ button { font-family: inherit; }
   .nd-flag { width: 26px; height: 26px; font-size: 0.85rem; }
   .nd-name { font-size: 0.68rem; }
   .nd-meta { font-size: 0.62rem; letter-spacing: 0; }
+  .nd-rewards { gap: 0.16rem; padding: 0.1rem 0.2rem; font-size: 0.55rem; }
   .nd-odds { font-size: 0.64rem; left: calc(50% + 10px); }
   .chart.wide { height: 980px; }
   .chart.wide .chart-in { inset: 0 14px 0 12px; }
@@ -458,6 +461,7 @@ button { font-family: inherit; }
   .chart.wide .nd-scout { font-size: 0.56rem; }
   .chart.wide .nd-name { margin-top: 0.15rem; font-size: 0.6rem; }
   .chart.wide .nd-meta { font-size: 0.54rem; }
+  .chart.wide .nd-rewards { gap: 0.1rem; padding: 0.08rem 0.14rem; font-size: 0.48rem; }
   .chart.wide .nd-odds { top: -12px; left: 50%; font-size: 0.56rem; padding: 0.04rem 0.3rem; }
   .sea { padding: 0.6rem; }
   .hall-grid { grid-template-columns: 1fr; }
