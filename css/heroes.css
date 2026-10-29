@@ -295,7 +295,8 @@ button { font-family: inherit; }
 .pz-slot.empty { display: grid; place-items: center; align-content: center; border-radius: 10px; border: 0; color: rgba(200, 215, 255, 0.45); font-family: "Hero Digits", "Bangers", sans-serif; font-size: 1.4rem; }
 .pz-slot.empty::before { content: ""; position: absolute; inset: -2px; border: 2px dashed rgba(200, 215, 255, 0.34); border-radius: 12px; pointer-events: none; }
 .pz-slot.empty small { font-family: "Fredoka", sans-serif; font-size: 0.7rem; font-weight: 700; }
-.pz-slot.empty.last { border-color: rgba(255, 209, 102, 0.55); color: #ffd166; }
+.pz-slot.empty.last { color: #ffd166; }
+.pz-slot.empty.last::before { border-color: rgba(255, 209, 102, 0.55); }
 .pz-slot.landed .hc { box-shadow: 0 0 0 2px var(--ink), 0 0 0 4.5px var(--pc), 0 0 18px var(--pc); animation: land 0.55s var(--pop); }
 @keyframes land { from { transform: translateY(-30px) rotate(-8deg) scale(1.1); opacity: 0; } to { transform: none; opacity: 1; } }
 .pz-from { position: absolute; left: 50%; bottom: -8px; transform: translateX(-50%); z-index: 4; white-space: nowrap; max-width: 110%; overflow: hidden; text-overflow: ellipsis;
