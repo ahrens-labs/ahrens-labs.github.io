@@ -283,13 +283,27 @@
       for (let k = 0; k < 6 && !f.el.classList.contains('wrap') && f.el.scrollWidth > f.el.clientWidth + 0.5; k++) f.el.style.fontSize = `${parseFloat(f.el.style.fontSize) - 0.25}px`;
     });
   }
+  const plazaSizeCache = new Map();
   function sizePlazaSlots() {
     const plaza = document.querySelector('.plaza');
     if (!plaza) return;
     const slots = [...plaza.querySelectorAll('.pz-slot')];
     slots.forEach((el) => (el.style.height = ''));
-    const heights = [...plaza.querySelectorAll('.pz-slot:not(.empty) .hc')].map((el) => el.getBoundingClientRect().height);
-    const height = Math.max(0, ...heights);
+    const width = slots[0] && slots[0].getBoundingClientRect().width;
+    if (!width) return;
+    const key = width.toFixed(2);
+    let height = plazaSizeCache.get(key);
+    if (!height) {
+      const measure = document.createElement('div');
+      measure.className = 'plaza-measure';
+      measure.style.cssText = `position:fixed;left:-10000px;top:0;width:${width}px;visibility:hidden;pointer-events:none`;
+      measure.innerHTML = Object.keys(E.CARD).map((id) => `<div class="pz-slot">${cardHtml(id, { small: true })}</div>`).join('');
+      document.body.appendChild(measure);
+      fitNames();
+      height = Math.ceil(Math.max(0, ...[...measure.querySelectorAll('.hc')].map((el) => el.getBoundingClientRect().height)));
+      measure.remove();
+      plazaSizeCache.set(key, height);
+    }
     if (height) slots.forEach((el) => (el.style.height = `${height}px`));
   }
   let fitQueued = false;
@@ -303,10 +317,10 @@
     });
   };
   new MutationObserver((list) => {
-    if (list.some((m) => [...m.addedNodes].some((n) => n.nodeType === 1 && (n.classList.contains('hc') || n.querySelector('.hc-name'))))) queueFit();
+    if (list.some((m) => [...m.addedNodes].some((n) => n.nodeType === 1 && !n.classList.contains('plaza-measure') && (n.classList.contains('hc') || n.querySelector('.hc-name'))))) queueFit();
   }).observe(document.body, { childList: true, subtree: true });
   addEventListener('resize', queueFit);
-  if (document.fonts) document.fonts.ready.then(queueFit);
+  if (document.fonts) document.fonts.ready.then(() => { plazaSizeCache.clear(); queueFit(); });
   const backHtml = (cls) => `<div class="hc back${cls ? ' ' + cls : ''}"><span class="hb-logo">🦸</span></div>`;
   const face = (id, cls) => `<img class="face${cls ? ' ' + cls : ''}" src="${IMG(id)}" alt="${cname(id)}" title="${cname(id)} · ${E.SUIT[C(id).suit].icon} ${esc(E.SUIT[C(id).suit].name)}" width="28" height="28" loading="lazy">`;
 
