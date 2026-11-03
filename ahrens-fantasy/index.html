@@ -1521,19 +1521,22 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
         }
         throw new Error(data.error || 'Could not load your leagues.');
       }
-      onlineUsername = String(data.username || localStorage.getItem('ahrenslabs_username') || 'Manager');
-      onlineLeagues = Array.isArray(data.leagues) ? data.leagues : [];
-      $('onlineLobbyUser').textContent = `Signed in as ${onlineUsername}`;
-      const invitations = Array.isArray(data.invitations) ? data.invitations : [];
-      onlineInvitations = invitations;
-      renderOnlineInvitations(invitations);
-      renderOnlineLeagueList();
-      renderLeagueSwitcher();
-      $('onlineInvitationsSection').hidden = invitations.length === 0;
-      $('onlineLeaguesSection').hidden = onlineLeagues.length === 0;
+      updateOnlineLobbyLists(data);
     } catch (requestError) {
       error.textContent = requestError.message || 'Could not connect to Ahrens Labs Fantasy.';
     }
+  }
+
+  function updateOnlineLobbyLists(data) {
+    onlineUsername = String(data.username || localStorage.getItem('ahrenslabs_username') || 'Manager');
+    onlineLeagues = Array.isArray(data.leagues) ? data.leagues : [];
+    $('onlineLobbyUser').textContent = `Signed in as ${onlineUsername}`;
+    onlineInvitations = Array.isArray(data.invitations) ? data.invitations : [];
+    renderOnlineInvitations(onlineInvitations);
+    renderOnlineLeagueList();
+    renderLeagueSwitcher();
+    $('onlineInvitationsSection').hidden = onlineInvitations.length === 0;
+    $('onlineLeaguesSection').hidden = onlineLeagues.length === 0;
   }
 
   function renderOnlineInvitations(invitations) {
@@ -1751,12 +1754,20 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
     }
   }
 
+  function startOnlineRefreshTimer() {
+    if (onlineRefreshTimer) return;
+    onlineRefreshTimer = window.setInterval(() => {
+      if ($('onlineLobby').hidden) void refreshActiveLeague();
+      else void refreshOnlineLobby();
+    }, 10000);
+  }
+
   function startLeagueApp() {
     $('onlineLobby').hidden = true;
     if (!appInitialized) {
       appInitialized = true;
       initializeNFLFeed();
-      onlineRefreshTimer = window.setInterval(() => { void refreshActiveLeague(); }, 10000);
+      startOnlineRefreshTimer();
       return;
     }
     renderOnlineLeague();
@@ -1765,7 +1776,19 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
   async function refreshActiveLeague() {
     if (!onlineReady || onlineDirty || $('onlineLobby').hidden === false) return;
     try {
+      const { response: listResponse, data: listData } = await fantasyRequest('/api/fantasy/leagues');
+      if (!listResponse.ok) throw new Error(listData.error || 'Could not refresh your league list.');
+      updateOnlineLobbyLists(listData);
+      if (!onlineLeagues.some((item) => item.leagueId === league.leagueId)) {
+        await handleUnavailableActiveLeague();
+        return;
+      }
+
       const { response, data } = await fantasyRequest(`/api/fantasy/leagues/${encodeURIComponent(league.leagueId)}`);
+      if (response.status === 403 || response.status === 404) {
+        await handleUnavailableActiveLeague();
+        return;
+      }
       if (!response.ok) throw new Error(data.error || 'Could not refresh the league.');
       if (Number(data.revision) <= onlineRevision) {
         renderDraft();
@@ -1778,6 +1801,43 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
     } catch (error) {
       console.warn('Could not refresh shared league state.', error);
     }
+  }
+
+  async function handleUnavailableActiveLeague() {
+    const unavailableLeagueId = league.leagueId;
+    try {
+      const records = JSON.parse(localStorage.getItem(LEAGUES_KEY) || '{}');
+      delete records[unavailableLeagueId];
+      localStorage.setItem(LEAGUES_KEY, JSON.stringify(records));
+      if (localStorage.getItem(ACTIVE_LEAGUE_KEY) === unavailableLeagueId) {
+        localStorage.removeItem(ACTIVE_LEAGUE_KEY);
+        localStorage.removeItem(SAVE_KEY);
+      }
+    } catch (error) {
+      console.warn('Could not clear the local cache for the unavailable league.', error);
+    }
+
+    onlineReady = false;
+    onlineDirty = false;
+    onlineUserId = '';
+    onlineUserTeamId = '';
+    onlineUserTeamIds.clear();
+    onlineCommissioner = false;
+    onlineRevision = 0;
+    updateOnlineControls();
+    if (onlineLeagues.length && await switchLeague(onlineLeagues[0].leagueId)) {
+      notify('This league was deleted or you are no longer a member. Opened another league.');
+      return;
+    }
+
+    league = structuredClone(STORAGE_FALLBACK);
+    league.leagueId = createLeagueId();
+    normalizeManagers();
+    saveLeague();
+    renderOnlineLeague();
+    void loadPlayerPool();
+    switchView('overview');
+    notify('This league was deleted or you are no longer a member. Returned to your local league.');
   }
 
   async function openInviteManager() {
@@ -1869,6 +1929,7 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
     $('onlineCreateForm').addEventListener('submit', (event) => { void createOnlineLeague(event); });
     $('onlineRefresh').addEventListener('click', () => { void refreshOnlineLobby(); });
     await refreshOnlineLobby();
+    if (localStorage.getItem('ahrenslabs_sessionId')) startOnlineRefreshTimer();
     if (onlineLeagues.length === 1 && onlineInvitations.length === 0) {
       await switchLeague(onlineLeagues[0].leagueId);
     }
@@ -1893,13 +1954,13 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
   }
 
   async function switchLeague(id) {
-    if (!id) return;
+    if (!id) return false;
     if (id === league.leagueId) {
       $('onlineLobby').hidden = true;
       if (!appInitialized) startLeagueApp();
       switchView('overview');
       renderOnlineLeague();
-      return;
+      return true;
     }
     try {
       await onlineSaveChain;
@@ -1926,10 +1987,13 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
       }
       switchView('overview');
       notify(`Switched to ${league.name}.`);
+      return true;
     } catch (error) {
       console.warn('Could not switch leagues.', error);
+      await refreshOnlineLobby();
       renderLeagueSwitcher();
       notify(error.message || 'Could not open that league.');
+      return false;
     }
   }
 

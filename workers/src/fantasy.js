@@ -575,10 +575,12 @@ export class FantasyLeagueStore {
   async list(userId, username) {
     const user = await this.getUser(userId);
     const leagues = [];
-    for (const leagueId of user.leagueIds) {
+    const leagueIds = [...new Set(user.leagueIds || [])];
+    for (const leagueId of leagueIds) {
       const record = await this.getLeague(leagueId);
       if (!record) continue;
       const team = record.league.managers.find((manager) => manager.ownerUserId === userId);
+      if (!team) continue;
       leagues.push({
         leagueId,
         name: record.league.name,
@@ -589,7 +591,18 @@ export class FantasyLeagueStore {
         draftAt: record.league.draftAt || null,
       });
     }
-    return { username: String(username || ''), leagues, invitations: user.invitations };
+    const validLeagueIds = leagues.map((entry) => entry.leagueId);
+    const validInvitations = [];
+    for (const invitation of user.invitations || []) {
+      if (await this.getLeague(invitation.leagueId)) validInvitations.push(invitation);
+    }
+    if (validLeagueIds.length !== (user.leagueIds || []).length
+      || validInvitations.length !== (user.invitations || []).length) {
+      user.leagueIds = validLeagueIds;
+      user.invitations = validInvitations;
+      await this.putUser(userId, user);
+    }
+    return { username: String(username || ''), leagues, invitations: validInvitations };
   }
 
   async create(body) {

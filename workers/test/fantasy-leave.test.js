@@ -45,6 +45,15 @@ async function leave(store, userId, leagueId = 'league-1') {
   return { response, data: await response.json() };
 }
 
+async function storeRequest(store, path, body) {
+  const response = await store.fetch(new Request(`https://fantasy.internal/${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  }));
+  return { response, data: await response.json() };
+}
+
 test('a manager can leave without removing draft history', async () => {
   const league = {
     leagueId: 'league-1',
@@ -108,4 +117,38 @@ test('a commissioner leaving deletes the league and cleans member and pending in
   assert.deepEqual((await storage.get('user:commissioner')).leagueIds, []);
   assert.deepEqual((await storage.get('user:manager')).leagueIds, []);
   assert.deepEqual((await storage.get('user:zz-legacy-invitee')).invitations, []);
+
+  const { data: managerLeagues } = await storeRequest(store, 'list', {
+    userId: 'manager',
+    username: 'Manager',
+  });
+  assert.deepEqual(managerLeagues.leagues, []);
+  const { response: loadResponse } = await storeRequest(store, 'load', {
+    userId: 'manager',
+    leagueId: 'league-1',
+  });
+  assert.equal(loadResponse.status, 404);
+});
+
+test('league lists discard deleted league references and invitations', async () => {
+  const { store, storage } = createStore([
+    ['league-no-longer-owned', {
+      league: {
+        leagueId: 'league-no-longer-owned',
+        commissionerUserId: 'other-user',
+        managers: [{ id: 'team-1', ownerUserId: 'other-user', roster: [] }],
+      },
+      revision: 1,
+    }],
+    ['user:manager', {
+      leagueIds: ['league-1', 'league-no-longer-owned', 'league-deleted'],
+      invitations: [{ leagueId: 'league-deleted', teamId: 'team-2' }],
+    }],
+  ]);
+
+  const { data } = await storeRequest(store, 'list', { userId: 'manager', username: 'Manager' });
+
+  assert.deepEqual(data.leagues, []);
+  assert.deepEqual(data.invitations, []);
+  assert.deepEqual(await storage.get('user:manager'), { leagueIds: [], invitations: [] });
 });
