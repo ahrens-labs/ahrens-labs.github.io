@@ -4963,6 +4963,34 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     });
   }
 
+  function easternDateOrdinal(value) {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/New_York',
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+    }).formatToParts(new Date(value));
+    const dateParts = Object.fromEntries(parts.map(({ type, value: part }) => [type, part]));
+    return Date.UTC(Number(dateParts.year), Number(dateParts.month) - 1, Number(dateParts.day)) / 86400000;
+  }
+
+  function advanceWeekAfterMondayNight(week, weekGames) {
+    if (week >= 18) return false;
+    const mondayGames = weekGames.filter((game) => game.date
+      && new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', weekday: 'short' }).format(new Date(game.date)) === 'Mon');
+    if (!mondayGames.length || !mondayGames.every((game) => game.completed)) return false;
+
+    const latestMondayGame = Math.max(...mondayGames.map((game) => new Date(game.date).getTime()));
+    const daysSinceMonday = easternDateOrdinal(new Date()) - easternDateOrdinal(latestMondayGame);
+    if (daysSinceMonday < 0 || daysSinceMonday > 2) return false;
+
+    league.selectedWeek = week + 1;
+    renderWeekSelector();
+    saveLeague();
+    void refreshProjections();
+    return true;
+  }
+
   async function syncNFL() {
     if (pollBusy) {
       syncRequested = true;
@@ -4996,6 +5024,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       lastSync = new Date();
       scoreboardFeedFailures = 0;
       scoreboardFeedLoading = false;
+      if (advanceWeekAfterMondayNight(Number(week), games)) syncRequested = true;
       updateConnectionStatus();
       $('lastUpdated').textContent = `UPDATED ${formatCentralTime(lastSync, { second: '2-digit' })} CT`;
       $('liveBadge').textContent = games.filter((game) => game.live).length ? `${games.filter((game) => game.live).length} LIVE` : 'NFL';
