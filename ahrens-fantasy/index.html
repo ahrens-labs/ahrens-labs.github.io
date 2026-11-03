@@ -1405,6 +1405,11 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
     $('settingsButton').hidden = onlineReady && !onlineCommissioner;
     $('settingsButton').disabled = onlineReady && !onlineCommissioner;
     $('settingsButton').title = onlineCommissioner ? 'Edit league settings' : 'Only the commissioner can edit league settings';
+    const scoringTab = document.querySelector('.nav-tab[data-view="scoring"]');
+    scoringTab.hidden = onlineReady && !onlineCommissioner;
+    if (scoringTab.hidden && $('view-scoring').classList.contains('active')) {
+      switchView('overview');
+    }
   }
 
   function ownsOnlineTeam(teamId) {
@@ -4624,6 +4629,7 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
   }
 
   function switchView(viewName, updateUrl = true) {
+    if (onlineReady && !onlineCommissioner && viewName === 'scoring') viewName = 'overview';
     const target = $(`view-${viewName}`);
     const navTab = document.querySelector(`.nav-tab[data-view="${viewName}"]`);
     if (!target || !navTab) return;
@@ -4646,7 +4652,7 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
   function restoreViewFromUrl() {
     let viewName = '';
     try { viewName = decodeURIComponent(location.hash.slice(1)); } catch (_) { viewName = ''; }
-    const knownView = [...document.querySelectorAll('.nav-tab[data-view]')].some((tab) => tab.dataset.view === viewName);
+    const knownView = [...document.querySelectorAll('.nav-tab[data-view]')].some((tab) => tab.dataset.view === viewName && !tab.hidden);
     const view = knownView && $(`view-${viewName}`) ? viewName : 'overview';
     if (viewName !== view) history.replaceState(null, '', `#${view}`);
     switchView(view, false);
