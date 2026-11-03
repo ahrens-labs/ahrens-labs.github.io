@@ -1324,14 +1324,14 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
     league.draftAt = data.league.draftAt || null;
     onlineRevision = Number(data.revision) || 0;
     onlineUserTeamId = String(data.userTeamId || '');
-    onlineUserId = String(data.userId || onlineUserId);
+    onlineUserId = String(data.userId || '');
     onlineUserTeamIds = new Set(Array.isArray(data.userTeamIds) ? data.userTeamIds : [onlineUserTeamId].filter(Boolean));
     if (!onlineUserTeamIds.size && onlineUserId) {
       onlineUserTeamIds = new Set(league.managers
         .filter((team) => team.ownerUserId === onlineUserId)
         .map((team) => team.id));
     }
-    onlineCommissioner = Boolean(data.isCommissioner);
+    onlineCommissioner = Boolean(onlineUserId && league.commissionerUserId === onlineUserId);
     onlineReady = true;
     onlineDirty = false;
     rosterViewTeam = Math.max(0, league.managers.findIndex((team) => onlineUserTeamIds.has(team.id)));
@@ -1402,7 +1402,8 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
     $('inviteManagerButton').hidden = !onlineCommissioner;
     $('manageTeamsButton').hidden = !onlineCommissioner;
     $('scheduleDraftButton').hidden = !onlineCommissioner;
-    $('settingsButton').disabled = !onlineCommissioner;
+    $('settingsButton').hidden = onlineReady && !onlineCommissioner;
+    $('settingsButton').disabled = onlineReady && !onlineCommissioner;
     $('settingsButton').title = onlineCommissioner ? 'Edit league settings' : 'Only the commissioner can edit league settings';
   }
 
@@ -3090,7 +3091,8 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
     const activeSlots = startingSlotCount();
     const activeCount = team.roster.filter((player) => player.rosterSlot !== 'BENCH').length;
     const benchCount = team.roster.length - activeCount;
-    $('rosterSummary').innerHTML = `<span>TEAM <b>${escapeHTML(team.teamName)}</b> · MANAGER <b>${escapeHTML(team.name)}</b></span><span><b>STARTERS ${activeCount}/${activeSlots}</b> · <b>BENCH ${benchCount}/${Number(league.rosterSlots.BENCH || 0)}</b> · ${team.roster.length}/${rosterCapacity()} TOTAL</span>`;
+    const commissionerLabel = team.ownerUserId === league.commissionerUserId ? ' · COMMISSIONER' : '';
+    $('rosterSummary').innerHTML = `<span>TEAM <b>${escapeHTML(team.teamName)}</b> · MANAGER <b>${escapeHTML(team.name)}</b>${commissionerLabel}</span><span><b>STARTERS ${activeCount}/${activeSlots}</b> · <b>BENCH ${benchCount}/${Number(league.rosterSlots.BENCH || 0)}</b> · ${team.roster.length}/${rosterCapacity()} TOTAL</span>`;
     renderRosterWeekTotals(team);
     const body = $('rosterRows');
     body.replaceChildren();
