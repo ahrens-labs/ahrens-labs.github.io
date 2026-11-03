@@ -1650,6 +1650,8 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
         }
       }
       notify(data.deleted ? 'League deleted.' : 'You left the league.');
+    } catch (error) {
+      $('onlineLobbyError').textContent = error.message || 'Could not leave this league.';
     }
   }
 
