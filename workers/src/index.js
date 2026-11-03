@@ -45,8 +45,10 @@ import { handleCauldronRequest } from './cauldron.js';
 import { handleHeroesRequest } from './heroes.js';
 import { handleMasqueradeRequest } from './masquerade.js';
 import { handleBoardGamesRequest, handleBoardSavesDO, deleteBoardSaves } from './board-games.js';
+import { FantasyLeagueStore, handleFantasyRequest } from './fantasy.js';
 export { HearthholdGame, HearthholdLobby } from './hearthhold.js';
 export { LabGame, LabLobby } from './lab-online.js';
+export { FantasyLeagueStore };
 import { handleLinkRequest, handleLinkConsumeBridge, handleInternalUserProfile } from './link.js';
 import {
   getAppDataKey,
@@ -301,6 +303,8 @@ export default {
           executionCtx,
           notifyChallenge: (notice) => sendLabChallengeEmail(env, notice),
         });
+      } else if (path.startsWith('/api/fantasy/')) {
+        return handleFantasyRequest(request, env, corsHeaders, path);
       } else if (path.startsWith('/api/platter/')) {
         const platterRes = await handlePlatterRequest(request, env, corsHeaders, path);
         if (platterRes) return platterRes;
