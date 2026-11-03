@@ -53,7 +53,7 @@ export async function handleFantasyRequest(request, env, corsHeaders, path, { ex
       return send('decline-invitation', body);
     }
 
-    const match = path.match(/^\/api\/fantasy\/leagues\/([^/]+)(?:\/(invitations|schedule|teams))?$/);
+    const match = path.match(/^\/api\/fantasy\/leagues\/([^/]+)(?:\/(invitations|schedule|teams|leave))?$/);
     if (!match) return fantasyJson({ error: 'Not found.' }, 404, corsHeaders);
     const leagueId = decodeURIComponent(match[1]);
     if (!leagueId || leagueId.length > 100) return fantasyJson({ error: 'Invalid league id.' }, 400, corsHeaders);
@@ -116,6 +116,9 @@ export async function handleFantasyRequest(request, env, corsHeaders, path, { ex
         claimTeamIds: body.claimTeamIds,
         revision: body.revision,
       });
+    }
+    if (match[2] === 'leave' && request.method === 'POST') {
+      return send('leave', { leagueId });
     }
     return fantasyJson({ error: 'Method not allowed.' }, 405, corsHeaders);
   } catch (error) {
@@ -228,6 +231,7 @@ function normalizeSetup(input, userId, username) {
       draftOrder,
       picks: [],
       trades: [],
+      pendingInviteUserIds: [],
       draftStarted: false,
       draftAt: null,
       selectedRoster: 0,
@@ -542,6 +546,7 @@ export class FantasyLeagueStore {
       else if (path === '/decline-invitation') result = await this.declineInvitation(body);
       else if (path === '/schedule') result = await this.schedule(body);
       else if (path === '/manage-teams') result = await this.manageTeams(body);
+      else if (path === '/leave') result = await this.leave(body);
       else if (path === '/save') result = await this.save(body);
       else result = { status: 404, error: 'Not found.' };
       return fantasyJson(result, result.status || 200);
@@ -715,8 +720,54 @@ export class FantasyLeagueStore {
       invitedAt: Date.now(),
     };
     invitee.invitations.push(invitation);
+    record.league.pendingInviteUserIds = [...new Set([...(record.league.pendingInviteUserIds || []), inviteeUserId])];
+    await this.putLeague(record);
     await this.putUser(inviteeUserId, invitee);
     return { success: true, invitation };
+  }
+
+  async leave(body) {
+    const userId = String(body.userId || '');
+    const leagueId = String(body.leagueId || '');
+    const record = await this.getLeague(leagueId);
+    if (!record) return { status: 404, error: 'League not found.' };
+    const user = await this.getUser(userId);
+    const ownTeams = record.league.managers.filter((team) => team.ownerUserId === userId);
+    if (!ownTeams.length || !user.leagueIds.includes(leagueId)) {
+      return { status: 403, error: 'You are not a member of this league.' };
+    }
+
+    if (record.league.commissionerUserId === userId) {
+      let cursor;
+      do {
+        const options = { prefix: USER_PREFIX, limit: 1000 };
+        if (cursor) options.cursor = cursor;
+        const page = await this.storage.list(options);
+        for (const [key, affectedUser] of page) {
+          const leagueIds = (affectedUser.leagueIds || []).filter((id) => id !== leagueId);
+          const invitations = (affectedUser.invitations || []).filter((invite) => invite.leagueId !== leagueId);
+          if (leagueIds.length !== (affectedUser.leagueIds || []).length
+            || invitations.length !== (affectedUser.invitations || []).length) {
+            await this.storage.put(key, { ...affectedUser, leagueIds, invitations });
+          }
+        }
+        cursor = page.list_complete ? null : page.cursor;
+        if (!page.list_complete && !cursor) throw new Error('Could not finish cleaning up league memberships.');
+      } while (cursor);
+      await this.storage.delete(`${LEAGUE_PREFIX}${leagueId}`);
+      return { success: true, deleted: true };
+    }
+
+    ownTeams.forEach((team) => {
+      team.ownerUserId = null;
+      team.name = 'Open team';
+      team.teamName = `Team ${record.league.managers.indexOf(team) + 1}`;
+      team.roster = [];
+    });
+    user.leagueIds = user.leagueIds.filter((id) => id !== leagueId);
+    await this.putLeague({ ...record, revision: record.revision + 1 });
+    await this.putUser(userId, user);
+    return { success: true, deleted: false };
   }
 
   async acceptInvitation(body) {
@@ -740,6 +791,7 @@ export class FantasyLeagueStore {
     record.revision += 1;
     user.invitations.splice(invitationIndex, 1);
     user.leagueIds = [...new Set([...user.leagueIds, leagueId])];
+    record.league.pendingInviteUserIds = (record.league.pendingInviteUserIds || []).filter((id) => id !== userId);
     await this.putLeague(record);
     await this.putUser(userId, user);
     return { leagueId, teamId, success: true };
@@ -753,6 +805,11 @@ export class FantasyLeagueStore {
     const countBefore = user.invitations.length;
     user.invitations = user.invitations.filter((invite) => invite.leagueId !== leagueId || invite.teamId !== teamId);
     if (user.invitations.length === countBefore) return { status: 404, error: 'Invitation not found.' };
+    const record = await this.getLeague(leagueId);
+    if (record) {
+      record.league.pendingInviteUserIds = (record.league.pendingInviteUserIds || []).filter((id) => id !== userId);
+      await this.putLeague(record);
+    }
     await this.putUser(userId, user);
     return { success: true };
   }
@@ -797,6 +854,7 @@ export class FantasyLeagueStore {
     const league = jsonClone(body.league);
     league.draftAt = record.league.draftAt;
     league.commissionerUserId = record.league.commissionerUserId;
+    league.pendingInviteUserIds = record.league.pendingInviteUserIds || [];
     const acceptedTradeTeams = new Set(
       league.trades
         .filter((trade) => trade.status === 'accepted'

@@ -1527,6 +1527,7 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
       onlineInvitations = invitations;
       renderOnlineInvitations(invitations);
       renderOnlineLeagueList();
+      renderLeagueSwitcher();
       $('onlineInvitationsSection').hidden = invitations.length === 0;
       $('onlineLeaguesSection').hidden = onlineLeagues.length === 0;
     } catch (requestError) {
@@ -1574,9 +1575,80 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
       open.type = 'button';
       open.textContent = 'OPEN LEAGUE';
       open.addEventListener('click', () => { void switchLeague(item.leagueId); });
-      row.append(copy, open);
+      const leave = document.createElement('button');
+      leave.className = 'button';
+      leave.type = 'button';
+      leave.textContent = item.role === 'commissioner' ? 'DELETE LEAGUE' : 'LEAVE LEAGUE';
+      leave.addEventListener('click', () => {
+        const commissioner = item.role === 'commissioner';
+        openConfirm(
+          commissioner ? 'Delete this league?' : 'Leave this league?',
+          commissioner
+            ? `Leaving ${item.name} as commissioner will permanently delete the league, including all teams, draft history, and pending invitations.`
+            : `You will leave ${item.name}. Your team will become open and its roster will be cleared, but the league and draft history will remain.`,
+          () => { void leaveOnlineLeague(item); return true; },
+          { confirmText: commissioner ? 'DELETE LEAGUE' : 'LEAVE LEAGUE' },
+        );
+      });
+      const actions = document.createElement('div');
+      actions.className = 'title-actions';
+      actions.append(open, leave);
+      row.append(copy, actions);
       target.append(row);
     });
+  }
+
+  async function leaveOnlineLeague(item) {
+    const activeLeagueId = league.leagueId;
+    try {
+      await onlineSaveChain;
+      const { response, data } = await fantasyRequest(
+        `/api/fantasy/leagues/${encodeURIComponent(item.leagueId)}/leave`,
+        'POST',
+      );
+      if (!response.ok) throw new Error(data.error || 'Could not leave this league.');
+
+      try {
+        const records = JSON.parse(localStorage.getItem(LEAGUES_KEY) || '{}');
+        delete records[item.leagueId];
+        localStorage.setItem(LEAGUES_KEY, JSON.stringify(records));
+        if (localStorage.getItem(ACTIVE_LEAGUE_KEY) === item.leagueId) {
+          localStorage.removeItem(ACTIVE_LEAGUE_KEY);
+          localStorage.removeItem(SAVE_KEY);
+        }
+      } catch (storageError) {
+        console.warn('Could not clear the local cache for the departed league.', storageError);
+      }
+
+      if (item.leagueId === activeLeagueId) {
+        onlineReady = false;
+        onlineDirty = false;
+        onlineUserId = '';
+        onlineUserTeamId = '';
+        onlineUserTeamIds.clear();
+        onlineCommissioner = false;
+        onlineRevision = 0;
+        updateOnlineControls();
+      }
+      await refreshOnlineLobby();
+
+      if (item.leagueId === activeLeagueId) {
+        if (onlineLeagues.length) {
+          await switchLeague(onlineLeagues[0].leagueId);
+        } else {
+          league = structuredClone(STORAGE_FALLBACK);
+          league.leagueId = createLeagueId();
+          normalizeManagers();
+          saveLeague();
+          renderOnlineLeague();
+          void loadPlayerPool();
+          switchView('overview');
+        }
+      }
+      notify(data.deleted ? 'League deleted.' : 'You left the league.');
+    } catch (error) {
+      $('onlineLobbyError').textContent = error.message || 'Could not leave this league.';
+    }
   }
 
   async function respondToInvitation(invitation, accept) {
