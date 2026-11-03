@@ -780,7 +780,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
 </style>
 </head>
 <body>
-<section class="online-lobby" id="onlineLobby" aria-modal="true" role="dialog" aria-labelledby="onlineLobbyTitle">
+<section class="online-lobby" id="onlineLobby" aria-modal="true" role="dialog" aria-labelledby="onlineLobbyTitle" hidden>
   <div class="online-lobby-card">
     <header class="online-lobby-head">
       <div>
@@ -1525,7 +1525,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     $('onlineLeaguesSection').hidden = true;
     if (!sessionId) {
       $('onlineLobbyUser').textContent = 'Sign in with your Ahrens Labs account to view or create leagues.';
-      return;
+      return false;
     }
     $('onlineLobbyUser').textContent = 'Loading your account…';
     try {
@@ -1538,8 +1538,10 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
         throw new Error(data.error || 'Could not load your leagues.');
       }
       updateOnlineLobbyLists(data);
+      return true;
     } catch (requestError) {
       error.textContent = requestError.message || 'Could not connect to Ahrens Labs Fantasy.';
+      return false;
     }
   }
 
@@ -1947,10 +1949,14 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
   async function startOnlineApp() {
     $('onlineCreateForm').addEventListener('submit', (event) => { void createOnlineLeague(event); });
     $('onlineRefresh').addEventListener('click', () => { void refreshOnlineLobby(); });
-    await refreshOnlineLobby();
+    const accountLoaded = await refreshOnlineLobby();
     if (localStorage.getItem('ahrenslabs_sessionId')) startOnlineRefreshTimer();
-    if (onlineLeagues.length === 1 && onlineInvitations.length === 0) {
-      await switchLeague(onlineLeagues[0].leagueId);
+    if (accountLoaded && onlineLeagues.length) {
+      const savedLeagueId = localStorage.getItem(ACTIVE_LEAGUE_KEY);
+      const activeLeague = onlineLeagues.find((item) => item.leagueId === savedLeagueId) || onlineLeagues[0];
+      if (!await switchLeague(activeLeague.leagueId)) $('onlineLobby').hidden = false;
+    } else {
+      $('onlineLobby').hidden = false;
     }
   }
 
@@ -1974,7 +1980,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
 
   async function switchLeague(id) {
     if (!id) return false;
-    if (id === league.leagueId) {
+    if (id === league.leagueId && onlineReady) {
       $('onlineLobby').hidden = true;
       if (!appInitialized) startLeagueApp();
       switchView('overview');
