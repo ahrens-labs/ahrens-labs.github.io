@@ -363,6 +363,7 @@ function validateLeagueSave(previous, incoming, userId) {
     return 'Roster size exceeds the configured league limits.';
   }
   if (incoming.managers.some((team) => !Array.isArray(team.roster)
+    || !validString(team.teamName, 40)
     || team.roster.some((player) => !player || !validString(String(player.id || ''), 100)))) {
     return 'Roster player data is invalid.';
   }
@@ -725,8 +726,13 @@ export class FantasyLeagueStore {
     if (!record) return { status: 404, error: 'League no longer exists.' };
     const team = managerById(record.league, teamId);
     if (!team || team.ownerUserId) return { status: 409, error: 'That team is no longer available.' };
+    const invitedTeam = user.invitations[invitationIndex];
+    const requestedTeamName = typeof body.teamName === 'string' ? body.teamName.trim() : '';
+    const teamName = requestedTeamName || invitedTeam.teamName || team.teamName;
+    if (!validString(teamName, 40)) return { status: 400, error: 'Enter a fantasy team name of 1 to 40 characters.' };
     team.ownerUserId = userId;
     team.name = String(body.username || 'Manager').slice(0, 40);
+    team.teamName = teamName;
     record.revision += 1;
     user.invitations.splice(invitationIndex, 1);
     user.leagueIds = [...new Set([...user.leagueIds, leagueId])];

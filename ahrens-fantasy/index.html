@@ -907,7 +907,7 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
     </section>
 
     <section class="view" id="view-rosters">
-      <div class="view-title"><div><div class="eyebrow">Lineups</div><h1>Set who starts this week.</h1><p>Weekly projections and actual points stay visible on every roster row. Select a player’s name to open current and previous weeks’ stats; use Move to change their lineup slot.</p></div><div class="title-actions"><button class="button" id="openTrade">Trade desk</button><button class="button" id="editLineup">Edit lineup</button></div></div>
+      <div class="view-title"><div><div class="eyebrow">Lineups</div><h1>Set who starts this week.</h1><p>Weekly projections and actual points stay visible on every roster row. Select a player’s name to open current and previous weeks’ stats; use Move to change their lineup slot.</p></div><div class="title-actions"><button class="button" id="renameRosterTeam">Rename team</button><button class="button" id="openTrade">Trade desk</button><button class="button" id="editLineup">Edit lineup</button></div></div>
       <section class="panel"><div class="roster-tabs" id="rosterTabs"></div><div class="roster-summary" id="rosterSummary"></div><div class="roster-week-totals" id="rosterWeekTotals"></div><p class="legend">Week totals include starters only, matching the lineup points used in matchups. Press <strong>Move</strong>, then <strong>Place</strong> on the player whose slot you want. Full slots swap players when eligible; otherwise the replaced player goes to the bench.</p><div class="player-table-wrap"><table class="roster-table"><thead><tr><th>Player</th><th>Pos</th><th>NFL</th><th>Matchup</th><th>Status</th><th>Slot</th><th>Proj</th><th>Points</th><th>Action</th></tr></thead><tbody id="rosterRows"></tbody></table></div></section>
     </section>
 
@@ -1574,9 +1574,48 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
   }
 
   async function respondToInvitation(invitation, accept) {
+    if (accept) {
+      const wrapper = document.createElement('div');
+      const field = document.createElement('div');
+      field.className = 'field';
+      const label = document.createElement('label');
+      label.htmlFor = 'joinedTeamName';
+      label.textContent = 'YOUR FANTASY TEAM NAME';
+      const input = document.createElement('input');
+      input.className = 'input';
+      input.id = 'joinedTeamName';
+      input.type = 'text';
+      input.maxLength = 40;
+      input.value = `${onlineUsername || 'Manager'}'s Team`;
+      field.append(label, input);
+      const note = document.createElement('p');
+      note.className = 'small-note';
+      note.textContent = `You’re joining ${invitation.leagueName || 'this league'} as ${invitation.teamName || 'a team manager'}. You can change your team name later on the roster page.`;
+      wrapper.append(field, note);
+      openModal('Choose your fantasy team name.', 'JOIN LEAGUE', wrapper, () => {
+        const teamName = input.value.trim();
+        if (!teamName) {
+          notify('Enter a fantasy team name.');
+          input.focus();
+          return false;
+        }
+        void finishInvitationResponse(invitation, true, teamName);
+        return true;
+      }, { confirmText: 'JOIN LEAGUE' });
+      input.focus();
+      input.select();
+      return;
+    }
+    await finishInvitationResponse(invitation, false);
+  }
+
+  async function finishInvitationResponse(invitation, accept, teamName = '') {
     try {
       const action = accept ? 'accept' : 'decline';
-      const { response, data } = await fantasyRequest(`/api/fantasy/invitations/${action}`, 'POST', invitation);
+      const { response, data } = await fantasyRequest(`/api/fantasy/invitations/${action}`, 'POST', {
+        ...invitation,
+        ...(accept ? { teamName } : {}),
+      });
       if (!response.ok) throw new Error(data.error || 'Could not respond to this invitation.');
       await refreshOnlineLobby();
       if (accept) await switchLeague(invitation.leagueId);
@@ -3047,6 +3086,7 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
     });
     const team = league.managers[rosterViewTeam] || league.managers[0];
     if (!team) return;
+    $('renameRosterTeam').hidden = onlineReady && !ownsOnlineTeam(team.id);
     const activeSlots = startingSlotCount();
     const activeCount = team.roster.filter((player) => player.rosterSlot !== 'BENCH').length;
     const benchCount = team.roster.length - activeCount;
@@ -3071,6 +3111,43 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
     body.append(makeRosterGroupRow(`BENCH · ${bench.length} OF ${Number(league.rosterSlots.BENCH || 0)} SLOTS USED`, 'bench'));
     if (bench.length) bench.forEach((player) => body.append(renderRosterRow(team, player)));
     else body.append(makeRosterGroupRow('Bench is empty.', 'empty'));
+  }
+
+  function renameRosterTeam() {
+    const team = league.managers[rosterViewTeam] || league.managers[0];
+    if (!team || (onlineReady && !ownsOnlineTeam(team.id))) {
+      notify('You can only rename your own team.');
+      return;
+    }
+    const wrapper = document.createElement('div');
+    const field = document.createElement('div');
+    field.className = 'field';
+    const label = document.createElement('label');
+    label.htmlFor = 'rosterTeamName';
+    label.textContent = 'FANTASY TEAM NAME';
+    const input = document.createElement('input');
+    input.className = 'input';
+    input.id = 'rosterTeamName';
+    input.type = 'text';
+    input.maxLength = 40;
+    input.value = team.teamName;
+    field.append(label, input);
+    wrapper.append(field);
+    openModal('Rename your fantasy team.', 'ROSTER SETTINGS', wrapper, () => {
+      const nextName = input.value.trim();
+      if (!nextName) {
+        notify('Enter a fantasy team name.');
+        input.focus();
+        return false;
+      }
+      team.teamName = nextName;
+      saveLeague();
+      renderOnlineLeague();
+      notify(`Team renamed to ${nextName}.`);
+      return true;
+    }, { confirmText: 'SAVE TEAM NAME' });
+    input.focus();
+    input.select();
   }
 
   function renderEmptyRosterSlotRow(team, slot) {
@@ -5064,6 +5141,7 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
     $('saveScoringBottom').addEventListener('click', saveScoring);
     $('resetScoring').addEventListener('click', resetScoring);
     $('openTrade').addEventListener('click', openTradeDesk);
+    $('renameRosterTeam').addEventListener('click', renameRosterTeam);
     document.querySelectorAll('.nav-tab[data-view]').forEach((tab) => {
       tab.addEventListener('click', () => switchView(tab.dataset.view));
     });
