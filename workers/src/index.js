@@ -304,7 +304,10 @@ export default {
           notifyChallenge: (notice) => sendLabChallengeEmail(env, notice),
         });
       } else if (path.startsWith('/api/fantasy/')) {
-        return handleFantasyRequest(request, env, corsHeaders, path);
+        return handleFantasyRequest(request, env, corsHeaders, path, {
+          executionCtx,
+          notifyInvitation: (notice) => sendFantasyInvitationEmail(env, notice),
+        });
       } else if (path.startsWith('/api/platter/')) {
         const platterRes = await handlePlatterRequest(request, env, corsHeaders, path);
         if (platterRes) return platterRes;
@@ -9354,6 +9357,59 @@ async function sendDinoChallengeEmail(env, { to, recipientName, challengerName, 
     modeLine,
     '',
     `Accept or decline here: ${gameUrl}`,
+  ].join('\n');
+  await dispatchTransactionalEmail(env, { to, subject, html, text });
+}
+
+async function sendFantasyInvitationEmail(env, {
+  inviteeUserId,
+  recipientName,
+  inviterName,
+  leagueName,
+  teamName,
+}) {
+  const account = env.USER_ACCOUNT.get(env.USER_ACCOUNT.idFromName(inviteeUserId));
+  const response = await account.fetch(new Request('http://account.internal/getData'));
+  if (!response.ok) throw new Error('Could not load the invited manager account.');
+  const profile = await response.json();
+  const to = normalizeEmail(profile?.email || '');
+  if (!to || !isLikelyRealEmail(to)) return;
+
+  const recipient = String(profile.username || recipientName || 'there').replace(/\s+/g, ' ').trim().slice(0, 40);
+  const inviter = String(inviterName || 'A league commissioner').replace(/\s+/g, ' ').trim().slice(0, 40);
+  const league = String(leagueName || 'Ahrens Fantasy league').replace(/\s+/g, ' ').trim().slice(0, 60);
+  const team = String(teamName || 'a team').replace(/\s+/g, ' ').trim().slice(0, 60);
+  const fantasyUrl = `${sitePublicBase(env)}/ahrens-fantasy/`;
+  const subject = `You’re invited to ${league} on Ahrens Fantasy`;
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width"></head>
+<body style="margin:0;padding:24px 14px;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#0f172a;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+    <tr><td align="center">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:560px;background:#ffffff;border:1px solid #e2e8f0;border-radius:16px;overflow:hidden;">
+        <tr><td style="padding:22px 28px;background:linear-gradient(120deg,#0f766e 0%,#155e75 100%);">
+          <p style="margin:0;font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#ccfbf1;">Ahrens Fantasy · Ahrens Labs</p>
+          <p style="margin:8px 0 0;font-size:22px;font-weight:900;line-height:1.25;color:#ffffff;">You’ve been invited to a league!</p>
+        </td></tr>
+        <tr><td style="padding:24px 28px;">
+          <p style="margin:0 0 12px;font-size:16px;font-weight:700;">Hi ${escapeHtmlEmail(recipient)},</p>
+          <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#334155;"><strong>${escapeHtmlEmail(inviter)}</strong> invited you to manage <strong>${escapeHtmlEmail(team)}</strong> in <strong>${escapeHtmlEmail(league)}</strong>. Open Ahrens Fantasy to accept or decline the invitation.</p>
+          <div style="text-align:center;">
+            <a href="${escapeHtmlEmail(fantasyUrl)}" style="display:inline-block;padding:13px 26px;background:#0f766e;color:#ffffff !important;text-decoration:none;border-radius:999px;font-weight:800;font-size:15px;">Open Ahrens Fantasy</a>
+          </div>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+  const text = [
+    `Hi ${recipient},`,
+    '',
+    `${inviter} invited you to manage ${team} in ${league}.`,
+    'Open Ahrens Fantasy to accept or decline the invitation:',
+    fantasyUrl,
   ].join('\n');
   await dispatchTransactionalEmail(env, { to, subject, html, text });
 }

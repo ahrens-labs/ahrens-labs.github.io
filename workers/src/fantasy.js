@@ -7,7 +7,7 @@ const ROSTER_POSITIONS = [
   'QB', 'RB', 'WR', 'TE', 'K', 'D/ST', 'DL', 'DE', 'DT', 'LB', 'DB', 'CB', 'S', 'P', 'FLEX', 'BENCH',
 ];
 
-export async function handleFantasyRequest(request, env, corsHeaders, path) {
+export async function handleFantasyRequest(request, env, corsHeaders, path, { executionCtx, notifyInvitation } = {}) {
   const identity = await getIdentity(request, env);
   if (!identity) return fantasyJson({ error: 'Sign in with an Ahrens Labs account to use Fantasy Football.' }, 401, corsHeaders);
 
@@ -80,7 +80,27 @@ export async function handleFantasyRequest(request, env, corsHeaders, path) {
       if (!resolved.ok || !account.userId) {
         return fantasyJson({ error: account.error || 'That Ahrens Labs username was not found.' }, 404, corsHeaders);
       }
-      return send('invite', { leagueId, teamId, inviteeUserId: account.userId, inviteeUsername: username });
+      const response = await send('invite', {
+        leagueId,
+        teamId,
+        inviteeUserId: account.userId,
+        inviteeUsername: username,
+      });
+      if (response.ok && notifyInvitation) {
+        const result = await response.clone().json();
+        const notification = Promise.resolve(notifyInvitation({
+          inviteeUserId: account.userId,
+          recipientName: username,
+          inviterName: identity.username,
+          leagueName: result.invitation?.leagueName || '',
+          teamName: result.invitation?.teamName || '',
+        })).catch((error) => {
+          console.error('Fantasy invitation email failed:', error);
+        });
+        if (executionCtx?.waitUntil) executionCtx.waitUntil(notification);
+        else await notification;
+      }
+      return response;
     }
     if (match[2] === 'schedule' && request.method === 'PUT') {
       const body = await readFantasyBody(request);
