@@ -2696,6 +2696,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     if (playerPoolBusy) return players;
     playerPoolBusy = true;
     const generation = feedGeneration;
+    const projectionWeek = Number(league.selectedWeek);
     playerFeedLoading = true;
     updateConnectionStatus();
     try {
@@ -2750,8 +2751,11 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       players = [...deduped.values()].sort((a, b) => a.name.localeCompare(b.name));
       if (!players.length) throw new Error('No players loaded. The public roster feed may be unavailable.');
       let fantasyData = await rankPromise;
-      if (generation !== feedGeneration) fantasyData = await fetchEspnPlayerRanks();
-      applyFantasyProjections(fantasyData);
+      if (generation !== feedGeneration || projectionWeek !== Number(league.selectedWeek)) {
+        fantasyData = await fetchEspnPlayerRanks();
+      }
+      if (projectionWeek === Number(league.selectedWeek)) applyFantasyProjections(fantasyData);
+      else void refreshProjections();
       players.sort(compareEspnRank);
       reconcileDraftedPlayerData();
       populateTeamFilter();
@@ -5235,18 +5239,25 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     syncRequested = false;
     const generation = feedGeneration;
     const syncingLeagueId = league.leagueId;
+    const week = ui.weekSelect.value || league.selectedWeek || 1;
     scoreboardFeedLoading = true;
     updateConnectionStatus();
     try {
-      const week = ui.weekSelect.value || league.selectedWeek || 1;
       const url = `${ESPN}/scoreboard?week=${encodeURIComponent(week)}&seasontype=2&limit=100`;
       const data = await fetchJSON(url, 15000);
-      if (generation !== feedGeneration || syncingLeagueId !== league.leagueId) return;
+      if (generation !== feedGeneration || syncingLeagueId !== league.leagueId
+        || Number(week) !== Number(ui.weekSelect.value || league.selectedWeek)) return;
       games = scoreboardGames(data);
       scheduleWeekLoaded = Number(week);
       const active = games.filter((game) => game.live || game.completed);
       const needsSummary = active.filter((game) => game.live || !summaryFetchAt.has(game.id) || Date.now() - summaryFetchAt.get(game.id) > 300000);
       const summaries = await Promise.allSettled(needsSummary.map((game) => fetchJSON(`${ESPN}/summary?event=${encodeURIComponent(game.id)}`, 15000)));
+      if (generation !== feedGeneration || syncingLeagueId !== league.leagueId
+        || Number(week) !== Number(ui.weekSelect.value || league.selectedWeek)) {
+        games = [];
+        scheduleWeekLoaded = null;
+        return;
+      }
       const changedPlayers = [];
       summaries.forEach((result, index) => {
         if (result.status !== 'fulfilled') return;
@@ -5255,7 +5266,6 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
         parseGameSummary(summary, game, changedPlayers);
         summaryFetchAt.set(game.id, Date.now());
       });
-      if (generation !== feedGeneration || syncingLeagueId !== league.leagueId) return;
       lastSync = new Date();
       scoreboardFeedFailures = 0;
       scoreboardFeedLoading = false;
@@ -5275,7 +5285,8 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       renderMatchups();
       renderRosters();
     } catch (error) {
-      if (generation !== feedGeneration || syncingLeagueId !== league.leagueId) return;
+      if (generation !== feedGeneration || syncingLeagueId !== league.leagueId
+        || Number(week) !== Number(ui.weekSelect.value || league.selectedWeek)) return;
       console.warn('Could not sync current NFL scoreboard.', error);
       scoreboardFeedFailures += 1;
       $('lastUpdated').textContent = lastSync
@@ -5731,7 +5742,32 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     ui.weekSelect.addEventListener('change', () => {
       league.selectedWeek = Number(ui.weekSelect.value) || 1;
       document.querySelectorAll('.current-week').forEach((el) => { el.textContent = ui.weekSelect.value; });
+      games = [];
+      scheduleWeekLoaded = null;
+      playerStats.clear();
+      teamStats.clear();
+      summaryFetchAt.clear();
+      players.forEach((player) => {
+        delete player.gameStats;
+        delete player.projectedStats;
+        delete player.projectedPoints;
+        player.espnRank = null;
+      });
+      league.managers.forEach((team) => team.roster.forEach((player) => {
+        delete player.gameStats;
+        delete player.projectedStats;
+        delete player.projectedPoints;
+        player.espnRank = null;
+      }));
       saveLeague();
+      renderDraftPlayers();
+      renderPlayerPool();
+      renderRosters();
+      renderOverview();
+      renderMatchups();
+      renderLiveGames();
+      renderLiveLeaders();
+      updateConnectionStatus();
       void syncNFL();
       void refreshProjections();
     });
