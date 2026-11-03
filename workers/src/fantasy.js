@@ -23,6 +23,13 @@ export async function handleFantasyRequest(request, env, corsHeaders, path) {
       body: JSON.stringify({ ...data, userId: identity.userId, username: identity.username }),
     }));
     const result = await response.json();
+    result.userId = identity.userId;
+    if (Array.isArray(result.league?.managers)) {
+      result.userTeamIds = result.league.managers
+        .filter((team) => team.ownerUserId === identity.userId)
+        .map((team) => team.id);
+      result.userTeamId = result.userTeamIds[0] || '';
+    }
     return fantasyJson(result, response.status, corsHeaders);
   };
 
@@ -46,7 +53,7 @@ export async function handleFantasyRequest(request, env, corsHeaders, path) {
       return send('decline-invitation', body);
     }
 
-    const match = path.match(/^\/api\/fantasy\/leagues\/([^/]+)(?:\/(invitations|schedule))?$/);
+    const match = path.match(/^\/api\/fantasy\/leagues\/([^/]+)(?:\/(invitations|schedule|teams))?$/);
     if (!match) return fantasyJson({ error: 'Not found.' }, 404, corsHeaders);
     const leagueId = decodeURIComponent(match[1]);
     if (!leagueId || leagueId.length > 100) return fantasyJson({ error: 'Invalid league id.' }, 400, corsHeaders);
@@ -79,6 +86,16 @@ export async function handleFantasyRequest(request, env, corsHeaders, path) {
       const body = await readFantasyBody(request);
       if (!body) return fantasyJson({ error: 'Invalid request body.' }, 400, corsHeaders);
       return send('schedule', { leagueId, draftAt: body.draftAt });
+    }
+    if (match[2] === 'teams' && request.method === 'PUT') {
+      const body = await readFantasyBody(request);
+      if (!body) return fantasyJson({ error: 'Invalid request body.' }, 400, corsHeaders);
+      return send('manage-teams', {
+        leagueId,
+        teamCount: body.teamCount,
+        claimTeamIds: body.claimTeamIds,
+        revision: body.revision,
+      });
     }
     return fantasyJson({ error: 'Method not allowed.' }, 405, corsHeaders);
   } catch (error) {
@@ -292,12 +309,14 @@ function idsForTradeAcceptance(previous, candidate, userId, previousTrade, nextT
 
 function validateLeagueSave(previous, incoming, userId) {
   if (!incoming || typeof incoming !== 'object' || incoming.leagueId !== previous.leagueId
-    || !Array.isArray(incoming.managers) || incoming.managers.length !== previous.managers.length) {
+    || !Array.isArray(incoming.managers) || incoming.managers.length !== previous.managers.length
+    || Number(incoming.teamCount) !== previous.teamCount) {
     return 'League identity and team membership cannot be changed here.';
   }
   const commissioner = previous.commissionerUserId === userId;
-  const ownTeam = previous.managers.find((team) => team.ownerUserId === userId);
-  if (!ownTeam) return 'You do not manage a team in this league.';
+  const ownTeams = previous.managers.filter((team) => team.ownerUserId === userId);
+  if (!ownTeams.length) return 'You do not manage a team in this league.';
+  const ownTeamIds = new Set(ownTeams.map((team) => team.id));
   const byId = new Map(incoming.managers.map((team) => [team.id, team]));
   if (previous.managers.some((team, index) => incoming.managers[index]?.id !== team.id)) {
     return 'Team order cannot be changed after league creation.';
@@ -306,7 +325,6 @@ function validateLeagueSave(previous, incoming, userId) {
     || (byId.get(team.id)?.ownerUserId || null) !== (team.ownerUserId || null))) {
     return 'Team ownership can only be changed by accepting a league invitation.';
   }
-  if (Number(incoming.teamCount) !== Number(previous.teamCount)) return 'Team count cannot be changed after league creation.';
   if (!commissioner && (incoming.name !== previous.name
     || !sameValue(incoming.rosterSlots, previous.rosterSlots)
     || !sameValue(incoming.scoring, previous.scoring)
@@ -338,8 +356,8 @@ function validateLeagueSave(previous, incoming, userId) {
   for (const nextTrade of nextTrades) {
     const oldTrade = previousTrades.find((trade) => trade.id === nextTrade.id);
     if (!oldTrade) {
-      if (nextTrade.status !== 'pending' || nextTrade.fromId !== ownTeam.id
-        || !managerById(previous, nextTrade.toId) || nextTrade.toId === ownTeam.id
+      if (nextTrade.status !== 'pending' || !ownTeamIds.has(nextTrade.fromId)
+        || !managerById(previous, nextTrade.toId) || ownTeamIds.has(nextTrade.toId)
         || !Array.isArray(nextTrade.offerIds) || !nextTrade.offerIds.length
         || !Array.isArray(nextTrade.requestIds) || !nextTrade.requestIds.length) {
         return 'Trade offers must be sent from your own team to a league member.';
@@ -385,9 +403,10 @@ function validateLeagueSave(previous, incoming, userId) {
   }
 
   const tradeTeams = new Set(acceptedTrades.flatMap((trade) => [trade.fromId, trade.toId]));
+  let draftPickAdvanced = false;
   for (const oldTeam of previous.managers) {
     const nextTeam = byId.get(oldTeam.id);
-    const isOwn = oldTeam.id === ownTeam.id;
+    const isOwn = ownTeamIds.has(oldTeam.id);
     const isAcceptedTradeTeam = tradeTeams.has(oldTeam.id);
     if (!isOwn && !isAcceptedTradeTeam && !sameRosterPlacement(oldTeam.roster || [], nextTeam.roster || [])) {
       return 'You can only make roster changes to your own team.';
@@ -401,11 +420,11 @@ function validateLeagueSave(previous, incoming, userId) {
       const oldIds = new Set((oldTeam.roster || []).map((player) => String(player.id)));
       const newIds = new Set((nextTeam.roster || []).map((player) => String(player.id)));
       for (const id of newIds) {
-        const oldOwner = previous.managers.find((team) => team.id !== ownTeam.id
+        const oldOwner = previous.managers.find((team) => !ownTeamIds.has(team.id)
           && team.roster.some((player) => String(player.id) === id));
         const receivedThroughTrade = oldOwner && acceptedTrades.some((trade) =>
           trade.fromId === oldOwner.id
-          && trade.toId === ownTeam.id
+          && trade.toId === oldTeam.id
           && trade.offerIds.some((offeredId) => String(offeredId) === id));
         if (oldOwner && !receivedThroughTrade) return 'A rostered player can only move through an accepted trade.';
       }
@@ -416,17 +435,16 @@ function validateLeagueSave(previous, incoming, userId) {
       }
       if (added.length && incoming.picks?.length > previous.picks.length) {
         if (added.length !== 1 || incoming.picks.length !== previous.picks.length + 1
-          || teamPickAt(previous, previous.picks.length) !== ownTeam.id
-          || incoming.picks.at(-1)?.teamId !== ownTeam.id
+          || !ownTeamIds.has(teamPickAt(previous, previous.picks.length))
+          || !ownTeamIds.has(incoming.picks.at(-1)?.teamId)
           || Number(incoming.picks.at(-1)?.pick) !== previous.picks.length + 1
           || String(incoming.picks.at(-1)?.playerId) !== added[0]) {
           return 'Draft picks must follow the league order and belong to your team.';
         }
+        draftPickAdvanced = true;
         if (previous.draftAt && Date.parse(previous.draftAt) > Date.now()) {
           return 'The draft cannot start before its scheduled time.';
         }
-      } else if (incoming.picks?.length !== previous.picks.length) {
-        return 'Draft history can only advance one pick at a time.';
       }
       if (added.length > 0 && (!incoming.draftStarted && incoming.picks?.length > previous.picks.length)) {
         return 'Start the draft before making a pick.';
@@ -435,6 +453,9 @@ function validateLeagueSave(previous, incoming, userId) {
         return 'Draft picks cannot be undone in a shared league.';
       }
     }
+  }
+  if (incoming.picks.length > previous.picks.length && !draftPickAdvanced) {
+    return 'Draft history can only advance one pick at a time.';
   }
   if (!Array.isArray(incoming.picks) || incoming.picks.length < previous.picks.length
     || previous.picks.some((pick, index) => !sameValue(incoming.picks[index], pick))) {
@@ -495,6 +516,7 @@ export class FantasyLeagueStore {
       else if (path === '/accept-invitation') result = await this.acceptInvitation(body);
       else if (path === '/decline-invitation') result = await this.declineInvitation(body);
       else if (path === '/schedule') result = await this.schedule(body);
+      else if (path === '/manage-teams') result = await this.manageTeams(body);
       else if (path === '/save') result = await this.save(body);
       else result = { status: 404, error: 'Not found.' };
       return fantasyJson(result, result.status || 200);
@@ -561,7 +583,85 @@ export class FantasyLeagueStore {
       league: record.league,
       revision: record.revision,
       userTeamId: ownTeam.id,
+      userTeamIds: record.league.managers
+        .filter((team) => team.ownerUserId === body.userId)
+        .map((team) => team.id),
       isCommissioner: record.league.commissionerUserId === body.userId,
+    };
+  }
+
+  async manageTeams(body) {
+    const record = await this.getLeague(String(body.leagueId || ''));
+    if (!record) return { status: 404, error: 'League not found.' };
+    if (record.league.commissionerUserId !== body.userId) {
+      return { status: 403, error: 'Only the commissioner can manage league teams.' };
+    }
+    if (Number(body.revision) !== record.revision) {
+      return { status: 409, error: 'This league changed on another device. Reload the latest league before managing teams.', league: record.league, revision: record.revision };
+    }
+    const teamCount = Number(body.teamCount);
+    if (!Number.isInteger(teamCount) || teamCount < 2 || teamCount > MAX_TEAMS) {
+      return { status: 400, error: `League size must be between 2 and ${MAX_TEAMS} teams.` };
+    }
+    const claimTeamIds = body.claimTeamIds;
+    if (!Array.isArray(claimTeamIds)
+      || claimTeamIds.some((id) => typeof id !== 'string')
+      || new Set(claimTeamIds).size !== claimTeamIds.length) {
+      return { status: 400, error: 'Choose valid open teams to claim.' };
+    }
+
+    const league = record.league;
+    if (teamCount !== league.teamCount && (league.draftStarted || league.picks.length)) {
+      return { status: 409, error: 'League size can only change before the draft starts.' };
+    }
+    if (teamCount < league.teamCount) {
+      const removedTeams = league.managers.slice(teamCount);
+      if (removedTeams.some((team) => (team.ownerUserId && team.ownerUserId !== body.userId) || team.roster.length)) {
+        return { status: 409, error: 'To reduce league size, trailing teams must be open or yours and have empty rosters.' };
+      }
+      const removedIds = new Set(removedTeams.map((team) => team.id));
+      if ((league.trades || []).some((trade) => trade.status === 'pending'
+        && (removedIds.has(trade.fromId) || removedIds.has(trade.toId)))) {
+        return { status: 409, error: 'Resolve pending trades involving teams before reducing league size.' };
+      }
+      league.managers = league.managers.slice(0, teamCount);
+      league.draftOrder = league.draftOrder.filter((teamId) => !removedIds.has(teamId));
+    } else if (teamCount > league.teamCount) {
+      for (let index = league.managers.length; index < teamCount; index += 1) {
+        const team = {
+          id: `team-${crypto.randomUUID()}`,
+          name: 'Open team',
+          teamName: `Team ${index + 1}`,
+          ownerUserId: null,
+          roster: [],
+        };
+        league.managers.push(team);
+        league.draftOrder.push(team.id);
+      }
+    }
+    league.teamCount = teamCount;
+
+    const claimedIds = new Set();
+    for (const teamId of claimTeamIds) {
+      const team = managerById(league, teamId);
+      if (!team || team.ownerUserId) {
+        return { status: 409, error: 'One or more selected teams are no longer available to claim.' };
+      }
+      claimedIds.add(teamId);
+    }
+    for (const teamId of claimedIds) {
+      const team = managerById(league, teamId);
+      team.ownerUserId = body.userId;
+      team.name = String(body.username || 'Commissioner').slice(0, 40);
+    }
+    record.revision += 1;
+    await this.putLeague(record);
+    return {
+      league,
+      revision: record.revision,
+      userTeamId: league.managers.find((team) => team.ownerUserId === body.userId)?.id || '',
+      userTeamIds: league.managers.filter((team) => team.ownerUserId === body.userId).map((team) => team.id),
+      isCommissioner: true,
     };
   }
 
@@ -656,8 +756,9 @@ export class FantasyLeagueStore {
     const leagueId = String(body.leagueId || '');
     const record = await this.getLeague(leagueId);
     if (!record) return { status: 404, error: 'League not found.' };
-    const ownTeam = record.league.managers.find((team) => team.ownerUserId === body.userId);
-    if (!ownTeam) return { status: 403, error: 'You are not a member of this league.' };
+    const ownTeams = record.league.managers.filter((team) => team.ownerUserId === body.userId);
+    if (!ownTeams.length) return { status: 403, error: 'You are not a member of this league.' };
+    const ownTeamIds = new Set(ownTeams.map((team) => team.id));
     if (Number(body.revision) !== record.revision) {
       return { status: 409, error: 'This league changed on another device. Reload the latest league before saving.', league: record.league, revision: record.revision };
     }
@@ -678,7 +779,7 @@ export class FantasyLeagueStore {
     league.managers.forEach((team, index) => {
       const previousTeam = record.league.managers.find((entry) => entry.id === team.id);
       team.ownerUserId = previousTeam?.ownerUserId || null;
-      if (team.id !== ownTeam.id && !acceptedTradeTeams.has(team.id)) {
+      if (!ownTeamIds.has(team.id) && !acceptedTradeTeams.has(team.id)) {
         team.roster = jsonClone(previousTeam.roster || []);
       } else if (acceptedTradeTeams.has(team.id)) {
         team.roster = team.roster.map((player) => {

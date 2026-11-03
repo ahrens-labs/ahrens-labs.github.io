@@ -769,6 +769,8 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
 .online-lobby-error { min-height: 20px; margin-top: 10px; color: #b8494d; font-size: 12px; }
 .online-lobby-auth { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 .online-draft-time { margin: 10px 0; color: #547098; font: 10px var(--mono); }
+.team-claim-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; color: var(--text); font-size: 12px; }
+.team-claim-row input { width: 16px; height: 16px; accent-color: var(--lime); }
 @media (max-width: 560px) { .online-lobby { padding: 12px; } .online-lobby-card { max-height: calc(100vh - 24px); padding: 20px; } .online-lobby-form { grid-template-columns: 1fr; } .online-lobby-row { align-items: flex-start; flex-direction: column; } }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
@@ -819,6 +821,7 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
       <span class="connection-pill" id="connection"><i class="connection-dot"></i><span id="connectionText">CONNECTING TO NFL FEED</span></span>
       <button class="top-button" id="managerButton">LEAGUE</button>
       <button class="top-button" id="inviteManagerButton" hidden>INVITE</button>
+      <button class="top-button" id="manageTeamsButton" hidden>TEAMS</button>
       <button class="top-button" id="scheduleDraftButton" hidden>DRAFT TIME</button>
       <button class="top-button" id="settingsButton">SETTINGS</button>
       <button class="top-button new-league-top" id="newLeagueButton">＋ NEW LEAGUE</button>
@@ -1229,6 +1232,7 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
   let onlineUserId = '';
   let onlineUsername = '';
   let onlineUserTeamId = '';
+  let onlineUserTeamIds = new Set();
   let onlineCommissioner = false;
   let onlineRevision = 0;
   let onlineLeagues = [];
@@ -1319,10 +1323,17 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
     league.draftAt = data.league.draftAt || null;
     onlineRevision = Number(data.revision) || 0;
     onlineUserTeamId = String(data.userTeamId || '');
+    onlineUserId = String(data.userId || onlineUserId);
+    onlineUserTeamIds = new Set(Array.isArray(data.userTeamIds) ? data.userTeamIds : [onlineUserTeamId].filter(Boolean));
+    if (!onlineUserTeamIds.size && onlineUserId) {
+      onlineUserTeamIds = new Set(league.managers
+        .filter((team) => team.ownerUserId === onlineUserId)
+        .map((team) => team.id));
+    }
     onlineCommissioner = Boolean(data.isCommissioner);
     onlineReady = true;
     onlineDirty = false;
-    rosterViewTeam = Math.max(0, league.managers.findIndex((team) => team.id === onlineUserTeamId));
+    rosterViewTeam = Math.max(0, league.managers.findIndex((team) => onlineUserTeamIds.has(team.id)));
     normalizeManagers();
     updateOnlineControls();
   }
@@ -1388,9 +1399,95 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
 
   function updateOnlineControls() {
     $('inviteManagerButton').hidden = !onlineCommissioner;
+    $('manageTeamsButton').hidden = !onlineCommissioner;
     $('scheduleDraftButton').hidden = !onlineCommissioner;
     $('settingsButton').disabled = !onlineCommissioner;
     $('settingsButton').title = onlineCommissioner ? 'Edit league settings' : 'Only the commissioner can edit league settings';
+  }
+
+  function ownsOnlineTeam(teamId) {
+    return onlineUserTeamIds.has(teamId);
+  }
+
+  function openTeamManagement() {
+    if (!onlineCommissioner) {
+      notify('Only the commissioner can manage league teams.');
+      return;
+    }
+    const wrapper = document.createElement('div');
+    const sizeField = document.createElement('div');
+    sizeField.className = 'field';
+    const sizeLabel = document.createElement('label');
+    sizeLabel.htmlFor = 'managedTeamCount';
+    sizeLabel.textContent = 'NUMBER OF TEAMS';
+    const sizeSelect = document.createElement('select');
+    sizeSelect.className = 'filter-select';
+    sizeSelect.id = 'managedTeamCount';
+    for (let count = 2; count <= 16; count += 1) {
+      sizeSelect.add(new Option(`${count} TEAMS`, String(count), false, count === league.teamCount));
+    }
+    sizeField.append(sizeLabel, sizeSelect);
+    const help = document.createElement('p');
+    help.className = 'small-note';
+    help.textContent = 'League size can only change before the draft starts. Reducing the league removes trailing open or your empty teams.';
+    const claims = document.createElement('div');
+    claims.className = 'new-team-names';
+    const renderClaimChoices = () => {
+      const selected = new Set([...claims.querySelectorAll('input:checked')].map((input) => input.value));
+      claims.replaceChildren();
+      const heading = document.createElement('h3');
+      heading.textContent = 'CLAIM OPEN TEAMS FOR YOURSELF';
+      claims.append(heading);
+      const limit = Number(sizeSelect.value);
+      league.managers.forEach((team, index) => {
+        if (index >= limit || team.ownerUserId) return;
+        const row = document.createElement('label');
+        row.className = 'team-claim-row';
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.value = team.id;
+        checkbox.checked = selected.has(team.id);
+        checkbox.setAttribute('aria-label', `Claim ${team.teamName}`);
+        const name = document.createElement('span');
+        name.textContent = team.teamName;
+        row.append(checkbox, name);
+        claims.append(row);
+      });
+      if (claims.childElementCount === 1) {
+        const empty = document.createElement('p');
+        empty.className = 'small-note';
+        empty.textContent = 'No open teams are available at this size.';
+        claims.append(empty);
+      }
+    };
+    sizeSelect.addEventListener('change', renderClaimChoices);
+    renderClaimChoices();
+    wrapper.append(sizeField, help, claims);
+    openModal('Manage teams in your league.', 'COMMISSIONER · TEAM MANAGEMENT', wrapper, () => {
+      const teamCount = Number(sizeSelect.value);
+      const claimTeamIds = [...claims.querySelectorAll('input:checked')].map((input) => input.value);
+      if (teamCount === league.teamCount && !claimTeamIds.length) {
+        notify('Change the league size or select teams to claim.');
+        return false;
+      }
+      void (async () => {
+        try {
+          await onlineSaveChain;
+          const { response, data } = await fantasyRequest(
+            `/api/fantasy/leagues/${encodeURIComponent(league.leagueId)}/teams`,
+            'PUT',
+            { teamCount, claimTeamIds, revision: onlineRevision },
+          );
+          if (!response.ok) throw new Error(data.error || 'Could not update league teams.');
+          installOnlineLeague(data);
+          renderOnlineLeague();
+          notify(`League now has ${league.teamCount} teams. You manage ${onlineUserTeamIds.size}.`);
+        } catch (error) {
+          notify(error.message || 'Could not update league teams.');
+        }
+      })();
+      return true;
+    }, { confirmText: 'UPDATE TEAMS' });
   }
 
   async function refreshOnlineLobby() {
@@ -1677,7 +1774,14 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
   }
 
   async function switchLeague(id) {
-    if (!id || id === league.leagueId) return;
+    if (!id) return;
+    if (id === league.leagueId) {
+      $('onlineLobby').hidden = true;
+      if (!appInitialized) startLeagueApp();
+      switchView('overview');
+      renderOnlineLeague();
+      return;
+    }
     try {
       await onlineSaveChain;
       const { response, data } = await fantasyRequest(`/api/fantasy/leagues/${encodeURIComponent(id)}`);
@@ -1686,7 +1790,6 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
       localStorage.setItem(ACTIVE_LEAGUE_KEY, id);
       feedGeneration += 1;
       selectedMatchup = null;
-      rosterViewTeam = 0;
       rosterMoveSelection = null;
       games = [];
       scheduleWeekLoaded = null;
@@ -1695,12 +1798,14 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
       players.forEach((player) => { delete player.gameStats; });
       league.managers.forEach((team) => team.roster.forEach((player) => { delete player.gameStats; }));
       normalizeManagers();
+      $('onlineLobby').hidden = true;
       if (!appInitialized) startLeagueApp();
       else {
         renderOnlineLeague();
         void loadPlayerPool();
         void syncNFL();
       }
+      switchView('overview');
       notify(`Switched to ${league.name}.`);
     } catch (error) {
       console.warn('Could not switch leagues.', error);
@@ -1710,7 +1815,8 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
   }
 
   function normalizeManagers() {
-    const count = Math.max(4, Math.min(16, Number(league.teamCount) || 10));
+    const minTeams = onlineReady ? 2 : 4;
+    const count = Math.max(minTeams, Math.min(16, Number(league.teamCount) || 10));
     league.teamCount = count;
     const previous = Array.isArray(league.managers) ? league.managers : [];
     league.managers = Array.from({ length: count }, (_, index) => ({
@@ -2541,7 +2647,7 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
     const index = currentPickIndex();
     const team = draftTeamAt(index);
     if (!team) return;
-    if (onlineReady && team.id !== onlineUserTeamId) {
+    if (onlineReady && !ownsOnlineTeam(team.id)) {
       notify(`${team.teamName} is on the clock. Only that team’s manager can make the pick.`);
       return;
     }
@@ -2586,7 +2692,7 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
   }
 
   function undoPick() {
-    if (onlineReady && league.picks.at(-1)?.teamId !== onlineUserTeamId) {
+    if (onlineReady && !ownsOnlineTeam(league.picks.at(-1)?.teamId)) {
       notify('Only the manager who made the latest pick can undo it.');
       return;
     }
@@ -2636,14 +2742,14 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
     const canStart = !onlineReady || onlineCommissioner || Boolean(league.draftAt);
     const scheduledFuture = Boolean(league.draftAt && Date.parse(league.draftAt) > Date.now());
     $('startDraft').disabled = isDraftComplete() || !canStart || scheduledFuture
-      || (onlineReady && onClock?.id !== onlineUserTeamId);
+      || (onlineReady && !ownsOnlineTeam(onClock?.id));
     const homeStart = $('homeStartDraft');
     homeStart.textContent = isDraftComplete() ? 'DRAFT COMPLETE' : league.draftStarted ? 'CONTINUE YOUR DRAFT ↗' : 'START A DRAFT ↗';
     homeStart.disabled = isDraftComplete();
     $('undoPick').disabled = !league.picks.length
-      || (onlineReady && league.picks.at(-1)?.teamId !== onlineUserTeamId);
+      || (onlineReady && !ownsOnlineTeam(league.picks.at(-1)?.teamId));
     $('autoDraft').disabled = !league.draftStarted || isDraftComplete()
-      || (onlineReady && onClock?.id !== onlineUserTeamId);
+      || (onlineReady && !ownsOnlineTeam(onClock?.id));
     $('autoDraftAll').disabled = onlineReady || isDraftComplete() || !players.length;
     $('resetDraft').disabled = onlineReady;
     const scheduleStatus = $('draftScheduleStatus');
@@ -2719,7 +2825,7 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
     add.textContent = '+';
     add.setAttribute('aria-label', `Draft ${player.name}`);
     add.disabled = !league.draftStarted || isDraftComplete()
-      || (onlineReady && onClock?.id !== onlineUserTeamId);
+      || (onlineReady && !ownsOnlineTeam(onClock?.id));
     add.addEventListener('click', () => makePick(player));
     action.append(add);
     row.append(rank, name, pos, nfl, matchup, status, projection, points, action);
@@ -3111,7 +3217,7 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
     points.textContent = playerFantasyPoints(player).toFixed(2);
     const action = document.createElement('td');
     action.dataset.label = 'Action';
-    const canEdit = !onlineReady || team.id === onlineUserTeamId;
+    const canEdit = !onlineReady || ownsOnlineTeam(team.id);
     if (!canEdit) {
       action.textContent = 'VIEW ONLY';
       row.append(name, position, nfl, matchup, status, slot, projection, points, action);
@@ -3167,7 +3273,7 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
     const targetSlotIndex = Number(targetPlayer.rosterSlotIndex) || 0;
     const rosterTeam = league.managers.find((team) => team.roster.includes(player));
     const roster = rosterTeam?.roster || [];
-    if (onlineReady && rosterTeam?.id !== onlineUserTeamId) {
+    if (onlineReady && !ownsOnlineTeam(rosterTeam?.id)) {
       notify('You can only change your own roster.');
       return;
     }
@@ -3196,7 +3302,7 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
   }
 
   function toggleLineup(team, player) {
-    if (onlineReady && team.id !== onlineUserTeamId) {
+    if (onlineReady && !ownsOnlineTeam(team.id)) {
       notify('You can only change your own roster.');
       return;
     }
@@ -3220,7 +3326,7 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
   }
 
   function dropPlayer(team, player) {
-    if (onlineReady && team.id !== onlineUserTeamId) {
+    if (onlineReady && !ownsOnlineTeam(team.id)) {
       notify('You can only change your own roster.');
       return;
     }
@@ -3240,7 +3346,7 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
 
   function openLineupEditor() {
     const team = league.managers[rosterViewTeam] || league.managers[0];
-    if (onlineReady && team?.id !== onlineUserTeamId) {
+    if (onlineReady && !ownsOnlineTeam(team?.id)) {
       notify('Select your own team to edit the lineup.');
       return;
     }
@@ -3322,7 +3428,7 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
     const actingTeamSelect = document.createElement('select');
     actingTeamSelect.className = 'filter-select';
     actingTeamSelect.id = 'tradeActingTeam';
-    league.managers.filter((team) => !onlineReady || team.id === onlineUserTeamId)
+    league.managers.filter((team) => !onlineReady || ownsOnlineTeam(team.id))
       .forEach((team) => actingTeamSelect.add(new Option(team.teamName, team.id)));
     actingTeamSelect.value = onlineReady
       ? onlineUserTeamId
@@ -3337,8 +3443,8 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
     const leftTeam = document.createElement('select'); leftTeam.className = 'filter-select'; leftTeam.id = 'tradeFrom';
     const rightTeam = document.createElement('select'); rightTeam.className = 'filter-select'; rightTeam.id = 'tradeTo';
     league.managers.forEach((team) => {
-      if (!onlineReady || team.id === onlineUserTeamId) leftTeam.add(new Option(team.teamName, team.id));
-      rightTeam.add(new Option(team.teamName, team.id));
+      if (!onlineReady || ownsOnlineTeam(team.id)) leftTeam.add(new Option(team.teamName, team.id));
+      if (!onlineReady || !ownsOnlineTeam(team.id)) rightTeam.add(new Option(team.teamName, team.id));
     });
     leftTeam.value = onlineReady ? onlineUserTeamId : (league.managers[rosterViewTeam] || league.managers[0]).id;
     rightTeam.selectedIndex = Math.min(1, league.managers.length - 1);
@@ -4033,7 +4139,7 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
     const field = document.createElement('div'); field.className = 'field';
     const label = document.createElement('label'); label.textContent = 'FANTASY TEAM';
     const select = document.createElement('select'); select.className = 'filter-select';
-    league.managers.filter((team) => !onlineReady || team.id === onlineUserTeamId)
+    league.managers.filter((team) => !onlineReady || ownsOnlineTeam(team.id))
       .forEach((team) => select.add(new Option(`${team.teamName} · ${team.roster.length}/${rosterCapacity()}`, team.id)));
     field.append(label, select);
     const dropSection = document.createElement('div');
@@ -4932,6 +5038,7 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
     });
     $('managerButton').addEventListener('click', () => { void openOnlineLobby(); });
     $('inviteManagerButton').addEventListener('click', () => { void openInviteManager(); });
+    $('manageTeamsButton').addEventListener('click', openTeamManagement);
     $('scheduleDraftButton').addEventListener('click', openDraftScheduler);
     $('newLeagueButton').addEventListener('click', () => { void openOnlineLobby(); });
     $('homeNewLeague').addEventListener('click', () => { void openOnlineLobby(); });
