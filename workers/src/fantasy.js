@@ -633,7 +633,14 @@ export class FantasyLeagueStore {
     const validLeagueIds = leagues.map((entry) => entry.leagueId);
     const validInvitations = [];
     for (const invitation of user.invitations || []) {
-      if (await this.getLeague(invitation.leagueId)) validInvitations.push(invitation);
+      const record = await this.getLeague(invitation.leagueId);
+      if (!record) continue;
+      const team = managerById(record.league, invitation.teamId);
+      validInvitations.push({
+        ...invitation,
+        leagueName: record.league.name || invitation.leagueName,
+        teamName: team?.teamName || '',
+      });
     }
     if (validLeagueIds.length !== (user.leagueIds || []).length
       || validInvitations.length !== (user.invitations || []).length) {

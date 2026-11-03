@@ -153,6 +153,35 @@ test('league lists discard deleted league references and invitations', async () 
   assert.deepEqual(await storage.get('user:manager'), { leagueIds: [], invitations: [] });
 });
 
+test('league invitations use current league and team names', async () => {
+  const { store } = createStore([
+    ['league:league-1', {
+      league: {
+        leagueId: 'league-1',
+        name: 'Updated League Name',
+        managers: [
+          { id: 'team-1', teamName: 'Renamed Team', ownerUserId: null, roster: [] },
+        ],
+      },
+      revision: 2,
+    }],
+    ['user:manager', {
+      leagueIds: [],
+      invitations: [{
+        leagueId: 'league-1',
+        leagueName: 'Old League Name',
+        teamId: 'team-1',
+        teamName: 'Old Team Name',
+      }],
+    }],
+  ]);
+
+  const { data } = await storeRequest(store, 'list', { userId: 'manager', username: 'Manager' });
+
+  assert.equal(data.invitations[0].leagueName, 'Updated League Name');
+  assert.equal(data.invitations[0].teamName, 'Renamed Team');
+});
+
 test('league edits persist in shared storage linked from the account', async () => {
   const { store, storage } = createStore();
   const { response: createResponse, data: created } = await storeRequest(store, 'create', {
