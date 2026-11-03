@@ -2728,6 +2728,7 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
       renderDraft();
       renderOverview();
       renderRosters();
+      if (league.picks.length === 1) renderPlayerPool();
     }
     if (!options.silent) notify(`${player.name} drafted by ${team.teamName}.`);
   }
@@ -3036,7 +3037,7 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
       madePicks += 1;
     }
     saveLeague();
-    renderDraft(); renderOverview(); renderRosters();
+    renderDraft(); renderOverview(); renderRosters(); renderPlayerPool();
     const currentTeam = draftTeamAt(currentPickIndex());
     notify(isDraftComplete() ? `Auto-draft complete: ${madePicks} picks made.`
       : mustFillStarterBeforeBench(currentTeam)
@@ -3064,6 +3065,7 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
     league.draftStarted = true;
     saveLeague();
     renderDraft();
+    renderPlayerPool();
     notify(`${draftTeamAt(currentPickIndex()).teamName} is on the clock.`);
   }
 
@@ -4194,8 +4196,13 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
       claimCell.dataset.label = 'Claim';
       const claim = document.createElement('button');
       claim.className = 'add-player'; claim.type = 'button'; claim.textContent = owner ? '—' : '+';
-      claim.setAttribute('aria-label', owner ? `${player.name} is rostered by ${owner.team.teamName}` : `Add ${player.name} to a fantasy team`);
-      claim.disabled = Boolean(owner);
+      claim.setAttribute('aria-label', owner
+        ? `${player.name} is rostered by ${owner.team.teamName}`
+        : league.draftStarted
+          ? `Add ${player.name} to a fantasy team`
+          : `Player claims are available after the draft starts`);
+      claim.title = !owner && !league.draftStarted ? 'Player claims are available after the draft starts.' : '';
+      claim.disabled = Boolean(owner) || !league.draftStarted;
       claim.addEventListener('click', () => openClaimDialog(player));
       claimCell.append(claim);
       row.append(name, pos, nfl, matchup, status, slot, projection, points, fantasyTeam, claimCell);
@@ -4209,6 +4216,10 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
   }
 
   function openClaimDialog(player) {
+    if (!league.draftStarted) {
+      notify('Player claims are available after the draft starts.');
+      return;
+    }
     if (league.managers.some((team) => team.roster.some((member) => member.id === player.id))) {
       notify(`${player.name} already has a fantasy team.`);
       return;

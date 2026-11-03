@@ -451,6 +451,10 @@ function validateLeagueSave(previous, incoming, userId) {
       }
       const added = [...newIds].filter((id) => !oldIds.has(id));
       const removed = [...oldIds].filter((id) => !newIds.has(id));
+      if (added.length && incoming.picks?.length === previous.picks.length
+        && !previous.draftStarted && !isAcceptedTradeTeam) {
+        return 'Free-agent claims are unavailable until the draft starts.';
+      }
       if (added.length > 1 && incoming.picks?.length === previous.picks.length && !isAcceptedTradeTeam) {
         return 'Add one free agent at a time.';
       }
