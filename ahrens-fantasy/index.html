@@ -1431,6 +1431,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
   let playerRefreshTimer = 0;
   let toastTimer = 0;
   let modalAction = null;
+  let modalCloseOnConfirm = false;
   let selectedScoringCategory = 'passing';
   let pollBusy = false;
   let playerPoolBusy = false;
@@ -2297,7 +2298,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
             ? `Leaving ${item.name} as commissioner will permanently delete the league, including all teams, draft history, and pending invitations.`
             : `You will leave ${item.name}. Your team will become open and its roster will be cleared, but the league and draft history will remain.`,
           () => leaveOnlineLeague(item),
-          { confirmText: commissioner ? 'DELETE LEAGUE' : 'LEAVE LEAGUE' },
+          { confirmText: commissioner ? 'DELETE LEAGUE' : 'LEAVE LEAGUE', closeOnConfirm: true },
         );
       });
       const actions = document.createElement('div');
@@ -2413,6 +2414,8 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
           abbreviationInput.focus();
           return false;
         }
+        closeModal();
+        notify('Joining league…');
         await finishInvitationResponse(invitation, true, teamName, teamAbbreviation);
       }, { confirmText: 'JOIN LEAGUE' });
       input.focus();
@@ -2433,8 +2436,12 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       ...(accept ? { teamName, teamAbbreviation } : {}),
     });
     if (!response.ok) throw new Error(data.error || 'Could not respond to this invitation.');
-    await refreshOnlineLobby();
+    onlineInvitations = onlineInvitations.filter((item) =>
+      item.leagueId !== invitation.leagueId || item.teamId !== invitation.teamId);
+    renderOnlineInvitations(onlineInvitations);
+    const refresh = refreshOnlineLobby();
     if (accept) await switchLeague(invitation.leagueId);
+    await refresh;
   }
 
   async function openOnlineLobby() {
@@ -3017,6 +3024,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
 
   function openModal(title, kicker, content, action = null, options = {}) {
     modalAction = action;
+    modalCloseOnConfirm = Boolean(options.closeOnConfirm);
     ui.modal.classList.toggle('above-online-lobby', !$('onlineLobby').hidden);
     ui.modalTitle.textContent = title;
     ui.modalKicker.textContent = kicker;
@@ -3033,6 +3041,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     body.textContent = message;
     openModal(title, 'PLEASE CONFIRM', body, action, {
       confirmText: options.confirmText || 'CONFIRM',
+      closeOnConfirm: options.closeOnConfirm,
     });
   }
 
@@ -3041,6 +3050,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     ui.modal.classList.remove('above-online-lobby');
     ui.modalBody.replaceChildren();
     modalAction = null;
+    modalCloseOnConfirm = false;
     $('confirmModal').hidden = false;
     $('confirmModal').style.display = '';
     $('confirmModal').disabled = false;
@@ -6642,22 +6652,29 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
         return;
       }
       const action = modalAction;
+      const closeOnConfirm = modalCloseOnConfirm;
       $('confirmModal').disabled = true;
       $('cancelModal').disabled = true;
       $('modalClose').disabled = true;
+      if (closeOnConfirm) {
+        closeModal();
+        notify('Processing your request…');
+      }
       try {
         const result = await action();
         if (result !== false) {
           closeModal();
-        } else {
+        } else if (ui.modal.classList.contains('open')) {
           $('confirmModal').disabled = false;
           $('cancelModal').disabled = false;
           $('modalClose').disabled = false;
         }
       } catch (error) {
-        $('confirmModal').disabled = false;
-        $('cancelModal').disabled = false;
-        $('modalClose').disabled = false;
+        if (ui.modal.classList.contains('open')) {
+          $('confirmModal').disabled = false;
+          $('cancelModal').disabled = false;
+          $('modalClose').disabled = false;
+        }
         notify(error.message || 'Could not complete this action.');
       }
     });
