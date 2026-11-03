@@ -3988,7 +3988,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       refreshDropLists();
       renderOffers();
       notify(`Trade offer sent to ${second.teamName}.`);
-      return false;
+      return true;
     }, { confirmText: 'SEND TRADE OFFER' });
   }
 
