@@ -152,3 +152,43 @@ test('league lists discard deleted league references and invitations', async () 
   assert.deepEqual(data.invitations, []);
   assert.deepEqual(await storage.get('user:manager'), { leagueIds: [], invitations: [] });
 });
+
+test('league edits persist in shared storage linked from the account', async () => {
+  const { store, storage } = createStore();
+  const { response: createResponse, data: created } = await storeRequest(store, 'create', {
+    userId: 'account-1',
+    username: 'Manager',
+    league: {
+      name: 'Sunday League',
+      teamCount: 2,
+      managers: [{ teamName: 'Home Team' }, { teamName: 'Away Team' }],
+      rosterSlots: { QB: 1 },
+      scoring: { passTD: 4 },
+    },
+  });
+
+  assert.equal(createResponse.status, 200);
+  const leagueId = created.league.leagueId;
+  assert.deepEqual((await storage.get('user:account-1')).leagueIds, [leagueId]);
+
+  const updatedLeague = structuredClone(created.league);
+  updatedLeague.scoring.passTD = 6;
+  updatedLeague.selectedWeek = 5;
+  const { response: saveResponse, data: saved } = await storeRequest(store, 'save', {
+    userId: 'account-1',
+    leagueId,
+    league: updatedLeague,
+    revision: created.revision,
+  });
+
+  assert.equal(saveResponse.status, 200);
+  assert.equal(saved.revision, 2);
+  const { response: loadResponse, data: loaded } = await storeRequest(store, 'load', {
+    userId: 'account-1',
+    leagueId,
+  });
+  assert.equal(loadResponse.status, 200);
+  assert.equal(loaded.league.scoring.passTD, 6);
+  assert.equal(loaded.league.selectedWeek, 5);
+  assert.equal(loaded.revision, 2);
+});

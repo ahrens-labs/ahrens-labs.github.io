@@ -1243,6 +1243,8 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
   let appInitialized = false;
   let onlineDirty = false;
   let onlineSaveChain = Promise.resolve();
+  let onlineSaveRetryTimer = 0;
+  let onlineSaveRetryDelay = 1000;
   let onlineRefreshTimer = 0;
 
   function loadLeague() {
@@ -1356,28 +1358,49 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
           { league: snapshot, revision: onlineRevision },
         );
         if (!response.ok) {
-          if (data.league && league.leagueId === expectedLeagueId) {
-            installOnlineLeague(data);
-            renderOnlineLeague();
-          }
-          onlineDirty = false;
           ui.saveStatus.textContent = 'SYNC BLOCKED';
           ui.saveStatus.style.color = 'var(--red)';
           notify(data.error || 'The league update was rejected.');
+          if (response.status === 429 || response.status >= 500) scheduleOnlineSaveRetry();
           return;
         }
         onlineRevision = Number(data.revision) || onlineRevision;
-        if (requestedVersion === onlineChangeVersion) onlineDirty = false;
-        ui.saveStatus.textContent = `SYNCED ${formatCentralTime(new Date())} CT`;
-        ui.saveStatus.style.color = 'var(--green)';
+        if (requestedVersion === onlineChangeVersion) {
+          onlineDirty = false;
+          onlineSaveRetryDelay = 1000;
+          window.clearTimeout(onlineSaveRetryTimer);
+          onlineSaveRetryTimer = 0;
+          ui.saveStatus.textContent = `SYNCED ${formatCentralTime(new Date())} CT`;
+          ui.saveStatus.style.color = 'var(--green)';
+        }
       } catch (error) {
         ui.saveStatus.textContent = 'LEAGUE SYNC FAILED';
         ui.saveStatus.style.color = 'var(--red)';
         notify(error.message || 'Could not sync this league.');
+        scheduleOnlineSaveRetry();
       }
     }).catch((error) => {
       console.error('Fantasy league save queue failed.', error);
+      ui.saveStatus.textContent = 'LEAGUE SYNC FAILED';
+      ui.saveStatus.style.color = 'var(--red)';
+      scheduleOnlineSaveRetry();
     });
+  }
+
+  function scheduleOnlineSaveRetry() {
+    if (onlineSaveRetryTimer || !onlineDirty || !onlineReady) return;
+    onlineSaveRetryTimer = window.setTimeout(() => {
+      onlineSaveRetryTimer = 0;
+      queueOnlineSave();
+    }, onlineSaveRetryDelay);
+    onlineSaveRetryDelay = Math.min(onlineSaveRetryDelay * 2, 30000);
+  }
+
+  async function waitForOnlineSave() {
+    await onlineSaveChain;
+    if (onlineDirty) {
+      throw new Error('Your latest league changes have not synced yet. Try again when the connection is restored.');
+    }
   }
 
   let onlineChangeVersion = 0;
@@ -1471,30 +1494,23 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
     sizeSelect.addEventListener('change', renderClaimChoices);
     renderClaimChoices();
     wrapper.append(sizeField, help, claims);
-    openModal('Manage teams in your league.', 'COMMISSIONER · TEAM MANAGEMENT', wrapper, () => {
+    openModal('Manage teams in your league.', 'COMMISSIONER · TEAM MANAGEMENT', wrapper, async () => {
       const teamCount = Number(sizeSelect.value);
       const claimTeamIds = [...claims.querySelectorAll('input:checked')].map((input) => input.value);
       if (teamCount === league.teamCount && !claimTeamIds.length) {
         notify('Change the league size or select teams to claim.');
         return false;
       }
-      void (async () => {
-        try {
-          await onlineSaveChain;
-          const { response, data } = await fantasyRequest(
-            `/api/fantasy/leagues/${encodeURIComponent(league.leagueId)}/teams`,
-            'PUT',
-            { teamCount, claimTeamIds, revision: onlineRevision },
-          );
-          if (!response.ok) throw new Error(data.error || 'Could not update league teams.');
-          installOnlineLeague(data);
-          renderOnlineLeague();
-          notify(`League now has ${league.teamCount} teams. You manage ${onlineUserTeamIds.size}.`);
-        } catch (error) {
-          notify(error.message || 'Could not update league teams.');
-        }
-      })();
-      return true;
+      await waitForOnlineSave();
+      const { response, data } = await fantasyRequest(
+        `/api/fantasy/leagues/${encodeURIComponent(league.leagueId)}/teams`,
+        'PUT',
+        { teamCount, claimTeamIds, revision: onlineRevision },
+      );
+      if (!response.ok) throw new Error(data.error || 'Could not update league teams.');
+      installOnlineLeague(data);
+      renderOnlineLeague();
+      notify(`League now has ${league.teamCount} teams. You manage ${onlineUserTeamIds.size}.`);
     }, { confirmText: 'UPDATE TEAMS' });
   }
 
@@ -1604,7 +1620,7 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
 
   async function leaveOnlineLeague(item) {
     const activeLeagueId = league.leagueId;
-    await onlineSaveChain;
+    await waitForOnlineSave();
     const { response, data } = await fantasyRequest(
       `/api/fantasy/leagues/${encodeURIComponent(item.leagueId)}/leave`,
       'POST',
@@ -1865,17 +1881,16 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
     }
     teamField.append(label, teamSelect);
     wrapper.append(usernameField, teamField);
-    openModal('Invite a league manager.', 'AHRENS LABS INVITE', wrapper, () => {
+    openModal('Invite a league manager.', 'AHRENS LABS INVITE', wrapper, async () => {
       const username = $('inviteUsername').value.trim();
-      void fantasyRequest(`/api/fantasy/leagues/${encodeURIComponent(league.leagueId)}/invitations`, 'POST', {
+      await waitForOnlineSave();
+      const { response, data } = await fantasyRequest(`/api/fantasy/leagues/${encodeURIComponent(league.leagueId)}/invitations`, 'POST', {
         username,
         teamId: teamSelect.value,
-      }).then(({ response, data }) => {
-        if (!response.ok) throw new Error(data.error || 'Could not send this invitation.');
-        notify(`Invitation sent to ${username}.`);
-        void refreshActiveLeague();
-      }).catch((error) => notify(error.message || 'Could not send this invitation.'));
-      return true;
+      });
+      if (!response.ok) throw new Error(data.error || 'Could not send this invitation.');
+      notify(`Invitation sent to ${username}.`);
+      void refreshActiveLeague();
     }, { confirmText: 'SEND INVITATION' });
   }
 
@@ -1906,18 +1921,19 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
     help.className = 'small-note';
     help.textContent = 'Managers can start making picks once the scheduled time arrives. You can update or clear the schedule here.';
     wrapper.append(field, help);
-    openModal('Set your league draft time.', 'SCHEDULE DRAFT', wrapper, () => {
+    openModal('Set your league draft time.', 'SCHEDULE DRAFT', wrapper, async () => {
       const value = $('draftTimeInput').value;
       const draftAt = value ? new Date(value).toISOString() : null;
-      void fantasyRequest(`/api/fantasy/leagues/${encodeURIComponent(league.leagueId)}/schedule`, 'PUT', { draftAt })
-        .then(({ response, data }) => {
-          if (!response.ok) throw new Error(data.error || 'Could not schedule the draft.');
-          installOnlineLeague(data);
-          renderOnlineLeague();
-          notify(draftAt ? `Draft scheduled for ${new Date(draftAt).toLocaleString()}.` : 'Draft schedule cleared.');
-        })
-        .catch((error) => notify(error.message || 'Could not schedule the draft.'));
-      return true;
+      await waitForOnlineSave();
+      const { response, data } = await fantasyRequest(
+        `/api/fantasy/leagues/${encodeURIComponent(league.leagueId)}/schedule`,
+        'PUT',
+        { draftAt },
+      );
+      if (!response.ok) throw new Error(data.error || 'Could not schedule the draft.');
+      installOnlineLeague(data);
+      renderOnlineLeague();
+      notify(draftAt ? `Draft scheduled for ${new Date(draftAt).toLocaleString()}.` : 'Draft schedule cleared.');
     }, { confirmText: 'SAVE DRAFT TIME' });
   }
 
@@ -1959,7 +1975,7 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
       return true;
     }
     try {
-      await onlineSaveChain;
+      await waitForOnlineSave();
       const { response, data } = await fantasyRequest(`/api/fantasy/leagues/${encodeURIComponent(id)}`);
       if (!response.ok) throw new Error(data.error || 'That league could not be opened.');
       installOnlineLeague(data);
@@ -5343,6 +5359,7 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
     window.addEventListener('online', () => {
       void syncNFL();
       if (!players.length) void loadPlayerPool();
+      if (onlineDirty) queueOnlineSave();
     });
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') void syncNFL();
