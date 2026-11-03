@@ -1789,36 +1789,35 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       note.className = 'small-note';
       note.textContent = `You’re joining ${invitation.leagueName || 'this league'} as ${invitation.teamName || 'a team manager'}. You can change your team name later on the roster page.`;
       wrapper.append(field, note);
-      openModal('Choose your fantasy team name.', 'JOIN LEAGUE', wrapper, () => {
+      openModal('Choose your fantasy team name.', 'JOIN LEAGUE', wrapper, async () => {
         const teamName = input.value.trim();
         if (!teamName) {
           notify('Enter a fantasy team name.');
           input.focus();
           return false;
         }
-        void finishInvitationResponse(invitation, true, teamName);
-        return true;
+        await finishInvitationResponse(invitation, true, teamName);
       }, { confirmText: 'JOIN LEAGUE' });
       input.focus();
       input.select();
       return;
     }
-    await finishInvitationResponse(invitation, false);
-  }
-
-  async function finishInvitationResponse(invitation, accept, teamName = '') {
     try {
-      const action = accept ? 'accept' : 'decline';
-      const { response, data } = await fantasyRequest(`/api/fantasy/invitations/${action}`, 'POST', {
-        ...invitation,
-        ...(accept ? { teamName } : {}),
-      });
-      if (!response.ok) throw new Error(data.error || 'Could not respond to this invitation.');
-      await refreshOnlineLobby();
-      if (accept) await switchLeague(invitation.leagueId);
+      await finishInvitationResponse(invitation, false);
     } catch (error) {
       $('onlineLobbyError').textContent = error.message || 'Could not update the invitation.';
     }
+  }
+
+  async function finishInvitationResponse(invitation, accept, teamName = '') {
+    const action = accept ? 'accept' : 'decline';
+    const { response, data } = await fantasyRequest(`/api/fantasy/invitations/${action}`, 'POST', {
+      ...invitation,
+      ...(accept ? { teamName } : {}),
+    });
+    if (!response.ok) throw new Error(data.error || 'Could not respond to this invitation.');
+    await refreshOnlineLobby();
+    if (accept) await switchLeague(invitation.leagueId);
   }
 
   async function openOnlineLobby() {
