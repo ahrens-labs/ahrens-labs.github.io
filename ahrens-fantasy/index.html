@@ -825,7 +825,7 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
       <button class="top-button" id="inviteManagerButton" hidden>INVITE</button>
       <button class="top-button" id="manageTeamsButton" hidden>TEAMS</button>
       <button class="top-button" id="scheduleDraftButton" hidden>DRAFT TIME</button>
-      <button class="top-button" id="settingsButton">SETTINGS</button>
+      <button class="top-button" id="settingsButton" hidden>SETTINGS</button>
       <button class="top-button new-league-top" id="newLeagueButton">＋ NEW LEAGUE</button>
     </div>
   </header>
@@ -847,7 +847,7 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
     <button class="nav-tab" data-view="rosters">Rosters</button>
     <button class="nav-tab" data-view="matchups">Matchups</button>
     <button class="nav-tab" data-view="players">Players</button>
-    <button class="nav-tab" data-view="scoring">Scoring</button>
+    <button class="nav-tab" data-view="scoring" hidden>Scoring</button>
     <button class="nav-tab" data-view="live">Live games <span class="nav-badge" id="liveBadge">—</span></button>
   </nav>
 
@@ -1403,11 +1403,11 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
     $('inviteManagerButton').hidden = !onlineCommissioner;
     $('manageTeamsButton').hidden = !onlineCommissioner;
     $('scheduleDraftButton').hidden = !onlineCommissioner;
-    $('settingsButton').hidden = onlineReady && !onlineCommissioner;
-    $('settingsButton').disabled = onlineReady && !onlineCommissioner;
+    $('settingsButton').hidden = !onlineCommissioner;
+    $('settingsButton').disabled = !onlineCommissioner;
     $('settingsButton').title = onlineCommissioner ? 'Edit league settings' : 'Only the commissioner can edit league settings';
     const scoringTab = document.querySelector('.nav-tab[data-view="scoring"]');
-    scoringTab.hidden = onlineReady && !onlineCommissioner;
+    scoringTab.hidden = !onlineCommissioner;
     if (scoringTab.hidden && $('view-scoring').classList.contains('active')) {
       switchView('overview');
     }
@@ -4771,7 +4771,7 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
   }
 
   function switchView(viewName, updateUrl = true) {
-    if (onlineReady && !onlineCommissioner && viewName === 'scoring') viewName = 'overview';
+    if (!onlineCommissioner && viewName === 'scoring') viewName = 'overview';
     const target = $(`view-${viewName}`);
     const navTab = document.querySelector(`.nav-tab[data-view="${viewName}"]`);
     if (!target || !navTab) return;
