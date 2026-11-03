@@ -1698,6 +1698,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     );
     if (!response.ok) throw new Error(data.error || 'Could not leave this league.');
 
+    closeModal();
     onlineLeagues = onlineLeagues.filter((leagueItem) => leagueItem.leagueId !== item.leagueId);
     renderOnlineLeagueList();
     renderLeagueSwitcher();
