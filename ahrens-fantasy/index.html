@@ -131,6 +131,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
 .player-table, .roster-table, .score-table { width: 100%; max-width: 100%; border-collapse: collapse; table-layout: fixed; }
 .player-table th, .roster-table th, .score-table th { position: sticky; top: 0; z-index: 1; padding: 9px 6px; background: #111922; color: #74837d; font: 8px var(--mono); letter-spacing: .06em; text-align: left; white-space: normal; }
 .player-table td, .roster-table td, .score-table td { padding: 8px 6px; border-top: 1px solid #ffffff0b; color: #c5d0c9; font: 10px var(--mono); white-space: normal; overflow-wrap: anywhere; word-break: break-word; vertical-align: top; }
+.player-table td, .roster-table td { font-size: 12px; }
 .fantasy-points-cell { color: var(--lime) !important; font-weight: 500 !important; }
 .projection-cell { color: #5c7eaf !important; font-weight: 600 !important; }
 .matchup-cell { min-width: 0; }
@@ -152,17 +153,17 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
 .player-headshot { width: 28px; height: 28px; flex: 0 0 auto; object-fit: cover; border: 1px solid #ffffff18; border-radius: 50%; background: #25313a; }
 .player-headshot.team-logo-shot { object-fit: contain; padding: 2px; border-radius: 0; background: #ffffff06; }
 .player-name-stack { min-width: 0; }
-.roster-player-toggle { max-width: 100%; padding: 0; border: 0; background: transparent; color: var(--lime); cursor: pointer; font: 600 11px var(--sans); text-align: left; }
+.roster-player-toggle { max-width: 100%; padding: 0; border: 0; background: transparent; color: var(--lime); cursor: pointer; font: 600 14px var(--sans); text-align: left; }
 .roster-player-toggle:hover { text-decoration: underline; }
-.player-name { color: #e2eae5; font: 600 11px var(--sans); }
-.player-team { margin-top: 3px; color: #74817c; font: 8px var(--mono); }
-.position-tag { display: inline-flex; min-width: 28px; justify-content: center; padding: 4px 5px; border: 1px solid #ffffff14; color: #b9c7c0; font: 8px var(--mono); }
+.player-name { color: #e2eae5; font: 600 14px var(--sans); }
+.player-team { margin-top: 3px; color: #74817c; font: 11px var(--mono); }
+.position-tag { display: inline-flex; min-width: 28px; justify-content: center; padding: 4px 5px; border: 1px solid #ffffff14; color: #b9c7c0; font: 10px var(--mono); }
 .position-tag.qb { border-color: #bc9bff40; color: #c5aeff; }
 .position-tag.rb { border-color: #ffac7340; color: #ffbc8d; }
 .position-tag.wr { border-color: #8ed9df40; color: #9de2e6; }
 .position-tag.te { border-color: #d1f36b40; color: #d6f783; }
 .position-tag.k, .position-tag.dst { border-color: #fb777c40; color: #ff9397; }
-.status-tag { color: var(--green); font: 8px var(--mono); }
+.status-tag { color: var(--green); font: 10px var(--mono); }
 .status-tag.injured { color: var(--red); }
 .add-player { width: 25px; height: 25px; border: 1px solid #d1f36b3f; background: #d1f36b0b; color: var(--lime); cursor: pointer; }
 .add-player:hover { background: #d1f36b20; }
@@ -175,10 +176,10 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
 .draft-order-row .pick-player { color: #77867e; font: 8px var(--mono); }
 .roster-slot { display: grid; grid-template-columns: 47px 1fr auto; align-items: center; gap: 8px; padding: 8px 11px; border-bottom: 1px solid #ffffff0a; }
 .roster-slot:last-child { border-bottom: 0; }
-.slot-label { color: #71807a; font: 8px var(--mono); letter-spacing: .06em; }
-.slot-player { color: #dce4df; font: 10px var(--sans); }
+.slot-label { color: #71807a; font: 10px var(--mono); letter-spacing: .06em; }
+.slot-player { color: #dce4df; font: 12px var(--sans); }
 .slot-player.empty { color: #586660; }
-.slot-pts { color: var(--lime); font: 10px var(--mono); }
+.slot-pts { color: var(--lime); font: 12px var(--mono); }
 .roster-tabs { display: flex; flex-wrap: wrap; gap: 3px; padding: 8px 10px; overflow: visible; border-bottom: 1px solid var(--line); }
 .roster-tab { flex: 0 0 auto; padding: 6px 8px; border: 1px solid transparent; background: transparent; color: #7c8a83; font: 8px var(--mono); cursor: pointer; }
 .roster-tab.active { border-color: #d1f36b3a; color: var(--lime); background: #d1f36b0c; }
@@ -186,10 +187,10 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
 .roster-summary b { color: #e2ebe4; font-weight: 500; }
 .roster-week-totals { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 10px 13px; border-bottom: 1px solid var(--line); }
 .roster-week-total { padding: 9px 10px; border: 1px solid var(--line); background: #ffffff04; }
-.roster-week-total-label { color: var(--dim); font: 8px var(--mono); letter-spacing: .1em; }
+.roster-week-total-label { color: var(--dim); font: 10px var(--mono); letter-spacing: .1em; }
 .roster-week-total-value { margin-top: 5px; color: var(--lime); font: 600 18px var(--mono); }
 .roster-week-total.projected .roster-week-total-value { color: var(--cyan); }
-.roster-week-total-note { margin-top: 3px; color: var(--dim); font: 8px/1.5 var(--mono); }
+.roster-week-total-note { margin-top: 3px; color: var(--dim); font: 10px/1.5 var(--mono); }
 .league-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 300px); gap: 13px; align-items: start; }
 .league-form { padding: 16px; }
 .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -289,11 +290,11 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
 .live-placeholder { padding: 25px 15px; color: #89968f; font-size: 11px; line-height: 1.7; text-align: center; }
 .player-details { padding: 14px; }
 .player-details h3 { margin: 0; font: 600 18px var(--display); }
-.player-details p { color: #86948c; font-size: 10px; line-height: 1.6; }
+.player-details p { color: #86948c; font-size: 12px; line-height: 1.6; }
 .player-statline { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
 .player-stat { padding: 8px; background: #ffffff05; }
 .player-stat b { display: block; color: #e3eae5; font: 600 13px var(--mono); }
-.player-stat small { color: #738079; font: 8px var(--mono); }
+.player-stat small { color: #738079; font: 10px var(--mono); }
 .search-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 11px; border-bottom: 1px solid var(--line); }
 .search-toolbar .input { max-width: 100%; flex: 1 1 180px; }
 .pool-note { margin-left: 0; color: #77857e; font: 8px var(--mono); }
@@ -356,7 +357,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
   .player-table thead, .roster-table thead, .score-table thead { display: none; }
   .player-table tr, .roster-table tr, .score-table tr { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 4px 12px; width: 100%; max-width: 100%; padding: 10px 12px; border-bottom: 1px solid var(--line); }
   .player-table td, .roster-table td, .score-table td { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; min-width: 0; padding: 3px 0; border: 0; white-space: normal; }
-  .player-table td::before, .roster-table td::before, .score-table td::before { content: attr(data-label); flex: 0 0 38%; max-width: 42%; color: var(--dim); font: 8px var(--mono); letter-spacing: .06em; text-transform: uppercase; }
+  .player-table td::before, .roster-table td::before, .score-table td::before { content: attr(data-label); flex: 0 0 38%; max-width: 42%; color: var(--dim); font: 11px var(--mono); letter-spacing: .04em; text-transform: uppercase; }
   .player-name-cell, .roster-group-row td { grid-column: 1 / -1; }
   .roster-group-row { display: block; }
   .roster-group-row td::before { content: none; }
@@ -816,7 +817,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
   .roster-tab { min-height: 42px; padding-inline: 11px; }
   .player-table tr, .roster-table tr, .score-table tr { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px 10px; padding: 10px; }
   .player-table td, .roster-table td, .score-table td { min-height: 32px; align-items: center; gap: 5px; }
-  .player-table td::before, .roster-table td::before, .score-table td::before { flex-basis: 38%; font-size: 9px; }
+  .player-table td::before, .roster-table td::before, .score-table td::before { flex-basis: 38%; font-size: 11px; }
   .add-player, .roster-move-button, .icon-button { min-width: 40px; min-height: 40px; }
   .roster-slot-select { min-height: 40px; }
   .scoring-tabs { flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain; }
