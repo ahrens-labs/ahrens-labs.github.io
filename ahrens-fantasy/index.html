@@ -2140,13 +2140,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
   }
 
   function defaultTeamName(index) {
-    const names = [
-      'Fourth & Forever', 'Sunday Scaries', 'Pocket Presence', 'The Red Zone',
-      'Audible Thinkers', 'Waiver Wiretap', 'Blitzed & Confused', 'Gridiron Ghosts',
-      'Route Runners', 'No Punt Intended', 'End Zone Energy', 'Two-Minute Warning',
-      'Yard Sale', 'The Bye Week Bandits', 'Huddle Up', 'Game Script Theory',
-    ];
-    return names[index % names.length];
+    return `Team ${index + 1}`;
   }
 
   function normalizePlayer(athlete, team, rosterGroup = '') {
