@@ -66,31 +66,54 @@ export async function handleFantasyRequest(request, env, corsHeaders, path, { ex
     }
     if (match[2] === 'invitations' && request.method === 'POST') {
       const body = await readFantasyBody(request);
-      const username = normalizeUsername(body?.username);
+      const inviteTarget = String(body?.usernameOrEmail ?? body?.username ?? '').trim();
       const teamId = String(body?.teamId || '').trim();
-      if (!username || !teamId) return fantasyJson({ error: 'Enter an Ahrens Labs username and choose an open team.' }, 400, corsHeaders);
-      if (!env.USERNAME_REGISTRY) return fantasyJson({ error: 'Ahrens Labs username lookup is unavailable.' }, 503, corsHeaders);
-      const registry = env.USERNAME_REGISTRY.get(env.USERNAME_REGISTRY.idFromName('global'));
-      const resolved = await registry.fetch(new Request('https://accounts.internal/resolve', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username }),
-      }));
-      const account = await resolved.json();
-      if (!resolved.ok || !account.userId) {
-        return fantasyJson({ error: account.error || 'That Ahrens Labs username was not found.' }, 404, corsHeaders);
+      if (!inviteTarget || inviteTarget.length > 254 || !teamId) {
+        return fantasyJson({ error: 'Enter an Ahrens Labs username or email and choose an open team.' }, 400, corsHeaders);
+      }
+
+      let inviteeUserId;
+      let inviteeUsername;
+      if (inviteTarget.includes('@')) {
+        const email = normalizeEmail(inviteTarget);
+        if (!isValidInviteEmail(email)) return fantasyJson({ error: 'Enter a valid email address.' }, 400, corsHeaders);
+        if (!env.USER_ACCOUNT) return fantasyJson({ error: 'Ahrens Labs account lookup is unavailable.' }, 503, corsHeaders);
+        inviteeUserId = generateUserId(email);
+        const accountStub = env.USER_ACCOUNT.get(env.USER_ACCOUNT.idFromName(inviteeUserId));
+        const accountResponse = await accountStub.fetch(new Request('https://account.internal/getData'));
+        const account = accountResponse.ok ? await accountResponse.json() : null;
+        if (normalizeEmail(account?.email) !== email) {
+          return fantasyJson({ error: 'No Ahrens Labs account was found with that email address.' }, 404, corsHeaders);
+        }
+        inviteeUsername = String(account.username || '').trim();
+      } else {
+        const username = normalizeUsername(inviteTarget);
+        if (!username) return fantasyJson({ error: 'Enter a valid Ahrens Labs username.' }, 400, corsHeaders);
+        if (!env.USERNAME_REGISTRY) return fantasyJson({ error: 'Ahrens Labs username lookup is unavailable.' }, 503, corsHeaders);
+        const registry = env.USERNAME_REGISTRY.get(env.USERNAME_REGISTRY.idFromName('global'));
+        const resolved = await registry.fetch(new Request('https://accounts.internal/resolve', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username }),
+        }));
+        const account = await resolved.json();
+        if (!resolved.ok || !account.userId) {
+          return fantasyJson({ error: account.error || 'That Ahrens Labs username was not found.' }, 404, corsHeaders);
+        }
+        inviteeUserId = account.userId;
+        inviteeUsername = username;
       }
       const response = await send('invite', {
         leagueId,
         teamId,
-        inviteeUserId: account.userId,
-        inviteeUsername: username,
+        inviteeUserId,
+        inviteeUsername,
       });
       if (response.ok && notifyInvitation) {
         const result = await response.clone().json();
         const notification = Promise.resolve(notifyInvitation({
-          inviteeUserId: account.userId,
-          recipientName: username,
+          inviteeUserId,
+          recipientName: inviteeUsername,
           inviterName: identity.username,
           leagueName: result.invitation?.leagueName || '',
           teamName: result.invitation?.teamName || '',
@@ -149,6 +172,22 @@ function parseBearerToken(header) {
 
 function normalizeUsername(value) {
   return typeof value === 'string' ? value.trim().toLowerCase().slice(0, 40) : '';
+}
+
+function normalizeEmail(value) {
+  return typeof value === 'string' ? value.trim().toLowerCase() : '';
+}
+
+function isValidInviteEmail(value) {
+  return value.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+function generateUserId(email) {
+  let hash = 0;
+  for (let index = 0; index < email.length; index += 1) {
+    hash = ((hash << 5) - hash + email.charCodeAt(index)) | 0;
+  }
+  return `user_${Math.abs(hash)}`;
 }
 
 function fantasyJson(value, status = 200, corsHeaders = {}) {

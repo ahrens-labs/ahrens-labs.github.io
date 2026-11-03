@@ -1933,18 +1933,19 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
 
   async function openInviteManager() {
     const wrapper = document.createElement('div');
-    const usernameField = document.createElement('div');
-    usernameField.className = 'field';
-    const usernameLabel = document.createElement('label');
-    usernameLabel.htmlFor = 'inviteUsername';
-    usernameLabel.textContent = 'AHRENS LABS USERNAME';
-    const usernameInput = document.createElement('input');
-    usernameInput.className = 'input';
-    usernameInput.id = 'inviteUsername';
-    usernameInput.type = 'text';
-    usernameInput.maxLength = 40;
-    usernameInput.autocomplete = 'off';
-    usernameField.append(usernameLabel, usernameInput);
+    const inviteeField = document.createElement('div');
+    inviteeField.className = 'field';
+    const inviteeLabel = document.createElement('label');
+    inviteeLabel.htmlFor = 'inviteTarget';
+    inviteeLabel.textContent = 'AHRENS LABS USERNAME OR EMAIL';
+    const inviteeInput = document.createElement('input');
+    inviteeInput.className = 'input';
+    inviteeInput.id = 'inviteTarget';
+    inviteeInput.type = 'text';
+    inviteeInput.maxLength = 254;
+    inviteeInput.autocomplete = 'off';
+    inviteeInput.placeholder = 'Username or email address';
+    inviteeField.append(inviteeLabel, inviteeInput);
     const teamField = document.createElement('div');
     teamField.className = 'field';
     const label = document.createElement('label');
@@ -1959,16 +1960,16 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       return;
     }
     teamField.append(label, teamSelect);
-    wrapper.append(usernameField, teamField);
+    wrapper.append(inviteeField, teamField);
     openModal('Invite a league manager.', 'AHRENS LABS INVITE', wrapper, async () => {
-      const username = $('inviteUsername').value.trim();
+      const usernameOrEmail = $('inviteTarget').value.trim();
       await waitForOnlineSave();
       const { response, data } = await fantasyRequest(`/api/fantasy/leagues/${encodeURIComponent(league.leagueId)}/invitations`, 'POST', {
-        username,
+        usernameOrEmail,
         teamId: teamSelect.value,
       });
       if (!response.ok) throw new Error(data.error || 'Could not send this invitation.');
-      notify(`Invitation sent to ${username}.`);
+      notify(`Invitation sent to ${usernameOrEmail}.`);
       void refreshActiveLeague();
     }, { confirmText: 'SEND INVITATION' });
   }

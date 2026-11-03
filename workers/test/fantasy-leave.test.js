@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { FantasyLeagueStore } from '../src/fantasy.js';
+import { FantasyLeagueStore, handleFantasyRequest } from '../src/fantasy.js';
 
 class MemoryStorage {
   constructor(entries = []) {
@@ -191,4 +191,68 @@ test('league edits persist in shared storage linked from the account', async () 
   assert.equal(loaded.league.scoring.passTD, 6);
   assert.equal(loaded.league.selectedWeek, 5);
   assert.equal(loaded.revision, 2);
+});
+
+test('a commissioner can invite an existing account by email', async () => {
+  const inviteeEmail = 'manager@example.com';
+  let inviteNotification;
+  const fantasyStore = new FantasyLeagueStore({ storage: new MemoryStorage([
+    ['league:league-1', {
+      league: {
+        leagueId: 'league-1',
+        name: 'Sunday League',
+        commissionerUserId: 'commissioner',
+        managers: [
+          { id: 'team-1', ownerUserId: 'commissioner', teamName: 'Commissioner Team', roster: [] },
+          { id: 'team-2', ownerUserId: null, teamName: 'Open Team', roster: [] },
+        ],
+        pendingInviteUserIds: [],
+      },
+      revision: 1,
+    }],
+    ['user:commissioner', { leagueIds: ['league-1'], invitations: [] }],
+  ]) });
+  const identityUserId = 'commissioner';
+  const invitedUserId = `user_${[...inviteeEmail].reduce((hash, char) => ((hash << 5) - hash + char.charCodeAt(0)) | 0, 0)}`;
+  const env = {
+    SESSION: {
+      idFromName: (id) => id,
+      get: () => ({
+        fetch: async () => Response.json({ userId: identityUserId }),
+      }),
+    },
+    USER_ACCOUNT: {
+      idFromName: (id) => id,
+      get: (id) => ({
+        fetch: async () => Response.json(id === identityUserId
+          ? { userId: id, username: 'Commissioner' }
+          : { userId: id, username: 'ManagerName', email: inviteeEmail }),
+      }),
+    },
+    FANTASY_LEAGUE: {
+      idFromName: (id) => id,
+      get: () => ({
+        fetch: (request) => fantasyStore.fetch(request),
+      }),
+    },
+  };
+  const request = new Request('https://ahrenslabs.com/api/fantasy/leagues/league-1/invitations', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer session-1', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ usernameOrEmail: ' MANAGER@example.com ', teamId: 'team-2' }),
+  });
+
+  const response = await handleFantasyRequest(request, env, {}, '/api/fantasy/leagues/league-1/invitations', {
+    notifyInvitation: async (notice) => { inviteNotification = notice; },
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).success, true);
+  assert.deepEqual(inviteNotification, {
+    inviteeUserId: invitedUserId,
+    recipientName: 'ManagerName',
+    inviterName: 'Commissioner',
+    leagueName: 'Sunday League',
+    teamName: 'Open Team',
+  });
 });
