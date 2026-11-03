@@ -1901,7 +1901,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       input.id = 'joinedTeamName';
       input.type = 'text';
       input.maxLength = 40;
-      input.value = `${onlineUsername || 'Manager'}'s Team`;
+      input.value = `${onlineUsername || 'Manager'}'s Team`.slice(0, input.maxLength);
       field.append(label, input);
       const note = document.createElement('p');
       note.className = 'small-note';

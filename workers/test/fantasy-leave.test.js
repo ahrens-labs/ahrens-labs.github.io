@@ -182,6 +182,79 @@ test('league invitations use current league and team names', async () => {
   assert.equal(data.invitations[0].teamName, 'Renamed Team');
 });
 
+test('accepting an invitation assigns the team and clears the invitation', async () => {
+  const { store, storage } = createStore([
+    ['league:league-1', {
+      league: {
+        leagueId: 'league-1',
+        commissionerUserId: 'commissioner',
+        managers: [
+          { id: 'team-1', ownerUserId: 'commissioner', name: 'Commissioner', teamName: 'Commissioner Team', roster: [] },
+          { id: 'team-2', ownerUserId: null, name: 'Open team', teamName: 'Team 2', roster: [] },
+        ],
+        pendingInviteUserIds: ['manager'],
+      },
+      revision: 1,
+    }],
+    ['user:manager', {
+      leagueIds: [],
+      invitations: [{ leagueId: 'league-1', teamId: 'team-2', teamName: 'Team 2' }],
+    }],
+  ]);
+
+  const { response, data } = await storeRequest(store, 'accept-invitation', {
+    userId: 'manager',
+    username: 'Manager',
+    leagueId: 'league-1',
+    teamId: 'team-2',
+    teamName: 'Manager Team',
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal(data.success, true);
+  assert.deepEqual((await storage.get('user:manager')).leagueIds, ['league-1']);
+  assert.deepEqual((await storage.get('user:manager')).invitations, []);
+  const leagueRecord = await storage.get('league:league-1');
+  assert.equal(leagueRecord.league.managers[1].ownerUserId, 'manager');
+  assert.equal(leagueRecord.league.managers[1].teamName, 'Manager Team');
+  assert.deepEqual(leagueRecord.league.pendingInviteUserIds, []);
+});
+
+test('accepting an invitation is recoverable if the team was already assigned to that user', async () => {
+  const { store, storage } = createStore([
+    ['league:league-1', {
+      league: {
+        leagueId: 'league-1',
+        commissionerUserId: 'commissioner',
+        managers: [
+          { id: 'team-1', ownerUserId: 'commissioner', name: 'Commissioner', teamName: 'Commissioner Team', roster: [] },
+          { id: 'team-2', ownerUserId: 'manager', name: 'Manager', teamName: 'Manager Team', roster: [] },
+        ],
+        pendingInviteUserIds: ['manager'],
+      },
+      revision: 2,
+    }],
+    ['user:manager', {
+      leagueIds: [],
+      invitations: [{ leagueId: 'league-1', teamId: 'team-2', teamName: 'Team 2' }],
+    }],
+  ]);
+
+  const { response, data } = await storeRequest(store, 'accept-invitation', {
+    userId: 'manager',
+    username: 'Manager',
+    leagueId: 'league-1',
+    teamId: 'team-2',
+    teamName: 'Manager Team',
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal(data.success, true);
+  assert.deepEqual((await storage.get('user:manager')).leagueIds, ['league-1']);
+  assert.deepEqual((await storage.get('user:manager')).invitations, []);
+  assert.deepEqual((await storage.get('league:league-1')).league.pendingInviteUserIds, []);
+});
+
 test('league edits, schedule, and playoff settings persist after the draft starts', async () => {
   const { store, storage } = createStore();
   const { response: createResponse, data: created } = await storeRequest(store, 'create', {

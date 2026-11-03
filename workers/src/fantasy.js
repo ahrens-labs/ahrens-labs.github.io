@@ -692,7 +692,12 @@ export class FantasyLeagueStore {
   }
 
   async getUser(userId) {
-    return await this.storage.get(`${USER_PREFIX}${userId}`) || { leagueIds: [], invitations: [] };
+    const user = await this.storage.get(`${USER_PREFIX}${userId}`) || {};
+    return {
+      ...user,
+      leagueIds: Array.isArray(user.leagueIds) ? user.leagueIds : [],
+      invitations: Array.isArray(user.invitations) ? user.invitations : [],
+    };
   }
 
   async putUser(userId, value) {
@@ -732,10 +737,11 @@ export class FantasyLeagueStore {
       const record = await this.getLeague(invitation.leagueId);
       if (!record) continue;
       const team = managerById(record.league, invitation.teamId);
+      if (!team || (team.ownerUserId && team.ownerUserId !== userId)) continue;
       validInvitations.push({
         ...invitation,
         leagueName: record.league.name || invitation.leagueName,
-        teamName: team?.teamName || '',
+        teamName: team.teamName || '',
       });
     }
     if (validLeagueIds.length !== (user.leagueIds || []).length
@@ -959,18 +965,38 @@ export class FantasyLeagueStore {
     const user = await this.getUser(userId);
     const invitationIndex = user.invitations.findIndex((invite) => invite.leagueId === leagueId && invite.teamId === teamId);
     if (invitationIndex < 0) return { status: 404, error: 'Invitation not found.' };
+    const discardInvitation = async (record = null) => {
+      user.invitations.splice(invitationIndex, 1);
+      if (record && !user.invitations.some((invite) => invite.leagueId === leagueId)) {
+        record.league.pendingInviteUserIds = (record.league.pendingInviteUserIds || []).filter((id) => id !== userId);
+        await this.putLeague(record);
+      }
+      await this.putUser(userId, user);
+    };
     const record = await this.getLeague(leagueId);
-    if (!record) return { status: 404, error: 'League no longer exists.' };
+    if (!record) {
+      await discardInvitation();
+      return { status: 404, error: 'League no longer exists. The expired invitation was removed.' };
+    }
     const team = managerById(record.league, teamId);
-    if (!team || team.ownerUserId) return { status: 409, error: 'That team is no longer available.' };
     const invitedTeam = user.invitations[invitationIndex];
+    if (!team) {
+      await discardInvitation(record);
+      return { status: 404, error: 'That team no longer exists. The expired invitation was removed.' };
+    }
+    if (team.ownerUserId && team.ownerUserId !== userId) {
+      await discardInvitation(record);
+      return { status: 409, error: 'That team is no longer available. The expired invitation was removed.' };
+    }
     const requestedTeamName = typeof body.teamName === 'string' ? body.teamName.trim() : '';
     const teamName = requestedTeamName || invitedTeam.teamName || team.teamName;
     if (!validString(teamName, 40)) return { status: 400, error: 'Enter a fantasy team name of 1 to 40 characters.' };
-    team.ownerUserId = userId;
-    team.name = String(body.username || 'Manager').slice(0, 40);
-    team.teamName = teamName;
-    record.revision += 1;
+    if (!team.ownerUserId) {
+      team.ownerUserId = userId;
+      team.name = String(body.username || 'Manager').slice(0, 40);
+      team.teamName = teamName;
+      record.revision += 1;
+    }
     user.invitations.splice(invitationIndex, 1);
     user.leagueIds = [...new Set([...user.leagueIds, leagueId])];
     record.league.pendingInviteUserIds = (record.league.pendingInviteUserIds || []).filter((id) => id !== userId);
