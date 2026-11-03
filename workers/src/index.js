@@ -45,7 +45,7 @@ import { handleCauldronRequest } from './cauldron.js';
 import { handleHeroesRequest } from './heroes.js';
 import { handleMasqueradeRequest } from './masquerade.js';
 import { handleBoardGamesRequest, handleBoardSavesDO, deleteBoardSaves } from './board-games.js';
-import { FantasyLeagueStore, handleFantasyRequest } from './fantasy.js';
+import { FantasyLeagueStore, handleFantasyRequest, processScheduledFantasyWaivers } from './fantasy.js';
 export { HearthholdGame, HearthholdLobby } from './hearthhold.js';
 export { LabGame, LabLobby } from './lab-online.js';
 export { FantasyLeagueStore };
@@ -390,6 +390,7 @@ export default {
         await maybeAutoBackfillTetherD1(env);
         await handleScheduledCron(controller, env);
         await handleSportsDigestScheduledCron(controller, env);
+        await processScheduledFantasyWaivers(env);
       })().catch((err) => {
         console.error('scheduled cron failed', err?.stack || err?.message || err);
       })

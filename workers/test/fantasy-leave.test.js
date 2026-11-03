@@ -592,3 +592,155 @@ test('a commissioner can invite an existing account by email', async () => {
     teamName: 'Open Team',
   });
 });
+
+test('waiver claims use rolling priority and advance it after a successful award', async () => {
+  const league = {
+    leagueId: 'league-1',
+    commissionerUserId: 'commissioner',
+    teamCount: 2,
+    draftStarted: true,
+    managers: [
+      { id: 'team-1', ownerUserId: 'commissioner', roster: [] },
+      {
+        id: 'team-2',
+        ownerUserId: 'manager',
+        roster: [{ id: 'old-1' }, { id: 'old-2' }],
+      },
+    ],
+    rosterSlots: { QB: 1, RB: 1 },
+    waiverSettings: { enabled: true, periodHours: 24 },
+    waiverPriorityTeamIds: ['team-2', 'team-1'],
+    waiverWindows: {},
+    pendingWaiverClaims: [],
+  };
+  const { store, storage } = createStore([['league:league-1', { league, revision: 1 }]]);
+  const player = { id: 'player-1', name: 'Test Player', position: 'RB', team: 'SEA' };
+
+  const firstClaim = await storeRequest(store, 'claim-waiver', {
+    leagueId: 'league-1',
+    userId: 'commissioner',
+    teamId: 'team-1',
+    player,
+  });
+  const secondClaim = await storeRequest(store, 'claim-waiver', {
+    leagueId: 'league-1',
+    userId: 'manager',
+    teamId: 'team-2',
+    player,
+    dropPlayerId: 'old-1',
+  });
+
+  assert.equal(firstClaim.response.status, 200);
+  assert.equal(secondClaim.response.status, 200);
+  const saved = await storage.get('league:league-1');
+  saved.league.waiverWindows['player-1'] = Date.now() - 1;
+  await storage.put('league:league-1', saved);
+  const processed = await storeRequest(store, 'process-waivers', {});
+
+  assert.equal(processed.response.status, 200);
+  const awarded = await storage.get('league:league-1');
+  assert.deepEqual(awarded.league.managers[0].roster, []);
+  assert.deepEqual(
+    awarded.league.managers[1].roster.map((rosteredPlayer) => rosteredPlayer.id),
+    ['old-2', 'player-1'],
+  );
+  assert.deepEqual(awarded.league.waiverPriorityTeamIds, ['team-1', 'team-2']);
+  assert.deepEqual(awarded.league.pendingWaiverClaims, []);
+  assert.deepEqual(awarded.league.waiverWindows, {});
+});
+
+test('a manager cannot change commissioner-controlled waiver settings', async () => {
+  const schedule = Array.from({ length: 18 }, () => [['team-1', 'team-2']]);
+  const league = {
+    leagueId: 'league-1',
+    name: 'League',
+    commissionerUserId: 'commissioner',
+    teamCount: 2,
+    managers: [
+      { id: 'team-1', ownerUserId: 'commissioner', name: 'Commissioner', teamName: 'Team 1', teamAbbreviation: 'T1', roster: [] },
+      { id: 'team-2', ownerUserId: 'manager', name: 'Manager', teamName: 'Team 2', teamAbbreviation: 'T2', roster: [] },
+    ],
+    rosterSlots: { QB: 1 },
+    scoring: {},
+    draftOrder: ['team-1', 'team-2'],
+    matchupSchedule: schedule,
+    playoffSettings: { teamCount: 2, startWeek: 15, weeks: 3, reseed: true, consolation: true },
+    waiverSettings: { enabled: true, periodHours: 48 },
+    waiverPriorityTeamIds: ['team-2', 'team-1'],
+    waiverWindows: {},
+    pendingWaiverClaims: [],
+    draftStarted: false,
+    draftAt: null,
+    picks: [],
+    trades: [],
+    pendingInviteUserIds: [],
+  };
+  const { store } = createStore([['league:league-1', { league, revision: 1 }]]);
+  const updated = structuredClone(league);
+  updated.waiverSettings.enabled = false;
+
+  const { response, data } = await storeRequest(store, 'save', {
+    leagueId: 'league-1',
+    userId: 'manager',
+    revision: 1,
+    league: updated,
+  });
+
+  assert.equal(response.status, 403);
+  assert.match(data.error, /commissioner/i);
+});
+
+test('the Fantasy API routes authenticated waiver claims to the league store', async () => {
+  const league = {
+    leagueId: 'league-1',
+    commissionerUserId: 'manager',
+    teamCount: 2,
+    draftStarted: true,
+    managers: [
+      { id: 'team-1', ownerUserId: 'manager', roster: [] },
+      { id: 'team-2', ownerUserId: 'other', roster: [] },
+    ],
+    rosterSlots: { QB: 1, RB: 1 },
+    waiverSettings: { enabled: true, periodHours: 24 },
+    waiverPriorityTeamIds: ['team-2', 'team-1'],
+    waiverWindows: {},
+    pendingWaiverClaims: [],
+  };
+  const fantasyStore = new FantasyLeagueStore({
+    storage: new MemoryStorage([['league:league-1', { league, revision: 1 }]]),
+  });
+  const env = {
+    SESSION: {
+      idFromName: (id) => id,
+      get: () => ({ fetch: async () => Response.json({ userId: 'manager' }) }),
+    },
+    USER_ACCOUNT: {
+      idFromName: (id) => id,
+      get: () => ({ fetch: async () => Response.json({ username: 'Manager' }) }),
+    },
+    FANTASY_LEAGUE: {
+      idFromName: (id) => id,
+      get: () => ({ fetch: (request) => fantasyStore.fetch(request) }),
+    },
+  };
+  const request = new Request('https://ahrenslabs.com/api/fantasy/leagues/league-1/waivers/claims', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer session', 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      teamId: 'team-1',
+      player: { id: 'player-1', name: 'Test Player', position: 'RB', team: 'SEA' },
+    }),
+  });
+
+  const response = await handleFantasyRequest(
+    request,
+    env,
+    {},
+    '/api/fantasy/leagues/league-1/waivers/claims',
+  );
+  const data = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(data.userTeamId, 'team-1');
+  assert.equal(data.league.pendingWaiverClaims.length, 1);
+});

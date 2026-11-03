@@ -41,6 +41,7 @@ id = "9e3b2db98b174f6695365fc7807612b9"
 
 # Daily digest: one cron in the send window (Worker gates to DIGEST_SEND_UTC_HOUR:MINUTE, default 07:00 UTC).
 # Sports Digest: every 15 min UTC; sends via EMAIL_TRANSACTIONAL (same as daily challenges).
+# Fantasy waiver claims are resolved on the existing quarter-hour ticks.
 [triggers]
 crons = ["0 7 * * *", "0,15,30,45 * * * *"]
 

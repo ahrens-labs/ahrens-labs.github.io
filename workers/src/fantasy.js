@@ -89,6 +89,23 @@ function validPlayoffSettings(settings, teamCount) {
     && typeof settings.consolation === 'boolean';
 }
 
+function validWaiverSettings(settings) {
+  return settings && typeof settings === 'object'
+    && typeof settings.enabled === 'boolean'
+    && [24, 48, 72, 168].includes(Number(settings.periodHours));
+}
+
+export async function processScheduledFantasyWaivers(env) {
+  if (!env.FANTASY_LEAGUE) throw new Error('Fantasy league storage is not configured.');
+  const store = env.FANTASY_LEAGUE.get(env.FANTASY_LEAGUE.idFromName(STORE_ID));
+  const response = await store.fetch(new Request('https://fantasy.internal/process-waivers', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: '{}',
+  }));
+  if (!response.ok) throw new Error(`Fantasy waiver processing failed with status ${response.status}.`);
+}
+
 export async function handleFantasyRequest(request, env, corsHeaders, path, { executionCtx, notifyInvitation } = {}) {
   const identity = await getIdentity(request, env);
   if (!identity) return fantasyJson({ error: 'Sign in with an Ahrens Labs account to use Fantasy Football.' }, 401, corsHeaders);
@@ -135,7 +152,7 @@ export async function handleFantasyRequest(request, env, corsHeaders, path, { ex
       return send('decline-invitation', body);
     }
 
-    const match = path.match(/^\/api\/fantasy\/leagues\/([^/]+)(?:\/(invitations|schedule|teams|leave))?$/);
+    const match = path.match(/^\/api\/fantasy\/leagues\/([^/]+)(?:\/(invitations|schedule|teams|leave|waivers\/claims(?:\/[^/]+)?))?$/);
     if (!match) return fantasyJson({ error: 'Not found.' }, 404, corsHeaders);
     const leagueId = decodeURIComponent(match[1]);
     if (!leagueId || leagueId.length > 100) return fantasyJson({ error: 'Invalid league id.' }, 400, corsHeaders);
@@ -146,6 +163,22 @@ export async function handleFantasyRequest(request, env, corsHeaders, path, { ex
       if (!body) return fantasyJson({ error: 'Invalid request body.' }, 400, corsHeaders);
       return send('save', { leagueId, league: body.league, revision: body.revision });
     }
+    if (match[2] === 'waivers/claims' && request.method === 'POST') {
+      const body = await readFantasyBody(request);
+      if (!body) return fantasyJson({ error: 'Invalid request body.' }, 400, corsHeaders);
+      return send('claim-waiver', {
+        leagueId,
+        teamId: body.teamId,
+        player: body.player,
+        dropPlayerId: body.dropPlayerId,
+      });
+    }
+    if (match[2]?.startsWith('waivers/claims/') && request.method === 'DELETE') {
+      return send('cancel-waiver-claim', {
+        leagueId,
+        claimId: decodeURIComponent(match[2].slice('waivers/claims/'.length)),
+      });
+    }
     if (match[2] === 'invitations' && request.method === 'POST') {
       const body = await readFantasyBody(request);
       const inviteTarget = String(body?.usernameOrEmail ?? body?.username ?? '').trim();
@@ -153,7 +186,6 @@ export async function handleFantasyRequest(request, env, corsHeaders, path, { ex
       if (!inviteTarget || inviteTarget.length > 254 || !teamId) {
         return fantasyJson({ error: 'Enter an Ahrens Labs username or email and choose an open team.' }, 400, corsHeaders);
       }
-
       let inviteeUserId;
       let inviteeUsername;
       if (inviteTarget.includes('@')) {
@@ -376,6 +408,10 @@ function normalizeSetup(input, userId, username) {
         reseed: true,
         consolation: true,
       },
+      waiverSettings: { enabled: true, periodHours: 48 },
+      waiverPriorityTeamIds: [...draftOrder].reverse(),
+      waiverWindows: {},
+      pendingWaiverClaims: [],
       picks: [],
       trades: [],
       pendingInviteUserIds: [],
@@ -398,6 +434,19 @@ function managerById(league, teamId) {
 
 function allPlayerIds(league) {
   return new Set((league.managers || []).flatMap((team) => (team.roster || []).map((player) => String(player.id))));
+}
+
+function removeWaiverClaimsForTeam(league, teamId) {
+  const removedPlayerIds = new Set((league.pendingWaiverClaims || [])
+    .filter((claim) => claim.teamId === teamId)
+    .map((claim) => String(claim.player?.id)));
+  league.pendingWaiverClaims = (league.pendingWaiverClaims || [])
+    .filter((claim) => claim.teamId !== teamId);
+  removedPlayerIds.forEach((playerId) => {
+    if (!league.pendingWaiverClaims.some((claim) => String(claim.player?.id) === playerId)) {
+      delete league.waiverWindows?.[playerId];
+    }
+  });
 }
 
 function teamPickAt(league, index) {
@@ -485,6 +534,7 @@ function validateLeagueSave(previous, incoming, userId) {
     return 'League identity and team membership cannot be changed here.';
   }
   const commissioner = previous.commissionerUserId === userId;
+  if (!validWaiverSettings(incoming.waiverSettings)) return 'Waiver settings are invalid.';
   const ownTeams = previous.managers.filter((team) => team.ownerUserId === userId);
   if (!ownTeams.length) return 'You do not manage a team in this league.';
   const ownTeamIds = new Set(ownTeams.map((team) => team.id));
@@ -502,6 +552,7 @@ function validateLeagueSave(previous, incoming, userId) {
     || !sameValue(incoming.draftOrder, previous.draftOrder)
     || !sameValue(incoming.matchupSchedule, previous.matchupSchedule)
     || !sameValue(incoming.playoffSettings, previous.playoffSettings)
+    || !sameValue(incoming.waiverSettings, previous.waiverSettings)
     || incoming.draftAt !== previous.draftAt)) {
     return 'Only the commissioner can change league settings, draft order, or draft time.';
   }
@@ -701,6 +752,9 @@ export class FantasyLeagueStore {
       else if (path === '/schedule') result = await this.schedule(body);
       else if (path === '/manage-teams') result = await this.manageTeams(body);
       else if (path === '/leave') result = await this.leave(body);
+      else if (path === '/claim-waiver') result = await this.claimWaiver(body);
+      else if (path === '/cancel-waiver-claim') result = await this.cancelWaiverClaim(body);
+      else if (path === '/process-waivers') result = await this.processAllWaivers();
       else if (path === '/save') result = await this.save(body);
       else result = { status: 404, error: 'Not found.' };
       return fantasyJson(result, result.status || 200);
@@ -819,6 +873,27 @@ export class FantasyLeagueStore {
       };
       migrated = true;
     }
+    if (!validWaiverSettings(record.league.waiverSettings)) {
+      record.league.waiverSettings = { enabled: true, periodHours: 48 };
+      migrated = true;
+    }
+    if (!Array.isArray(record.league.waiverPriorityTeamIds)
+      || record.league.waiverPriorityTeamIds.length !== teamIds.length
+      || new Set(record.league.waiverPriorityTeamIds).size !== teamIds.length
+      || record.league.waiverPriorityTeamIds.some((id) => !teamIds.includes(id))) {
+      record.league.waiverPriorityTeamIds = [...(record.league.draftOrder || teamIds)].reverse();
+      migrated = true;
+    }
+    if (!record.league.waiverWindows || typeof record.league.waiverWindows !== 'object'
+      || Array.isArray(record.league.waiverWindows)) {
+      record.league.waiverWindows = {};
+      migrated = true;
+    }
+    if (!Array.isArray(record.league.pendingWaiverClaims)) {
+      record.league.pendingWaiverClaims = [];
+      migrated = true;
+    }
+    if (this.resolveDueWaivers(record)) migrated = true;
     if (migrated) {
       record.revision += 1;
       await this.putLeague(record);
@@ -887,6 +962,12 @@ export class FantasyLeagueStore {
     }
     league.teamCount = teamCount;
     if (teamCount !== previousTeamCount) {
+      const currentTeamIds = league.managers.map((team) => team.id);
+      const existingPriority = league.waiverPriorityTeamIds || [...league.draftOrder].reverse();
+      league.waiverPriorityTeamIds = [
+        ...existingPriority.filter((teamId) => currentTeamIds.includes(teamId)),
+        ...currentTeamIds.filter((teamId) => !existingPriority.includes(teamId)),
+      ];
       league.matchupSchedule = generateMatchupSchedule(league.managers.map((team) => team.id));
       if (league.playoffSettings?.teamCount > teamCount) {
         league.playoffSettings.teamCount = [8, 6, 4, 2].find((count) => count <= teamCount);
@@ -982,6 +1063,7 @@ export class FantasyLeagueStore {
     }
 
     ownTeams.forEach((team) => {
+      removeWaiverClaimsForTeam(record.league, team.id);
       team.ownerUserId = null;
       team.name = 'Open team';
       team.teamName = `Team ${record.league.managers.indexOf(team) + 1}`;
@@ -1034,6 +1116,7 @@ export class FantasyLeagueStore {
       return { status: 400, error: 'Enter a team abbreviation of 1 to 4 letters or numbers.' };
     }
     if (!team.ownerUserId) {
+      removeWaiverClaimsForTeam(record.league, team.id);
       team.ownerUserId = userId;
       team.name = String(body.username || 'Manager').slice(0, 40);
       team.teamName = teamName;
@@ -1106,6 +1189,9 @@ export class FantasyLeagueStore {
     league.draftAt = record.league.draftAt;
     league.commissionerUserId = record.league.commissionerUserId;
     league.pendingInviteUserIds = record.league.pendingInviteUserIds || [];
+    league.waiverPriorityTeamIds = record.league.waiverPriorityTeamIds || [...record.league.draftOrder].reverse();
+    league.waiverWindows = record.league.waiverWindows || {};
+    league.pendingWaiverClaims = record.league.pendingWaiverClaims || [];
     const acceptedTradeTeams = new Set(
       league.trades
         .filter((trade) => trade.status === 'accepted'
@@ -1138,5 +1224,157 @@ export class FantasyLeagueStore {
     record.revision += 1;
     await this.putLeague(record);
     return { success: true, revision: record.revision };
+  }
+
+  resolveDueWaivers(record, now = Date.now()) {
+    const league = record.league;
+    if (!league.waiverWindows || !Array.isArray(league.pendingWaiverClaims)) return false;
+    const duePlayerIds = Object.entries(league.waiverWindows)
+      .filter(([, processAt]) => Number(processAt) <= now)
+      .map(([playerId]) => playerId);
+    if (!duePlayerIds.length) return false;
+    const capacity = Object.values(league.rosterSlots || {}).reduce((sum, count) => sum + Number(count || 0), 0);
+    let priority = Array.isArray(league.waiverPriorityTeamIds) ? league.waiverPriorityTeamIds : [];
+    duePlayerIds.forEach((playerId) => {
+      const claims = league.pendingWaiverClaims
+        .filter((claim) => String(claim.player?.id) === playerId)
+        .sort((left, right) => {
+          const leftRank = priority.indexOf(left.teamId);
+          const rightRank = priority.indexOf(right.teamId);
+          return (leftRank < 0 ? Number.MAX_SAFE_INTEGER : leftRank)
+            - (rightRank < 0 ? Number.MAX_SAFE_INTEGER : rightRank)
+            || Number(left.createdAt) - Number(right.createdAt);
+        });
+      for (const claim of claims) {
+        const team = managerById(league, claim.teamId);
+        if (!team || !team.ownerUserId || team.ownerUserId !== claim.userId
+          || allPlayerIds(league).has(playerId)) continue;
+        const drop = claim.dropPlayerId
+          ? team.roster.find((player) => String(player.id) === String(claim.dropPlayerId))
+          : null;
+        if (team.roster.length >= capacity && !drop) continue;
+        if (drop) team.roster = team.roster.filter((player) => String(player.id) !== String(drop.id));
+        team.roster.push({
+          ...claim.player,
+          draftedBy: team.id,
+          rosterSlot: 'BENCH',
+          rosterSlotIndex: 0,
+          gameStats: {},
+        });
+        priority = [
+          ...priority.filter((teamId) => teamId !== team.id),
+          team.id,
+        ];
+        league.waiverPriorityTeamIds = priority;
+        break;
+      }
+      league.pendingWaiverClaims = league.pendingWaiverClaims
+        .filter((claim) => String(claim.player?.id) !== playerId);
+      delete league.waiverWindows[playerId];
+    });
+    return true;
+  }
+
+  async processAllWaivers() {
+    let cursor;
+    let processedLeagues = 0;
+    do {
+      const page = await this.storage.list({ prefix: LEAGUE_PREFIX, cursor, limit: 1000 });
+      for (const record of page.values()) {
+        if (!this.resolveDueWaivers(record)) continue;
+        record.revision += 1;
+        await this.putLeague(record);
+        processedLeagues += 1;
+      }
+      cursor = page.list_complete ? undefined : page.cursor;
+    } while (cursor);
+    return { success: true, processedLeagues };
+  }
+
+  async claimWaiver(body) {
+    const record = await this.getLeague(String(body.leagueId || ''));
+    if (!record) return { status: 404, error: 'League not found.' };
+    const league = record.league;
+    const team = league.managers.find((manager) => manager.ownerUserId === body.userId
+      && manager.id === body.teamId);
+    if (!team) return { status: 403, error: 'Choose one of your own teams to place this claim.' };
+    if (!league.draftStarted) return { status: 409, error: 'Waiver claims are available after the draft starts.' };
+    if (!validWaiverSettings(league.waiverSettings) || !league.waiverSettings.enabled) {
+      return { status: 409, error: 'The commissioner has disabled waivers. Add free agents directly instead.' };
+    }
+    const source = body.player;
+    const playerId = String(source?.id || '');
+    const playerPositions = ROSTER_POSITIONS.filter((position) => !['FLEX', 'BENCH'].includes(position));
+    if (!validString(playerId, 100) || !validString(source?.name, 100)
+      || !playerPositions.includes(source?.position)) {
+      return { status: 400, error: 'Player data is invalid.' };
+    }
+    if (this.resolveDueWaivers(record)) {
+      record.revision += 1;
+      await this.putLeague(record);
+    }
+    if (allPlayerIds(league).has(playerId)) return { status: 409, error: 'This player is already on a fantasy team.' };
+    const player = {
+      id: playerId,
+      name: source.name.trim(),
+      position: source.position,
+      team: String(source.team || '').slice(0, 20),
+      teamName: String(source.teamName || '').slice(0, 60),
+      teamId: String(source.teamId || '').slice(0, 30),
+      headshot: typeof source.headshot === 'string' && source.headshot.startsWith('https://')
+        ? source.headshot.slice(0, 500)
+        : '',
+      status: String(source.status || 'ACTIVE').slice(0, 40),
+    };
+    const capacity = Object.values(league.rosterSlots || {}).reduce((sum, count) => sum + Number(count || 0), 0);
+    const dropPlayerId = body.dropPlayerId ? String(body.dropPlayerId) : '';
+    if (team.roster.length >= capacity
+      && (!dropPlayerId || !team.roster.some((member) => String(member.id) === dropPlayerId))) {
+      return { status: 400, error: 'Choose a player on your team to drop when your roster is full.' };
+    }
+    if (team.roster.length < capacity && dropPlayerId) {
+      return { status: 400, error: 'A roster drop is only allowed when your team is full.' };
+    }
+    const pending = league.pendingWaiverClaims || [];
+    if (pending.some((claim) => claim.teamId === team.id && String(claim.player?.id) === playerId)) {
+      return { status: 409, error: 'You already have a pending claim for this player.' };
+    }
+    const now = Date.now();
+    if (!league.waiverWindows || typeof league.waiverWindows !== 'object') league.waiverWindows = {};
+    const processAt = Number(league.waiverWindows[playerId])
+      || now + Number(league.waiverSettings.periodHours) * 60 * 60 * 1000;
+    league.waiverWindows[playerId] = processAt;
+    const claim = {
+      id: crypto.randomUUID(),
+      player,
+      teamId: team.id,
+      userId: body.userId,
+      dropPlayerId,
+      createdAt: now,
+      processAt,
+    };
+    league.pendingWaiverClaims = [...pending, claim];
+    record.revision += 1;
+    await this.putLeague(record);
+    return { success: true, claim, league, revision: record.revision, userTeamId: team.id };
+  }
+
+  async cancelWaiverClaim(body) {
+    const record = await this.getLeague(String(body.leagueId || ''));
+    if (!record) return { status: 404, error: 'League not found.' };
+    const league = record.league;
+    const claim = (league.pendingWaiverClaims || []).find((entry) => entry.id === body.claimId);
+    if (!claim) return { status: 404, error: 'Pending waiver claim not found.' };
+    if (claim.userId !== body.userId
+      || !league.managers.some((team) => team.id === claim.teamId && team.ownerUserId === body.userId)) {
+      return { status: 403, error: 'You can only cancel your own waiver claims.' };
+    }
+    league.pendingWaiverClaims = league.pendingWaiverClaims.filter((entry) => entry.id !== claim.id);
+    if (!league.pendingWaiverClaims.some((entry) => String(entry.player?.id) === String(claim.player?.id))) {
+      delete league.waiverWindows?.[String(claim.player?.id)];
+    }
+    record.revision += 1;
+    await this.putLeague(record);
+    return { success: true, league, revision: record.revision, userTeamId: claim.teamId };
   }
 }

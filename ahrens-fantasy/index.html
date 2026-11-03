@@ -170,6 +170,8 @@ input::-moz-selection, textarea::-moz-selection { color: #090d12; background: #d
 .status-tag.injured { color: var(--red); }
 .add-player { width: 25px; height: 25px; border: 1px solid #d1f36b3f; background: #d1f36b0b; color: var(--lime); cursor: pointer; }
 .add-player:hover { background: #d1f36b20; }
+.trade-player-button { width: 30px; height: 30px; border: 1px solid #3980e8; border-radius: 6px; background: #2563eb; color: #fff; cursor: pointer; font: 700 16px var(--sans); }
+.trade-player-button:hover { border-color: #1d4ed8; background: #1d4ed8; }
 .draft-side-card { margin-bottom: 12px; }
 .draft-order { padding: 5px 0; max-height: 245px; overflow: auto; }
 .draft-order-row { display: grid; grid-template-columns: 27px 1fr auto; gap: 8px; align-items: center; min-height: 39px; padding: 6px 12px; border-bottom: 1px solid #ffffff0a; }
@@ -223,6 +225,8 @@ input::-moz-selection, textarea::-moz-selection { color: #090d12; background: #d
 .commissioner-settings-card p { min-height: 42px; margin: 12px 14px; color: var(--muted); font-size: 13px; line-height: 1.5; }
 .commissioner-settings-actions { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 14px; }
 .commissioner-playoff-settings { margin-bottom: 22px; }
+.commissioner-playoff-settings > p { margin: 12px 14px; }
+.view#view-players #waiverClaimsPanel { margin-bottom: 12px; }
 .commissioner-playoff-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; align-items: end; padding: 14px; }
 .commissioner-setting-toggle { display: flex; align-items: center; gap: 8px; min-height: 38px; color: var(--text); font-size: 13px; }
 .commissioner-setting-toggle input { width: 16px; height: 16px; accent-color: var(--blue); }
@@ -530,6 +534,7 @@ html, body { color: var(--text); background: var(--bg); }
 .status-tag.injured { color: #b8494d; }
 .add-player { border-color: #b8cbed; background: #f0f5ff; color: #245dcc; }
 .add-player:hover { background: #e2ecff; }
+.trade-player-button { border-color: #2563eb; background: #2563eb; color: #fff; }
 .draft-order-row { border-color: #edf0eb; }
 .draft-order-row.current { background: #eff5ff; }
 .draft-order-row .pick-number, .draft-order-row .pick-player { color: #829087; }
@@ -875,8 +880,9 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
   .view#view-players .player-table .roster-player-toggle { font-size: 14px; }
   .view#view-players .player-table .matchup-detail, .view#view-players .player-table .empty-player-slot { display: none; }
   .view#view-players .player-table .empty-fantasy-team { display: none; }
-  .view#view-players .player-table td[data-label="Claim"] { justify-content: flex-end; }
+  .view#view-players .player-table td[data-label="Action"] { justify-content: flex-end; }
   .view#view-players .player-table .add-player { min-width: 34px; min-height: 34px; }
+  .view#view-players .player-table .trade-player-button { min-width: 38px; min-height: 38px; }
 }
 @media (max-width: 380px) {
   .player-table tr, .roster-table tr, .score-table tr { grid-template-columns: minmax(0, 1fr); }
@@ -1032,7 +1038,8 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
 
     <section class="view" id="view-players">
       <div class="view-title"><div><div class="eyebrow">NFL player pool</div><h1>Players in your league format.</h1><p>Search NFL players at positions enabled in this league. Proj is ESPN’s expected stat line, scored with your league’s rules. Actual is the box score. If a player has not played, Actual stays at 0.00.</p></div><div class="title-actions"><button class="button accent" id="refreshPlayers">Refresh players</button></div></div>
-      <section class="panel"><div class="search-toolbar"><input class="input" id="poolSearch" type="search" placeholder="Search player, team, or position" aria-label="Search all NFL players"><select class="filter-select" id="poolPos"><option value="ALL">All positions</option><option>QB</option><option>RB</option><option>WR</option><option>TE</option><option>K</option><option>D/ST</option></select><select class="filter-select" id="poolAvailability" aria-label="Filter by availability"><option value="ALL">All players</option><option value="AVAILABLE">Available to claim</option><option value="ROSTERED">Rostered players</option></select><select class="filter-select" id="poolSort" aria-label="Sort players"><option value="DEFAULT">Default order</option><option value="PROJECTION">Projection: high to low</option><option value="ACTUAL">Actual points: high to low</option></select><span class="pool-note" id="poolCount">Loading player directory…</span></div><div class="player-table-wrap"><table class="player-table"><thead><tr><th>Player</th><th>Pos</th><th>NFL</th><th>Matchup</th><th>Status</th><th>Slot</th><th>Proj</th><th>Points</th><th>Fantasy team</th><th>Claim</th></tr></thead><tbody id="poolRows"></tbody></table><div class="empty-state" id="poolEmpty">Connecting to the NFL roster directory…</div></div></section>
+      <section class="panel" id="waiverClaimsPanel" hidden><div class="panel-head"><h2>My pending waiver claims</h2><span>CLAIMS IN REVIEW</span></div><div class="manager-list" id="waiverClaimsList"></div></section>
+      <section class="panel"><div class="search-toolbar"><input class="input" id="poolSearch" type="search" placeholder="Search player, team, or position" aria-label="Search all NFL players"><select class="filter-select" id="poolPos"><option value="ALL">All positions</option><option>QB</option><option>RB</option><option>WR</option><option>TE</option><option>K</option><option>D/ST</option></select><select class="filter-select" id="poolAvailability" aria-label="Filter by availability"><option value="ALL">All players</option><option value="AVAILABLE">Available to claim</option><option value="ROSTERED">Rostered players</option></select><select class="filter-select" id="poolSort" aria-label="Sort players"><option value="DEFAULT">Default order</option><option value="PROJECTION">Projection: high to low</option><option value="ACTUAL">Actual points: high to low</option></select><span class="pool-note" id="poolCount">Loading player directory…</span></div><div class="player-table-wrap"><table class="player-table"><thead><tr><th>Player</th><th>Pos</th><th>NFL</th><th>Matchup</th><th>Status</th><th>Slot</th><th>Proj</th><th>Points</th><th>Fantasy team</th><th>Action</th></tr></thead><tbody id="poolRows"></tbody></table><div class="empty-state" id="poolEmpty">Connecting to the NFL roster directory…</div></div></section>
     </section>
 
     <section class="view" id="view-commissioner-settings">
@@ -1052,6 +1059,15 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
           <label class="commissioner-setting-toggle"><input type="checkbox" id="playoffReseed"> Reseed after each round</label>
           <label class="commissioner-setting-toggle"><input type="checkbox" id="playoffConsolation"> Include a consolation bracket</label>
           <button class="button primary" id="savePlayoffSettings">SAVE PLAYOFF FORMAT</button>
+        </div>
+      </section>
+      <section class="panel commissioner-playoff-settings">
+        <div class="panel-head"><h2>Waiver wire</h2><span id="waiverPrioritySummary">ROLLING PRIORITY</span></div>
+        <p><span class="small-note">Claims stay open for the selected period, then are awarded by rolling priority. A team moves to the back after a successful claim.</span></p>
+        <div class="commissioner-playoff-fields">
+          <label class="commissioner-setting-toggle"><input type="checkbox" id="waiversEnabled"> Enable waiver claims</label>
+          <div class="field"><label for="waiverPeriodHours">WAIVER PERIOD</label><select class="filter-select" id="waiverPeriodHours"><option value="24">24 HOURS</option><option value="48">48 HOURS</option><option value="72">3 DAYS</option><option value="168">7 DAYS</option></select></div>
+          <button class="button primary" id="saveWaiverSettings">SAVE WAIVER SETTINGS</button>
         </div>
       </section>
       <div class="view-title commissioner-scoring-heading"><div><div class="eyebrow">Scoring rules</div><h2>Set how points are earned.</h2><p>Change any stat’s point value. Projections and actual scores both use these rules. Default is full PPR.</p></div><div class="title-actions"><button class="button" id="resetScoring">Restore defaults</button><button class="button primary" id="saveScoring">Save scoring</button></div></div>
@@ -1335,6 +1351,10 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       reseed: true,
       consolation: true,
     },
+    waiverSettings: { enabled: true, periodHours: 48 },
+    waiverPriorityTeamIds: [],
+    waiverWindows: {},
+    pendingWaiverClaims: [],
   };
 
   let league = loadLeague();
@@ -1591,10 +1611,20 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       $('playoffReseed').checked = settings.reseed;
       $('playoffConsolation').checked = settings.consolation;
     }
+    const waiverEnabled = $('waiversEnabled');
+    const waiverPeriod = $('waiverPeriodHours');
+    if (![waiverEnabled, waiverPeriod].includes(document.activeElement)) {
+      waiverEnabled.checked = league.waiverSettings.enabled;
+      waiverPeriod.value = String(league.waiverSettings.periodHours);
+    }
     $('commissionerDraftStatus').textContent = league.draftAt
       ? `Scheduled for ${new Date(league.draftAt).toLocaleString()}.`
       : 'No draft time is set. Managers can draft when the commissioner allows it.';
     $('playoffScheduleSummary').textContent = `WEEKS ${settings.startWeek}–${settings.startWeek + settings.weeks - 1} · ${settings.teamCount} TEAMS`;
+    const priorityNames = league.waiverPriorityTeamIds
+      .map((teamId) => league.managers.find((team) => team.id === teamId)?.teamName)
+      .filter(Boolean);
+    $('waiverPrioritySummary').textContent = `ROLLING · ${priorityNames.join(' → ')}`;
   }
 
   async function savePlayoffSettings() {
@@ -1626,6 +1656,30 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       notify(error.message || 'Could not save playoff settings.');
     } finally {
       $('savePlayoffSettings').disabled = false;
+    }
+  }
+
+  async function saveWaiverSettings() {
+    if (!onlineCommissioner) {
+      notify('Only the commissioner can change waiver settings.');
+      return;
+    }
+    league.waiverSettings = {
+      enabled: $('waiversEnabled').checked,
+      periodHours: Number($('waiverPeriodHours').value),
+    };
+    commissionerSettingsDirty = false;
+    $('saveWaiverSettings').disabled = true;
+    saveLeague();
+    try {
+      await waitForOnlineSave();
+      renderCommissionerSettings();
+      renderPlayerPool();
+      notify('Waiver settings saved.');
+    } catch (error) {
+      notify(error.message || 'Could not save waiver settings.');
+    } finally {
+      $('saveWaiverSettings').disabled = false;
     }
   }
 
@@ -2285,6 +2339,20 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     });
     const teamIds = league.managers.map((team) => team.id);
     let settingsChanged = false;
+    if (!league.waiverSettings || typeof league.waiverSettings.enabled !== 'boolean'
+      || ![24, 48, 72, 168].includes(Number(league.waiverSettings.periodHours))) {
+      league.waiverSettings = { enabled: true, periodHours: 48 };
+      settingsChanged = true;
+    }
+    if (!Array.isArray(league.waiverPriorityTeamIds)
+      || league.waiverPriorityTeamIds.length !== teamIds.length
+      || new Set(league.waiverPriorityTeamIds).size !== teamIds.length
+      || league.waiverPriorityTeamIds.some((id) => !teamIds.includes(id))) {
+      league.waiverPriorityTeamIds = [...league.draftOrder].reverse();
+      settingsChanged = true;
+    }
+    if (!Array.isArray(league.pendingWaiverClaims)) league.pendingWaiverClaims = [];
+    if (!league.waiverWindows || typeof league.waiverWindows !== 'object') league.waiverWindows = {};
     if (!isMatchupScheduleValid(league.matchupSchedule, teamIds)) {
       league.matchupSchedule = generateMatchupSchedule(teamIds);
       settingsChanged = true;
@@ -4038,7 +4106,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     });
   }
 
-  function openTradeDesk() {
+  function openTradeDesk(playerShortcut = null) {
     if (league.managers.length < 2) {
       notify('Add at least two fantasy teams before making a trade.');
       return;
@@ -4076,7 +4144,13 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       if (!onlineReady || !ownsOnlineTeam(team.id)) rightTeam.add(new Option(teamLabel(team), team.id));
     });
     leftTeam.value = onlineReady ? onlineUserTeamId : (league.managers[rosterViewTeam] || league.managers[0]).id;
+    if (playerShortcut && ownsOnlineTeam(playerShortcut.ownerTeamId)) leftTeam.value = playerShortcut.ownerTeamId;
     rightTeam.selectedIndex = Math.min(1, league.managers.length - 1);
+    if (playerShortcut && league.managers.some((team) => team.id === playerShortcut.ownerTeamId)
+      && playerShortcut.ownerTeamId !== leftTeam.value
+      && (!onlineReady || !ownsOnlineTeam(playerShortcut.ownerTeamId))) {
+      rightTeam.value = playerShortcut.ownerTeamId;
+    }
     if (rightTeam.value === leftTeam.value) rightTeam.selectedIndex = league.managers.findIndex((team) => team.id !== leftTeam.value);
     const fromField = document.createElement('div'); fromField.className = 'field';
     const fromLabel = document.createElement('label'); fromLabel.htmlFor = leftTeam.id; fromLabel.textContent = 'OFFERING TEAM'; fromField.append(fromLabel, leftTeam);
@@ -4141,6 +4215,13 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     leftTeam.addEventListener('change', refreshLists);
     rightTeam.addEventListener('change', refreshLists);
     refreshLists();
+    if (playerShortcut) {
+      const ownerIsOfferingTeam = playerShortcut.ownerTeamId === leftTeam.value;
+      const playerCheckbox = (ownerIsOfferingTeam ? fromPlayers : toPlayers)
+        .querySelector(`input[type="checkbox"][value="${CSS.escape(String(playerShortcut.playerId))}"]`);
+      if (playerCheckbox) playerCheckbox.checked = true;
+      refreshDropLists();
+    }
     fromPlayers.addEventListener('change', refreshDropLists);
     toPlayers.addEventListener('change', refreshDropLists);
     const help = document.createElement('div'); help.className = 'modal-callout'; help.textContent = 'Check at least one player from each team. Offers do not change rosters until the receiving team accepts.'; wrapper.append(help);
@@ -4788,21 +4869,35 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       points.className = 'fantasy-points-cell';
       points.textContent = playerFantasyPoints(player).toFixed(2);
       const claimCell = document.createElement('td');
-      claimCell.dataset.label = 'Claim';
-      const claim = document.createElement('button');
-      claim.className = 'add-player'; claim.type = 'button'; claim.textContent = owner ? '—' : '+';
-      claim.setAttribute('aria-label', owner
-        ? `${player.name} is rostered by ${owner.team.teamName}`
-        : league.draftStarted
+      claimCell.dataset.label = 'Action';
+      const action = document.createElement('button');
+      action.type = 'button';
+      if (owner) {
+        action.className = 'trade-player-button';
+        action.textContent = '⇄';
+        action.setAttribute('aria-label', `Offer a trade for ${player.name}`);
+        action.title = `Offer a trade for ${player.name}`;
+        action.addEventListener('click', () => openTradeDesk({
+          playerId: player.id,
+          ownerTeamId: owner.team.id,
+        }));
+      } else {
+        action.className = 'add-player';
+        action.textContent = '+';
+        action.setAttribute('aria-label', league.draftStarted
           ? `Add ${player.name} to a fantasy team`
           : `Player claims are available after the draft starts`);
-      claim.title = !owner && !league.draftStarted ? 'Player claims are available after the draft starts.' : '';
-      claim.disabled = Boolean(owner) || !league.draftStarted;
-      claim.addEventListener('click', () => openClaimDialog(player));
-      claimCell.append(claim);
+        action.title = league.waiverSettings.enabled && onlineReady
+          ? 'Submit a waiver claim'
+          : !league.draftStarted ? 'Player claims are available after the draft starts.' : 'Add player';
+        action.disabled = !league.draftStarted;
+        action.addEventListener('click', () => openClaimDialog(player));
+      }
+      claimCell.append(action);
       row.append(name, pos, nfl, matchup, status, slot, projection, points, fantasyTeam, claimCell);
       body.append(row);
     });
+    renderPendingWaiverClaims();
     $('poolCount').textContent = `${visible.length} ${availability === 'AVAILABLE' ? 'AVAILABLE TO CLAIM' : availability === 'ROSTERED' ? 'ROSTERED' : 'PLAYERS'} SHOWN`;
     $('poolEmpty').textContent = availability === 'AVAILABLE'
       ? 'No available players match these filters.'
@@ -4817,6 +4912,10 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     }
     if (league.managers.some((team) => team.roster.some((member) => member.id === player.id))) {
       notify(`${player.name} already has a fantasy team.`);
+      return;
+    }
+    if (onlineReady && league.waiverSettings.enabled) {
+      openWaiverClaimDialog(player);
       return;
     }
     const wrapper = document.createElement('div');
@@ -4882,6 +4981,112 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       notify(`${player.name} added to ${team.teamName}${selectedDropId ? '; roster spot opened.' : '.'}`);
       return true;
     }, { confirmText: 'CLAIM PLAYER' });
+  }
+
+  function renderPendingWaiverClaims() {
+    const panel = $('waiverClaimsPanel');
+    const list = $('waiverClaimsList');
+    const claims = onlineReady
+      ? (league.pendingWaiverClaims || []).filter((claim) => claim.userId === onlineUserId
+        && ownsOnlineTeam(claim.teamId))
+      : [];
+    panel.hidden = claims.length === 0;
+    list.replaceChildren();
+    claims.forEach((claim) => {
+      const row = document.createElement('div');
+      row.className = 'manager-row';
+      const identity = document.createElement('span');
+      identity.className = 'manager-avatar';
+      identity.textContent = 'W';
+      const details = document.createElement('div');
+      details.innerHTML = `<div class="manager-name">${escapeHTML(claim.player?.name || 'Player')}</div><div class="manager-sub">PROCESSING ${escapeHTML(formatCentralDateTime(new Date(claim.processAt)))}</div>`;
+      const cancel = document.createElement('button');
+      cancel.className = 'button danger';
+      cancel.type = 'button';
+      cancel.textContent = 'CANCEL';
+      cancel.addEventListener('click', async () => {
+        cancel.disabled = true;
+        try {
+          const path = `/api/fantasy/leagues/${encodeURIComponent(league.leagueId)}/waivers/claims/${encodeURIComponent(claim.id)}`;
+          const { response, data } = await fantasyRequest(path, 'DELETE');
+          if (!response.ok) throw new Error(data.error || 'Could not cancel this waiver claim.');
+          installOnlineLeague(data);
+          renderOnlineLeague();
+          notify('Waiver claim cancelled.');
+        } catch (error) {
+          cancel.disabled = false;
+          notify(error.message || 'Could not cancel this waiver claim.');
+        }
+      });
+      row.append(identity, details, cancel);
+      list.append(row);
+    });
+  }
+
+  function openWaiverClaimDialog(player) {
+    const wrapper = document.createElement('div');
+    const description = document.createElement('p');
+    description.textContent = `Submit a claim for ${player.name} (${player.position}, ${player.team}). Claims process after the ${league.waiverSettings.periodHours}-hour waiver period using rolling priority.`;
+    const field = document.createElement('div');
+    field.className = 'field';
+    const label = document.createElement('label');
+    label.textContent = 'FANTASY TEAM';
+    const select = document.createElement('select');
+    select.className = 'filter-select';
+    league.managers.filter((team) => ownsOnlineTeam(team.id))
+      .forEach((team) => select.add(new Option(`${teamLabel(team)} · ${team.roster.length}/${rosterCapacity()}`, team.id)));
+    field.append(label, select);
+    const dropSection = document.createElement('div');
+    dropSection.className = 'claim-drop-roster';
+    wrapper.append(description, field, dropSection);
+    let selectedDropId = '';
+    const renderDropOptions = () => {
+      dropSection.replaceChildren();
+      selectedDropId = '';
+      const team = league.managers.find((entry) => entry.id === select.value);
+      if (!team || team.roster.length < rosterCapacity()) {
+        dropSection.hidden = true;
+        return;
+      }
+      dropSection.hidden = false;
+      const heading = document.createElement('strong');
+      heading.textContent = `${team.teamName} roster is full. Select a player to drop if this claim is awarded:`;
+      dropSection.append(heading);
+      team.roster.forEach((rosteredPlayer) => {
+        const choice = document.createElement('label');
+        choice.className = 'lineup-choice claim-drop-choice';
+        const input = document.createElement('input');
+        input.type = 'radio';
+        input.name = 'waiverDropPlayer';
+        input.value = rosteredPlayer.id;
+        input.addEventListener('change', () => { selectedDropId = rosteredPlayer.id; });
+        const text = document.createElement('span');
+        text.textContent = `${rosteredPlayer.position} · ${rosteredPlayer.name} · ${rosteredPlayer.rosterSlot || 'BENCH'}`;
+        choice.append(input, text);
+        dropSection.append(choice);
+      });
+    };
+    select.addEventListener('change', renderDropOptions);
+    renderDropOptions();
+    openModal(`Claim ${player.name}.`, 'WAIVER WIRE', wrapper, async () => {
+      const team = league.managers.find((entry) => entry.id === select.value);
+      if (!team) return false;
+      if (team.roster.length >= rosterCapacity() && !selectedDropId) {
+        notify(`Select a player to drop if your claim for ${player.name} is awarded.`);
+        return false;
+      }
+      const path = `/api/fantasy/leagues/${encodeURIComponent(league.leagueId)}/waivers/claims`;
+      const { response, data } = await fantasyRequest(path, 'POST', {
+        teamId: team.id,
+        player,
+        dropPlayerId: selectedDropId,
+      });
+      if (!response.ok) throw new Error(data.error || 'Could not submit waiver claim.');
+      installOnlineLeague(data);
+      renderOnlineLeague();
+      notify(`Claim for ${player.name} submitted.`);
+      return true;
+    }, { confirmText: 'SUBMIT CLAIM' });
   }
 
   function populateTeamFilter() {
@@ -5768,6 +5973,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     $('settingsDraftTime').addEventListener('click', openDraftScheduler);
     $('regenerateSchedule').addEventListener('click', regenerateMatchupSchedule);
     $('savePlayoffSettings').addEventListener('click', savePlayoffSettings);
+    $('saveWaiverSettings').addEventListener('click', saveWaiverSettings);
     $('view-commissioner-settings').addEventListener('input', () => {
       if (onlineCommissioner) commissionerSettingsDirty = true;
     });
