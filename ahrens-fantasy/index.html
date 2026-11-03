@@ -1620,12 +1620,17 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
 
   async function leaveOnlineLeague(item) {
     const activeLeagueId = league.leagueId;
-    await waitForOnlineSave();
+    await onlineSaveChain;
     const { response, data } = await fantasyRequest(
       `/api/fantasy/leagues/${encodeURIComponent(item.leagueId)}/leave`,
       'POST',
     );
     if (!response.ok) throw new Error(data.error || 'Could not leave this league.');
+
+    onlineLeagues = onlineLeagues.filter((leagueItem) => leagueItem.leagueId !== item.leagueId);
+    renderOnlineLeagueList();
+    renderLeagueSwitcher();
+    $('onlineLeaguesSection').hidden = onlineLeagues.length === 0;
 
     try {
       const records = JSON.parse(localStorage.getItem(LEAGUES_KEY) || '{}');
@@ -1641,12 +1646,14 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
 
     if (item.leagueId === activeLeagueId) {
       onlineReady = false;
-      onlineDirty = false;
       onlineUserId = '';
       onlineUserTeamId = '';
       onlineUserTeamIds.clear();
       onlineCommissioner = false;
       onlineRevision = 0;
+      onlineDirty = false;
+      window.clearTimeout(onlineSaveRetryTimer);
+      onlineSaveRetryTimer = 0;
       updateOnlineControls();
     }
     await refreshOnlineLobby();
