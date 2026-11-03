@@ -957,7 +957,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
         <section class="panel">
           <div class="draft-toolbar">
             <div class="draft-state"><span class="pick-chip" id="pickLabel">PICK 1.01</span><span>ON THE CLOCK: <b id="onClock">Commissioner</b></span></div>
-            <div class="draft-controls"><button class="button primary" id="startDraft">START / RESUME DRAFT</button><button class="button" id="autoDraft">AUTO-PICK ONE</button><button class="button" id="autoDraftAll">AUTO-PICK ENTIRE DRAFT</button></div>
+            <div class="draft-controls"><button class="button primary" id="startDraft">START / RESUME DRAFT</button><button class="button" id="autoDraft">AUTO-PICK ONE</button><button class="button hidden" id="autoDraftAll">AUTO-PICK ENTIRE DRAFT</button></div>
           </div>
           <p class="online-draft-time" id="draftScheduleStatus"></p>
           <div class="player-filters">
@@ -3033,6 +3033,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       || (onlineReady && !ownsOnlineTeam(league.picks.at(-1)?.teamId));
     $('autoDraft').disabled = !league.draftStarted || isDraftComplete()
       || (onlineReady && !ownsOnlineTeam(onClock?.id));
+    $('autoDraftAll').classList.toggle('hidden', onlineReady);
     $('autoDraftAll').disabled = onlineReady || isDraftComplete() || !players.length;
     $('resetDraft').disabled = onlineReady;
     const scheduleStatus = $('draftScheduleStatus');
@@ -3263,6 +3264,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
   }
 
   function autoPickEntireDraft() {
+    if (onlineReady) return;
     if (!players.length) {
       notify('Wait for the NFL player pool to finish loading.');
       return;
