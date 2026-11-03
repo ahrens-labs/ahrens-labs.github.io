@@ -754,6 +754,7 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
 }
 .online-lobby { position: fixed; inset: 0; z-index: 3000; display: grid; place-items: center; overflow: auto; padding: 24px; background: #f2f6fcee; backdrop-filter: blur(12px); }
 .online-lobby[hidden] { display: none; }
+.modal-backdrop.above-online-lobby { z-index: 3001; }
 .online-lobby-card { width: min(760px, 100%); max-height: calc(100vh - 48px); overflow: auto; padding: clamp(20px, 4vw, 36px); border: 1px solid #dce5f1; border-radius: 20px; color: #17283e; background: linear-gradient(145deg, #fff, #f7f9fd); box-shadow: 0 28px 80px #243b5a24; }
 .online-lobby-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; margin-bottom: 20px; }
 .online-lobby-head h1 { margin: 7px 0 0; font: 700 clamp(26px, 5vw, 38px)/1.08 var(--display); letter-spacing: -.05em; }
@@ -2069,6 +2070,7 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
 
   function openModal(title, kicker, content, action = null, options = {}) {
     modalAction = action;
+    ui.modal.classList.toggle('above-online-lobby', !$('onlineLobby').hidden);
     ui.modalTitle.textContent = title;
     ui.modalKicker.textContent = kicker;
     ui.modalBody.replaceChildren(content);
@@ -2089,6 +2091,7 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
 
   function closeModal() {
     ui.modal.classList.remove('open');
+    ui.modal.classList.remove('above-online-lobby');
     ui.modalBody.replaceChildren();
     modalAction = null;
     $('confirmModal').hidden = false;
