@@ -774,6 +774,74 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
 .team-claim-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; color: var(--text); font-size: 13px; }
 .team-claim-row input { width: 16px; height: 16px; accent-color: var(--lime); }
 @media (max-width: 560px) { .online-lobby { padding: 12px; } .online-lobby-card { max-height: calc(100vh - 24px); padding: 20px; } .online-lobby-form { grid-template-columns: 1fr; } .online-lobby-row { align-items: flex-start; flex-direction: column; } }
+@media (max-width: 600px) {
+  .topbar { height: auto; min-height: 0; flex-direction: column; align-items: stretch; gap: 8px; padding: 10px 12px; }
+  .brand { align-self: flex-start; }
+  .top-right { width: 100%; flex-wrap: nowrap; justify-content: flex-start; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; }
+  .top-right::-webkit-scrollbar, .nav::-webkit-scrollbar, .roster-tabs::-webkit-scrollbar { display: none; }
+  .top-button { min-height: 44px; flex: 0 0 auto; }
+  #managerButton { display: inline-flex; }
+  .leaguebar { align-items: center; gap: 8px; padding: 9px 12px; }
+  .league-identity { flex: 1 1 100%; flex-wrap: nowrap; min-width: 0; }
+  .league-name { min-width: 0; flex: 1 1 auto; font-size: 13px; }
+  .league-select { min-width: 92px; max-width: 45vw; min-height: 40px; }
+  .week-control { flex: 1 1 100%; justify-content: space-between; }
+  .week-control label { display: block; font-size: 10px; }
+  .week-select { min-height: 40px; }
+  .nav { min-height: 50px; padding: 0 8px; scroll-padding-inline: 8px; overscroll-behavior-x: contain; }
+  .nav-tab { min-height: 48px; padding-inline: 12px; scroll-snap-align: start; }
+  .main { padding: 16px 12px 24px; }
+  .view-title { gap: 12px; margin-bottom: 14px; }
+  .view-title h1 { font-size: clamp(25px, 7vw, 32px); line-height: 1.08; }
+  .view-title p { font-size: 14px; }
+  .title-actions { width: 100%; }
+  .title-actions .button { min-height: 44px; }
+  .stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+  .stat-card { min-height: 100px; padding: 12px; }
+  .stat-label, .stat-foot { font-size: 10px; }
+  .stat-value { font-size: 25px; }
+  .team-standing { grid-template-columns: 24px 34px minmax(0, 1fr) auto; gap: 7px; padding-inline: 9px; }
+  .team-standing .trend { display: none; }
+  .home-launch-art { min-height: 110px; }
+  .home-launch-copy p { font-size: 14px; }
+  .home-launch-actions { flex-direction: column; }
+  .home-launch-actions .button { width: 100%; min-height: 46px; }
+  .draft-controls { width: 100%; }
+  .draft-controls .button { flex: 1 1 140px; min-height: 44px; }
+  .player-filters { grid-template-columns: minmax(0, 1fr) minmax(110px, .7fr); }
+  .player-filters .filter-select:last-child { grid-column: auto; }
+  .search-toolbar { align-items: stretch; }
+  .search-toolbar .input, .search-toolbar .filter-select { flex: 1 1 calc(50% - 8px); min-height: 44px; }
+  .roster-tabs { flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain; }
+  .roster-tab { min-height: 42px; padding-inline: 11px; }
+  .player-table tr, .roster-table tr, .score-table tr { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px 10px; padding: 10px; }
+  .player-table td, .roster-table td, .score-table td { min-height: 32px; align-items: center; gap: 5px; }
+  .player-table td::before, .roster-table td::before, .score-table td::before { flex-basis: 38%; font-size: 9px; }
+  .add-player, .roster-move-button, .icon-button { min-width: 40px; min-height: 40px; }
+  .roster-slot-select { min-height: 40px; }
+  .scoring-tabs { flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain; }
+  .scoring-tab { min-height: 42px; flex: 0 0 auto; padding-inline: 12px; }
+  .scoring-row { min-height: 48px; grid-template-columns: minmax(0, 1fr) 76px 40px; gap: 5px; }
+  .scoring-row input { min-height: 40px; }
+  .matchup-row { grid-template-columns: minmax(0, 1fr) 34px minmax(0, 1fr); gap: 5px; padding: 10px; }
+  .matchup-team-card .team-name { white-space: normal; overflow-wrap: anywhere; }
+  .footer { gap: 6px 10px; padding: 10px 12px; font-size: 9px; }
+  .modal-backdrop { align-items: end; padding: 0; }
+  .modal { width: 100%; max-height: min(90dvh, 760px); border-radius: 16px 16px 0 0; padding-bottom: env(safe-area-inset-bottom); }
+  .modal-footer { position: sticky; bottom: 0; background: #fff; }
+  .modal-footer .button { min-height: 44px; flex: 1 1 0; }
+  .online-lobby { place-items: center; padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom)); }
+  .online-lobby-card { width: 100%; max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); padding: 20px 16px; }
+  .online-lobby-row .title-actions { width: 100%; }
+  .online-lobby-row .title-actions .button { flex: 1 1 0; }
+}
+@media (max-width: 380px) {
+  .player-table tr, .roster-table tr, .score-table tr { grid-template-columns: minmax(0, 1fr); }
+  .player-filters { grid-template-columns: minmax(0, 1fr); }
+  .player-filters .filter-select:last-child { grid-column: auto; }
+  .team-standing { grid-template-columns: 22px 30px minmax(0, 1fr) auto; gap: 5px; }
+  .scoring-row { grid-template-columns: minmax(0, 1fr) 68px 36px; }
+}
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
