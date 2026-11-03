@@ -95,6 +95,18 @@ function validWaiverSettings(settings) {
     && [24, 48, 72, 168].includes(Number(settings.periodHours));
 }
 
+function validDraftSettings(settings, teamCount) {
+  return settings && typeof settings === 'object'
+    && ['snake', 'auction'].includes(settings.type)
+    && Number.isInteger(Number(settings.auctionBudget))
+    && Number(settings.auctionBudget) >= 100
+    && Number(settings.auctionBudget) <= 1000
+    && [15, 30, 45, 60].includes(Number(settings.auctionClockSeconds))
+    && Array.isArray(settings.order)
+    && settings.order.length === teamCount
+    && new Set(settings.order).size === teamCount;
+}
+
 export async function processScheduledFantasyWaivers(env) {
   if (!env.FANTASY_LEAGUE) throw new Error('Fantasy league storage is not configured.');
   const store = env.FANTASY_LEAGUE.get(env.FANTASY_LEAGUE.idFromName(STORE_ID));
@@ -152,7 +164,7 @@ export async function handleFantasyRequest(request, env, corsHeaders, path, { ex
       return send('decline-invitation', body);
     }
 
-    const match = path.match(/^\/api\/fantasy\/leagues\/([^/]+)(?:\/(invitations|schedule|teams|leave|waivers\/claims(?:\/[^/]+)?))?$/);
+    const match = path.match(/^\/api\/fantasy\/leagues\/([^/]+)(?:\/(invitations|schedule|teams|leave|draft-settings|auction|waivers\/claims(?:\/[^/]+)?))?$/);
     if (!match) return fantasyJson({ error: 'Not found.' }, 404, corsHeaders);
     const leagueId = decodeURIComponent(match[1]);
     if (!leagueId || leagueId.length > 100) return fantasyJson({ error: 'Invalid league id.' }, 400, corsHeaders);
@@ -178,6 +190,16 @@ export async function handleFantasyRequest(request, env, corsHeaders, path, { ex
         leagueId,
         claimId: decodeURIComponent(match[2].slice('waivers/claims/'.length)),
       });
+    }
+    if (match[2] === 'draft-settings' && request.method === 'PUT') {
+      const body = await readFantasyBody(request);
+      if (!body) return fantasyJson({ error: 'Invalid request body.' }, 400, corsHeaders);
+      return send('draft-settings', { leagueId, ...body });
+    }
+    if (match[2] === 'auction' && request.method === 'POST') {
+      const body = await readFantasyBody(request);
+      if (!body) return fantasyJson({ error: 'Invalid request body.' }, 400, corsHeaders);
+      return send('auction', { leagueId, ...body });
     }
     if (match[2] === 'invitations' && request.method === 'POST') {
       const body = await readFantasyBody(request);
@@ -242,7 +264,7 @@ export async function handleFantasyRequest(request, env, corsHeaders, path, { ex
     if (match[2] === 'schedule' && request.method === 'PUT') {
       const body = await readFantasyBody(request);
       if (!body) return fantasyJson({ error: 'Invalid request body.' }, 400, corsHeaders);
-      return send('schedule', { leagueId, draftAt: body.draftAt });
+      return send('schedule', { leagueId, draftAt: body.draftAt, revision: body.revision });
     }
     if (match[2] === 'teams' && request.method === 'PUT') {
       const body = await readFantasyBody(request);
@@ -412,6 +434,13 @@ function normalizeSetup(input, userId, username) {
       waiverPriorityTeamIds: [...draftOrder].reverse(),
       waiverWindows: {},
       pendingWaiverClaims: [],
+      draftSettings: {
+        type: 'snake',
+        order: [...draftOrder],
+        auctionBudget: 200,
+        auctionClockSeconds: 30,
+      },
+      auctionState: null,
       picks: [],
       trades: [],
       pendingInviteUserIds: [],
@@ -535,6 +564,18 @@ function validateLeagueSave(previous, incoming, userId) {
   }
   const commissioner = previous.commissionerUserId === userId;
   if (!validWaiverSettings(incoming.waiverSettings)) return 'Waiver settings are invalid.';
+  const previousDraftSettings = previous.draftSettings || {
+    type: 'snake',
+    order: previous.draftOrder || previous.managers.map((team) => team.id),
+    auctionBudget: 200,
+    auctionClockSeconds: 30,
+  };
+  const incomingDraftSettings = incoming.draftSettings || previousDraftSettings;
+  if (!validDraftSettings(incomingDraftSettings, previous.teamCount)
+    || incomingDraftSettings.order.some((id) => !previous.managers.some((team) => team.id === id))
+    || !sameValue(incomingDraftSettings.order, incoming.draftOrder)) {
+    return 'Draft settings are invalid.';
+  }
   const ownTeams = previous.managers.filter((team) => team.ownerUserId === userId);
   if (!ownTeams.length) return 'You do not manage a team in this league.';
   const ownTeamIds = new Set(ownTeams.map((team) => team.id));
@@ -553,10 +594,14 @@ function validateLeagueSave(previous, incoming, userId) {
     || !sameValue(incoming.matchupSchedule, previous.matchupSchedule)
     || !sameValue(incoming.playoffSettings, previous.playoffSettings)
     || !sameValue(incoming.waiverSettings, previous.waiverSettings)
+    || !sameValue(incomingDraftSettings, previousDraftSettings)
     || incoming.draftAt !== previous.draftAt)) {
     return 'Only the commissioner can change league settings, draft order, or draft time.';
   }
   if (commissioner && (incoming.draftAt !== previous.draftAt)) return 'Use the draft scheduler to change the draft time.';
+  if (!sameValue(incomingDraftSettings, previousDraftSettings)) {
+    return 'Use Draft settings to change the draft type or order.';
+  }
   if (JSON.stringify(incoming.draftOrder) !== JSON.stringify(previous.draftOrder)) return 'Draft order cannot be changed after league creation.';
   for (const [position, count] of Object.entries(incoming.rosterSlots || {})) {
     if (!ROSTER_POSITIONS.includes(position) || !Number.isInteger(Number(count))
@@ -670,6 +715,7 @@ function validateLeagueSave(previous, incoming, userId) {
       if (added.length && incoming.picks?.length > previous.picks.length) {
         if (added.length !== 1 || incoming.picks.length !== previous.picks.length + 1
           || !ownTeamIds.has(teamPickAt(previous, previous.picks.length))
+              || previous.draftSettings?.type === 'auction'
           || !ownTeamIds.has(incoming.picks.at(-1)?.teamId)
           || Number(incoming.picks.at(-1)?.pick) !== previous.picks.length + 1
           || String(incoming.picks.at(-1)?.playerId) !== added[0]) {
@@ -752,6 +798,8 @@ export class FantasyLeagueStore {
       else if (path === '/schedule') result = await this.schedule(body);
       else if (path === '/manage-teams') result = await this.manageTeams(body);
       else if (path === '/leave') result = await this.leave(body);
+      else if (path === '/draft-settings') result = await this.updateDraftSettings(body);
+      else if (path === '/auction') result = await this.auction(body);
       else if (path === '/claim-waiver') result = await this.claimWaiver(body);
       else if (path === '/cancel-waiver-claim') result = await this.cancelWaiverClaim(body);
       else if (path === '/process-waivers') result = await this.processAllWaivers();
@@ -858,6 +906,21 @@ export class FantasyLeagueStore {
         team.teamAbbreviation = abbreviation;
         migrated = true;
       }
+      if (!validDraftSettings(record.league.draftSettings, record.league.teamCount)
+        || record.league.draftSettings.order.some((id) => !teamIds.includes(id))) {
+        record.league.draftSettings = {
+          type: 'snake',
+          order: [...(record.league.draftOrder || teamIds)],
+          auctionBudget: 200,
+          auctionClockSeconds: 30,
+        };
+        migrated = true;
+      }
+      if (!Array.isArray(record.league.draftOrder)
+        || !sameValue(record.league.draftOrder, record.league.draftSettings.order)) {
+        record.league.draftOrder = [...record.league.draftSettings.order];
+        migrated = true;
+      }
     });
     if (!validMatchupSchedule(record.league.matchupSchedule, teamIds)) {
       record.league.matchupSchedule = generateMatchupSchedule(teamIds);
@@ -894,6 +957,7 @@ export class FantasyLeagueStore {
       migrated = true;
     }
     if (this.resolveDueWaivers(record)) migrated = true;
+    if (this.finishAuction(record)) migrated = true;
     if (migrated) {
       record.revision += 1;
       await this.putLeague(record);
@@ -964,6 +1028,16 @@ export class FantasyLeagueStore {
     if (teamCount !== previousTeamCount) {
       const currentTeamIds = league.managers.map((team) => team.id);
       const existingPriority = league.waiverPriorityTeamIds || [...league.draftOrder].reverse();
+      const currentDraftOrder = league.draftSettings?.order || league.draftOrder;
+      const draftOrder = [
+        ...currentDraftOrder.filter((teamId) => currentTeamIds.includes(teamId)),
+        ...currentTeamIds.filter((teamId) => !currentDraftOrder.includes(teamId)),
+      ];
+      league.draftOrder = draftOrder;
+      league.draftSettings = {
+        ...(league.draftSettings || { type: 'snake', auctionBudget: 200, auctionClockSeconds: 30 }),
+        order: [...draftOrder],
+      };
       league.waiverPriorityTeamIds = [
         ...existingPriority.filter((teamId) => currentTeamIds.includes(teamId)),
         ...currentTeamIds.filter((teamId) => !existingPriority.includes(teamId)),
@@ -1025,9 +1099,17 @@ export class FantasyLeagueStore {
     };
     invitee.invitations.push(invitation);
     record.league.pendingInviteUserIds = [...new Set([...(record.league.pendingInviteUserIds || []), inviteeUserId])];
+    record.revision += 1;
     await this.putLeague(record);
     await this.putUser(inviteeUserId, invitee);
-    return { success: true, invitation };
+    const ownTeam = record.league.managers.find((manager) => manager.ownerUserId === body.userId);
+    return {
+      success: true,
+      invitation,
+      league: record.league,
+      revision: record.revision,
+      userTeamId: ownTeam?.id || '',
+    };
   }
 
   async leave(body) {
@@ -1152,6 +1234,9 @@ export class FantasyLeagueStore {
     const record = await this.getLeague(String(body.leagueId || ''));
     if (!record) return { status: 404, error: 'League not found.' };
     if (record.league.commissionerUserId !== body.userId) return { status: 403, error: 'Only the commissioner can schedule the draft.' };
+    if (body.revision !== undefined && Number(body.revision) !== record.revision) {
+      return { status: 409, error: 'This league changed on another device. Reload before changing the draft schedule.', league: record.league, revision: record.revision };
+    }
     let draftAt = null;
     if (body.draftAt != null && body.draftAt !== '') {
       const timestamp = Date.parse(body.draftAt);
@@ -1189,6 +1274,14 @@ export class FantasyLeagueStore {
     league.draftAt = record.league.draftAt;
     league.commissionerUserId = record.league.commissionerUserId;
     league.pendingInviteUserIds = record.league.pendingInviteUserIds || [];
+    league.draftSettings = record.league.draftSettings || {
+      type: 'snake',
+      order: [...record.league.draftOrder],
+      auctionBudget: 200,
+      auctionClockSeconds: 30,
+    };
+    league.draftOrder = [...league.draftSettings.order];
+    league.auctionState = record.league.auctionState || null;
     league.waiverPriorityTeamIds = record.league.waiverPriorityTeamIds || [...record.league.draftOrder].reverse();
     league.waiverWindows = record.league.waiverWindows || {};
     league.pendingWaiverClaims = record.league.pendingWaiverClaims || [];
@@ -1224,6 +1317,195 @@ export class FantasyLeagueStore {
     record.revision += 1;
     await this.putLeague(record);
     return { success: true, revision: record.revision };
+  }
+
+  async updateDraftSettings(body) {
+    const record = await this.getLeague(String(body.leagueId || ''));
+    if (!record) return { status: 404, error: 'League not found.' };
+    const league = record.league;
+    if (league.commissionerUserId !== body.userId) {
+      return { status: 403, error: 'Only the commissioner can change draft settings.' };
+    }
+    if (Number(body.revision) !== record.revision) {
+      return { status: 409, error: 'This league changed on another device. Reload before saving draft settings.', league, revision: record.revision };
+    }
+    if (league.draftStarted || league.picks.length) {
+      return { status: 409, error: 'Draft settings and order cannot change after the draft starts.' };
+    }
+    const teamIds = league.managers.map((team) => team.id);
+    const settings = body.draftSettings;
+    if (!validDraftSettings(settings, league.teamCount)
+      || settings.order.some((teamId) => !teamIds.includes(teamId))) {
+      return { status: 400, error: 'Choose a draft type, valid auction settings, and every team exactly once in the draft order.' };
+    }
+    league.draftOrder = [...settings.order];
+    league.draftSettings = {
+      type: settings.type,
+      order: [...settings.order],
+      auctionBudget: Number(settings.auctionBudget),
+      auctionClockSeconds: Number(settings.auctionClockSeconds),
+    };
+    league.auctionState = null;
+    record.revision += 1;
+    await this.putLeague(record);
+    const ownTeam = league.managers.find((team) => team.ownerUserId === body.userId);
+    return {
+      league,
+      revision: record.revision,
+      userTeamId: ownTeam?.id || '',
+      isCommissioner: true,
+    };
+  }
+
+  auctionTeamSpent(league, team) {
+    return league.picks
+      .filter((pick) => pick.teamId === team.id)
+      .reduce((sum, pick) => sum + Math.max(0, Number(pick.auctionPrice) || 0), 0);
+  }
+
+  finishAuction(record, now = Date.now()) {
+    const league = record.league;
+    const auction = league.auctionState;
+    if (!auction || Number(auction.endsAt) > now) return false;
+    const winner = managerById(league, auction.highBidTeamId);
+    const playerId = String(auction.player?.id || '');
+    const rosterCapacity = Object.values(league.rosterSlots || {})
+      .reduce((sum, count) => sum + Number(count || 0), 0);
+    if (!winner || !winner.ownerUserId || !playerId || allPlayerIds(league).has(playerId)
+      || winner.roster.length >= rosterCapacity) {
+      league.auctionState = null;
+      return true;
+    }
+    const player = auction.player;
+    const positionSlots = Number(league.rosterSlots[player.position] || 0);
+    const positionCount = winner.roster.filter((entry) => entry.position === player.position).length;
+    const flexCount = winner.roster.filter((entry) => entry.rosterSlot === 'FLEX').length;
+    let rosterSlot = 'BENCH';
+    if (positionCount < positionSlots) rosterSlot = player.position;
+    else if (['RB', 'WR', 'TE'].includes(player.position)
+      && flexCount < Number(league.rosterSlots.FLEX || 0)) rosterSlot = 'FLEX';
+    winner.roster.push({
+      ...player,
+      draftedBy: winner.id,
+      auctionPrice: Number(auction.highBid),
+      rosterSlot,
+      rosterSlotIndex: winner.roster.filter((entry) => (entry.rosterSlot || 'BENCH') === rosterSlot).length,
+      gameStats: {},
+    });
+    const pickIndex = league.picks.length;
+    league.picks.push({
+      pick: pickIndex + 1,
+      round: Math.floor(pickIndex / league.teamCount) + 1,
+      teamId: winner.id,
+      playerId,
+      playerName: player.name,
+      position: player.position,
+      nflTeam: player.team,
+      auctionPrice: Number(auction.highBid),
+      nominatedBy: auction.nominatedBy,
+      timestamp: now,
+    });
+    league.auctionState = null;
+    return true;
+  }
+
+  async auction(body) {
+    const record = await this.getLeague(String(body.leagueId || ''));
+    if (!record) return { status: 404, error: 'League not found.' };
+    const league = record.league;
+    const action = String(body.action || 'poll');
+    let changed = this.finishAuction(record);
+    if (changed) {
+      record.revision += 1;
+      await this.putLeague(record);
+    }
+    if (action !== 'poll') {
+      const team = league.managers.find((manager) => manager.id === body.teamId
+        && manager.ownerUserId === body.userId);
+      if (!team) return { status: 403, error: 'You can only run the auction for your own team.' };
+      if (league.draftSettings?.type !== 'auction') {
+        return { status: 409, error: 'This league is not configured for an auction draft.' };
+      }
+      if (league.draftAt && Date.parse(league.draftAt) > Date.now()) {
+        return { status: 409, error: 'The scheduled draft time has not arrived yet.' };
+      }
+      if (league.picks.length >= league.teamCount * Object.values(league.rosterSlots || {})
+        .reduce((sum, count) => sum + Number(count || 0), 0)) {
+        return { status: 409, error: 'This draft is already complete.' };
+      }
+      if (action === 'start') {
+        const nominatorId = league.draftOrder[league.picks.length % league.teamCount];
+        if (team.id !== nominatorId) return { status: 403, error: 'It is not your team’s turn to nominate.' };
+        league.draftStarted = true;
+      } else if (action === 'nominate') {
+        if (league.auctionState) return { status: 409, error: 'Finish the current auction before nominating another player.' };
+        const nominatorId = league.draftOrder[league.picks.length % league.teamCount];
+        if (team.id !== nominatorId) return { status: 403, error: 'It is not your team’s turn to nominate.' };
+        const source = body.player;
+        const playerId = String(source?.id || '');
+        const positions = ROSTER_POSITIONS.filter((position) => !['FLEX', 'BENCH'].includes(position));
+        if (!validString(playerId, 100) || !validString(source?.name, 100) || !positions.includes(source?.position)
+          || allPlayerIds(league).has(playerId)) {
+          return { status: 400, error: 'Choose an available player with valid roster data.' };
+        }
+        const player = {
+          id: playerId,
+          name: source.name.trim(),
+          position: source.position,
+          team: String(source.team || '').slice(0, 20),
+          teamName: String(source.teamName || '').slice(0, 60),
+          teamId: String(source.teamId || '').slice(0, 30),
+          headshot: typeof source.headshot === 'string' && source.headshot.startsWith('https://')
+            ? source.headshot.slice(0, 500)
+            : '',
+          status: String(source.status || 'ACTIVE').slice(0, 40),
+        };
+        const remainingSlots = Object.values(league.rosterSlots || {})
+          .reduce((sum, count) => sum + Number(count || 0), 0) - team.roster.length;
+        const openingBid = 1;
+        if (this.auctionTeamSpent(league, team) + openingBid + Math.max(0, remainingSlots - 1) > league.draftSettings.auctionBudget) {
+          return { status: 409, error: 'Your team needs to save $1 for each remaining open roster slot.' };
+        }
+        league.auctionState = {
+          player,
+          nominatedBy: team.id,
+          highBidTeamId: team.id,
+          highBid: openingBid,
+          endsAt: Date.now() + Number(league.draftSettings.auctionClockSeconds) * 1000,
+        };
+        league.draftStarted = true;
+      } else if (action === 'bid') {
+        const auction = league.auctionState;
+        if (!auction) return { status: 409, error: 'There is no active player auction.' };
+        const amount = Number(body.amount);
+        const capacity = Object.values(league.rosterSlots || {})
+          .reduce((sum, count) => sum + Number(count || 0), 0);
+        const remainingSlots = capacity - team.roster.length;
+        if (!Number.isInteger(amount) || amount <= Number(auction.highBid)) {
+          return { status: 400, error: `Your bid must be a whole dollar amount above $${auction.highBid}.` };
+        }
+        if (team.roster.length >= capacity
+          || this.auctionTeamSpent(league, team) + amount + Math.max(0, remainingSlots - 1) > league.draftSettings.auctionBudget) {
+          return { status: 409, error: 'That bid exceeds your available salary-cap budget.' };
+        }
+        auction.highBid = amount;
+        auction.highBidTeamId = team.id;
+        auction.endsAt = Date.now() + Number(league.draftSettings.auctionClockSeconds) * 1000;
+      } else {
+        return { status: 400, error: 'Auction action is invalid.' };
+      }
+      record.revision += 1;
+      await this.putLeague(record);
+    }
+    const ownTeam = league.managers.find((team) => team.ownerUserId === body.userId);
+    return {
+      success: true,
+      league,
+      revision: record.revision,
+      userTeamId: ownTeam?.id || '',
+      userTeamIds: league.managers.filter((team) => team.ownerUserId === body.userId).map((team) => team.id),
+      isCommissioner: league.commissionerUserId === body.userId,
+    };
   }
 
   resolveDueWaivers(record, now = Date.now()) {

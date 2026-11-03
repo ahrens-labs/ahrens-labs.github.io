@@ -169,6 +169,7 @@ input::-moz-selection, textarea::-moz-selection { color: #090d12; background: #d
 .status-tag { color: var(--green); font: 10px var(--mono); }
 .status-tag.injured { color: var(--red); }
 .add-player { width: 25px; height: 25px; border: 1px solid #d1f36b3f; background: #d1f36b0b; color: var(--lime); cursor: pointer; }
+.add-player.auction-nominate { width: auto; min-width: 46px; padding: 0 6px; font: 700 10px var(--mono); }
 .add-player:hover { background: #d1f36b20; }
 .trade-player-button { width: 30px; height: 30px; border: 1px solid #3980e8; border-radius: 6px; background: #2563eb; color: #fff; cursor: pointer; font: 700 16px var(--sans); }
 .trade-player-button:hover { border-color: #1d4ed8; background: #1d4ed8; }
@@ -228,6 +229,16 @@ input::-moz-selection, textarea::-moz-selection { color: #090d12; background: #d
 .commissioner-playoff-settings > p { margin: 12px 14px; }
 .view#view-players #waiverClaimsPanel { margin-bottom: 12px; }
 .commissioner-playoff-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; align-items: end; padding: 14px; }
+.settings-team-row { display: grid; grid-template-columns: 32px minmax(100px, 1fr) minmax(120px, 1fr) 70px auto; gap: 8px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.settings-team-row input { min-width: 0; min-height: 36px; padding: 6px 8px; border: 1px solid var(--line-strong); border-radius: 5px; background: #fff; color: var(--text); }
+.draft-order-setting-row { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 42px; padding: 4px 8px; border-bottom: 1px solid var(--line); }
+.draft-order-setting-actions { display: flex; gap: 4px; }
+.auction-panel { margin-bottom: 12px; padding-bottom: 12px; }
+.auction-live-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 9px 16px; padding: 12px 14px; color: var(--muted); }
+.auction-live-summary strong { color: var(--text); font-size: 15px; }
+.auction-live-summary b { color: var(--blue); font: 700 16px var(--mono); }
+.auction-controls { display: grid; grid-template-columns: minmax(130px, 1fr) minmax(100px, 150px) auto; gap: 9px; align-items: end; padding: 0 14px; }
+.auction-controls .button { min-height: 38px; }
 .commissioner-setting-toggle { display: flex; align-items: center; gap: 8px; min-height: 38px; color: var(--text); font-size: 13px; }
 .commissioner-setting-toggle input { width: 16px; height: 16px; accent-color: var(--blue); }
 .commissioner-scoring-heading { margin-top: 24px; }
@@ -405,6 +416,10 @@ input::-moz-selection, textarea::-moz-selection { color: #090d12; background: #d
 }
 @media (max-width: 520px) {
   .player-table tr, .roster-table tr, .score-table tr { grid-template-columns: minmax(0, 1fr); }
+  .settings-team-row { grid-template-columns: 24px minmax(0, .9fr) minmax(0, 1fr) 44px auto; gap: 4px; }
+  .settings-team-row input { padding: 5px 4px; font-size: 11px; }
+  .auction-controls { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .auction-controls > .button { grid-column: 1 / -1; }
   .topbar { padding: 8px 11px; }
   .brand { font-size: 12px; gap: 7px; }
   .brand-mark { width: 24px; height: 24px; }
@@ -994,7 +1009,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
 
     <section class="view" id="view-draft">
       <div class="view-title">
-        <div><div class="eyebrow">Draft room / <span id="draftRoundLabel">Round 1</span></div><h1>Pick players in snake order.</h1><p>Search the NFL pool, then add a player to the team on the clock. Proj uses ESPN expected stats scored with this league’s rules. Actual uses this week’s box score.</p></div>
+        <div><div class="eyebrow">Draft room / <span id="draftRoundLabel">Round 1</span></div><h1 id="draftHeading">Pick players in snake order.</h1><p id="draftInstructions">Search the NFL pool, then add a player to the team on the clock. Proj uses ESPN expected stats scored with this league’s rules. Actual uses this week’s box score.</p></div>
         <div class="title-actions"><button class="button" id="undoPick">Undo last pick</button><button class="button danger" id="resetDraft">Reset draft</button></div>
       </div>
       <div class="draft-layout">
@@ -1004,6 +1019,16 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
             <div class="draft-controls"><button class="button primary" id="startDraft">START / RESUME DRAFT</button><button class="button" id="autoDraft">AUTO-PICK ONE</button><button class="button hidden" id="autoDraftAll">AUTO-PICK ENTIRE DRAFT</button></div>
           </div>
           <p class="online-draft-time" id="draftScheduleStatus"></p>
+          <section class="panel auction-panel" id="auctionPanel" hidden>
+            <div class="panel-head"><h2>Live salary-cap auction</h2><span id="auctionCountdown">WAITING TO START</span></div>
+            <div class="auction-live-summary"><strong id="auctionPlayerName">No player nominated</strong><span>High bid <b id="auctionHighBid">—</b></span><span id="auctionHighBidTeam">—</span><span id="auctionBudgetStatus">Your budget —</span></div>
+            <div class="auction-controls">
+              <div class="field"><label for="auctionTeamSelect">BID AS TEAM</label><select class="filter-select" id="auctionTeamSelect"></select></div>
+              <div class="field"><label for="auctionBidAmount">YOUR BID · $</label><input class="input" type="number" id="auctionBidAmount" min="1" step="1"></div>
+              <button class="button primary" id="placeAuctionBid">PLACE BID</button>
+            </div>
+            <p class="small-note" id="auctionHelp"></p>
+          </section>
           <div class="player-filters">
             <input class="input" id="draftSearch" type="search" placeholder="Search real NFL players…" aria-label="Search player pool">
             <select class="filter-select" id="positionFilter" aria-label="Filter by position"><option value="ALL">ALL POSITIONS</option><option>QB</option><option>RB</option><option>WR</option><option>TE</option><option>K</option><option>D/ST</option></select>
@@ -1015,7 +1040,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
         </section>
         <aside class="draft-side">
           <section class="panel draft-side-card"><div class="panel-head"><h2>Draft order</h2><span id="draftPickCount">0 PICKS</span></div><div class="draft-order" id="draftOrder"></div></section>
-          <section class="panel draft-side-card"><div class="panel-head"><h2>On the clock roster</h2><span id="clockTeamLabel">PICK 1.01</span></div><div id="clockRoster"><div class="empty-state">Start the draft to load the current team.</div></div></section>
+          <section class="panel draft-side-card"><div class="panel-head"><h2 id="clockRosterHeading">On the clock roster</h2><span id="clockTeamLabel">PICK 1.01</span></div><div id="clockRoster"><div class="empty-state">Start the draft to load the current team.</div></div></section>
         </aside>
       </div>
     </section>
@@ -1044,12 +1069,44 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
 
     <section class="view" id="view-commissioner-settings">
       <div class="view-title"><div><div class="eyebrow">Commissioner controls</div><h1>League settings and management.</h1><p>Manage teams, invites, draft timing, playoff format, roster rules, and scoring from one place. Only the commissioner can open this page.</p></div></div>
-      <div class="commissioner-settings-grid">
-        <section class="panel commissioner-settings-card"><div class="panel-head"><h2>Teams</h2><span>LEAGUE MEMBERS</span></div><p>Change league size before the draft, claim open teams, or update league and roster settings.</p><div class="commissioner-settings-actions"><button class="button" id="settingsManageTeams">MANAGE TEAMS</button><button class="button" id="settingsLeagueRules">LEAGUE &amp; ROSTER RULES</button></div></section>
-        <section class="panel commissioner-settings-card"><div class="panel-head"><h2>Invitations</h2><span>MANAGER ACCESS</span></div><p>Invite an Ahrens Labs member by username or email to an open fantasy team.</p><div class="commissioner-settings-actions"><button class="button" id="settingsInviteManager">INVITE MANAGER</button></div></section>
-        <section class="panel commissioner-settings-card"><div class="panel-head"><h2>Draft</h2><span>SNAKE DRAFT</span></div><p id="commissionerDraftStatus">Set or update when the league draft can begin.</p><div class="commissioner-settings-actions"><button class="button" id="settingsDraftTime">SET DRAFT TIME</button></div></section>
-        <section class="panel commissioner-settings-card"><div class="panel-head"><h2>Weekly schedule</h2><span>RANDOMIZED · BALANCED</span></div><p>Matchups are assigned before the draft, independently of draft order. Rebuild the 18-week schedule whenever needed.</p><div class="commissioner-settings-actions"><button class="button" id="regenerateSchedule">REGENERATE SCHEDULE</button></div></section>
-      </div>
+      <section class="panel commissioner-playoff-settings">
+        <div class="panel-head"><h2>League and teams</h2><span>MEMBERS · ROSTER RULES</span></div>
+        <div class="commissioner-playoff-fields">
+          <div class="field"><label for="settingsLeagueName">LEAGUE NAME</label><input class="input" id="settingsLeagueName" maxlength="60"></div>
+          <div class="field"><label for="settingsTeamCount">NUMBER OF TEAMS</label><select class="filter-select" id="settingsTeamCount"></select></div>
+          <div class="field full"><h3 class="trade-section-heading">MANAGER · FANTASY TEAM · ABBREVIATION · OWNER</h3><div class="new-team-names" id="settingsTeamRows"></div></div>
+          <div class="field full"><h3 class="trade-section-heading">CLAIM OPEN TEAMS FOR YOURSELF</h3><div class="new-team-names" id="settingsTeamClaims"></div></div>
+          <div class="field full"><h3 class="trade-section-heading">ROSTER SLOTS PER TEAM</h3><div class="slot-editor-grid" id="settingsRosterSlots"></div></div>
+          <div class="field full"><span class="small-note">League size and team assignment can only change before the draft. Set a slot count to 0 to disable it.</span></div>
+          <button class="button primary" id="saveLeagueSettings">SAVE LEAGUE &amp; TEAM SETTINGS</button>
+        </div>
+      </section>
+      <section class="panel commissioner-playoff-settings">
+        <div class="panel-head"><h2>Invitations</h2><span>MANAGER ACCESS</span></div>
+        <div class="commissioner-playoff-fields">
+          <div class="field"><label for="inviteTarget">AHRENS LABS USERNAME OR EMAIL</label><input class="input" id="inviteTarget" maxlength="254" autocomplete="off" placeholder="Username or email address"></div>
+          <div class="field"><label for="inviteTeam">OPEN FANTASY TEAM</label><select class="filter-select" id="inviteTeam"></select></div>
+          <button class="button primary" id="sendLeagueInvite">SEND INVITATION</button>
+          <div class="field full"><div class="manager-list" id="pendingLeagueInvites"></div></div>
+        </div>
+      </section>
+      <section class="panel commissioner-playoff-settings">
+        <div class="panel-head"><h2>Draft setup</h2><span id="commissionerDraftStatus">SNAKE DRAFT</span></div>
+        <div class="commissioner-playoff-fields">
+          <div class="field"><label for="draftTimeInput">DRAFT TIME · YOUR LOCAL TIME ZONE</label><input class="input" id="draftTimeInput" type="datetime-local"></div>
+          <div class="field"><label for="draftTypeSelect">DRAFT TYPE</label><select class="filter-select" id="draftTypeSelect"><option value="snake">Snake draft</option><option value="auction">Salary-cap auction</option></select></div>
+          <div class="field"><label for="auctionBudgetInput">AUCTION BUDGET PER TEAM</label><input class="input" id="auctionBudgetInput" type="number" min="100" max="1000" step="1" value="200"></div>
+          <div class="field"><label for="auctionClockSelect">AUCTION BID CLOCK</label><select class="filter-select" id="auctionClockSelect"><option value="15">15 seconds</option><option value="30">30 seconds</option><option value="45">45 seconds</option><option value="60">60 seconds</option></select></div>
+          <div class="field full"><h3 class="trade-section-heading">DRAFT ORDER · USE ARROWS TO REORDER</h3><div class="manager-list" id="draftOrderSettings"></div></div>
+          <div class="field full"><span class="small-note">Salary-cap defaults are $200 per team, $1 minimum bid, and a 30-second bid clock. At least $1 stays reserved for each unfilled roster slot.</span></div>
+          <button class="button primary" id="saveDraftSettings">SAVE DRAFT SETTINGS</button>
+        </div>
+      </section>
+      <section class="panel commissioner-playoff-settings">
+        <div class="panel-head"><h2>Weekly schedule</h2><span>RANDOMIZED · BALANCED</span></div>
+        <p>Matchups are assigned before the draft, independently of draft order. Rebuild the 18-week schedule whenever needed.</p>
+        <div class="commissioner-settings-actions"><button class="button" id="regenerateSchedule">REGENERATE SCHEDULE</button></div>
+      </section>
       <section class="panel commissioner-playoff-settings">
         <div class="panel-head"><h2>Playoff structure</h2><span id="playoffScheduleSummary">REGULAR SEASON + PLAYOFFS</span></div>
         <div class="commissioner-playoff-fields">
@@ -1074,8 +1131,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       <div class="scoring-layout">
         <section class="panel"><div class="scoring-tabs" id="scoringTabs"></div><div id="scoringGroups"></div><div class="scoring-actions"><span class="small-note">Your custom league scoring applies to live player box scores automatically.</span><button class="button primary" id="saveScoringBottom">SAVE RULES</button></div></section>
         <aside>
-          <section class="panel scoring-summary"><h3>YOUR SCORING MODEL</h3><p>Players earn points for every matching stat in the live feed. Use negative point values for turnovers, fumbles, or points allowed.</p><ul id="scoringSummary"></ul><div class="data-source-note">REAL-TIME PLAYER STATS COME FROM ESPN'S PUBLIC NFL SCOREBOARD AND GAME-SUMMARY FEEDS. THE PUBLIC FEED IS UNOFFICIAL AND MAY CHANGE OR LAG.</div></section>
-          <section class="panel" style="margin-top:12px"><div class="panel-head"><h2>Lineup format</h2><span>EDIT IN SETTINGS</span></div><div id="lineupFormat"></div></section>
+          <section class="panel scoring-summary"><h3>YOUR SCORING MODEL</h3><p>Players earn points for every matching stat in the live feed. Use negative point values for turnovers, fumbles, or points allowed.</p><ul id="scoringSummary"></ul><div class="data-source-note">REAL-TIME PLAYER STATS COME FROM ESPN'S PUBLIC SCOREBOARD AND GAME-SUMMARY FEEDS. THE PUBLIC FEED IS UNOFFICIAL AND MAY CHANGE OR LAG.</div></section>
         </aside>
       </div>
     </section>
@@ -1355,6 +1411,8 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     waiverPriorityTeamIds: [],
     waiverWindows: {},
     pendingWaiverClaims: [],
+    draftSettings: { type: 'snake', order: [], auctionBudget: 200, auctionClockSeconds: 30 },
+    auctionState: null,
   };
 
   let league = loadLeague();
@@ -1401,6 +1459,8 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
   let onlineSaveRetryTimer = 0;
   let onlineSaveRetryDelay = 1000;
   let onlineRefreshTimer = 0;
+  let auctionCountdownTimer = 0;
+  let draftOrderDraft = [];
 
   function loadLeague() {
     try {
@@ -1419,6 +1479,13 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       merged.scoring = { ...DEFAULT_SCORING, ...(stored.scoring || {}) };
       merged.managers = Array.isArray(stored.managers) ? stored.managers : [];
       merged.draftOrder = Array.isArray(stored.draftOrder) ? stored.draftOrder : [];
+      merged.draftSettings = {
+        ...structuredClone(STORAGE_FALLBACK.draftSettings),
+        ...(stored.draftSettings || {}),
+      };
+      merged.draftSettings.order = Array.isArray(merged.draftSettings.order)
+        ? merged.draftSettings.order
+        : [...merged.draftOrder];
       merged.picks = Array.isArray(stored.picks) ? stored.picks : [];
       merged.trades = Array.isArray(stored.trades) ? stored.trades : [];
       return merged;
@@ -1479,6 +1546,8 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     league.draftOrder = Array.isArray(data.league.draftOrder) ? data.league.draftOrder : [];
     league.picks = Array.isArray(data.league.picks) ? data.league.picks : [];
     league.trades = Array.isArray(data.league.trades) ? data.league.trades : [];
+    league.draftSettings = data.league.draftSettings || structuredClone(STORAGE_FALLBACK.draftSettings);
+    league.auctionState = data.league.auctionState || null;
     league.draftAt = data.league.draftAt || null;
     onlineRevision = Number(data.revision) || 0;
     onlineUserTeamId = String(data.userTeamId || '');
@@ -1493,6 +1562,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     onlineReady = true;
     onlineDirty = false;
     commissionerSettingsDirty = false;
+    draftOrderDraft = [...(league.draftSettings.order || league.draftOrder)];
     rosterViewTeam = Math.max(0, league.managers.findIndex((team) => onlineUserTeamIds.has(team.id)));
     normalizeManagers();
     updateOnlineControls();
@@ -1625,6 +1695,356 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       .map((teamId) => league.managers.find((team) => team.id === teamId)?.teamName)
       .filter(Boolean);
     $('waiverPrioritySummary').textContent = `ROLLING · ${priorityNames.join(' → ')}`;
+    renderInlineLeagueSettings();
+    renderInlineDraftSettings();
+  }
+
+  function renderInlineLeagueSettings() {
+    const leagueName = $('settingsLeagueName');
+    const teamCount = $('settingsTeamCount');
+    const teamRows = $('settingsTeamRows');
+    const claims = $('settingsTeamClaims');
+    const rosterSlots = $('settingsRosterSlots');
+    if (!leagueName || !teamCount || !teamRows || !claims || !rosterSlots) return;
+    if (document.activeElement !== leagueName) leagueName.value = league.name || '';
+    if (document.activeElement !== teamCount) {
+      teamCount.replaceChildren();
+      for (let count = 2; count <= 16; count += 1) {
+        teamCount.add(new Option(`${count} TEAMS`, String(count), false, count === league.teamCount));
+      }
+    }
+    teamCount.disabled = league.draftStarted || league.picks.length > 0;
+    const previousInputs = [...teamRows.querySelectorAll('[data-inline-team]')];
+    if (!previousInputs.includes(document.activeElement)) {
+      teamRows.replaceChildren();
+      league.managers.forEach((team, index) => {
+        const row = document.createElement('div');
+        row.className = 'settings-team-row';
+        const number = document.createElement('span');
+        number.className = 'pick-number';
+        number.textContent = String(index + 1).padStart(2, '0');
+        const manager = document.createElement('input');
+        manager.type = 'text';
+        manager.maxLength = 40;
+        manager.value = team.name || '';
+        manager.dataset.inlineManager = team.id;
+        manager.setAttribute('aria-label', `Manager ${index + 1} name`);
+        const name = document.createElement('input');
+        name.type = 'text';
+        name.maxLength = 40;
+        name.value = team.teamName || '';
+        name.dataset.inlineTeam = team.id;
+        name.setAttribute('aria-label', `Team ${index + 1} name`);
+        const abbreviation = document.createElement('input');
+        abbreviation.type = 'text';
+        abbreviation.maxLength = 4;
+        abbreviation.value = normalizeTeamAbbreviation(team.teamAbbreviation, team.teamName);
+        abbreviation.dataset.inlineAbbreviation = team.id;
+        abbreviation.setAttribute('aria-label', `Team ${index + 1} abbreviation`);
+        abbreviation.addEventListener('input', () => {
+          abbreviation.value = abbreviation.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4);
+        });
+        const owner = document.createElement('span');
+        owner.className = 'manager-sub';
+        owner.textContent = team.ownerUserId ? (team.ownerUserId === onlineUserId ? 'YOU' : 'MANAGED') : 'OPEN';
+        row.append(number, manager, name, abbreviation, owner);
+        teamRows.append(row);
+      });
+    }
+    const selectedClaims = new Set([...claims.querySelectorAll('[data-inline-claim]:checked')].map((input) => input.value));
+    const selectedCount = Number(teamCount.value) || league.teamCount;
+    claims.replaceChildren();
+    league.managers.forEach((team, index) => {
+      if (index >= selectedCount || team.ownerUserId) return;
+      const label = document.createElement('label');
+      label.className = 'team-claim-row';
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.value = team.id;
+      checkbox.dataset.inlineClaim = '';
+      checkbox.checked = selectedClaims.has(team.id);
+      checkbox.disabled = league.draftStarted || league.picks.length > 0;
+      const text = document.createElement('span');
+      text.textContent = teamLabel(team);
+      label.append(checkbox, text);
+      claims.append(label);
+    });
+    if (!claims.childElementCount) {
+      const empty = document.createElement('p');
+      empty.className = 'small-note';
+      empty.textContent = 'No open teams are available to claim at this size.';
+      claims.append(empty);
+    }
+    const slots = ['QB', 'RB', 'WR', 'TE', 'FLEX', 'K', 'D/ST', ...IDP_POSITIONS, 'P', 'BENCH'];
+    const activeSlot = rosterSlots.contains(document.activeElement);
+    if (!activeSlot) {
+      rosterSlots.replaceChildren();
+      slots.forEach((slot) => {
+        const field = document.createElement('div');
+        field.className = 'slot-editor';
+        const label = document.createElement('label');
+        label.textContent = `${ROSTER_POSITION_LABELS[slot].toUpperCase()} SLOTS`;
+        const input = document.createElement('input');
+        input.type = 'number';
+        input.min = '0';
+        input.max = '30';
+        input.step = '1';
+        input.value = String(Number(league.rosterSlots[slot]) || 0);
+        input.dataset.inlineRosterSlot = slot;
+        field.append(label, input);
+        rosterSlots.append(field);
+      });
+    }
+    const openTeamOptions = league.managers.filter((team) => !team.ownerUserId);
+    const inviteTeam = $('inviteTeam');
+    const selectedInviteTeam = inviteTeam.value;
+    inviteTeam.replaceChildren();
+    openTeamOptions.forEach((team) => inviteTeam.add(new Option(teamLabel(team), team.id)));
+    if (openTeamOptions.some((team) => team.id === selectedInviteTeam)) inviteTeam.value = selectedInviteTeam;
+    inviteTeam.disabled = !openTeamOptions.length;
+    $('sendLeagueInvite').disabled = !openTeamOptions.length;
+    const pending = (league.pendingInviteUserIds || []).length;
+    $('pendingLeagueInvites').textContent = pending
+      ? `${pending} invitation${pending === 1 ? '' : 's'} awaiting acceptance.`
+      : 'No pending invitations.';
+  }
+
+  function renderInlineDraftSettings() {
+    const draftSettings = league.draftSettings;
+    if (!draftSettings) return;
+    const type = $('draftTypeSelect');
+    const order = $('draftOrderSettings');
+    if (document.activeElement !== type) type.value = draftSettings.type;
+    const budget = $('auctionBudgetInput');
+    const clock = $('auctionClockSelect');
+    if (document.activeElement !== budget) budget.value = String(draftSettings.auctionBudget);
+    if (document.activeElement !== clock) clock.value = String(draftSettings.auctionClockSeconds);
+    const draftTime = $('draftTimeInput');
+    if (document.activeElement !== draftTime) draftTime.value = localDateTimeValue(league.draftAt);
+    const disabled = league.draftStarted || league.picks.length > 0;
+    [type, budget, clock, draftTime].forEach((input) => { input.disabled = disabled; });
+    $('saveDraftSettings').disabled = disabled;
+    $('commissionerDraftStatus').textContent = `${String(draftSettings.type).toUpperCase()} DRAFT${league.draftAt
+      ? ` · ${new Date(league.draftAt).toLocaleString()}`
+      : ' · NOT SCHEDULED'}`;
+    if (!Array.isArray(draftOrderDraft) || draftOrderDraft.length !== league.teamCount
+      || draftOrderDraft.some((id) => !league.managers.some((team) => team.id === id))) {
+      draftOrderDraft = [...draftSettings.order];
+    }
+    order.replaceChildren();
+    draftOrderDraft.forEach((teamId, index) => {
+      const team = league.managers.find((entry) => entry.id === teamId);
+      const row = document.createElement('div');
+      row.className = 'draft-order-setting-row';
+      const number = document.createElement('span');
+      number.className = 'pick-number';
+      number.textContent = String(index + 1).padStart(2, '0');
+      const name = document.createElement('span');
+      name.className = 'pick-team';
+      name.textContent = team ? teamLabel(team) : 'Unknown team';
+      const actions = document.createElement('div');
+      actions.className = 'draft-order-setting-actions';
+      [['↑', -1, 'Move team up'], ['↓', 1, 'Move team down']].forEach(([text, offset, description]) => {
+        const button = document.createElement('button');
+        button.className = 'icon-button';
+        button.type = 'button';
+        button.textContent = text;
+        button.setAttribute('aria-label', `${description}: ${team?.teamName || 'team'}`);
+        button.disabled = disabled || index + offset < 0 || index + offset >= draftOrderDraft.length;
+        button.addEventListener('click', () => {
+          const target = index + offset;
+          [draftOrderDraft[index], draftOrderDraft[target]] = [draftOrderDraft[target], draftOrderDraft[index]];
+          commissionerSettingsDirty = true;
+          renderInlineDraftSettings();
+        });
+        actions.append(button);
+      });
+      row.append(number, name, actions);
+      order.append(row);
+    });
+  }
+
+  async function saveInlineLeagueSettings() {
+    if (!onlineCommissioner) {
+      notify('Only the commissioner can update league and team settings.');
+      return;
+    }
+    const newLeagueName = $('settingsLeagueName').value.trim();
+    const teamCount = Number($('settingsTeamCount').value);
+    const claimTeamIds = [...document.querySelectorAll('[data-inline-claim]:checked')].map((input) => input.value);
+    const rosterSlots = Object.fromEntries([...document.querySelectorAll('[data-inline-roster-slot]')]
+      .map((input) => [input.dataset.inlineRosterSlot, Number(input.value)]));
+    if (!newLeagueName || newLeagueName.length > 60) {
+      notify('Enter a league name between 1 and 60 characters.');
+      return;
+    }
+    if (!Number.isInteger(teamCount) || teamCount < 2 || teamCount > 16) {
+      notify('Choose a league size between 2 and 16 teams.');
+      return;
+    }
+    if (Object.values(rosterSlots).some((count) => !Number.isInteger(count) || count < 0 || count > 30)
+      || Object.entries(rosterSlots).filter(([position]) => position !== 'BENCH').reduce((sum, [, count]) => sum + count, 0) < 1) {
+      notify('Roster slots must be whole numbers from 0 to 30, with at least one starting slot.');
+      return;
+    }
+    const teamValues = league.managers.map((team) => ({
+      id: team.id,
+      managerName: document.querySelector(`[data-inline-manager="${CSS.escape(team.id)}"]`)?.value.trim() || '',
+      teamName: document.querySelector(`[data-inline-team="${CSS.escape(team.id)}"]`)?.value.trim() || '',
+      teamAbbreviation: document.querySelector(`[data-inline-abbreviation="${CSS.escape(team.id)}"]`)?.value.trim().toUpperCase() || '',
+    }));
+    if (teamValues.some((team) => !team.teamName || team.teamName.length > 40
+      || !/^[A-Z0-9]{1,4}$/.test(team.teamAbbreviation))) {
+      notify('Each team needs a name and a 1 to 4 character abbreviation.');
+      return;
+    }
+    $('saveLeagueSettings').disabled = true;
+    let teamMembershipUpdated = false;
+    try {
+      await waitForOnlineSave();
+      if (teamCount !== league.teamCount || claimTeamIds.length) {
+        const { response, data } = await fantasyRequest(
+          `/api/fantasy/leagues/${encodeURIComponent(league.leagueId)}/teams`,
+          'PUT',
+          { teamCount, claimTeamIds, revision: onlineRevision },
+        );
+        if (!response.ok) throw new Error(data.error || 'Could not update league teams.');
+        installOnlineLeague(data);
+        teamMembershipUpdated = true;
+      }
+      league.name = newLeagueName;
+      league.rosterSlots = rosterSlots;
+      for (const team of league.managers) {
+        const edited = teamValues.find((entry) => entry.id === team.id);
+        if (!edited) continue;
+        if (edited.managerName) team.name = edited.managerName;
+        team.teamName = edited.teamName;
+        team.teamAbbreviation = edited.teamAbbreviation;
+        normalizeRosterForSlots(team);
+      }
+      commissionerSettingsDirty = false;
+      saveLeague();
+      await waitForOnlineSave();
+      renderOnlineLeague();
+      switchView('commissioner-settings');
+      renderCommissionerSettings();
+      notify('League, team, and roster settings saved.');
+    } catch (error) {
+      commissionerSettingsDirty = true;
+      const detail = error.message || 'Could not save league settings.';
+      notify(teamMembershipUpdated
+        ? `Team membership changed, but the other settings did not save: ${detail}`
+        : detail);
+    } finally {
+      $('saveLeagueSettings').disabled = false;
+    }
+  }
+
+  async function sendInlineLeagueInvite() {
+    if (!onlineCommissioner) {
+      notify('Only the commissioner can invite managers.');
+      return;
+    }
+    const usernameOrEmail = $('inviteTarget').value.trim();
+    const teamId = $('inviteTeam').value;
+    if (!usernameOrEmail || !teamId) {
+      notify('Enter an Ahrens Labs username or email and choose an open fantasy team.');
+      return;
+    }
+    const hasUnsavedSettings = commissionerSettingsDirty;
+    const pendingDraftOrder = [...draftOrderDraft];
+    $('sendLeagueInvite').disabled = true;
+    try {
+      await waitForOnlineSave();
+      const { response, data } = await fantasyRequest(
+        `/api/fantasy/leagues/${encodeURIComponent(league.leagueId)}/invitations`,
+        'POST',
+        { usernameOrEmail, teamId },
+      );
+      if (!response.ok) throw new Error(data.error || 'Could not send this invitation.');
+      $('inviteTarget').value = '';
+      if (data.league) {
+        installOnlineLeague(data);
+        commissionerSettingsDirty = hasUnsavedSettings;
+        if (hasUnsavedSettings) {
+          draftOrderDraft = pendingDraftOrder;
+          $('pendingLeagueInvites').textContent = `${(league.pendingInviteUserIds || []).length} invitation${league.pendingInviteUserIds?.length === 1 ? '' : 's'} awaiting acceptance.`;
+        } else {
+          renderCommissionerSettings();
+        }
+      } else {
+        await refreshActiveLeague();
+      }
+      notify(`Invitation sent to ${usernameOrEmail}.`);
+    } catch (error) {
+      notify(error.message || 'Could not send this invitation.');
+    } finally {
+      $('sendLeagueInvite').disabled = false;
+    }
+  }
+
+  async function saveInlineDraftSettings() {
+    if (!onlineCommissioner) {
+      notify('Only the commissioner can change draft settings.');
+      return;
+    }
+    const draftAtValue = $('draftTimeInput').value;
+    let draftAt = null;
+    try {
+      draftAt = draftAtValue ? new Date(draftAtValue).toISOString() : null;
+    } catch {
+      notify('Choose a valid draft date and time.');
+      return;
+    }
+    const draftSettings = {
+      type: $('draftTypeSelect').value,
+      order: [...draftOrderDraft],
+      auctionBudget: Number($('auctionBudgetInput').value),
+      auctionClockSeconds: Number($('auctionClockSelect').value),
+    };
+    if (!['snake', 'auction'].includes(draftSettings.type)
+      || !Number.isInteger(draftSettings.auctionBudget)
+      || draftSettings.auctionBudget < 100 || draftSettings.auctionBudget > 1000
+      || ![15, 30, 45, 60].includes(draftSettings.auctionClockSeconds)
+      || draftSettings.order.length !== league.teamCount
+      || new Set(draftSettings.order).size !== league.teamCount
+      || draftSettings.order.some((id) => !league.managers.some((team) => team.id === id))) {
+      notify('Choose valid draft settings and list every team exactly once in the draft order.');
+      return;
+    }
+    $('saveDraftSettings').disabled = true;
+    let draftScheduleSaved = false;
+    try {
+      await waitForOnlineSave();
+      if (draftAt !== (league.draftAt || null)) {
+        const { response: scheduleResponse, data: scheduleData } = await fantasyRequest(
+          `/api/fantasy/leagues/${encodeURIComponent(league.leagueId)}/schedule`,
+          'PUT',
+          { draftAt, revision: onlineRevision },
+        );
+        if (!scheduleResponse.ok) throw new Error(scheduleData.error || 'Could not save the draft schedule.');
+        installOnlineLeague(scheduleData);
+        draftScheduleSaved = true;
+      }
+      const { response, data } = await fantasyRequest(
+        `/api/fantasy/leagues/${encodeURIComponent(league.leagueId)}/draft-settings`,
+        'PUT',
+        { draftSettings, revision: onlineRevision },
+      );
+      if (!response.ok) throw new Error(data.error || 'Could not save draft settings.');
+      installOnlineLeague(data);
+      renderOnlineLeague();
+      switchView('commissioner-settings');
+      renderCommissionerSettings();
+      notify('Draft type, order, auction settings, and schedule saved.');
+    } catch (error) {
+      const detail = error.message || 'Could not save draft settings.';
+      notify(draftScheduleSaved
+        ? `The schedule saved, but the draft type or order did not: ${detail}`
+        : detail);
+    } finally {
+      $('saveDraftSettings').disabled = false;
+    }
   }
 
   async function savePlayoffSettings() {
@@ -2230,7 +2650,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       const { response, data } = await fantasyRequest(
         `/api/fantasy/leagues/${encodeURIComponent(league.leagueId)}/schedule`,
         'PUT',
-        { draftAt },
+        { draftAt, revision: onlineRevision },
       );
       if (!response.ok) throw new Error(data.error || 'Could not schedule the draft.');
       installOnlineLeague(data);
@@ -2339,6 +2759,30 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     });
     const teamIds = league.managers.map((team) => team.id);
     let settingsChanged = false;
+    if (!league.draftSettings || !['snake', 'auction'].includes(league.draftSettings.type)
+      || !Number.isInteger(Number(league.draftSettings.auctionBudget))
+      || Number(league.draftSettings.auctionBudget) < 100
+      || Number(league.draftSettings.auctionBudget) > 1000
+      || ![15, 30, 45, 60].includes(Number(league.draftSettings.auctionClockSeconds))) {
+      league.draftSettings = {
+        type: 'snake',
+        order: [...league.draftOrder],
+        auctionBudget: 200,
+        auctionClockSeconds: 30,
+      };
+      settingsChanged = true;
+    }
+    if (!Array.isArray(league.draftSettings.order)
+      || league.draftSettings.order.length !== count
+      || new Set(league.draftSettings.order).size !== count
+      || league.draftSettings.order.some((id) => !teamIds.includes(id))) {
+      league.draftSettings.order = [...league.draftOrder];
+      settingsChanged = true;
+    }
+    if (JSON.stringify(league.draftOrder) !== JSON.stringify(league.draftSettings.order)) {
+      league.draftOrder = [...league.draftSettings.order];
+      settingsChanged = true;
+    }
     if (!league.waiverSettings || typeof league.waiverSettings.enabled !== 'boolean'
       || ![24, 48, 72, 168].includes(Number(league.waiverSettings.periodHours))) {
       league.waiverSettings = { enabled: true, periodHours: 48 };
@@ -3160,6 +3604,11 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     return league.managers.find((team) => team.id === teamId) || league.managers[0];
   }
 
+  function auctionNominatorAt(index = league.picks.length) {
+    const teamId = league.draftOrder[index % league.teamCount];
+    return league.managers.find((team) => team.id === teamId) || league.managers[0];
+  }
+
   function isDraftComplete() {
     return league.picks.length >= totalDraftPicks();
   }
@@ -3267,6 +3716,10 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
   }
 
   function makePick(player, options = {}) {
+    if (league.draftSettings?.type === 'auction') {
+      notify('Use the auction controls to nominate and bid on players.');
+      return;
+    }
     if (!league.draftStarted) {
       notify('Start the draft before selecting a player.');
       return;
@@ -3356,31 +3809,167 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     });
   }
 
+  function renderAuctionPanel() {
+    const select = $('auctionTeamSelect');
+    const currentTeamId = select.value;
+    const ownedTeams = league.managers.filter((team) => ownsOnlineTeam(team.id));
+    select.replaceChildren();
+    ownedTeams.forEach((team) => select.add(new Option(teamLabel(team), team.id)));
+    if (ownedTeams.some((team) => team.id === currentTeamId)) select.value = currentTeamId;
+    else {
+      const nominator = auctionNominatorAt();
+      select.value = ownedTeams.some((team) => team.id === nominator?.id)
+        ? nominator.id
+        : ownedTeams[0]?.id || '';
+    }
+    const auction = league.auctionState;
+    const highBidTeam = league.managers.find((team) => team.id === auction?.highBidTeamId);
+    const selectedTeam = league.managers.find((team) => team.id === select.value);
+    $('auctionPlayerName').textContent = auction?.player?.name || 'No player nominated';
+    $('auctionHighBid').textContent = Number.isFinite(Number(auction?.highBid)) ? `$${auction.highBid}` : '—';
+    $('auctionHighBidTeam').textContent = highBidTeam ? `BY ${teamLabel(highBidTeam)}` : '—';
+    const spent = selectedTeam
+      ? league.picks.filter((pick) => pick.teamId === selectedTeam.id)
+        .reduce((sum, pick) => sum + Math.max(0, Number(pick.auctionPrice) || 0), 0)
+      : 0;
+    const remaining = selectedTeam ? Number(league.draftSettings.auctionBudget) - spent : null;
+    $('auctionBudgetStatus').textContent = selectedTeam
+      ? `${teamLabel(selectedTeam)} · $${remaining} REMAINING`
+      : 'Sign in and claim a team to bid.';
+    const isActive = Boolean(auction);
+    const isNominator = ownsOnlineTeam(auctionNominatorAt().id);
+    const canBid = ownedTeams.length > 0 && isActive && !isDraftComplete();
+    $('auctionBidAmount').min = String(Number(auction?.highBid || 0) + 1);
+    if (document.activeElement !== $('auctionBidAmount')) {
+      $('auctionBidAmount').value = String(Number(auction?.highBid || 0) + 1);
+    }
+    $('auctionBidAmount').disabled = !canBid || !selectedTeam || selectedTeam.id === auction?.highBidTeamId;
+    $('placeAuctionBid').disabled = $('auctionBidAmount').disabled;
+    $('placeAuctionBid').textContent = canBid ? 'PLACE BID' : 'BIDDING CLOSED';
+    $('auctionHelp').textContent = !onlineReady
+      ? 'Sign in to an Ahrens Labs account to participate in the shared auction.'
+      : isActive
+        ? `Bid as one of your teams. Every team must reserve $1 for each remaining open roster slot. Your bid resets the ${league.draftSettings.auctionClockSeconds}-second clock.`
+        : league.draftStarted
+          ? isNominator
+            ? 'Your team is up to nominate. Choose an available player from the list below.'
+            : `${teamLabel(auctionNominatorAt())} is up to nominate.`
+          : 'Start the auction when the first nominating team is ready.';
+    updateAuctionCountdown();
+    if (isActive && !auctionCountdownTimer) {
+      auctionCountdownTimer = window.setInterval(updateAuctionCountdown, 1000);
+    } else if (!isActive && auctionCountdownTimer) {
+      window.clearInterval(auctionCountdownTimer);
+      auctionCountdownTimer = 0;
+    }
+  }
+
+  function updateAuctionCountdown() {
+    const auction = league.auctionState;
+    if (!auction) {
+      $('auctionCountdown').textContent = league.draftStarted ? 'WAITING FOR NOMINATION' : 'WAITING TO START';
+      return;
+    }
+    const secondsLeft = Math.max(0, Math.ceil((Number(auction.endsAt) - Date.now()) / 1000));
+    $('auctionCountdown').textContent = `${String(Math.floor(secondsLeft / 60)).padStart(2, '0')}:${String(secondsLeft % 60).padStart(2, '0')}`;
+    if (secondsLeft === 0 && Date.now() >= auctionPollAfter) void submitAuctionAction('poll');
+  }
+
+  let auctionRequestBusy = false;
+  let auctionPollAfter = 0;
+
+  async function submitAuctionAction(action, extra = {}) {
+    if (!onlineReady) {
+      notify('Sign in to an Ahrens Labs account to participate in the shared auction.');
+      return;
+    }
+    if (auctionRequestBusy) return;
+    auctionRequestBusy = true;
+    $('placeAuctionBid').disabled = true;
+    try {
+      const teamId = $('auctionTeamSelect').value;
+      const requestExtra = action === 'nominate' && extra.player
+        ? {
+          player: {
+            id: extra.player.id,
+            name: extra.player.name,
+            position: extra.player.position,
+            team: extra.player.team,
+            teamName: extra.player.teamName,
+            teamId: extra.player.teamId,
+            headshot: extra.player.headshot,
+            status: extra.player.status,
+          },
+        }
+        : extra;
+      const { response, data } = await fantasyRequest(
+        `/api/fantasy/leagues/${encodeURIComponent(league.leagueId)}/auction`,
+        'POST',
+        { action, ...(teamId ? { teamId } : {}), ...requestExtra },
+      );
+      if (!response.ok) throw new Error(data.error || 'Could not update the auction.');
+      installOnlineLeague(data);
+      renderOnlineLeague();
+      if (action === 'nominate') notify(`${extra.player.name} nominated for $1.`);
+      else if (action === 'bid') notify(`Bid of $${extra.amount} placed.`);
+      else if (action === 'start') notify(`${teamLabel(auctionNominatorAt())} is up to nominate.`);
+      else if (action === 'poll' && !league.auctionState) {
+        const latestPick = league.picks.at(-1);
+        if (latestPick?.auctionPrice) notify(`${latestPick.playerName} awarded to ${teamLabel(league.managers.find((team) => team.id === latestPick.teamId))} for $${latestPick.auctionPrice}.`);
+      }
+    } catch (error) {
+      notify(error.message || 'Could not update the auction.');
+      if (action === 'poll') console.warn('Could not resolve the expired fantasy auction.', error);
+    } finally {
+      auctionRequestBusy = false;
+      if (action === 'poll') auctionPollAfter = Date.now() + 5000;
+      renderAuctionPanel();
+    }
+  }
+
   function renderDraft() {
+    const auctionMode = league.draftSettings?.type === 'auction';
+    $('draftHeading').textContent = auctionMode ? 'Build your roster in the live auction.' : 'Pick players in snake order.';
+    $('draftInstructions').textContent = auctionMode
+      ? 'Nominate an available NFL player, then bid against your league. Every team starts with its configured salary cap and must reserve $1 per open roster slot.'
+      : 'Search the NFL pool, then add a player to the team on the clock. Proj uses ESPN expected stats scored with this league’s rules. Actual uses this week’s box score.';
     renderDraftPlayers();
     renderDraftOrder();
     renderOnClockRoster();
     const index = currentPickIndex();
     const round = Math.floor(index / league.teamCount) + 1;
     const slot = (index % league.teamCount) + 1;
-    $('draftRoundLabel').textContent = `Round ${Math.min(round, rosterCapacity())}`;
+    $('draftRoundLabel').textContent = auctionMode ? 'Salary-cap auction' : `Round ${Math.min(round, rosterCapacity())}`;
     $('draftPickCount').textContent = `${league.picks.length} PICKS`;
-    $('pickLabel').textContent = isDraftComplete() ? 'DRAFT COMPLETE' : `PICK ${round}.${String(slot).padStart(2, '0')}`;
-    const team = draftTeamAt(index);
+    $('pickLabel').textContent = isDraftComplete() ? 'DRAFT COMPLETE'
+      : auctionMode ? `NOMINATION ${league.picks.length + 1}` : `PICK ${round}.${String(slot).padStart(2, '0')}`;
+    const team = auctionMode ? auctionNominatorAt(index) : draftTeamAt(index);
     $('onClock').textContent = isDraftComplete() ? '—' : team?.teamName || '—';
-    $('clockTeamLabel').textContent = isDraftComplete() ? 'COMPLETE' : `ROUND ${round} · PICK ${slot}`;
-    $('startDraft').textContent = league.draftStarted ? 'DRAFT IN PROGRESS' : 'START DRAFT';
-    const onClock = !isDraftComplete() ? draftTeamAt(currentPickIndex()) : null;
+    $('clockTeamLabel').textContent = isDraftComplete() ? 'COMPLETE'
+      : auctionMode ? 'NOMINATING TEAM' : `ROUND ${round} · PICK ${slot}`;
+    $('startDraft').textContent = auctionMode
+      ? league.draftStarted ? 'AUCTION IN PROGRESS' : 'START AUCTION'
+      : league.draftStarted ? 'DRAFT IN PROGRESS' : 'START DRAFT';
+    const onClock = !isDraftComplete() ? (auctionMode ? auctionNominatorAt(currentPickIndex()) : draftTeamAt(currentPickIndex())) : null;
     const canStart = !onlineReady || onlineCommissioner || Boolean(league.draftAt);
     const scheduledFuture = Boolean(league.draftAt && Date.parse(league.draftAt) > Date.now());
     $('startDraft').disabled = isDraftComplete() || !canStart || scheduledFuture
-      || (onlineReady && !ownsOnlineTeam(onClock?.id));
+      || (auctionMode && (!onlineReady || league.draftStarted || !ownsOnlineTeam(onClock?.id)))
+      || (!auctionMode && onlineReady && !ownsOnlineTeam(onClock?.id));
+    $('startDraft').classList.toggle('hidden', auctionMode && league.draftStarted);
+    $('auctionPanel').hidden = !auctionMode;
+    renderAuctionPanel();
     const homeStart = $('homeStartDraft');
-    homeStart.textContent = isDraftComplete() ? 'DRAFT COMPLETE' : league.draftStarted ? 'CONTINUE YOUR DRAFT ↗' : 'START A DRAFT ↗';
-    homeStart.disabled = isDraftComplete();
+    homeStart.textContent = isDraftComplete() ? 'DRAFT COMPLETE'
+      : league.draftStarted ? auctionMode ? 'VIEW LIVE AUCTION ↗' : 'CONTINUE YOUR DRAFT ↗'
+        : auctionMode ? 'START THE AUCTION ↗' : 'START A DRAFT ↗';
+    homeStart.disabled = isDraftComplete() || (auctionMode && !onlineReady);
     $('undoPick').disabled = !league.picks.length
       || (onlineReady && !ownsOnlineTeam(league.picks.at(-1)?.teamId));
-    $('autoDraft').disabled = !league.draftStarted || isDraftComplete()
+    $('undoPick').classList.toggle('hidden', auctionMode);
+    $('resetDraft').classList.toggle('hidden', auctionMode);
+    $('autoDraft').classList.toggle('hidden', auctionMode);
+    $('autoDraft').disabled = auctionMode || !league.draftStarted || isDraftComplete()
       || (onlineReady && !ownsOnlineTeam(onClock?.id));
     $('autoDraftAll').classList.toggle('hidden', onlineReady);
     $('autoDraftAll').disabled = onlineReady || isDraftComplete() || !players.length;
@@ -3399,8 +3988,9 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     const query = ($('draftSearch')?.value || '').trim().toLowerCase();
     const position = $('positionFilter')?.value || 'ALL';
     const team = $('teamFilter')?.value || 'ALL';
-    const onClock = !isDraftComplete() ? draftTeamAt(currentPickIndex()) : null;
-    const forceStarter = Boolean(onClock && mustFillStarterBeforeBench(onClock));
+    const auctionMode = league.draftSettings?.type === 'auction';
+    const onClock = !isDraftComplete() ? (auctionMode ? auctionNominatorAt(currentPickIndex()) : draftTeamAt(currentPickIndex())) : null;
+    const forceStarter = Boolean(!auctionMode && onClock && mustFillStarterBeforeBench(onClock));
     const remainingSlots = forceStarter ? openStartingSlots(onClock) : [];
     $('draftRequirement').classList.toggle('hidden', !forceStarter);
     if (forceStarter) {
@@ -3428,6 +4018,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
   }
 
   function renderDraftPlayerRow(player) {
+    const auctionMode = league.draftSettings?.type === 'auction';
     const row = document.createElement('tr');
     const rank = document.createElement('td');
     rank.textContent = Number.isFinite(player.espnRank) ? `#${player.espnRank}` : '—';
@@ -3455,11 +4046,14 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     const add = document.createElement('button');
     add.className = 'add-player';
     add.type = 'button';
-    add.textContent = '+';
-    add.setAttribute('aria-label', `Draft ${player.name}`);
-    add.disabled = !league.draftStarted || isDraftComplete()
-      || (onlineReady && !ownsOnlineTeam(onClock?.id));
-    add.addEventListener('click', () => makePick(player));
+    add.textContent = auctionMode ? 'BID' : '+';
+    add.classList.toggle('auction-nominate', auctionMode);
+    add.setAttribute('aria-label', auctionMode ? `Nominate ${player.name}` : `Draft ${player.name}`);
+    add.disabled = auctionMode
+      ? !onlineReady || !league.draftStarted || Boolean(league.auctionState) || isDraftComplete()
+        || !ownsOnlineTeam(auctionNominatorAt().id)
+      : !league.draftStarted || isDraftComplete() || (onlineReady && !ownsOnlineTeam(draftTeamAt(currentPickIndex())?.id));
+    add.addEventListener('click', () => auctionMode ? void submitAuctionAction('nominate', { player }) : makePick(player));
     action.append(add);
     row.append(rank, name, pos, nfl, matchup, status, projection, points, action);
     return row;
@@ -3516,19 +4110,24 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     const start = Math.max(0, league.picks.length - 5);
     const end = Math.min(totalDraftPicks(), Math.max(18, league.picks.length + 13));
     for (let index = start; index < end; index += 1) {
-      const team = draftTeamAt(index);
+      const team = league.draftSettings?.type === 'auction'
+        ? league.managers.find((entry) => entry.id === league.picks[index]?.nominatedBy) || auctionNominatorAt(index)
+        : draftTeamAt(index);
       const round = Math.floor(index / league.teamCount) + 1;
       const row = document.createElement('div');
       row.className = `draft-order-row${index === league.picks.length ? ' current' : ''}`;
       const pickNumber = document.createElement('span');
       pickNumber.className = 'pick-number';
-      pickNumber.textContent = `${round}.${String((index % league.teamCount) + 1).padStart(2, '0')}`;
+      pickNumber.textContent = league.draftSettings?.type === 'auction'
+        ? `A${String(index + 1).padStart(2, '0')}`
+        : `${round}.${String((index % league.teamCount) + 1).padStart(2, '0')}`;
       const name = document.createElement('span');
       name.className = 'pick-team';
       name.textContent = team?.teamName || 'Unassigned';
       const player = document.createElement('span');
       player.className = 'pick-player';
-      player.textContent = league.picks[index]?.playerName || (index === league.picks.length ? 'ON THE CLOCK' : '—');
+      player.textContent = league.picks[index]?.playerName
+        || (index === league.picks.length ? league.draftSettings?.type === 'auction' ? 'UP TO NOMINATE' : 'ON THE CLOCK' : '—');
       row.append(pickNumber, name, player);
       container.append(row);
     }
@@ -3543,7 +4142,9 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       container.innerHTML = '<div class="empty-state">All roster slots filled. Draft complete.</div>';
       return;
     }
-    const team = draftTeamAt(currentPickIndex());
+    const team = league.draftSettings?.type === 'auction'
+      ? auctionNominatorAt(currentPickIndex())
+      : draftTeamAt(currentPickIndex());
     if (!team) return;
     POSITION_ORDER.forEach((position) => {
       const count = Number(league.rosterSlots[position] || 0);
@@ -3638,6 +4239,26 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
   }
 
   function startDraft() {
+    if (league.draftSettings?.type === 'auction') {
+      if (!onlineReady) {
+        notify('Salary-cap auctions require an online Ahrens Labs league.');
+        return;
+      }
+      if (!ownsOnlineTeam(auctionNominatorAt().id)) {
+        notify(`${teamLabel(auctionNominatorAt())} is up to nominate. You can start the auction when it is your team’s turn.`);
+        return;
+      }
+      if (league.draftAt && Date.parse(league.draftAt) > Date.now()) {
+        notify(`The auction is scheduled for ${new Date(league.draftAt).toLocaleString()}.`);
+        return;
+      }
+      if (!players.length) {
+        notify('Wait for the real NFL player pool to finish loading.');
+        return;
+      }
+      void submitAuctionAction('start');
+      return;
+    }
     if (onlineReady && league.draftAt && Date.parse(league.draftAt) > Date.now()) {
       notify(`The draft is scheduled for ${new Date(league.draftAt).toLocaleString()}.`);
       return;
@@ -5967,15 +6588,38 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     customScoringRender();
     renderCommissionerSettings();
     $('managerButton').addEventListener('click', () => { void openOnlineLobby(); });
-    $('settingsInviteManager').addEventListener('click', () => { void openInviteManager(); });
-    $('settingsManageTeams').addEventListener('click', openTeamManagement);
-    $('settingsLeagueRules').addEventListener('click', openLeagueSettings);
-    $('settingsDraftTime').addEventListener('click', openDraftScheduler);
+    $('saveLeagueSettings').addEventListener('click', () => { void saveInlineLeagueSettings(); });
+    $('sendLeagueInvite').addEventListener('click', () => { void sendInlineLeagueInvite(); });
+    $('saveDraftSettings').addEventListener('click', () => { void saveInlineDraftSettings(); });
+    $('settingsTeamCount').addEventListener('change', renderInlineLeagueSettings);
+    $('startDraft').addEventListener('click', startDraft);
+    $('homeStartDraft').addEventListener('click', () => {
+      switchView('draft');
+      startDraft();
+    });
+    $('autoDraft').addEventListener('click', autoPick);
+    $('autoDraftAll').addEventListener('click', autoPickEntireDraft);
+    $('undoPick').addEventListener('click', undoPick);
+    $('resetDraft').addEventListener('click', resetDraft);
+    $('draftSearch').addEventListener('input', renderDraftPlayers);
+    $('positionFilter').addEventListener('change', renderDraftPlayers);
+    $('teamFilter').addEventListener('change', renderDraftPlayers);
+    $('auctionTeamSelect').addEventListener('change', renderAuctionPanel);
+    $('placeAuctionBid').addEventListener('click', () => {
+      const amount = Number($('auctionBidAmount').value);
+      if (!Number.isInteger(amount) || amount <= Number(league.auctionState?.highBid || 0)) {
+        notify(`Enter a whole-dollar bid above $${Number(league.auctionState?.highBid || 0)}.`);
+        return;
+      }
+      void submitAuctionAction('bid', { amount });
+    });
     $('regenerateSchedule').addEventListener('click', regenerateMatchupSchedule);
     $('savePlayoffSettings').addEventListener('click', savePlayoffSettings);
     $('saveWaiverSettings').addEventListener('click', saveWaiverSettings);
     $('view-commissioner-settings').addEventListener('input', () => {
-      if (onlineCommissioner) commissionerSettingsDirty = true;
+      if (onlineCommissioner && !['inviteTarget', 'inviteTeam'].includes(document.activeElement?.id)) {
+        commissionerSettingsDirty = true;
+      }
     });
     $('playoffStartWeek').addEventListener('change', () => {
       const duration = $('playoffWeeks');

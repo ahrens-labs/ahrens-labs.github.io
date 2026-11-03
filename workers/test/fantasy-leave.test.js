@@ -583,7 +583,10 @@ test('a commissioner can invite an existing account by email', async () => {
   });
 
   assert.equal(response.status, 200);
-  assert.equal((await response.json()).success, true);
+  const responseData = await response.json();
+  assert.equal(responseData.success, true);
+  assert.equal(responseData.revision, 2);
+  assert.deepEqual(responseData.league.pendingInviteUserIds, [invitedUserId]);
   assert.deepEqual(inviteNotification, {
     inviteeUserId: invitedUserId,
     recipientName: 'ManagerName',
