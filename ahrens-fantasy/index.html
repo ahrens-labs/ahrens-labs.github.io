@@ -2048,7 +2048,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     if (accountLoaded && onlineLeagues.length) {
       const savedLeagueId = localStorage.getItem(ACTIVE_LEAGUE_KEY);
       const activeLeague = onlineLeagues.find((item) => item.leagueId === savedLeagueId) || onlineLeagues[0];
-      if (!await switchLeague(activeLeague.leagueId)) $('onlineLobby').hidden = false;
+      if (!await switchLeague(activeLeague.leagueId, true)) $('onlineLobby').hidden = false;
     } else {
       $('onlineLobby').hidden = false;
     }
@@ -2072,12 +2072,13 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     select.disabled = onlineLeagues.length < 2;
   }
 
-  async function switchLeague(id) {
+  async function switchLeague(id, restoreSavedView = false) {
     if (!id) return false;
     if (id === league.leagueId && onlineReady) {
       $('onlineLobby').hidden = true;
       if (!appInitialized) startLeagueApp();
-      switchView('overview');
+      if (restoreSavedView) restoreViewFromUrl();
+      else switchView('overview');
       renderOnlineLeague();
       return true;
     }
@@ -2104,7 +2105,8 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
         void loadPlayerPool();
         void syncNFL();
       }
-      switchView('overview');
+      if (restoreSavedView) restoreViewFromUrl();
+      else switchView('overview');
       notify(`Switched to ${league.name}.`);
       return true;
     } catch (error) {
@@ -4913,6 +4915,10 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     let viewName = '';
     try { viewName = decodeURIComponent(location.hash.slice(1)); } catch (_) { viewName = ''; }
     const knownView = [...document.querySelectorAll('.nav-tab[data-view]')].some((tab) => tab.dataset.view === viewName && !tab.hidden);
+    if (!knownView && viewName === 'scoring' && !onlineReady && localStorage.getItem('ahrenslabs_sessionId')) {
+      switchView('overview', false);
+      return;
+    }
     const view = knownView && $(`view-${viewName}`) ? viewName : 'overview';
     if (viewName !== view) history.replaceState(null, '', `#${view}`);
     switchView(view, false);
