@@ -215,6 +215,17 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
 .icon-button { width: 25px; height: 25px; border: 1px solid var(--line); background: transparent; color: #809087; cursor: pointer; font: 12px var(--mono); }
 .icon-button:hover { border-color: #ffffff40; color: #dce6df; }
 .scoring-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 310px); gap: 13px; align-items: start; }
+.commissioner-settings-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 13px; }
+.commissioner-settings-card { padding-bottom: 13px; }
+.commissioner-settings-card p { min-height: 42px; margin: 12px 14px; color: var(--muted); font-size: 13px; line-height: 1.5; }
+.commissioner-settings-actions { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 14px; }
+.commissioner-playoff-settings { margin-bottom: 22px; }
+.commissioner-playoff-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; align-items: end; padding: 14px; }
+.commissioner-setting-toggle { display: flex; align-items: center; gap: 8px; min-height: 38px; color: var(--text); font-size: 13px; }
+.commissioner-setting-toggle input { width: 16px; height: 16px; accent-color: var(--blue); }
+.commissioner-scoring-heading { margin-top: 24px; }
+.commissioner-scoring-heading h2 { margin: 7px 0 0; color: #edf2ef; font: 700 clamp(24px, 3vw, 32px)/1.08 var(--display); letter-spacing: -.05em; }
+.commissioner-scoring-heading p { max-width: 700px; margin: 7px 0 0; color: var(--muted); font-size: 13px; line-height: 1.55; }
 .scoring-tabs { display: flex; flex-wrap: wrap; gap: 3px; padding: 10px 12px; border-bottom: 1px solid var(--line); }
 .scoring-tab { padding: 7px 9px; border: 1px solid transparent; background: transparent; color: #8a9791; font: 8px var(--mono); letter-spacing: .07em; cursor: pointer; }
 .scoring-tab.active { border-color: #8ed9df40; color: var(--cyan); background: #8ed9df0b; }
@@ -456,6 +467,7 @@ html, body { color: var(--text); background: var(--bg); }
 .nav-badge { color: #8192a8; }
 .view-title h1 { color: #17283e; }
 .view-title p { color: #586b83; }
+.commissioner-scoring-heading h2 { color: #17283e; }
 .eyebrow { color: #2863c7; }
 .button { border-color: #cbd7e7; background: #fff; color: #344860; }
 .button:hover { border-color: #8eadd9; background: #f3f7ff; }
@@ -824,6 +836,9 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
   .scoring-tab { min-height: 42px; flex: 0 0 auto; padding-inline: 12px; }
   .scoring-row { min-height: 48px; grid-template-columns: minmax(0, 1fr) 76px 40px; gap: 5px; }
   .scoring-row input { min-height: 40px; }
+  .commissioner-settings-grid, .commissioner-playoff-fields { grid-template-columns: minmax(0, 1fr); }
+  .commissioner-settings-card p { min-height: 0; font-size: 14px; }
+  .commissioner-settings-actions .button, .commissioner-playoff-fields > .button { width: 100%; min-height: 44px; }
   .matchup-row { grid-template-columns: minmax(0, 1fr) 34px minmax(0, 1fr); gap: 5px; padding: 10px; }
   .matchup-team-card .team-name { white-space: normal; overflow-wrap: anywhere; }
   .footer { gap: 6px 10px; padding: 10px 12px; font-size: 9px; }
@@ -915,10 +930,6 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       <span class="season-pill" id="seasonPill">2026 SEASON</span>
       <span class="connection-pill" id="connection"><i class="connection-dot"></i><span id="connectionText">CONNECTING TO NFL FEED</span></span>
       <button class="top-button" id="managerButton">LEAGUE</button>
-      <button class="top-button" id="inviteManagerButton" hidden>INVITE</button>
-      <button class="top-button" id="manageTeamsButton" hidden>TEAMS</button>
-      <button class="top-button" id="scheduleDraftButton" hidden>DRAFT TIME</button>
-      <button class="top-button" id="settingsButton" hidden>SETTINGS</button>
       <button class="top-button new-league-top" id="newLeagueButton">＋ NEW LEAGUE</button>
     </div>
   </header>
@@ -940,7 +951,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     <button class="nav-tab" data-view="rosters">Rosters</button>
     <button class="nav-tab" data-view="matchups">Matchups</button>
     <button class="nav-tab" data-view="players">Players</button>
-    <button class="nav-tab" data-view="scoring" hidden>Scoring</button>
+    <button class="nav-tab" data-view="commissioner-settings" hidden>Commissioner settings</button>
     <button class="nav-tab" data-view="live">Live games <span class="nav-badge" id="liveBadge">—</span></button>
   </nav>
 
@@ -963,7 +974,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       <div class="overview-grid">
         <section class="panel">
           <div class="panel-head"><h2>Featured matchup</h2><span id="featuredWeek">WEEK 8 · MATCHUP 01</span></div>
-          <div id="featuredMatchup"><div class="empty-state"><strong>Set your league lineup</strong>Use league settings to name managers and configure the number of teams. Draft players to see matchups and scoring.</div></div>
+          <div id="featuredMatchup"><div class="empty-state"><strong>Weekly matchups are set before draft day</strong>Draft players to fill your lineups and start scoring these scheduled head-to-head games.</div></div>
         </section>
         <section class="panel">
           <div class="panel-head"><h2>League standings</h2><span>Week points from starters</span></div>
@@ -1021,8 +1032,26 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       <section class="panel"><div class="search-toolbar"><input class="input" id="poolSearch" type="search" placeholder="Search player, team, or position" aria-label="Search all NFL players"><select class="filter-select" id="poolPos"><option value="ALL">All positions</option><option>QB</option><option>RB</option><option>WR</option><option>TE</option><option>K</option><option>D/ST</option></select><select class="filter-select" id="poolAvailability" aria-label="Filter by availability"><option value="ALL">All players</option><option value="AVAILABLE">Available to claim</option><option value="ROSTERED">Rostered players</option></select><select class="filter-select" id="poolSort" aria-label="Sort players"><option value="DEFAULT">Default order</option><option value="PROJECTION">Projection: high to low</option><option value="ACTUAL">Actual points: high to low</option></select><span class="pool-note" id="poolCount">Loading player directory…</span></div><div class="player-table-wrap"><table class="player-table"><thead><tr><th>Player</th><th>Pos</th><th>NFL</th><th>Matchup</th><th>Status</th><th>Slot</th><th>Proj</th><th>Points</th><th>Fantasy team</th><th>Claim</th></tr></thead><tbody id="poolRows"></tbody></table><div class="empty-state" id="poolEmpty">Connecting to the NFL roster directory…</div></div></section>
     </section>
 
-    <section class="view" id="view-scoring">
-      <div class="view-title"><div><div class="eyebrow">Scoring rules</div><h1>Set how points are earned.</h1><p>Change any stat’s point value. Projections and actual scores both use these rules. Default is full PPR (1 point per reception).</p></div><div class="title-actions"><button class="button" id="resetScoring">Restore defaults</button><button class="button primary" id="saveScoring">Save scoring</button></div></div>
+    <section class="view" id="view-commissioner-settings">
+      <div class="view-title"><div><div class="eyebrow">Commissioner controls</div><h1>League settings and management.</h1><p>Manage teams, invites, draft timing, playoff format, roster rules, and scoring from one place. Only the commissioner can open this page.</p></div></div>
+      <div class="commissioner-settings-grid">
+        <section class="panel commissioner-settings-card"><div class="panel-head"><h2>Teams</h2><span>LEAGUE MEMBERS</span></div><p>Change league size before the draft, claim open teams, or update league and roster settings.</p><div class="commissioner-settings-actions"><button class="button" id="settingsManageTeams">MANAGE TEAMS</button><button class="button" id="settingsLeagueRules">LEAGUE &amp; ROSTER RULES</button></div></section>
+        <section class="panel commissioner-settings-card"><div class="panel-head"><h2>Invitations</h2><span>MANAGER ACCESS</span></div><p>Invite an Ahrens Labs member by username or email to an open fantasy team.</p><div class="commissioner-settings-actions"><button class="button" id="settingsInviteManager">INVITE MANAGER</button></div></section>
+        <section class="panel commissioner-settings-card"><div class="panel-head"><h2>Draft</h2><span>SNAKE DRAFT</span></div><p id="commissionerDraftStatus">Set or update when the league draft can begin.</p><div class="commissioner-settings-actions"><button class="button" id="settingsDraftTime">SET DRAFT TIME</button></div></section>
+        <section class="panel commissioner-settings-card"><div class="panel-head"><h2>Weekly schedule</h2><span>RANDOMIZED · BALANCED</span></div><p>Matchups are assigned before the draft, independently of draft order. Rebuild the 18-week schedule whenever needed.</p><div class="commissioner-settings-actions"><button class="button" id="regenerateSchedule">REGENERATE SCHEDULE</button></div></section>
+      </div>
+      <section class="panel commissioner-playoff-settings">
+        <div class="panel-head"><h2>Playoff structure</h2><span id="playoffScheduleSummary">REGULAR SEASON + PLAYOFFS</span></div>
+        <div class="commissioner-playoff-fields">
+          <div class="field"><label for="playoffTeamCount">PLAYOFF TEAMS</label><select class="filter-select" id="playoffTeamCount"></select></div>
+          <div class="field"><label for="playoffStartWeek">PLAYOFF START WEEK</label><select class="filter-select" id="playoffStartWeek"></select></div>
+          <div class="field"><label for="playoffWeeks">PLAYOFF DURATION</label><select class="filter-select" id="playoffWeeks"></select></div>
+          <label class="commissioner-setting-toggle"><input type="checkbox" id="playoffReseed"> Reseed after each round</label>
+          <label class="commissioner-setting-toggle"><input type="checkbox" id="playoffConsolation"> Include a consolation bracket</label>
+          <button class="button primary" id="savePlayoffSettings">SAVE PLAYOFF FORMAT</button>
+        </div>
+      </section>
+      <div class="view-title commissioner-scoring-heading"><div><div class="eyebrow">Scoring rules</div><h2>Set how points are earned.</h2><p>Change any stat’s point value. Projections and actual scores both use these rules. Default is full PPR.</p></div><div class="title-actions"><button class="button" id="resetScoring">Restore defaults</button><button class="button primary" id="saveScoring">Save scoring</button></div></div>
       <div class="scoring-layout">
         <section class="panel"><div class="scoring-tabs" id="scoringTabs"></div><div id="scoringGroups"></div><div class="scoring-actions"><span class="small-note">Your custom league scoring applies to live player box scores automatically.</span><button class="button primary" id="saveScoringBottom">SAVE RULES</button></div></section>
         <aside>
@@ -1054,6 +1083,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
   const ACTIVE_LEAGUE_KEY = 'gridline.fantasy.activeLeague.v1';
   const API_BASE_URL = window.AHRENS_LABS_API_BASE || 'https://chess-accounts.matthewahrens.workers.dev';
   const SEASON = new Date().getFullYear();
+  const SEASON_WEEKS = 18;
   const $ = (id) => document.getElementById(id);
   const ui = {
     connection: $('connection'),
@@ -1294,6 +1324,14 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     draftStarted: false,
     selectedRoster: 0,
     selectedWeek: 8,
+    matchupSchedule: [],
+    playoffSettings: {
+      teamCount: 6,
+      startWeek: 15,
+      weeks: 3,
+      reseed: true,
+      consolation: true,
+    },
   };
 
   let league = loadLeague();
@@ -1335,6 +1373,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
   let onlineReady = false;
   let appInitialized = false;
   let onlineDirty = false;
+  let commissionerSettingsDirty = false;
   let onlineSaveChain = Promise.resolve();
   let onlineSaveRetryTimer = 0;
   let onlineSaveRetryDelay = 1000;
@@ -1430,6 +1469,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     onlineCommissioner = Boolean(onlineUserId && league.commissionerUserId === onlineUserId);
     onlineReady = true;
     onlineDirty = false;
+    commissionerSettingsDirty = false;
     rosterViewTeam = Math.max(0, league.managers.findIndex((team) => onlineUserTeamIds.has(team.id)));
     normalizeManagers();
     updateOnlineControls();
@@ -1513,19 +1553,97 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     renderLiveGames();
     renderLiveLeaders();
     renderLeagueSwitcher();
+    renderCommissionerSettings();
   }
 
   function updateOnlineControls() {
-    $('inviteManagerButton').hidden = !onlineCommissioner;
-    $('manageTeamsButton').hidden = !onlineCommissioner;
-    $('scheduleDraftButton').hidden = !onlineCommissioner;
-    $('settingsButton').hidden = !onlineCommissioner;
-    $('settingsButton').disabled = !onlineCommissioner;
-    $('settingsButton').title = onlineCommissioner ? 'Edit league settings' : 'Only the commissioner can edit league settings';
-    const scoringTab = document.querySelector('.nav-tab[data-view="scoring"]');
-    scoringTab.hidden = !onlineCommissioner;
-    if (scoringTab.hidden && $('view-scoring').classList.contains('active')) {
+    const settingsTab = document.querySelector('.nav-tab[data-view="commissioner-settings"]');
+    settingsTab.hidden = !onlineCommissioner;
+    if (settingsTab.hidden && $('view-commissioner-settings').classList.contains('active')) {
       switchView('overview');
+    }
+  }
+
+  function renderCommissionerSettings() {
+    if (!onlineCommissioner) return;
+    const settings = league.playoffSettings;
+    const playoffTeams = $('playoffTeamCount');
+    const playoffStart = $('playoffStartWeek');
+    const playoffWeeks = $('playoffWeeks');
+    const focused = [playoffTeams, playoffStart, playoffWeeks, $('playoffReseed'), $('playoffConsolation')]
+      .includes(document.activeElement);
+    if (!focused) {
+      playoffTeams.replaceChildren();
+      [2, 4, 6, 8].filter((count) => count <= league.teamCount).forEach((count) => {
+        playoffTeams.add(new Option(`${count} TEAMS`, String(count), false, count === settings.teamCount));
+      });
+      playoffStart.replaceChildren();
+      for (let week = 1; week <= SEASON_WEEKS; week += 1) {
+        playoffStart.add(new Option(`WEEK ${String(week).padStart(2, '0')}`, String(week), false, week === settings.startWeek));
+      }
+      playoffWeeks.replaceChildren();
+      for (let count = 1; count <= SEASON_WEEKS - settings.startWeek + 1; count += 1) {
+        playoffWeeks.add(new Option(`${count} WEEK${count === 1 ? '' : 'S'}`, String(count), false, count === settings.weeks));
+      }
+      $('playoffReseed').checked = settings.reseed;
+      $('playoffConsolation').checked = settings.consolation;
+    }
+    $('commissionerDraftStatus').textContent = league.draftAt
+      ? `Scheduled for ${new Date(league.draftAt).toLocaleString()}.`
+      : 'No draft time is set. Managers can draft when the commissioner allows it.';
+    $('playoffScheduleSummary').textContent = `WEEKS ${settings.startWeek}–${settings.startWeek + settings.weeks - 1} · ${settings.teamCount} TEAMS`;
+  }
+
+  async function savePlayoffSettings() {
+    if (!onlineCommissioner) {
+      notify('Only the commissioner can change playoff settings.');
+      return;
+    }
+    const startWeek = Number($('playoffStartWeek').value);
+    const playoffSettings = {
+      teamCount: Number($('playoffTeamCount').value),
+      startWeek,
+      weeks: Number($('playoffWeeks').value),
+      reseed: $('playoffReseed').checked,
+      consolation: $('playoffConsolation').checked,
+    };
+    if (!isPlayoffSettingsValid(playoffSettings, league.teamCount)) {
+      notify('Choose a valid playoff team count, start week, and duration within the 18-week season.');
+      return;
+    }
+    league.playoffSettings = playoffSettings;
+    commissionerSettingsDirty = false;
+    $('savePlayoffSettings').disabled = true;
+    saveLeague();
+    try {
+      await waitForOnlineSave();
+      renderCommissionerSettings();
+      notify('Playoff format saved.');
+    } catch (error) {
+      notify(error.message || 'Could not save playoff settings.');
+    } finally {
+      $('savePlayoffSettings').disabled = false;
+    }
+  }
+
+  async function regenerateMatchupSchedule() {
+    if (!onlineCommissioner) {
+      notify('Only the commissioner can change the matchup schedule.');
+      return;
+    }
+    league.matchupSchedule = generateMatchupSchedule(league.managers.map((team) => team.id));
+    commissionerSettingsDirty = false;
+    $('regenerateSchedule').disabled = true;
+    saveLeague();
+    try {
+      await waitForOnlineSave();
+      renderMatchups();
+      renderFeaturedMatchup();
+      notify('A new randomized, balanced weekly schedule is set.');
+    } catch (error) {
+      notify(error.message || 'Could not save the new weekly schedule.');
+    } finally {
+      $('regenerateSchedule').disabled = false;
     }
   }
 
@@ -1888,7 +2006,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
   }
 
   async function refreshActiveLeague() {
-    if (!onlineReady || onlineDirty || $('onlineLobby').hidden === false) return;
+    if (!onlineReady || onlineDirty || commissionerSettingsDirty || $('onlineLobby').hidden === false) return;
     try {
       const { response: listResponse, data: listData } = await fantasyRequest('/api/fantasy/leagues');
       if (!listResponse.ok) throw new Error(listData.error || 'Could not refresh your league list.');
@@ -2137,8 +2255,101 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       team.id ||= `team-${league.managers.indexOf(team) + 1}`;
       team.roster ||= [];
     });
+    const teamIds = league.managers.map((team) => team.id);
+    let settingsChanged = false;
+    if (!isMatchupScheduleValid(league.matchupSchedule, teamIds)) {
+      league.matchupSchedule = generateMatchupSchedule(teamIds);
+      settingsChanged = true;
+    }
+    if (!isPlayoffSettingsValid(league.playoffSettings, count)) {
+      league.playoffSettings = {
+        teamCount: [8, 6, 4, 2].find((playoffCount) => playoffCount <= count),
+        startWeek: 15,
+        weeks: 3,
+        reseed: true,
+        consolation: true,
+      };
+      settingsChanged = true;
+    }
     if (!league.managers.some((team) => team.id === league.managers[league.selectedRoster]?.id)) league.selectedRoster = 0;
     leagueTeams = league.managers;
+    if (settingsChanged) saveLeague();
+  }
+
+  function randomIndex(max) {
+    const value = new Uint32Array(1);
+    window.crypto.getRandomValues(value);
+    return Math.floor((value[0] / 0x100000000) * max);
+  }
+
+  function shuffled(values) {
+    const result = [...values];
+    for (let index = result.length - 1; index > 0; index -= 1) {
+      const swapIndex = randomIndex(index + 1);
+      [result[index], result[swapIndex]] = [result[swapIndex], result[index]];
+    }
+    return result;
+  }
+
+  function generateMatchupSchedule(teamIds) {
+    const rotation = shuffled(teamIds);
+    if (rotation.length % 2) rotation.push(null);
+    const rounds = [];
+    for (let round = 0; round < rotation.length - 1; round += 1) {
+      const matchups = [];
+      for (let index = 0; index < rotation.length / 2; index += 1) {
+        const first = rotation[index];
+        const second = rotation[rotation.length - 1 - index];
+        if (first && second) matchups.push(randomIndex(2) ? [first, second] : [second, first]);
+      }
+      rounds.push(matchups);
+      rotation.splice(1, 0, rotation.pop());
+    }
+    const roundInstances = [];
+    if (rounds.length <= SEASON_WEEKS / 2) {
+      const baseCount = Math.floor((SEASON_WEEKS / 2) / rounds.length);
+      const extraCount = (SEASON_WEEKS / 2) % rounds.length;
+      const extraRounds = new Set(shuffled(rounds.map((_, index) => index)).slice(0, extraCount));
+      rounds.forEach((round, index) => {
+        const repeats = 2 * (baseCount + Number(extraRounds.has(index)));
+        for (let repeat = 0; repeat < repeats; repeat += 1) roundInstances.push(round);
+      });
+    } else {
+      const baseCount = Math.floor(SEASON_WEEKS / rounds.length);
+      const extraCount = SEASON_WEEKS % rounds.length;
+      const extraRounds = new Set(shuffled(rounds.map((_, index) => index)).slice(0, extraCount));
+      rounds.forEach((round, index) => {
+        const repeats = baseCount + Number(extraRounds.has(index));
+        for (let repeat = 0; repeat < repeats; repeat += 1) roundInstances.push(round);
+      });
+    }
+    return shuffled(roundInstances).map((round) =>
+      round.map((matchup) => (randomIndex(2) ? [...matchup] : [...matchup].reverse())));
+  }
+
+  function isMatchupScheduleValid(schedule, teamIds) {
+    if (!Array.isArray(schedule) || schedule.length !== SEASON_WEEKS) return false;
+    const validIds = new Set(teamIds);
+    return schedule.every((matchups) => {
+      if (!Array.isArray(matchups) || matchups.some((pair) => !Array.isArray(pair) || pair.length !== 2
+        || pair[0] === pair[1] || pair.some((id) => typeof id !== 'string' || !validIds.has(id)))) return false;
+      const teamsPlaying = matchups.flat();
+      return new Set(teamsPlaying).size === teamsPlaying.length
+        && teamsPlaying.length === teamIds.length - (teamIds.length % 2);
+    });
+  }
+
+  function isPlayoffSettingsValid(settings, teamCount) {
+    return settings && [2, 4, 6, 8].includes(Number(settings.teamCount))
+      && Number(settings.teamCount) <= teamCount
+      && Number.isInteger(Number(settings.startWeek))
+      && Number(settings.startWeek) >= 1
+      && Number(settings.startWeek) <= SEASON_WEEKS
+      && Number.isInteger(Number(settings.weeks))
+      && Number(settings.weeks) >= 1
+      && Number(settings.startWeek) + Number(settings.weeks) - 1 <= SEASON_WEEKS
+      && typeof settings.reseed === 'boolean'
+      && typeof settings.consolation === 'boolean';
   }
 
   function defaultTeamName(index) {
@@ -4135,10 +4346,15 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
   }
 
   function saveScoring() {
+    if (!onlineCommissioner) {
+      notify('Only the commissioner can change scoring rules.');
+      return;
+    }
     document.querySelectorAll('[data-stat]').forEach((input) => {
       const number = Number(input.value);
       league.scoring[input.dataset.stat] = Number.isFinite(number) ? number : 0;
     });
+    commissionerSettingsDirty = false;
     saveLeague();
     renderScoringSummary();
     renderDraftPlayers();
@@ -4150,7 +4366,12 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
   }
 
   function resetScoring() {
+    if (!onlineCommissioner) {
+      notify('Only the commissioner can change scoring rules.');
+      return;
+    }
     league.scoring = { ...DEFAULT_SCORING };
+    commissionerSettingsDirty = false;
     saveLeague();
     customScoringRender();
     renderDraftPlayers();
@@ -4162,6 +4383,10 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
   }
 
   function openLeagueSettings() {
+    if (!onlineCommissioner) {
+      notify('Only the commissioner can edit league settings.');
+      return;
+    }
     const wrapper = document.createElement('div');
     const leagueField = document.createElement('div');
     leagueField.className = 'field';
@@ -4636,8 +4861,8 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
   function renderFeaturedMatchup() {
     const target = $('featuredMatchup');
     target.replaceChildren();
-    if (league.managers.length < 2 || !league.picks.length) {
-      target.innerHTML = '<div class="empty-state"><strong>Your league is ready for draft day</strong>Start drafting real NFL players to see your first head-to-head matchup.</div>';
+    if (league.managers.length < 2) {
+      target.innerHTML = '<div class="empty-state"><strong>Your league needs at least two teams</strong>Add teams to generate weekly matchups.</div>';
       return;
     }
     const [home, away] = currentMatchups()[0] || [];
@@ -4649,9 +4874,12 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     const homeWinChance = projectedWinProbability(homeProjection - awayProjection);
     const awayWinChance = 1 - homeWinChance;
     const total = Math.max(1, homePoints + awayPoints);
+    const matchupStatus = games.some((game) => game.live)
+      ? '● LIVE'
+      : league.picks.length ? 'WEEK IN PROGRESS' : 'SCHEDULED';
     const article = document.createElement('article');
     article.className = 'matchup-card';
-    article.innerHTML = `<div class="matchup-top"><span class="matchup-label">HEAD-TO-HEAD · <span class="current-week">${escapeHTML(ui.weekSelect.value)}</span></span><span class="matchup-status">${games.some((game) => game.live) ? '● LIVE' : 'WEEK IN PROGRESS'}</span></div><div class="matchup-versus"><div class="fantasy-side"><div class="fantasy-name">${escapeHTML(home.teamName)}</div><div class="fantasy-owner">${escapeHTML(home.name)}</div><div class="fantasy-score">${homePoints.toFixed(2)}</div><div class="matchup-projection">PROJ <strong>${homeProjection.toFixed(1)}</strong> · WIN <strong>${Math.round(homeWinChance * 100)}%</strong></div></div><span class="versus">VS</span><div class="fantasy-side away"><div class="fantasy-name">${escapeHTML(away.teamName)}</div><div class="fantasy-owner">${escapeHTML(away.name)}</div><div class="fantasy-score">${awayPoints.toFixed(2)}</div><div class="matchup-projection">PROJ <strong>${awayProjection.toFixed(1)}</strong> · WIN <strong>${Math.round(awayWinChance * 100)}%</strong></div></div></div><div class="score-track"><span class="score-fill-home" style="width:${(homePoints / total) * 100}%;"></span><span class="score-fill-away" style="width:${(awayPoints / total) * 100}%;"></span></div>`;
+    article.innerHTML = `<div class="matchup-top"><span class="matchup-label">HEAD-TO-HEAD · <span class="current-week">${escapeHTML(ui.weekSelect.value)}</span></span><span class="matchup-status">${matchupStatus}</span></div><div class="matchup-versus"><div class="fantasy-side"><div class="fantasy-name">${escapeHTML(home.teamName)}</div><div class="fantasy-owner">${escapeHTML(home.name)}</div><div class="fantasy-score">${homePoints.toFixed(2)}</div><div class="matchup-projection">PROJ <strong>${homeProjection.toFixed(1)}</strong> · WIN <strong>${Math.round(homeWinChance * 100)}%</strong></div></div><span class="versus">VS</span><div class="fantasy-side away"><div class="fantasy-name">${escapeHTML(away.teamName)}</div><div class="fantasy-owner">${escapeHTML(away.name)}</div><div class="fantasy-score">${awayPoints.toFixed(2)}</div><div class="matchup-projection">PROJ <strong>${awayProjection.toFixed(1)}</strong> · WIN <strong>${Math.round(awayWinChance * 100)}%</strong></div></div></div><div class="score-track"><span class="score-fill-home" style="width:${(homePoints / total) * 100}%;"></span><span class="score-fill-away" style="width:${(awayPoints / total) * 100}%;"></span></div>`;
     article.tabIndex = 0;
     article.setAttribute('role', 'button');
     article.setAttribute('aria-label', `View matchup details for ${home.teamName} and ${away.teamName}`);
@@ -4666,13 +4894,14 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
   }
 
   function currentMatchups() {
-    const teams = [...league.managers];
-    if (teams.length % 2) teams.pop();
-    const weekOffset = (Number(ui.weekSelect.value || 1) - 1) % Math.max(1, teams.length - 1);
-    const rotated = teams.map((_, index) => teams[(index + weekOffset) % teams.length]);
-    const pairs = [];
-    for (let index = 0; index < rotated.length / 2; index += 1) pairs.push([rotated[index], rotated[rotated.length - index - 1]]);
-    return pairs;
+    const week = Math.max(1, Math.min(SEASON_WEEKS, Number(ui.weekSelect.value) || 1));
+    const pairings = league.matchupSchedule?.[week - 1] || [];
+    return pairings
+      .map(([homeId, awayId]) => [
+        league.managers.find((team) => team.id === homeId),
+        league.managers.find((team) => team.id === awayId),
+      ])
+      .filter(([home, away]) => home && away);
   }
 
   function teamPoints(team) {
@@ -4701,8 +4930,8 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
   function renderMatchups() {
     const target = $('matchupsList');
     target.replaceChildren();
-    if (!league.picks.length) {
-      target.innerHTML = '<div class="panel empty-state"><strong>No matchups yet</strong>Run the draft to create fantasy teams and weekly pairings.</div>';
+    if (!currentMatchups().length) {
+      target.innerHTML = '<div class="panel empty-state"><strong>No matchups available</strong>Check the team list or ask the commissioner to regenerate the weekly schedule.</div>';
       return;
     }
     currentMatchups().forEach(([home, away], index) => {
@@ -4891,7 +5120,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
   }
 
   function switchView(viewName, updateUrl = true) {
-    if (!onlineCommissioner && viewName === 'scoring') viewName = 'overview';
+    if (!onlineCommissioner && viewName === 'commissioner-settings') viewName = 'overview';
     const target = $(`view-${viewName}`);
     const navTab = document.querySelector(`.nav-tab[data-view="${viewName}"]`);
     if (!target || !navTab) return;
@@ -4915,7 +5144,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     let viewName = '';
     try { viewName = decodeURIComponent(location.hash.slice(1)); } catch (_) { viewName = ''; }
     const knownView = [...document.querySelectorAll('.nav-tab[data-view]')].some((tab) => tab.dataset.view === viewName && !tab.hidden);
-    if (!knownView && viewName === 'scoring' && !onlineReady && localStorage.getItem('ahrenslabs_sessionId')) {
+    if (!knownView && viewName === 'commissioner-settings' && !onlineReady && localStorage.getItem('ahrenslabs_sessionId')) {
       switchView('overview', false);
       return;
     }
@@ -5421,17 +5650,26 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     fillWeeks();
     populatePositionFilters();
     customScoringRender();
-    $('settingsButton').addEventListener('click', () => {
-      if (!onlineCommissioner) {
-        notify('Only the commissioner can edit league settings.');
-        return;
-      }
-      openLeagueSettings();
-    });
+    renderCommissionerSettings();
     $('managerButton').addEventListener('click', () => { void openOnlineLobby(); });
-    $('inviteManagerButton').addEventListener('click', () => { void openInviteManager(); });
-    $('manageTeamsButton').addEventListener('click', openTeamManagement);
-    $('scheduleDraftButton').addEventListener('click', openDraftScheduler);
+    $('settingsInviteManager').addEventListener('click', () => { void openInviteManager(); });
+    $('settingsManageTeams').addEventListener('click', openTeamManagement);
+    $('settingsLeagueRules').addEventListener('click', openLeagueSettings);
+    $('settingsDraftTime').addEventListener('click', openDraftScheduler);
+    $('regenerateSchedule').addEventListener('click', regenerateMatchupSchedule);
+    $('savePlayoffSettings').addEventListener('click', savePlayoffSettings);
+    $('view-commissioner-settings').addEventListener('input', () => {
+      if (onlineCommissioner) commissionerSettingsDirty = true;
+    });
+    $('playoffStartWeek').addEventListener('change', () => {
+      const duration = $('playoffWeeks');
+      const previousWeeks = Number(duration.value) || 3;
+      const maxWeeks = SEASON_WEEKS - Number($('playoffStartWeek').value) + 1;
+      duration.replaceChildren();
+      for (let count = 1; count <= maxWeeks; count += 1) {
+        duration.add(new Option(`${count} WEEK${count === 1 ? '' : 'S'}`, String(count), false, count === Math.min(previousWeeks, maxWeeks)));
+      }
+    });
     $('newLeagueButton').addEventListener('click', () => { void openOnlineLobby(); });
     $('homeNewLeague').addEventListener('click', () => { void openOnlineLobby(); });
     $('closeOnlineLobby').addEventListener('click', () => { $('onlineLobby').hidden = true; });

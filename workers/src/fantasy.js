@@ -3,9 +3,91 @@ const LEAGUE_PREFIX = 'league:';
 const USER_PREFIX = 'user:';
 const MAX_TEAMS = 16;
 const MAX_ROSTER_SLOTS = 30;
+const SEASON_WEEKS = 18;
 const ROSTER_POSITIONS = [
   'QB', 'RB', 'WR', 'TE', 'K', 'D/ST', 'DL', 'DE', 'DT', 'LB', 'DB', 'CB', 'S', 'P', 'FLEX', 'BENCH',
 ];
+
+function randomIndex(max) {
+  const value = new Uint32Array(1);
+  crypto.getRandomValues(value);
+  return Math.floor((value[0] / 0x100000000) * max);
+}
+
+function shuffled(values) {
+  const result = [...values];
+  for (let index = result.length - 1; index > 0; index -= 1) {
+    const swapIndex = randomIndex(index + 1);
+    [result[index], result[swapIndex]] = [result[swapIndex], result[index]];
+  }
+  return result;
+}
+
+function generateMatchupSchedule(teamIds) {
+  const rotation = shuffled(teamIds);
+  if (rotation.length % 2) rotation.push(null);
+  const rounds = [];
+  for (let round = 0; round < rotation.length - 1; round += 1) {
+    const matchups = [];
+    for (let index = 0; index < rotation.length / 2; index += 1) {
+      const first = rotation[index];
+      const second = rotation[rotation.length - 1 - index];
+      if (first && second) {
+        matchups.push(randomIndex(2) ? [first, second] : [second, first]);
+      }
+    }
+    rounds.push(matchups);
+    rotation.splice(1, 0, rotation.pop());
+  }
+  const roundInstances = [];
+  if (rounds.length <= SEASON_WEEKS / 2) {
+    const baseCount = Math.floor((SEASON_WEEKS / 2) / rounds.length);
+    const extraCount = (SEASON_WEEKS / 2) % rounds.length;
+    const extraRounds = new Set(shuffled(rounds.map((_, index) => index)).slice(0, extraCount));
+    rounds.forEach((round, index) => {
+      const repeats = 2 * (baseCount + Number(extraRounds.has(index)));
+      for (let repeat = 0; repeat < repeats; repeat += 1) roundInstances.push(round);
+    });
+  } else {
+    const baseCount = Math.floor(SEASON_WEEKS / rounds.length);
+    const extraCount = SEASON_WEEKS % rounds.length;
+    const extraRounds = new Set(shuffled(rounds.map((_, index) => index)).slice(0, extraCount));
+    rounds.forEach((round, index) => {
+      const repeats = baseCount + Number(extraRounds.has(index));
+      for (let repeat = 0; repeat < repeats; repeat += 1) roundInstances.push(round);
+    });
+  }
+  return shuffled(roundInstances).map((round) =>
+    round.map((matchup) => (randomIndex(2) ? [...matchup] : [...matchup].reverse())));
+}
+
+function validMatchupSchedule(schedule, teamIds) {
+  if (!Array.isArray(schedule) || schedule.length !== SEASON_WEEKS) return false;
+  const validIds = new Set(teamIds);
+  return schedule.every((matchups) => {
+    if (!Array.isArray(matchups)) return false;
+    const weekTeams = matchups.flat();
+    if (matchups.some((pair) => !Array.isArray(pair) || pair.length !== 2
+      || pair[0] === pair[1] || pair.some((id) => typeof id !== 'string' || !validIds.has(id)))) return false;
+    if (new Set(weekTeams).size !== weekTeams.length) return false;
+    return weekTeams.length === teamIds.length - (teamIds.length % 2);
+  });
+}
+
+function validPlayoffSettings(settings, teamCount) {
+  const allowedTeamCounts = [2, 4, 6, 8];
+  return settings && typeof settings === 'object'
+    && allowedTeamCounts.includes(Number(settings.teamCount))
+    && Number(settings.teamCount) <= teamCount
+    && Number.isInteger(Number(settings.startWeek))
+    && Number(settings.startWeek) >= 1
+    && Number(settings.startWeek) <= SEASON_WEEKS
+    && Number.isInteger(Number(settings.weeks))
+    && Number(settings.weeks) >= 1
+    && Number(settings.startWeek) + Number(settings.weeks) - 1 <= SEASON_WEEKS
+    && typeof settings.reseed === 'boolean'
+    && typeof settings.consolation === 'boolean';
+}
 
 export async function handleFantasyRequest(request, env, corsHeaders, path, { executionCtx, notifyInvitation } = {}) {
   const identity = await getIdentity(request, env);
@@ -257,6 +339,7 @@ function normalizeSetup(input, userId, username) {
   if (managers.some((manager) => !manager)) return { error: 'Each fantasy team needs a team name.' };
   const leagueId = `af-${crypto.randomUUID()}`;
   const draftOrder = managers.map((manager) => manager.id);
+  const playoffTeamCount = [8, 6, 4, 2].find((count) => count <= teamCount);
   return {
     league: {
       leagueId,
@@ -268,6 +351,14 @@ function normalizeSetup(input, userId, username) {
       rosterSlots,
       scoring,
       draftOrder,
+      matchupSchedule: generateMatchupSchedule(managers.map((manager) => manager.id)),
+      playoffSettings: {
+        teamCount: playoffTeamCount,
+        startWeek: 15,
+        weeks: 3,
+        reseed: true,
+        consolation: true,
+      },
       picks: [],
       trades: [],
       pendingInviteUserIds: [],
@@ -392,6 +483,8 @@ function validateLeagueSave(previous, incoming, userId) {
     || !sameValue(incoming.rosterSlots, previous.rosterSlots)
     || !sameValue(incoming.scoring, previous.scoring)
     || !sameValue(incoming.draftOrder, previous.draftOrder)
+    || !sameValue(incoming.matchupSchedule, previous.matchupSchedule)
+    || !sameValue(incoming.playoffSettings, previous.playoffSettings)
     || incoming.draftAt !== previous.draftAt)) {
     return 'Only the commissioner can change league settings, draft order, or draft time.';
   }
@@ -410,6 +503,9 @@ function validateLeagueSave(previous, incoming, userId) {
     || team.roster.some((player) => !player || !validString(String(player.id || ''), 100)))) {
     return 'Roster player data is invalid.';
   }
+  const teamIds = previous.managers.map((team) => team.id);
+  if (!validMatchupSchedule(incoming.matchupSchedule, teamIds)) return 'The weekly matchup schedule is invalid.';
+  if (!validPlayoffSettings(incoming.playoffSettings, previous.teamCount)) return 'Playoff settings are invalid.';
   const nextIds = incoming.managers.flatMap((team) => team.roster.map((player) => String(player.id)));
   if (new Set(nextIds).size !== nextIds.length) return 'A player cannot be on more than one team.';
 
@@ -668,6 +764,26 @@ export class FantasyLeagueStore {
     if (!record) return { status: 404, error: 'League not found.' };
     const ownTeam = record.league.managers.find((team) => team.ownerUserId === body.userId);
     if (!ownTeam) return { status: 403, error: 'You are not a member of this league.' };
+    const teamIds = record.league.managers.map((team) => team.id);
+    let migrated = false;
+    if (!validMatchupSchedule(record.league.matchupSchedule, teamIds)) {
+      record.league.matchupSchedule = generateMatchupSchedule(teamIds);
+      migrated = true;
+    }
+    if (!validPlayoffSettings(record.league.playoffSettings, record.league.teamCount)) {
+      record.league.playoffSettings = {
+        teamCount: [8, 6, 4, 2].find((count) => count <= record.league.teamCount),
+        startWeek: 15,
+        weeks: 3,
+        reseed: true,
+        consolation: true,
+      };
+      migrated = true;
+    }
+    if (migrated) {
+      record.revision += 1;
+      await this.putLeague(record);
+    }
     return {
       league: record.league,
       revision: record.revision,
@@ -700,6 +816,7 @@ export class FantasyLeagueStore {
     }
 
     const league = record.league;
+    const previousTeamCount = league.teamCount;
     if (teamCount !== league.teamCount && (league.draftStarted || league.picks.length)) {
       return { status: 409, error: 'League size can only change before the draft starts.' };
     }
@@ -729,6 +846,12 @@ export class FantasyLeagueStore {
       }
     }
     league.teamCount = teamCount;
+    if (teamCount !== previousTeamCount) {
+      league.matchupSchedule = generateMatchupSchedule(league.managers.map((team) => team.id));
+      if (league.playoffSettings?.teamCount > teamCount) {
+        league.playoffSettings.teamCount = [8, 6, 4, 2].find((count) => count <= teamCount);
+      }
+    }
 
     const claimedIds = new Set();
     for (const teamId of claimTeamIds) {

@@ -182,7 +182,7 @@ test('league invitations use current league and team names', async () => {
   assert.equal(data.invitations[0].teamName, 'Renamed Team');
 });
 
-test('league edits persist in shared storage linked from the account', async () => {
+test('league edits, schedule, and playoff settings persist after the draft starts', async () => {
   const { store, storage } = createStore();
   const { response: createResponse, data: created } = await storeRequest(store, 'create', {
     userId: 'account-1',
@@ -200,14 +200,25 @@ test('league edits persist in shared storage linked from the account', async () 
   const leagueId = created.league.leagueId;
   assert.deepEqual((await storage.get('user:account-1')).leagueIds, [leagueId]);
 
-  const updatedLeague = structuredClone(created.league);
+  const record = await storage.get(`league:${leagueId}`);
+  record.league.draftStarted = true;
+  await storage.put(`league:${leagueId}`, record);
+  const updatedLeague = structuredClone(record.league);
   updatedLeague.scoring.passTD = 6;
   updatedLeague.selectedWeek = 5;
+  updatedLeague.playoffSettings = {
+    teamCount: 2,
+    startWeek: 14,
+    weeks: 4,
+    reseed: false,
+    consolation: false,
+  };
+  updatedLeague.matchupSchedule.reverse();
   const { response: saveResponse, data: saved } = await storeRequest(store, 'save', {
     userId: 'account-1',
     leagueId,
     league: updatedLeague,
-    revision: created.revision,
+    revision: record.revision,
   });
 
   assert.equal(saveResponse.status, 200);
@@ -219,7 +230,173 @@ test('league edits persist in shared storage linked from the account', async () 
   assert.equal(loadResponse.status, 200);
   assert.equal(loaded.league.scoring.passTD, 6);
   assert.equal(loaded.league.selectedWeek, 5);
+  assert.deepEqual(loaded.league.playoffSettings, updatedLeague.playoffSettings);
+  assert.deepEqual(loaded.league.matchupSchedule, updatedLeague.matchupSchedule);
   assert.equal(loaded.revision, 2);
+});
+
+test('new leagues get balanced matchups before the draft', async () => {
+  const { store } = createStore();
+  const { response, data } = await storeRequest(store, 'create', {
+    userId: 'commissioner',
+    username: 'Commissioner',
+    league: {
+      name: 'Balanced Schedule',
+      teamCount: 4,
+      managers: Array.from({ length: 4 }, (_, index) => ({ teamName: `Team ${index + 1}` })),
+      rosterSlots: { QB: 1 },
+    },
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal(data.league.picks.length, 0);
+  assert.equal(data.league.matchupSchedule.length, 18);
+  const pairCounts = new Map();
+  data.league.matchupSchedule.forEach((week) => {
+    const teamsPlaying = week.flat();
+    assert.equal(new Set(teamsPlaying).size, 4);
+    for (const [first, second] of week) {
+      const key = [first, second].sort().join(':');
+      pairCounts.set(key, (pairCounts.get(key) || 0) + 1);
+    }
+  });
+  assert.equal(pairCounts.size, 6);
+  assert.deepEqual([...pairCounts.values()], Array(6).fill(6));
+  assert.deepEqual(data.league.playoffSettings, {
+    teamCount: 4,
+    startWeek: 15,
+    weeks: 3,
+    reseed: true,
+    consolation: true,
+  });
+});
+
+test('weekly schedules remain balanced for every supported league size', async () => {
+  for (let teamCount = 2; teamCount <= 16; teamCount += 1) {
+    const { store } = createStore();
+    const { response, data } = await storeRequest(store, 'create', {
+      userId: 'commissioner',
+      username: 'Commissioner',
+      league: {
+        name: `League of ${teamCount}`,
+        teamCount,
+        managers: Array.from({ length: teamCount }, (_, index) => ({ teamName: `Team ${index + 1}` })),
+        rosterSlots: { QB: 1 },
+      },
+    });
+
+    assert.equal(response.status, 200);
+    const pairCounts = new Map();
+    data.league.matchupSchedule.forEach((week) => {
+      const teamsPlaying = week.flat();
+      assert.equal(teamsPlaying.length, teamCount - (teamCount % 2));
+      assert.equal(new Set(teamsPlaying).size, teamsPlaying.length);
+      for (const [first, second] of week) {
+        const key = [first, second].sort().join(':');
+        pairCounts.set(key, (pairCounts.get(key) || 0) + 1);
+      }
+    });
+    const counts = [...pairCounts.values()];
+    assert.equal(pairCounts.size, (teamCount * (teamCount - 1)) / 2);
+    if (teamCount <= 10) {
+      assert.ok(counts.every((count) => count % 2 === 0), `${teamCount}-team opponents should meet an even number of times`);
+      assert.ok(Math.max(...counts) - Math.min(...counts) <= 2, `${teamCount}-team schedule is unbalanced`);
+    } else {
+      assert.ok(Math.max(...counts) - Math.min(...counts) <= 1, `${teamCount}-team schedule is unbalanced`);
+    }
+  }
+});
+
+test('changing league size before the draft rebuilds the schedule for all teams', async () => {
+  const { store } = createStore();
+  const { data: created } = await storeRequest(store, 'create', {
+    userId: 'commissioner',
+    username: 'Commissioner',
+    league: {
+      name: 'Growing League',
+      teamCount: 2,
+      managers: [{ teamName: 'Team 1' }, { teamName: 'Team 2' }],
+      rosterSlots: { QB: 1 },
+    },
+  });
+  const { response, data } = await storeRequest(store, 'manage-teams', {
+    userId: 'commissioner',
+    username: 'Commissioner',
+    leagueId: created.league.leagueId,
+    teamCount: 4,
+    claimTeamIds: [],
+    revision: created.revision,
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal(data.league.teamCount, 4);
+  assert.equal(data.league.matchupSchedule.length, 18);
+  for (const week of data.league.matchupSchedule) {
+    assert.equal(new Set(week.flat()).size, 4);
+  }
+});
+
+test('loading a legacy league creates and saves missing schedule and playoff defaults', async () => {
+  const { store, storage } = createStore([
+    ['league:legacy-league', {
+      league: {
+        leagueId: 'legacy-league',
+        teamCount: 2,
+        commissionerUserId: 'commissioner',
+        managers: [
+          { id: 'team-1', ownerUserId: 'commissioner', roster: [] },
+          { id: 'team-2', ownerUserId: null, roster: [] },
+        ],
+      },
+      revision: 1,
+    }],
+  ]);
+  const { response, data } = await storeRequest(store, 'load', {
+    userId: 'commissioner',
+    leagueId: 'legacy-league',
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal(data.revision, 2);
+  assert.equal(data.league.matchupSchedule.length, 18);
+  assert.deepEqual(data.league.playoffSettings, {
+    teamCount: 2,
+    startWeek: 15,
+    weeks: 3,
+    reseed: true,
+    consolation: true,
+  });
+  assert.equal((await storage.get('league:legacy-league')).revision, 2);
+});
+
+test('a manager cannot change the matchup schedule or playoff format', async () => {
+  const { store, storage } = createStore();
+  const { data: created } = await storeRequest(store, 'create', {
+    userId: 'commissioner',
+    username: 'Commissioner',
+    league: {
+      name: 'Protected Settings',
+      teamCount: 2,
+      managers: [{ teamName: 'Team 1' }, { teamName: 'Team 2' }],
+      rosterSlots: { QB: 1 },
+    },
+  });
+  const record = await storage.get(`league:${created.league.leagueId}`);
+  record.league.managers[1].ownerUserId = 'manager';
+  await storage.put(`league:${created.league.leagueId}`, record);
+
+  const updatedLeague = structuredClone(record.league);
+  updatedLeague.matchupSchedule.reverse();
+  updatedLeague.playoffSettings.weeks = 2;
+  const { response, data } = await storeRequest(store, 'save', {
+    userId: 'manager',
+    leagueId: created.league.leagueId,
+    league: updatedLeague,
+    revision: record.revision,
+  });
+
+  assert.equal(response.status, 403);
+  assert.match(data.error, /Only the commissioner/);
 });
 
 test('a commissioner can invite an existing account by email', async () => {
