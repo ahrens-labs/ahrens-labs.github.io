@@ -208,6 +208,7 @@ test('accepting an invitation assigns the team and clears the invitation', async
     leagueId: 'league-1',
     teamId: 'team-2',
     teamName: 'Manager Team',
+    teamAbbreviation: 'MT',
   });
 
   assert.equal(response.status, 200);
@@ -217,6 +218,7 @@ test('accepting an invitation assigns the team and clears the invitation', async
   const leagueRecord = await storage.get('league:league-1');
   assert.equal(leagueRecord.league.managers[1].ownerUserId, 'manager');
   assert.equal(leagueRecord.league.managers[1].teamName, 'Manager Team');
+  assert.equal(leagueRecord.league.managers[1].teamAbbreviation, 'MT');
   assert.deepEqual(leagueRecord.league.pendingInviteUserIds, []);
 });
 
@@ -323,6 +325,7 @@ test('new leagues get balanced matchups before the draft', async () => {
 
   assert.equal(response.status, 200);
   assert.equal(data.league.picks.length, 0);
+  assert.deepEqual(data.league.managers.map((team) => team.teamAbbreviation), ['T1', 'T2', 'T3', 'T4']);
   assert.equal(data.league.matchupSchedule.length, 18);
   const pairCounts = new Map();
   data.league.matchupSchedule.forEach((week) => {
@@ -414,11 +417,12 @@ test('loading a legacy league creates and saves missing schedule and playoff def
     ['league:legacy-league', {
       league: {
         leagueId: 'legacy-league',
+        name: 'Legacy League',
         teamCount: 2,
         commissionerUserId: 'commissioner',
         managers: [
-          { id: 'team-1', ownerUserId: 'commissioner', roster: [] },
-          { id: 'team-2', ownerUserId: null, roster: [] },
+          { id: 'team-1', ownerUserId: 'commissioner', teamName: 'Sunday Scaries', roster: [] },
+          { id: 'team-2', ownerUserId: null, teamName: 'Team 2', roster: [] },
         ],
       },
       revision: 1,
@@ -439,10 +443,12 @@ test('loading a legacy league creates and saves missing schedule and playoff def
     reseed: true,
     consolation: true,
   });
+  assert.deepEqual(data.league.managers.map((team) => team.teamAbbreviation), ['SS', 'T2']);
+  assert.deepEqual((await storage.get('league:legacy-league')).league.managers.map((team) => team.teamAbbreviation), ['SS', 'T2']);
   assert.equal((await storage.get('league:legacy-league')).revision, 2);
 });
 
-test('a manager cannot change the matchup schedule or playoff format', async () => {
+test('a manager cannot change commissioner settings or another team abbreviation', async () => {
   const { store, storage } = createStore();
   const { data: created } = await storeRequest(store, 'create', {
     userId: 'commissioner',
@@ -461,6 +467,7 @@ test('a manager cannot change the matchup schedule or playoff format', async () 
   const updatedLeague = structuredClone(record.league);
   updatedLeague.matchupSchedule.reverse();
   updatedLeague.playoffSettings.weeks = 2;
+  updatedLeague.managers[0].teamAbbreviation = 'NEW';
   const { response, data } = await storeRequest(store, 'save', {
     userId: 'manager',
     leagueId: created.league.leagueId,
@@ -470,6 +477,56 @@ test('a manager cannot change the matchup schedule or playoff format', async () 
 
   assert.equal(response.status, 403);
   assert.match(data.error, /Only the commissioner/);
+});
+
+test('new leagues reject invalid team abbreviations', async () => {
+  const { store } = createStore();
+  const { response, data } = await storeRequest(store, 'create', {
+    userId: 'commissioner',
+    username: 'Commissioner',
+    league: {
+      name: 'Invalid Abbreviation',
+      teamCount: 2,
+      managers: [
+        { teamName: 'Home Team', teamAbbreviation: 'HOME' },
+        { teamName: 'Away Team', teamAbbreviation: 'TOO-LONG' },
+      ],
+      rosterSlots: { QB: 1 },
+    },
+  });
+
+  assert.equal(response.status, 400);
+  assert.match(data.error, /abbreviation/);
+});
+
+test('a manager can save their own team abbreviation', async () => {
+  const { store, storage } = createStore();
+  const { data: created } = await storeRequest(store, 'create', {
+    userId: 'commissioner',
+    username: 'Commissioner',
+    league: {
+      name: 'Team Identity',
+      teamCount: 2,
+      managers: [{ teamName: 'Commissioner Team' }, { teamName: 'Manager Team' }],
+      rosterSlots: { QB: 1 },
+    },
+  });
+  const record = await storage.get(`league:${created.league.leagueId}`);
+  record.league.managers[1].ownerUserId = 'manager';
+  await storage.put(`league:${created.league.leagueId}`, record);
+  const updatedLeague = structuredClone(record.league);
+  updatedLeague.managers[1].teamAbbreviation = 'MGR';
+
+  const { response, data } = await storeRequest(store, 'save', {
+    userId: 'manager',
+    leagueId: created.league.leagueId,
+    league: updatedLeague,
+    revision: record.revision,
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal(data.success, true);
+  assert.equal((await storage.get(`league:${created.league.leagueId}`)).league.managers[1].teamAbbreviation, 'MGR');
 });
 
 test('a commissioner can invite an existing account by email', async () => {

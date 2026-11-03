@@ -292,6 +292,18 @@ function validString(value, maxLength) {
   return typeof value === 'string' && value.trim().length > 0 && value.trim().length <= maxLength;
 }
 
+function defaultTeamAbbreviation(teamName) {
+  const words = String(teamName || '').match(/[A-Za-z0-9]+/g) || [];
+  if (!words.length) return 'TEAM';
+  if (words.length > 1) return words.slice(0, 4).map((word) => word[0]).join('').toUpperCase();
+  const teamNumber = words[0].match(/^team(\d+)$/i);
+  return teamNumber ? `T${teamNumber[1]}`.slice(0, 4).toUpperCase() : words[0].slice(0, 4).toUpperCase();
+}
+
+function validTeamAbbreviation(value) {
+  return typeof value === 'string' && /^[A-Z0-9]{1,4}$/.test(value);
+}
+
 function normalizeSetup(input, userId, username) {
   if (!input || typeof input !== 'object') return { error: 'League setup is missing.' };
   const name = typeof input.name === 'string' ? input.name.trim().slice(0, 60) : '';
@@ -328,15 +340,20 @@ function normalizeSetup(input, userId, username) {
     const source = manager && typeof manager === 'object' ? manager : {};
     const teamName = typeof source.teamName === 'string' ? source.teamName.trim().slice(0, 40) : '';
     if (!teamName) return null;
+    const teamAbbreviation = typeof source.teamAbbreviation === 'string' && source.teamAbbreviation.trim()
+      ? source.teamAbbreviation.trim().toUpperCase()
+      : defaultTeamAbbreviation(teamName);
+    if (!validTeamAbbreviation(teamAbbreviation)) return null;
     return {
       id: `team-${crypto.randomUUID()}`,
       name: index === 0 ? username : 'Open team',
       teamName,
+      teamAbbreviation,
       ownerUserId: index === 0 ? userId : null,
       roster: [],
     };
   });
-  if (managers.some((manager) => !manager)) return { error: 'Each fantasy team needs a team name.' };
+  if (managers.some((manager) => !manager)) return { error: 'Each fantasy team needs a name and a 1 to 4 character abbreviation.' };
   const leagueId = `af-${crypto.randomUUID()}`;
   const draftOrder = managers.map((manager) => manager.id);
   const playoffTeamCount = [8, 6, 4, 2].find((count) => count <= teamCount);
@@ -500,6 +517,7 @@ function validateLeagueSave(previous, incoming, userId) {
   }
   if (incoming.managers.some((team) => !Array.isArray(team.roster)
     || !validString(team.teamName, 40)
+    || !validTeamAbbreviation(team.teamAbbreviation)
     || team.roster.some((player) => !player || !validString(String(player.id || ''), 100)))) {
     return 'Roster player data is invalid.';
   }
@@ -572,7 +590,8 @@ function validateLeagueSave(previous, incoming, userId) {
       return 'You can only make roster changes to your own team.';
     }
     if (!commissioner && !isOwn
-      && (oldTeam.teamName !== nextTeam.teamName || oldTeam.name !== nextTeam.name)) {
+      && (oldTeam.teamName !== nextTeam.teamName || oldTeam.teamAbbreviation !== nextTeam.teamAbbreviation
+        || oldTeam.name !== nextTeam.name)) {
       return 'Only the commissioner can rename another team.';
     }
     if (!isOwn && isAcceptedTradeTeam) continue;
@@ -725,6 +744,7 @@ export class FantasyLeagueStore {
         leagueId,
         name: record.league.name,
         teamName: team?.teamName || '',
+        teamAbbreviation: team?.teamAbbreviation || defaultTeamAbbreviation(team?.teamName),
         userTeamId: team?.id || '',
         role: record.league.commissionerUserId === userId ? 'commissioner' : 'manager',
         revision: record.revision,
@@ -742,6 +762,7 @@ export class FantasyLeagueStore {
         ...invitation,
         leagueName: record.league.name || invitation.leagueName,
         teamName: team.teamName || '',
+        teamAbbreviation: team.teamAbbreviation || defaultTeamAbbreviation(team.teamName),
       });
     }
     if (validLeagueIds.length !== (user.leagueIds || []).length
@@ -772,6 +793,18 @@ export class FantasyLeagueStore {
     if (!ownTeam) return { status: 403, error: 'You are not a member of this league.' };
     const teamIds = record.league.managers.map((team) => team.id);
     let migrated = false;
+    record.league.managers.forEach((team) => {
+      const abbreviation = typeof team.teamAbbreviation === 'string'
+        ? team.teamAbbreviation.trim().toUpperCase()
+        : '';
+      if (!validTeamAbbreviation(abbreviation)) {
+        team.teamAbbreviation = defaultTeamAbbreviation(team.teamName);
+        migrated = true;
+      } else if (team.teamAbbreviation !== abbreviation) {
+        team.teamAbbreviation = abbreviation;
+        migrated = true;
+      }
+    });
     if (!validMatchupSchedule(record.league.matchupSchedule, teamIds)) {
       record.league.matchupSchedule = generateMatchupSchedule(teamIds);
       migrated = true;
@@ -844,6 +877,7 @@ export class FantasyLeagueStore {
           id: `team-${crypto.randomUUID()}`,
           name: 'Open team',
           teamName: `Team ${index + 1}`,
+          teamAbbreviation: `T${index + 1}`.slice(0, 4),
           ownerUserId: null,
           roster: [],
         };
@@ -904,6 +938,7 @@ export class FantasyLeagueStore {
       leagueName: record.league.name,
       teamId: team.id,
       teamName: team.teamName,
+      teamAbbreviation: team.teamAbbreviation || defaultTeamAbbreviation(team.teamName),
       inviterUsername: String(body.username || 'Commissioner'),
       invitedAt: Date.now(),
     };
@@ -950,6 +985,7 @@ export class FantasyLeagueStore {
       team.ownerUserId = null;
       team.name = 'Open team';
       team.teamName = `Team ${record.league.managers.indexOf(team) + 1}`;
+      team.teamAbbreviation = `T${record.league.managers.indexOf(team) + 1}`.slice(0, 4);
       team.roster = [];
     });
     user.leagueIds = user.leagueIds.filter((id) => id !== leagueId);
@@ -991,10 +1027,17 @@ export class FantasyLeagueStore {
     const requestedTeamName = typeof body.teamName === 'string' ? body.teamName.trim() : '';
     const teamName = requestedTeamName || invitedTeam.teamName || team.teamName;
     if (!validString(teamName, 40)) return { status: 400, error: 'Enter a fantasy team name of 1 to 40 characters.' };
+    const requestedAbbreviation = typeof body.teamAbbreviation === 'string' ? body.teamAbbreviation.trim().toUpperCase() : '';
+    const teamAbbreviation = requestedAbbreviation || invitedTeam.teamAbbreviation
+      || team.teamAbbreviation || defaultTeamAbbreviation(teamName);
+    if (!validTeamAbbreviation(teamAbbreviation)) {
+      return { status: 400, error: 'Enter a team abbreviation of 1 to 4 letters or numbers.' };
+    }
     if (!team.ownerUserId) {
       team.ownerUserId = userId;
       team.name = String(body.username || 'Manager').slice(0, 40);
       team.teamName = teamName;
+      team.teamAbbreviation = teamAbbreviation;
       record.revision += 1;
     }
     user.invitations.splice(invitationIndex, 1);

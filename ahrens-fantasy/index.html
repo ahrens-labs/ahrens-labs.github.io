@@ -101,6 +101,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
 .fantasy-side { min-width: 0; }
 .fantasy-side.away { text-align: right; }
 .fantasy-name { overflow: hidden; color: #e2eae5; font: 600 12px var(--display); text-overflow: ellipsis; white-space: nowrap; }
+.team-abbreviation { display: inline-block; margin-right: 4px; color: var(--lime); font: 700 9px var(--mono); letter-spacing: .04em; }
 .fantasy-owner { margin-top: 3px; color: var(--dim); font: 9px var(--mono); }
 .fantasy-score { margin-top: 5px; color: var(--lime); font: 700 28px var(--display); letter-spacing: -.06em; }
 .versus { color: #59655f; font: 9px var(--mono); }
@@ -330,7 +331,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
 .manager-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
 .new-team-names { display: grid; gap: 6px; margin-top: 15px; }
 .new-team-names h3 { margin: 0 0 3px; color: #59675e; font: 9px var(--mono); letter-spacing: .1em; }
-.new-team-row { display: grid; grid-template-columns: 29px minmax(0, 1fr) minmax(0, 1fr); gap: 7px; align-items: center; }
+.new-team-row { display: grid; grid-template-columns: 29px minmax(0, 1fr) minmax(0, 1.2fr) 64px; gap: 7px; align-items: center; }
 .new-team-row > span { color: #87938a; font: 9px var(--mono); }
 .new-team-row input { width: 100%; min-width: 0; min-height: 33px; padding: 0 8px; border: 1px solid #cbd5ca; background: #fff; color: #344239; font: 10px var(--sans); }
 .manager-field { display: grid; grid-template-columns: 29px 1fr; gap: 7px; align-items: center; }
@@ -630,7 +631,7 @@ html, body { color: var(--text); background: var(--bg); }
 .stadium-field b { position: absolute; top: 42%; left: 50%; transform: translate(-50%, -50%) rotate(90deg); color: #eff5ff38; font: 800 24px var(--display); letter-spacing: .2em; }
 .stadium-tag { position: absolute; right: 14px; bottom: 12px; color: #eff5ff; font: 8px var(--mono); letter-spacing: .13em; }
 @media (max-width: 760px) { .home-launch { grid-template-columns: 1fr; } .home-launch-art { min-height: 170px; } }
-@media (max-width: 520px) { .home-launch-copy { padding: 20px 16px; } .home-launch-actions .button { flex: 1 1 auto; } #managerButton { display: none; } .new-league-top { padding-inline: 8px; } .new-team-row { grid-template-columns: 22px minmax(0, 1fr); } .new-team-row input:last-child { grid-column: 2; } }
+@media (max-width: 520px) { .home-launch-copy { padding: 20px 16px; } .home-launch-actions .button { flex: 1 1 auto; } #managerButton { display: none; } .new-league-top { padding-inline: 8px; } .new-team-row { grid-template-columns: 22px minmax(0, 1fr) 56px; } .new-team-row > span { grid-column: 1; grid-row: 1 / span 2; } .new-team-row input:nth-of-type(1) { grid-column: 2 / 4; grid-row: 1; } .new-team-row input:nth-of-type(2) { grid-column: 2; grid-row: 2; } .new-team-row input:nth-of-type(3) { grid-column: 3; grid-row: 2; } }
 .league-emblem { border-color: #c4d5f1; color: #245dcc; background: #f0f5ff; }
 .live-feed-row { border-color: #edf0eb; }
 .live-feed-time { color: #849087; }
@@ -1691,7 +1692,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
         checkbox.checked = selected.has(team.id);
         checkbox.setAttribute('aria-label', `Claim ${team.teamName}`);
         const name = document.createElement('span');
-        name.textContent = team.teamName;
+        name.textContent = teamLabel(team);
         row.append(checkbox, name);
         claims.append(row);
       });
@@ -1775,7 +1776,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       const row = document.createElement('div');
       row.className = 'online-lobby-row';
       const copy = document.createElement('div');
-      copy.innerHTML = `<strong>${escapeHTML(invitation.leagueName)}</strong><small>${escapeHTML(invitation.inviterUsername)} invited you to manage ${escapeHTML(invitation.teamName)}.</small>`;
+      copy.innerHTML = `<strong>${escapeHTML(invitation.leagueName)}</strong><small>${escapeHTML(invitation.inviterUsername)} invited you to manage ${escapeHTML(invitation.teamAbbreviation || defaultTeamAbbreviation(invitation.teamName))} · ${escapeHTML(invitation.teamName)}.</small>`;
       const actions = document.createElement('div');
       actions.className = 'title-actions';
       const accept = document.createElement('button');
@@ -1802,7 +1803,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       row.className = 'online-lobby-row';
       const copy = document.createElement('div');
       const scheduled = item.draftAt ? `Draft: ${new Date(item.draftAt).toLocaleString()}` : 'Draft time not scheduled';
-      copy.innerHTML = `<strong>${escapeHTML(item.name)}</strong><small>${escapeHTML(item.teamName)} · ${item.role === 'commissioner' ? 'Commissioner' : 'Manager'} · ${escapeHTML(scheduled)}</small>`;
+      copy.innerHTML = `<strong>${escapeHTML(item.name)}</strong><small>${escapeHTML(item.teamAbbreviation || defaultTeamAbbreviation(item.teamName))} · ${escapeHTML(item.teamName)} · ${item.role === 'commissioner' ? 'Commissioner' : 'Manager'} · ${escapeHTML(scheduled)}</small>`;
       const open = document.createElement('button');
       open.className = 'button primary';
       open.type = 'button';
@@ -1903,10 +1904,26 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       input.maxLength = 40;
       input.value = `${onlineUsername || 'Manager'}'s Team`.slice(0, input.maxLength);
       field.append(label, input);
+      const abbreviationField = document.createElement('div');
+      abbreviationField.className = 'field';
+      const abbreviationLabel = document.createElement('label');
+      abbreviationLabel.htmlFor = 'joinedTeamAbbreviation';
+      abbreviationLabel.textContent = 'TEAM ABBREVIATION (1–4 LETTERS OR NUMBERS)';
+      const abbreviationInput = document.createElement('input');
+      abbreviationInput.className = 'input';
+      abbreviationInput.id = 'joinedTeamAbbreviation';
+      abbreviationInput.type = 'text';
+      abbreviationInput.maxLength = 4;
+      abbreviationInput.autocomplete = 'off';
+      abbreviationInput.value = defaultTeamAbbreviation(input.value);
+      abbreviationInput.addEventListener('input', () => {
+        abbreviationInput.value = abbreviationInput.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4);
+      });
+      abbreviationField.append(abbreviationLabel, abbreviationInput);
       const note = document.createElement('p');
       note.className = 'small-note';
       note.textContent = `You’re joining ${invitation.leagueName || 'this league'} as ${invitation.teamName || 'a team manager'}. You can change your team name later on the roster page.`;
-      wrapper.append(field, note);
+      wrapper.append(field, abbreviationField, note);
       openModal('Choose your fantasy team name.', 'JOIN LEAGUE', wrapper, async () => {
         const teamName = input.value.trim();
         if (!teamName) {
@@ -1914,7 +1931,13 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
           input.focus();
           return false;
         }
-        await finishInvitationResponse(invitation, true, teamName);
+        const teamAbbreviation = abbreviationInput.value.trim().toUpperCase();
+        if (!/^[A-Z0-9]{1,4}$/.test(teamAbbreviation)) {
+          notify('Enter a team abbreviation of 1 to 4 letters or numbers.');
+          abbreviationInput.focus();
+          return false;
+        }
+        await finishInvitationResponse(invitation, true, teamName, teamAbbreviation);
       }, { confirmText: 'JOIN LEAGUE' });
       input.focus();
       input.select();
@@ -1927,11 +1950,11 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     }
   }
 
-  async function finishInvitationResponse(invitation, accept, teamName = '') {
+  async function finishInvitationResponse(invitation, accept, teamName = '', teamAbbreviation = '') {
     const action = accept ? 'accept' : 'decline';
     const { response, data } = await fantasyRequest(`/api/fantasy/invitations/${action}`, 'POST', {
       ...invitation,
-      ...(accept ? { teamName } : {}),
+      ...(accept ? { teamName, teamAbbreviation } : {}),
     });
     if (!response.ok) throw new Error(data.error || 'Could not respond to this invitation.');
     await refreshOnlineLobby();
@@ -1958,6 +1981,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       id: `team-${index + 1}`,
       name: index === 0 ? setup.managerName : 'Open team',
       teamName: defaultTeamName(index),
+      teamAbbreviation: defaultTeamAbbreviation(defaultTeamName(index)),
       roster: [],
     }));
     setup.picks = [];
@@ -1972,6 +1996,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
         leagueId: data.league.leagueId,
         name: data.league.name,
         teamName: data.league.managers[0].teamName,
+        teamAbbreviation: data.league.managers[0].teamAbbreviation,
         userTeamId: data.userTeamId,
         role: 'commissioner',
         draftAt: null,
@@ -2095,7 +2120,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     const teamSelect = document.createElement('select');
     teamSelect.className = 'filter-select';
     teamSelect.id = 'inviteTeam';
-    league.managers.filter((team) => !team.ownerUserId).forEach((team) => teamSelect.add(new Option(team.teamName, team.id)));
+    league.managers.filter((team) => !team.ownerUserId)    .forEach((team) => teamSelect.add(new Option(teamLabel(team), team.id)));
     if (!teamSelect.options.length) {
       notify('Every team already has a manager.');
       return;
@@ -2246,6 +2271,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       id: previous[index]?.id || `team-${index + 1}`,
       name: previous[index]?.name || (index === 0 ? league.managerName || 'Commissioner' : `Manager ${index + 1}`),
       teamName: previous[index]?.teamName || defaultTeamName(index),
+      teamAbbreviation: normalizeTeamAbbreviation(previous[index]?.teamAbbreviation, previous[index]?.teamName || defaultTeamName(index)),
       roster: previous[index]?.roster || [],
     }));
     if (!Array.isArray(league.draftOrder) || league.draftOrder.length !== count) {
@@ -2354,6 +2380,23 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
 
   function defaultTeamName(index) {
     return `Team ${index + 1}`;
+  }
+
+  function defaultTeamAbbreviation(teamName) {
+    const words = String(teamName || '').match(/[A-Za-z0-9]+/g) || [];
+    if (!words.length) return 'TEAM';
+    if (words.length > 1) return words.slice(0, 4).map((word) => word[0]).join('').toUpperCase();
+    const teamNumber = words[0].match(/^team(\d+)$/i);
+    return teamNumber ? `T${teamNumber[1]}`.slice(0, 4).toUpperCase() : words[0].slice(0, 4).toUpperCase();
+  }
+
+  function normalizeTeamAbbreviation(value, teamName) {
+    const abbreviation = typeof value === 'string' ? value.trim().toUpperCase() : '';
+    return /^[A-Z0-9]{1,4}$/.test(abbreviation) ? abbreviation : defaultTeamAbbreviation(teamName);
+  }
+
+  function teamLabel(team) {
+    return `${normalizeTeamAbbreviation(team?.teamAbbreviation, team?.teamName)} · ${team?.teamName || 'Team'}`;
   }
 
   function normalizePlayer(athlete, team, rosterGroup = '') {
@@ -3558,7 +3601,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       const button = document.createElement('button');
       button.className = `roster-tab${index === rosterViewTeam ? ' active' : ''}`;
       button.type = 'button';
-      button.textContent = team.teamName;
+      button.textContent = teamLabel(team);
       button.addEventListener('click', () => {
         rosterMoveSelection = null;
         rosterViewTeam = index;
@@ -3573,7 +3616,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     const activeCount = team.roster.filter((player) => player.rosterSlot !== 'BENCH').length;
     const benchCount = team.roster.length - activeCount;
     const commissionerLabel = team.ownerUserId === league.commissionerUserId ? ' · COMMISSIONER' : '';
-    $('rosterSummary').innerHTML = `<span>TEAM <b>${escapeHTML(team.teamName)}</b> · MANAGER <b>${escapeHTML(team.name)}</b>${commissionerLabel}</span><span><b>STARTERS ${activeCount}/${activeSlots}</b> · <b>BENCH ${benchCount}/${Number(league.rosterSlots.BENCH || 0)}</b> · ${team.roster.length}/${rosterCapacity()} TOTAL</span>`;
+    $('rosterSummary').innerHTML = `<span>TEAM <b>${escapeHTML(teamLabel(team))}</b> · MANAGER <b>${escapeHTML(team.name)}</b>${commissionerLabel}</span><span><b>STARTERS ${activeCount}/${activeSlots}</b> · <b>BENCH ${benchCount}/${Number(league.rosterSlots.BENCH || 0)}</b> · ${team.roster.length}/${rosterCapacity()} TOTAL</span>`;
     renderRosterWeekTotals(team);
     const body = $('rosterRows');
     body.replaceChildren();
@@ -3615,7 +3658,23 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     input.maxLength = 40;
     input.value = team.teamName;
     field.append(label, input);
-    wrapper.append(field);
+    const abbreviationField = document.createElement('div');
+    abbreviationField.className = 'field';
+    const abbreviationLabel = document.createElement('label');
+    abbreviationLabel.htmlFor = 'rosterTeamAbbreviation';
+    abbreviationLabel.textContent = 'TEAM ABBREVIATION (1–4 LETTERS OR NUMBERS)';
+    const abbreviationInput = document.createElement('input');
+    abbreviationInput.className = 'input';
+    abbreviationInput.id = 'rosterTeamAbbreviation';
+    abbreviationInput.type = 'text';
+    abbreviationInput.maxLength = 4;
+    abbreviationInput.autocomplete = 'off';
+    abbreviationInput.value = normalizeTeamAbbreviation(team.teamAbbreviation, team.teamName);
+    abbreviationInput.addEventListener('input', () => {
+      abbreviationInput.value = abbreviationInput.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4);
+    });
+    abbreviationField.append(abbreviationLabel, abbreviationInput);
+    wrapper.append(field, abbreviationField);
     openModal('Rename your fantasy team.', 'ROSTER SETTINGS', wrapper, () => {
       const nextName = input.value.trim();
       if (!nextName) {
@@ -3623,7 +3682,14 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
         input.focus();
         return false;
       }
+      const nextAbbreviation = abbreviationInput.value.trim().toUpperCase();
+      if (!/^[A-Z0-9]{1,4}$/.test(nextAbbreviation)) {
+        notify('Enter a team abbreviation of 1 to 4 letters or numbers.');
+        abbreviationInput.focus();
+        return false;
+      }
       team.teamName = nextName;
+      team.teamAbbreviation = nextAbbreviation;
       saveLeague();
       renderOnlineLeague();
       notify(`Team renamed to ${nextName}.`);
@@ -3990,7 +4056,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     actingTeamSelect.className = 'filter-select';
     actingTeamSelect.id = 'tradeActingTeam';
     league.managers.filter((team) => !onlineReady || ownsOnlineTeam(team.id))
-      .forEach((team) => actingTeamSelect.add(new Option(team.teamName, team.id)));
+      .forEach((team) => actingTeamSelect.add(new Option(teamLabel(team), team.id)));
     actingTeamSelect.value = onlineReady
       ? onlineUserTeamId
       : (league.managers[rosterViewTeam] || league.managers[0]).id;
@@ -4004,8 +4070,8 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     const leftTeam = document.createElement('select'); leftTeam.className = 'filter-select'; leftTeam.id = 'tradeFrom';
     const rightTeam = document.createElement('select'); rightTeam.className = 'filter-select'; rightTeam.id = 'tradeTo';
     league.managers.forEach((team) => {
-      if (!onlineReady || ownsOnlineTeam(team.id)) leftTeam.add(new Option(team.teamName, team.id));
-      if (!onlineReady || !ownsOnlineTeam(team.id)) rightTeam.add(new Option(team.teamName, team.id));
+      if (!onlineReady || ownsOnlineTeam(team.id)) leftTeam.add(new Option(teamLabel(team), team.id));
+      if (!onlineReady || !ownsOnlineTeam(team.id)) rightTeam.add(new Option(teamLabel(team), team.id));
     });
     leftTeam.value = onlineReady ? onlineUserTeamId : (league.managers[rosterViewTeam] || league.managers[0]).id;
     rightTeam.selectedIndex = Math.min(1, league.managers.length - 1);
@@ -4451,10 +4517,21 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       const teamName = document.createElement('input');
       teamName.type = 'text';
       teamName.maxLength = 40;
+      teamName.placeholder = 'Fantasy team name';
       teamName.value = team.teamName;
       teamName.dataset.settingsTeam = team.id;
       teamName.setAttribute('aria-label', `Fantasy team ${index + 1} name`);
-      row.append(number, managerName, teamName);
+      const teamAbbreviation = document.createElement('input');
+      teamAbbreviation.type = 'text';
+      teamAbbreviation.maxLength = 4;
+      teamAbbreviation.placeholder = 'Abbr.';
+      teamAbbreviation.value = normalizeTeamAbbreviation(team.teamAbbreviation, team.teamName);
+      teamAbbreviation.dataset.settingsTeamAbbreviation = team.id;
+      teamAbbreviation.setAttribute('aria-label', `Fantasy team ${index + 1} abbreviation`);
+      teamAbbreviation.addEventListener('input', () => {
+        teamAbbreviation.value = teamAbbreviation.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4);
+      });
+      row.append(number, managerName, teamName, teamAbbreviation);
       names.append(row);
     });
 
@@ -4466,6 +4543,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       const nextLeagueName = leagueName.value.trim();
       const managerInputs = [...names.querySelectorAll('[data-settings-manager]')];
       const teamInputs = [...names.querySelectorAll('[data-settings-team]')];
+      const abbreviationInputs = [...names.querySelectorAll('[data-settings-team-abbreviation]')];
       const slotInputs = [...rosterSettings.querySelectorAll('[data-roster-slot]')];
       const nextRosterSlots = { ...league.rosterSlots };
       slotInputs.forEach((input) => { nextRosterSlots[input.dataset.rosterSlot] = Number(input.value); });
@@ -4473,8 +4551,9 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
         .filter(([slot]) => slot !== 'BENCH')
         .reduce((sum, [, count]) => sum + count, 0);
       const nextCapacity = Object.values(nextRosterSlots).reduce((sum, count) => sum + count, 0);
-      if (!nextLeagueName || managerInputs.some((input) => !input.value.trim()) || teamInputs.some((input) => !input.value.trim())) {
-        notify('Enter a league name, manager name, and fantasy team name for every team.');
+      if (!nextLeagueName || managerInputs.some((input) => !input.value.trim()) || teamInputs.some((input) => !input.value.trim())
+        || abbreviationInputs.some((input) => !/^[A-Z0-9]{1,4}$/.test(input.value.trim().toUpperCase()))) {
+        notify('Enter a league name, manager name, fantasy team name, and a 1 to 4 character abbreviation for every team.');
         return false;
       }
       if (slotInputs.some((input) => !input.value.trim() || !Number.isInteger(Number(input.value)) || Number(input.value) < 0 || Number(input.value) > 30)
@@ -4492,6 +4571,10 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       teamInputs.forEach((input) => {
         const team = league.managers.find((entry) => entry.id === input.dataset.settingsTeam);
         if (team) team.teamName = input.value.trim();
+      });
+      abbreviationInputs.forEach((input) => {
+        const team = league.managers.find((entry) => entry.id === input.dataset.settingsTeamAbbreviation);
+        if (team) team.teamAbbreviation = input.value.trim().toUpperCase();
       });
       league.managerName = league.managers[0]?.name || league.managerName;
       league.managers.forEach((team) => normalizeRosterForSlots(team));
@@ -4519,10 +4602,10 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     fields.append(name, size);
     const nameList = document.createElement('div');
     nameList.className = 'new-team-names';
-    function renderTeamNameRows(savedManagers = [], savedTeams = []) {
+    function renderTeamNameRows(savedManagers = [], savedTeams = [], savedAbbreviations = []) {
       nameList.replaceChildren();
       const heading = document.createElement('h3');
-      heading.textContent = 'NAME EVERY MANAGER AND FANTASY TEAM';
+      heading.textContent = 'NAME EVERY MANAGER AND FANTASY TEAM · CHOOSE ABBREVIATION';
       nameList.append(heading);
       const count = Number($('newTeamCount').value) || 10;
       for (let index = 0; index < count; index += 1) {
@@ -4544,20 +4627,32 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
         teamInput.value = savedTeams[index] || defaultTeamName(index);
         teamInput.dataset.newFantasyTeam = String(index);
         teamInput.setAttribute('aria-label', `Fantasy team ${index + 1} name`);
-        row.append(number, managerInput, teamInput);
+        const abbreviationInput = document.createElement('input');
+        abbreviationInput.type = 'text';
+        abbreviationInput.maxLength = 4;
+        abbreviationInput.placeholder = 'Abbr.';
+        abbreviationInput.value = savedAbbreviations[index] || defaultTeamAbbreviation(teamInput.value);
+        abbreviationInput.dataset.newFantasyTeamAbbreviation = String(index);
+        abbreviationInput.setAttribute('aria-label', `Fantasy team ${index + 1} abbreviation`);
+        abbreviationInput.addEventListener('input', () => {
+          abbreviationInput.value = abbreviationInput.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4);
+        });
+        row.append(number, managerInput, teamInput, abbreviationInput);
         nameList.append(row);
       }
     }
     const note = document.createElement('div');
     note.className = 'modal-callout';
-    note.textContent = 'Your current league will stay saved. Create another league here, then switch between them from the league selector.';
+    note.textContent = 'Choose a short team abbreviation to display alongside each fantasy team name. Your current league will stay saved.';
     wrapper.append(fields, nameList, note);
     openModal('Start a new season.', 'NEW LEAGUE SETUP', wrapper, () => {
       const leagueName = $('newLeagueName').value.trim();
       const managerNames = [...nameList.querySelectorAll('[data-new-manager]')].map((input) => input.value.trim());
       const teamNames = [...nameList.querySelectorAll('[data-new-fantasy-team]')].map((input) => input.value.trim());
-      if (!leagueName || managerNames.some((value) => !value) || teamNames.some((value) => !value)) {
-        notify('Enter a league name and both names for every team.');
+      const teamAbbreviations = [...nameList.querySelectorAll('[data-new-fantasy-team-abbreviation]')].map((input) => input.value.trim().toUpperCase());
+      if (!leagueName || managerNames.some((value) => !value) || teamNames.some((value) => !value)
+        || teamAbbreviations.some((value) => !/^[A-Z0-9]{1,4}$/.test(value))) {
+        notify('Enter a league name, manager name, team name, and a 1 to 4 character abbreviation for every team.');
         return false;
       }
       league = structuredClone(STORAGE_FALLBACK);
@@ -4569,6 +4664,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
         id: `team-${index + 1}`,
         name: managerName,
         teamName: teamNames[index],
+        teamAbbreviation: teamAbbreviations[index],
         roster: [],
       }));
       league.picks = [];
@@ -4600,7 +4696,8 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     $('newTeamCount').addEventListener('change', () => {
       const savedManagers = [...nameList.querySelectorAll('[data-new-manager]')].map((input) => input.value);
       const savedTeams = [...nameList.querySelectorAll('[data-new-fantasy-team]')].map((input) => input.value);
-      renderTeamNameRows(savedManagers, savedTeams);
+      const savedAbbreviations = [...nameList.querySelectorAll('[data-new-fantasy-team-abbreviation]')].map((input) => input.value);
+      renderTeamNameRows(savedManagers, savedTeams, savedAbbreviations);
     });
     $('newLeagueName').focus();
   }
@@ -4683,7 +4780,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       const fantasyTeam = document.createElement('td');
       fantasyTeam.dataset.label = 'Fantasy team';
       fantasyTeam.className = owner ? 'fantasy-team-cell' : 'fantasy-team-cell empty-fantasy-team';
-      fantasyTeam.textContent = owner ? `${owner.team.teamName} · ${owner.team.name}` : '—';
+      fantasyTeam.textContent = owner ? `${teamLabel(owner.team)} · ${owner.team.name}` : '—';
       const points = document.createElement('td');
       points.dataset.label = 'Points';
       points.className = 'fantasy-points-cell';
@@ -4727,7 +4824,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     const label = document.createElement('label'); label.textContent = 'FANTASY TEAM';
     const select = document.createElement('select'); select.className = 'filter-select';
     league.managers.filter((team) => !onlineReady || ownsOnlineTeam(team.id))
-      .forEach((team) => select.add(new Option(`${team.teamName} · ${team.roster.length}/${rosterCapacity()}`, team.id)));
+      .forEach((team) => select.add(new Option(`${teamLabel(team)} · ${team.roster.length}/${rosterCapacity()}`, team.id)));
     field.append(label, select);
     const dropSection = document.createElement('div');
     dropSection.className = 'claim-drop-roster';
@@ -4837,7 +4934,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     ui.leagueMeta.textContent = `${league.teamCount} TEAMS · SNAKE DRAFT · ${league.scoring.receptions === 1 ? 'FULL PPR' : league.scoring.receptions === .5 ? 'HALF PPR' : league.scoring.receptions === 0 ? 'STANDARD' : 'CUSTOM SCORING'}`;
     const totals = league.managers.map((team) => ({ team, points: team.roster.reduce((sum, player) => sum + playerFantasyPoints(player), 0) })).sort((a, b) => b.points - a.points);
     $('topScore').textContent = totals[0]?.team.roster.length ? totals[0].points.toFixed(1) : '—';
-    $('topScoreName').textContent = totals[0]?.team.roster.length ? totals[0].team.teamName.toUpperCase() : 'DRAFT PLAYERS TO BEGIN';
+    $('topScoreName').textContent = totals[0]?.team.roster.length ? teamLabel(totals[0].team).toUpperCase() : 'DRAFT PLAYERS TO BEGIN';
     renderStandings(totals);
     renderFeaturedMatchup();
   }
@@ -4853,7 +4950,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       const row = document.createElement('div');
       row.className = 'team-standing';
       const rank = document.createElement('span'); rank.className = 'rank'; rank.textContent = String(index + 1).padStart(2, '0');
-      const avatar = document.createElement('span'); avatar.className = 'avatar'; avatar.textContent = initials(team.teamName);
+      const avatar = document.createElement('span'); avatar.className = 'avatar'; avatar.textContent = normalizeTeamAbbreviation(team.teamAbbreviation, team.teamName);
       const name = document.createElement('span'); name.innerHTML = `<div class="standing-name">${escapeHTML(team.teamName)}</div><div class="standing-record">${escapeHTML(team.name)}</div>`;
       const pts = document.createElement('span'); pts.className = 'standing-points'; pts.textContent = points.toFixed(1); pts.innerHTML += '<small>WEEK PTS</small>';
       const trend = document.createElement('span'); trend.className = 'trend'; trend.textContent = index === 0 ? '▲' : '•';
@@ -4883,7 +4980,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       : league.picks.length ? 'WEEK IN PROGRESS' : 'SCHEDULED';
     const article = document.createElement('article');
     article.className = 'matchup-card';
-    article.innerHTML = `<div class="matchup-top"><span class="matchup-label">HEAD-TO-HEAD · <span class="current-week">${escapeHTML(ui.weekSelect.value)}</span></span><span class="matchup-status">${matchupStatus}</span></div><div class="matchup-versus"><div class="fantasy-side"><div class="fantasy-name">${escapeHTML(home.teamName)}</div><div class="fantasy-owner">${escapeHTML(home.name)}</div><div class="fantasy-score">${homePoints.toFixed(2)}</div><div class="matchup-projection">PROJ <strong>${homeProjection.toFixed(1)}</strong> · WIN <strong>${Math.round(homeWinChance * 100)}%</strong></div></div><span class="versus">VS</span><div class="fantasy-side away"><div class="fantasy-name">${escapeHTML(away.teamName)}</div><div class="fantasy-owner">${escapeHTML(away.name)}</div><div class="fantasy-score">${awayPoints.toFixed(2)}</div><div class="matchup-projection">PROJ <strong>${awayProjection.toFixed(1)}</strong> · WIN <strong>${Math.round(awayWinChance * 100)}%</strong></div></div></div><div class="score-track"><span class="score-fill-home" style="width:${(homePoints / total) * 100}%;"></span><span class="score-fill-away" style="width:${(awayPoints / total) * 100}%;"></span></div>`;
+    article.innerHTML = `<div class="matchup-top"><span class="matchup-label">HEAD-TO-HEAD · <span class="current-week">${escapeHTML(ui.weekSelect.value)}</span></span><span class="matchup-status">${matchupStatus}</span></div><div class="matchup-versus"><div class="fantasy-side"><div class="fantasy-name"><span class="team-abbreviation">${escapeHTML(normalizeTeamAbbreviation(home.teamAbbreviation, home.teamName))}</span>${escapeHTML(home.teamName)}</div><div class="fantasy-owner">${escapeHTML(home.name)}</div><div class="fantasy-score">${homePoints.toFixed(2)}</div><div class="matchup-projection">PROJ <strong>${homeProjection.toFixed(1)}</strong> · WIN <strong>${Math.round(homeWinChance * 100)}%</strong></div></div><span class="versus">VS</span><div class="fantasy-side away"><div class="fantasy-name"><span class="team-abbreviation">${escapeHTML(normalizeTeamAbbreviation(away.teamAbbreviation, away.teamName))}</span>${escapeHTML(away.teamName)}</div><div class="fantasy-owner">${escapeHTML(away.name)}</div><div class="fantasy-score">${awayPoints.toFixed(2)}</div><div class="matchup-projection">PROJ <strong>${awayProjection.toFixed(1)}</strong> · WIN <strong>${Math.round(awayWinChance * 100)}%</strong></div></div></div><div class="score-track"><span class="score-fill-home" style="width:${(homePoints / total) * 100}%;"></span><span class="score-fill-away" style="width:${(awayPoints / total) * 100}%;"></span></div>`;
     article.tabIndex = 0;
     article.setAttribute('role', 'button');
     article.setAttribute('aria-label', `View matchup details for ${home.teamName} and ${away.teamName}`);
@@ -4948,7 +5045,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       const total = Math.max(1, homePoints + awayPoints);
       const panel = document.createElement('button'); panel.className = 'matchup-panel'; panel.type = 'button';
       panel.setAttribute('aria-label', `View matchup details for ${home.teamName} and ${away.teamName}`);
-      panel.innerHTML = `<div class="matchup-panel-head"><span>WEEK ${String(ui.weekSelect.value).padStart(2, '0')} · MATCHUP ${String(index + 1).padStart(2, '0')}</span><span>${games.some((game) => game.live) ? '● LIVE' : 'SCHEDULED'}</span></div><div class="matchup-row"><div class="matchup-team-card"><div class="team-name">${escapeHTML(home.teamName)}</div><div class="team-manager">${escapeHTML(home.name)}</div><div class="team-points">${homePoints.toFixed(2)}</div><div class="matchup-projection">PROJ <strong>${homeProjection.toFixed(1)}</strong> · WIN <strong>${Math.round(homeWinChance * 100)}%</strong></div></div><span class="matchup-divider">VS</span><div class="matchup-team-card away"><div class="team-name">${escapeHTML(away.teamName)}</div><div class="team-manager">${escapeHTML(away.name)}</div><div class="team-points">${awayPoints.toFixed(2)}</div><div class="matchup-projection">PROJ <strong>${awayProjection.toFixed(1)}</strong> · WIN <strong>${Math.round(awayWinChance * 100)}%</strong></div></div></div><div class="matchup-progress"><span class="score-fill-home" style="width:${homePoints / total * 100}%;"></span><span class="score-fill-away" style="width:${awayPoints / total * 100}%;"></span></div>`;
+      panel.innerHTML = `<div class="matchup-panel-head"><span>WEEK ${String(ui.weekSelect.value).padStart(2, '0')} · MATCHUP ${String(index + 1).padStart(2, '0')}</span><span>${games.some((game) => game.live) ? '● LIVE' : 'SCHEDULED'}</span></div><div class="matchup-row"><div class="matchup-team-card"><div class="team-name"><span class="team-abbreviation">${escapeHTML(normalizeTeamAbbreviation(home.teamAbbreviation, home.teamName))}</span>${escapeHTML(home.teamName)}</div><div class="team-manager">${escapeHTML(home.name)}</div><div class="team-points">${homePoints.toFixed(2)}</div><div class="matchup-projection">PROJ <strong>${homeProjection.toFixed(1)}</strong> · WIN <strong>${Math.round(homeWinChance * 100)}%</strong></div></div><span class="matchup-divider">VS</span><div class="matchup-team-card away"><div class="team-name"><span class="team-abbreviation">${escapeHTML(normalizeTeamAbbreviation(away.teamAbbreviation, away.teamName))}</span>${escapeHTML(away.teamName)}</div><div class="team-manager">${escapeHTML(away.name)}</div><div class="team-points">${awayPoints.toFixed(2)}</div><div class="matchup-projection">PROJ <strong>${awayProjection.toFixed(1)}</strong> · WIN <strong>${Math.round(awayWinChance * 100)}%</strong></div></div></div><div class="matchup-progress"><span class="score-fill-home" style="width:${homePoints / total * 100}%;"></span><span class="score-fill-away" style="width:${awayPoints / total * 100}%;"></span></div>`;
       panel.addEventListener('click', () => openMatchupDetail(home.id, away.id));
       target.append(panel);
     });
@@ -4981,8 +5078,8 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     const awayWinChance = 1 - homeWinChance;
     const winner = homeProjection === awayProjection
       ? 'The matchup is currently projected to tie.'
-      : `${homeProjection > awayProjection ? home.teamName : away.teamName} is currently projected to win by ${Math.abs(homeProjection - awayProjection).toFixed(1)} points.`;
-    $('matchupDetailTitle').textContent = `${home.teamName} vs ${away.teamName}`;
+      : `${teamLabel(homeProjection > awayProjection ? home : away)} is currently projected to win by ${Math.abs(homeProjection - awayProjection).toFixed(1)} points.`;
+    $('matchupDetailTitle').textContent = `${teamLabel(home)} vs ${teamLabel(away)}`;
     $('matchupDetailWinner').textContent = `${winner} Win chances are estimates based on projections and a 45-point margin-volatility model.`;
 
     const summary = $('matchupDetailSummary');
@@ -4994,7 +5091,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       const card = document.createElement('article');
       card.className = `matchup-detail-team${isWinner ? ' is-projected-winner' : ''}`;
       const title = document.createElement('h2');
-      title.textContent = team.teamName;
+      title.textContent = teamLabel(team);
       const manager = document.createElement('div');
       manager.className = 'matchup-detail-manager';
       manager.textContent = team.name;
@@ -5017,7 +5114,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       const panel = document.createElement('section');
       panel.className = 'matchup-detail-roster';
       const heading = document.createElement('h2');
-      heading.textContent = `${team.teamName} · ${team.name}`;
+      heading.textContent = `${teamLabel(team)} · ${team.name}`;
       const table = document.createElement('table');
       table.className = 'matchup-roster-table';
       table.innerHTML = '<thead><tr><th>Player</th><th>Pos</th><th>Slot</th><th>Proj</th><th>Actual</th></tr></thead>';
@@ -5083,7 +5180,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       rank.textContent = String(index + 1).padStart(2, '0');
       const name = document.createElement('span');
       name.className = 'player-name-stack';
-      name.innerHTML = `<span class="player-name">${escapeHTML(player.name)}</span><span class="player-team">${escapeHTML(team.teamName)}</span>`;
+      name.innerHTML = `<span class="player-name">${escapeHTML(player.name)}</span><span class="player-team">${escapeHTML(teamLabel(team))}</span>`;
       const score = document.createElement('span');
       score.className = 'standing-points';
       score.textContent = points.toFixed(2);
