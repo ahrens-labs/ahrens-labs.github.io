@@ -1590,7 +1590,7 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
           commissioner
             ? `Leaving ${item.name} as commissioner will permanently delete the league, including all teams, draft history, and pending invitations.`
             : `You will leave ${item.name}. Your team will become open and its roster will be cleared, but the league and draft history will remain.`,
-          () => { void leaveOnlineLeague(item); return true; },
+          () => leaveOnlineLeague(item),
           { confirmText: commissioner ? 'DELETE LEAGUE' : 'LEAVE LEAGUE' },
         );
       });
@@ -1650,8 +1650,6 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
         }
       }
       notify(data.deleted ? 'League deleted.' : 'You left the league.');
-    } catch (error) {
-      $('onlineLobbyError').textContent = error.message || 'Could not leave this league.';
     }
   }
 
@@ -2160,6 +2158,9 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
     modalAction = null;
     $('confirmModal').hidden = false;
     $('confirmModal').style.display = '';
+    $('confirmModal').disabled = false;
+    $('cancelModal').disabled = false;
+    $('modalClose').disabled = false;
   }
 
   async function openPlayerStatsModal(player) {
