@@ -1604,55 +1604,51 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
 
   async function leaveOnlineLeague(item) {
     const activeLeagueId = league.leagueId;
+    await onlineSaveChain;
+    const { response, data } = await fantasyRequest(
+      `/api/fantasy/leagues/${encodeURIComponent(item.leagueId)}/leave`,
+      'POST',
+    );
+    if (!response.ok) throw new Error(data.error || 'Could not leave this league.');
+
     try {
-      await onlineSaveChain;
-      const { response, data } = await fantasyRequest(
-        `/api/fantasy/leagues/${encodeURIComponent(item.leagueId)}/leave`,
-        'POST',
-      );
-      if (!response.ok) throw new Error(data.error || 'Could not leave this league.');
-
-      try {
-        const records = JSON.parse(localStorage.getItem(LEAGUES_KEY) || '{}');
-        delete records[item.leagueId];
-        localStorage.setItem(LEAGUES_KEY, JSON.stringify(records));
-        if (localStorage.getItem(ACTIVE_LEAGUE_KEY) === item.leagueId) {
-          localStorage.removeItem(ACTIVE_LEAGUE_KEY);
-          localStorage.removeItem(SAVE_KEY);
-        }
-      } catch (storageError) {
-        console.warn('Could not clear the local cache for the departed league.', storageError);
+      const records = JSON.parse(localStorage.getItem(LEAGUES_KEY) || '{}');
+      delete records[item.leagueId];
+      localStorage.setItem(LEAGUES_KEY, JSON.stringify(records));
+      if (localStorage.getItem(ACTIVE_LEAGUE_KEY) === item.leagueId) {
+        localStorage.removeItem(ACTIVE_LEAGUE_KEY);
+        localStorage.removeItem(SAVE_KEY);
       }
-
-      if (item.leagueId === activeLeagueId) {
-        onlineReady = false;
-        onlineDirty = false;
-        onlineUserId = '';
-        onlineUserTeamId = '';
-        onlineUserTeamIds.clear();
-        onlineCommissioner = false;
-        onlineRevision = 0;
-        updateOnlineControls();
-      }
-      await refreshOnlineLobby();
-
-      if (item.leagueId === activeLeagueId) {
-        if (onlineLeagues.length) {
-          await switchLeague(onlineLeagues[0].leagueId);
-        } else {
-          league = structuredClone(STORAGE_FALLBACK);
-          league.leagueId = createLeagueId();
-          normalizeManagers();
-          saveLeague();
-          renderOnlineLeague();
-          void loadPlayerPool();
-          switchView('overview');
-        }
-      }
-      notify(data.deleted ? 'League deleted.' : 'You left the league.');
-    } catch (error) {
-      $('onlineLobbyError').textContent = error.message || 'Could not leave this league.';
+    } catch (storageError) {
+      console.warn('Could not clear the local cache for the departed league.', storageError);
     }
+
+    if (item.leagueId === activeLeagueId) {
+      onlineReady = false;
+      onlineDirty = false;
+      onlineUserId = '';
+      onlineUserTeamId = '';
+      onlineUserTeamIds.clear();
+      onlineCommissioner = false;
+      onlineRevision = 0;
+      updateOnlineControls();
+    }
+    await refreshOnlineLobby();
+
+    if (item.leagueId === activeLeagueId) {
+      if (onlineLeagues.length) {
+        await switchLeague(onlineLeagues[0].leagueId);
+      } else {
+        league = structuredClone(STORAGE_FALLBACK);
+        league.leagueId = createLeagueId();
+        normalizeManagers();
+        saveLeague();
+        renderOnlineLeague();
+        void loadPlayerPool();
+        switchView('overview');
+      }
+    }
+    notify(data.deleted ? 'League deleted.' : 'You left the league.');
   }
 
   async function respondToInvitation(invitation, accept) {
@@ -5285,12 +5281,30 @@ body { font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: opt
     $('backToMatchups').addEventListener('click', () => switchView('matchups'));
     $('modalClose').addEventListener('click', closeModal);
     $('cancelModal').addEventListener('click', closeModal);
-    $('confirmModal').addEventListener('click', () => {
+    $('confirmModal').addEventListener('click', async () => {
       if (!modalAction) {
         closeModal();
         return;
       }
-      if (modalAction() !== false) closeModal();
+      const action = modalAction;
+      $('confirmModal').disabled = true;
+      $('cancelModal').disabled = true;
+      $('modalClose').disabled = true;
+      try {
+        const result = await action();
+        if (result !== false) {
+          closeModal();
+        } else {
+          $('confirmModal').disabled = false;
+          $('cancelModal').disabled = false;
+          $('modalClose').disabled = false;
+        }
+      } catch (error) {
+        $('confirmModal').disabled = false;
+        $('cancelModal').disabled = false;
+        $('modalClose').disabled = false;
+        notify(error.message || 'Could not complete this action.');
+      }
     });
     ui.modal.addEventListener('click', (event) => {
       if (event.target === ui.modal) closeModal();
