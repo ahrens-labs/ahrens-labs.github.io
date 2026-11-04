@@ -759,6 +759,10 @@ test('waiver claims use rolling priority and advance it after a successful award
     rosterSlots: { QB: 1, RB: 1 },
     waiverSettings: { enabled: true, periodHours: 24 },
     waiverPriorityTeamIds: ['team-2', 'team-1'],
+    waiverPriorityWeek: 0,
+    draftOrder: ['team-1', 'team-2'],
+    matchupSchedule: [[['team-1', 'team-2']]],
+    matchupResults: { 1: { 'team-1': 100, 'team-2': 80 } },
     waiverWindows: {},
     pendingWaiverClaims: [],
   };
@@ -794,8 +798,135 @@ test('waiver claims use rolling priority and advance it after a successful award
     ['old-2', 'player-1'],
   );
   assert.deepEqual(awarded.league.waiverPriorityTeamIds, ['team-1', 'team-2']);
+  assert.equal(awarded.league.waiverPriorityWeek, 1);
   assert.deepEqual(awarded.league.pendingWaiverClaims, []);
-  assert.deepEqual(awarded.league.waiverWindows, {});
+  assert.ok(awarded.league.waiverWindows['old-1'] > Date.now());
+  assert.deepEqual(awarded.league.waiverWindows['player-1'], undefined);
+
+  awarded.league.matchupSchedule.push([['team-1', 'team-2']]);
+  awarded.league.matchupResults[2] = { 'team-1': 70, 'team-2': 120 };
+  await storage.put('league:league-1', awarded);
+  const nextWeek = await storeRequest(store, 'process-waivers', {});
+  assert.equal(nextWeek.response.status, 200);
+  const reset = await storage.get('league:league-1');
+  assert.equal(reset.league.waiverPriorityWeek, 2);
+  assert.deepEqual(reset.league.waiverPriorityTeamIds, ['team-1', 'team-2']);
+});
+
+test('free agents without active claims can be picked up immediately', async () => {
+  const league = {
+    leagueId: 'league-1',
+    commissionerUserId: 'commissioner',
+    teamCount: 2,
+    draftStarted: true,
+    managers: [
+      { id: 'team-1', ownerUserId: 'commissioner', roster: [{ id: 'old-player' }] },
+      { id: 'team-2', ownerUserId: 'manager', roster: [] },
+    ],
+    rosterSlots: { QB: 1 },
+    waiverSettings: { enabled: true, periodHours: 24 },
+    waiverWindows: {},
+    pendingWaiverClaims: [],
+  };
+  const { store, storage } = createStore([['league:league-1', { league, revision: 1 }]]);
+  const pickedUp = await storeRequest(store, 'pickup-free-agent', {
+    leagueId: 'league-1',
+    userId: 'commissioner',
+    teamId: 'team-1',
+    player: { id: 'free-agent', name: 'Free Agent', position: 'QB', team: 'SEA' },
+    dropPlayerId: 'old-player',
+  });
+
+  assert.equal(pickedUp.response.status, 200);
+  assert.equal(pickedUp.data.league.managers[0].roster[0].id, 'free-agent');
+  assert.ok(pickedUp.data.league.waiverWindows['old-player'] > Date.now());
+  assert.deepEqual((await storage.get('league:league-1')).league.pendingWaiverClaims, []);
+});
+
+test('authenticated waiver pickup API routes immediate additions to the league store', async () => {
+  const league = {
+    leagueId: 'league-1',
+    commissionerUserId: 'commissioner',
+    teamCount: 2,
+    draftStarted: true,
+    managers: [
+      { id: 'team-1', ownerUserId: 'commissioner', roster: [] },
+      { id: 'team-2', ownerUserId: 'manager', roster: [] },
+    ],
+    rosterSlots: { QB: 1 },
+    waiverSettings: { enabled: true, periodHours: 24 },
+    waiverWindows: {},
+    pendingWaiverClaims: [],
+  };
+  const { store } = createStore([['league:league-1', { league, revision: 1 }]]);
+  const env = {
+    SESSION: {
+      idFromName: (id) => id,
+      get: () => ({ fetch: async () => Response.json({ userId: 'commissioner' }) }),
+    },
+    USER_ACCOUNT: {
+      idFromName: (id) => id,
+      get: () => ({ fetch: async () => Response.json({ username: 'Commissioner' }) }),
+    },
+    FANTASY_LEAGUE: {
+      idFromName: (id) => id,
+      get: () => ({ fetch: (request) => store.fetch(request) }),
+    },
+  };
+  const request = new Request('https://ahrenslabs.com/api/fantasy/leagues/league-1/waivers/pickup', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer session-token', 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      teamId: 'team-1',
+      player: { id: 'free-agent', name: 'Free Agent', position: 'QB' },
+    }),
+  });
+
+  const response = await handleFantasyRequest(
+    request,
+    env,
+    {},
+    '/api/fantasy/leagues/league-1/waivers/pickup',
+  );
+  const data = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(data.league.managers[0].roster[0].id, 'free-agent');
+});
+
+test('free-agent pickup rejects players with an active waiver window', async () => {
+  const processAt = Date.now() + 60_000;
+  const league = {
+    leagueId: 'league-1',
+    commissionerUserId: 'commissioner',
+    teamCount: 2,
+    draftStarted: true,
+    managers: [
+      { id: 'team-1', ownerUserId: 'commissioner', roster: [] },
+      { id: 'team-2', ownerUserId: 'manager', roster: [] },
+    ],
+    rosterSlots: { QB: 1, BENCH: 1 },
+    waiverSettings: { enabled: true, periodHours: 24 },
+    waiverWindows: { 'waived-player': processAt },
+    pendingWaiverClaims: [{
+      id: 'claim-1',
+      player: { id: 'waived-player', name: 'Waived Player', position: 'QB' },
+      teamId: 'team-2',
+      userId: 'manager',
+      createdAt: Date.now(),
+      processAt,
+    }],
+  };
+  const { store } = createStore([['league:league-1', { league, revision: 1 }]]);
+  const attemptedPickup = await storeRequest(store, 'pickup-free-agent', {
+    leagueId: 'league-1',
+    userId: 'commissioner',
+    teamId: 'team-1',
+    player: { id: 'waived-player', name: 'Waived Player', position: 'QB', team: 'SEA' },
+  });
+
+  assert.equal(attemptedPickup.response.status, 409);
+  assert.match(attemptedPickup.data.error, /on waivers until/i);
 });
 
 test('a manager cannot change commissioner-controlled waiver settings', async () => {

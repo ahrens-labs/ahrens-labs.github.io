@@ -172,8 +172,14 @@ input::-moz-selection, textarea::-moz-selection { color: #090d12; background: #7
 .status-tag { color: var(--green); font: 10px var(--mono); }
 .status-tag.injured { color: var(--red); }
 .add-player { width: 25px; height: 25px; border: 1px solid #d1f36b3f; background: #d1f36b0b; color: var(--lime); cursor: pointer; }
-.add-player.auction-nominate { width: auto; min-width: 46px; padding: 0 6px; font: 700 10px var(--mono); }
+.add-player.auction-nominate, .add-player.free-agent-pickup, .waiver-player-button { width: auto; min-width: 54px; min-height: 27px; padding: 0 7px; font: 700 9px var(--mono); }
 .add-player:hover { background: #d1f36b20; }
+.add-player.free-agent-pickup { border-color: #34d39966; background: #34d39918; color: #34d399; }
+.add-player.free-agent-pickup:hover { background: #34d3992b; }
+.waiver-player-button { border: 1px solid #eab308; background: #facc15; color: #332600; cursor: pointer; }
+.waiver-player-button:hover { border-color: #ca8a04; background: #fde047; }
+.waiver-action-status { display: block; min-width: 85px; margin-top: 4px; color: #78867f; font: 7px/1.45 var(--mono); white-space: normal; }
+.waiver-action-status.is-waiver { color: #a16207; }
 .trade-player-button { width: 30px; height: 30px; border: 1px solid #3980e8; border-radius: 6px; background: #2563eb; color: #fff; cursor: pointer; font: 700 16px var(--sans); }
 .trade-player-button:hover { border-color: #1d4ed8; background: #1d4ed8; }
 .draft-side-card { margin-bottom: 12px; }
@@ -1130,7 +1136,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       </section>
       <section class="panel commissioner-playoff-settings">
         <div class="panel-head"><h2>Waiver wire</h2><span id="waiverPrioritySummary">ROLLING PRIORITY</span></div>
-        <p><span class="small-note">Claims stay open for the selected period, then are awarded by rolling priority. A team moves to the back after a successful claim.</span></p>
+        <p><span class="small-note">Free agents can be added immediately unless another manager has an active claim. Waiver claims process at the displayed time; each week priority resets to the reverse of the standings, and a team that wins a claim moves to the back.</span></p>
         <div class="commissioner-playoff-fields">
           <label class="commissioner-setting-toggle"><input type="checkbox" id="waiversEnabled"> Enable waiver claims</label>
           <div class="field"><label for="waiverPeriodHours">WAIVER PERIOD</label><select class="filter-select" id="waiverPeriodHours"><option value="24">24 HOURS</option><option value="48">48 HOURS</option><option value="72">3 DAYS</option><option value="168">7 DAYS</option></select></div>
@@ -1426,6 +1432,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     },
     waiverSettings: { enabled: true, periodHours: 48 },
     waiverPriorityTeamIds: [],
+    waiverPriorityWeek: null,
     waiverWindows: {},
     pendingWaiverClaims: [],
     draftSettings: { type: 'snake', order: [], auctionBudget: 200, auctionClockSeconds: 30 },
@@ -1739,7 +1746,9 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     const priorityNames = league.waiverPriorityTeamIds
       .map((teamId) => league.managers.find((team) => team.id === teamId)?.teamName)
       .filter(Boolean);
-    $('waiverPrioritySummary').textContent = `ROLLING · ${priorityNames.join(' → ')}`;
+    $('waiverPrioritySummary').textContent = `${league.waiverPriorityWeek
+      ? `WEEK ${league.waiverPriorityWeek} · OPPOSITE STANDINGS`
+      : 'REVERSE DRAFT ORDER'} · ${priorityNames.join(' → ')}`;
     renderInlineLeagueSettings();
     renderInlineDraftSettings();
   }
@@ -6069,6 +6078,8 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       claimCell.dataset.label = 'Action';
       const action = document.createElement('button');
       action.type = 'button';
+      const waiverStatus = document.createElement('span');
+      waiverStatus.className = 'waiver-action-status';
       if (owner) {
         action.className = 'trade-player-button';
         action.textContent = '⇄';
@@ -6079,18 +6090,34 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
           ownerTeamId: owner.team.id,
         }));
       } else {
-        action.className = 'add-player';
-        action.textContent = '+';
+        const waiverProcessAt = playerWaiverProcessAt(player.id);
+        const waiverEnabled = onlineReady && league.waiverSettings.enabled;
+        action.className = waiverProcessAt
+          ? 'waiver-player-button'
+          : `add-player${waiverEnabled ? ' free-agent-pickup' : ''}`;
+        action.textContent = waiverProcessAt ? 'CLAIM' : waiverEnabled ? 'ADD NOW' : '+';
         action.setAttribute('aria-label', league.draftStarted
-          ? `Add ${player.name} to a fantasy team`
+          ? waiverProcessAt
+            ? `Claim ${player.name} off waivers; processes ${formatWaiverDay(waiverProcessAt)}`
+            : `Add ${player.name} immediately to a fantasy team`
           : `Player claims are available after the draft starts`);
-        action.title = league.waiverSettings.enabled && onlineReady
-          ? 'Submit a waiver claim'
-          : !league.draftStarted ? 'Player claims are available after the draft starts.' : 'Add player';
+        action.title = !league.draftStarted ? 'Player claims are available after the draft starts.'
+          : waiverProcessAt ? `On waivers until ${formatWaiverDay(waiverProcessAt)}`
+            : waiverEnabled ? 'Free agent · can be picked up immediately' : 'Add player';
         action.disabled = !league.draftStarted;
         action.addEventListener('click', () => openClaimDialog(player));
+        if (waiverEnabled) {
+          waiverStatus.classList.toggle('is-waiver', Boolean(waiverProcessAt));
+          waiverStatus.textContent = waiverProcessAt
+            ? `GETS ${formatWaiverDay(waiverProcessAt)}`
+            : 'FREE AGENT · NOW';
+          waiverStatus.title = waiverProcessAt
+            ? 'Claim processes at this time; the highest-priority valid claim receives the player.'
+            : 'This player has no active waiver claims and can be added immediately.';
+        }
       }
       claimCell.append(action);
+      if (!owner && onlineReady && league.waiverSettings.enabled) claimCell.append(waiverStatus);
       row.append(name, pos, nfl, matchup, status, slot, projection, points, average, fantasyTeam, claimCell);
       body.append(row);
     });
@@ -6113,12 +6140,17 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       return;
     }
     if (onlineReady && league.waiverSettings.enabled) {
-      openWaiverClaimDialog(player);
-      return;
+      if (playerWaiverProcessAt(player.id)) {
+        openWaiverClaimDialog(player);
+        return;
+      }
     }
     const wrapper = document.createElement('div');
+    const instantOnlinePickup = onlineReady && league.waiverSettings.enabled;
     const description = document.createElement('p');
-    description.textContent = `Add ${player.name} (${player.position}, ${player.team}) to a fantasy roster as a free-agent pickup.`;
+    description.textContent = instantOnlinePickup
+      ? `Add ${player.name} (${player.position}, ${player.team}) immediately. This player has no active waiver claims.`
+      : `Add ${player.name} (${player.position}, ${player.team}) to a fantasy roster as a free-agent pickup.`;
     const field = document.createElement('div'); field.className = 'field';
     const label = document.createElement('label'); label.textContent = 'FANTASY TEAM';
     const select = document.createElement('select'); select.className = 'filter-select';
@@ -6157,7 +6189,8 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     };
     select.addEventListener('change', renderDropOptions);
     renderDropOptions();
-    openModal('Claim a free agent.', 'WAIVER WIRE', wrapper, () => {
+    openModal(instantOnlinePickup ? 'Add this free agent now.' : 'Claim a free agent.',
+      instantOnlinePickup ? 'IMMEDIATE PICKUP' : 'WAIVER WIRE', wrapper, async () => {
       const team = league.managers.find((entry) => entry.id === select.value);
       if (!team) return false;
       if (league.managers.some((entry) => entry.roster.some((member) => member.id === player.id))) {
@@ -6171,7 +6204,22 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
           notify(`Select a player from ${team.teamName} to drop before claiming ${player.name}.`);
           return false;
         }
-        team.roster = team.roster.filter((member) => member.id !== playerToDrop.id);
+        if (!instantOnlinePickup) {
+          team.roster = team.roster.filter((member) => member.id !== playerToDrop.id);
+        }
+      }
+      if (instantOnlinePickup) {
+        const path = `/api/fantasy/leagues/${encodeURIComponent(league.leagueId)}/waivers/pickup`;
+        const { response, data } = await fantasyRequest(path, 'POST', {
+          teamId: team.id,
+          player,
+          dropPlayerId: selectedDropId,
+        });
+        if (!response.ok) throw new Error(data.error || 'Could not add this free agent.');
+        installOnlineLeague(data);
+        renderOnlineLeague();
+        notify(`${player.name} added immediately to ${team.teamName}${selectedDropId ? '; roster spot opened.' : '.'}`);
+        return true;
       }
       team.roster.push({ ...player, draftedBy: team.id, rosterSlot: chooseRosterSlot(team, player), gameStats: {} });
       saveLeague();
@@ -6179,6 +6227,25 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       notify(`${player.name} added to ${team.teamName}${selectedDropId ? '; roster spot opened.' : '.'}`);
       return true;
     }, { confirmText: 'CLAIM PLAYER' });
+  }
+
+  function playerWaiverProcessAt(playerId) {
+    if (!onlineReady || !league.waiverSettings.enabled) return null;
+    const claims = (league.pendingWaiverClaims || [])
+      .filter((claim) => String(claim.player?.id) === String(playerId));
+    const processAt = Number(league.waiverWindows?.[String(playerId)] || claims[0]?.processAt);
+    if (!Number.isFinite(processAt) || processAt <= 0) return null;
+    return claims.length || processAt > Date.now() ? processAt : null;
+  }
+
+  function formatWaiverDay(timestamp) {
+    const date = new Date(timestamp);
+    if (!Number.isFinite(date.getTime())) return 'TIME UNKNOWN';
+    const weekday = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/Chicago',
+      weekday: 'long',
+    }).format(date);
+    return `${weekday.toUpperCase()} · ${formatCentralDateTime(date)}`;
   }
 
   function renderPendingWaiverClaims() {
@@ -6197,7 +6264,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       identity.className = 'manager-avatar';
       identity.textContent = 'W';
       const details = document.createElement('div');
-      details.innerHTML = `<div class="manager-name">${escapeHTML(claim.player?.name || 'Player')}</div><div class="manager-sub">PROCESSING ${escapeHTML(formatCentralDateTime(new Date(claim.processAt)))}</div>`;
+      details.innerHTML = `<div class="manager-name">${escapeHTML(claim.player?.name || 'Player')}</div><div class="manager-sub">PROCESSING ${escapeHTML(formatWaiverDay(claim.processAt))}</div>`;
       const cancel = document.createElement('button');
       cancel.className = 'button danger';
       cancel.type = 'button';
@@ -6224,7 +6291,8 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
   function openWaiverClaimDialog(player) {
     const wrapper = document.createElement('div');
     const description = document.createElement('p');
-    description.textContent = `Submit a claim for ${player.name} (${player.position}, ${player.team}). Claims process after the ${league.waiverSettings.periodHours}-hour waiver period using rolling priority.`;
+    const processAt = playerWaiverProcessAt(player.id);
+    description.textContent = `Submit a claim for ${player.name} (${player.position}, ${player.team}). The waiver run is scheduled for ${formatWaiverDay(processAt)}. If your claim is highest in the weekly priority order, you receive the player then; the winning team moves to the back of the order.`;
     const field = document.createElement('div');
     field.className = 'field';
     const label = document.createElement('label');
