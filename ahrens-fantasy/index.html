@@ -1101,7 +1101,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
           <div class="field"><label for="draftTypeSelect">DRAFT TYPE</label><select class="filter-select" id="draftTypeSelect"><option value="snake">Snake draft</option><option value="auction">Salary-cap auction</option></select></div>
           <div class="field" data-auction-setting><label for="auctionBudgetInput">AUCTION BUDGET PER TEAM</label><input class="input" id="auctionBudgetInput" type="number" min="100" max="1000" step="1" value="200"></div>
           <div class="field" data-auction-setting><label for="auctionClockSelect">AUCTION BID CLOCK</label><select class="filter-select" id="auctionClockSelect"><option value="15">15 seconds</option><option value="30">30 seconds</option><option value="45">45 seconds</option><option value="60">60 seconds</option></select></div>
-          <div class="field full"><h3 class="trade-section-heading">DRAFT ORDER · USE ARROWS TO REORDER</h3><div class="manager-list" id="draftOrderSettings"></div></div>
+          <div class="field full"><h3 class="trade-section-heading">DRAFT ORDER · USE ARROWS TO REORDER</h3><div class="manager-list" id="draftOrderSettings"></div><button class="button" id="randomizeDraftOrder" type="button">RANDOMIZE DRAFT ORDER</button></div>
           <div class="field full" data-auction-setting><span class="small-note">Salary-cap defaults are $200 per team, $1 minimum bid, and a 30-second bid clock. At least $1 stays reserved for each unfilled roster slot.</span></div>
           <button class="button primary" id="saveDraftSettings">SAVE DRAFT SETTINGS</button>
         </div>
@@ -1913,6 +1913,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     const disabled = league.draftStarted || league.picks.length > 0;
     [type, budget, clock, draftTime].forEach((input) => { input.disabled = disabled; });
     $('saveDraftSettings').disabled = disabled;
+    $('randomizeDraftOrder').disabled = disabled;
     $('commissionerDraftStatus').textContent = `${String(draftSettings.type).toUpperCase()} DRAFT${league.draftAt
       ? ` · ${new Date(league.draftAt).toLocaleString()}`
       : ' · NOT SCHEDULED'}`;
@@ -2141,6 +2142,24 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     } finally {
       $('saveDraftSettings').disabled = false;
     }
+  }
+
+  function randomizeDraftOrder() {
+    if (!onlineCommissioner) {
+      notify('Only the commissioner can randomize the draft order.');
+      return;
+    }
+    if (league.draftStarted || league.picks.length > 0) {
+      notify('Draft order can only be randomized before the draft starts.');
+      return;
+    }
+    for (let index = draftOrderDraft.length - 1; index > 0; index -= 1) {
+      const target = Math.floor(Math.random() * (index + 1));
+      [draftOrderDraft[index], draftOrderDraft[target]] = [draftOrderDraft[target], draftOrderDraft[index]];
+    }
+    commissionerSettingsDirty = true;
+    renderInlineDraftSettings();
+    notify('Draft order randomized. Save draft settings to apply it to the league.');
   }
 
   async function savePlayoffSettings() {
@@ -7140,6 +7159,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     $('saveLeagueSettings').addEventListener('click', () => { void saveInlineLeagueSettings(); });
     $('sendLeagueInvite').addEventListener('click', () => { void sendInlineLeagueInvite(); });
     $('saveDraftSettings').addEventListener('click', () => { void saveInlineDraftSettings(); });
+    $('randomizeDraftOrder').addEventListener('click', randomizeDraftOrder);
     $('draftTypeSelect').addEventListener('change', renderInlineDraftSettings);
     $('settingsTeamCount').addEventListener('change', renderInlineLeagueSettings);
     $('startDraft').addEventListener('click', startDraft);
