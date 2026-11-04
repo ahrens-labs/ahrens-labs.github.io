@@ -1096,10 +1096,10 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
         <div class="commissioner-playoff-fields">
           <div class="field"><label for="draftTimeInput">DRAFT TIME · YOUR LOCAL TIME ZONE</label><input class="input" id="draftTimeInput" type="datetime-local"></div>
           <div class="field"><label for="draftTypeSelect">DRAFT TYPE</label><select class="filter-select" id="draftTypeSelect"><option value="snake">Snake draft</option><option value="auction">Salary-cap auction</option></select></div>
-          <div class="field"><label for="auctionBudgetInput">AUCTION BUDGET PER TEAM</label><input class="input" id="auctionBudgetInput" type="number" min="100" max="1000" step="1" value="200"></div>
-          <div class="field"><label for="auctionClockSelect">AUCTION BID CLOCK</label><select class="filter-select" id="auctionClockSelect"><option value="15">15 seconds</option><option value="30">30 seconds</option><option value="45">45 seconds</option><option value="60">60 seconds</option></select></div>
+          <div class="field" data-auction-setting><label for="auctionBudgetInput">AUCTION BUDGET PER TEAM</label><input class="input" id="auctionBudgetInput" type="number" min="100" max="1000" step="1" value="200"></div>
+          <div class="field" data-auction-setting><label for="auctionClockSelect">AUCTION BID CLOCK</label><select class="filter-select" id="auctionClockSelect"><option value="15">15 seconds</option><option value="30">30 seconds</option><option value="45">45 seconds</option><option value="60">60 seconds</option></select></div>
           <div class="field full"><h3 class="trade-section-heading">DRAFT ORDER · USE ARROWS TO REORDER</h3><div class="manager-list" id="draftOrderSettings"></div></div>
-          <div class="field full"><span class="small-note">Salary-cap defaults are $200 per team, $1 minimum bid, and a 30-second bid clock. At least $1 stays reserved for each unfilled roster slot.</span></div>
+          <div class="field full" data-auction-setting><span class="small-note">Salary-cap defaults are $200 per team, $1 minimum bid, and a 30-second bid clock. At least $1 stays reserved for each unfilled roster slot.</span></div>
           <button class="button primary" id="saveDraftSettings">SAVE DRAFT SETTINGS</button>
         </div>
       </section>
@@ -1892,6 +1892,9 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     const type = $('draftTypeSelect');
     const order = $('draftOrderSettings');
     if (document.activeElement !== type) type.value = draftSettings.type;
+    document.querySelectorAll('[data-auction-setting]').forEach((setting) => {
+      setting.hidden = type.value !== 'auction';
+    });
     const budget = $('auctionBudgetInput');
     const clock = $('auctionClockSelect');
     if (document.activeElement !== budget) budget.value = String(draftSettings.auctionBudget);
@@ -7059,6 +7062,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     $('saveLeagueSettings').addEventListener('click', () => { void saveInlineLeagueSettings(); });
     $('sendLeagueInvite').addEventListener('click', () => { void sendInlineLeagueInvite(); });
     $('saveDraftSettings').addEventListener('click', () => { void saveInlineDraftSettings(); });
+    $('draftTypeSelect').addEventListener('change', renderInlineDraftSettings);
     $('settingsTeamCount').addEventListener('change', renderInlineLeagueSettings);
     $('startDraft').addEventListener('click', startDraft);
     $('homeStartDraft').addEventListener('click', () => {
