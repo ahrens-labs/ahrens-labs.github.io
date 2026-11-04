@@ -354,9 +354,24 @@ export async function handleFantasyRequest(request, env, corsHeaders, path, { ex
   }
 }
 
+const IDENTITY_CACHE_SECONDS = 90;
+
 async function getIdentity(request, env) {
   const sessionId = parseBearerToken(request.headers.get('Authorization'));
   if (!sessionId || !env.SESSION || !env.USER_ACCOUNT) return null;
+  const cache = globalThis.caches?.default;
+  const cacheKey = cache
+    ? new Request(`https://fantasy-identity.internal/${encodeURIComponent(sessionId)}`)
+    : null;
+  if (cache && cacheKey) {
+    try {
+      const cached = await cache.match(cacheKey);
+      if (cached) {
+        const identity = await cached.json();
+        if (identity && typeof identity.userId === 'string' && identity.userId) return identity;
+      }
+    } catch {}
+  }
   const sessionStub = env.SESSION.get(env.SESSION.idFromName(sessionId));
   const sessionResponse = await sessionStub.fetch(new Request('https://session.internal/getUserId'));
   const session = await sessionResponse.json();
@@ -366,7 +381,18 @@ async function getIdentity(request, env) {
   if (!accountResponse.ok) return null;
   const account = await accountResponse.json();
   const username = String(account?.username || '').trim();
-  return { userId: String(session.userId), username: username || 'Ahrens Labs member' };
+  const identity = { userId: String(session.userId), username: username || 'Ahrens Labs member' };
+  if (cache && cacheKey) {
+    try {
+      await cache.put(cacheKey, new Response(JSON.stringify(identity), {
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': `public, max-age=${IDENTITY_CACHE_SECONDS}`,
+        },
+      }));
+    } catch {}
+  }
+  return identity;
 }
 
 function parseBearerToken(header) {

@@ -2632,13 +2632,13 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
   }
 
   function startOnlineRefreshTimer() {
-    const activeSnakeDraft = $('onlineLobby').hidden && onlineReady && league.draftStarted
-      && league.draftSettings?.type !== 'auction';
-    const intervalMs = activeSnakeDraft ? 2000 : 10000;
+    const activeDraft = $('onlineLobby').hidden && onlineReady && league.draftStarted && !league.draftEnded;
+    const intervalMs = activeDraft ? 5000 : 60000;
     if (onlineRefreshTimer && onlineRefreshIntervalMs === intervalMs) return;
     if (onlineRefreshTimer) window.clearInterval(onlineRefreshTimer);
     onlineRefreshIntervalMs = intervalMs;
     onlineRefreshTimer = window.setInterval(() => {
+      if (document.visibilityState !== 'visible') return;
       if ($('onlineLobby').hidden) void refreshActiveLeague();
       else void refreshOnlineLobby();
     }, intervalMs);
@@ -2656,16 +2656,9 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
   }
 
   async function refreshActiveLeague() {
+    if (document.visibilityState !== 'visible') return;
     if (!onlineReady || onlineDirty || commissionerSettingsDirty || $('onlineLobby').hidden === false) return;
     try {
-      const { response: listResponse, data: listData } = await fantasyRequest('/api/fantasy/leagues');
-      if (!listResponse.ok) throw new Error(listData.error || 'Could not refresh your league list.');
-      updateOnlineLobbyLists(listData);
-      if (!onlineLeagues.some((item) => item.leagueId === league.leagueId)) {
-        await handleUnavailableActiveLeague();
-        return;
-      }
-
       const { response, data } = await fantasyRequest(`/api/fantasy/leagues/${encodeURIComponent(league.leagueId)}`);
       if (response.status === 403 || response.status === 404) {
         await handleUnavailableActiveLeague();
@@ -7620,7 +7613,9 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       if (onlineDirty) queueOnlineSave();
     });
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') void syncNFL();
+      if (document.visibilityState !== 'visible') return;
+      void syncNFL();
+      if (onlineReady && !$('onlineLobby').hidden) void refreshActiveLeague();
     });
     restoreViewFromUrl();
     void loadPlayerPool();
