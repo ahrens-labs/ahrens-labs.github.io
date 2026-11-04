@@ -202,7 +202,7 @@ export async function handleFantasyRequest(request, env, corsHeaders, path, { ex
       return send('decline-invitation', body);
     }
 
-    const match = path.match(/^\/api\/fantasy\/leagues\/([^/]+)(?:\/(invitations|schedule|teams|leave|draft-settings|auction|waivers\/claims(?:\/[^/]+)?))?$/);
+    const match = path.match(/^\/api\/fantasy\/leagues\/([^/]+)(?:\/(invitations|schedule|teams|leave|draft-settings|auction|draft-pick|waivers\/claims(?:\/[^/]+)?))?$/);
     if (!match) return fantasyJson({ error: 'Not found.' }, 404, corsHeaders);
     const leagueId = decodeURIComponent(match[1]);
     if (!leagueId || leagueId.length > 100) return fantasyJson({ error: 'Invalid league id.' }, 400, corsHeaders);
@@ -238,6 +238,11 @@ export async function handleFantasyRequest(request, env, corsHeaders, path, { ex
       const body = await readFantasyBody(request);
       if (!body) return fantasyJson({ error: 'Invalid request body.' }, 400, corsHeaders);
       return send('auction', { leagueId, ...body });
+    }
+    if (match[2] === 'draft-pick' && request.method === 'POST') {
+      const body = await readFantasyBody(request);
+      if (!body) return fantasyJson({ error: 'Invalid request body.' }, 400, corsHeaders);
+      return send('draft-pick', { leagueId, ...body });
     }
     if (match[2] === 'invitations' && request.method === 'POST') {
       const body = await readFantasyBody(request);
@@ -840,6 +845,7 @@ export class FantasyLeagueStore {
       else if (path === '/leave') result = await this.leave(body);
       else if (path === '/draft-settings') result = await this.updateDraftSettings(body);
       else if (path === '/auction') result = await this.auction(body);
+      else if (path === '/draft-pick') result = await this.autoPickDraft(body);
       else if (path === '/claim-waiver') result = await this.claimWaiver(body);
       else if (path === '/cancel-waiver-claim') result = await this.cancelWaiverClaim(body);
       else if (path === '/process-waivers') result = await this.processAllWaivers();
@@ -1344,6 +1350,11 @@ export class FantasyLeagueStore {
     const league = jsonClone(body.league);
     league.draftAt = record.league.draftAt;
     league.commissionerUserId = record.league.commissionerUserId;
+    league.draftPickStartedAt = league.draftSettings?.type === 'auction' || !league.draftStarted
+      ? null
+      : !record.league.draftStarted || body.league.picks.length > record.league.picks.length
+        ? Date.now()
+        : record.league.draftPickStartedAt || record.league.picks.at(-1)?.timestamp || Date.now();
     league.pendingInviteUserIds = record.league.pendingInviteUserIds || [];
     league.draftSettings = record.league.draftSettings || {
       type: 'snake',
@@ -1388,6 +1399,130 @@ export class FantasyLeagueStore {
     record.revision += 1;
     await this.putLeague(record);
     return { success: true, revision: record.revision };
+  }
+
+  async autoPickDraft(body) {
+    const record = await this.getLeague(String(body.leagueId || ''));
+    if (!record) return { status: 404, error: 'League not found.' };
+    const league = record.league;
+    if (!league.managers.some((team) => team.ownerUserId === body.userId)) {
+      return { status: 403, error: 'You are not a member of this league.' };
+    }
+    if (league.draftSettings?.type === 'auction') {
+      return { status: 409, error: 'Timed auto-picks are only available for snake drafts.' };
+    }
+    if (!league.draftStarted) return { status: 409, error: 'The draft has not started.' };
+    if (league.draftAt && Date.parse(league.draftAt) > Date.now()) {
+      return { status: 409, error: 'The scheduled draft time has not arrived yet.' };
+    }
+    const pickIndex = league.picks.length;
+    const capacity = Object.values(league.rosterSlots || {})
+      .reduce((sum, count) => sum + Number(count || 0), 0);
+    if (pickIndex >= league.teamCount * capacity) {
+      return { status: 409, error: 'This draft is already complete.', league, revision: record.revision };
+    }
+    const now = Date.now();
+    const pickStartedAt = Number(league.draftPickStartedAt || league.picks.at(-1)?.timestamp);
+    if (!Number.isFinite(pickStartedAt) || pickStartedAt <= 0) {
+      league.draftPickStartedAt = now;
+      record.revision += 1;
+      await this.putLeague(record);
+      return { status: 409, error: 'The pick clock was initialized. Try again after 90 seconds.', league, revision: record.revision };
+    }
+    if (now - pickStartedAt < 90_000) {
+      return { status: 409, error: 'This pick still has time remaining.', league, revision: record.revision };
+    }
+    const teamId = teamPickAt(league, pickIndex);
+    const team = managerById(league, teamId);
+    const source = body.player;
+    const playerId = String(source?.id || '');
+    const positions = ROSTER_POSITIONS.filter((position) => !['FLEX', 'BENCH'].includes(position));
+    if (!team || !validString(playerId, 100) || !validString(source?.name, 100)
+      || !positions.includes(source?.position) || allPlayerIds(league).has(playerId)) {
+      return { status: 400, error: 'Choose an available player with valid roster data.', league, revision: record.revision };
+    }
+    const player = {
+      id: playerId,
+      name: source.name.trim(),
+      firstName: String(source.firstName || '').slice(0, 60),
+      lastName: String(source.lastName || '').slice(0, 60),
+      position: source.position,
+      team: String(source.team || '').slice(0, 20),
+      teamName: String(source.teamName || '').slice(0, 60),
+      teamId: String(source.teamId || '').slice(0, 30),
+      jersey: String(source.jersey || '').slice(0, 10),
+      headshot: typeof source.headshot === 'string' && source.headshot.startsWith('https://')
+        ? source.headshot.slice(0, 500)
+        : '',
+      href: typeof source.href === 'string' && source.href.startsWith('https://')
+        ? source.href.slice(0, 500)
+        : '',
+      status: String(source.status || 'ACTIVE').slice(0, 40),
+      statusUpdatedAt: typeof source.statusUpdatedAt === 'string'
+        ? source.statusUpdatedAt.slice(0, 80)
+        : null,
+      espnRank: typeof source.espnRank === 'number' && Number.isFinite(source.espnRank)
+        ? source.espnRank
+        : null,
+      projectedPoints: typeof source.projectedPoints === 'number' && Number.isFinite(source.projectedPoints)
+        ? source.projectedPoints
+        : null,
+      projectedStats: source.projectedStats && typeof source.projectedStats === 'object'
+        && !Array.isArray(source.projectedStats)
+        ? Object.fromEntries(Object.entries(source.projectedStats)
+          .filter(([key, value]) => /^[a-zA-Z0-9_]{1,60}$/.test(key)
+            && typeof value === 'number' && Number.isFinite(value) && Math.abs(value) <= 1000))
+        : null,
+    };
+    const slots = league.rosterSlots || {};
+    const positionCount = team.roster.filter((member) =>
+      member.position === player.position && member.rosterSlot === player.position).length;
+    const flexCount = team.roster.filter((member) => member.rosterSlot === 'FLEX').length;
+    let rosterSlot = positionCount < Number(slots[player.position] || 0)
+      ? player.position
+      : ['RB', 'WR', 'TE'].includes(player.position) && flexCount < Number(slots.FLEX || 0)
+        ? 'FLEX'
+        : 'BENCH';
+    const starterCapacity = Object.entries(slots)
+      .filter(([position]) => position !== 'BENCH')
+      .reduce((sum, [, count]) => sum + Number(count || 0), 0);
+    const openStartingSlots = Math.max(0, starterCapacity - team.roster.filter((member) => member.rosterSlot !== 'BENCH').length);
+    if (capacity <= team.roster.length || (capacity - team.roster.length <= openStartingSlots && rosterSlot === 'BENCH')
+      || (rosterSlot === 'BENCH' && team.roster.filter((member) => member.rosterSlot === 'BENCH').length >= Number(slots.BENCH || 0))) {
+      return { status: 409, error: 'No eligible roster slot is available for this auto-pick.', league, revision: record.revision };
+    }
+    const rosterSlotIndex = team.roster.reduce((highest, member) =>
+      member.rosterSlot === rosterSlot ? Math.max(highest, Number(member.rosterSlotIndex) || 0) : highest, -1) + 1;
+    const timestamp = Date.now();
+    team.roster.push({
+      ...player,
+      draftedBy: team.id,
+      rosterSlot,
+      rosterSlotIndex,
+      gameStats: {},
+    });
+    league.picks.push({
+      pick: pickIndex + 1,
+      round: Math.floor(pickIndex / league.teamCount) + 1,
+      teamId: team.id,
+      playerId,
+      playerName: player.name,
+      position: player.position,
+      nflTeam: player.team,
+      timestamp,
+    });
+    league.draftPickStartedAt = timestamp;
+    record.revision += 1;
+    await this.putLeague(record);
+    const ownTeamIds = league.managers.filter((entry) => entry.ownerUserId === body.userId).map((entry) => entry.id);
+    return {
+      success: true,
+      league,
+      revision: record.revision,
+      userTeamId: ownTeamIds[0] || '',
+      userTeamIds: ownTeamIds,
+      isCommissioner: league.commissionerUserId === body.userId,
+    };
   }
 
   async updateDraftSettings(body) {

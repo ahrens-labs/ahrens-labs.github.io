@@ -125,6 +125,7 @@ input::-moz-selection, textarea::-moz-selection { color: #090d12; background: #7
 .draft-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 12px 13px; border-bottom: 1px solid var(--line); }
 .draft-state { display: flex; align-items: center; gap: 9px; color: #b5c1ba; font: 10px var(--mono); }
 .draft-state b { color: var(--lime); font-weight: 400; }
+.draft-state .pick-clock { color: var(--lime); white-space: nowrap; }
 .draft-state .pick-chip { padding: 6px 8px; border: 1px solid #d1f36b38; background: #d1f36b0b; color: var(--lime); }
 .draft-controls { display: flex; gap: 7px; flex-wrap: wrap; }
 .player-filters { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 120px) minmax(0, 130px); gap: 7px; padding: 11px 13px; border-bottom: 1px solid var(--line); }
@@ -1018,10 +1019,10 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       <div class="draft-layout">
         <section class="panel">
           <div class="draft-toolbar">
-            <div class="draft-state"><span class="pick-chip" id="pickLabel">PICK 1.01</span><span>ON THE CLOCK: <b id="onClock">Commissioner</b></span></div>
+            <div class="draft-state"><span class="pick-chip" id="pickLabel">PICK 1.01</span><span>ON THE CLOCK: <b id="onClock">Commissioner</b></span><span class="pick-clock" id="pickClockLabel">90 SEC PER PICK</span></div>
             <div class="draft-controls"><button class="button primary" id="startDraft">START / RESUME DRAFT</button><button class="button" id="autoDraft">AUTO-PICK ONE</button><button class="button hidden" id="autoDraftAll">AUTO-PICK ENTIRE DRAFT</button></div>
           </div>
-          <p class="online-draft-time" id="draftScheduleStatus"></p>
+          <p class="online-draft-time" id="draftScheduleStatus">Each pick has 90 seconds. If time runs out, the best available player is picked automatically.</p>
           <section class="panel auction-panel" id="auctionPanel" hidden>
             <div class="panel-head"><h2>Live salary-cap auction</h2><span id="auctionCountdown">WAITING TO START</span></div>
             <div class="auction-live-summary"><strong id="auctionPlayerName">No player nominated</strong><span>High bid <b id="auctionHighBid">—</b></span><span id="auctionHighBidTeam">—</span><span id="auctionBudgetStatus">Your budget —</span></div>
@@ -1402,6 +1403,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     picks: [],
     trades: [],
     draftStarted: false,
+    draftPickStartedAt: null,
     selectedRoster: 0,
     selectedWeek: 8,
     matchupSchedule: [],
@@ -1477,7 +1479,11 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
   let onlineSaveRetryTimer = 0;
   let onlineSaveRetryDelay = 1000;
   let onlineRefreshTimer = 0;
+  let onlineRefreshIntervalMs = 0;
   let auctionCountdownTimer = 0;
+  let draftClockTimer = 0;
+  let draftAutoPickBusy = false;
+  let draftAutoPickAttemptedPick = -1;
   let draftOrderDraft = [];
 
   function loadLeague() {
@@ -1567,6 +1573,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     league.draftSettings = data.league.draftSettings || structuredClone(STORAGE_FALLBACK.draftSettings);
     league.auctionState = data.league.auctionState || null;
     league.draftAt = data.league.draftAt || null;
+    league.draftPickStartedAt = data.league.draftPickStartedAt || null;
     onlineRevision = Number(data.revision) || 0;
     onlineUserTeamId = String(data.userTeamId || '');
     onlineUserId = String(data.userId || '');
@@ -2585,11 +2592,16 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
   }
 
   function startOnlineRefreshTimer() {
-    if (onlineRefreshTimer) return;
+    const activeSnakeDraft = $('onlineLobby').hidden && onlineReady && league.draftStarted
+      && league.draftSettings?.type !== 'auction';
+    const intervalMs = activeSnakeDraft ? 2000 : 10000;
+    if (onlineRefreshTimer && onlineRefreshIntervalMs === intervalMs) return;
+    if (onlineRefreshTimer) window.clearInterval(onlineRefreshTimer);
+    onlineRefreshIntervalMs = intervalMs;
     onlineRefreshTimer = window.setInterval(() => {
       if ($('onlineLobby').hidden) void refreshActiveLeague();
       else void refreshOnlineLobby();
-    }, 10000);
+    }, intervalMs);
   }
 
   function startLeagueApp() {
@@ -4004,6 +4016,8 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     });
     league.picks.push(draftPick);
     league.draftStarted = true;
+    league.draftPickStartedAt = Date.now();
+    draftAutoPickAttemptedPick = -1;
     if (!options.deferSave) saveLeague();
     if (!options.deferRender) {
       renderDraft();
@@ -4166,6 +4180,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
   }
 
   function renderDraft() {
+    startOnlineRefreshTimer();
     const auctionMode = league.draftSettings?.type === 'auction';
     $('draftHeading').textContent = auctionMode ? 'Build your roster in the live auction.' : 'Pick players in snake order.';
     $('draftInstructions').textContent = auctionMode
@@ -4174,6 +4189,8 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     renderDraftPlayers();
     renderDraftOrder();
     renderOnClockRoster();
+    if (!draftClockTimer) draftClockTimer = window.setInterval(updateDraftPickClock, 1000);
+    updateDraftPickClock();
     const index = currentPickIndex();
     const round = Math.floor(index / league.teamCount) + 1;
     const slot = (index % league.teamCount) + 1;
@@ -4214,9 +4231,10 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     $('resetDraft').disabled = onlineReady;
     const scheduleStatus = $('draftScheduleStatus');
     if (scheduleStatus) {
-      scheduleStatus.textContent = league.draftAt
-        ? `DRAFT SCHEDULED · ${new Date(league.draftAt).toLocaleString()}`
-        : onlineCommissioner ? 'No draft time scheduled yet.' : 'The commissioner has not scheduled a draft yet.';
+      scheduleStatus.textContent = [
+        league.draftAt ? `DRAFT SCHEDULED · ${new Date(league.draftAt).toLocaleString()}` : '',
+        auctionMode ? '' : 'Each pick has 90 seconds. If time runs out, the best available player is picked automatically.',
+      ].filter(Boolean).join(' · ');
     }
   }
 
@@ -4281,18 +4299,24 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     projection.title = formatProjectionTitle(player);
     const points = document.createElement('td'); points.className = 'fantasy-points-cell'; points.textContent = playerFantasyPoints(player).toFixed(2);
     const action = document.createElement('td');
-    const add = document.createElement('button');
-    add.className = 'add-player';
-    add.type = 'button';
-    add.textContent = auctionMode ? 'BID' : '+';
-    add.classList.toggle('auction-nominate', auctionMode);
-    add.setAttribute('aria-label', auctionMode ? `Nominate ${player.name}` : `Draft ${player.name}`);
-    add.disabled = auctionMode
-      ? !onlineReady || !league.draftStarted || Boolean(league.auctionState) || isDraftComplete()
-        || !ownsOnlineTeam(auctionNominatorAt().id)
-      : !league.draftStarted || isDraftComplete() || (onlineReady && !ownsOnlineTeam(draftTeamAt(currentPickIndex())?.id));
-    add.addEventListener('click', () => auctionMode ? void submitAuctionAction('nominate', { player }) : makePick(player));
-    action.append(add);
+    const onClock = auctionMode ? auctionNominatorAt(currentPickIndex()) : draftTeamAt(currentPickIndex());
+    const canDraftPlayer = auctionMode
+      ? onlineReady && league.draftStarted && !league.auctionState && !isDraftComplete()
+        && ownsOnlineTeam(onClock?.id)
+      : league.draftStarted && !isDraftComplete()
+        && (!onlineReady || ownsOnlineTeam(onClock?.id));
+    if (canDraftPlayer) {
+      const add = document.createElement('button');
+      add.className = 'add-player';
+      add.type = 'button';
+      add.textContent = auctionMode ? 'BID' : '+';
+      add.classList.toggle('auction-nominate', auctionMode);
+      add.setAttribute('aria-label', auctionMode ? `Nominate ${player.name}` : `Draft ${player.name}`);
+      add.addEventListener('click', () => auctionMode ? void submitAuctionAction('nominate', { player }) : makePick(player));
+      action.append(add);
+    } else {
+      action.textContent = league.draftStarted && !isDraftComplete() ? 'WAITING FOR YOUR TURN' : '—';
+    }
     row.append(rank, name, pos, nfl, matchup, status, projection, points, action);
     return row;
   }
@@ -4420,6 +4444,10 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
   function autoPick() {
     const team = draftTeamAt(currentPickIndex());
     if (!team) return;
+    if (onlineReady && !ownsOnlineTeam(team.id)) {
+      notify(`${team.teamName} is on the clock. Only that team’s manager can draft a player.`);
+      return;
+    }
     const options = draftEligiblePlayers(team);
     const picked = chooseAutoPick(team, options);
     if (picked) makePick(picked);
@@ -4514,10 +4542,98 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       return;
     }
     league.draftStarted = true;
+    league.draftPickStartedAt ||= Date.now();
+    draftAutoPickAttemptedPick = -1;
     saveLeague();
     renderDraft();
     renderPlayerPool();
     notify(`${draftTeamAt(currentPickIndex()).teamName} is on the clock.`);
+  }
+
+  function draftPickStartedAt() {
+    const timestamp = Number(league.draftPickStartedAt || league.picks.at(-1)?.timestamp);
+    return Number.isFinite(timestamp) && timestamp > 0 ? timestamp : Date.now();
+  }
+
+  function updateDraftPickClock() {
+    const label = $('pickClockLabel');
+    if (!label) return;
+    if (league.draftSettings?.type === 'auction') {
+      label.hidden = true;
+      return;
+    }
+    label.hidden = false;
+    if (!league.draftStarted) {
+      label.textContent = '90 SEC PER PICK';
+      return;
+    }
+    if (isDraftComplete()) {
+      label.textContent = 'DRAFT COMPLETE';
+      return;
+    }
+    const secondsLeft = Math.max(0, Math.ceil(
+      (draftPickStartedAt() + 90_000 - Date.now()) / 1000,
+    ));
+    label.textContent = secondsLeft > 0
+      ? `PICK CLOCK ${String(Math.floor(secondsLeft / 60)).padStart(2, '0')}:${String(secondsLeft % 60).padStart(2, '0')}`
+      : 'TIME EXPIRED · AUTO-PICKING';
+    if (secondsLeft > 0 || draftAutoPickBusy || draftAutoPickAttemptedPick === currentPickIndex()) return;
+    if (onlineReady) {
+      void submitTimedAutoPick();
+      return;
+    }
+    const pickIndex = currentPickIndex();
+    const team = draftTeamAt(pickIndex);
+    const player = team && chooseAutoPick(team, draftEligiblePlayers(team));
+    if (!player) {
+      draftAutoPickAttemptedPick = pickIndex;
+      label.textContent = 'AUTO-PICK UNAVAILABLE';
+      notify('The timed auto-pick could not find an eligible player. Check roster settings and player availability.');
+      return;
+    }
+    draftAutoPickAttemptedPick = pickIndex;
+    autoPick();
+  }
+
+  async function submitTimedAutoPick() {
+    if (draftAutoPickBusy || !players.length) return;
+    const pickIndex = currentPickIndex();
+    const team = draftTeamAt(pickIndex);
+    const player = team && chooseAutoPick(team, draftEligiblePlayers(team));
+    if (!player) {
+      draftAutoPickAttemptedPick = pickIndex;
+      notify('The timed auto-pick could not find an eligible player. Check roster settings and player availability.');
+      return;
+    }
+    draftAutoPickBusy = true;
+    try {
+      const { response, data } = await fantasyRequest(
+        `/api/fantasy/leagues/${encodeURIComponent(league.leagueId)}/draft-pick`,
+        'POST',
+        { player },
+      );
+      if (!response.ok) {
+        if (data.league) {
+          installOnlineLeague(data);
+          renderOnlineLeague();
+        }
+        if (response.status !== 409) {
+          draftAutoPickAttemptedPick = pickIndex;
+          notify(data.error || 'The timed auto-pick could not be completed.');
+        }
+        return;
+      }
+      installOnlineLeague(data);
+      renderOnlineLeague();
+      draftAutoPickAttemptedPick = -1;
+      const lastPick = league.picks.at(-1);
+      notify(`Time expired. ${lastPick.playerName} was auto-picked for ${teamLabel(league.managers.find((entry) => entry.id === lastPick.teamId))}.`);
+    } catch (error) {
+      notify(error.message || 'The timed auto-pick could not reach the league server.');
+    } finally {
+      draftAutoPickBusy = false;
+      updateDraftPickClock();
+    }
   }
 
   function renderRosters() {
