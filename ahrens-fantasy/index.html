@@ -247,6 +247,7 @@ input::-moz-selection, textarea::-moz-selection { color: #090d12; background: #7
 .commissioner-scoring-heading h2 { margin: 7px 0 0; color: #edf2ef; font: 700 clamp(24px, 3vw, 32px)/1.08 var(--display); letter-spacing: -.05em; }
 .commissioner-scoring-heading p { max-width: 700px; margin: 7px 0 0; color: var(--muted); font-size: 13px; line-height: 1.55; }
 .scoring-tabs { display: flex; flex-wrap: wrap; gap: 3px; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+.scoring-position-select { padding: 12px 12px 0; }
 .scoring-tab { padding: 7px 9px; border: 1px solid transparent; background: transparent; color: #8a9791; font: 8px var(--mono); letter-spacing: .07em; cursor: pointer; }
 .scoring-tab.active { border-color: #8ed9df40; color: var(--cyan); background: #8ed9df0b; }
 .scoring-group { display: none; padding: 4px 15px 14px; }
@@ -1133,9 +1134,9 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
           <button class="button primary" id="saveWaiverSettings">SAVE WAIVER SETTINGS</button>
         </div>
       </section>
-      <div class="view-title commissioner-scoring-heading"><div><div class="eyebrow">Scoring rules</div><h2>Set how points are earned.</h2><p>Change any stat’s point value. Projections and actual scores both use these rules. Default is full PPR.</p></div><div class="title-actions"><button class="button" id="resetScoring">Restore defaults</button><button class="button primary" id="saveScoring">Save scoring</button></div></div>
+      <div class="view-title commissioner-scoring-heading"><div><div class="eyebrow">Scoring rules</div><h2>Set how points are earned.</h2><p>Choose a position to customize its stat values independently. Projections, live and historical scores, and averages all recalculate with the selected position’s scoring. Defaults are full PPR.</p></div><div class="title-actions"><button class="button" id="resetScoring">Restore defaults</button><button class="button primary" id="saveScoring">Save scoring</button></div></div>
       <div class="scoring-layout">
-        <section class="panel"><div class="scoring-tabs" id="scoringTabs"></div><div id="scoringGroups"></div><div class="scoring-actions"><span class="small-note">Your custom league scoring applies to live player box scores automatically.</span><button class="button primary" id="saveScoringBottom">SAVE RULES</button></div></section>
+        <section class="panel"><div class="field scoring-position-select"><label for="scoringPositionSelect">CUSTOMIZE SCORING FOR</label><select class="filter-select" id="scoringPositionSelect"></select></div><div class="scoring-tabs" id="scoringTabs"></div><div id="scoringGroups"></div><div class="scoring-actions"><span class="small-note">Each position starts with the league’s default values. Changes apply only to the selected position.</span><button class="button primary" id="saveScoringBottom">SAVE RULES</button></div></section>
         <aside>
           <section class="panel scoring-summary"><h3>YOUR SCORING MODEL</h3><p>Players earn points for every matching stat in the live feed. Use negative point values for turnovers, fumbles, or points allowed.</p><ul id="scoringSummary"></ul><div class="data-source-note">REAL-TIME PLAYER STATS COME FROM ESPN'S PUBLIC SCOREBOARD AND GAME-SUMMARY FEEDS. THE PUBLIC FEED IS UNOFFICIAL AND MAY CHANGE OR LAG.</div></section>
         </aside>
@@ -1398,6 +1399,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     teamCount: 10,
     rosterSlots: { ...DEFAULT_SLOTS },
     scoring: { ...DEFAULT_SCORING },
+    positionScoring: {},
     managers: [],
     draftOrder: [],
     picks: [],
@@ -1440,6 +1442,9 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
   const historicalSummaryRequests = new Map();
   const playerAveragePoints = new Map();
   const playerAverageErrors = new Map();
+  let selectedScoringPosition = 'QB';
+  const scoringDraftValues = new Map();
+  let scoringDraftContext = '';
   let playerAverageLoad = null;
   let playerAverageLoadContext = '';
   let feedEvents = [];
@@ -1566,6 +1571,9 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     league = { ...structuredClone(STORAGE_FALLBACK), ...data.league };
     league.rosterSlots = { ...DEFAULT_SLOTS, ...(data.league.rosterSlots || {}) };
     league.scoring = { ...DEFAULT_SCORING, ...(data.league.scoring || {}) };
+    league.positionScoring = data.league.positionScoring && typeof data.league.positionScoring === 'object'
+      ? data.league.positionScoring
+      : {};
     league.managers = data.league.managers;
     league.draftOrder = Array.isArray(data.league.draftOrder) ? data.league.draftOrder : [];
     league.picks = Array.isArray(data.league.picks) ? data.league.picks : [];
@@ -3310,7 +3318,10 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
   }
 
   function playerAverageContext(throughWeek = Number(league.selectedWeek)) {
-    return `${league.leagueId || 'local'}:${SEASON}:${throughWeek}:${JSON.stringify(league.scoring)}`;
+    return `${league.leagueId || 'local'}:${SEASON}:${throughWeek}:${JSON.stringify({
+      scoring: league.scoring,
+      positionScoring: league.positionScoring,
+    })}`;
   }
 
   function playerAverageKey(player, throughWeek = Number(league.selectedWeek)) {
@@ -5443,7 +5454,28 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
   function customScoringRender() {
     const tabs = $('scoringTabs');
     const container = $('scoringGroups');
-    const categories = SCORING_CATEGORIES.filter((category) => !category.enabled || category.enabled());
+    const positionSelect = $('scoringPositionSelect');
+    const currentScoringContext = JSON.stringify({
+      scoring: league.scoring,
+      positionScoring: league.positionScoring,
+    });
+    const sameScoringContext = scoringDraftContext === currentScoringContext;
+    if (!sameScoringContext) {
+      scoringDraftValues.clear();
+      scoringDraftContext = currentScoringContext;
+    } else {
+      document.querySelectorAll('[data-position-stat]').forEach((input) => {
+        const key = `${input.dataset.scoringPosition}:${input.dataset.positionStat}`;
+        scoringDraftValues.set(key, Number(input.value));
+      });
+    }
+    if (!POSITION_ORDER.includes(selectedScoringPosition)) selectedScoringPosition = 'QB';
+    const selectedPosition = positionSelect.value;
+    positionSelect.replaceChildren(...POSITION_ORDER.map((position) =>
+      new Option(ROSTER_POSITION_LABELS[position], position)));
+    if (POSITION_ORDER.includes(selectedPosition)) selectedScoringPosition = selectedPosition;
+    positionSelect.value = selectedScoringPosition;
+    const categories = SCORING_CATEGORIES;
     if (!categories.some((category) => category.id === selectedScoringCategory)) {
       selectedScoringCategory = categories[0]?.id || '';
     }
@@ -5467,9 +5499,17 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
         const stat = document.createElement('div');
         stat.innerHTML = `<div class="scoring-stat">${escapeHTML(label)}</div><div class="scoring-desc">${escapeHTML(description)}</div>`;
         const input = document.createElement('input');
-        input.type = 'number'; input.step = '0.1'; input.dataset.stat = key;
-        input.value = Number(league.scoring[key] ?? DEFAULT_SCORING[key]);
-        input.setAttribute('aria-label', `${label} points`);
+        input.type = 'number'; input.step = '0.1'; input.dataset.positionStat = key;
+        input.dataset.scoringPosition = selectedScoringPosition;
+        const draftKey = `${selectedScoringPosition}:${key}`;
+        input.value = Number(scoringDraftValues.has(draftKey)
+          ? scoringDraftValues.get(draftKey)
+          : scoringForPlayer({ position: selectedScoringPosition })[key] ?? DEFAULT_SCORING[key]);
+        input.setAttribute('aria-label', `${ROSTER_POSITION_LABELS[selectedScoringPosition]} ${label} points`);
+        input.addEventListener('input', () => {
+          scoringDraftValues.set(draftKey, Number(input.value));
+          renderScoringSummary();
+        });
         const unit = document.createElement('span'); unit.className = 'unit'; unit.textContent = 'PTS / EVENT';
         row.append(stat, input, unit);
         group.append(row);
@@ -5482,13 +5522,20 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
   function renderScoringSummary() {
     const target = $('scoringSummary');
     if (!target) return;
+    const scoring = scoringForPlayer({ position: selectedScoringPosition });
+    const valueFor = (key) => {
+      const draftKey = `${selectedScoringPosition}:${key}`;
+      return scoringDraftValues.has(draftKey) ? scoringDraftValues.get(draftKey) : scoring[key];
+    };
+    const heading = target.closest('.scoring-summary')?.querySelector('h3');
+    if (heading) heading.textContent = `${ROSTER_POSITION_LABELS[selectedScoringPosition].toUpperCase()} SCORING MODEL`;
     const lines = [
-      ['Passing TD', league.scoring.passTD],
-      ['Passing yards', `${league.scoring.passYards} / yard`],
-      ['Reception', league.scoring.receptions],
-      ['Rushing / receiving TD', `${league.scoring.rushTD} / ${league.scoring.receivingTD}`],
-      ['Interception', league.scoring.passInterceptions],
-      ['Fumble lost', league.scoring.fumbleLost],
+      ['Passing TD', valueFor('passTD')],
+      ['Passing yards', `${valueFor('passYards')} / yard`],
+      ['Reception', valueFor('receptions')],
+      ['Rushing / receiving TD', `${valueFor('rushTD')} / ${valueFor('receivingTD')}`],
+      ['Interception', valueFor('passInterceptions')],
+      ['Fumble lost', valueFor('fumbleLost')],
     ];
     target.replaceChildren();
     lines.forEach(([label, value]) => {
@@ -5503,9 +5550,21 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       notify('Only the commissioner can change scoring rules.');
       return;
     }
-    document.querySelectorAll('[data-stat]').forEach((input) => {
-      const number = Number(input.value);
-      league.scoring[input.dataset.stat] = Number.isFinite(number) ? number : 0;
+    const positionScoring = Object.fromEntries(Object.entries(league.positionScoring || {})
+      .map(([position, values]) => [position, { ...values }]));
+    scoringDraftValues.forEach((value, key) => {
+      const separator = key.indexOf(':');
+      const position = key.slice(0, separator);
+      const stat = key.slice(separator + 1);
+      if (!POSITION_ORDER.includes(position) || !/^[a-zA-Z0-9_]{1,60}$/.test(stat)) return;
+      positionScoring[position] ||= {};
+      positionScoring[position][stat] = Number.isFinite(value) ? value : 0;
+    });
+    league.positionScoring = positionScoring;
+    scoringDraftValues.clear();
+    scoringDraftContext = JSON.stringify({
+      scoring: league.scoring,
+      positionScoring: league.positionScoring,
     });
     commissionerSettingsDirty = false;
     saveLeague();
@@ -5515,7 +5574,15 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     renderOverview();
     renderMatchups();
     renderRosters();
-    notify('Custom scoring rules saved to this league.');
+    notify(`${ROSTER_POSITION_LABELS[selectedScoringPosition]} scoring saved. Updating historical matchup scores…`);
+    void rescoreHistoricalMatchupResults()
+      .then((updated) => {
+        if (updated) notify('Position scoring saved. Historical matchup scores and averages are updated.');
+      })
+      .catch((error) => {
+        console.error('Could not recalculate historical matchup scores after a scoring change.', error);
+        notify(`Scoring saved, but historical matchup scores could not be recalculated: ${error.message || 'NFL historical stats are unavailable.'}`);
+      });
   }
 
   function resetScoring() {
@@ -5524,6 +5591,12 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       return;
     }
     league.scoring = { ...DEFAULT_SCORING };
+    league.positionScoring = {};
+    scoringDraftValues.clear();
+    scoringDraftContext = JSON.stringify({
+      scoring: league.scoring,
+      positionScoring: league.positionScoring,
+    });
     commissionerSettingsDirty = false;
     saveLeague();
     customScoringRender();
@@ -5533,6 +5606,14 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     renderMatchups();
     renderRosters();
     notify('Default scoring restored: full PPR.');
+    void rescoreHistoricalMatchupResults()
+      .then((updated) => {
+        if (updated) notify('Default scoring restored. Historical matchup scores and averages are updated.');
+      })
+      .catch((error) => {
+        console.error('Could not recalculate historical matchup scores after restoring scoring defaults.', error);
+        notify(`Default scoring restored, but historical matchup scores could not be recalculated: ${error.message || 'NFL historical stats are unavailable.'}`);
+      });
   }
 
   function openLeagueSettings() {
@@ -6144,7 +6225,12 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     $('liveGameCount').textContent = games.filter((game) => game.live).length;
     $('liveGameFoot').textContent = games.some((game) => game.live) ? 'NFL GAMES IN PROGRESS' : 'WAITING ON KICKOFF';
     ui.leagueNameBar.textContent = league.name;
-    ui.leagueMeta.textContent = `${league.teamCount} TEAMS · SNAKE DRAFT · ${league.scoring.receptions === 1 ? 'FULL PPR' : league.scoring.receptions === .5 ? 'HALF PPR' : league.scoring.receptions === 0 ? 'STANDARD' : 'CUSTOM SCORING'}`;
+    const scoringLabel = Object.keys(league.positionScoring || {}).length
+      ? 'POSITION SCORING'
+      : league.scoring.receptions === 1 ? 'FULL PPR'
+        : league.scoring.receptions === .5 ? 'HALF PPR'
+          : league.scoring.receptions === 0 ? 'STANDARD' : 'CUSTOM SCORING';
+    ui.leagueMeta.textContent = `${league.teamCount} TEAMS · SNAKE DRAFT · ${scoringLabel}`;
     const totals = league.managers.map((team) => ({ team, points: team.roster.reduce((sum, player) => sum + playerFantasyPoints(player), 0) }));
     $('topScore').textContent = totals[0]?.team.roster.length ? totals[0].points.toFixed(1) : '—';
     $('topScoreName').textContent = totals[0]?.team.roster.length ? teamLabel(totals[0].team).toUpperCase() : 'DRAFT PLAYERS TO BEGIN';
@@ -6227,6 +6313,49 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     league.matchupResults ||= {};
     league.matchupResults[week] = scores;
     saveLeague();
+  }
+
+  async function rescoreHistoricalMatchupResults() {
+    const weeks = Object.keys(league.matchupResults || {})
+      .map(Number)
+      .filter((week) => Number.isInteger(week) && week > 0);
+    if (!weeks.length) return false;
+    const leagueId = league.leagueId;
+    const throughWeek = Math.max(...weeks);
+    const rosteredPlayers = league.managers.flatMap((team) =>
+      team.roster
+        .filter((player) => player.rosterSlot && player.rosterSlot !== 'BENCH')
+        .map((player) => ({ teamId: team.id, player })));
+    const histories = new Map();
+    rosteredPlayers.forEach(({ player }) => {
+      const key = player.position === 'D/ST' ? `D/ST:${player.teamId}` : String(player.id);
+      if (!histories.has(key)) histories.set(key, fetchPlayerWeekHistory(player, throughWeek));
+    });
+    await Promise.all([...histories].map(async ([key, history]) => {
+      histories.set(key, await history);
+    }));
+    if (leagueId !== league.leagueId) return false;
+    let updated = false;
+    for (const week of weeks) {
+      const scores = Object.fromEntries(league.managers.map((team) => [team.id, 0]));
+      rosteredPlayers.forEach(({ teamId, player }) => {
+        const key = player.position === 'D/ST' ? `D/ST:${player.teamId}` : String(player.id);
+        const stats = histories.get(key)?.get(week);
+        if (stats) scores[teamId] += playerFantasyPoints(player, stats);
+      });
+      Object.keys(scores).forEach((teamId) => { scores[teamId] = Number(scores[teamId].toFixed(2)); });
+      const previous = league.matchupResults[week] || {};
+      if (league.managers.some((team) => Number(previous[team.id]) !== scores[team.id])) {
+        league.matchupResults[week] = scores;
+        updated = true;
+      }
+    }
+    if (updated) {
+      saveLeague();
+      renderOverview();
+      renderMatchups();
+    }
+    return updated;
   }
 
   function renderFeaturedMatchup() {
@@ -7017,7 +7146,15 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     return JSON.stringify(comparable);
   }
 
+  function scoringForPlayer(player) {
+    return {
+      ...league.scoring,
+      ...(league.positionScoring?.[player.position] || {}),
+    };
+  }
+
   function playerFantasyPoints(player, statOverride = null) {
+    const scoring = scoringForPlayer(player);
     const stat = statOverride || (player.position === 'D/ST'
       ? teamStats.get(player.teamId) || {}
       : playerStats.get(player.id) || player.gameStats || {});
@@ -7041,20 +7178,20 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       ['kickReturnAvg', 'kickReturnAvg'], ['puntReturnAvg', 'puntReturnAvg'], ['kickReturnLongest', 'kickReturnLongest'],
       ['puntReturnLongest', 'puntReturnLongest'],
     ];
-    simple.forEach(([statKey, scoringKey]) => { points += Number(stat[statKey] || 0) * Number(league.scoring[scoringKey] || 0); });
+    simple.forEach(([statKey, scoringKey]) => { points += Number(stat[statKey] || 0) * Number(scoring[scoringKey] || 0); });
     const anyTwoPointConversions = Number(stat.passTwoPoint || 0)
       + Number(stat.rushTwoPoint || 0)
       + Number(stat.receivingTwoPoint || 0);
-    points += anyTwoPointConversions * Number(league.scoring.twoPointConversion || 0);
+    points += anyTwoPointConversions * Number(scoring.twoPointConversion || 0);
     if (player.position === 'K') {
       ['fgAttempts', 'fgPercentage', 'fgLongest', 'xpAttempts'].forEach((key) => {
-        points += Number(stat[key] || 0) * Number(league.scoring[key] || 0);
+        points += Number(stat[key] || 0) * Number(scoring[key] || 0);
       });
-      points += (Number(stat.fgMade || 0) * 3 + Number(stat.xpMade || 0)) * Number(league.scoring.kickingPoints || 0);
+      points += (Number(stat.fgMade || 0) * 3 + Number(stat.xpMade || 0)) * Number(scoring.kickingPoints || 0);
     }
     const bonusPoints = (bonusKey, chanceKey, reached) => {
       const multiplier = stat.expectedBonuses ? Number(stat[chanceKey] || 0) : Number(reached);
-      return multiplier * Number(league.scoring[bonusKey] || 0);
+      return multiplier * Number(scoring[bonusKey] || 0);
     };
     points += bonusPoints('pass300YardBonus', 'pass300YardChance', Number(stat.passYards || 0) >= 300);
     points += bonusPoints('pass400YardBonus', 'pass400YardChance', Number(stat.passYards || 0) >= 400);
@@ -7066,15 +7203,15 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       const mid = stat.fg40to49 || 0;
       const long = stat.fg50Plus || 0;
       points += stat.fgTiersReported
-        ? short * league.scoring.fg0to39 + mid * league.scoring.fg40to49 + long * league.scoring.fg50Plus
-        : makes * league.scoring.fg0to39;
-      points += (stat.fgMissed || 0) * league.scoring.fgMissed;
-      points += (stat.xpMade || 0) * league.scoring.xpMade + (stat.xpMissed || 0) * league.scoring.xpMissed;
-      points += (stat.fg60PlusCount || 0) * league.scoring.fg60PlusBonus;
+        ? short * scoring.fg0to39 + mid * scoring.fg40to49 + long * scoring.fg50Plus
+        : makes * scoring.fg0to39;
+      points += (stat.fgMissed || 0) * scoring.fgMissed;
+      points += (stat.xpMade || 0) * scoring.xpMade + (stat.xpMissed || 0) * scoring.xpMissed;
+      points += (stat.fg60PlusCount || 0) * scoring.fg60PlusBonus;
     }
     if (player.position === 'P') {
       ['puntAttempts', 'puntYards', 'puntAverage', 'puntInside20', 'puntTouchbacks'].forEach((key) => {
-        points += Number(stat[key] || 0) * Number(league.scoring[key] || 0);
+        points += Number(stat[key] || 0) * Number(scoring[key] || 0);
       });
     }
     if (IDP_POSITIONS.includes(player.position)) {
@@ -7088,7 +7225,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
         ['defTurnovers', 'idpTurnovers'],
       ];
       individualDefenseStats.forEach(([statKey, scoringKey]) => {
-        points += Number(stat[statKey] || 0) * Number(league.scoring[scoringKey] || 0);
+        points += Number(stat[statKey] || 0) * Number(scoring[scoringKey] || 0);
       });
     }
     if (player.position === 'D/ST') {
@@ -7102,25 +7239,25 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
         ['defPassesDefended', 'defPassesDefended'], ['defQbHits', 'defQbHits'],
         ['defTurnovers', 'defTurnovers'],
       ].forEach(([statKey, scoringKey]) => {
-        points += Number(teamLine[statKey] || 0) * Number(league.scoring[scoringKey] || 0);
+        points += Number(teamLine[statKey] || 0) * Number(scoring[scoringKey] || 0);
       });
       const allowed = teamLine.pointsAllowed;
       if (teamLine.defBucketsProjected) {
-        points += Number(teamLine.defPoints0 || 0) * Number(league.scoring.defPoints0 || 0)
-          + Number(teamLine.defPoints1to6 || 0) * Number(league.scoring.defPoints1to6 || 0)
-          + Number(teamLine.defPoints7to13 || 0) * Number(league.scoring.defPoints7to13 || 0)
-          + Number(teamLine.defPoints14to20 || 0) * Number(league.scoring.defPoints14to20 || 0)
-          + Number(teamLine.defPoints21to27 || 0) * Number(league.scoring.defPoints21to27 || 0)
-          + Number(teamLine.defPoints28to34 || 0) * Number(league.scoring.defPoints28to34 || 0)
-          + Number(teamLine.defPoints35Plus || 0) * Number(league.scoring.defPoints35Plus || 0);
-      } else if (allowed === 0) points += league.scoring.defPoints0;
-      else if (allowed <= 6) points += league.scoring.defPoints1to6;
-      else if (allowed <= 13) points += league.scoring.defPoints7to13;
-      else if (allowed <= 20) points += league.scoring.defPoints14to20;
-      else if (allowed <= 27) points += league.scoring.defPoints21to27;
-      else if (allowed <= 34) points += league.scoring.defPoints28to34;
-      else if (Number.isFinite(Number(allowed))) points += league.scoring.defPoints35Plus;
-      points += (teamLine.yardsAllowed || 0) * league.scoring.defYardsAllowed;
+        points += Number(teamLine.defPoints0 || 0) * Number(scoring.defPoints0 || 0)
+          + Number(teamLine.defPoints1to6 || 0) * Number(scoring.defPoints1to6 || 0)
+          + Number(teamLine.defPoints7to13 || 0) * Number(scoring.defPoints7to13 || 0)
+          + Number(teamLine.defPoints14to20 || 0) * Number(scoring.defPoints14to20 || 0)
+          + Number(teamLine.defPoints21to27 || 0) * Number(scoring.defPoints21to27 || 0)
+          + Number(teamLine.defPoints28to34 || 0) * Number(scoring.defPoints28to34 || 0)
+          + Number(teamLine.defPoints35Plus || 0) * Number(scoring.defPoints35Plus || 0);
+      } else if (allowed === 0) points += scoring.defPoints0;
+      else if (allowed <= 6) points += scoring.defPoints1to6;
+      else if (allowed <= 13) points += scoring.defPoints7to13;
+      else if (allowed <= 20) points += scoring.defPoints14to20;
+      else if (allowed <= 27) points += scoring.defPoints21to27;
+      else if (allowed <= 34) points += scoring.defPoints28to34;
+      else if (Number.isFinite(Number(allowed))) points += scoring.defPoints35Plus;
+      points += (teamLine.yardsAllowed || 0) * scoring.defYardsAllowed;
     }
     return Number(points.toFixed(2));
   }
@@ -7241,6 +7378,10 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     $('saveScoring').addEventListener('click', saveScoring);
     $('saveScoringBottom').addEventListener('click', saveScoring);
     $('resetScoring').addEventListener('click', resetScoring);
+    $('scoringPositionSelect').addEventListener('change', () => {
+      selectedScoringPosition = $('scoringPositionSelect').value;
+      customScoringRender();
+    });
     $('openTrade').addEventListener('click', openTradeDesk);
     $('renameRosterTeam').addEventListener('click', renameRosterTeam);
     document.querySelectorAll('.nav-tab[data-view]').forEach((tab) => {

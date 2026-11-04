@@ -7,6 +7,7 @@ const SEASON_WEEKS = 18;
 const ROSTER_POSITIONS = [
   'QB', 'RB', 'WR', 'TE', 'K', 'D/ST', 'DL', 'DE', 'DT', 'LB', 'DB', 'CB', 'S', 'P', 'FLEX', 'BENCH',
 ];
+const SCORING_POSITIONS = ['QB', 'RB', 'WR', 'TE', 'K', 'D/ST', 'DL', 'DE', 'DT', 'LB', 'DB', 'CB', 'S', 'P'];
 
 function randomIndex(max) {
   const value = new Uint32Array(1);
@@ -131,6 +132,15 @@ function validWaiverSettings(settings) {
   return settings && typeof settings === 'object'
     && typeof settings.enabled === 'boolean'
     && [24, 48, 72, 168].includes(Number(settings.periodHours));
+}
+
+function validPositionScoring(positionScoring) {
+  if (!positionScoring || typeof positionScoring !== 'object' || Array.isArray(positionScoring)) return false;
+  return Object.entries(positionScoring).every(([position, scoring]) =>
+    SCORING_POSITIONS.includes(position)
+    && scoring && typeof scoring === 'object' && !Array.isArray(scoring)
+    && Object.entries(scoring).every(([key, value]) => /^[a-zA-Z0-9_]{1,60}$/.test(key)
+      && Number.isFinite(Number(value)) && Math.abs(Number(value)) <= 1000));
 }
 
 function validDraftSettings(settings, teamCount) {
@@ -464,6 +474,7 @@ function normalizeSetup(input, userId, username) {
       managers,
       rosterSlots,
       scoring,
+      positionScoring: {},
       draftOrder,
       matchupSchedule: generateMatchupSchedule(managers.map((manager) => manager.id), playoffSettings),
       playoffSettings,
@@ -614,11 +625,14 @@ function validateLeagueSave(previous, incoming, userId) {
     auctionClockSeconds: 30,
   };
   const incomingDraftSettings = incoming.draftSettings || previousDraftSettings;
+  const previousPositionScoring = previous.positionScoring || {};
+  const incomingPositionScoring = incoming.positionScoring || previousPositionScoring;
   if (!validDraftSettings(incomingDraftSettings, previous.teamCount)
     || incomingDraftSettings.order.some((id) => !previous.managers.some((team) => team.id === id))
     || !sameValue(incomingDraftSettings.order, incoming.draftOrder)) {
     return 'Draft settings are invalid.';
   }
+  if (!validPositionScoring(incomingPositionScoring)) return 'Position scoring values are invalid.';
   const ownTeams = previous.managers.filter((team) => team.ownerUserId === userId);
   if (!ownTeams.length) return 'You do not manage a team in this league.';
   const ownTeamIds = new Set(ownTeams.map((team) => team.id));
@@ -633,6 +647,7 @@ function validateLeagueSave(previous, incoming, userId) {
   if (!commissioner && (incoming.name !== previous.name
     || !sameValue(incoming.rosterSlots, previous.rosterSlots)
     || !sameValue(incoming.scoring, previous.scoring)
+    || !sameValue(incomingPositionScoring, previousPositionScoring)
     || !sameValue(incoming.draftOrder, previous.draftOrder)
     || !sameValue(incoming.matchupSchedule, previous.matchupSchedule)
     || !sameValue(incoming.playoffSettings, previous.playoffSettings)
@@ -801,6 +816,7 @@ function validateLeagueSave(previous, incoming, userId) {
         return 'Scoring values are invalid.';
       }
     }
+    if (!validPositionScoring(incomingPositionScoring)) return 'Position scoring values are invalid.';
   }
   return null;
 }
@@ -941,6 +957,10 @@ export class FantasyLeagueStore {
     if (!ownTeam) return { status: 403, error: 'You are not a member of this league.' };
     const teamIds = record.league.managers.map((team) => team.id);
     let migrated = false;
+    if (!validPositionScoring(record.league.positionScoring)) {
+      record.league.positionScoring = {};
+      migrated = true;
+    }
     record.league.managers.forEach((team) => {
       const abbreviation = typeof team.teamAbbreviation === 'string'
         ? team.teamAbbreviation.trim().toUpperCase()
@@ -1350,6 +1370,7 @@ export class FantasyLeagueStore {
     const league = jsonClone(body.league);
     league.draftAt = record.league.draftAt;
     league.commissionerUserId = record.league.commissionerUserId;
+    league.positionScoring = jsonClone(body.league.positionScoring || record.league.positionScoring || {});
     league.draftPickStartedAt = league.draftSettings?.type === 'auction' || !league.draftStarted
       ? null
       : !record.league.draftStarted || body.league.picks.length > record.league.picks.length

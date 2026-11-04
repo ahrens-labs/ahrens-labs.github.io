@@ -284,6 +284,7 @@ test('league edits, schedule, and playoff settings persist after the draft start
   await storage.put(`league:${leagueId}`, record);
   const updatedLeague = structuredClone(record.league);
   updatedLeague.scoring.passTD = 6;
+  updatedLeague.positionScoring.QB = { rushYards: 0.2 };
   updatedLeague.selectedWeek = 5;
   updatedLeague.playoffSettings = {
     teamCount: 2,
@@ -314,10 +315,22 @@ test('league edits, schedule, and playoff settings persist after the draft start
   });
   assert.equal(loadResponse.status, 200);
   assert.equal(loaded.league.scoring.passTD, 6);
+  assert.deepEqual(loaded.league.positionScoring, { QB: { rushYards: 0.2 } });
   assert.equal(loaded.league.selectedWeek, 5);
   assert.deepEqual(loaded.league.playoffSettings, updatedLeague.playoffSettings);
   assert.deepEqual(loaded.league.matchupSchedule, updatedLeague.matchupSchedule);
   assert.equal(loaded.revision, 2);
+
+  const invalidScoringLeague = structuredClone(loaded.league);
+  invalidScoringLeague.positionScoring.QB.rushYards = 1001;
+  const invalidScoring = await storeRequest(store, 'save', {
+    userId: 'account-1',
+    leagueId,
+    league: invalidScoringLeague,
+    revision: loaded.revision,
+  });
+  assert.equal(invalidScoring.response.status, 403);
+  assert.match(invalidScoring.data.error, /Position scoring values are invalid/);
 });
 
 test('new leagues get balanced matchups before the draft', async () => {
@@ -599,6 +612,7 @@ test('a manager cannot change commissioner settings or another team abbreviation
   const updatedLeague = structuredClone(record.league);
   updatedLeague.matchupSchedule.reverse();
   updatedLeague.playoffSettings.weeks = 2;
+  updatedLeague.positionScoring.QB = { rushYards: 0.2 };
   updatedLeague.managers[0].teamAbbreviation = 'NEW';
   const { response, data } = await storeRequest(store, 'save', {
     userId: 'manager',
