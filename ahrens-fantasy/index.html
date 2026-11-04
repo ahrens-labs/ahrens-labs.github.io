@@ -806,6 +806,8 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
 .online-lobby-row strong { display: block; color: #17283e; font-size: 14px; }
 .online-lobby-row small { display: block; margin-top: 4px; color: #64778f; font-size: 12px; }
 .online-lobby-error { min-height: 20px; margin-top: 10px; color: #b8494d; font-size: 13px; }
+.online-lobby-error.is-pending { color: #64778f; }
+.online-lobby-error.is-success { color: #26784c; }
 .online-lobby-auth { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 .online-draft-time { margin: 10px 0; color: #547098; font: 11px var(--mono); }
 .team-claim-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; color: var(--text); font-size: 13px; }
@@ -2381,13 +2383,13 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       const accept = document.createElement('button');
       accept.className = 'button primary';
       accept.type = 'button';
-      accept.textContent = 'ACCEPT';
-      accept.addEventListener('click', () => { void respondToInvitation(invitation, true); });
+      accept.textContent = 'JOIN LEAGUE';
+      accept.addEventListener('click', () => { void respondToInvitation(invitation, true, row); });
       const decline = document.createElement('button');
       decline.className = 'button';
       decline.type = 'button';
       decline.textContent = 'DECLINE';
-      decline.addEventListener('click', () => { void respondToInvitation(invitation, false); });
+      decline.addEventListener('click', () => { void respondToInvitation(invitation, false, row); });
       actions.append(accept, decline);
       row.append(copy, actions);
       target.append(row);
@@ -2488,66 +2490,26 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     notify(data.deleted ? 'League deleted.' : 'You left the league.');
   }
 
-  async function respondToInvitation(invitation, accept) {
-    if (accept) {
-      const wrapper = document.createElement('div');
-      const field = document.createElement('div');
-      field.className = 'field';
-      const label = document.createElement('label');
-      label.htmlFor = 'joinedTeamName';
-      label.textContent = 'YOUR FANTASY TEAM NAME';
-      const input = document.createElement('input');
-      input.className = 'input';
-      input.id = 'joinedTeamName';
-      input.type = 'text';
-      input.maxLength = 40;
-      input.value = `${onlineUsername || 'Manager'}'s Team`.slice(0, input.maxLength);
-      field.append(label, input);
-      const abbreviationField = document.createElement('div');
-      abbreviationField.className = 'field';
-      const abbreviationLabel = document.createElement('label');
-      abbreviationLabel.htmlFor = 'joinedTeamAbbreviation';
-      abbreviationLabel.textContent = 'TEAM ABBREVIATION (1–4 LETTERS OR NUMBERS)';
-      const abbreviationInput = document.createElement('input');
-      abbreviationInput.className = 'input';
-      abbreviationInput.id = 'joinedTeamAbbreviation';
-      abbreviationInput.type = 'text';
-      abbreviationInput.maxLength = 4;
-      abbreviationInput.autocomplete = 'off';
-      abbreviationInput.value = defaultTeamAbbreviation(input.value);
-      abbreviationInput.addEventListener('input', () => {
-        abbreviationInput.value = abbreviationInput.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4);
-      });
-      abbreviationField.append(abbreviationLabel, abbreviationInput);
-      const note = document.createElement('p');
-      note.className = 'small-note';
-      note.textContent = `You’re joining ${invitation.leagueName || 'this league'} as ${invitation.teamName || 'a team manager'}. You can change your team name later on the roster page.`;
-      wrapper.append(field, abbreviationField, note);
-      openModal('Choose your fantasy team name.', 'JOIN LEAGUE', wrapper, async () => {
-        const teamName = input.value.trim();
-        if (!teamName) {
-          notify('Enter a fantasy team name.');
-          input.focus();
-          return false;
-        }
-        const teamAbbreviation = abbreviationInput.value.trim().toUpperCase();
-        if (!/^[A-Z0-9]{1,4}$/.test(teamAbbreviation)) {
-          notify('Enter a team abbreviation of 1 to 4 letters or numbers.');
-          abbreviationInput.focus();
-          return false;
-        }
-        closeModal();
-        notify('Joining league…');
-        await finishInvitationResponse(invitation, true, teamName, teamAbbreviation);
-      }, { confirmText: 'JOIN LEAGUE' });
-      input.focus();
-      input.select();
-      return;
-    }
+  async function respondToInvitation(invitation, accept, row) {
+    const status = $('onlineLobbyError');
+    status.classList.remove('is-success');
+    status.classList.toggle('is-pending', accept);
+    status.textContent = accept ? `Joining ${invitation.leagueName || 'league'}…` : 'Declining invitation…';
+    const buttons = [...row.querySelectorAll('button')];
+    buttons.forEach((button) => { button.disabled = true; });
     try {
-      await finishInvitationResponse(invitation, false);
+      if (accept) {
+        const teamName = `${onlineUsername || 'Manager'}'s Team`.slice(0, 40);
+        await finishInvitationResponse(invitation, true, teamName, defaultTeamAbbreviation(teamName));
+      } else {
+        await finishInvitationResponse(invitation, false);
+        status.classList.add('is-success');
+        status.textContent = 'Invitation declined.';
+      }
     } catch (error) {
-      $('onlineLobbyError').textContent = error.message || 'Could not update the invitation.';
+      status.classList.remove('is-pending', 'is-success');
+      status.textContent = error.message || `Could not ${accept ? 'join' : 'decline'} this league invitation.`;
+      buttons.forEach((button) => { button.disabled = false; });
     }
   }
 

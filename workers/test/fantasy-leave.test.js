@@ -879,3 +879,65 @@ test('the Fantasy API routes authenticated waiver claims to the league store', a
   assert.equal(data.userTeamId, 'team-1');
   assert.equal(data.league.pendingWaiverClaims.length, 1);
 });
+
+test('the Fantasy API accepts an invitation and returns the joined league', async () => {
+  const fantasyStore = new FantasyLeagueStore({
+    storage: new MemoryStorage([
+      ['league:league-1', {
+        league: {
+          leagueId: 'league-1',
+          commissionerUserId: 'commissioner',
+          managers: [
+            { id: 'team-1', ownerUserId: 'commissioner', roster: [] },
+            { id: 'team-2', ownerUserId: null, teamName: 'Team 2', roster: [] },
+          ],
+          pendingInviteUserIds: ['manager'],
+        },
+        revision: 1,
+      }],
+      ['user:manager', {
+        leagueIds: [],
+        invitations: [{ leagueId: 'league-1', teamId: 'team-2', teamName: 'Team 2' }],
+      }],
+    ]),
+  });
+  const env = {
+    SESSION: {
+      idFromName: (id) => id,
+      get: () => ({ fetch: async () => Response.json({ userId: 'manager' }) }),
+    },
+    USER_ACCOUNT: {
+      idFromName: (id) => id,
+      get: () => ({ fetch: async () => Response.json({ username: 'Manager' }) }),
+    },
+    FANTASY_LEAGUE: {
+      idFromName: (id) => id,
+      get: () => ({ fetch: (request) => fantasyStore.fetch(request) }),
+    },
+  };
+  const request = new Request('https://ahrenslabs.com/api/fantasy/invitations/accept', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer test-session', 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      leagueId: 'league-1',
+      teamId: 'team-2',
+      teamName: "Manager's Team",
+      teamAbbreviation: 'MT',
+    }),
+  });
+
+  const response = await handleFantasyRequest(
+    request,
+    env,
+    {},
+    '/api/fantasy/invitations/accept',
+  );
+  const data = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(data.success, true);
+  assert.equal(data.leagueId, 'league-1');
+  assert.equal(data.userTeamId, 'team-2');
+  assert.equal(data.league.managers[1].ownerUserId, 'manager');
+  assert.equal(data.league.managers[1].teamAbbreviation, 'MT');
+});
