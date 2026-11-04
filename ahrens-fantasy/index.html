@@ -125,7 +125,8 @@ input::-moz-selection, textarea::-moz-selection { color: #090d12; background: #7
 .draft-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 12px 13px; border-bottom: 1px solid var(--line); }
 .draft-state { display: flex; align-items: center; gap: 9px; color: #b5c1ba; font: 10px var(--mono); }
 .draft-state b { color: var(--lime); font-weight: 400; }
-.draft-state .pick-clock { color: var(--lime); white-space: nowrap; }
+.draft-state .pick-clock { padding: 7px 9px; border: 1px solid #d1f36b38; background: #d1f36b0b; color: var(--lime); font-size: 11px; font-weight: 700; white-space: nowrap; }
+.draft-state .pick-clock.is-urgent { border-color: #fb718566; background: #fb71851a; color: #fb7185; }
 .draft-state .pick-chip { padding: 6px 8px; border: 1px solid #d1f36b38; background: #d1f36b0b; color: var(--lime); }
 .draft-controls { display: flex; gap: 7px; flex-wrap: wrap; }
 .player-filters { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 120px) minmax(0, 130px); gap: 7px; padding: 11px 13px; border-bottom: 1px solid var(--line); }
@@ -531,6 +532,8 @@ html, body { color: var(--text); background: var(--bg); }
 .draft-state { color: #5e6c63; }
 .draft-state b, .draft-state .pick-chip { color: #2458b7; }
 .draft-state .pick-chip { border-color: #bfd0ec; background: #eff5ff; }
+.draft-state .pick-clock { border-color: #bfd0ec; background: #eff5ff; color: #2458b7; }
+.draft-state .pick-clock.is-urgent { border-color: #f3b4be; background: #fff0f2; color: #b4233b; }
 .input, .filter-select { border-color: var(--line-strong); background: #fff; color: #36443b; }
 .input::placeholder { color: #98a39b; }
 .player-table th, .roster-table th, .score-table th { background: #f4f7f2; color: #748178; }
@@ -1020,7 +1023,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       <div class="draft-layout">
         <section class="panel">
           <div class="draft-toolbar">
-            <div class="draft-state"><span class="pick-chip" id="pickLabel">PICK 1.01</span><span>ON THE CLOCK: <b id="onClock">Commissioner</b></span><span class="pick-clock" id="pickClockLabel">90 SEC PER PICK</span></div>
+            <div class="draft-state"><span class="pick-chip" id="pickLabel">PICK 1.01</span><span>ON THE CLOCK: <b id="onClock">Commissioner</b></span><span class="pick-clock" id="pickClockLabel" role="timer" aria-label="Time left for the current pick">90 SEC PER PICK</span></div>
             <div class="draft-controls"><button class="button primary" id="startDraft">START / RESUME DRAFT</button><button class="button" id="autoDraft">AUTO-PICK ONE</button><button class="button hidden" id="autoDraftAll">AUTO-PICK ENTIRE DRAFT</button></div>
           </div>
           <p class="online-draft-time" id="draftScheduleStatus">Each pick has 90 seconds. If time runs out, the best available player is picked automatically.</p>
@@ -4593,6 +4596,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       return;
     }
     label.hidden = false;
+    label.classList.remove('is-urgent');
     if (!league.draftStarted) {
       label.textContent = '90 SEC PER PICK';
       return;
@@ -4605,8 +4609,9 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       (draftPickStartedAt() + 90_000 - Date.now()) / 1000,
     ));
     label.textContent = secondsLeft > 0
-      ? `PICK CLOCK ${String(Math.floor(secondsLeft / 60)).padStart(2, '0')}:${String(secondsLeft % 60).padStart(2, '0')}`
+      ? `TIME LEFT ${String(Math.floor(secondsLeft / 60)).padStart(2, '0')}:${String(secondsLeft % 60).padStart(2, '0')}`
       : 'TIME EXPIRED · AUTO-PICKING';
+    label.classList.toggle('is-urgent', secondsLeft > 0 && secondsLeft <= 15);
     if (secondsLeft > 0 || draftAutoPickBusy || draftAutoPickAttemptedPick === currentPickIndex()) return;
     if (onlineReady) {
       void submitTimedAutoPick();
