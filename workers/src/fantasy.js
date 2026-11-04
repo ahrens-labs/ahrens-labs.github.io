@@ -1,6 +1,45 @@
 const STORE_ID = 'fantasy-leagues-v1';
 const LEAGUE_PREFIX = 'league:';
 const USER_PREFIX = 'user:';
+
+const FANTASY_DRAFT_KV_PREFIX = 'fantasy:draft:';
+const FANTASY_LEAGUE_KV_PREFIX = 'fantasy:league:';
+const FANTASY_USER_KV_PREFIX = 'fantasy:user:';
+
+async function kvGetLeague(env, leagueId) {
+  if (!env.FANTASY_KV) return null;
+  try {
+    const raw = await env.FANTASY_KV.get(`${FANTASY_LEAGUE_KV_PREFIX}${leagueId}`, 'json');
+    return raw || null;
+  } catch {
+    return null;
+  }
+}
+
+async function kvPutLeague(env, value) {
+  if (!env.FANTASY_KV) return;
+  try {
+    await env.FANTASY_KV.put(`${FANTASY_LEAGUE_KV_PREFIX}${value.league.leagueId}`, JSON.stringify(value));
+  } catch {}
+}
+
+async function kvGetUser(env, userId) {
+  if (!env.FANTASY_KV) return { leagueIds: [], invitations: [] };
+  try {
+    const raw = await env.FANTASY_KV.get(`${FANTASY_USER_KV_PREFIX}${userId}`, 'json');
+    return raw || { leagueIds: [], invitations: [] };
+  } catch {
+    return { leagueIds: [], invitations: [] };
+  }
+}
+
+async function kvPutUser(env, userId, value) {
+  if (!env.FANTASY_KV) return;
+  try {
+    await env.FANTASY_KV.put(`${FANTASY_USER_KV_PREFIX}${userId}`, JSON.stringify(value));
+  } catch {}
+}
+
 const MAX_TEAMS = 16;
 const MAX_ROSTER_SLOTS = 30;
 const SEASON_WEEKS = 18;
@@ -158,6 +197,9 @@ function validDraftSettings(settings, teamCount) {
 export async function processScheduledFantasyWaivers(env) {
   if (!env.FANTASY_LEAGUE) throw new Error('Fantasy league storage is not configured.');
   const store = env.FANTASY_LEAGUE.get(env.FANTASY_LEAGUE.idFromName(STORE_ID));
+  if (store && typeof store.fetch === 'function') {
+    try { store.env = env; } catch {}
+  }
   const response = await store.fetch(new Request('https://fantasy.internal/process-waivers', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -175,6 +217,9 @@ export async function handleFantasyRequest(request, env, corsHeaders, path, { ex
   }
 
   const store = env.FANTASY_LEAGUE.get(env.FANTASY_LEAGUE.idFromName(STORE_ID));
+  if (store && typeof store.fetch === 'function') {
+    try { store.env = env; } catch {}
+  }
   const send = async (action, data = {}) => {
     const response = await store.fetch(new Request(`https://fantasy.internal/${action}`, {
       method: 'POST',
@@ -927,7 +972,8 @@ function validateLeagueSave(previous, incoming, userId) {
 export class FantasyLeagueStore {
   constructor(state, env) {
     this.state = state;
-    this.storage = state.storage;
+    this.storage = state?.storage || null;
+    this.env = env;
     this.requestQueue = Promise.resolve();
   }
 
@@ -937,13 +983,13 @@ export class FantasyLeagueStore {
     this.requestQueue = new Promise((resolve) => { releaseRequest = resolve; });
     await previousRequest;
     try {
-      return await this.handleRequest(request);
+      return await this.handleRequest(request, this.env || arguments[1]);
     } finally {
       releaseRequest();
     }
   }
 
-  async handleRequest(request) {
+  async handleRequest(request, env) {
     const path = new URL(request.url).pathname;
     let body;
     try {
@@ -960,13 +1006,19 @@ export class FantasyLeagueStore {
       else if (path === '/accept-invitation') result = await this.acceptInvitation(body);
       else if (path === '/decline-invitation') result = await this.declineInvitation(body);
       else if (path === '/schedule') result = await this.schedule(body);
-      else if (path === '/draft-control') result = await this.draftControl(body);
+      else if (path === '/draft-control') {
+        if (env && env.FANTASY_KV) result = await this.draftControlKV(body, env);
+        else result = await this.draftControl(body);
+      }
       else if (path === '/pickup-free-agent') result = await this.pickupFreeAgent(body);
       else if (path === '/manage-teams') result = await this.manageTeams(body);
       else if (path === '/leave') result = await this.leave(body);
       else if (path === '/draft-settings') result = await this.updateDraftSettings(body);
       else if (path === '/auction') result = await this.auction(body);
-      else if (path === '/draft-pick') result = await this.autoPickDraft(body);
+      else if (path === '/draft-pick') {
+        if (env && env.FANTASY_KV) result = await this.autoPickDraftKV(body, env);
+        else result = await this.autoPickDraft(body);
+      }
       else if (path === '/claim-waiver') result = await this.claimWaiver(body);
       else if (path === '/cancel-waiver-claim') result = await this.cancelWaiverClaim(body);
       else if (path === '/process-waivers') result = await this.processAllWaivers();
@@ -2161,4 +2213,186 @@ export class FantasyLeagueStore {
     await this.putLeague(record);
     return { success: true, league, revision: record.revision, userTeamId: claim.teamId };
   }
+
+  async draftControlKV(body, env) {
+    const leagueId = String(body.leagueId || '');
+    let record = await kvGetLeague(env, leagueId);
+    if (!record && this.storage) {
+      record = await this.getLeague(leagueId);
+    }
+    if (!record) return { status: 404, error: 'League not found.' };
+    const league = record.league;
+    if (league.commissionerUserId !== body.userId) {
+      return { status: 403, error: 'Only the commissioner can control the draft.' };
+    }
+    if (Number(body.revision) !== record.revision) {
+      return { status: 409, error: 'This league changed on another device. Reload before changing the draft.', league, revision: record.revision };
+    }
+    const action = String(body.action || '');
+    if (action === 'end') {
+      if (!league.draftStarted || league.draftEnded) {
+        return { status: 409, error: 'There is no active draft to end.', league, revision: record.revision };
+      }
+      league.draftEnded = true;
+      league.draftPickStartedAt = null;
+      league.auctionState = null;
+    } else if (action === 'restart') {
+      const draftedPlayerIds = new Set((league.picks || []).map((pick) => String(pick.playerId)));
+      league.managers.forEach((team) => {
+        team.roster = (team.roster || []).filter((player) => !draftedPlayerIds.has(String(player.id)));
+      });
+      league.picks = [];
+      league.draftStarted = false;
+      league.draftEnded = false;
+      league.draftPickStartedAt = null;
+      league.auctionState = null;
+    } else {
+      return { status: 400, error: 'Draft action must be end or restart.' };
+    }
+    record.revision += 1;
+    if (env.FANTASY_KV) {
+      await kvPutLeague(env, record);
+    } else if (this.storage) {
+      await this.putLeague(record);
+    }
+    const ownTeamIds = league.managers
+      .filter((team) => team.ownerUserId === body.userId)
+      .map((team) => team.id);
+    return {
+      league,
+      revision: record.revision,
+      userTeamId: ownTeamIds[0] || '',
+      userTeamIds: ownTeamIds,
+      isCommissioner: true,
+    };
+  }
+
+  async autoPickDraftKV(body, env) {
+    const leagueId = String(body.leagueId || '');
+    let record = await kvGetLeague(env, leagueId);
+    if (!record && this.storage) {
+      record = await this.getLeague(leagueId);
+    }
+    if (!record) return { status: 404, error: 'League not found.' };
+    const league = record.league;
+    if (!league.managers.some((team) => team.ownerUserId === body.userId)) {
+      return { status: 403, error: 'You are not a member of this league.' };
+    }
+    if (league.draftSettings?.type === 'auction') {
+      return { status: 409, error: 'Timed auto-picks are only available for snake drafts.' };
+    }
+    if (!league.draftStarted) return { status: 409, error: 'The draft has not started.' };
+    if (league.draftEnded) return { status: 409, error: 'The commissioner has ended this draft.', league, revision: record.revision };
+    if (league.draftAt && Date.parse(league.draftAt) > Date.now()) {
+      return { status: 409, error: 'The scheduled draft time has not arrived yet.' };
+    }
+    const pickIndex = league.picks.length;
+    const capacity = Object.values(league.rosterSlots || {})
+      .reduce((sum, count) => sum + Number(count || 0), 0);
+    if (pickIndex >= league.teamCount * capacity) {
+      return { status: 409, error: 'This draft is already complete.', league, revision: record.revision };
+    }
+    const now = Date.now();
+    const pickStartedAt = Number(league.draftPickStartedAt || league.picks.at(-1)?.timestamp);
+    if (!Number.isFinite(pickStartedAt) || pickStartedAt <= 0) {
+      league.draftPickStartedAt = now;
+      record.revision += 1;
+      if (env.FANTASY_KV) {
+        await kvPutLeague(env, record);
+      } else if (this.storage) {
+        await this.putLeague(record);
+      }
+      return { status: 409, error: 'The pick clock was initialized. Try again after 90 seconds.', league, revision: record.revision };
+    }
+    if (now - pickStartedAt < 90_000) {
+      return { status: 409, error: 'This pick still has time remaining.', league, revision: record.revision };
+    }
+    const teamId = teamPickAt(league, pickIndex);
+    const team = managerById(league, teamId);
+    const source = body.player;
+    const playerId = String(source?.id || '');
+    const positions = ROSTER_POSITIONS.filter((position) => !['FLEX', 'BENCH'].includes(position));
+    if (!team || !validString(playerId, 100) || !validString(source?.name, 100)
+      || !positions.includes(source?.position) || allPlayerIds(league).has(playerId)) {
+      return { status: 400, error: 'Choose an available player with valid roster data.', league, revision: record.revision };
+    }
+    const player = {
+      id: playerId,
+      name: source.name.trim(),
+      firstName: String(source.firstName || '').slice(0, 60),
+      lastName: String(source.lastName || '').slice(0, 60),
+      position: source.position,
+      team: String(source.team || '').slice(0, 20),
+      teamName: String(source.teamName || '').slice(0, 60),
+      teamId: String(source.teamId || '').slice(0, 30),
+      jersey: String(source.jersey || '').slice(0, 10),
+      headshot: typeof source.headshot === 'string' && source.headshot.startsWith('https://')
+        ? source.headshot.slice(0, 500)
+        : '',
+      href: typeof source.href === 'string' && source.href.startsWith('https://')
+        ? source.href.slice(0, 500)
+        : '',
+      status: String(source.status || 'ACTIVE').slice(0, 40),
+      statusUpdatedAt: typeof source.statusUpdatedAt === 'string'
+        ? source.statusUpdatedAt.slice(0, 80)
+        : null,
+      espnRank: typeof source.espnRank === 'number' && Number.isFinite(source.espnRank)
+        ? source.espnRank
+        : null,
+      projectedPoints: typeof source.projectedPoints === 'number' && Number.isFinite(source.projectedPoints)
+        ? source.projectedPoints
+        : null,
+      projectedStats: source.projectedStats && typeof source.projectedStats === 'object'
+        && !Array.isArray(source.projectedStats)
+        ? Object.fromEntries(Object.entries(source.projectedStats)
+          .filter(([key, value]) => /^[a-zA-Z0-9_]{1,60}$/.test(key)
+            && typeof value === 'number' && Number.isFinite(value) && Math.abs(value) <= 1000))
+        : null,
+    };
+    const slots = league.rosterSlots || {};
+    const positionCount = team.roster.filter((member) =>
+      member.position === player.position && member.rosterSlot === player.position).length;
+    const flexCount = team.roster.filter((member) => member.rosterSlot === 'FLEX').length;
+    let rosterSlot = positionCount < Number(slots[player.position] || 0)
+      ? player.position
+      : ['RB', 'WR', 'TE'].includes(player.position) && flexCount < Number(slots.FLEX || 0)
+        ? 'FLEX'
+        : 'BENCH';
+    player.rosterSlot = rosterSlot;
+    player.rosterSlotIndex = team.roster.filter((member) => member.rosterSlot === rosterSlot).length;
+    player.draftedBy = team.id;
+    player.gameStats = {};
+    team.roster.push(player);
+    const pick = {
+      pick: pickIndex + 1,
+      round: Math.floor(pickIndex / league.teamCount) + 1,
+      teamId: team.id,
+      playerId: player.id,
+      playerName: player.name,
+      position: player.position,
+      timestamp: now,
+    };
+    league.picks.push(pick);
+    league.draftPickStartedAt = now;
+    if (pickIndex + 1 >= league.teamCount * capacity) {
+      league.draftEnded = true;
+      league.draftPickStartedAt = null;
+    }
+    record.revision += 1;
+    if (env.FANTASY_KV) {
+      await kvPutLeague(env, record);
+    } else if (this.storage) {
+      await this.putLeague(record);
+    }
+    const ownTeamIds = league.managers.filter((entry) => entry.ownerUserId === body.userId).map((entry) => entry.id);
+    return {
+      league,
+      revision: record.revision,
+      userTeamId: body.userId === team.ownerUserId ? team.id : ownTeamIds[0] || '',
+      userTeamIds: ownTeamIds,
+      isCommissioner: league.commissionerUserId === body.userId,
+      pick,
+    };
+  }
+
 }
