@@ -213,6 +213,10 @@ test('accepting an invitation assigns the team and clears the invitation', async
 
   assert.equal(response.status, 200);
   assert.equal(data.success, true);
+  assert.equal(data.leagueId, 'league-1');
+  assert.equal(data.teamId, 'team-2');
+  assert.equal(data.league.managers[1].ownerUserId, 'manager');
+  assert.equal(data.revision, 2);
   assert.deepEqual((await storage.get('user:manager')).leagueIds, ['league-1']);
   assert.deepEqual((await storage.get('user:manager')).invitations, []);
   const leagueRecord = await storage.get('league:league-1');

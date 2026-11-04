@@ -1244,7 +1244,13 @@ export class FantasyLeagueStore {
     record.league.pendingInviteUserIds = (record.league.pendingInviteUserIds || []).filter((id) => id !== userId);
     await this.putLeague(record);
     await this.putUser(userId, user);
-    return { leagueId, teamId, success: true };
+    return {
+      leagueId,
+      teamId,
+      success: true,
+      league: record.league,
+      revision: record.revision,
+    };
   }
 
   async declineInvitation(body) {

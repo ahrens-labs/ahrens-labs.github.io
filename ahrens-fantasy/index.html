@@ -2503,9 +2503,15 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     onlineInvitations = onlineInvitations.filter((item) =>
       item.leagueId !== invitation.leagueId || item.teamId !== invitation.teamId);
     renderOnlineInvitations(onlineInvitations);
-    const refresh = refreshOnlineLobby();
-    if (accept) await switchLeague(invitation.leagueId);
-    await refresh;
+    if (accept) {
+      if (!data.league || !Array.isArray(data.league.managers)) {
+        throw new Error('Your invitation was accepted, but the league response was incomplete. Refresh your leagues to open it.');
+      }
+      if (!await switchLeague(invitation.leagueId, false, data)) {
+        throw new Error('Your invitation was accepted, but the league could not be opened yet. Refresh your leagues to try again.');
+      }
+    }
+    await refreshOnlineLobby();
   }
 
   async function openOnlineLobby() {
@@ -2762,7 +2768,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     select.disabled = onlineLeagues.length < 2;
   }
 
-  async function switchLeague(id, restoreSavedView = false) {
+  async function switchLeague(id, restoreSavedView = false, acceptedLeague = null) {
     if (!id) return false;
     if (id === league.leagueId && onlineReady) {
       $('onlineLobby').hidden = true;
@@ -2773,9 +2779,13 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       return true;
     }
     try {
-      await waitForOnlineSave();
-      const { response, data } = await fantasyRequest(`/api/fantasy/leagues/${encodeURIComponent(id)}`);
-      if (!response.ok) throw new Error(data.error || 'That league could not be opened.');
+      let data = acceptedLeague;
+      if (!data) {
+        await waitForOnlineSave();
+        const { response, data: loadedLeague } = await fantasyRequest(`/api/fantasy/leagues/${encodeURIComponent(id)}`);
+        if (!response.ok) throw new Error(loadedLeague.error || 'That league could not be opened.');
+        data = loadedLeague;
+      }
       installOnlineLeague(data);
       localStorage.setItem(ACTIVE_LEAGUE_KEY, id);
       feedGeneration += 1;
