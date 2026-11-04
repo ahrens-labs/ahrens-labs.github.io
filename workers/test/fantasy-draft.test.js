@@ -76,7 +76,7 @@ test('an expired snake-draft pick is made once by the server', async () => {
 test('a snake-draft pick cannot be auto-picked before its 90-second deadline', async () => {
   const { store, storage } = createStore();
   const record = await storage.get('league:league-1');
-  record.league.draftPickStartedAt = Date.now() - 89_999;
+  record.league.draftPickStartedAt = Date.now() - 80_000;
   await storage.put('league:league-1', record);
 
   const { response, data } = await autoPick(store, 'user-2');

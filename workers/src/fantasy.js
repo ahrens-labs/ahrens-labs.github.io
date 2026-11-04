@@ -249,6 +249,11 @@ export async function handleFantasyRequest(request, env, corsHeaders, path, { ex
       if (!body) return fantasyJson({ error: 'Invalid request body.' }, 400, corsHeaders);
       return send('auction', { leagueId, ...body });
     }
+    if (match[2] === 'draft-control' && request.method === 'POST') {
+      const body = await readFantasyBody(request);
+      if (!body) return fantasyJson({ error: 'Invalid request body.' }, 400, corsHeaders);
+      return send('draft-control', { leagueId, ...body });
+    }
     if (match[2] === 'draft-pick' && request.method === 'POST') {
       const body = await readFantasyBody(request);
       if (!body) return fantasyJson({ error: 'Invalid request body.' }, 400, corsHeaders);
@@ -493,6 +498,7 @@ function normalizeSetup(input, userId, username) {
       trades: [],
       pendingInviteUserIds: [],
       draftStarted: false,
+      draftEnded: false,
       draftAt: null,
       selectedRoster: 0,
       selectedWeek: Math.max(1, Math.min(18, Number(input.selectedWeek) || 1)),
@@ -773,7 +779,7 @@ function validateLeagueSave(previous, incoming, userId) {
         return 'Add one free agent at a time.';
       }
       if (added.length && incoming.picks?.length > previous.picks.length) {
-        if (added.length !== 1 || incoming.picks.length !== previous.picks.length + 1
+        if (previous.draftEnded || added.length !== 1 || incoming.picks.length !== previous.picks.length + 1
           || !ownTeamIds.has(teamPickAt(previous, previous.picks.length))
               || previous.draftSettings?.type === 'auction'
           || !ownTeamIds.has(incoming.picks.at(-1)?.teamId)
@@ -857,6 +863,7 @@ export class FantasyLeagueStore {
       else if (path === '/accept-invitation') result = await this.acceptInvitation(body);
       else if (path === '/decline-invitation') result = await this.declineInvitation(body);
       else if (path === '/schedule') result = await this.schedule(body);
+      else if (path === '/draft-control') result = await this.draftControl(body);
       else if (path === '/manage-teams') result = await this.manageTeams(body);
       else if (path === '/leave') result = await this.leave(body);
       else if (path === '/draft-settings') result = await this.updateDraftSettings(body);
@@ -1334,6 +1341,9 @@ export class FantasyLeagueStore {
     if (body.revision !== undefined && Number(body.revision) !== record.revision) {
       return { status: 409, error: 'This league changed on another device. Reload before changing the draft schedule.', league: record.league, revision: record.revision };
     }
+    if (record.league.draftEnded) {
+      return { status: 409, error: 'This draft has ended. Restart it before changing the schedule.', league: record.league, revision: record.revision };
+    }
     let draftAt = null;
     if (body.draftAt != null && body.draftAt !== '') {
       const timestamp = Date.parse(body.draftAt);
@@ -1344,6 +1354,15 @@ export class FantasyLeagueStore {
       draftAt = new Date(timestamp).toISOString();
     }
     record.league.draftAt = draftAt;
+    if (record.league.draftStarted) {
+      const resumeAt = draftAt ? Date.parse(draftAt) : Date.now();
+      if (record.league.draftSettings?.type === 'auction' && record.league.auctionState) {
+        record.league.auctionState.endsAt = resumeAt
+          + Number(record.league.draftSettings.auctionClockSeconds || 30) * 1000;
+      } else {
+        record.league.draftPickStartedAt = resumeAt;
+      }
+    }
     record.revision += 1;
     await this.putLeague(record);
     const ownTeam = record.league.managers.find((team) => team.ownerUserId === body.userId);
@@ -1351,6 +1370,51 @@ export class FantasyLeagueStore {
       league: record.league,
       revision: record.revision,
       userTeamId: ownTeam?.id || '',
+      isCommissioner: true,
+    };
+  }
+
+  async draftControl(body) {
+    const record = await this.getLeague(String(body.leagueId || ''));
+    if (!record) return { status: 404, error: 'League not found.' };
+    const league = record.league;
+    if (league.commissionerUserId !== body.userId) {
+      return { status: 403, error: 'Only the commissioner can control the draft.' };
+    }
+    if (Number(body.revision) !== record.revision) {
+      return { status: 409, error: 'This league changed on another device. Reload before changing the draft.', league, revision: record.revision };
+    }
+    const action = String(body.action || '');
+    if (action === 'end') {
+      if (!league.draftStarted || league.draftEnded) {
+        return { status: 409, error: 'There is no active draft to end.', league, revision: record.revision };
+      }
+      league.draftEnded = true;
+      league.draftPickStartedAt = null;
+      league.auctionState = null;
+    } else if (action === 'restart') {
+      const draftedPlayerIds = new Set((league.picks || []).map((pick) => String(pick.playerId)));
+      league.managers.forEach((team) => {
+        team.roster = (team.roster || []).filter((player) => !draftedPlayerIds.has(String(player.id)));
+      });
+      league.picks = [];
+      league.draftStarted = false;
+      league.draftEnded = false;
+      league.draftPickStartedAt = null;
+      league.auctionState = null;
+    } else {
+      return { status: 400, error: 'Draft action must be end or restart.' };
+    }
+    record.revision += 1;
+    await this.putLeague(record);
+    const ownTeamIds = league.managers
+      .filter((team) => team.ownerUserId === body.userId)
+      .map((team) => team.id);
+    return {
+      league,
+      revision: record.revision,
+      userTeamId: ownTeamIds[0] || '',
+      userTeamIds: ownTeamIds,
       isCommissioner: true,
     };
   }
@@ -1370,6 +1434,7 @@ export class FantasyLeagueStore {
     const league = jsonClone(body.league);
     league.draftAt = record.league.draftAt;
     league.commissionerUserId = record.league.commissionerUserId;
+    league.draftEnded = Boolean(record.league.draftEnded);
     league.positionScoring = jsonClone(body.league.positionScoring || record.league.positionScoring || {});
     league.draftPickStartedAt = league.draftSettings?.type === 'auction' || !league.draftStarted
       ? null
@@ -1433,6 +1498,7 @@ export class FantasyLeagueStore {
       return { status: 409, error: 'Timed auto-picks are only available for snake drafts.' };
     }
     if (!league.draftStarted) return { status: 409, error: 'The draft has not started.' };
+    if (league.draftEnded) return { status: 409, error: 'The commissioner has ended this draft.', league, revision: record.revision };
     if (league.draftAt && Date.parse(league.draftAt) > Date.now()) {
       return { status: 409, error: 'The scheduled draft time has not arrived yet.' };
     }
@@ -1593,7 +1659,8 @@ export class FantasyLeagueStore {
   finishAuction(record, now = Date.now()) {
     const league = record.league;
     const auction = league.auctionState;
-    if (!auction || Number(auction.endsAt) > now) return false;
+    if (!auction || league.draftEnded || (league.draftAt && Date.parse(league.draftAt) > now)
+      || Number(auction.endsAt) > now) return false;
     const winner = managerById(league, auction.highBidTeamId);
     const playerId = String(auction.player?.id || '');
     const rosterCapacity = Object.values(league.rosterSlots || {})
@@ -1652,6 +1719,9 @@ export class FantasyLeagueStore {
       if (!team) return { status: 403, error: 'You can only run the auction for your own team.' };
       if (league.draftSettings?.type !== 'auction') {
         return { status: 409, error: 'This league is not configured for an auction draft.' };
+      }
+      if (league.draftEnded) {
+        return { status: 409, error: 'The commissioner has ended this draft.', league, revision: record.revision };
       }
       if (league.draftAt && Date.parse(league.draftAt) > Date.now()) {
         return { status: 409, error: 'The scheduled draft time has not arrived yet.' };

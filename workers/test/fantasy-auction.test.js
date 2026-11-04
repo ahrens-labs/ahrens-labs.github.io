@@ -115,6 +115,89 @@ test('draft schedule updates reject stale revisions', async () => {
   assert.ok(saved.data.league.draftAt);
 });
 
+test('rescheduling an active draft pauses it and resets the current pick clock', async () => {
+  const { store, storage } = createStore();
+  const record = await storage.get('league:league-1');
+  record.league.draftStarted = true;
+  record.league.draftPickStartedAt = Date.now() - 30_000;
+  await storage.put('league:league-1', record);
+  const draftAt = new Date(Date.now() + 60_000).toISOString();
+
+  const saved = await request(store, 'schedule', {
+    leagueId: 'league-1',
+    userId: 'user-1',
+    revision: 1,
+    draftAt,
+  });
+
+  assert.equal(saved.response.status, 200);
+  assert.equal(saved.data.league.draftAt, draftAt);
+  assert.equal(saved.data.league.draftPickStartedAt, Date.parse(draftAt));
+});
+
+test('only the commissioner can end or restart the draft, preserving free-agent claims', async () => {
+  const { store, storage } = createStore();
+  const record = await storage.get('league:league-1');
+  record.league.draftStarted = true;
+  record.league.picks = [{
+    pick: 1,
+    round: 1,
+    teamId: 'team-1',
+    playerId: 'drafted-player',
+    playerName: 'Drafted Player',
+    position: 'QB',
+    timestamp: Date.now(),
+  }];
+  record.league.managers[0].roster = [
+    { id: 'drafted-player', name: 'Drafted Player' },
+    { id: 'free-agent', name: 'Free Agent' },
+  ];
+  await storage.put('league:league-1', record);
+
+  const unauthorized = await request(store, 'draft-control', {
+    leagueId: 'league-1',
+    userId: 'user-2',
+    action: 'end',
+    revision: 1,
+  });
+  assert.equal(unauthorized.response.status, 403);
+
+  const ended = await request(store, 'draft-control', {
+    leagueId: 'league-1',
+    userId: 'user-1',
+    action: 'end',
+    revision: 1,
+  });
+  assert.equal(ended.response.status, 200);
+  assert.equal(ended.data.league.draftEnded, true);
+  assert.equal(ended.data.league.picks.length, 1);
+  assert.equal(ended.data.league.managers[0].roster.length, 2);
+
+  const blockedPick = await request(store, 'draft-pick', {
+    leagueId: 'league-1',
+    userId: 'user-2',
+    player: {
+      id: 'another-player',
+      name: 'Another Player',
+      position: 'QB',
+    },
+  });
+  assert.equal(blockedPick.response.status, 409);
+  assert.match(blockedPick.data.error, /ended/i);
+
+  const restarted = await request(store, 'draft-control', {
+    leagueId: 'league-1',
+    userId: 'user-1',
+    action: 'restart',
+    revision: 2,
+  });
+  assert.equal(restarted.response.status, 200);
+  assert.equal(restarted.data.league.draftStarted, false);
+  assert.equal(restarted.data.league.draftEnded, false);
+  assert.equal(restarted.data.league.picks.length, 0);
+  assert.deepEqual(restarted.data.league.managers[0].roster.map((player) => player.id), ['free-agent']);
+});
+
 test('auction enforces team ownership and roster-slot budget reserves, then awards the player', async () => {
   const { store, storage } = createStore();
   await request(store, 'draft-settings', {

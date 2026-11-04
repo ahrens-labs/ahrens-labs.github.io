@@ -1024,7 +1024,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
         <section class="panel">
           <div class="draft-toolbar">
             <div class="draft-state"><span class="pick-chip" id="pickLabel">PICK 1.01</span><span>ON THE CLOCK: <b id="onClock">Commissioner</b></span><span class="pick-clock" id="pickClockLabel" role="timer" aria-label="Time left for the current pick">90 SEC PER PICK</span></div>
-            <div class="draft-controls"><button class="button primary" id="startDraft">START / RESUME DRAFT</button><button class="button" id="autoDraft">AUTO-PICK ONE</button><button class="button hidden" id="autoDraftAll">AUTO-PICK ENTIRE DRAFT</button></div>
+            <div class="draft-controls"><button class="button primary" id="startDraft">START / RESUME DRAFT</button><button class="button" id="autoDraft">AUTO-PICK ONE</button><button class="button hidden" id="autoDraftAll">AUTO-PICK ENTIRE DRAFT</button><button class="button hidden" id="rescheduleDraft">RESCHEDULE</button><button class="button danger hidden" id="endDraft">END DRAFT</button><button class="button hidden" id="restartDraft">RESTART DRAFT</button></div>
           </div>
           <p class="online-draft-time" id="draftScheduleStatus">Each pick has 90 seconds. If time runs out, the best available player is picked automatically.</p>
           <section class="panel auction-panel" id="auctionPanel" hidden>
@@ -1408,6 +1408,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     picks: [],
     trades: [],
     draftStarted: false,
+    draftEnded: false,
     draftPickStartedAt: null,
     selectedRoster: 0,
     selectedWeek: 8,
@@ -2780,9 +2781,12 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     field.append(label, input);
     const help = document.createElement('p');
     help.className = 'small-note';
-    help.textContent = 'Managers can start making picks once the scheduled time arrives. You can update or clear the schedule here.';
+    help.textContent = league.draftStarted
+      ? 'The draft pauses until this time. The current pick clock restarts when the draft resumes. Clear the time to resume now.'
+      : 'Managers can start making picks once the scheduled time arrives. You can update or clear the schedule here.';
     wrapper.append(field, help);
-    openModal('Set your league draft time.', 'SCHEDULE DRAFT', wrapper, async () => {
+    openModal(league.draftStarted ? 'Reschedule the draft.' : 'Set your league draft time.',
+      league.draftStarted ? 'PAUSE AND RESCHEDULE' : 'SCHEDULE DRAFT', wrapper, async () => {
       const value = $('draftTimeInput').value;
       const draftAt = value ? new Date(value).toISOString() : null;
       await waitForOnlineSave();
@@ -2794,8 +2798,57 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       if (!response.ok) throw new Error(data.error || 'Could not schedule the draft.');
       installOnlineLeague(data);
       renderOnlineLeague();
-      notify(draftAt ? `Draft scheduled for ${new Date(draftAt).toLocaleString()}.` : 'Draft schedule cleared.');
+      notify(draftAt
+        ? league.draftStarted
+          ? `Draft paused until ${new Date(draftAt).toLocaleString()}.`
+          : `Draft scheduled for ${new Date(draftAt).toLocaleString()}.`
+        : 'Draft schedule cleared. The current pick clock starts over now.');
     }, { confirmText: 'SAVE DRAFT TIME' });
+  }
+
+  async function submitCommissionerDraftControl(action) {
+    if (!onlineReady || !onlineCommissioner) {
+      notify('Only the commissioner can control the shared draft.');
+      return;
+    }
+    await waitForOnlineSave();
+    const { response, data } = await fantasyRequest(
+      `/api/fantasy/leagues/${encodeURIComponent(league.leagueId)}/draft-control`,
+      'POST',
+      { action, revision: onlineRevision },
+    );
+    if (!response.ok) {
+      if (data.league) {
+        installOnlineLeague(data);
+        renderOnlineLeague();
+      }
+      throw new Error(data.error || 'Could not change draft status.');
+    }
+    installOnlineLeague(data);
+    renderOnlineLeague();
+    notify(action === 'end'
+      ? 'Draft ended. Existing picks and rosters were kept.'
+      : 'Draft restarted from Pick 1. Drafted players were returned to the player pool.');
+  }
+
+  function endDraft() {
+    if (!onlineCommissioner || !league.draftStarted || isDraftClosed()) return;
+    openConfirm(
+      'End the draft?',
+      'This stops all future picks and cancels any active auction. Existing picks and rosters will be kept.',
+      () => submitCommissionerDraftControl('end'),
+      { confirmText: 'END DRAFT' },
+    );
+  }
+
+  function restartDraft() {
+    if (!onlineCommissioner || (!league.picks.length && !league.draftEnded)) return;
+    openConfirm(
+      'Restart the draft?',
+      'This removes all draft picks and returns drafted players to the player pool. Undrafted free-agent claims and league settings will be kept.',
+      () => submitCommissionerDraftControl('restart'),
+      { confirmText: 'RESTART FROM PICK 1' },
+    );
   }
 
   async function startOnlineApp() {
@@ -3896,6 +3949,10 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     return league.picks.length >= totalDraftPicks();
   }
 
+  function isDraftClosed() {
+    return league.draftEnded || isDraftComplete();
+  }
+
   function availablePlayers() {
     const drafted = new Set(league.managers.flatMap((team) => team.roster.map((player) => player.id)));
     const enabledPositions = new Set(activeRosterPositions());
@@ -4007,8 +4064,12 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       notify('Start the draft before selecting a player.');
       return;
     }
-    if (isDraftComplete()) {
-      notify('The draft is complete.');
+    if (isDraftClosed()) {
+      notify('The draft is closed.');
+      return;
+    }
+    if (league.draftAt && Date.parse(league.draftAt) > Date.now()) {
+      notify(`The draft is paused until ${new Date(league.draftAt).toLocaleString()}.`);
       return;
     }
     const index = currentPickIndex();
@@ -4086,6 +4147,8 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       league.picks = [];
       league.managers.forEach((team) => { team.roster = []; });
       league.draftStarted = false;
+      league.draftEnded = false;
+      league.draftPickStartedAt = null;
       saveLeague();
       renderDraft();
       renderRosters();
@@ -4123,7 +4186,8 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       : 'Sign in and claim a team to bid.';
     const isActive = Boolean(auction);
     const isNominator = ownsOnlineTeam(auctionNominatorAt().id);
-    const canBid = ownedTeams.length > 0 && isActive && !isDraftComplete();
+    const canBid = ownedTeams.length > 0 && isActive && !isDraftClosed()
+      && !(league.draftAt && Date.parse(league.draftAt) > Date.now());
     $('auctionBidAmount').min = String(Number(auction?.highBid || 0) + 1);
     if (document.activeElement !== $('auctionBidAmount')) {
       $('auctionBidAmount').value = String(Number(auction?.highBid || 0) + 1);
@@ -4133,13 +4197,17 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     $('placeAuctionBid').textContent = canBid ? 'PLACE BID' : 'BIDDING CLOSED';
     $('auctionHelp').textContent = !onlineReady
       ? 'Sign in to an Ahrens Labs account to participate in the shared auction.'
-      : isActive
-        ? `Bid as one of your teams. Every team must reserve $1 for each remaining open roster slot. Your bid resets the ${league.draftSettings.auctionClockSeconds}-second clock.`
-        : league.draftStarted
-          ? isNominator
-            ? 'Your team is up to nominate. Choose an available player from the list below.'
-            : `${teamLabel(auctionNominatorAt())} is up to nominate.`
-          : 'Start the auction when the first nominating team is ready.';
+      : league.draftEnded
+        ? 'The commissioner ended this draft. The completed rosters remain available.'
+        : league.draftAt && Date.parse(league.draftAt) > Date.now()
+          ? `Draft resumes ${new Date(league.draftAt).toLocaleString()}.`
+          : isActive
+            ? `Bid as one of your teams. Every team must reserve $1 for each remaining open roster slot. Your bid resets the ${league.draftSettings.auctionClockSeconds}-second clock.`
+            : league.draftStarted
+              ? isNominator
+                ? 'Your team is up to nominate. Choose an available player from the list below.'
+                : `${teamLabel(auctionNominatorAt())} is up to nominate.`
+              : 'Start the auction when the first nominating team is ready.';
     updateAuctionCountdown();
     if (isActive && !auctionCountdownTimer) {
       auctionCountdownTimer = window.setInterval(updateAuctionCountdown, 1000);
@@ -4151,6 +4219,14 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
 
   function updateAuctionCountdown() {
     const auction = league.auctionState;
+    if (league.draftEnded) {
+      $('auctionCountdown').textContent = 'DRAFT ENDED';
+      return;
+    }
+    if (league.draftAt && Date.parse(league.draftAt) > Date.now()) {
+      $('auctionCountdown').textContent = `RESUMES ${new Date(league.draftAt).toLocaleString()}`;
+      return;
+    }
     if (!auction) {
       $('auctionCountdown').textContent = league.draftStarted ? 'WAITING FOR NOMINATION' : 'WAITING TO START';
       return;
@@ -4229,43 +4305,51 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     const slot = (index % league.teamCount) + 1;
     $('draftRoundLabel').textContent = auctionMode ? 'Salary-cap auction' : `Round ${Math.min(round, rosterCapacity())}`;
     $('draftPickCount').textContent = `${league.picks.length} PICKS`;
-    $('pickLabel').textContent = isDraftComplete() ? 'DRAFT COMPLETE'
+    $('pickLabel').textContent = league.draftEnded ? 'DRAFT ENDED' : isDraftComplete() ? 'DRAFT COMPLETE'
       : auctionMode ? `NOMINATION ${league.picks.length + 1}` : `PICK ${round}.${String(slot).padStart(2, '0')}`;
     const team = auctionMode ? auctionNominatorAt(index) : draftTeamAt(index);
-    $('onClock').textContent = isDraftComplete() ? '—' : team?.teamName || '—';
-    $('clockTeamLabel').textContent = isDraftComplete() ? 'COMPLETE'
+    $('onClock').textContent = isDraftClosed() ? '—' : team?.teamName || '—';
+    $('clockTeamLabel').textContent = league.draftEnded ? 'ENDED' : isDraftComplete() ? 'COMPLETE'
       : auctionMode ? 'NOMINATING TEAM' : `ROUND ${round} · PICK ${slot}`;
-    $('startDraft').textContent = auctionMode
-      ? league.draftStarted ? 'AUCTION IN PROGRESS' : 'START AUCTION'
-      : league.draftStarted ? 'DRAFT IN PROGRESS' : 'START DRAFT';
-    const onClock = !isDraftComplete() ? (auctionMode ? auctionNominatorAt(currentPickIndex()) : draftTeamAt(currentPickIndex())) : null;
-    const canStart = !onlineReady || onlineCommissioner || Boolean(league.draftAt);
     const scheduledFuture = Boolean(league.draftAt && Date.parse(league.draftAt) > Date.now());
-    $('startDraft').disabled = isDraftComplete() || !canStart || scheduledFuture
+    $('startDraft').textContent = league.draftEnded ? 'DRAFT ENDED' : auctionMode
+      ? league.draftStarted ? 'AUCTION IN PROGRESS' : 'START AUCTION'
+      : league.draftStarted ? scheduledFuture ? 'DRAFT PAUSED' : 'DRAFT IN PROGRESS' : 'START DRAFT';
+    const onClock = !isDraftClosed() ? (auctionMode ? auctionNominatorAt(currentPickIndex()) : draftTeamAt(currentPickIndex())) : null;
+    const canStart = !onlineReady || onlineCommissioner || Boolean(league.draftAt);
+    $('startDraft').disabled = isDraftClosed() || !canStart || scheduledFuture
       || (auctionMode && (!onlineReady || league.draftStarted || !ownsOnlineTeam(onClock?.id)))
       || (!auctionMode && onlineReady && !ownsOnlineTeam(onClock?.id));
     $('startDraft').classList.toggle('hidden', auctionMode && league.draftStarted);
     $('auctionPanel').hidden = !auctionMode;
     renderAuctionPanel();
     const homeStart = $('homeStartDraft');
-    homeStart.textContent = isDraftComplete() ? 'DRAFT COMPLETE'
+    homeStart.textContent = league.draftEnded ? 'DRAFT ENDED' : isDraftComplete() ? 'DRAFT COMPLETE'
       : league.draftStarted ? auctionMode ? 'VIEW LIVE AUCTION ↗' : 'CONTINUE YOUR DRAFT ↗'
         : auctionMode ? 'START THE AUCTION ↗' : 'START A DRAFT ↗';
-    homeStart.disabled = isDraftComplete() || (auctionMode && !onlineReady);
+    homeStart.disabled = isDraftClosed() || (auctionMode && !onlineReady);
     $('undoPick').disabled = !league.picks.length
       || (onlineReady && !ownsOnlineTeam(league.picks.at(-1)?.teamId));
     $('undoPick').classList.toggle('hidden', auctionMode);
     $('resetDraft').classList.toggle('hidden', auctionMode);
     $('autoDraft').classList.toggle('hidden', auctionMode);
-    $('autoDraft').disabled = auctionMode || !league.draftStarted || isDraftComplete()
+    $('autoDraft').disabled = auctionMode || !league.draftStarted || isDraftClosed()
       || (onlineReady && !ownsOnlineTeam(onClock?.id));
     $('autoDraftAll').classList.toggle('hidden', onlineReady);
-    $('autoDraftAll').disabled = onlineReady || isDraftComplete() || !players.length;
+    $('autoDraftAll').disabled = onlineReady || isDraftClosed() || !players.length;
     $('resetDraft').disabled = onlineReady;
+    const commissionerDraftControls = onlineReady && onlineCommissioner && league.draftStarted;
+    $('rescheduleDraft').classList.toggle('hidden', !commissionerDraftControls || league.draftEnded || isDraftComplete());
+    $('endDraft').classList.toggle('hidden', !commissionerDraftControls || league.draftEnded || isDraftComplete());
+    $('restartDraft').classList.toggle('hidden', !onlineReady || !onlineCommissioner
+      || (!league.picks.length && !league.draftEnded));
     const scheduleStatus = $('draftScheduleStatus');
     if (scheduleStatus) {
       scheduleStatus.textContent = [
-        league.draftAt ? `DRAFT SCHEDULED · ${new Date(league.draftAt).toLocaleString()}` : '',
+        league.draftEnded ? 'DRAFT ENDED BY THE COMMISSIONER'
+          : scheduledFuture && league.draftStarted
+            ? `DRAFT PAUSED · RESUMES ${new Date(league.draftAt).toLocaleString()}`
+            : league.draftAt ? `DRAFT SCHEDULED · ${new Date(league.draftAt).toLocaleString()}` : '',
         auctionMode ? '' : 'Each pick has 90 seconds. If time runs out, the best available player is picked automatically.',
       ].filter(Boolean).join(' · ');
     }
@@ -4278,7 +4362,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     const position = $('positionFilter')?.value || 'ALL';
     const team = $('teamFilter')?.value || 'ALL';
     const auctionMode = league.draftSettings?.type === 'auction';
-    const onClock = !isDraftComplete() ? (auctionMode ? auctionNominatorAt(currentPickIndex()) : draftTeamAt(currentPickIndex())) : null;
+    const onClock = !isDraftClosed() ? (auctionMode ? auctionNominatorAt(currentPickIndex()) : draftTeamAt(currentPickIndex())) : null;
     const forceStarter = Boolean(!auctionMode && onClock && mustFillStarterBeforeBench(onClock));
     const remainingSlots = forceStarter ? openStartingSlots(onClock) : [];
     $('draftRequirement').classList.toggle('hidden', !forceStarter);
@@ -4334,9 +4418,11 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     const action = document.createElement('td');
     const onClock = auctionMode ? auctionNominatorAt(currentPickIndex()) : draftTeamAt(currentPickIndex());
     const canDraftPlayer = auctionMode
-      ? onlineReady && league.draftStarted && !league.auctionState && !isDraftComplete()
+      ? onlineReady && league.draftStarted && !league.auctionState && !isDraftClosed()
+        && !(league.draftAt && Date.parse(league.draftAt) > Date.now())
         && ownsOnlineTeam(onClock?.id)
-      : league.draftStarted && !isDraftComplete()
+      : league.draftStarted && !isDraftClosed()
+        && !(league.draftAt && Date.parse(league.draftAt) > Date.now())
         && (!onlineReady || ownsOnlineTeam(onClock?.id));
     if (canDraftPlayer) {
       const add = document.createElement('button');
@@ -4348,7 +4434,9 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       add.addEventListener('click', () => auctionMode ? void submitAuctionAction('nominate', { player }) : makePick(player));
       action.append(add);
     } else {
-      action.textContent = league.draftStarted && !isDraftComplete() ? 'WAITING FOR YOUR TURN' : '—';
+      action.textContent = league.draftEnded ? 'DRAFT ENDED'
+        : league.draftAt && Date.parse(league.draftAt) > Date.now() ? 'DRAFT PAUSED'
+          : league.draftStarted && !isDraftClosed() ? 'WAITING FOR YOUR TURN' : '—';
     }
     row.append(rank, name, pos, nfl, matchup, status, projection, points, action);
     return row;
@@ -4422,7 +4510,10 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       const player = document.createElement('span');
       player.className = 'pick-player';
       player.textContent = league.picks[index]?.playerName
-        || (index === league.picks.length ? league.draftSettings?.type === 'auction' ? 'UP TO NOMINATE' : 'ON THE CLOCK' : '—');
+        || (index === league.picks.length
+          ? league.draftEnded ? 'DRAFT ENDED'
+            : league.draftSettings?.type === 'auction' ? 'UP TO NOMINATE' : 'ON THE CLOCK'
+          : '—');
       row.append(pickNumber, name, player);
       container.append(row);
     }
@@ -4433,8 +4524,10 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
   function renderOnClockRoster() {
     const container = $('clockRoster');
     container.replaceChildren();
-    if (isDraftComplete()) {
-      container.innerHTML = '<div class="empty-state">All roster slots filled. Draft complete.</div>';
+    if (isDraftClosed()) {
+      container.innerHTML = `<div class="empty-state">${league.draftEnded
+        ? 'The commissioner ended this draft.'
+        : 'All roster slots filled. Draft complete.'}</div>`;
       return;
     }
     const team = league.draftSettings?.type === 'auction'
@@ -4518,10 +4611,10 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       notify('Wait for the NFL player pool to finish loading.');
       return;
     }
-    if (isDraftComplete()) return;
+    if (isDraftClosed()) return;
     league.draftStarted = true;
     let madePicks = 0;
-    while (!isDraftComplete()) {
+    while (!isDraftClosed()) {
       const team = draftTeamAt(currentPickIndex());
       const player = team && chooseAutoPick(team, draftEligiblePlayers(team));
       if (!player) break;
@@ -4538,6 +4631,10 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
   }
 
   function startDraft() {
+    if (league.draftEnded || isDraftComplete()) {
+      notify('This draft is closed. Ask the commissioner to restart it if you need to make more picks.');
+      return;
+    }
     if (league.draftSettings?.type === 'auction') {
       if (!onlineReady) {
         notify('Salary-cap auctions require an online Ahrens Labs league.');
@@ -4570,7 +4667,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       notify('Wait for the real NFL player pool to finish loading.');
       return;
     }
-    if (isDraftComplete()) {
+    if (isDraftClosed()) {
       notify('This draft is already complete.');
       return;
     }
@@ -4601,8 +4698,16 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       label.textContent = '90 SEC PER PICK';
       return;
     }
+    if (league.draftEnded) {
+      label.textContent = 'DRAFT ENDED';
+      return;
+    }
     if (isDraftComplete()) {
       label.textContent = 'DRAFT COMPLETE';
+      return;
+    }
+    if (league.draftAt && Date.parse(league.draftAt) > Date.now()) {
+      label.textContent = `RESUMES ${new Date(league.draftAt).toLocaleString()}`;
       return;
     }
     const secondsLeft = Math.max(0, Math.ceil(
@@ -5839,6 +5944,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       league.picks = [];
       league.draftOrder = [];
       league.draftStarted = false;
+      league.draftEnded = false;
       league.selectedRoster = 0;
       league.selectedWeek = 8;
       rosterViewTeam = 0;
@@ -7313,6 +7419,9 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     $('autoDraftAll').addEventListener('click', autoPickEntireDraft);
     $('undoPick').addEventListener('click', undoPick);
     $('resetDraft').addEventListener('click', resetDraft);
+    $('rescheduleDraft').addEventListener('click', openDraftScheduler);
+    $('endDraft').addEventListener('click', endDraft);
+    $('restartDraft').addEventListener('click', restartDraft);
     $('draftSearch').addEventListener('input', renderDraftPlayers);
     $('positionFilter').addEventListener('change', renderDraftPlayers);
     $('teamFilter').addEventListener('change', renderDraftPlayers);
