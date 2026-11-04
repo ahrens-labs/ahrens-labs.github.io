@@ -516,6 +516,7 @@ function normalizeSetup(input, userId, username) {
       rosterSlots,
       scoring,
       positionScoring: {},
+      customizedScoringPositions: [],
       draftOrder,
       matchupSchedule: generateMatchupSchedule(managers.map((manager) => manager.id), playoffSettings),
       playoffSettings,
@@ -726,14 +727,15 @@ function validateLeagueSave(previous, incoming, userId) {
     auctionClockSeconds: 30,
   };
   const incomingDraftSettings = incoming.draftSettings || previousDraftSettings;
-  const previousPositionScoring = previous.positionScoring || {};
-  const incomingPositionScoring = incoming.positionScoring || previousPositionScoring;
-  if (!validDraftSettings(incomingDraftSettings, previous.teamCount)
-    || incomingDraftSettings.order.some((id) => !previous.managers.some((team) => team.id === id))
-    || !sameValue(incomingDraftSettings.order, incoming.draftOrder)) {
-    return 'Draft settings are invalid.';
-  }
-  if (!validPositionScoring(incomingPositionScoring)) return 'Position scoring values are invalid.';
+    const previousPositionScoring = previous.positionScoring || {};
+    const incomingPositionScoring = incoming.positionScoring || previousPositionScoring;
+    if (!Array.isArray(incoming.customizedScoringPositions)) incoming.customizedScoringPositions = [];
+    if (!validDraftSettings(incomingDraftSettings, previous.teamCount)
+      || incomingDraftSettings.order.some((id) => !previous.managers.some((team) => team.id === id))
+      || !sameValue(incomingDraftSettings.order, incoming.draftOrder)) {
+      return 'Draft settings are invalid.';
+    }
+    if (!validPositionScoring(incomingPositionScoring)) return 'Position scoring values are invalid.';
   const ownTeams = previous.managers.filter((team) => team.ownerUserId === userId);
   if (!ownTeams.length) return 'You do not manage a team in this league.';
   const ownTeamIds = new Set(ownTeams.map((team) => team.id));
@@ -1062,6 +1064,10 @@ export class FantasyLeagueStore {
     let migrated = false;
     if (!validPositionScoring(record.league.positionScoring)) {
       record.league.positionScoring = {};
+      migrated = true;
+    }
+    if (!Array.isArray(record.league.customizedScoringPositions)) {
+      record.league.customizedScoringPositions = [];
       migrated = true;
     }
     record.league.managers.forEach((team) => {
@@ -1532,6 +1538,11 @@ export class FantasyLeagueStore {
     league.commissionerUserId = record.league.commissionerUserId;
     league.draftEnded = Boolean(record.league.draftEnded);
     league.positionScoring = jsonClone(body.league.positionScoring || record.league.positionScoring || {});
+    if (Array.isArray(body.league.customizedScoringPositions)) {
+      league.customizedScoringPositions = jsonClone(body.league.customizedScoringPositions);
+    } else {
+      league.customizedScoringPositions = Array.isArray(record.league.customizedScoringPositions) ? jsonClone(record.league.customizedScoringPositions) : [];
+    }
     league.draftPickStartedAt = league.draftSettings?.type === 'auction' || !league.draftStarted
       ? null
       : !record.league.draftStarted || body.league.picks.length > record.league.picks.length

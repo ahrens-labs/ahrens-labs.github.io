@@ -1078,7 +1078,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     <section class="view" id="view-players">
       <div class="view-title"><div><div class="eyebrow">NFL player pool</div><h1>Players in your league format.</h1><p>Search NFL players at positions enabled in this league. Proj is ESPN’s expected stat line, scored with your league’s rules. Actual is the selected week’s box score, and Avg Pts is fantasy points per game played through that week.</p></div><div class="title-actions"><button class="button accent" id="refreshPlayers">Refresh players</button></div></div>
       <section class="panel" id="waiverClaimsPanel" hidden><div class="panel-head"><h2>My pending waiver claims</h2><span>CLAIMS IN REVIEW</span></div><div class="manager-list" id="waiverClaimsList"></div></section>
-      <section class="panel"><div class="search-toolbar"><input class="input" id="poolSearch" type="search" placeholder="Search player, team, or position" aria-label="Search all NFL players"><select class="filter-select" id="poolPos"><option value="ALL">All positions</option><option>QB</option><option>RB</option><option>WR</option><option>TE</option><option>K</option><option>D/ST</option></select><select class="filter-select" id="poolAvailability" aria-label="Filter by availability"><option value="ALL">All players</option><option value="AVAILABLE">Available to claim</option><option value="ROSTERED">Rostered players</option></select><select class="filter-select" id="poolSort" aria-label="Sort players"><option value="DEFAULT">Default order</option><option value="PROJECTION">Projection: high to low</option><option value="ACTUAL">Actual points: high to low</option></select><span class="pool-note" id="poolCount">Loading player directory…</span></div><div class="player-table-wrap"><table class="player-table"><thead><tr><th>Player</th><th>Pos</th><th>NFL</th><th>Matchup</th><th>Status</th><th>Slot</th><th>Proj</th><th>Points</th><th>Avg Pts</th><th>Fantasy team</th><th>Action</th></tr></thead><tbody id="poolRows"></tbody></table><div class="empty-state" id="poolEmpty">Connecting to the NFL roster directory…</div></div></section>
+      <section class="panel"><div class="search-toolbar"><input class="input" id="poolSearch" type="search" placeholder="Search player, team, or position" aria-label="Search all NFL players"><select class="filter-select" id="poolPos"><option value="ALL">All positions</option><option>QB</option><option>RB</option><option>WR</option><option>TE</option><option>FLEX</option><option>K</option><option>D/ST</option></select><select class="filter-select" id="poolAvailability" aria-label="Filter by availability"><option value="AVAILABLE">Available to claim</option><option value="ALL">All players</option><option value="ROSTERED">Rostered players</option></select><select class="filter-select" id="poolSort" aria-label="Sort players"><option value="DEFAULT">Default order</option><option value="PROJECTION">Projection: high to low</option><option value="ACTUAL">Actual points: high to low</option><option value="AVERAGE">Average points: high to low</option></select><span class="pool-note" id="poolCount">Loading player directory…</span></div><div class="player-table-wrap"><table class="player-table"><thead><tr><th>Player</th><th>Pos</th><th>NFL</th><th>Matchup</th><th>Status</th><th>Slot</th><th>Proj</th><th>Points</th><th>Avg Pts</th><th>Fantasy team</th><th>Action</th></tr></thead><tbody id="poolRows"></tbody></table><div class="empty-state" id="poolEmpty">Connecting to the NFL roster directory…</div></div></section>
     </section>
 
     <section class="view" id="view-commissioner-settings">
@@ -1190,10 +1190,11 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     saveStatus: $('saveStatus'),
   };
 
-  const POSITION_ORDER = ['QB', 'RB', 'WR', 'TE', 'K', 'D/ST', 'DL', 'DE', 'DT', 'LB', 'DB', 'CB', 'S', 'P'];
+  const POSITION_ORDER = ['DEFAULT', 'QB', 'RB', 'WR', 'TE', 'K', 'D/ST', 'DL', 'DE', 'DT', 'LB', 'DB', 'CB', 'S', 'P'];
   const OFFENSIVE_FLEX_POSITIONS = ['RB', 'WR', 'TE'];
   const IDP_POSITIONS = ['DL', 'DE', 'DT', 'LB', 'DB', 'CB', 'S'];
   const ROSTER_POSITION_LABELS = {
+    DEFAULT: 'Default (All Positions)',
     QB: 'Quarterback', RB: 'Running back', WR: 'Wide receiver', TE: 'Tight end',
     K: 'Kicker', 'D/ST': 'Team defense', DL: 'Defensive line', DE: 'Defensive end',
     DT: 'Defensive tackle', LB: 'Linebacker', DB: 'Defensive back',
@@ -1409,6 +1410,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     rosterSlots: { ...DEFAULT_SLOTS },
     scoring: { ...DEFAULT_SCORING },
     positionScoring: {},
+    customizedScoringPositions: [],
     managers: [],
     draftOrder: [],
     picks: [],
@@ -1453,7 +1455,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
   const historicalSummaryRequests = new Map();
   const playerAveragePoints = new Map();
   const playerAverageErrors = new Map();
-  let selectedScoringPosition = 'QB';
+  let selectedScoringPosition = 'DEFAULT';
   const scoringDraftValues = new Map();
   let scoringDraftContext = '';
   let playerAverageLoad = null;
@@ -1517,6 +1519,10 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       merged.leagueId ||= createLeagueId();
       merged.rosterSlots = { ...DEFAULT_SLOTS, ...(stored.rosterSlots || {}) };
       merged.scoring = { ...DEFAULT_SCORING, ...(stored.scoring || {}) };
+      merged.positionScoring = stored.positionScoring && typeof stored.positionScoring === 'object' && !Array.isArray(stored.positionScoring)
+        ? stored.positionScoring
+        : {};
+      merged.customizedScoringPositions = Array.isArray(stored.customizedScoringPositions) ? stored.customizedScoringPositions : [];
       merged.managers = Array.isArray(stored.managers) ? stored.managers : [];
       merged.draftOrder = Array.isArray(stored.draftOrder) ? stored.draftOrder : [];
       merged.draftSettings = {
@@ -1585,6 +1591,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     league.positionScoring = data.league.positionScoring && typeof data.league.positionScoring === 'object'
       ? data.league.positionScoring
       : {};
+    league.customizedScoringPositions = Array.isArray(data.league.customizedScoringPositions) ? data.league.customizedScoringPositions : [];
     league.managers = data.league.managers;
     league.draftOrder = Array.isArray(data.league.draftOrder) ? data.league.draftOrder : [];
     league.picks = Array.isArray(data.league.picks) ? data.league.picks : [];
@@ -3379,6 +3386,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     return `${league.leagueId || 'local'}:${SEASON}:${throughWeek}:${JSON.stringify({
       scoring: league.scoring,
       positionScoring: league.positionScoring,
+      customizedScoringPositions: league.customizedScoringPositions || [],
     })}`;
   }
 
@@ -3393,6 +3401,16 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       return points == null ? '—' : points.toFixed(1);
     }
     return playerAverageErrors.has(key) ? '—' : '…';
+  }
+
+  function getPlayerAveragePointsValue(player, throughWeek = Number(league.selectedWeek)) {
+    const key = playerAverageKey(player, throughWeek);
+    if (playerAveragePoints.has(key)) {
+      const points = playerAveragePoints.get(key);
+      if (points == null || !Number.isFinite(Number(points))) return Number.NEGATIVE_INFINITY;
+      return Number(points);
+    }
+    return Number.NEGATIVE_INFINITY;
   }
 
   function playerAverageTitle(player, throughWeek = Number(league.selectedWeek)) {
@@ -5570,6 +5588,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     const currentScoringContext = JSON.stringify({
       scoring: league.scoring,
       positionScoring: league.positionScoring,
+      customizedScoringPositions: league.customizedScoringPositions || [],
     });
     const sameScoringContext = scoringDraftContext === currentScoringContext;
     if (!sameScoringContext) {
@@ -5581,7 +5600,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
         scoringDraftValues.set(key, Number(input.value));
       });
     }
-    if (!POSITION_ORDER.includes(selectedScoringPosition)) selectedScoringPosition = 'QB';
+    if (!POSITION_ORDER.includes(selectedScoringPosition)) selectedScoringPosition = 'DEFAULT';
     const selectedPosition = positionSelect.value;
     positionSelect.replaceChildren(...POSITION_ORDER.map((position) =>
       new Option(ROSTER_POSITION_LABELS[position], position)));
@@ -5616,7 +5635,9 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
         const draftKey = `${selectedScoringPosition}:${key}`;
         input.value = Number(scoringDraftValues.has(draftKey)
           ? scoringDraftValues.get(draftKey)
-          : scoringForPlayer({ position: selectedScoringPosition })[key] ?? DEFAULT_SCORING[key]);
+          : (selectedScoringPosition === 'DEFAULT'
+              ? (league.scoring[key] ?? DEFAULT_SCORING[key])
+              : (scoringForPlayer({ position: selectedScoringPosition })[key] ?? league.scoring[key] ?? DEFAULT_SCORING[key])));
         input.setAttribute('aria-label', `${ROSTER_POSITION_LABELS[selectedScoringPosition]} ${label} points`);
         input.addEventListener('input', () => {
           scoringDraftValues.set(draftKey, Number(input.value));
@@ -5634,10 +5655,14 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
   function renderScoringSummary() {
     const target = $('scoringSummary');
     if (!target) return;
-    const scoring = scoringForPlayer({ position: selectedScoringPosition });
+    const scoring = selectedScoringPosition === 'DEFAULT'
+      ? { ...DEFAULT_SCORING, ...(league.scoring || {}) }
+      : scoringForPlayer({ position: selectedScoringPosition });
     const valueFor = (key) => {
       const draftKey = `${selectedScoringPosition}:${key}`;
-      return scoringDraftValues.has(draftKey) ? scoringDraftValues.get(draftKey) : scoring[key];
+      if (scoringDraftValues.has(draftKey)) return scoringDraftValues.get(draftKey);
+      if (selectedScoringPosition === 'DEFAULT') return league.scoring?.[key] ?? DEFAULT_SCORING[key];
+      return scoring[key] ?? league.scoring?.[key] ?? DEFAULT_SCORING[key];
     };
     const heading = target.closest('.scoring-summary')?.querySelector('h3');
     if (heading) heading.textContent = `${ROSTER_POSITION_LABELS[selectedScoringPosition].toUpperCase()} SCORING MODEL`;
@@ -5662,21 +5687,51 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       notify('Only the commissioner can change scoring rules.');
       return;
     }
-    const positionScoring = Object.fromEntries(Object.entries(league.positionScoring || {})
-      .map(([position, values]) => [position, { ...values }]));
-    scoringDraftValues.forEach((value, key) => {
-      const separator = key.indexOf(':');
-      const position = key.slice(0, separator);
-      const stat = key.slice(separator + 1);
-      if (!POSITION_ORDER.includes(position) || !/^[a-zA-Z0-9_]{1,60}$/.test(stat)) return;
-      positionScoring[position] ||= {};
-      positionScoring[position][stat] = Number.isFinite(value) ? value : 0;
-    });
-    league.positionScoring = positionScoring;
+    league.customizedScoringPositions ||= [];
+    const customizedSet = new Set(league.customizedScoringPositions);
+    if (selectedScoringPosition === 'DEFAULT') {
+      const nextScoring = { ...(league.scoring || {}) };
+      scoringDraftValues.forEach((value, key) => {
+        if (!key.startsWith('DEFAULT:')) return;
+        const stat = key.slice('DEFAULT:'.length);
+        if (!/^[a-zA-Z0-9_]{1,60}$/.test(stat)) return;
+        nextScoring[stat] = Number.isFinite(value) ? value : 0;
+      });
+      league.scoring = nextScoring;
+      // When default changes, update all scores that have not been changed/customized to match
+      // Positions that have been customized keep their customizations as-is
+      // (non-customized positions will follow new base values since position overrides only exist for customized positions)
+      scoringDraftValues.forEach((value, key) => {
+        if (key.startsWith('DEFAULT:')) {
+          const stat = key.slice('DEFAULT:'.length);
+          if (!/^[a-zA-Z0-9_]{1,60}$/.test(stat)) return;
+          POSITION_ORDER.filter((p) => p !== 'DEFAULT').forEach((pos) => {
+            if (customizedSet.has(pos)) {
+              // keep customization intact - don't overwrite
+            }
+          });
+        }
+      });
+    } else {
+      const positionScoring = Object.fromEntries(Object.entries(league.positionScoring || {})
+        .map(([position, values]) => [position, { ...values }]));
+      scoringDraftValues.forEach((value, key) => {
+        const separator = key.indexOf(':');
+        const position = key.slice(0, separator);
+        const stat = key.slice(separator + 1);
+        if (!POSITION_ORDER.includes(position) || position === 'DEFAULT' || !/^[a-zA-Z0-9_]{1,60}$/.test(stat)) return;
+        positionScoring[position] ||= {};
+        positionScoring[position][stat] = Number.isFinite(value) ? value : 0;
+      });
+      league.positionScoring = positionScoring;
+      customizedSet.add(selectedScoringPosition);
+      league.customizedScoringPositions = Array.from(customizedSet);
+    }
     scoringDraftValues.clear();
     scoringDraftContext = JSON.stringify({
       scoring: league.scoring,
       positionScoring: league.positionScoring,
+      customizedScoringPositions: league.customizedScoringPositions || [],
     });
     commissionerSettingsDirty = false;
     saveLeague();
@@ -5686,7 +5741,9 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     renderOverview();
     renderMatchups();
     renderRosters();
-    notify(`${ROSTER_POSITION_LABELS[selectedScoringPosition]} scoring saved. Updating historical matchup scores…`);
+    notify(selectedScoringPosition === 'DEFAULT'
+      ? 'Default scoring updated for all non-customized positions.'
+      : `${ROSTER_POSITION_LABELS[selectedScoringPosition]} scoring saved. Updating historical matchup scores…`);
     void rescoreHistoricalMatchupResults()
       .then((updated) => {
         if (updated) notify('Position scoring saved. Historical matchup scores and averages are updated.');
@@ -5704,10 +5761,12 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     }
     league.scoring = { ...DEFAULT_SCORING };
     league.positionScoring = {};
+    league.customizedScoringPositions = [];
     scoringDraftValues.clear();
     scoringDraftContext = JSON.stringify({
       scoring: league.scoring,
       positionScoring: league.positionScoring,
+      customizedScoringPositions: league.customizedScoringPositions || [],
     });
     commissionerSettingsDirty = false;
     saveLeague();
@@ -5984,7 +6043,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     if (!body) return;
     const query = ($('poolSearch').value || '').trim().toLowerCase();
     const position = $('poolPos').value;
-    const availability = $('poolAvailability').value;
+    const availability = $('poolAvailability').value || 'AVAILABLE';
     const sortBy = $('poolSort').value;
     const enabledPositions = new Set(activeRosterPositions());
     const owners = new Map(league.managers.flatMap((team) => team.roster.map((member) => [member.id, { team, player: member }])));
@@ -5993,15 +6052,21 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       const owner = owners.get(player.id);
       const queryMatch = !query || `${player.name} ${player.team} ${player.teamName} ${player.position} ${owner?.team.teamName || ''} ${owner?.team.name || ''}`.toLowerCase().includes(query);
       const availabilityMatch = availability === 'ALL' || (availability === 'AVAILABLE' && !owner) || (availability === 'ROSTERED' && owner);
-      return queryMatch && availabilityMatch && (position === 'ALL' || player.position === position);
+      let positionMatch = position === 'ALL';
+      if (!positionMatch && position === 'FLEX') {
+        positionMatch = ['RB', 'WR', 'TE'].includes(player.position);
+      } else if (!positionMatch) {
+        positionMatch = player.position === position;
+      }
+      return queryMatch && availabilityMatch && positionMatch;
     });
     if (sortBy !== 'DEFAULT') {
-      const score = sortBy === 'PROJECTION' ? projectedFantasyPoints : playerFantasyPoints;
+      const score = sortBy === 'PROJECTION' ? projectedFantasyPoints : sortBy === 'AVERAGE' ? getPlayerAveragePointsValue : playerFantasyPoints;
       visible.sort((a, b) => {
         const aPoints = score(a);
         const bPoints = score(b);
-        const aValue = aPoints !== null && Number.isFinite(aPoints) ? aPoints : Number.NEGATIVE_INFINITY;
-        const bValue = bPoints !== null && Number.isFinite(bPoints) ? bPoints : Number.NEGATIVE_INFINITY;
+        const aValue = aPoints !== null && Number.isFinite(Number(aPoints)) ? Number(aPoints) : Number.NEGATIVE_INFINITY;
+        const bValue = bPoints !== null && Number.isFinite(Number(bPoints)) ? Number(bPoints) : Number.NEGATIVE_INFINITY;
         return bValue - aValue || a.name.localeCompare(b.name);
       });
     }
