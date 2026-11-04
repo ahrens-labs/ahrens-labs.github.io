@@ -1001,7 +1001,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
           <div id="featuredMatchup"><div class="empty-state"><strong>Weekly matchups are set before draft day</strong>Draft players to fill your lineups and start scoring these scheduled head-to-head games.</div></div>
         </section>
         <section class="panel">
-          <div class="panel-head"><h2>League standings</h2><span>Week points from starters</span></div>
+          <div class="panel-head"><h2>League standings</h2><span>Season record · playoff seeds · week points</span></div>
           <div id="standings"><div class="empty-state">Standings will populate as real game stats arrive.</div></div>
         </section>
       </div>
@@ -1104,15 +1104,17 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       </section>
       <section class="panel commissioner-playoff-settings">
         <div class="panel-head"><h2>Weekly schedule</h2><span>RANDOMIZED · BALANCED</span></div>
-        <p>Matchups are assigned before the draft, independently of draft order. Rebuild the 18-week schedule whenever needed.</p>
+        <p>Matchups are assigned before the draft, independently of draft order, and stop when the playoffs begin. Rebuild the regular-season schedule whenever needed.</p>
         <div class="commissioner-settings-actions"><button class="button" id="regenerateSchedule">REGENERATE SCHEDULE</button></div>
       </section>
       <section class="panel commissioner-playoff-settings">
         <div class="panel-head"><h2>Playoff structure</h2><span id="playoffScheduleSummary">REGULAR SEASON + PLAYOFFS</span></div>
         <div class="commissioner-playoff-fields">
           <div class="field"><label for="playoffTeamCount">PLAYOFF TEAMS</label><select class="filter-select" id="playoffTeamCount"></select></div>
+          <div class="field"><label for="playoffRounds">PLAYOFF ROUNDS</label><select class="filter-select" id="playoffRounds"></select></div>
           <div class="field"><label for="playoffStartWeek">PLAYOFF START WEEK</label><select class="filter-select" id="playoffStartWeek"></select></div>
-          <div class="field"><label for="playoffWeeks">PLAYOFF DURATION</label><select class="filter-select" id="playoffWeeks"></select></div>
+          <div class="field"><label for="playoffRoundWeeks">WEEKS PER ROUND</label><select class="filter-select" id="playoffRoundWeeks"><option value="1">1 WEEK</option><option value="2">2 WEEKS</option></select></div>
+          <label class="commissioner-setting-toggle"><input type="checkbox" id="playoffByes"> Allow seeded byes (required for 6 teams)</label>
           <label class="commissioner-setting-toggle"><input type="checkbox" id="playoffReseed"> Reseed after each round</label>
           <label class="commissioner-setting-toggle"><input type="checkbox" id="playoffConsolation"> Include a consolation bracket</label>
           <button class="button primary" id="savePlayoffSettings">SAVE PLAYOFF FORMAT</button>
@@ -1400,10 +1402,14 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     selectedRoster: 0,
     selectedWeek: 8,
     matchupSchedule: [],
+    matchupResults: {},
     playoffSettings: {
       teamCount: 6,
       startWeek: 15,
+      rounds: 3,
+      weeksPerRound: 1,
       weeks: 3,
+      byes: true,
       reseed: true,
       consolation: true,
     },
@@ -1662,23 +1668,30 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     if (!onlineCommissioner) return;
     const settings = league.playoffSettings;
     const playoffTeams = $('playoffTeamCount');
+    const playoffRounds = $('playoffRounds');
     const playoffStart = $('playoffStartWeek');
-    const playoffWeeks = $('playoffWeeks');
-    const focused = [playoffTeams, playoffStart, playoffWeeks, $('playoffReseed'), $('playoffConsolation')]
+    const roundWeeks = $('playoffRoundWeeks');
+    const byes = $('playoffByes');
+    const focused = [playoffTeams, playoffRounds, playoffStart, roundWeeks, byes, $('playoffReseed'), $('playoffConsolation')]
       .includes(document.activeElement);
     if (!focused) {
       playoffTeams.replaceChildren();
-      [2, 4, 6, 8].filter((count) => count <= league.teamCount).forEach((count) => {
+      [2, 4, 6, 8].filter((count) => count <= league.teamCount && (count !== 6 || settings.byes)).forEach((count) => {
         playoffTeams.add(new Option(`${count} TEAMS`, String(count), false, count === settings.teamCount));
       });
+      playoffRounds.replaceChildren();
+      [1, 2, 3].filter((rounds) => rounds === 3
+        ? league.teamCount >= 8 || (league.teamCount >= 6 && settings.byes)
+        : 2 ** rounds <= league.teamCount).forEach((rounds) => {
+        playoffRounds.add(new Option(`${rounds} ROUND${rounds === 1 ? '' : 'S'}`, String(rounds), false, rounds === settings.rounds));
+      });
       playoffStart.replaceChildren();
-      for (let week = 1; week <= SEASON_WEEKS; week += 1) {
+      const maxStartWeek = SEASON_WEEKS - settings.weeks + 1;
+      for (let week = 1; week <= maxStartWeek; week += 1) {
         playoffStart.add(new Option(`WEEK ${String(week).padStart(2, '0')}`, String(week), false, week === settings.startWeek));
       }
-      playoffWeeks.replaceChildren();
-      for (let count = 1; count <= SEASON_WEEKS - settings.startWeek + 1; count += 1) {
-        playoffWeeks.add(new Option(`${count} WEEK${count === 1 ? '' : 'S'}`, String(count), false, count === settings.weeks));
-      }
+      roundWeeks.value = String(settings.weeksPerRound);
+      byes.checked = settings.byes;
       $('playoffReseed').checked = settings.reseed;
       $('playoffConsolation').checked = settings.consolation;
     }
@@ -1691,13 +1704,55 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     $('commissionerDraftStatus').textContent = league.draftAt
       ? `Scheduled for ${new Date(league.draftAt).toLocaleString()}.`
       : 'No draft time is set. Managers can draft when the commissioner allows it.';
-    $('playoffScheduleSummary').textContent = `WEEKS ${settings.startWeek}–${settings.startWeek + settings.weeks - 1} · ${settings.teamCount} TEAMS`;
+    $('playoffScheduleSummary').textContent = `SEEDS 1–${settings.teamCount} · WEEKS ${settings.startWeek}–${settings.startWeek + settings.weeks - 1}`;
     const priorityNames = league.waiverPriorityTeamIds
       .map((teamId) => league.managers.find((team) => team.id === teamId)?.teamName)
       .filter(Boolean);
     $('waiverPrioritySummary').textContent = `ROLLING · ${priorityNames.join(' → ')}`;
     renderInlineLeagueSettings();
     renderInlineDraftSettings();
+  }
+
+  function syncPlayoffControls(changedControl) {
+    const teamCount = Number($('playoffTeamCount').value);
+    const byes = $('playoffByes').checked;
+    let rounds = Number($('playoffRounds').value);
+    let playoffTeams = teamCount;
+    if (changedControl === 'playoffRounds') {
+      playoffTeams = rounds === 3 && byes && teamCount === 6 ? 6 : 2 ** rounds;
+      if (playoffTeams > league.teamCount) playoffTeams = [8, 6, 4, 2].find((count) => count <= league.teamCount && (count !== 6 || byes));
+    } else if (changedControl === 'playoffByes' && !byes && teamCount === 6) {
+      playoffTeams = league.teamCount >= 8 ? 8 : 4;
+      rounds = Math.ceil(Math.log2(playoffTeams));
+    } else if (changedControl === 'playoffTeamCount') {
+      if (teamCount === 6 && !byes) playoffTeams = league.teamCount >= 8 ? 8 : 4;
+      rounds = Math.ceil(Math.log2(playoffTeams));
+    } else if (teamCount === 6 && !byes) {
+      playoffTeams = league.teamCount >= 8 ? 8 : 4;
+      rounds = Math.ceil(Math.log2(playoffTeams));
+    }
+    $('playoffTeamCount').value = String(playoffTeams);
+    $('playoffRounds').value = String(rounds);
+    const teamSelect = $('playoffTeamCount');
+    teamSelect.replaceChildren();
+    [2, 4, 6, 8].filter((count) => count <= league.teamCount && (count !== 6 || byes)).forEach((count) => {
+      teamSelect.add(new Option(`${count} TEAMS`, String(count), false, count === playoffTeams));
+    });
+    const roundsSelect = $('playoffRounds');
+    roundsSelect.replaceChildren();
+    [1, 2, 3].filter((value) => value === 3
+      ? league.teamCount >= 8 || (league.teamCount >= 6 && byes)
+      : 2 ** value <= league.teamCount).forEach((value) => {
+      roundsSelect.add(new Option(`${value} ROUND${value === 1 ? '' : 'S'}`, String(value), false, value === rounds));
+    });
+    const weeks = rounds * Number($('playoffRoundWeeks').value);
+    const maxStartWeek = SEASON_WEEKS - weeks + 1;
+    const startSelect = $('playoffStartWeek');
+    const selectedStart = Math.min(Number(startSelect.value) || league.playoffSettings.startWeek, maxStartWeek);
+    startSelect.replaceChildren();
+    for (let week = 1; week <= maxStartWeek; week += 1) {
+      startSelect.add(new Option(`WEEK ${String(week).padStart(2, '0')}`, String(week), false, week === selectedStart));
+    }
   }
 
   function renderInlineLeagueSettings() {
@@ -2054,18 +2109,27 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       return;
     }
     const startWeek = Number($('playoffStartWeek').value);
+    const rounds = Number($('playoffRounds').value);
+    const weeksPerRound = Number($('playoffRoundWeeks').value);
     const playoffSettings = {
       teamCount: Number($('playoffTeamCount').value),
       startWeek,
-      weeks: Number($('playoffWeeks').value),
+      rounds,
+      weeksPerRound,
+      weeks: rounds * weeksPerRound,
+      byes: $('playoffByes').checked,
       reseed: $('playoffReseed').checked,
       consolation: $('playoffConsolation').checked,
     };
     if (!isPlayoffSettingsValid(playoffSettings, league.teamCount)) {
-      notify('Choose a valid playoff team count, start week, and duration within the 18-week season.');
+      notify('Choose a compatible playoff team count, bye format, round length, and start week within the 18-week season.');
       return;
     }
     league.playoffSettings = playoffSettings;
+    league.matchupSchedule = generateMatchupSchedule(
+      league.managers.map((team) => team.id),
+      playoffSettings,
+    );
     commissionerSettingsDirty = false;
     $('savePlayoffSettings').disabled = true;
     saveLeague();
@@ -2109,7 +2173,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       notify('Only the commissioner can change the matchup schedule.');
       return;
     }
-    league.matchupSchedule = generateMatchupSchedule(league.managers.map((team) => team.id));
+    league.matchupSchedule = generateMatchupSchedule(league.managers.map((team) => team.id), league.playoffSettings);
     commissionerSettingsDirty = false;
     $('regenerateSchedule').disabled = true;
     saveLeague();
@@ -2804,18 +2868,16 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     }
     if (!Array.isArray(league.pendingWaiverClaims)) league.pendingWaiverClaims = [];
     if (!league.waiverWindows || typeof league.waiverWindows !== 'object') league.waiverWindows = {};
-    if (!isMatchupScheduleValid(league.matchupSchedule, teamIds)) {
-      league.matchupSchedule = generateMatchupSchedule(teamIds);
+    if (!league.matchupResults || typeof league.matchupResults !== 'object' || Array.isArray(league.matchupResults)) {
+      league.matchupResults = {};
       settingsChanged = true;
     }
     if (!isPlayoffSettingsValid(league.playoffSettings, count)) {
-      league.playoffSettings = {
-        teamCount: [8, 6, 4, 2].find((playoffCount) => playoffCount <= count),
-        startWeek: 15,
-        weeks: 3,
-        reseed: true,
-        consolation: true,
-      };
+      league.playoffSettings = defaultPlayoffSettings(count, league.playoffSettings || {});
+      settingsChanged = true;
+    }
+    if (!isMatchupScheduleValid(league.matchupSchedule, teamIds, league.playoffSettings)) {
+      league.matchupSchedule = generateMatchupSchedule(teamIds, league.playoffSettings);
       settingsChanged = true;
     }
     if (!league.managers.some((team) => team.id === league.managers[league.selectedRoster]?.id)) league.selectedRoster = 0;
@@ -2838,7 +2900,9 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     return result;
   }
 
-  function generateMatchupSchedule(teamIds) {
+  function generateMatchupSchedule(teamIds, playoffSettings) {
+    const regularSeasonWeeks = Math.max(0, Math.min(SEASON_WEEKS, Number(playoffSettings?.startWeek || SEASON_WEEKS + 1) - 1));
+    if (!regularSeasonWeeks) return Array.from({ length: SEASON_WEEKS }, () => []);
     const rotation = shuffled(teamIds);
     if (rotation.length % 2) rotation.push(null);
     const rounds = [];
@@ -2853,52 +2917,89 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       rotation.splice(1, 0, rotation.pop());
     }
     const roundInstances = [];
-    if (rounds.length <= SEASON_WEEKS / 2) {
-      const baseCount = Math.floor((SEASON_WEEKS / 2) / rounds.length);
-      const extraCount = (SEASON_WEEKS / 2) % rounds.length;
+    if (regularSeasonWeeks % 2 === 0 && rounds.length <= regularSeasonWeeks / 2) {
+      const baseCount = Math.floor((regularSeasonWeeks / 2) / rounds.length);
+      const extraCount = Math.floor(regularSeasonWeeks / 2) % rounds.length;
       const extraRounds = new Set(shuffled(rounds.map((_, index) => index)).slice(0, extraCount));
       rounds.forEach((round, index) => {
         const repeats = 2 * (baseCount + Number(extraRounds.has(index)));
         for (let repeat = 0; repeat < repeats; repeat += 1) roundInstances.push(round);
       });
     } else {
-      const baseCount = Math.floor(SEASON_WEEKS / rounds.length);
-      const extraCount = SEASON_WEEKS % rounds.length;
+      const baseCount = Math.floor(regularSeasonWeeks / rounds.length);
+      const extraCount = regularSeasonWeeks % rounds.length;
       const extraRounds = new Set(shuffled(rounds.map((_, index) => index)).slice(0, extraCount));
       rounds.forEach((round, index) => {
         const repeats = baseCount + Number(extraRounds.has(index));
         for (let repeat = 0; repeat < repeats; repeat += 1) roundInstances.push(round);
       });
     }
-    return shuffled(roundInstances).map((round) =>
+    while (roundInstances.length < regularSeasonWeeks) {
+      roundInstances.push(rounds[randomIndex(rounds.length)]);
+    }
+    const regularSchedule = shuffled(roundInstances).map((round) =>
       round.map((matchup) => (randomIndex(2) ? [...matchup] : [...matchup].reverse())));
+    return [
+      ...regularSchedule,
+      ...Array.from({ length: SEASON_WEEKS - regularSchedule.length }, () => []),
+    ];
   }
 
-  function isMatchupScheduleValid(schedule, teamIds) {
+  function isMatchupScheduleValid(schedule, teamIds, playoffSettings) {
     if (!Array.isArray(schedule) || schedule.length !== SEASON_WEEKS) return false;
     const validIds = new Set(teamIds);
-    return schedule.every((matchups) => {
+    return schedule.every((matchups, weekIndex) => {
       if (!Array.isArray(matchups) || matchups.some((pair) => !Array.isArray(pair) || pair.length !== 2
         || pair[0] === pair[1] || pair.some((id) => typeof id !== 'string' || !validIds.has(id)))) return false;
       const teamsPlaying = matchups.flat();
+      if (playoffSettings && weekIndex >= Number(playoffSettings.startWeek) - 1) {
+        return teamsPlaying.length === 0;
+      }
       return new Set(teamsPlaying).size === teamsPlaying.length
         && teamsPlaying.length === teamIds.length - (teamIds.length % 2);
     });
   }
 
   function isPlayoffSettingsValid(settings, teamCount) {
-    return settings && [2, 4, 6, 8].includes(Number(settings.teamCount))
-      && Number(settings.teamCount) <= teamCount
+    const playoffTeams = Number(settings?.teamCount);
+    const rounds = Math.ceil(Math.log2(playoffTeams));
+    return settings && [2, 4, 6, 8].includes(playoffTeams)
+      && playoffTeams <= teamCount
+      && (playoffTeams !== 6 || settings.byes === true)
+      && Number(settings.rounds) === rounds
+      && [1, 2].includes(Number(settings.weeksPerRound))
+      && Number(settings.weeks) === rounds * Number(settings.weeksPerRound)
       && Number.isInteger(Number(settings.startWeek))
       && Number(settings.startWeek) >= 1
       && Number(settings.startWeek) <= SEASON_WEEKS
       && Number.isInteger(Number(settings.weeks))
       && Number(settings.weeks) >= 1
       && Number(settings.startWeek) + Number(settings.weeks) - 1 <= SEASON_WEEKS
+      && typeof settings.byes === 'boolean'
       && typeof settings.reseed === 'boolean'
       && typeof settings.consolation === 'boolean';
   }
 
+  function defaultPlayoffSettings(teamCount, previous = {}) {
+    const playoffTeamCount = [8, 6, 4, 2].find((count) => count <= teamCount) || 2;
+    const rounds = Math.ceil(Math.log2(playoffTeamCount));
+    const weeksPerRound = Number(previous.weeks) >= rounds * 2 ? 2 : 1;
+    const weeks = rounds * weeksPerRound;
+    const startWeek = Math.min(
+      Math.max(1, Number(previous.startWeek) || 16),
+      SEASON_WEEKS - weeks + 1,
+    );
+    return {
+      teamCount: playoffTeamCount,
+      startWeek,
+      rounds,
+      weeksPerRound,
+      weeks,
+      byes: playoffTeamCount === 6 || previous.byes === true,
+      reseed: previous.reseed !== false,
+      consolation: previous.consolation !== false,
+    };
+  }
   function defaultTeamName(index) {
     return `Team ${index + 1}`;
   }
@@ -5770,7 +5871,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     $('liveGameFoot').textContent = games.some((game) => game.live) ? 'NFL GAMES IN PROGRESS' : 'WAITING ON KICKOFF';
     ui.leagueNameBar.textContent = league.name;
     ui.leagueMeta.textContent = `${league.teamCount} TEAMS · SNAKE DRAFT · ${league.scoring.receptions === 1 ? 'FULL PPR' : league.scoring.receptions === .5 ? 'HALF PPR' : league.scoring.receptions === 0 ? 'STANDARD' : 'CUSTOM SCORING'}`;
-    const totals = league.managers.map((team) => ({ team, points: team.roster.reduce((sum, player) => sum + playerFantasyPoints(player), 0) })).sort((a, b) => b.points - a.points);
+    const totals = league.managers.map((team) => ({ team, points: team.roster.reduce((sum, player) => sum + playerFantasyPoints(player), 0) }));
     $('topScore').textContent = totals[0]?.team.roster.length ? totals[0].points.toFixed(1) : '—';
     $('topScoreName').textContent = totals[0]?.team.roster.length ? teamLabel(totals[0].team).toUpperCase() : 'DRAFT PLAYERS TO BEGIN';
     renderStandings(totals);
@@ -5784,17 +5885,74 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       target.innerHTML = '<div class="empty-state"><strong>No standings yet</strong>Draft a league, then real NFL stats start turning into fantasy points.</div>';
       return;
     }
-    totals.forEach(({ team, points }, index) => {
+    const pointsByTeam = new Map(totals.map(({ team, points }) => [team.id, points]));
+    getSeasonStandings().forEach(({ team, wins, losses, ties }, index) => {
+      const points = pointsByTeam.get(team.id) || 0;
       const row = document.createElement('div');
       row.className = 'team-standing';
       const rank = document.createElement('span'); rank.className = 'rank'; rank.textContent = String(index + 1).padStart(2, '0');
       const avatar = document.createElement('span'); avatar.className = 'avatar'; avatar.textContent = normalizeTeamAbbreviation(team.teamAbbreviation, team.teamName);
-      const name = document.createElement('span'); name.innerHTML = `<div class="standing-name">${escapeHTML(team.teamName)}</div><div class="standing-record">${escapeHTML(team.name)}</div>`;
+      const name = document.createElement('span');
+      const completedWeeks = Object.keys(league.matchupResults || {}).length;
+      const record = completedWeeks ? `${wins}-${losses}-${ties} · SEED ${index + 1}` : `NO COMPLETED WEEKS · SEED ${index + 1}`;
+      name.innerHTML = `<div class="standing-name">${escapeHTML(team.teamName)}</div><div class="standing-record">${escapeHTML(record)}</div>`;
       const pts = document.createElement('span'); pts.className = 'standing-points'; pts.textContent = points.toFixed(1); pts.innerHTML += '<small>WEEK PTS</small>';
       const trend = document.createElement('span'); trend.className = 'trend'; trend.textContent = index === 0 ? '▲' : '•';
       row.append(rank, avatar, name, pts, trend);
       target.append(row);
     });
+  }
+
+  function getSeasonStandings() {
+    const standings = league.managers.map((team) => ({ team, wins: 0, losses: 0, ties: 0, pointsFor: 0 }));
+    const byId = new Map(standings.map((standing) => [standing.team.id, standing]));
+    for (const [weekText, scores] of Object.entries(league.matchupResults || {})) {
+      const week = Number(weekText);
+      if (!Number.isInteger(week) || week >= Number(league.playoffSettings?.startWeek)) continue;
+      const pairings = league.matchupSchedule?.[week - 1] || [];
+      for (const [teamId, points] of Object.entries(scores || {})) {
+        const standing = byId.get(teamId);
+        if (standing && Number.isFinite(Number(points))) standing.pointsFor += Number(points);
+      }
+      for (const [homeId, awayId] of pairings) {
+        const homeScore = Number(scores?.[homeId]);
+        const awayScore = Number(scores?.[awayId]);
+        if (!Number.isFinite(homeScore) || !Number.isFinite(awayScore)) continue;
+        const home = byId.get(homeId);
+        const away = byId.get(awayId);
+        if (homeScore === awayScore) {
+          home.ties += 1;
+          away.ties += 1;
+        } else if (homeScore > awayScore) {
+          home.wins += 1;
+          away.losses += 1;
+        } else {
+          away.wins += 1;
+          home.losses += 1;
+        }
+      }
+    }
+    return standings.sort((first, second) => {
+      const firstPercentage = (first.wins + first.ties / 2) / Math.max(1, first.wins + first.losses + first.ties);
+      const secondPercentage = (second.wins + second.ties / 2) / Math.max(1, second.wins + second.losses + second.ties);
+      return secondPercentage - firstPercentage
+        || second.pointsFor - first.pointsFor
+        || first.team.teamName.localeCompare(second.team.teamName);
+    });
+  }
+
+  function recordCompletedMatchupResults(week) {
+    if (!games.length || games.some((game) => !game.completed)) return;
+    let pairings = league.matchupSchedule?.[week - 1] || [];
+    const roundIndex = playoffRoundIndex(week);
+    if (roundIndex >= 0) pairings = playoffRoundMatchups(roundIndex) || [];
+    if (!pairings.length) return;
+    const scores = Object.fromEntries(league.managers.map((team) => [team.id, teamPoints(team)]));
+    const previous = league.matchupResults?.[week];
+    if (previous && league.managers.every((team) => Number(previous[team.id]) === scores[team.id])) return;
+    league.matchupResults ||= {};
+    league.matchupResults[week] = scores;
+    saveLeague();
   }
 
   function renderFeaturedMatchup() {
@@ -5804,7 +5962,20 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       target.innerHTML = '<div class="empty-state"><strong>Your league needs at least two teams</strong>Add teams to generate weekly matchups.</div>';
       return;
     }
-    const [home, away] = currentMatchups()[0] || [];
+    const week = Number(ui.weekSelect.value) || Number(league.selectedWeek) || 1;
+    const roundIndex = playoffRoundIndex(week);
+    let home;
+    let away;
+    let matchupLabel = `HEAD-TO-HEAD · WEEK ${week}`;
+    if (roundIndex >= 0) {
+      const seeds = playoffRoundMatchups(roundIndex)?.[0];
+      const standings = getSeasonStandings();
+      home = seeds ? standings[seeds[0] - 1]?.team : null;
+      away = seeds ? standings[seeds[1] - 1]?.team : null;
+      if (seeds) matchupLabel = `PLAYOFF ROUND ${roundIndex + 1} · SEEDS ${seeds[0]} VS ${seeds[1]}`;
+    } else {
+      [home, away] = currentMatchups()[0] || [];
+    }
     if (!home || !away) return;
     const homePoints = teamPoints(home);
     const awayPoints = teamPoints(away);
@@ -5818,7 +5989,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       : league.picks.length ? 'WEEK IN PROGRESS' : 'SCHEDULED';
     const article = document.createElement('article');
     article.className = 'matchup-card';
-    article.innerHTML = `<div class="matchup-top"><span class="matchup-label">HEAD-TO-HEAD · <span class="current-week">${escapeHTML(ui.weekSelect.value)}</span></span><span class="matchup-status">${matchupStatus}</span></div><div class="matchup-versus"><div class="fantasy-side"><div class="fantasy-name"><span class="team-abbreviation">${escapeHTML(normalizeTeamAbbreviation(home.teamAbbreviation, home.teamName))}</span>${escapeHTML(home.teamName)}</div><div class="fantasy-owner">${escapeHTML(home.name)}</div><div class="fantasy-score">${homePoints.toFixed(2)}</div><div class="matchup-projection">PROJ <strong>${homeProjection.toFixed(1)}</strong> · WIN <strong>${Math.round(homeWinChance * 100)}%</strong></div></div><span class="versus">VS</span><div class="fantasy-side away"><div class="fantasy-name"><span class="team-abbreviation">${escapeHTML(normalizeTeamAbbreviation(away.teamAbbreviation, away.teamName))}</span>${escapeHTML(away.teamName)}</div><div class="fantasy-owner">${escapeHTML(away.name)}</div><div class="fantasy-score">${awayPoints.toFixed(2)}</div><div class="matchup-projection">PROJ <strong>${awayProjection.toFixed(1)}</strong> · WIN <strong>${Math.round(awayWinChance * 100)}%</strong></div></div></div><div class="score-track"><span class="score-fill-home" style="width:${(homePoints / total) * 100}%;"></span><span class="score-fill-away" style="width:${(awayPoints / total) * 100}%;"></span></div>`;
+    article.innerHTML = `<div class="matchup-top"><span class="matchup-label">${escapeHTML(matchupLabel)}</span><span class="matchup-status">${matchupStatus}</span></div><div class="matchup-versus"><div class="fantasy-side"><div class="fantasy-name"><span class="team-abbreviation">${escapeHTML(normalizeTeamAbbreviation(home.teamAbbreviation, home.teamName))}</span>${escapeHTML(home.teamName)}</div><div class="fantasy-owner">${escapeHTML(home.name)}</div><div class="fantasy-score">${homePoints.toFixed(2)}</div><div class="matchup-projection">PROJ <strong>${homeProjection.toFixed(1)}</strong> · WIN <strong>${Math.round(homeWinChance * 100)}%</strong></div></div><span class="versus">VS</span><div class="fantasy-side away"><div class="fantasy-name"><span class="team-abbreviation">${escapeHTML(normalizeTeamAbbreviation(away.teamAbbreviation, away.teamName))}</span>${escapeHTML(away.teamName)}</div><div class="fantasy-owner">${escapeHTML(away.name)}</div><div class="fantasy-score">${awayPoints.toFixed(2)}</div><div class="matchup-projection">PROJ <strong>${awayProjection.toFixed(1)}</strong> · WIN <strong>${Math.round(awayWinChance * 100)}%</strong></div></div></div><div class="score-track"><span class="score-fill-home" style="width:${(homePoints / total) * 100}%;"></span><span class="score-fill-away" style="width:${(awayPoints / total) * 100}%;"></span></div>`;
     article.tabIndex = 0;
     article.setAttribute('role', 'button');
     article.setAttribute('aria-label', `View matchup details for ${home.teamName} and ${away.teamName}`);
@@ -5841,6 +6012,69 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
         league.managers.find((team) => team.id === awayId),
       ])
       .filter(([home, away]) => home && away);
+  }
+
+  function playoffRoundIndex(week) {
+    const settings = league.playoffSettings;
+    if (week < settings.startWeek || week >= settings.startWeek + settings.weeks) return -1;
+    return Math.floor((week - settings.startWeek) / settings.weeksPerRound);
+  }
+
+  function playoffRoundMatchups(roundIndex) {
+    const teamCount = Number(league.playoffSettings.teamCount);
+    if (roundIndex < 0 || roundIndex >= Number(league.playoffSettings.rounds)) return null;
+    if (roundIndex === 0) {
+      if (teamCount === 2) return [[1, 2]];
+      if (teamCount === 4) return [[1, 4], [2, 3]];
+      if (teamCount === 6) return [[3, 6], [4, 5]];
+      return [[1, 8], [4, 5], [2, 7], [3, 6]];
+    }
+
+    const previousMatches = playoffRoundMatchups(roundIndex - 1);
+    if (!previousMatches) return null;
+    const firstWeek = league.playoffSettings.startWeek + (roundIndex - 1) * league.playoffSettings.weeksPerRound;
+    const finalWeek = firstWeek + league.playoffSettings.weeksPerRound - 1;
+    const standings = getSeasonStandings();
+    const scoreForSeed = (seed) => {
+      const team = standings[seed - 1]?.team;
+      if (!team) return null;
+      let total = 0;
+      for (let week = firstWeek; week <= finalWeek; week += 1) {
+        const score = Number(league.matchupResults?.[week]?.[team.id]);
+        if (!Number.isFinite(score)) return null;
+        total += score;
+      }
+      return total;
+    };
+    const winners = [];
+    for (const [firstSeed, secondSeed] of previousMatches) {
+      const firstScore = scoreForSeed(firstSeed);
+      const secondScore = scoreForSeed(secondSeed);
+      if (firstScore === null || secondScore === null) return null;
+      winners.push(firstScore > secondScore || (firstScore === secondScore && firstSeed < secondSeed)
+        ? firstSeed
+        : secondSeed);
+    }
+    if (teamCount === 6 && roundIndex === 1) {
+      winners.push(1, 2);
+      if (league.playoffSettings.reseed) {
+        winners.sort((first, second) => first - second);
+        return [[winners[0], winners[winners.length - 1]], [winners[1], winners[winners.length - 2]]];
+      }
+      const firstRoundWinners = winners.slice(0, 2);
+      return [[1, firstRoundWinners[1]], [2, firstRoundWinners[0]]];
+    }
+    if (league.playoffSettings.reseed) {
+      winners.sort((first, second) => first - second);
+      const pairings = [];
+      while (winners.length > 1) pairings.push([winners.shift(), winners.pop()]);
+      return pairings;
+    }
+    const pairings = [];
+    for (let index = 0; index + 1 < winners.length; index += 2) {
+      pairings.push([winners[index], winners[index + 1]]);
+    }
+    return pairings;
   }
 
   function teamPoints(team) {
@@ -5869,6 +6103,12 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
   function renderMatchups() {
     const target = $('matchupsList');
     target.replaceChildren();
+    const week = Number(ui.weekSelect.value) || Number(league.selectedWeek) || 1;
+    const roundIndex = playoffRoundIndex(week);
+    if (roundIndex >= 0) {
+      renderPlayoffMatchups(target, roundIndex);
+      return;
+    }
     if (!currentMatchups().length) {
       target.innerHTML = '<div class="panel empty-state"><strong>No matchups available</strong>Check the team list or ask the commissioner to regenerate the weekly schedule.</div>';
       return;
@@ -5888,6 +6128,49 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       target.append(panel);
     });
     if (selectedMatchup) renderMatchupDetail();
+  }
+
+  function renderPlayoffMatchups(target, roundIndex) {
+    const roundNumber = roundIndex + 1;
+    const matchups = playoffRoundMatchups(roundIndex);
+    const standings = getSeasonStandings();
+    const seeds = document.createElement('div');
+    seeds.className = 'panel';
+    const seededTeams = standings.slice(0, league.playoffSettings.teamCount)
+      .map(({ team }, index) => `#${index + 1} ${escapeHTML(team.teamName)}`);
+    seeds.innerHTML = `<strong>PLAYOFF SEEDS</strong><div class="standing-record">${seededTeams.join(' · ')}</div>`;
+    target.append(seeds);
+    if (league.playoffSettings.teamCount === 6 && roundIndex === 0) {
+      const byes = document.createElement('div');
+      byes.className = 'panel';
+      byes.innerHTML = '<strong>FIRST-ROUND BYES</strong><div class="standing-record">Seeds 1 and 2 advance to round 2.</div>';
+      target.append(byes);
+    }
+    if (!matchups) {
+      const pending = document.createElement('div');
+      pending.className = 'panel empty-state';
+      pending.innerHTML = `<strong>Round ${roundNumber} seeds are pending</strong>Earlier playoff matchups need final scores before the next round is set.`;
+      target.append(pending);
+      return;
+    }
+    matchups.forEach(([firstSeed, secondSeed], index) => {
+      const first = standings[firstSeed - 1]?.team;
+      const second = standings[secondSeed - 1]?.team;
+      if (!first || !second) return;
+      const panel = document.createElement('button');
+      panel.className = 'matchup-panel';
+      panel.type = 'button';
+      panel.setAttribute('aria-label', `Playoff round ${roundNumber}, seed ${firstSeed} ${first.teamName} versus seed ${secondSeed} ${second.teamName}`);
+      const firstPoints = teamPoints(first);
+      const secondPoints = teamPoints(second);
+      const total = Math.max(1, firstPoints + secondPoints);
+      panel.innerHTML = `<div class="matchup-panel-head"><span>PLAYOFF ROUND ${roundNumber} · MATCHUP ${String(index + 1).padStart(2, '0')}</span><span>SEEDS ${firstSeed} VS ${secondSeed}</span></div><div class="matchup-row"><div class="matchup-team-card"><div class="team-name">#${firstSeed} ${escapeHTML(first.teamName)}</div><div class="team-manager">${escapeHTML(first.name)}</div><div class="team-points">${firstPoints.toFixed(2)}</div></div><span class="matchup-divider">VS</span><div class="matchup-team-card away"><div class="team-name">#${secondSeed} ${escapeHTML(second.teamName)}</div><div class="team-manager">${escapeHTML(second.name)}</div><div class="team-points">${secondPoints.toFixed(2)}</div></div></div><div class="matchup-progress"><span class="score-fill-home" style="width:${firstPoints / total * 100}%;"></span><span class="score-fill-away" style="width:${secondPoints / total * 100}%;"></span></div>`;
+      panel.addEventListener('click', () => openMatchupDetail(first.id, second.id));
+      target.append(panel);
+    });
+    if (!matchups.length) {
+      target.innerHTML = `<div class="panel empty-state"><strong>Round ${roundNumber} matchups are pending</strong>Final scores are needed to determine the advancing seeds.</div>`;
+    }
   }
 
   function openMatchupDetail(homeId, awayId) {
@@ -6214,6 +6497,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
         if (activeView === 'view-draft') renderDraftPlayers();
         if (activeView === 'view-players') renderPlayerPool();
       }
+      recordCompletedMatchupResults(Number(week));
       renderLiveGames();
       renderLiveLeaders();
       renderOverview();
@@ -6631,14 +6915,8 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
         commissionerSettingsDirty = true;
       }
     });
-    $('playoffStartWeek').addEventListener('change', () => {
-      const duration = $('playoffWeeks');
-      const previousWeeks = Number(duration.value) || 3;
-      const maxWeeks = SEASON_WEEKS - Number($('playoffStartWeek').value) + 1;
-      duration.replaceChildren();
-      for (let count = 1; count <= maxWeeks; count += 1) {
-        duration.add(new Option(`${count} WEEK${count === 1 ? '' : 'S'}`, String(count), false, count === Math.min(previousWeeks, maxWeeks)));
-      }
+    ['playoffTeamCount', 'playoffRounds', 'playoffRoundWeeks', 'playoffByes'].forEach((id) => {
+      $(id).addEventListener('change', () => syncPlayoffControls(id));
     });
     $('newLeagueButton').addEventListener('click', () => { void openOnlineLobby(); });
     $('homeNewLeague').addEventListener('click', () => { void openOnlineLobby(); });

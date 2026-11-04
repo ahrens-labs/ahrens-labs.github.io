@@ -23,7 +23,9 @@ function shuffled(values) {
   return result;
 }
 
-function generateMatchupSchedule(teamIds) {
+function generateMatchupSchedule(teamIds, playoffSettings) {
+  const regularSeasonWeeks = Math.max(0, Math.min(SEASON_WEEKS, Number(playoffSettings?.startWeek || SEASON_WEEKS + 1) - 1));
+  if (!regularSeasonWeeks) return Array.from({ length: SEASON_WEEKS }, () => []);
   const rotation = shuffled(teamIds);
   if (rotation.length % 2) rotation.push(null);
   const rounds = [];
@@ -40,53 +42,89 @@ function generateMatchupSchedule(teamIds) {
     rotation.splice(1, 0, rotation.pop());
   }
   const roundInstances = [];
-  if (rounds.length <= SEASON_WEEKS / 2) {
-    const baseCount = Math.floor((SEASON_WEEKS / 2) / rounds.length);
-    const extraCount = (SEASON_WEEKS / 2) % rounds.length;
+  if (regularSeasonWeeks % 2 === 0 && rounds.length <= regularSeasonWeeks / 2) {
+    const baseCount = Math.floor((regularSeasonWeeks / 2) / rounds.length);
+    const extraCount = Math.floor(regularSeasonWeeks / 2) % rounds.length;
     const extraRounds = new Set(shuffled(rounds.map((_, index) => index)).slice(0, extraCount));
     rounds.forEach((round, index) => {
       const repeats = 2 * (baseCount + Number(extraRounds.has(index)));
       for (let repeat = 0; repeat < repeats; repeat += 1) roundInstances.push(round);
     });
   } else {
-    const baseCount = Math.floor(SEASON_WEEKS / rounds.length);
-    const extraCount = SEASON_WEEKS % rounds.length;
+    const baseCount = Math.floor(regularSeasonWeeks / rounds.length);
+    const extraCount = regularSeasonWeeks % rounds.length;
     const extraRounds = new Set(shuffled(rounds.map((_, index) => index)).slice(0, extraCount));
     rounds.forEach((round, index) => {
       const repeats = baseCount + Number(extraRounds.has(index));
       for (let repeat = 0; repeat < repeats; repeat += 1) roundInstances.push(round);
     });
   }
-  return shuffled(roundInstances).map((round) =>
+  while (roundInstances.length < regularSeasonWeeks) {
+    roundInstances.push(rounds[randomIndex(rounds.length)]);
+  }
+  const regularSchedule = shuffled(roundInstances).map((round) =>
     round.map((matchup) => (randomIndex(2) ? [...matchup] : [...matchup].reverse())));
+  return [
+    ...regularSchedule,
+    ...Array.from({ length: SEASON_WEEKS - regularSchedule.length }, () => []),
+  ];
 }
 
-function validMatchupSchedule(schedule, teamIds) {
+function validMatchupSchedule(schedule, teamIds, playoffSettings) {
   if (!Array.isArray(schedule) || schedule.length !== SEASON_WEEKS) return false;
   const validIds = new Set(teamIds);
-  return schedule.every((matchups) => {
+  return schedule.every((matchups, weekIndex) => {
     if (!Array.isArray(matchups)) return false;
     const weekTeams = matchups.flat();
     if (matchups.some((pair) => !Array.isArray(pair) || pair.length !== 2
       || pair[0] === pair[1] || pair.some((id) => typeof id !== 'string' || !validIds.has(id)))) return false;
     if (new Set(weekTeams).size !== weekTeams.length) return false;
+    if (playoffSettings && weekIndex >= Number(playoffSettings.startWeek) - 1) return weekTeams.length === 0;
     return weekTeams.length === teamIds.length - (teamIds.length % 2);
   });
 }
 
 function validPlayoffSettings(settings, teamCount) {
   const allowedTeamCounts = [2, 4, 6, 8];
+  const playoffTeamCount = Number(settings?.teamCount);
+  const rounds = Math.ceil(Math.log2(playoffTeamCount));
   return settings && typeof settings === 'object'
-    && allowedTeamCounts.includes(Number(settings.teamCount))
-    && Number(settings.teamCount) <= teamCount
+    && allowedTeamCounts.includes(playoffTeamCount)
+    && playoffTeamCount <= teamCount
+    && (playoffTeamCount !== 6 || settings.byes === true)
+    && Number(settings.rounds) === rounds
+    && [1, 2].includes(Number(settings.weeksPerRound))
+    && Number(settings.weeks) === rounds * Number(settings.weeksPerRound)
     && Number.isInteger(Number(settings.startWeek))
     && Number(settings.startWeek) >= 1
     && Number(settings.startWeek) <= SEASON_WEEKS
     && Number.isInteger(Number(settings.weeks))
     && Number(settings.weeks) >= 1
     && Number(settings.startWeek) + Number(settings.weeks) - 1 <= SEASON_WEEKS
+    && typeof settings.byes === 'boolean'
     && typeof settings.reseed === 'boolean'
     && typeof settings.consolation === 'boolean';
+}
+
+function defaultPlayoffSettings(teamCount, previous = {}) {
+  const playoffTeamCount = [8, 6, 4, 2].find((count) => count <= teamCount) || 2;
+  const rounds = Math.ceil(Math.log2(playoffTeamCount));
+  const weeksPerRound = Number(previous.weeks) >= rounds * 2 ? 2 : 1;
+  const weeks = rounds * weeksPerRound;
+  const startWeek = Math.min(
+    Math.max(1, Number(previous.startWeek) || 16),
+    SEASON_WEEKS - weeks + 1,
+  );
+  return {
+    teamCount: playoffTeamCount,
+    startWeek,
+    rounds,
+    weeksPerRound,
+    weeks,
+    byes: playoffTeamCount === 6 || previous.byes === true,
+    reseed: previous.reseed !== false,
+    consolation: previous.consolation !== false,
+  };
 }
 
 function validWaiverSettings(settings) {
@@ -410,7 +448,7 @@ function normalizeSetup(input, userId, username) {
   if (managers.some((manager) => !manager)) return { error: 'Each fantasy team needs a name and a 1 to 4 character abbreviation.' };
   const leagueId = `af-${crypto.randomUUID()}`;
   const draftOrder = managers.map((manager) => manager.id);
-  const playoffTeamCount = [8, 6, 4, 2].find((count) => count <= teamCount);
+  const playoffSettings = defaultPlayoffSettings(teamCount);
   return {
     league: {
       leagueId,
@@ -422,14 +460,8 @@ function normalizeSetup(input, userId, username) {
       rosterSlots,
       scoring,
       draftOrder,
-      matchupSchedule: generateMatchupSchedule(managers.map((manager) => manager.id)),
-      playoffSettings: {
-        teamCount: playoffTeamCount,
-        startWeek: 15,
-        weeks: 3,
-        reseed: true,
-        consolation: true,
-      },
+      matchupSchedule: generateMatchupSchedule(managers.map((manager) => manager.id), playoffSettings),
+      playoffSettings,
       waiverSettings: { enabled: true, periodHours: 48 },
       waiverPriorityTeamIds: [...draftOrder].reverse(),
       waiverWindows: {},
@@ -618,8 +650,10 @@ function validateLeagueSave(previous, incoming, userId) {
     return 'Roster player data is invalid.';
   }
   const teamIds = previous.managers.map((team) => team.id);
-  if (!validMatchupSchedule(incoming.matchupSchedule, teamIds)) return 'The weekly matchup schedule is invalid.';
   if (!validPlayoffSettings(incoming.playoffSettings, previous.teamCount)) return 'Playoff settings are invalid.';
+  if (!validMatchupSchedule(incoming.matchupSchedule, teamIds, incoming.playoffSettings)) {
+    return 'The weekly matchup schedule is invalid or extends into playoff weeks.';
+  }
   const nextIds = incoming.managers.flatMap((team) => team.roster.map((player) => String(player.id)));
   if (new Set(nextIds).size !== nextIds.length) return 'A player cannot be on more than one team.';
 
@@ -922,18 +956,15 @@ export class FantasyLeagueStore {
         migrated = true;
       }
     });
-    if (!validMatchupSchedule(record.league.matchupSchedule, teamIds)) {
-      record.league.matchupSchedule = generateMatchupSchedule(teamIds);
+    if (!validPlayoffSettings(record.league.playoffSettings, record.league.teamCount)) {
+      record.league.playoffSettings = defaultPlayoffSettings(
+        record.league.teamCount,
+        record.league.playoffSettings || {},
+      );
       migrated = true;
     }
-    if (!validPlayoffSettings(record.league.playoffSettings, record.league.teamCount)) {
-      record.league.playoffSettings = {
-        teamCount: [8, 6, 4, 2].find((count) => count <= record.league.teamCount),
-        startWeek: 15,
-        weeks: 3,
-        reseed: true,
-        consolation: true,
-      };
+    if (!validMatchupSchedule(record.league.matchupSchedule, teamIds, record.league.playoffSettings)) {
+      record.league.matchupSchedule = generateMatchupSchedule(teamIds, record.league.playoffSettings);
       migrated = true;
     }
     if (!validWaiverSettings(record.league.waiverSettings)) {
@@ -1042,10 +1073,13 @@ export class FantasyLeagueStore {
         ...existingPriority.filter((teamId) => currentTeamIds.includes(teamId)),
         ...currentTeamIds.filter((teamId) => !existingPriority.includes(teamId)),
       ];
-      league.matchupSchedule = generateMatchupSchedule(league.managers.map((team) => team.id));
       if (league.playoffSettings?.teamCount > teamCount) {
-        league.playoffSettings.teamCount = [8, 6, 4, 2].find((count) => count <= teamCount);
+        league.playoffSettings = defaultPlayoffSettings(teamCount, league.playoffSettings);
       }
+      league.matchupSchedule = generateMatchupSchedule(
+        league.managers.map((team) => team.id),
+        league.playoffSettings,
+      );
     }
 
     const claimedIds = new Set();

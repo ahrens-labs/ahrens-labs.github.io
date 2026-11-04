@@ -284,11 +284,17 @@ test('league edits, schedule, and playoff settings persist after the draft start
   updatedLeague.playoffSettings = {
     teamCount: 2,
     startWeek: 14,
-    weeks: 4,
+    rounds: 1,
+    weeksPerRound: 2,
+    weeks: 2,
+    byes: false,
     reseed: false,
     consolation: false,
   };
-  updatedLeague.matchupSchedule.reverse();
+  updatedLeague.matchupSchedule = [
+    ...updatedLeague.matchupSchedule.slice(0, 13),
+    ...Array.from({ length: 5 }, () => []),
+  ];
   const { response: saveResponse, data: saved } = await storeRequest(store, 'save', {
     userId: 'account-1',
     leagueId,
@@ -328,8 +334,12 @@ test('new leagues get balanced matchups before the draft', async () => {
   assert.deepEqual(data.league.managers.map((team) => team.teamAbbreviation), ['T1', 'T2', 'T3', 'T4']);
   assert.equal(data.league.matchupSchedule.length, 18);
   const pairCounts = new Map();
-  data.league.matchupSchedule.forEach((week) => {
+  data.league.matchupSchedule.forEach((week, index) => {
     const teamsPlaying = week.flat();
+    if (index >= data.league.playoffSettings.startWeek - 1) {
+      assert.deepEqual(week, []);
+      return;
+    }
     assert.equal(new Set(teamsPlaying).size, 4);
     for (const [first, second] of week) {
       const key = [first, second].sort().join(':');
@@ -337,11 +347,14 @@ test('new leagues get balanced matchups before the draft', async () => {
     }
   });
   assert.equal(pairCounts.size, 6);
-  assert.deepEqual([...pairCounts.values()], Array(6).fill(6));
+  assert.deepEqual([...pairCounts.values()], Array(6).fill(5));
   assert.deepEqual(data.league.playoffSettings, {
     teamCount: 4,
-    startWeek: 15,
-    weeks: 3,
+    startWeek: 16,
+    rounds: 2,
+    weeksPerRound: 1,
+    weeks: 2,
+    byes: false,
     reseed: true,
     consolation: true,
   });
@@ -363,8 +376,12 @@ test('weekly schedules remain balanced for every supported league size', async (
 
     assert.equal(response.status, 200);
     const pairCounts = new Map();
-    data.league.matchupSchedule.forEach((week) => {
+    data.league.matchupSchedule.forEach((week, index) => {
       const teamsPlaying = week.flat();
+      if (index >= data.league.playoffSettings.startWeek - 1) {
+        assert.deepEqual(week, []);
+        return;
+      }
       assert.equal(teamsPlaying.length, teamCount - (teamCount % 2));
       assert.equal(new Set(teamsPlaying).size, teamsPlaying.length);
       for (const [first, second] of week) {
@@ -374,13 +391,51 @@ test('weekly schedules remain balanced for every supported league size', async (
     });
     const counts = [...pairCounts.values()];
     assert.equal(pairCounts.size, (teamCount * (teamCount - 1)) / 2);
-    if (teamCount <= 10) {
-      assert.ok(counts.every((count) => count % 2 === 0), `${teamCount}-team opponents should meet an even number of times`);
-      assert.ok(Math.max(...counts) - Math.min(...counts) <= 2, `${teamCount}-team schedule is unbalanced`);
-    } else {
-      assert.ok(Math.max(...counts) - Math.min(...counts) <= 1, `${teamCount}-team schedule is unbalanced`);
-    }
+    assert.ok(Math.max(...counts) - Math.min(...counts) <= 1, `${teamCount}-team schedule is unbalanced`);
   }
+});
+
+test('playoff weeks are reserved and 6-team brackets require seeded byes', async () => {
+  const { store, storage } = createStore();
+  const { data: created } = await storeRequest(store, 'create', {
+    userId: 'commissioner',
+    username: 'Commissioner',
+    league: {
+      name: 'Six Seeds',
+      teamCount: 6,
+      managers: Array.from({ length: 6 }, (_, index) => ({ teamName: `Team ${index + 1}` })),
+      rosterSlots: { QB: 1 },
+    },
+  });
+  const leagueId = created.league.leagueId;
+  assert.equal(created.league.playoffSettings.teamCount, 6);
+  assert.equal(created.league.playoffSettings.rounds, 3);
+  assert.equal(created.league.playoffSettings.byes, true);
+
+  const record = await storage.get(`league:${leagueId}`);
+  const invalidLeague = structuredClone(record.league);
+  invalidLeague.matchupSchedule[invalidLeague.playoffSettings.startWeek - 1] = [
+    [invalidLeague.managers[0].id, invalidLeague.managers[1].id],
+  ];
+  const { response, data } = await storeRequest(store, 'save', {
+    userId: created.league.commissionerUserId,
+    leagueId,
+    league: invalidLeague,
+    revision: record.revision,
+  });
+  assert.equal(response.status, 403, JSON.stringify(data));
+  assert.match(data.error, /extends into playoff weeks/);
+
+  invalidLeague.matchupSchedule = record.league.matchupSchedule;
+  invalidLeague.playoffSettings.byes = false;
+  const invalidFormat = await storeRequest(store, 'save', {
+    userId: created.league.commissionerUserId,
+    leagueId,
+    league: invalidLeague,
+    revision: record.revision,
+  });
+  assert.equal(invalidFormat.response.status, 403);
+  assert.match(invalidFormat.data.error, /Playoff settings are invalid/);
 });
 
 test('changing league size before the draft rebuilds the schedule for all teams', async () => {
@@ -407,7 +462,11 @@ test('changing league size before the draft rebuilds the schedule for all teams'
   assert.equal(response.status, 200);
   assert.equal(data.league.teamCount, 4);
   assert.equal(data.league.matchupSchedule.length, 18);
-  for (const week of data.league.matchupSchedule) {
+  for (const [index, week] of data.league.matchupSchedule.entries()) {
+    if (index >= data.league.playoffSettings.startWeek - 1) {
+      assert.deepEqual(week, []);
+      continue;
+    }
     assert.equal(new Set(week.flat()).size, 4);
   }
 });
@@ -438,8 +497,11 @@ test('loading a legacy league creates and saves missing schedule and playoff def
   assert.equal(data.league.matchupSchedule.length, 18);
   assert.deepEqual(data.league.playoffSettings, {
     teamCount: 2,
-    startWeek: 15,
-    weeks: 3,
+    startWeek: 16,
+    rounds: 1,
+    weeksPerRound: 1,
+    weeks: 1,
+    byes: false,
     reseed: true,
     consolation: true,
   });
