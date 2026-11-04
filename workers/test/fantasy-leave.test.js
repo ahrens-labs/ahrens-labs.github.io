@@ -475,6 +475,72 @@ test('changing league size before the draft rebuilds the schedule for all teams'
   }
 });
 
+test('commissioner can unclaim an empty team by omitting it from selected team ids', async () => {
+  const { store, storage } = createStore();
+  const { data: created } = await storeRequest(store, 'create', {
+    userId: 'commissioner',
+    username: 'Commissioner',
+    league: {
+      name: 'Team Claims',
+      teamCount: 2,
+      managers: [{ teamName: 'Commissioner Team' }, { teamName: 'Team 2' }],
+      rosterSlots: { QB: 1 },
+    },
+  });
+  const leagueId = created.league.leagueId;
+  const teamId = created.league.managers[1].id;
+  const originalClaimIds = created.league.managers
+    .filter((team) => team.ownerUserId === 'commissioner')
+    .map((team) => team.id);
+  const claimed = await storeRequest(store, 'manage-teams', {
+    userId: 'commissioner',
+    username: 'Commissioner',
+    leagueId,
+    teamCount: 2,
+    claimTeamIds: [...originalClaimIds, teamId],
+    revision: created.revision,
+  });
+  assert.equal(claimed.response.status, 200);
+  assert.equal(claimed.data.league.managers[1].ownerUserId, 'commissioner');
+  assert.ok(claimed.data.userTeamIds.includes(teamId));
+
+  const released = await storeRequest(store, 'manage-teams', {
+    userId: 'commissioner',
+    username: 'Commissioner',
+    leagueId,
+    teamCount: 2,
+    claimTeamIds: originalClaimIds,
+    revision: claimed.data.revision,
+  });
+  assert.equal(released.response.status, 200);
+  assert.equal(released.data.league.managers[1].ownerUserId, null);
+  assert.equal(released.data.league.managers[1].name, 'Open team');
+  assert.ok(!released.data.userTeamIds.includes(teamId));
+
+  const reclaimed = await storeRequest(store, 'manage-teams', {
+    userId: 'commissioner',
+    username: 'Commissioner',
+    leagueId,
+    teamCount: 2,
+    claimTeamIds: [...originalClaimIds, teamId],
+    revision: released.data.revision,
+  });
+  assert.equal(reclaimed.response.status, 200);
+  const record = await storage.get(`league:${leagueId}`);
+  record.league.managers[1].roster.push({ id: 'player-1' });
+  await storage.put(`league:${leagueId}`, record);
+  const cannotReleaseRosteredTeam = await storeRequest(store, 'manage-teams', {
+    userId: 'commissioner',
+    username: 'Commissioner',
+    leagueId,
+    teamCount: 2,
+    claimTeamIds: originalClaimIds,
+    revision: reclaimed.data.revision,
+  });
+  assert.equal(cannotReleaseRosteredTeam.response.status, 409);
+  assert.match(cannotReleaseRosteredTeam.data.error, /Move or drop players/);
+});
+
 test('loading a legacy league creates and saves missing schedule and playoff defaults', async () => {
   const { store, storage } = createStore([
     ['league:legacy-league', {

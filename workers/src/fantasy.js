@@ -550,6 +550,12 @@ function sameValue(left, right) {
     && leftKeys.every((key, index) => key === rightKeys[index] && sameValue(left[key], right[key]));
 }
 
+function sameStringSet(left, right) {
+  const leftSet = new Set(left);
+  const rightSet = new Set(right);
+  return leftSet.size === rightSet.size && [...leftSet].every((value) => rightSet.has(value));
+}
+
 function idsForTradeAcceptance(previous, candidate, userId, previousTrade, nextTrade) {
   if (!previousTrade || previousTrade.status !== 'pending' || nextTrade.status !== 'accepted') return false;
   const from = managerById(previous, previousTrade.fromId);
@@ -1026,8 +1032,35 @@ export class FantasyLeagueStore {
 
     const league = record.league;
     const previousTeamCount = league.teamCount;
+    const previouslyClaimedIds = league.managers
+      .filter((team) => team.ownerUserId === body.userId)
+      .map((team) => team.id);
+    const selectedClaimIds = claimTeamIds.length ? claimTeamIds : previouslyClaimedIds;
     if (teamCount !== league.teamCount && (league.draftStarted || league.picks.length)) {
       return { status: 409, error: 'League size can only change before the draft starts.' };
+    }
+    if ((league.draftStarted || league.picks.length)
+      && !sameStringSet(selectedClaimIds, previouslyClaimedIds)) {
+      return { status: 409, error: 'Team assignments can only change before the draft starts.' };
+    }
+    const validTeamIds = new Set(league.managers
+      .slice(0, teamCount)
+      .filter((team) => !team.ownerUserId || team.ownerUserId === body.userId)
+      .map((team) => team.id));
+    if (selectedClaimIds.some((teamId) => !validTeamIds.has(teamId))) {
+      return { status: 409, error: 'Choose only open teams or teams you already manage.' };
+    }
+    const desiredClaimIds = new Set(selectedClaimIds);
+    if (!league.managers.slice(0, teamCount).some((team) =>
+      (team.ownerUserId === body.userId && desiredClaimIds.has(team.id))
+      || (!team.ownerUserId && desiredClaimIds.has(team.id)))) {
+      return { status: 400, error: 'Keep at least one team assigned to yourself.' };
+    }
+    const releasedTeams = league.managers
+      .slice(0, Math.min(teamCount, league.managers.length))
+      .filter((team) => team.ownerUserId === body.userId && !desiredClaimIds.has(team.id));
+    if (releasedTeams.some((team) => team.roster.length)) {
+      return { status: 409, error: 'Move or drop players from a team before unclaiming it.' };
     }
     if (teamCount < league.teamCount) {
       const removedTeams = league.managers.slice(teamCount);
@@ -1082,16 +1115,14 @@ export class FantasyLeagueStore {
       );
     }
 
-    const claimedIds = new Set();
-    for (const teamId of claimTeamIds) {
-      const team = managerById(league, teamId);
-      if (!team || team.ownerUserId) {
-        return { status: 409, error: 'One or more selected teams are no longer available to claim.' };
-      }
-      claimedIds.add(teamId);
+    for (const team of releasedTeams) {
+      removeWaiverClaimsForTeam(league, team.id);
+      team.ownerUserId = null;
+      team.name = 'Open team';
     }
-    for (const teamId of claimedIds) {
+    for (const teamId of desiredClaimIds) {
       const team = managerById(league, teamId);
+      if (team.ownerUserId === body.userId) continue;
       team.ownerUserId = body.userId;
       team.name = String(body.username || 'Commissioner').slice(0, 40);
     }
