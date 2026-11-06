@@ -1190,6 +1190,9 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
           <div class="field full"><h3 class="trade-section-heading">DRAFT ORDER · USE ARROWS TO REORDER</h3><div class="manager-list" id="draftOrderSettings"></div><button class="button" id="randomizeDraftOrder" type="button">RANDOMIZE DRAFT ORDER</button></div>
           <div class="field full" data-auction-setting><span class="small-note">Salary-cap defaults are $200 per team, $1 minimum bid, and a 30-second bid clock. At least $1 stays reserved for each unfilled roster slot.</span></div>
           <button class="button primary" id="saveDraftSettings">SAVE DRAFT SETTINGS</button>
+          <div class="field full"><span class="small-note">Draft controls (also available from the Draft tab while it is shown):</span></div>
+          <button class="button danger" id="endDraftSettings" type="button">END DRAFT</button>
+          <button class="button danger" id="restartDraftSettings" type="button">RESTART DRAFT</button>
         </div>
       </section>
       <section class="panel commissioner-playoff-settings">
@@ -2095,6 +2098,16 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     [type, budget, clock, draftTime].forEach((input) => { input.disabled = disabled; });
     $('saveDraftSettings').disabled = disabled;
     $('randomizeDraftOrder').disabled = disabled;
+    const endDraftButton = $('endDraftSettings');
+    if (endDraftButton) {
+      endDraftButton.disabled = !league.draftStarted || isDraftClosed();
+      endDraftButton.classList.toggle('hidden', !league.draftStarted || isDraftClosed());
+    }
+    const restartDraftButton = $('restartDraftSettings');
+    if (restartDraftButton) {
+      restartDraftButton.disabled = !league.picks.length && !league.draftEnded;
+      restartDraftButton.classList.toggle('hidden', !league.picks.length && !league.draftEnded);
+    }
     $('commissionerDraftStatus').textContent = `${String(draftSettings.type).toUpperCase()} DRAFT${league.draftAt
       ? ` · ${new Date(league.draftAt).toLocaleString()}`
       : ' · NOT SCHEDULED'}`;
@@ -2979,28 +2992,52 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       notify('Only the commissioner can control the shared draft.');
       return;
     }
-    await waitForOnlineSave();
-    const { response, data } = await fantasyRequest(
-      `/api/fantasy/leagues/${encodeURIComponent(league.leagueId)}/draft-control`,
-      'POST',
-      { action, revision: onlineRevision },
-    );
-    if (!response.ok) {
+    // Background saves (pool reconciles, matchup results) can bump the
+    // server revision between checking it and posting, which used to fail
+    // the first attempt with a 409. Retry once with the fresh revision.
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      await waitForOnlineSave();
+      const { response, data } = await fantasyRequest(
+        `/api/fantasy/leagues/${encodeURIComponent(league.leagueId)}/draft-control`,
+        'POST',
+        { action, revision: onlineRevision },
+      );
+      if (response.ok) {
+        installOnlineLeague(data);
+        renderOnlineLeague();
+        notify(action === 'end'
+          ? 'Draft ended. Existing picks and rosters were kept.'
+          : 'Draft restarted from Pick 1. Drafted players were returned to the player pool.');
+        return;
+      }
       if (data.league) {
         installOnlineLeague(data);
         renderOnlineLeague();
       }
-      throw new Error(data.error || 'Could not change draft status.');
+      const revisionRace = response.status === 409 && /changed on another device/i.test(data.error || '');
+      if (!revisionRace || attempt === 1) {
+        throw new Error(data.error || 'Could not change draft status.');
+      }
+      // Fresh league state was installed above; re-check the action is
+      // still applicable before retrying with the new revision.
+      if (action === 'end' && (!league.draftStarted || isDraftClosed())) {
+        throw new Error(data.error || 'Could not change draft status.');
+      }
+      if (action === 'restart' && !league.picks.length && !league.draftEnded) {
+        throw new Error(data.error || 'Could not change draft status.');
+      }
     }
-    installOnlineLeague(data);
-    renderOnlineLeague();
-    notify(action === 'end'
-      ? 'Draft ended. Existing picks and rosters were kept.'
-      : 'Draft restarted from Pick 1. Drafted players were returned to the player pool.');
   }
 
   function endDraft() {
-    if (!onlineCommissioner || !league.draftStarted || isDraftClosed()) return;
+    if (!onlineCommissioner) {
+      notify('Only the commissioner can end the draft.');
+      return;
+    }
+    if (!league.draftStarted || isDraftClosed()) {
+      notify('There is no active draft to end.');
+      return;
+    }
     openConfirm(
       'End the draft?',
       'This stops all future picks and cancels any active auction. Existing picks and rosters will be kept.',
@@ -3010,7 +3047,14 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
   }
 
   function restartDraft() {
-    if (!onlineCommissioner || (!league.picks.length && !league.draftEnded)) return;
+    if (!onlineCommissioner) {
+      notify('Only the commissioner can restart the draft.');
+      return;
+    }
+    if (!league.picks.length && !league.draftEnded) {
+      notify('There is no draft to restart yet.');
+      return;
+    }
     openConfirm(
       'Restart the draft?',
       'This removes all draft picks and returns drafted players to the player pool. Undrafted free-agent claims and league settings will be kept.',
@@ -8822,6 +8866,8 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     $('rescheduleDraft').addEventListener('click', openDraftScheduler);
     $('endDraft').addEventListener('click', endDraft);
     $('restartDraft').addEventListener('click', restartDraft);
+    $('endDraftSettings')?.addEventListener('click', endDraft);
+    $('restartDraftSettings')?.addEventListener('click', restartDraft);
     $('draftSearch').addEventListener('input', renderDraftPlayers);
     $('positionFilter').addEventListener('change', renderDraftPlayers);
     $('teamFilter').addEventListener('change', renderDraftPlayers);
