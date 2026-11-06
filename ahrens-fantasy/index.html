@@ -3294,6 +3294,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     return {
       id: String(athlete.id),
       espnRank: null,
+      rosterPercent: null,
       projectedPoints: null,
       projectedStats: null,
       name: athlete.fullName || athlete.displayName || athlete.shortName || 'Unknown player',
@@ -3791,7 +3792,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       }
       if (projectionWeek === Number(league.selectedWeek)) applyFantasyProjections(fantasyData);
       else void refreshProjections();
-      players.sort(compareEspnRank);
+      players.sort(compareDefaultOrder);
       reconcileDraftedPlayerData();
       populateTeamFilter();
       renderDraftPlayers();
@@ -3877,6 +3878,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     players.forEach((player) => {
       const data = fantasyData.get(String(player.id)) || (player.position === 'D/ST' ? fantasyData.get(`DST-${player.teamId}`) : null);
       player.espnRank = data?.rank ?? null;
+      player.rosterPercent = data?.rosterPercent ?? null;
       player.projectedStats = data?.projectedStats || null;
       player.projectedPoints = player.projectedStats ? playerFantasyPoints(player, player.projectedStats) : null;
       player.weeklyRank = data?.weeklyRank ?? null;
@@ -3896,7 +3898,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     const fantasyData = await fetchEspnPlayerRanks();
     if (generation !== feedGeneration || week !== Number(league.selectedWeek)) return;
     applyFantasyProjections(fantasyData);
-    players.sort(compareEspnRank);
+    players.sort(compareDefaultOrder);
     renderDraftPlayers();
     renderPlayerPool();
     renderRosters();
@@ -4079,7 +4081,9 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
         // Keep QBs on a real NFL team even without a rank/projection: a new
         // starter ESPN has not ranked yet still displaces the old starter's
         // "if he starts" projection (see markQbExpectedStarters).
-        if (player.id == null || (!hasRank && !hasProj && !(isQb && player.proTeamId))) return;
+        const rosterPercent = Number(player.ownership?.percentOwned);
+        const hasRosterPercent = Number.isFinite(rosterPercent);
+        if (player.id == null || (!hasRank && !hasProj && !hasRosterPercent && !(isQb && player.proTeamId))) return;
         // ESPN's weekly rankings and outlooks are only published for the
         // expected starter at each position. A backup QB often still gets a
         // full "if he starts" projected stat line, so these are the signals
@@ -4090,6 +4094,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
         const outlookText = player.outlooks?.outlooksByWeek?.[String(week)] || '';
         const payload = {
           rank: hasRank ? rank : null,
+          rosterPercent: hasRosterPercent ? rosterPercent : null,
           projectedStats,
           projectedPoints: null,
           weeklyRank: Number.isFinite(weeklyRank) ? weeklyRank : null,
@@ -4112,6 +4117,14 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     const rankA = Number.isFinite(a.espnRank) ? a.espnRank : Infinity;
     const rankB = Number.isFinite(b.espnRank) ? b.espnRank : Infinity;
     return rankA - rankB || a.name.localeCompare(b.name);
+  }
+
+  // Default order for the players tab, with ESPN rank as the tie-breaker.
+  // Players without roster data sort last.
+  function compareDefaultOrder(a, b) {
+    const percentA = Number.isFinite(a.rosterPercent) ? a.rosterPercent : -1;
+    const percentB = Number.isFinite(b.rosterPercent) ? b.rosterPercent : -1;
+    return percentB - percentA || compareEspnRank(a, b);
   }
 
   function extractTeams() {
@@ -6963,6 +6976,8 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
         const bValue = bPoints !== null && Number.isFinite(Number(bPoints)) ? Number(bPoints) : Number.NEGATIVE_INFINITY;
         return bValue - aValue || a.name.localeCompare(b.name);
       });
+    } else {
+      visible.sort(compareDefaultOrder);
     }
     body.replaceChildren();
     visible.forEach((player) => {
@@ -8722,6 +8737,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
         delete player.projectedPoints;
         delete player.qbStarterStatus;
         player.espnRank = null;
+        player.rosterPercent = null;
       });
       league.managers.forEach((team) => team.roster.forEach((player) => {
         delete player.gameStats;
@@ -8729,6 +8745,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
         delete player.projectedPoints;
         delete player.qbStarterStatus;
         player.espnRank = null;
+        player.rosterPercent = null;
       }));
       saveLeague();
       renderDraftPlayers();
