@@ -1768,8 +1768,18 @@ export class FantasyLeagueStore {
       league.draftEnded = false;
       league.draftPickStartedAt = null;
       league.auctionState = null;
+    } else if (action === 'resume') {
+      if (!league.draftEnded || !league.draftStarted) {
+        return { status: 409, error: 'There is no ended draft to resume.', league, revision: record.revision };
+      }
+      if ((league.picks || []).length >= league.teamCount * activeRosterCapacity(league.rosterSlots)) {
+        return { status: 409, error: 'This draft is already complete.', league, revision: record.revision };
+      }
+      league.draftEnded = false;
+      league.draftPickStartedAt = Date.now();
+      league.auctionState = null;
     } else {
-      return { status: 400, error: 'Draft action must be end or restart.' };
+      return { status: 400, error: 'Draft action must be end, resume, or restart.' };
     }
     record.revision += 1;
     await this.putLeague(record);
@@ -2472,8 +2482,18 @@ export class FantasyLeagueStore {
       league.draftEnded = false;
       league.draftPickStartedAt = null;
       league.auctionState = null;
+    } else if (action === 'resume') {
+      if (!league.draftEnded || !league.draftStarted) {
+        return { status: 409, error: 'There is no ended draft to resume.', league, revision: record.revision };
+      }
+      if ((league.picks || []).length >= league.teamCount * activeRosterCapacity(league.rosterSlots)) {
+        return { status: 409, error: 'This draft is already complete.', league, revision: record.revision };
+      }
+      league.draftEnded = false;
+      league.draftPickStartedAt = Date.now();
+      league.auctionState = null;
     } else {
-      return { status: 400, error: 'Draft action must be end or restart.' };
+      return { status: 400, error: 'Draft action must be end, resume, or restart.' };
     }
     record.revision += 1;
     if (env.FANTASY_KV) {

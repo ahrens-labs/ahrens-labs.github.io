@@ -1105,7 +1105,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
         <section class="panel">
           <div class="draft-toolbar">
             <div class="draft-state"><span class="pick-chip" id="pickLabel">PICK 1.01</span><span>ON THE CLOCK: <b id="onClock">Commissioner</b></span><span class="pick-clock" id="pickClockLabel" role="timer" aria-label="Time left for the current pick">90 SEC PER PICK</span></div>
-            <div class="draft-controls"><button class="button primary" id="startDraft">START / RESUME DRAFT</button><button class="button" id="autoDraft">AUTO-PICK ONE</button><button class="button hidden" id="autoDraftAll">AUTO-PICK ENTIRE DRAFT</button><button class="button hidden" id="rescheduleDraft">RESCHEDULE</button><button class="button danger hidden" id="endDraft">END DRAFT</button><button class="button hidden" id="restartDraft">RESTART DRAFT</button></div>
+            <div class="draft-controls"><button class="button primary" id="startDraft">START / RESUME DRAFT</button><button class="button" id="autoDraft">AUTO-PICK ONE</button><button class="button hidden" id="autoDraftAll">AUTO-PICK ENTIRE DRAFT</button><button class="button hidden" id="rescheduleDraft">RESCHEDULE</button><button class="button danger hidden" id="endDraft">END DRAFT</button><button class="button hidden" id="resumeDraft">RESUME DRAFT</button><button class="button danger hidden" id="restartDraft">RESTART DRAFT</button></div>
           </div>
           <p class="online-draft-time" id="draftScheduleStatus">Each pick has 90 seconds. If time runs out, the best available player is picked automatically.</p>
           <section class="panel auction-panel" id="auctionPanel" hidden>
@@ -1192,6 +1192,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
           <button class="button primary" id="saveDraftSettings">SAVE DRAFT SETTINGS</button>
           <div class="field full"><span class="small-note">Draft controls (also available from the Draft tab while it is shown):</span></div>
           <button class="button danger" id="endDraftSettings" type="button">END DRAFT</button>
+          <button class="button" id="resumeDraftSettings" type="button">RESUME DRAFT</button>
           <button class="button danger" id="restartDraftSettings" type="button">RESTART DRAFT</button>
         </div>
       </section>
@@ -1835,14 +1836,16 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     updateDraftTabVisibility();
   }
 
-  // Once the draft is over (complete or ended by the commissioner), the
-  // Draft tab is gone. If the draft view is currently open, move to Home.
+  // Once the draft is complete (all picks made), the Draft tab is gone.
+  // A draft ended early by the commissioner keeps its tab so it can be
+  // resumed; only a completed draft hides the tab. If the draft view is
+  // currently open when the draft completes, move to Home.
   function updateDraftTabVisibility() {
     const draftTab = document.querySelector('.nav-tab[data-view="draft"]');
     if (!draftTab) return;
-    const closed = isDraftClosed();
-    draftTab.hidden = closed;
-    if (closed && $('view-draft')?.classList.contains('active')) {
+    const complete = isDraftComplete();
+    draftTab.hidden = complete;
+    if (complete && $('view-draft')?.classList.contains('active')) {
       switchView('overview', false);
     }
   }
@@ -2102,6 +2105,11 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     if (endDraftButton) {
       endDraftButton.disabled = !league.draftStarted || isDraftClosed();
       endDraftButton.classList.toggle('hidden', !league.draftStarted || isDraftClosed());
+    }
+    const resumeDraftButton = $('resumeDraftSettings');
+    if (resumeDraftButton) {
+      resumeDraftButton.disabled = !league.draftEnded || isDraftComplete();
+      resumeDraftButton.classList.toggle('hidden', !league.draftEnded || isDraftComplete());
     }
     const restartDraftButton = $('restartDraftSettings');
     if (restartDraftButton) {
@@ -3006,8 +3014,10 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
         installOnlineLeague(data);
         renderOnlineLeague();
         notify(action === 'end'
-          ? 'Draft ended. Existing picks and rosters were kept.'
-          : 'Draft restarted from Pick 1. Drafted players were returned to the player pool.');
+          ? 'Draft ended. Existing picks and rosters were kept. The commissioner can resume it from the Draft tab or Commissioner Settings.'
+          : action === 'resume'
+            ? 'Draft resumed. Picks continue from where they left off.'
+            : 'Draft restarted from Pick 1. Drafted players were returned to the player pool.');
         return;
       }
       if (data.league) {
@@ -3024,6 +3034,9 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
         throw new Error(data.error || 'Could not change draft status.');
       }
       if (action === 'restart' && !league.picks.length && !league.draftEnded) {
+        throw new Error(data.error || 'Could not change draft status.');
+      }
+      if (action === 'resume' && (!league.draftEnded || !league.draftStarted || isDraftComplete())) {
         throw new Error(data.error || 'Could not change draft status.');
       }
     }
@@ -3043,6 +3056,23 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       'This stops all future picks and cancels any active auction. Existing picks and rosters will be kept.',
       () => submitCommissionerDraftControl('end'),
       { confirmText: 'END DRAFT' },
+    );
+  }
+
+  function resumeDraft() {
+    if (!onlineCommissioner) {
+      notify('Only the commissioner can resume the draft.');
+      return;
+    }
+    if (!league.draftEnded || isDraftComplete()) {
+      notify('There is no ended draft to resume.');
+      return;
+    }
+    openConfirm(
+      'Resume the draft?',
+      'This reopens the draft where it left off. Existing picks and rosters are kept, and the pick clock restarts.',
+      () => submitCommissionerDraftControl('resume'),
+      { confirmText: 'RESUME DRAFT' },
     );
   }
 
@@ -4747,19 +4777,20 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     $('clockTeamLabel').textContent = league.draftEnded ? 'ENDED' : isDraftComplete() ? 'COMPLETE'
       : auctionMode ? 'NOMINATING TEAM' : `ROUND ${round} · PICK ${slot}`;
     const scheduledFuture = Boolean(league.draftAt && Date.parse(league.draftAt) > Date.now());
-    $('startDraft').textContent = league.draftEnded ? 'DRAFT ENDED' : auctionMode
+    $('startDraft').textContent = league.draftEnded && !isDraftComplete() ? 'RESUME DRAFT' : league.draftEnded ? 'DRAFT ENDED' : auctionMode
       ? league.draftStarted ? 'AUCTION IN PROGRESS' : 'START AUCTION'
       : league.draftStarted ? scheduledFuture ? 'DRAFT PAUSED' : 'DRAFT IN PROGRESS' : 'START DRAFT';
     const onClock = !isDraftClosed() ? (auctionMode ? auctionNominatorAt(currentPickIndex()) : draftTeamAt(currentPickIndex())) : null;
     const canStart = !onlineReady || onlineCommissioner || Boolean(league.draftAt);
-    $('startDraft').disabled = isDraftClosed() || !canStart || scheduledFuture
+    const canResume = league.draftEnded && !isDraftComplete() && onlineReady && onlineCommissioner;
+    $('startDraft').disabled = (isDraftClosed() && !canResume) || !canStart || scheduledFuture
       || (auctionMode && (!onlineReady || league.draftStarted || !ownsOnlineTeam(onClock?.id)))
-      || (!auctionMode && onlineReady && !ownsOnlineTeam(onClock?.id));
+      || (!auctionMode && onlineReady && !canResume && !ownsOnlineTeam(onClock?.id));
     $('startDraft').classList.toggle('hidden', auctionMode && league.draftStarted);
     $('auctionPanel').hidden = !auctionMode;
     renderAuctionPanel();
     const homeStart = $('homeStartDraft');
-    homeStart.textContent = league.draftEnded ? 'DRAFT ENDED' : isDraftComplete() ? 'DRAFT COMPLETE'
+    homeStart.textContent = league.draftEnded && !isDraftComplete() ? 'RESUME DRAFT ↗' : league.draftEnded ? 'DRAFT ENDED' : isDraftComplete() ? 'DRAFT COMPLETE'
       : league.draftStarted ? auctionMode ? 'VIEW LIVE AUCTION ↗' : 'CONTINUE YOUR DRAFT ↗'
         : auctionMode ? 'START THE AUCTION ↗' : 'START A DRAFT ↗';
     homeStart.disabled = isDraftClosed() || (auctionMode && !onlineReady);
@@ -4776,6 +4807,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     const commissionerDraftControls = onlineReady && onlineCommissioner && league.draftStarted;
     $('rescheduleDraft').classList.toggle('hidden', !commissionerDraftControls || league.draftEnded || isDraftComplete());
     $('endDraft').classList.toggle('hidden', !commissionerDraftControls || league.draftEnded || isDraftComplete());
+    $('resumeDraft')?.classList.toggle('hidden', !onlineReady || !onlineCommissioner || !league.draftEnded || isDraftComplete());
     $('restartDraft').classList.toggle('hidden', !onlineReady || !onlineCommissioner
       || (!league.picks.length && !league.draftEnded));
     const scheduleStatus = $('draftScheduleStatus');
@@ -5177,8 +5209,13 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
   }
 
   function startDraft() {
-    if (league.draftEnded || isDraftComplete()) {
-      notify('This draft is closed. Ask the commissioner to restart it if you need to make more picks.');
+    if (isDraftComplete()) {
+      notify('This draft is already complete.');
+      return;
+    }
+    if (league.draftEnded) {
+      // An ended draft can be continued: resume it instead of restarting.
+      resumeDraft();
       return;
     }
     if (league.draftSettings?.type === 'auction') {
@@ -8195,7 +8232,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
 
   function switchView(viewName, updateUrl = true) {
     if (!onlineCommissioner && viewName === 'commissioner-settings') viewName = 'overview';
-    if (viewName === 'draft' && isDraftClosed()) viewName = 'overview';
+    if (viewName === 'draft' && isDraftComplete()) viewName = 'overview';
     const target = $(`view-${viewName}`);
     const navTab = document.querySelector(`.nav-tab[data-view="${viewName}"]`);
     if (!target || !navTab) return;
@@ -8244,7 +8281,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     let viewName = '';
     try { viewName = decodeURIComponent(location.hash.slice(1)); } catch (_) { viewName = ''; }
     if (!viewName || viewName === 'overview' || viewName === 'commissioner-settings') return;
-    if (viewName === 'draft' && isDraftClosed()) return;
+    if (viewName === 'draft' && isDraftComplete()) return;
     const target = $(`view-${viewName}`);
     const navTab = document.querySelector(`.nav-tab[data-view="${viewName}"]`);
     if (!target || !navTab) return;
@@ -8865,8 +8902,10 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     $('resetDraft').addEventListener('click', resetDraft);
     $('rescheduleDraft').addEventListener('click', openDraftScheduler);
     $('endDraft').addEventListener('click', endDraft);
+    $('resumeDraft')?.addEventListener('click', resumeDraft);
     $('restartDraft').addEventListener('click', restartDraft);
     $('endDraftSettings')?.addEventListener('click', endDraft);
+    $('resumeDraftSettings')?.addEventListener('click', resumeDraft);
     $('restartDraftSettings')?.addEventListener('click', restartDraft);
     $('draftSearch').addEventListener('input', renderDraftPlayers);
     $('positionFilter').addEventListener('change', renderDraftPlayers);
