@@ -2167,7 +2167,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
         if (team.ownerUserId && edited.managerName) team.name = edited.managerName;
         team.teamName = edited.teamName;
         team.teamAbbreviation = edited.teamAbbreviation;
-        normalizeRosterForSlots(team);
+        normalizeOwnRoster(team);
       }
       commissionerSettingsDirty = false;
       saveLeague();
@@ -5238,9 +5238,17 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     }
   }
 
+  // Only repair (mutate) rosters the current user may save. Mutating other
+  // managers' rosters on render would make the next league save include
+  // placement changes the server rejects with 403 ("You can only make
+  // roster changes to your own team"). Other teams still display correctly
+  // because starters are grouped by configured slot, not exact index.
+  function normalizeOwnRoster(team) {
+    if (team && (!onlineReady || ownsOnlineTeam(team.id))) normalizeRosterForSlots(team);
+  }
+
   function renderRosters() {
     normalizeManagers();
-    league.managers.forEach(normalizeRosterForSlots);
     const tabs = $('rosterTabs');
     if (!tabs) return;
     tabs.replaceChildren();
@@ -5258,6 +5266,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     });
     const team = league.managers[rosterViewTeam] || league.managers[0];
     if (!team) return;
+    normalizeOwnRoster(team);
     if (rosterMoveSelection?.teamId === team.id) {
       const pendingMove = team.roster.find((member) => member.id === rosterMoveSelection.playerId);
       if (!pendingMove || isPlayerGameLocked(pendingMove)) rosterMoveSelection = null;
@@ -5349,9 +5358,9 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     const body = $('myTeamRows');
     if (!tabs || !body) return;
     normalizeManagers();
-    league.managers.forEach(normalizeRosterForSlots);
     const team = resolveMyTeam();
     if (!team) return;
+    normalizeOwnRoster(team);
     if (rosterMoveSelection?.teamId === team.id) {
       const pendingMove = team.roster.find((member) => member.id === rosterMoveSelection.playerId);
       if (!pendingMove || isPlayerGameLocked(pendingMove)) rosterMoveSelection = null;
@@ -6819,7 +6828,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
         if (team) team.teamAbbreviation = input.value.trim().toUpperCase();
       });
       league.managerName = league.managers[0]?.name || league.managerName;
-      league.managers.forEach((team) => normalizeRosterForSlots(team));
+      league.managers.forEach((team) => normalizeOwnRoster(team));
       populatePositionFilters();
       customScoringRender();
       saveLeague();
@@ -7789,7 +7798,10 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       selectedMatchup = null;
       return;
     }
-    [home, away].forEach(normalizeRosterForSlots);
+    // Do not mutate either team's roster here: starters are grouped by
+    // configured slot for display, and mutating the opponent's roster
+    // would make the next save fail server validation (403).
+    [home, away].forEach(normalizeOwnRoster);
 
     const homeProjection = teamProjectedPoints(home);
     const awayProjection = teamProjectedPoints(away);
