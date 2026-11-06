@@ -3599,7 +3599,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       const teamGroup = groups.find((group) => String(group.team?.id || '') === player.teamId);
       (teamGroup?.statistics || []).forEach((category) => {
         const categoryName = String(category.name || category.displayName || '').toLowerCase();
-        if (!categoryName.includes('defensive') && !categoryName.includes('defense')) return;
+        if (!categoryName.includes('defensive') && !categoryName.includes('defense') && !categoryName.includes('interception')) return;
         (category.athletes || []).forEach((line) => {
           Object.assign(stats, addStats(stats, normalizeStatLine(categoryName, category.labels || category.names || [], line.stats || [])));
         });
@@ -8052,6 +8052,26 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     switchView(view, false);
   }
 
+  // Apply the hash view synchronously at startup (classes only, no
+  // rendering) so reloading on e.g. #my-team does not flash Home while
+  // the league loads asynchronously. The full restore (with rendering)
+  // still runs once the league is loaded. Commissioner settings is
+  // resolved later, once commissioner status is known.
+  function applyInitialViewFromUrl() {
+    let viewName = '';
+    try { viewName = decodeURIComponent(location.hash.slice(1)); } catch (_) { viewName = ''; }
+    if (!viewName || viewName === 'overview' || viewName === 'commissioner-settings') return;
+    const target = $(`view-${viewName}`);
+    const navTab = document.querySelector(`.nav-tab[data-view="${viewName}"]`);
+    if (!target || !navTab) return;
+    document.querySelectorAll('.view').forEach((view) => {
+      view.classList.toggle('active', view === target);
+    });
+    document.querySelectorAll('.nav-tab').forEach((tab) => {
+      tab.classList.toggle('active', tab === navTab);
+    });
+  }
+
   function renderLiveGames() {
     const target = $('liveGames');
     target.replaceChildren();
@@ -8222,7 +8242,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       (teamGroup.statistics || []).forEach((category) => {
         const categoryName = String(category.name || category.displayName || '').toLowerCase();
         const labels = category.labels || category.names || [];
-        if (categoryName.includes('defensive') || categoryName.includes('defense')) {
+        if (categoryName.includes('defensive') || categoryName.includes('defense') || categoryName.includes('interception')) {
           const aggregate = {};
           (category.athletes || []).forEach((line) => {
             const lineStats = normalizeStatLine(categoryName, labels, line.stats || []);
@@ -8367,6 +8387,12 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       result.puntAverage = parsed.AVG || safeRatio(result.puntYards, result.puntAttempts);
       result.puntInside20 = parsed.IN20 || parsed.INSIDE20 || parsed.INSIDE20YARDLINE || 0;
       result.puntTouchbacks = parsed.TB || parsed.TOUCHBACKS || 0;
+    }
+    if (category.includes('interception')) {
+      // ESPN boxscores put interceptions in their own category (INT/YDS/TD),
+      // separate from the defensive category. Only INT is taken from here:
+      // pick-six TDs are already counted in the defensive category's TD.
+      result.defInterception = parsed.INT || parsed.INTERCEPTIONS || 0;
     }
     if (category.includes('defensive') || category.includes('defense')) {
       result.defSack = parsed.SACK || parsed.SACKS || 0;
@@ -8793,6 +8819,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     }, 30 * 60 * 1000);
   }
 
+  applyInitialViewFromUrl();
   void startOnlineApp();
 })();
 </script>
