@@ -1784,6 +1784,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
   function renderOnlineLeague() {
     if (!appInitialized) return;
     normalizeManagers();
+    mergePoolDataIntoRosters();
     fillWeeks();
     populatePositionFilters();
     customScoringRender();
@@ -4150,6 +4151,26 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     saveLeague();
   }
 
+  // Display-only version of the reconcile merge: copy fresh pool data
+  // (projections, status, roster %) into roster copies before rendering,
+  // without saving. This makes a newly added player's projection show
+  // immediately even if the stored roster copy lacks it, instead of
+  // waiting for a page reload. Roster slot/index are never touched, so
+  // this cannot trigger a server roster-placement rejection.
+  function mergePoolDataIntoRosters() {
+    if (!players.length) return;
+    const index = new Map(players.map((player) => [player.id, player]));
+    league.managers.forEach((team) => {
+      (team.roster || []).forEach((rostered) => {
+        const fresh = index.get(rostered.id);
+        if (!fresh) return;
+        ['espnRank', 'rosterPercent', 'projectedStats', 'projectedPoints', 'weeklyRank', 'hasOutlook', 'recentPassAttempts', 'fantasyInjuryStatus', 'status', 'statusUpdatedAt', 'headshot', 'firstName', 'lastName', 'jersey', 'qbStarterStatus'].forEach((key) => {
+          if (fresh[key] != null) rostered[key] = fresh[key];
+        });
+      });
+    });
+  }
+
   function rosterCapacity() {
     // Active roster limit: starters + bench. IR slots are extra and do not
     // count toward the active limit or the draft.
@@ -5249,6 +5270,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
 
   function renderRosters() {
     normalizeManagers();
+    mergePoolDataIntoRosters();
     const tabs = $('rosterTabs');
     if (!tabs) return;
     tabs.replaceChildren();
@@ -5358,6 +5380,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     const body = $('myTeamRows');
     if (!tabs || !body) return;
     normalizeManagers();
+    mergePoolDataIntoRosters();
     const team = resolveMyTeam();
     if (!team) return;
     normalizeOwnRoster(team);
@@ -7224,6 +7247,16 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
         });
         if (!response.ok) throw new Error(data.error || 'Could not add this free agent.');
         installOnlineLeague(data);
+        // Show the projection immediately even if the server response
+        // strips it: merge the pool player's projection data into the
+        // new roster copy (the pool reload would otherwise be needed).
+        const poolPlayer = players.find((entry) => entry.id === player.id);
+        const rosterPlayer = league.managers.find((entry) => entry.id === team.id)?.roster.find((entry) => entry.id === player.id);
+        if (poolPlayer && rosterPlayer) {
+          ['espnRank', 'rosterPercent', 'projectedStats', 'projectedPoints', 'weeklyRank', 'hasOutlook', 'recentPassAttempts', 'fantasyInjuryStatus', 'firstName', 'lastName', 'jersey', 'statusUpdatedAt'].forEach((key) => {
+            if (poolPlayer[key] != null) rosterPlayer[key] = poolPlayer[key];
+          });
+        }
         renderOnlineLeague();
         notify(`${player.name} added immediately to ${team.teamName}${selectedDropId ? '; roster spot opened.' : '.'}`);
         return true;

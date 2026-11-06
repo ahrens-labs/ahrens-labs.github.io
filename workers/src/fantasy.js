@@ -69,6 +69,50 @@ function normalizeIrStatuses(value) {
   const cleaned = [...new Set(value.filter((entry) => IR_STATUSES.includes(entry)))];
   return cleaned.length ? cleaned : [...DEFAULT_IR_STATUSES];
 }
+// Build the stored roster copy of a player sent by the client, preserving
+// projection/roster data. Stripping these (as pickups previously did)
+// made the new player's projection show "-" until the next page reload
+// re-merged the player pool data.
+function rosterPlayerFromSource(source, playerId) {
+  const projectedStats = source.projectedStats && typeof source.projectedStats === 'object'
+    && !Array.isArray(source.projectedStats)
+    ? Object.fromEntries(Object.entries(source.projectedStats)
+      .filter(([key, value]) => /^[a-zA-Z0-9_]{1,60}$/.test(key)
+        && ((typeof value === 'number' && Number.isFinite(value) && Math.abs(value) <= 1000)
+          || typeof value === 'boolean')))
+    : null;
+  const finiteOrNull = (value) => (typeof value === 'number' && Number.isFinite(value) ? value : null);
+  return {
+    id: playerId,
+    name: source.name.trim(),
+    firstName: String(source.firstName || '').slice(0, 60),
+    lastName: String(source.lastName || '').slice(0, 60),
+    position: source.position,
+    team: String(source.team || '').slice(0, 20),
+    teamName: String(source.teamName || '').slice(0, 60),
+    teamId: String(source.teamId || '').slice(0, 30),
+    jersey: String(source.jersey || '').slice(0, 10),
+    headshot: typeof source.headshot === 'string' && source.headshot.startsWith('https://')
+      ? source.headshot.slice(0, 500)
+      : '',
+    href: typeof source.href === 'string' && source.href.startsWith('https://')
+      ? source.href.slice(0, 500)
+      : '',
+    status: String(source.status || 'ACTIVE').slice(0, 40),
+    statusUpdatedAt: typeof source.statusUpdatedAt === 'string'
+      ? source.statusUpdatedAt.slice(0, 80)
+      : null,
+    espnRank: finiteOrNull(source.espnRank),
+    rosterPercent: finiteOrNull(source.rosterPercent),
+    projectedPoints: finiteOrNull(source.projectedPoints),
+    projectedStats,
+    weeklyRank: finiteOrNull(source.weeklyRank),
+    hasOutlook: Boolean(source.hasOutlook),
+    recentPassAttempts: finiteOrNull(source.recentPassAttempts) || 0,
+    fantasyInjuryStatus: String(source.fantasyInjuryStatus || '').slice(0, 40),
+  };
+}
+
 // Slot a picked-up player should take: an open starter slot they are
 // eligible for first, then FLEX, then bench. This lets a pickup fill an
 // open bench or eligible starter spot without requiring a drop.
@@ -2231,18 +2275,7 @@ export class FantasyLeagueStore {
       await this.putLeague(record);
     }
     if (allPlayerIds(league).has(playerId)) return { status: 409, error: 'This player is already on a fantasy team.' };
-    const player = {
-      id: playerId,
-      name: source.name.trim(),
-      position: source.position,
-      team: String(source.team || '').slice(0, 20),
-      teamName: String(source.teamName || '').slice(0, 60),
-      teamId: String(source.teamId || '').slice(0, 30),
-      headshot: typeof source.headshot === 'string' && source.headshot.startsWith('https://')
-        ? source.headshot.slice(0, 500)
-        : '',
-      status: String(source.status || 'ACTIVE').slice(0, 40),
-    };
+    const player = rosterPlayerFromSource(source, playerId);
     const capacity = activeRosterCapacity(league.rosterSlots);
     const dropPlayerId = body.dropPlayerId ? String(body.dropPlayerId) : '';
     const dropFreesActiveSpot = dropPlayerId && team.roster.some((member) => String(member.id) === dropPlayerId && member.rosterSlot !== 'IR');
@@ -2357,18 +2390,7 @@ export class FantasyLeagueStore {
       league.waiverWindows[String(drop.id)] = Date.now()
         + Number(league.waiverSettings.periodHours) * 60 * 60 * 1000;
     }
-    const player = {
-      id: playerId,
-      name: source.name.trim(),
-      position: source.position,
-      team: String(source.team || '').slice(0, 20),
-      teamName: String(source.teamName || '').slice(0, 60),
-      teamId: String(source.teamId || '').slice(0, 30),
-      headshot: typeof source.headshot === 'string' && source.headshot.startsWith('https://')
-        ? source.headshot.slice(0, 500)
-        : '',
-      status: String(source.status || 'ACTIVE').slice(0, 40),
-    };
+    const player = rosterPlayerFromSource(source, playerId);
     const pickupSlot = choosePickupSlot(team, player, league.rosterSlots || {});
     team.roster.push({
       ...player,
