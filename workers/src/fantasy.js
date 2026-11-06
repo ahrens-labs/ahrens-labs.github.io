@@ -699,6 +699,106 @@ function sameRosterPlacement(left, right) {
   });
 }
 
+const ESPN_SCOREBOARD_URL = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard';
+
+async function fetchStartedNflTeamIds(week, { fetchFn = globalThis.fetch, now = Date.now() } = {}) {
+  const normalizedWeek = Number(week);
+  if (!Number.isInteger(normalizedWeek) || normalizedWeek < 1 || normalizedWeek > SEASON_WEEKS || typeof fetchFn !== 'function') {
+    return { ok: false, error: 'NFL schedule unavailable.' };
+  }
+  try {
+    const response = await fetchFn(`${ESPN_SCOREBOARD_URL}?week=${normalizedWeek}&seasontype=2&limit=100`);
+    if (!response || !response.ok) return { ok: false, error: 'NFL schedule unavailable.' };
+    const data = await response.json();
+    const started = new Set();
+    const seen = new Set();
+    for (const event of (data.events || [])) {
+      const competition = event.competitions?.[0] || {};
+      const competitors = competition.competitors || [];
+      const status = competition.status?.type || event.status?.type || {};
+      const statusName = String(status.shortDetail || status.detail || status.description || 'SCHEDULED');
+      const live = Boolean(status.state === 'in'
+        || statusName.toLowerCase().includes('qtr')
+        || statusName.toLowerCase().includes('half'));
+      const completed = Boolean(status.completed);
+      const kickoff = Date.parse(event.date || competition.date || '');
+      const isStarted = live || completed || (Number.isFinite(kickoff) && kickoff <= now);
+      for (const competitor of competitors) {
+        const teamId = String(competitor.team?.id || '');
+        if (!teamId) continue;
+        seen.add(teamId);
+        if (isStarted) started.add(teamId);
+      }
+    }
+    return { ok: true, started, seen };
+  } catch {
+    return { ok: false, error: 'NFL schedule unavailable.' };
+  }
+}
+
+function rosterPlacementChanges(previous, incoming, { tradeTeamIds = new Set(), ownTeamIds = new Set(), draftAdvanced = false } = {}) {
+  const changes = [];
+  const previousById = new Map((previous.managers || []).map((team) => [team.id, team]));
+  const incomingById = new Map((incoming.managers || []).map((team) => [team.id, team]));
+  for (const previousTeam of (previous.managers || [])) {
+    const incomingTeam = incomingById.get(previousTeam.id);
+    if (!incomingTeam) continue;
+    const isOwn = ownTeamIds.size ? ownTeamIds.has(previousTeam.id) : true;
+    const isTradeTeam = tradeTeamIds.has(previousTeam.id);
+    if (!isOwn && !isTradeTeam) continue;
+    const previousRoster = previousTeam.roster || [];
+    const incomingRoster = incomingTeam.roster || [];
+    const incomingByPlayerId = new Map(incomingRoster.map((player) => [String(player.id), player]));
+    const previousIds = new Set(previousRoster.map((player) => String(player.id)));
+    for (const player of previousRoster) {
+      const updated = incomingByPlayerId.get(String(player.id));
+      if (!updated) {
+        changes.push({ player, kind: 'dropped', team: previousTeam });
+        continue;
+      }
+      const moved = (player.rosterSlot || 'BENCH') !== (updated.rosterSlot || 'BENCH')
+        || Number(player.rosterSlotIndex || 0) !== Number(updated.rosterSlotIndex || 0);
+      if (moved) changes.push({ player, kind: 'moved', team: previousTeam });
+    }
+    if (!draftAdvanced) {
+      for (const player of incomingRoster) {
+        if (previousIds.has(String(player.id))) continue;
+        const wasOnTradeTeam = (previous.managers || []).some((team) => team.id !== previousTeam.id
+          && isTradeTeam
+          && (team.roster || []).some((entry) => String(entry.id) === String(player.id)));
+        changes.push({ player, kind: wasOnTradeTeam ? 'traded-in' : 'added', team: previousTeam });
+      }
+    }
+  }
+  return changes.filter(({ player }) => player && String(player.teamId || ''));
+}
+
+async function lockedRosterMoveName(previous, incoming, { tradeTeamIds = new Set(), ownTeamIds = new Set(), draftAdvanced = false } = {}) {
+  const changes = rosterPlacementChanges(previous, incoming, { tradeTeamIds, ownTeamIds, draftAdvanced });
+  if (!changes.length) return { ok: true };
+  const week = Number(incoming.selectedWeek ?? previous.selectedWeek);
+  const schedule = await fetchStartedNflTeamIds(week);
+  if (!schedule.ok) return { ok: false, error: 'Could not verify NFL game status. Roster moves are temporarily locked — try again when the NFL feed is available.' };
+  const locked = changes.find(({ player }) => schedule.started.has(String(player.teamId)));
+  if (locked) {
+    return {
+      ok: false,
+      error: `${locked.player.name || 'A player'} can't be moved — their game for this week has already started (live or final), or kickoff has passed. Locked players cannot be moved, dropped, added, or traded.`,
+    };
+  }
+  return { ok: true };
+}
+
+async function lockedPlayerError(player, league) {
+  if (!player || !String(player.teamId || '')) return null;
+  const schedule = await fetchStartedNflTeamIds(Number(league?.selectedWeek));
+  if (!schedule.ok) return 'Could not verify NFL game status. Roster moves are temporarily locked — try again when the NFL feed is available.';
+  if (schedule.started.has(String(player.teamId))) {
+    return `${player.name || 'A player'} can't be moved — their game for this week has already started (live or final), or kickoff has passed. Locked players cannot be moved, dropped, added, or traded.`;
+  }
+  return null;
+}
+
 function sameValue(left, right) {
   if (left === right) return true;
   if (Array.isArray(left) || Array.isArray(right)) {
@@ -1585,6 +1685,18 @@ export class FantasyLeagueStore {
     }
     const validationError = validateLeagueSave(record.league, body.league, body.userId);
     if (validationError) return { status: 403, error: validationError, league: record.league, revision: record.revision };
+    const acceptedTradeTeamIds = new Set((body.league.trades || [])
+      .filter((trade) => trade.status === 'accepted'
+        && (record.league.trades || []).some((old) => old.id === trade.id && old.status === 'pending'))
+      .flatMap((trade) => [trade.fromId, trade.toId]));
+    const lockCheck = await lockedRosterMoveName(record.league, body.league, {
+      tradeTeamIds: acceptedTradeTeamIds,
+      ownTeamIds,
+      draftAdvanced: (body.league.picks || []).length > (record.league.picks || []).length,
+    });
+    if (!lockCheck.ok) {
+      return { status: lockCheck.error.startsWith('Could not verify') ? 503 : 409, error: lockCheck.error, league: record.league, revision: record.revision };
+    }
     const league = jsonClone(body.league);
     league.draftAt = record.league.draftAt;
     league.commissionerUserId = record.league.commissionerUserId;
@@ -2079,6 +2191,19 @@ export class FantasyLeagueStore {
     };
     const capacity = Object.values(league.rosterSlots || {}).reduce((sum, count) => sum + Number(count || 0), 0);
     const dropPlayerId = body.dropPlayerId ? String(body.dropPlayerId) : '';
+    const claimedLockError = await lockedPlayerError(player, league);
+    if (claimedLockError) {
+      return { status: claimedLockError.startsWith('Could not verify') ? 503 : 409, error: claimedLockError };
+    }
+    if (dropPlayerId) {
+      const dropPlayer = team.roster.find((member) => String(member.id) === dropPlayerId);
+      if (dropPlayer) {
+        const dropLockError = await lockedPlayerError(dropPlayer, league);
+        if (dropLockError) {
+          return { status: dropLockError.startsWith('Could not verify') ? 503 : 409, error: dropLockError };
+        }
+      }
+    }
     if (team.roster.length >= capacity
       && (!dropPlayerId || !team.roster.some((member) => String(member.id) === dropPlayerId))) {
       return { status: 400, error: 'Choose a player on your team to drop when your roster is full.' };
@@ -2151,7 +2276,22 @@ export class FantasyLeagueStore {
     }
     const capacity = Object.values(league.rosterSlots || {}).reduce((sum, count) => sum + Number(count || 0), 0);
     const dropPlayerId = body.dropPlayerId ? String(body.dropPlayerId) : '';
-    const drop = dropPlayerId ? team.roster.find((player) => String(player.id) === dropPlayerId) : null;
+    const dropCandidate = dropPlayerId ? team.roster.find((player) => String(player.id) === dropPlayerId) : null;
+    const pickupLockError = await lockedPlayerError({
+      id: playerId,
+      name: source?.name,
+      teamId: String(source?.teamId || ''),
+    }, league);
+    if (pickupLockError) {
+      return { status: pickupLockError.startsWith('Could not verify') ? 503 : 409, error: pickupLockError };
+    }
+    if (dropCandidate) {
+      const dropLockError = await lockedPlayerError(dropCandidate, league);
+      if (dropLockError) {
+        return { status: dropLockError.startsWith('Could not verify') ? 503 : 409, error: dropLockError };
+      }
+    }
+    const drop = dropCandidate;
     if (team.roster.length >= capacity && !drop) {
       return { status: 400, error: 'Choose a player on your team to drop when your roster is full.' };
     }

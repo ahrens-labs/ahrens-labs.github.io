@@ -152,7 +152,9 @@ input::-moz-selection, textarea::-moz-selection { color: #090d12; background: #7
 .bench-row { opacity: .82; }
 .roster-move-source { outline: 1px solid #d1f36b88; outline-offset: -1px; }
 .roster-move-target { background: #d1f36b0d; }
+.roster-locked-row { opacity: .78; }
 .roster-move-button { min-width: 46px; padding: 5px 7px; }
+.roster-move-button:disabled { opacity: .45; cursor: not-allowed; }
 .player-table tbody tr:hover, .roster-table tbody tr:hover { background: #ffffff06; }
 .player-name-cell { min-width: 0; }
 .player-name-wrap { display: flex; align-items: center; gap: 8px; }
@@ -1060,8 +1062,8 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     </section>
 
     <section class="view" id="view-rosters">
-      <div class="view-title"><div><div class="eyebrow">Lineups</div><h1>Set who starts this week.</h1><p>Weekly projections, actual points, and season average points stay visible on every roster row. Select a player’s name to open current and previous weeks’ stats; use Move to change their lineup slot.</p></div><div class="title-actions"><button class="button" id="renameRosterTeam">Rename team</button><button class="button" id="openTrade">Trade desk</button><button class="button" id="editLineup">Edit lineup</button></div></div>
-      <section class="panel"><div class="roster-tabs" id="rosterTabs"></div><div class="roster-summary" id="rosterSummary"></div><div class="roster-week-totals" id="rosterWeekTotals"></div><p class="legend">Avg Pts is fantasy points per game played in the season through the selected week. Week totals include starters only, matching the lineup points used in matchups. Press <strong>Move</strong>, then <strong>Place</strong> on the player whose slot you want. Full slots swap players when eligible; otherwise the replaced player goes to the bench.</p><div class="player-table-wrap"><table class="roster-table"><thead><tr><th>Player</th><th>Pos</th><th>NFL</th><th>Matchup</th><th>Status</th><th>Slot</th><th>Proj</th><th>Points</th><th>Avg Pts</th><th>Action</th></tr></thead><tbody id="rosterRows"></tbody></table></div></section>
+      <div class="view-title"><div><div class="eyebrow">Lineups</div><h1>Set who starts this week.</h1><p>Weekly projections, actual points, and season average points stay visible on every roster row. Select a player’s name to open current and previous weeks’ stats; use Move to change their lineup slot. Once a player’s NFL game for the selected week has kicked off, is live, or is final, they are locked and cannot be moved, dropped, or swapped.</p></div><div class="title-actions"><button class="button" id="renameRosterTeam">Rename team</button><button class="button" id="openTrade">Trade desk</button><button class="button" id="editLineup">Edit lineup</button></div></div>
+      <section class="panel"><div class="roster-tabs" id="rosterTabs"></div><div class="roster-summary" id="rosterSummary"></div><div class="roster-week-totals" id="rosterWeekTotals"></div><p class="legend">Avg Pts is fantasy points per game played in the season through the selected week. Week totals include starters only, matching the lineup points used in matchups. Press <strong>Move</strong>, then <strong>Place</strong> on the player whose slot you want. Full slots swap players when eligible; otherwise the replaced player goes to the bench. Players whose NFL game has started or been played (live, final, or kickoff time passed) are locked: they cannot be moved, swapped, dropped, added, or traded for the selected week.</p><div class="player-table-wrap"><table class="roster-table"><thead><tr><th>Player</th><th>Pos</th><th>NFL</th><th>Matchup</th><th>Status</th><th>Slot</th><th>Proj</th><th>Points</th><th>Avg Pts</th><th>Action</th></tr></thead><tbody id="rosterRows"></tbody></table></div></section>
     </section>
 
     <section class="view" id="view-matchups">
@@ -4500,6 +4502,51 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     };
   }
 
+  function playerGame(player) {
+    const week = Number(league.selectedWeek);
+    if (Number(scheduleWeekLoaded) !== week) return { game: null, unknown: true };
+    const teamId = String(player?.teamId || '');
+    if (!teamId) return { game: null };
+    const game = games.find((item) => item.home.id === teamId || item.away.id === teamId);
+    return { game: game || null, bye: !game };
+  }
+
+  function playerGameLock(player) {
+    if (!player?.teamId) return { locked: false };
+    const { game, unknown, bye } = playerGame(player);
+    if (unknown) return { locked: false, unknown: true };
+    if (bye || !game) return { locked: false, bye: true };
+    if (game.live || game.completed) return { locked: true, game, reason: game.completed ? 'final' : 'live' };
+    if (game.date) {
+      const kickoff = new Date(game.date).getTime();
+      if (Number.isFinite(kickoff) && kickoff <= Date.now()) return { locked: true, game, reason: 'kickoff', kickoff };
+    }
+    return { locked: false, game };
+  }
+
+  function isPlayerGameLocked(player) {
+    return Boolean(playerGameLock(player)?.locked);
+  }
+
+  function gameLockMessage(player) {
+    const lock = playerGameLock(player);
+    if (!lock?.locked || !lock.game) return `${player?.name || 'This player'} can't be moved — their game for this week has already started.`;
+    const teamId = String(player.teamId || '');
+    const home = lock.game.home.id === teamId;
+    const opponent = home ? lock.game.away : lock.game.home;
+    const matchup = opponent?.abbr ? `${home ? 'vs' : '@'} ${opponent.abbr}` : '';
+    const week = Number(league.selectedWeek) || '';
+    const prefix = `${player?.name || 'This player'} can't be moved — their Week ${week} game ${matchup} `.trim();
+    if (lock.reason === 'final') return `${prefix} is already final.`;
+    if (lock.reason === 'live') return `${prefix} is live now.`;
+    const kickoff = lock.game.date ? formatGameTime(lock.game.date) : '';
+    return `${prefix} started${kickoff ? ` at ${kickoff}` : ''}.`;
+  }
+
+  function isRosterMoveLocked(player, targetPlayer) {
+    return isPlayerGameLocked(player) || (targetPlayer?.id != null && isPlayerGameLocked(targetPlayer));
+  }
+
   function formatGameTime(value) {
     const date = new Date(value);
     if (!Number.isFinite(date.getTime())) return '';
@@ -4816,6 +4863,10 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     });
     const team = league.managers[rosterViewTeam] || league.managers[0];
     if (!team) return;
+    if (rosterMoveSelection?.teamId === team.id) {
+      const pendingMove = team.roster.find((member) => member.id === rosterMoveSelection.playerId);
+      if (!pendingMove || isPlayerGameLocked(pendingMove)) rosterMoveSelection = null;
+    }
     $('renameRosterTeam').hidden = onlineReady && !ownsOnlineTeam(team.id);
     const activeSlots = startingSlotCount();
     const activeCount = team.roster.filter((player) => player.rosterSlot !== 'BENCH').length;
@@ -4913,7 +4964,8 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     const moving = rosterMoveSelection?.teamId === team.id
       ? team.roster.find((member) => member.id === rosterMoveSelection.playerId)
       : null;
-    const canPlace = Boolean(moving && slot.slot !== 'BENCH'
+    const movingLocked = moving ? isPlayerGameLocked(moving) : false;
+    const canPlace = Boolean(moving && !movingLocked && slot.slot !== 'BENCH'
       && canPlaySlot(moving, slot.slot)
       && (moving.rosterSlot === 'BENCH' || moving.rosterSlot !== slot.slot
         || Number(moving.rosterSlotIndex) !== slot.index));
@@ -4926,9 +4978,12 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       place.type = 'button';
       place.textContent = canPlace ? 'Place' : '—';
       place.disabled = !canPlace;
-      place.setAttribute('aria-label', canPlace
-        ? `Place ${moving.name} in open ${slot.label} slot`
-        : `${moving.name} cannot be placed in the open ${slot.label} slot`);
+      place.setAttribute('aria-label', movingLocked
+        ? gameLockMessage(moving)
+        : canPlace
+          ? `Place ${moving.name} in open ${slot.label} slot`
+          : `${moving.name} cannot be placed in the open ${slot.label} slot`);
+      if (movingLocked) place.title = gameLockMessage(moving);
       place.addEventListener('click', () => {
         if (canPlace) movePlayerToSlot(moving, { rosterSlot: slot.slot, rosterSlotIndex: slot.index });
       });
@@ -4995,11 +5050,13 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     const isMoveSource = moving?.id === player.id;
     const targetSlot = player.rosterSlot || 'BENCH';
     const movingSlot = moving?.rosterSlot || 'BENCH';
-    const canPlaceHere = Boolean(moving && !isMoveSource
+    const locked = isPlayerGameLocked(player);
+    const movingLocked = moving ? isPlayerGameLocked(moving) : false;
+    const canPlaceHere = Boolean(moving && !isMoveSource && !locked && !movingLocked
       && (targetSlot !== movingSlot || Number(player.rosterSlotIndex) !== Number(moving.rosterSlotIndex))
       && (targetSlot === 'BENCH' || canPlaySlot(moving, targetSlot))
       && (movingSlot === 'BENCH' || canPlaySlot(player, movingSlot)));
-    row.className = `${player.rosterSlot === 'BENCH' ? 'bench-row' : 'starter-row'}${isMoveSource ? ' roster-move-source' : canPlaceHere ? ' roster-move-target' : ''}`;
+    row.className = `${player.rosterSlot === 'BENCH' ? 'bench-row' : 'starter-row'}${locked ? ' roster-locked-row' : ''}${isMoveSource ? ' roster-move-source' : canPlaceHere ? ' roster-move-target' : ''}`;
     const name = document.createElement('td');
     name.className = 'player-name-cell';
     name.dataset.label = 'Player';
@@ -5038,7 +5095,8 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     status.innerHTML = `<span class="status-tag ${statusClass(player.status)}"${player.statusUpdatedAt ? ` title="ESPN injury status updated ${escapeAttr(formatCentralDateTime(new Date(player.statusUpdatedAt)))}"` : ''}>${escapeHTML((player.status || 'STATUS UNAVAILABLE').toUpperCase())}</span>`;
     const slot = document.createElement('td');
     slot.dataset.label = 'Slot';
-    slot.textContent = slotLabel || targetSlot;
+    slot.textContent = locked ? `${slotLabel || targetSlot} · LOCKED` : (slotLabel || targetSlot);
+    if (locked) slot.title = gameLockMessage(player);
     const projection = document.createElement('td');
     projection.dataset.label = 'Proj';
     projection.className = 'projection-cell';
@@ -5064,15 +5122,27 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     const move = document.createElement('button');
     move.className = 'button roster-move-button';
     move.type = 'button';
-    move.textContent = moving ? (isMoveSource ? 'Cancel' : canPlaceHere ? 'Place' : '—') : 'Move';
-    move.disabled = Boolean(moving && !isMoveSource && !canPlaceHere);
+    move.textContent = moving ? (isMoveSource ? 'Cancel' : canPlaceHere ? 'Place' : '—') : (locked ? 'LOCKED' : 'Move');
+    move.disabled = Boolean(moving && !isMoveSource && !canPlaceHere) || (!moving && locked);
     move.setAttribute('aria-label', moving
       ? (isMoveSource ? `Cancel moving ${player.name}` : canPlaceHere
         ? `Place ${moving.name} in ${targetSlot} using ${player.name}`
-        : `${moving.name} cannot be placed in the ${targetSlot} slot`)
-      : `Move ${player.name} to another roster slot`);
+        : movingLocked || locked
+          ? (movingLocked ? gameLockMessage(moving) : gameLockMessage(player))
+          : `${moving.name} cannot be placed in the ${targetSlot} slot`)
+      : locked
+        ? gameLockMessage(player)
+        : `Move ${player.name} to another roster slot`);
+    if (locked && !moving) move.title = gameLockMessage(player);
+    else if (moving && !isMoveSource && !canPlaceHere && (movingLocked || locked)) {
+      move.title = movingLocked ? gameLockMessage(moving) : gameLockMessage(player);
+    }
     move.addEventListener('click', () => {
       if (!moving) {
+        if (isPlayerGameLocked(player)) {
+          notify(gameLockMessage(player));
+          return;
+        }
         rosterMoveSelection = { playerId: player.id, teamId: team.id };
         renderRosters();
       } else if (isMoveSource) {
@@ -5083,7 +5153,8 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       }
     });
     const drop = document.createElement('button');
-    drop.className = 'button danger roster-drop-button'; drop.type = 'button'; drop.textContent = 'Drop'; drop.title = `Drop ${player.name}`;
+    drop.className = 'button danger roster-drop-button'; drop.type = 'button'; drop.textContent = 'Drop'; drop.title = locked ? gameLockMessage(player) : `Drop ${player.name}`;
+    drop.disabled = locked;
     drop.addEventListener('click', () => dropPlayer(team, player));
     action.append(move, drop);
     row.append(name, position, nfl, matchup, status, slot, projection, points, average, action);
@@ -5116,6 +5187,12 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       return;
     }
     const occupant = targetPlayer.id == null ? null : roster.find((member) => member.id === targetPlayer.id);
+    if (isRosterMoveLocked(player, occupant)) {
+      notify(gameLockMessage(isPlayerGameLocked(player) ? player : occupant));
+      rosterMoveSelection = null;
+      renderRosters();
+      return;
+    }
     if (oldSlot === targetSlot && oldSlotIndex === targetSlotIndex) {
       rosterMoveSelection = null;
       renderRosters();
@@ -5144,6 +5221,10 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       notify('You can only change your own roster.');
       return;
     }
+    if (isPlayerGameLocked(player)) {
+      notify(gameLockMessage(player));
+      return;
+    }
     normalizeRosterSlotIndexes(team);
     if (player.rosterSlot && player.rosterSlot !== 'BENCH') {
       player.rosterSlotIndex = nextRosterSlotIndex(team, 'BENCH');
@@ -5168,9 +5249,17 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       notify('You can only change your own roster.');
       return;
     }
+    if (isPlayerGameLocked(player)) {
+      notify(gameLockMessage(player));
+      return;
+    }
     openConfirm(`Drop ${player.name}?`, `${player.name} will become a free agent from ${team.teamName}. The original draft pick remains in league history.`, () => {
       if (!team.roster.some((member) => member.id === player.id)) {
         notify(`${player.name} is no longer on ${team.teamName}.`);
+        return false;
+      }
+      if (isPlayerGameLocked(player)) {
+        notify(gameLockMessage(player));
         return false;
       }
       team.roster = team.roster.filter((member) => member.id !== player.id);
@@ -5196,17 +5285,20 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     container.className = 'lineup-modal-grid';
     const help = document.createElement('p');
     help.className = 'lineup-help';
-    help.textContent = 'Check players who should start this week. Eligible players fill position slots first, then FLEX; unchecked players stay on the bench.';
+    help.textContent = 'Check players who should start this week. Eligible players fill position slots first, then FLEX; unchecked players stay on the bench. Players whose NFL game has kicked off, is live, or is final are locked and cannot be moved.';
     container.append(help);
     const slots = team.roster.map((player) => {
+      const locked = isPlayerGameLocked(player);
       const label = document.createElement('label');
       label.className = 'lineup-choice';
       const input = document.createElement('input');
       input.type = 'checkbox';
       input.checked = player.rosterSlot !== 'BENCH';
       input.dataset.playerId = player.id;
+      input.disabled = locked;
+      if (locked) input.setAttribute('aria-label', gameLockMessage(player));
       const text = document.createElement('span');
-      text.textContent = `${player.position} · ${player.name} · ${player.rosterSlot === 'BENCH' ? 'BENCH' : 'STARTER'}`;
+      text.textContent = `${player.position} · ${player.name} · ${player.rosterSlot === 'BENCH' ? 'BENCH' : 'STARTER'}${locked ? ' · LOCKED' : ''}`;
       label.append(input, text);
       return label;
     });
@@ -5228,9 +5320,28 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
         return false;
       }
       const ids = new Set(checked.map((input) => input.dataset.playerId));
+      const lockedConflict = team.roster.find((player) => isPlayerGameLocked(player)
+        && ids.has(player.id) !== (player.rosterSlot !== 'BENCH'));
+      if (lockedConflict) {
+        notify(gameLockMessage(lockedConflict));
+        return false;
+      }
+      const oldSlots = new Map(team.roster.map((player) => [player.id, player.rosterSlot || 'BENCH']));
       const fixedRemaining = Object.fromEntries(POSITION_ORDER.map((position) => [position, Number(league.rosterSlots[position] || 0)]));
       let flexRemaining = Number(league.rosterSlots.FLEX || 0);
+      team.roster.filter((player) => isPlayerGameLocked(player) && ids.has(player.id)).forEach((player) => {
+        const old = oldSlots.get(player.id);
+        if (old && old !== 'BENCH') {
+          if (fixedRemaining[old] > 0) fixedRemaining[old] -= 1;
+          else if (old === 'FLEX' && flexRemaining > 0) flexRemaining -= 1;
+        }
+        player.rosterSlot = old;
+      });
       team.roster.forEach((player) => {
+        if (isPlayerGameLocked(player)) {
+          if (!ids.has(player.id)) player.rosterSlot = 'BENCH';
+          return;
+        }
         if (!ids.has(player.id)) { player.rosterSlot = 'BENCH'; return; }
         if (fixedRemaining[player.position] > 0) {
           player.rosterSlot = player.position;
@@ -5360,12 +5471,13 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       const ownerIsOfferingTeam = playerShortcut.ownerTeamId === leftTeam.value;
       const playerCheckbox = (ownerIsOfferingTeam ? fromPlayers : toPlayers)
         .querySelector(`input[type="checkbox"][value="${CSS.escape(String(playerShortcut.playerId))}"]`);
-      if (playerCheckbox) playerCheckbox.checked = true;
+      if (playerCheckbox && !playerCheckbox.disabled) playerCheckbox.checked = true;
+      else if (playerCheckbox?.disabled) notify('That player is locked because their NFL game has started or been played.');
       refreshDropLists();
     }
     fromPlayers.addEventListener('change', refreshDropLists);
     toPlayers.addEventListener('change', refreshDropLists);
-    const help = document.createElement('div'); help.className = 'modal-callout'; help.textContent = 'Check at least one player from each team. Offers do not change rosters until the receiving team accepts.'; wrapper.append(help);
+    const help = document.createElement('div'); help.className = 'modal-callout'; help.textContent = 'Check at least one player from each team. Offers do not change rosters until the receiving team accepts. Players whose NFL game has started or been played are locked and cannot be traded.'; wrapper.append(help);
 
     function renderOffers() {
       offers.replaceChildren();
@@ -5458,6 +5570,14 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
         notify('One or more selected players are no longer on those rosters.');
         return false;
       }
+      const lockedTradePlayer = [...firstIds.map((id) => first.roster.find((player) => player.id === id)),
+        ...secondIds.map((id) => second.roster.find((player) => player.id === id)),
+        ...firstDropIds.map((id) => first.roster.find((player) => player.id === id)),
+        ...secondDropIds.map((id) => second.roster.find((player) => player.id === id))].find((player) => player && isPlayerGameLocked(player));
+      if (lockedTradePlayer) {
+        notify(gameLockMessage(lockedTradePlayer));
+        return false;
+      }
       const firstOverflow = Math.max(0, first.roster.length - firstIds.length + secondIds.length - rosterCapacity());
       const secondOverflow = Math.max(0, second.roster.length - secondIds.length + firstIds.length - rosterCapacity());
       if (firstDropIds.length !== firstOverflow || secondDropIds.length !== secondOverflow) {
@@ -5524,6 +5644,8 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       saveLeague();
       return 'This offer expired because a selected drop player is no longer available to that team.';
     }
+    const lockedInTrade = [...offered, ...requested, ...fromDropPlayers, ...toDropPlayers].find((player) => isPlayerGameLocked(player));
+    if (lockedInTrade) return gameLockMessage(lockedInTrade);
     if (dropFromIds.length !== fromOverflow || dropToIds.length !== toOverflow) {
       return 'The selected drop players no longer match the roster limits. Cancel this offer and create a new one.';
     }
@@ -5561,14 +5683,16 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     container.replaceChildren();
     const roster = eligiblePlayers || team?.roster || [];
     roster.forEach((player) => {
+      const locked = isPlayerGameLocked(player);
       const label = document.createElement('label');
       label.className = 'trade-player-option';
       const checkbox = document.createElement('input');
       checkbox.type = 'checkbox';
       checkbox.value = player.id;
-      checkbox.setAttribute('aria-label', `${player.position} · ${player.name}`);
+      checkbox.disabled = locked;
+      checkbox.setAttribute('aria-label', `${player.position} · ${player.name}${locked ? ` · ${gameLockMessage(player)}` : ''}`);
       const name = document.createElement('span');
-      name.textContent = `${player.position} · ${player.name}`;
+      name.textContent = `${player.position} · ${player.name}${locked ? ' · LOCKED' : ''}`;
       label.append(checkbox, name);
       container.append(label);
     });
@@ -6139,31 +6263,46 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       const waiverStatus = document.createElement('span');
       waiverStatus.className = 'waiver-action-status';
       if (owner) {
+        const locked = isPlayerGameLocked(player);
         action.className = 'trade-player-button';
         action.textContent = '⇄';
-        action.setAttribute('aria-label', `Offer a trade for ${player.name}`);
-        action.title = `Offer a trade for ${player.name}`;
-        action.addEventListener('click', () => openTradeDesk({
-          playerId: player.id,
-          ownerTeamId: owner.team.id,
-        }));
+        action.disabled = locked;
+        action.setAttribute('aria-label', locked ? gameLockMessage(player) : `Offer a trade for ${player.name}`);
+        action.title = locked ? gameLockMessage(player) : `Offer a trade for ${player.name}`;
+        action.addEventListener('click', () => {
+          if (locked) {
+            notify(gameLockMessage(player));
+            return;
+          }
+          openTradeDesk({
+            playerId: player.id,
+            ownerTeamId: owner.team.id,
+          });
+        });
       } else {
+        const locked = isPlayerGameLocked(player);
         const waiverProcessAt = playerWaiverProcessAt(player.id);
         const waiverEnabled = onlineReady && league.waiverSettings.enabled;
         action.className = waiverProcessAt
           ? 'waiver-player-button'
           : `add-player${waiverEnabled ? ' free-agent-pickup' : ''}`;
-        action.textContent = waiverProcessAt ? 'CLAIM' : waiverEnabled ? 'ADD NOW' : '+';
-        action.setAttribute('aria-label', league.draftStarted
+        action.textContent = locked ? 'LOCKED' : waiverProcessAt ? 'CLAIM' : waiverEnabled ? 'ADD NOW' : '+';
+        action.setAttribute('aria-label', locked ? gameLockMessage(player) : league.draftStarted
           ? waiverProcessAt
             ? `Claim ${player.name} off waivers; processes ${formatWaiverDay(waiverProcessAt)}`
             : `Add ${player.name} immediately to a fantasy team`
           : `Player claims are available after the draft starts`);
-        action.title = !league.draftStarted ? 'Player claims are available after the draft starts.'
+        action.title = locked ? gameLockMessage(player) : !league.draftStarted ? 'Player claims are available after the draft starts.'
           : waiverProcessAt ? `On waivers until ${formatWaiverDay(waiverProcessAt)}`
             : waiverEnabled ? 'Free agent · can be picked up immediately' : 'Add player';
-        action.disabled = !league.draftStarted;
-        action.addEventListener('click', () => openClaimDialog(player));
+        action.disabled = !league.draftStarted || locked;
+        action.addEventListener('click', () => {
+          if (locked) {
+            notify(gameLockMessage(player));
+            return;
+          }
+          openClaimDialog(player);
+        });
         if (waiverEnabled) {
           waiverStatus.classList.toggle('is-waiver', Boolean(waiverProcessAt));
           waiverStatus.textContent = waiverProcessAt
@@ -6191,6 +6330,10 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
   function openClaimDialog(player) {
     if (!league.draftStarted) {
       notify('Player claims are available after the draft starts.');
+      return;
+    }
+    if (isPlayerGameLocked(player)) {
+      notify(gameLockMessage(player));
       return;
     }
     if (league.managers.some((team) => team.roster.some((member) => member.id === player.id))) {
@@ -6232,15 +6375,17 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       heading.textContent = `${team.teamName} roster is full. Select a player to drop:`;
       dropSection.append(heading);
       team.roster.forEach((rosteredPlayer) => {
+        const locked = isPlayerGameLocked(rosteredPlayer);
         const choice = document.createElement('label');
         choice.className = 'lineup-choice claim-drop-choice';
         const input = document.createElement('input');
         input.type = 'radio';
         input.name = 'claimDropPlayer';
         input.value = rosteredPlayer.id;
+        input.disabled = locked;
         input.addEventListener('change', () => { selectedDropId = rosteredPlayer.id; });
         const text = document.createElement('span');
-        text.textContent = `${rosteredPlayer.position} · ${rosteredPlayer.name} · ${rosteredPlayer.rosterSlot || 'BENCH'}`;
+        text.textContent = `${rosteredPlayer.position} · ${rosteredPlayer.name} · ${rosteredPlayer.rosterSlot || 'BENCH'}${locked ? ' · LOCKED' : ''}`;
         choice.append(input, text);
         dropSection.append(choice);
       });
@@ -6249,6 +6394,10 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     renderDropOptions();
     openModal(instantOnlinePickup ? 'Add this free agent now.' : 'Claim a free agent.',
       instantOnlinePickup ? 'IMMEDIATE PICKUP' : 'WAIVER WIRE', wrapper, async () => {
+      if (isPlayerGameLocked(player)) {
+        notify(gameLockMessage(player));
+        return false;
+      }
       const team = league.managers.find((entry) => entry.id === select.value);
       if (!team) return false;
       if (league.managers.some((entry) => entry.roster.some((member) => member.id === player.id))) {
@@ -6260,6 +6409,10 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
         const playerToDrop = team.roster.find((member) => member.id === selectedDropId);
         if (!playerToDrop) {
           notify(`Select a player from ${team.teamName} to drop before claiming ${player.name}.`);
+          return false;
+        }
+        if (isPlayerGameLocked(playerToDrop)) {
+          notify(gameLockMessage(playerToDrop));
           return false;
         }
         if (!instantOnlinePickup) {
@@ -6347,6 +6500,10 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
   }
 
   function openWaiverClaimDialog(player) {
+    if (isPlayerGameLocked(player)) {
+      notify(gameLockMessage(player));
+      return;
+    }
     const wrapper = document.createElement('div');
     const description = document.createElement('p');
     const processAt = playerWaiverProcessAt(player.id);
@@ -6377,15 +6534,17 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       heading.textContent = `${team.teamName} roster is full. Select a player to drop if this claim is awarded:`;
       dropSection.append(heading);
       team.roster.forEach((rosteredPlayer) => {
+        const locked = isPlayerGameLocked(rosteredPlayer);
         const choice = document.createElement('label');
         choice.className = 'lineup-choice claim-drop-choice';
         const input = document.createElement('input');
         input.type = 'radio';
         input.name = 'waiverDropPlayer';
         input.value = rosteredPlayer.id;
+        input.disabled = locked;
         input.addEventListener('change', () => { selectedDropId = rosteredPlayer.id; });
         const text = document.createElement('span');
-        text.textContent = `${rosteredPlayer.position} · ${rosteredPlayer.name} · ${rosteredPlayer.rosterSlot || 'BENCH'}`;
+        text.textContent = `${rosteredPlayer.position} · ${rosteredPlayer.name} · ${rosteredPlayer.rosterSlot || 'BENCH'}${locked ? ' · LOCKED' : ''}`;
         choice.append(input, text);
         dropSection.append(choice);
       });
@@ -6393,11 +6552,22 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     select.addEventListener('change', renderDropOptions);
     renderDropOptions();
     openModal(`Claim ${player.name}.`, 'WAIVER WIRE', wrapper, async () => {
+      if (isPlayerGameLocked(player)) {
+        notify(gameLockMessage(player));
+        return false;
+      }
       const team = league.managers.find((entry) => entry.id === select.value);
       if (!team) return false;
       if (team.roster.length >= rosterCapacity() && !selectedDropId) {
         notify(`Select a player to drop if your claim for ${player.name} is awarded.`);
         return false;
+      }
+      if (selectedDropId) {
+        const playerToDrop = team.roster.find((member) => member.id === selectedDropId);
+        if (playerToDrop && isPlayerGameLocked(playerToDrop)) {
+          notify(gameLockMessage(playerToDrop));
+          return false;
+        }
       }
       const path = `/api/fantasy/leagues/${encodeURIComponent(league.leagueId)}/waivers/claims`;
       const { response, data } = await fantasyRequest(path, 'POST', {
