@@ -3600,7 +3600,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       const teamGroup = groups.find((group) => String(group.team?.id || '') === player.teamId);
       (teamGroup?.statistics || []).forEach((category) => {
         const categoryName = String(category.name || category.displayName || '').toLowerCase();
-        if (!categoryName.includes('defensive') && !categoryName.includes('defense') && !categoryName.includes('interception')) return;
+        if (!categoryName.includes('defensive') && !categoryName.includes('defense') && !categoryName.includes('interception') && !categoryName.includes('fumble')) return;
         (category.athletes || []).forEach((line) => {
           Object.assign(stats, addStats(stats, normalizeStatLine(categoryName, category.labels || category.names || [], line.stats || [])));
         });
@@ -8275,7 +8275,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       (teamGroup.statistics || []).forEach((category) => {
         const categoryName = String(category.name || category.displayName || '').toLowerCase();
         const labels = category.labels || category.names || [];
-        if (categoryName.includes('defensive') || categoryName.includes('defense') || categoryName.includes('interception')) {
+        if (categoryName.includes('defensive') || categoryName.includes('defense') || categoryName.includes('interception') || categoryName.includes('fumble')) {
           const aggregate = {};
           (category.athletes || []).forEach((line) => {
             const lineStats = normalizeStatLine(categoryName, labels, line.stats || []);
@@ -8429,9 +8429,13 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     }
     if (category.includes('defensive') || category.includes('defense')) {
       result.defSack = parsed.SACK || parsed.SACKS || 0;
-      result.defInterception = parsed.INT || parsed.INTERCEPTIONS || 0;
-      result.defForcedFumble = parsed.FF || parsed.FORCEDFUMBLES || 0;
-      result.defFumbleRecovery = parsed.FR || parsed.FUMBLERECOVERIES || 0;
+      // The defensive boxscore category has no INT/FF/FR columns (those
+      // live in the interceptions/fumbles categories). Only set these
+      // when present, otherwise a 0 here would overwrite the real
+      // turnover totals aggregated from those other categories.
+      if (parsed.INT != null || parsed.INTERCEPTIONS != null) result.defInterception = parsed.INT || parsed.INTERCEPTIONS || 0;
+      if (parsed.FF != null || parsed.FORCEDFUMBLES != null) result.defForcedFumble = parsed.FF || parsed.FORCEDFUMBLES || 0;
+      if (parsed.FR != null || parsed.FUMBLERECOVERIES != null) result.defFumbleRecovery = parsed.FR || parsed.FUMBLERECOVERIES || 0;
       result.defTD = parsed.TD || parsed.DTD || 0;
       result.defSafety = safetyCount;
       result.defBlock = parsed.BLOCKEDKICKS || parsed.BLK || 0;
@@ -8441,10 +8445,15 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       result.defTacklesForLoss = parsed.TFL || parsed.TACKLESFORLOSS || 0;
       result.defPassesDefended = parsed.PD || parsed.PASSESDEFENDED || 0;
       result.defQbHits = parsed.QBHTS || parsed.QBHITS || 0;
-      result.defTurnovers = result.defInterception + result.defFumbleRecovery;
+      result.defTurnovers = (result.defInterception || 0) + (result.defFumbleRecovery || 0);
     }
     if (category.includes('fumble')) {
       result.fumbleLost = parsed.LOST || parsed.FUMBLESLOST || parsed.FUMLOST || parsed.LOSTFUMBLES || 0;
+      // REC in the fumbles boxscore category is the team's fumble
+      // recoveries; for defenses (and IDP players) these are the fumble
+      // recoveries that score. There is no FR column in the defensive
+      // category, so without this D/ST fumble recoveries never count.
+      result.defFumbleRecovery = parsed.REC || parsed.RECOVERIES || 0;
       result.fumbleRecoveryTD = parsed.TD || parsed.RECTD || parsed.FUMBLERECOVERYTD || 0;
       result.offensiveFumbleTD = parsed.OFFTD || parsed.OFFENSIVETD || parsed.OFFENSIVEFUMBLERECOVERYTD || 0;
       if (parsed.PASSINGFUMBLESLOST || parsed.PASSFUMBLESLOST || parsed.PASSFUMLOST) {
