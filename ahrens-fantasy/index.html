@@ -3638,7 +3638,15 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
         const categoryName = String(category.name || category.displayName || '').toLowerCase();
         if (!categoryName.includes('defensive') && !categoryName.includes('defense') && !categoryName.includes('interception') && !categoryName.includes('fumble')) return;
         (category.athletes || []).forEach((line) => {
-          Object.assign(stats, addStats(stats, normalizeStatLine(categoryName, category.labels || category.names || [], line.stats || [])));
+          const lineStats = normalizeStatLine(categoryName, category.labels || category.names || [], line.stats || []);
+          if (categoryName.includes('fumble')) {
+            // Defenses cannot lose fumbles: keep only recoveries.
+            delete lineStats.fumbleLost;
+            delete lineStats.fumbleRecoveryTD;
+            delete lineStats.offensiveFumbleTD;
+            delete lineStats.passingFumbles;
+          }
+          Object.assign(stats, addStats(stats, lineStats));
         });
       });
       const opponent = game.home.id === player.teamId ? game.away : game.home;
@@ -8342,7 +8350,14 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
           const aggregate = {};
           (category.athletes || []).forEach((line) => {
             const lineStats = normalizeStatLine(categoryName, labels, line.stats || []);
-            Object.entries(lineStats).forEach(([key, value]) => { aggregate[key] = (aggregate[key] || 0) + value; });
+            Object.entries(lineStats).forEach(([key, value]) => {
+              // Defenses cannot lose fumbles: the fumbles category also
+              // carries offensive fumbles lost, which must not enter the
+              // D/ST stat line (it would wrongly deduct points). Only
+              // fumble recoveries count for the defense.
+              if (categoryName.includes('fumble') && key !== 'defFumbleRecovery') return;
+              aggregate[key] = (aggregate[key] || 0) + value;
+            });
           });
           teamStats.set(teamId, { ...(teamStats.get(teamId) || {}), ...aggregate, gameId: game.id });
         }
@@ -8611,7 +8626,12 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       ['kickReturnAvg', 'kickReturnAvg'], ['puntReturnAvg', 'puntReturnAvg'], ['kickReturnLongest', 'kickReturnLongest'],
       ['puntReturnLongest', 'puntReturnLongest'],
     ];
-    simple.forEach(([statKey, scoringKey]) => { points += Number(stat[statKey] || 0) * Number(scoring[scoringKey] || 0); });
+    simple.forEach(([statKey, scoringKey]) => {
+      // Defenses cannot lose fumbles: never deduct fumbles lost for D/ST
+      // (their stat line can carry offensive fumbles from the boxscore).
+      if (player.position === 'D/ST' && statKey === 'fumbleLost') return;
+      points += Number(stat[statKey] || 0) * Number(scoring[scoringKey] || 0);
+    });
     // A two-point conversion is worth one score, not two: the position-
     // specific values above already count it. Only fall back to the "Any"
     // value when no position-specific two-point scoring is set, so default
