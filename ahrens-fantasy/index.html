@@ -6289,8 +6289,9 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
         notify(gameLockMessage(lockedTradePlayer));
         return false;
       }
-      const firstOverflow = Math.max(0, first.roster.length - firstIds.length + secondIds.length - rosterCapacity());
-      const secondOverflow = Math.max(0, second.roster.length - secondIds.length + firstIds.length - rosterCapacity());
+      const activeSelectedIds = (team, ids) => team.roster.filter((player) => ids.includes(player.id) && player.rosterSlot !== 'IR').length;
+      const firstOverflow = Math.max(0, activeRosterCount(first) - activeSelectedIds(first, firstIds) + activeSelectedIds(second, secondIds) - rosterCapacity());
+      const secondOverflow = Math.max(0, activeRosterCount(second) - activeSelectedIds(second, secondIds) + activeSelectedIds(first, firstIds) - rosterCapacity());
       if (firstDropIds.length !== firstOverflow || secondDropIds.length !== secondOverflow) {
         notify('Select exactly the number of players each team must drop to stay within its roster limit.');
         return false;

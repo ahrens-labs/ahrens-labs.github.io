@@ -69,6 +69,18 @@ function normalizeIrStatuses(value) {
   const cleaned = [...new Set(value.filter((entry) => IR_STATUSES.includes(entry)))];
   return cleaned.length ? cleaned : [...DEFAULT_IR_STATUSES];
 }
+// Slot a picked-up player should take: an open starter slot they are
+// eligible for first, then FLEX, then bench. This lets a pickup fill an
+// open bench or eligible starter spot without requiring a drop.
+function choosePickupSlot(team, player, slots) {
+  const samePosition = team.roster.filter((member) => member.position === player.position && member.rosterSlot === player.position).length;
+  if (samePosition < Number(slots[player.position] || 0)) return player.position;
+  if (['RB', 'WR', 'TE'].includes(player.position)) {
+    const flexUsed = team.roster.filter((member) => member.rosterSlot === 'FLEX').length;
+    if (flexUsed < Number(slots.FLEX || 0)) return 'FLEX';
+  }
+  return 'BENCH';
+}
 
 function randomIndex(max) {
   const value = new Uint32Array(1);
@@ -2158,11 +2170,12 @@ export class FantasyLeagueStore {
               + Number(league.waiverSettings.periodHours) * 60 * 60 * 1000;
           }
         }
+        const claimedSlot = choosePickupSlot(team, claim.player, league.rosterSlots || {});
         team.roster.push({
           ...claim.player,
           draftedBy: team.id,
-          rosterSlot: 'BENCH',
-          rosterSlotIndex: 0,
+          rosterSlot: claimedSlot,
+          rosterSlotIndex: team.roster.filter((entry) => entry.rosterSlot === claimedSlot).length,
           gameStats: {},
         });
         priority = [
@@ -2356,11 +2369,12 @@ export class FantasyLeagueStore {
         : '',
       status: String(source.status || 'ACTIVE').slice(0, 40),
     };
+    const pickupSlot = choosePickupSlot(team, player, league.rosterSlots || {});
     team.roster.push({
       ...player,
       draftedBy: team.id,
-      rosterSlot: 'BENCH',
-      rosterSlotIndex: team.roster.filter((entry) => entry.rosterSlot === 'BENCH').length,
+      rosterSlot: pickupSlot,
+      rosterSlotIndex: team.roster.filter((entry) => entry.rosterSlot === pickupSlot).length,
       gameStats: {},
     });
     record.revision += 1;
