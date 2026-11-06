@@ -1389,12 +1389,12 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       enabled: () => Number(league.rosterSlots.K) > 0,
       stats: [
         ['fg0to39', 'Field goal · 0–39 yards', 'Per made field goal', 3],
-        ['fg40to49', 'Field goal · 40–49 yards', 'Per made field goal', 4],
-        ['fg50Plus', 'Field goal · 50+ yards', 'Per made field goal', 5],
+        ['fg40to49', 'Field goal · 40–49 yards', 'Per made field goal', 3],
+        ['fg50Plus', 'Field goal · 50+ yards', 'Per made field goal', 3],
         ['fgMissed', 'Missed field goal', 'Per miss', -1],
         ['xpMade', 'Extra point made', 'Per made extra point', 1],
         ['xpMissed', 'Extra point missed', 'Per missed extra point', -1],
-        ['fg60PlusBonus', 'Field goal · 60+ yard bonus', 'Additional per made FG', 1],
+        ['fg60PlusBonus', 'Field goal · 60+ yard bonus', 'Additional per made FG', 0],
         ['fgAttempts', 'Field goal attempts', 'Per attempt', 0],
         ['fgPercentage', 'Field goal percentage', 'Per percentage point', 0],
         ['fgLongest', 'Longest field goal', 'Per longest-field-goal yard', 0],
@@ -1407,7 +1407,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       label: 'TEAM DEFENSE / SPECIAL TEAMS',
       enabled: () => Number(league.rosterSlots['D/ST']) > 0,
       stats: [
-        ['defSack', 'Sack', 'Per sack', 1],
+        ['defSack', 'Sack', 'Per sack', 2],
         ['defInterception', 'Interception', 'Per interception', 2],
         ['defFumbleRecovery', 'Fumble recovery', 'Per recovery', 2],
         ['defForcedFumble', 'Forced fumble', 'Per forced fumble', 1],
@@ -1436,7 +1436,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       label: 'INDIVIDUAL DEFENSE',
       enabled: () => IDP_POSITIONS.some((position) => Number(league.rosterSlots[position]) > 0),
       stats: [
-        ['idpSack', 'Sack', 'Per sack', 1],
+        ['idpSack', 'Sack', 'Per sack', 2],
         ['idpInterception', 'Interception', 'Per interception', 2],
         ['idpFumbleRecovery', 'Fumble recovery', 'Per recovery', 2],
         ['idpForcedFumble', 'Forced fumble', 'Per forced fumble', 1],
@@ -3911,7 +3911,12 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
   function pickWeeklyProjection(entries, week) {
     const list = Array.isArray(entries) ? entries : [];
     const weekNum = Number(week);
-    const projected = list.filter((entry) => Number(entry.statSourceId) === 1 && entry.stats && Object.keys(entry.stats).length);
+    // The feed also contains projections from other seasons for the same
+    // week number (e.g. last season's Week 9). Only use this season's
+    // projection (entries without a seasonId are kept as a fallback for
+    // feeds that omit it); never show last season's stats as this season's.
+    const projected = list.filter((entry) => Number(entry.statSourceId) === 1 && entry.stats && Object.keys(entry.stats).length
+      && (entry.seasonId == null || Number(entry.seasonId) === SEASON));
     return projected.find((entry) => Number(entry.scoringPeriodId) === weekNum && Number(entry.statSplitTypeId) === 1)
       || projected.find((entry) => Number(entry.scoringPeriodId) === weekNum)
       || null;
@@ -4043,6 +4048,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     let attempts = 0;
     (Array.isArray(statsList) ? statsList : []).forEach((entry) => {
       if (Number(entry.statSourceId) !== 0) return;
+      if (entry.seasonId != null && Number(entry.seasonId) !== SEASON) return;
       const entryWeek = Number(entry.scoringPeriodId);
       if (!Number.isInteger(entryWeek) || entryWeek >= weekNum || entryWeek < weekNum - 3) return;
       const entryAttempts = Number(entry.stats?.['0']);
@@ -8447,10 +8453,19 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       ['puntReturnLongest', 'puntReturnLongest'],
     ];
     simple.forEach(([statKey, scoringKey]) => { points += Number(stat[statKey] || 0) * Number(scoring[scoringKey] || 0); });
+    // A two-point conversion is worth one score, not two: the position-
+    // specific values above already count it. Only fall back to the "Any"
+    // value when no position-specific two-point scoring is set, so default
+    // (regular PPR) scoring matches ESPN's single 2-point value.
     const anyTwoPointConversions = Number(stat.passTwoPoint || 0)
       + Number(stat.rushTwoPoint || 0)
       + Number(stat.receivingTwoPoint || 0);
-    points += anyTwoPointConversions * Number(scoring.twoPointConversion || 0);
+    const positionTwoPointScored = Number(scoring.passTwoPoint || 0) !== 0
+      || Number(scoring.rushTwoPoint || 0) !== 0
+      || Number(scoring.receivingTwoPoint || 0) !== 0;
+    if (!positionTwoPointScored) {
+      points += anyTwoPointConversions * Number(scoring.twoPointConversion || 0);
+    }
     if (player.position === 'K') {
       ['fgAttempts', 'fgPercentage', 'fgLongest', 'xpAttempts'].forEach((key) => {
         points += Number(stat[key] || 0) * Number(scoring[key] || 0);
