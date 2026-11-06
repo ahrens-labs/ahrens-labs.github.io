@@ -3800,6 +3800,9 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       renderDraft();
       renderPlayerPool();
       renderRosters();
+      // Live leaders need the loaded pool to include free agents; without
+      // this they stay showing only rostered players until the next sync.
+      renderLiveLeaders();
       playerFeedFailures = 0;
       playerFeedLoading = false;
       if (failedTeams.length) {
