@@ -34,11 +34,12 @@ binding = "CHESS_LEADERBOARD_KV"
 id = "97fd6020bf4949749972f10aac71b3f3"
 preview_id = "dd684c0a2b2e445f94b7d1578d535331"
 
-# Fantasy league draft storage (migrated off Durable Objects for drafts).
-[[kv_namespaces]]
-binding = "FANTASY_KV"
-id = "9f8a7b6c5d4e3f2a1b0c9d8e7f6a5b4c"
-preview_id = "1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d"
+# Fantasy league draft storage: intentionally no FANTASY_KV binding. The
+# namespace was never created in the Cloudflare account (the previous id
+# was a placeholder), and fantasy leagues are stored in the
+# FantasyLeagueStore Durable Object. The worker falls back to Durable
+# Object storage when FANTASY_KV is absent. Create a real namespace and
+# restore this binding only if intentionally migrating drafts to KV.
 
 # One-time tokens for Ahrens Labs → Link CRM auth bridge (shared with link worker).
 [[kv_namespaces]]
