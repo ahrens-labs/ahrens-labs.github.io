@@ -208,6 +208,15 @@ input::-moz-selection, textarea::-moz-selection { color: #090d12; background: #7
 .roster-week-total-value { margin-top: 5px; color: var(--lime); font: 600 18px var(--mono); }
 .roster-week-total.projected .roster-week-total-value { color: var(--cyan); }
 .roster-week-total-note { margin-top: 3px; color: var(--dim); font: 10px/1.5 var(--mono); }
+.my-team-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 320px); gap: 13px; align-items: start; }
+.my-team-alerts { padding: 6px 13px; border-bottom: 1px solid var(--line); }
+.my-team-alert { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid #ffffff0a; color: var(--muted); font: 10px/1.6 var(--mono); }
+.my-team-alert:last-child { border-bottom: 0; }
+.my-team-alert strong { color: var(--text); font-weight: 600; }
+.my-team-matchup { padding: 13px; }
+.my-team-matchup-title { color: var(--dim); font: 9px var(--mono); letter-spacing: .1em; }
+.my-team-matchup-score { display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px; align-items: center; margin-top: 10px; }
+.my-team-quick-actions { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 11px; }
 .league-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 300px); gap: 13px; align-items: start; }
 .league-form { padding: 16px; }
 .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -414,7 +423,7 @@ input::-moz-selection, textarea::-moz-selection { color: #090d12; background: #7
   .league-meta { display: none; }
   .nav-tab { padding: 0 10px; font-size: 8px; }
   .main { padding-top: 19px; }
-  .overview-grid, .league-grid, .scoring-layout, .live-layout, .draft-layout { grid-template-columns: 1fr; }
+  .overview-grid, .league-grid, .scoring-layout, .live-layout, .draft-layout, .my-team-layout { grid-template-columns: 1fr; }
   .matchups-list { grid-template-columns: 1fr; }
   .matchup-detail-summary { grid-template-columns: 1fr; }
   .roster-empty-slot td { grid-column: 1 / -1; }
@@ -987,6 +996,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
   </section>
   <nav class="nav" aria-label="League navigation">
     <button class="nav-tab active" data-view="overview">Home</button>
+    <button class="nav-tab" data-view="my-team">My Team</button>
     <button class="nav-tab" data-view="draft">Draft</button>
     <button class="nav-tab" data-view="rosters">Rosters</button>
     <button class="nav-tab" data-view="matchups">Matchups</button>
@@ -1020,6 +1030,24 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
           <div class="panel-head"><h2>League standings</h2><span>Season record · playoff seeds · week points</span></div>
           <div id="standings"><div class="empty-state">Standings will populate as real game stats arrive.</div></div>
         </section>
+      </div>
+    </section>
+
+    <section class="view" id="view-my-team">
+      <div class="view-title"><div><div class="eyebrow">Weekly lineup / NFL week <span class="current-week">8</span></div><h1>Your team this week.</h1><p>One place to fix your lineup before kickoff: starters, bench, locks, and the matchup in view. Individual <strong>Proj</strong> stays static; team totals blend actual points for games already started with projections for games still to play.</p></div><div class="title-actions"><button class="button" id="myTeamRename">Rename team</button><button class="button" id="myTeamTrade">Trade desk</button><button class="button" id="myTeamEdit">Edit lineup</button><button class="button primary" id="myTeamOptimize">Use best projections</button></div></div>
+      <div class="my-team-layout">
+        <section class="panel">
+          <div class="roster-tabs" id="myTeamTabs"></div>
+          <div class="roster-summary" id="myTeamSummary"></div>
+          <div class="roster-week-totals" id="myTeamWeekTotals"></div>
+          <div class="my-team-alerts" id="myTeamAlerts"></div>
+          <p class="legend">Press <strong>Move</strong>, then <strong>Place</strong> on the player whose slot you want. Reordering only works for unlocked players. Once a player’s NFL game has kicked off, is live, or is final, they are locked and cannot be moved, dropped, swapped, added, or traded.</p>
+          <div class="player-table-wrap"><table class="roster-table"><thead><tr><th>Player</th><th>Pos</th><th>NFL</th><th>Matchup</th><th>Status</th><th>Slot</th><th>Proj</th><th>Points</th><th>Avg Pts</th><th>Action</th></tr></thead><tbody id="myTeamRows"></tbody></table></div>
+        </section>
+        <aside class="draft-side">
+          <section class="panel draft-side-card"><div class="panel-head"><h2>This week’s matchup</h2><span id="myTeamMatchupWeek">WEEK 8</span></div><div class="my-team-matchup" id="myTeamMatchup"><div class="empty-state">No matchup set for this week yet.</div></div></section>
+          <section class="panel draft-side-card"><div class="panel-head"><h2>Quick actions</h2><span>MAKE CHANGES</span></div><div class="my-team-matchup"><div class="my-team-quick-actions"><button class="button" id="myTeamGoPlayers">Browse players</button><button class="button" id="myTeamGoRosters">See all rosters</button><button class="button" id="myTeamGoMatchups">Open matchup</button></div><p class="small-note" style="margin-top:10px">Use best projections to start your highest-Proj unlocked players (lineup locks are preserved). Use Edit lineup for manual choices, Move/Place for swaps, and Browse players to add or claim a free agent.</p></div></section>
+        </aside>
       </div>
     </section>
 
@@ -1481,6 +1509,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
   let scoreboardFeedFailures = 0;
   let leagueTeams = [];
   let rosterViewTeam = 0;
+  let myTeamSelectedId = '';
   let rosterMoveSelection = null;
   let onlineUserId = '';
   let onlineUsername = '';
@@ -1618,6 +1647,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     commissionerSettingsDirty = false;
     draftOrderDraft = [...(league.draftSettings.order || league.draftOrder)];
     rosterViewTeam = Math.max(0, league.managers.findIndex((team) => onlineUserTeamIds.has(team.id)));
+    myTeamSelectedId = league.managers[rosterViewTeam]?.id || league.managers[0]?.id || '';
     normalizeManagers();
     updateOnlineControls();
   }
@@ -3427,7 +3457,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
 
   async function loadPlayerAveragePoints() {
     const throughWeek = Number(league.selectedWeek) || 1;
-    if (!$('view-players')?.classList.contains('active') && !$('view-rosters')?.classList.contains('active')) return;
+    if (!$('view-players')?.classList.contains('active') && !$('view-rosters')?.classList.contains('active') && !$('view-my-team')?.classList.contains('active')) return;
     const context = playerAverageContext(throughWeek);
     if (playerAverageLoad && playerAverageLoadContext === context) return playerAverageLoad;
     const missing = players.filter((player) => {
@@ -3463,7 +3493,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       }
       if (context === playerAverageContext() && leagueId === league.leagueId) {
         if ($('view-players')?.classList.contains('active')) renderPlayerPool();
-        if ($('view-rosters')?.classList.contains('active')) renderRosters();
+        if ($('view-rosters')?.classList.contains('active') || $('view-my-team')?.classList.contains('active')) renderRosters();
       }
     })().finally(() => {
       if (playerAverageLoadContext === context) playerAverageLoad = null;
@@ -4547,6 +4577,42 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     return isPlayerGameLocked(player) || (targetPlayer?.id != null && isPlayerGameLocked(targetPlayer));
   }
 
+  function estimateGameProgress(game) {
+    if (!game) return 0;
+    if (game.completed) return 1;
+    const status = String(game.status || '').toUpperCase();
+    if (status.includes('Q1') || status.includes('1ST')) return 0.2;
+    if (status.includes('Q3') || status.includes('3RD')) return 0.75;
+    if (status.includes('Q2') || status.includes('2ND') || status.includes('HALF')) return 0.5;
+    if (status.includes('Q4') || status.includes('4TH')) return 0.9;
+    if (status.includes('OT')) return 0.97;
+    const kickoff = Date.parse(game.date || '');
+    if (Number.isFinite(kickoff)) {
+      const elapsed = Date.now() - kickoff;
+      if (elapsed <= 0) return 0;
+      return Math.min(0.9, Math.max(0.1, elapsed / (3 * 3600 * 1000)));
+    }
+    return 0.5;
+  }
+
+  function playerProjectionProgress(player) {
+    const { game, unknown } = playerGame(player);
+    if (unknown || !game) return 0;
+    if (game.completed) return 1;
+    if (game.live) return estimateGameProgress(game);
+    return 0;
+  }
+
+  function dynamicStarterProjection(player) {
+    const projected = projectedFantasyPoints(player);
+    const progress = playerProjectionProgress(player);
+    if (progress <= 0) return Number.isFinite(projected) ? projected : 0;
+    const actual = playerFantasyPoints(player);
+    if (progress >= 1) return actual;
+    if (!Number.isFinite(projected)) return actual;
+    return Number((actual + projected * (1 - progress)).toFixed(1));
+  }
+
   function formatGameTime(value) {
     const date = new Date(value);
     if (!Number.isFinite(date.getTime())) return '';
@@ -4894,10 +4960,230 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     if (bench.length) bench.forEach((player) => body.append(renderRosterRow(team, player)));
     else body.append(makeRosterGroupRow('Bench is empty.', 'empty'));
     void loadPlayerAveragePoints();
+    if ($('myTeamRows')) renderMyTeam();
+  }
+
+  function resolveMyTeam() {
+    const selected = league.managers.find((team) => team.id === myTeamSelectedId);
+    if (selected) {
+      if (!onlineReady || ownsOnlineTeam(selected.id)) return selected;
+    }
+    if (onlineReady && onlineUserTeamIds.size) {
+      return league.managers.find((team) => onlineUserTeamIds.has(team.id))
+        || league.managers[rosterViewTeam] || league.managers[0];
+    }
+    const current = league.managers[rosterViewTeam] || league.managers[0];
+    if (current) {
+      myTeamSelectedId = current.id;
+      return current;
+    }
+    return current;
+  }
+
+  function ownedTeamsForMyTeam() {
+    if (onlineReady && onlineUserTeamIds.size) {
+      return league.managers.filter((team) => onlineUserTeamIds.has(team.id));
+    }
+    return league.managers;
+  }
+
+  function myTeamOpponent(team) {
+    if (!team) return null;
+    const week = Number(ui.weekSelect.value) || Number(league.selectedWeek) || 1;
+    const roundIndex = playoffRoundIndex(week);
+    if (roundIndex >= 0) {
+      const matchups = playoffRoundMatchups(roundIndex);
+      const standings = getSeasonStandings();
+      const mySeedIndex = standings.findIndex((entry) => entry.team.id === team.id);
+      if (mySeedIndex < 0 || !matchups?.length) return null;
+      const mySeed = mySeedIndex + 1;
+      const pair = matchups.find(([first, second]) => first === mySeed || second === mySeed);
+      if (!pair) return null;
+      const opponentSeed = pair[0] === mySeed ? pair[1] : pair[0];
+      return standings[opponentSeed - 1]?.team || null;
+    }
+    const pairing = currentMatchups().find(([home, away]) => home?.id === team.id || away?.id === team.id);
+    if (!pairing) return null;
+    return pairing[0]?.id === team.id ? pairing[1] : pairing[0];
+  }
+
+  function renderMyTeam() {
+    const tabs = $('myTeamTabs');
+    const body = $('myTeamRows');
+    if (!tabs || !body) return;
+    normalizeManagers();
+    league.managers.forEach(normalizeRosterSlotIndexes);
+    const team = resolveMyTeam();
+    if (!team) return;
+    if (rosterMoveSelection?.teamId === team.id) {
+      const pendingMove = team.roster.find((member) => member.id === rosterMoveSelection.playerId);
+      if (!pendingMove || isPlayerGameLocked(pendingMove)) rosterMoveSelection = null;
+    }
+    const owned = ownedTeamsForMyTeam();
+    tabs.replaceChildren();
+    tabs.hidden = owned.length <= 1;
+    owned.forEach((candidate) => {
+      const button = document.createElement('button');
+      button.className = `roster-tab${candidate.id === team.id ? ' active' : ''}`;
+      button.type = 'button';
+      button.textContent = teamLabel(candidate);
+      button.setAttribute('aria-label', `Show ${teamLabel(candidate)} in My Team`);
+      button.addEventListener('click', () => {
+        rosterMoveSelection = null;
+        myTeamSelectedId = candidate.id;
+        renderMyTeam();
+      });
+      tabs.append(button);
+    });
+    const canEdit = !onlineReady || ownsOnlineTeam(team.id);
+    $('myTeamRename').hidden = !canEdit;
+    $('myTeamEdit').disabled = !canEdit || !team.roster.length;
+    $('myTeamOptimize').disabled = !canEdit || !team.roster.length;
+    const activeSlots = startingSlotCount();
+    const activeCount = team.roster.filter((player) => player.rosterSlot !== 'BENCH').length;
+    const benchCount = team.roster.length - activeCount;
+    const commissionerLabel = team.ownerUserId === league.commissionerUserId ? ' · COMMISSIONER' : '';
+    $('myTeamSummary').innerHTML = `<span>TEAM <b>${escapeHTML(teamLabel(team))}</b> · MANAGER <b>${escapeHTML(team.name)}</b>${commissionerLabel}</span><span><b>STARTERS ${activeCount}/${activeSlots}</b> · <b>BENCH ${benchCount}/${Number(league.rosterSlots.BENCH || 0)}</b> · ${team.roster.length}/${rosterCapacity()} TOTAL</span>`;
+    renderRosterWeekTotals(team, 'myTeamWeekTotals');
+    renderMyTeamAlerts(team);
+    renderMyTeamMatchup(team);
+    body.replaceChildren();
+    const starterSlots = configuredRosterSlots();
+    const starters = team.roster.filter((player) => player.rosterSlot !== 'BENCH');
+    const bench = sortRoster(team.roster.filter((player) => player.rosterSlot === 'BENCH'));
+    if (!team.roster.length) {
+      const row = document.createElement('tr');
+      row.innerHTML = `<td colspan="10" class="empty-state">No drafted players yet. <strong>Start a draft</strong> to build this team, then return here to set your lineup.</td>`;
+      body.append(row);
+      return;
+    }
+    body.append(makeRosterGroupRow(`STARTING LINEUP · ${starters.length} OF ${activeSlots} SLOTS FILLED`, 'starters'));
+    starterSlots.forEach((slot) => {
+      const player = team.roster.find((member) => member.rosterSlot === slot.slot && Number(member.rosterSlotIndex) === slot.index);
+      body.append(player ? renderRosterRow(team, player, slot.label) : renderEmptyRosterSlotRow(team, slot));
+    });
+    body.append(makeRosterGroupRow(`BENCH · ${bench.length} OF ${Number(league.rosterSlots.BENCH || 0)} SLOTS USED`, 'bench'));
+    if (bench.length) bench.forEach((player) => body.append(renderRosterRow(team, player)));
+    else body.append(makeRosterGroupRow('Bench is empty. Browse players to add a free agent.', 'empty'));
+    void loadPlayerAveragePoints();
+  }
+
+  function renderMyTeamAlerts(team) {
+    const target = $('myTeamAlerts');
+    target.replaceChildren();
+    const starters = team.roster.filter((player) => player.rosterSlot && player.rosterSlot !== 'BENCH');
+    const bench = team.roster.filter((player) => !player.rosterSlot || player.rosterSlot === 'BENCH');
+    const alerts = [];
+    const openSlots = Math.max(0, startingSlotCount() - starters.length);
+    if (openSlots) alerts.push(['Open starter slot', `${openSlots} starting slot${openSlots === 1 ? '' : 's'} unfilled. Use Move or Use best projections.`]);
+    const byeStarters = starters.filter((player) => playerMatchup(player).bye);
+    if (byeStarters.length) alerts.push(['On bye as starter', `${byeStarters.map((player) => player.name).join(', ')} — swap before kickoff if you can.`]);
+    const doubtful = starters.filter((player) => /out|inactive|doubtful|suspended|reserve|\bir\b|pup|nfi/i.test(player.status || ''));
+    if (doubtful.length) alerts.push(['Injury / availability', `${doubtful.map((player) => `${player.name} (${player.status})`).join(', ')}`]);
+    const lockedStarters = starters.filter((player) => isPlayerGameLocked(player));
+    if (lockedStarters.length) alerts.push(['Locked starters', `${lockedStarters.map((player) => player.name).join(', ')} — game started, cannot be moved.`]);
+    const suggestions = [];
+    starters.forEach((starter) => {
+      if (isPlayerGameLocked(starter)) return;
+      const starterProj = projectedFantasyPoints(starter) ?? -Infinity;
+      const alternative = bench.filter((candidate) => !isPlayerGameLocked(candidate) && canPlaySlot(candidate, starter.rosterSlot || candidate.position) && (projectedFantasyPoints(candidate) ?? -Infinity) > starterProj).sort((a, b) => (projectedFantasyPoints(b) ?? -Infinity) - (projectedFantasyPoints(a) ?? -Infinity))[0];
+      if (alternative) suggestions.push(`${alternative.name} (${(projectedFantasyPoints(alternative) ?? 0).toFixed(1)}) over ${starter.name} (${(projectedFantasyPoints(starter) ?? 0).toFixed(1)})`);
+    });
+    suggestions.slice(0, 3).forEach((text) => alerts.push(['Consider swapping', text]));
+    if (!alerts.length) alerts.push(['Lineup looks set', 'No open slots, bye weeks, or injury flags among starters.']);
+    alerts.forEach(([label, note]) => {
+      const row = document.createElement('div');
+      row.className = 'my-team-alert';
+      const title = document.createElement('strong');
+      title.textContent = label;
+      const detail = document.createElement('span');
+      detail.textContent = note;
+      row.append(title, detail);
+      target.append(row);
+    });
+  }
+
+  function renderMyTeamMatchup(team) {
+    const target = $('myTeamMatchup');
+    const week = Number(ui.weekSelect.value) || Number(league.selectedWeek) || 1;
+    $('myTeamMatchupWeek').textContent = `WEEK ${String(week).padStart(2, '0')}`;
+    target.replaceChildren();
+    const opponent = myTeamOpponent(team);
+    const myActual = teamPoints(team);
+    const myProjected = teamProjectedPoints(team);
+    if (!opponent) {
+      const empty = document.createElement('div');
+      empty.className = 'empty-state';
+      empty.innerHTML = `<strong>No matchup for Week ${week}</strong>Team totals still update from live scores.`;
+      target.append(empty);
+      return;
+    }
+    const oppActual = teamPoints(opponent);
+    const oppProjected = teamProjectedPoints(opponent);
+    const myWinChance = projectedWinProbability(myProjected - oppProjected);
+    const label = document.createElement('div');
+    label.className = 'my-team-matchup-title';
+    label.textContent = `YOU VS ${teamLabel(opponent).toUpperCase()} · WIN ${Math.round(myWinChance * 100)}%`;
+    const score = document.createElement('div');
+    score.className = 'my-team-matchup-score';
+    score.innerHTML = `<div class="fantasy-side"><div class="fantasy-name">${escapeHTML(teamLabel(team))}</div><div class="fantasy-score">${myActual.toFixed(2)}</div><div class="matchup-projection">PROJ <strong>${myProjected.toFixed(1)}</strong></div></div><span class="versus">VS</span><div class="fantasy-side away"><div class="fantasy-name">${escapeHTML(teamLabel(opponent))}</div><div class="fantasy-score">${oppActual.toFixed(2)}</div><div class="matchup-projection">PROJ <strong>${oppProjected.toFixed(1)}</strong></div></div>`;
+    const actions = document.createElement('div');
+    actions.className = 'my-team-quick-actions';
+    const open = document.createElement('button');
+    open.className = 'button';
+    open.type = 'button';
+    open.textContent = 'Open matchup';
+    open.addEventListener('click', () => openMatchupDetail(team.id, opponent.id));
+    actions.append(open);
+    target.append(label, score, actions);
+  }
+
+  function optimizeMyTeamLineup() {
+    const team = resolveMyTeam();
+    if (!team) return;
+    if (onlineReady && !ownsOnlineTeam(team.id)) {
+      notify('You can only change your own roster.');
+      return;
+    }
+    if (!team.roster.length) {
+      notify('Draft players before setting an active lineup.');
+      return;
+    }
+    normalizeRosterSlotIndexes(team);
+    const oldSlots = new Map(team.roster.map((player) => [player.id, player.rosterSlot || 'BENCH']));
+    const lockedStarters = team.roster.filter((player) => isPlayerGameLocked(player) && player.rosterSlot !== 'BENCH');
+    const fixedCounts = Object.fromEntries(POSITION_ORDER.map((position) => [position, Math.max(0, Number(league.rosterSlots[position] || 0))]));
+    let flexCount = Math.max(0, Number(league.rosterSlots.FLEX || 0));
+    lockedStarters.forEach((player) => {
+      const slot = oldSlots.get(player.id);
+      if (slot && fixedCounts[slot] > 0) fixedCounts[slot] -= 1;
+      else if (slot === 'FLEX' && flexCount > 0) flexCount -= 1;
+      player.rosterSlot = slot;
+    });
+    const movable = team.roster.filter((player) => !isPlayerGameLocked(player));
+    movable.sort((a, b) => (projectedFantasyPoints(b) ?? -Infinity) - (projectedFantasyPoints(a) ?? -Infinity));
+    movable.forEach((player) => {
+      if (fixedCounts[player.position] > 0) {
+        player.rosterSlot = player.position;
+        fixedCounts[player.position] -= 1;
+      } else if (canPlaySlot(player, 'FLEX') && flexCount > 0) {
+        player.rosterSlot = 'FLEX';
+        flexCount -= 1;
+      } else {
+        player.rosterSlot = 'BENCH';
+      }
+    });
+    saveLeague();
+    renderRosters();
+    renderOverview();
+    renderMatchups();
+    notify('Lineup set to the highest available projections. Locked players were left in place.');
   }
 
   function renameRosterTeam() {
-    const team = league.managers[rosterViewTeam] || league.managers[0];
+    const team = $('view-my-team')?.classList.contains('active')
+      ? (resolveMyTeam() || league.managers[rosterViewTeam] || league.managers[0])
+      : (league.managers[rosterViewTeam] || league.managers[0]);
     if (!team || (onlineReady && !ownsOnlineTeam(team.id))) {
       notify('You can only rename your own team.');
       return;
@@ -4993,14 +5279,14 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     return row;
   }
 
-  function renderRosterWeekTotals(team) {
-    const target = $('rosterWeekTotals');
+  function renderRosterWeekTotals(team, targetId = 'rosterWeekTotals') {
+    const target = $(targetId);
+    if (!target) return;
     target.replaceChildren();
     const starters = team.roster.filter((player) => player.rosterSlot && player.rosterSlot !== 'BENCH');
     const actual = starters.reduce((sum, player) => sum + playerFantasyPoints(player), 0);
-    const projectedValues = starters.map(projectedFantasyPoints);
-    const missingProjections = projectedValues.filter((value) => !Number.isFinite(value)).length;
-    const projected = projectedValues.reduce((sum, value) => sum + (Number.isFinite(value) ? value : 0), 0);
+    const projected = starters.reduce((sum, player) => sum + dynamicStarterProjection(player), 0);
+    const missingProjections = starters.filter((player) => playerProjectionProgress(player) <= 0 && !Number.isFinite(projectedFantasyPoints(player))).length;
     const makeTotal = (label, value, note, className = '') => {
       const card = document.createElement('div');
       card.className = `roster-week-total ${className}`;
@@ -5017,9 +5303,12 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       target.append(card);
     };
     const week = String(league.selectedWeek || 1).padStart(2, '0');
+    const hasStarted = starters.some((player) => playerProjectionProgress(player) > 0);
     const projectionNote = missingProjections
       ? `WEEK ${week} · ${missingProjections} STARTER PROJECTION${missingProjections === 1 ? '' : 'S'} UNAVAILABLE`
-      : `WEEK ${week} · ALL STARTER PROJECTIONS`;
+      : hasStarted
+        ? `WEEK ${week} · ACTUAL FOR STARTED GAMES + PROJECTION FOR REMAINING`
+        : `WEEK ${week} · ALL STARTER PROJECTIONS`;
     makeTotal('PROJECTED STARTER POINTS', projected, projectionNote, 'projected');
     makeTotal('ACTUAL STARTER POINTS', actual, `WEEK ${week} · LIVE SCORING`);
   }
@@ -5272,7 +5561,9 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
   }
 
   function openLineupEditor() {
-    const team = league.managers[rosterViewTeam] || league.managers[0];
+    const team = $('view-my-team')?.classList.contains('active')
+      ? (resolveMyTeam() || league.managers[rosterViewTeam] || league.managers[0])
+      : (league.managers[rosterViewTeam] || league.managers[0]);
     if (onlineReady && !ownsOnlineTeam(team?.id)) {
       notify('Select your own team to edit the lineup.');
       return;
@@ -6896,7 +7187,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
   function teamProjectedPoints(team) {
     return team.roster
       .filter((player) => player.rosterSlot && player.rosterSlot !== 'BENCH')
-      .reduce((sum, player) => sum + (projectedFantasyPoints(player) ?? 0), 0);
+      .reduce((sum, player) => sum + dynamicStarterProjection(player), 0);
   }
 
   function projectedWinProbability(projectedMargin) {
@@ -7011,7 +7302,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       ? 'The matchup is currently projected to tie.'
       : `${teamLabel(homeProjection > awayProjection ? home : away)} is currently projected to win by ${Math.abs(homeProjection - awayProjection).toFixed(1)} points.`;
     $('matchupDetailTitle').textContent = `${teamLabel(home)} vs ${teamLabel(away)}`;
-    $('matchupDetailWinner').textContent = `${winner} Win chances are estimates based on projections and a 45-point margin-volatility model.`;
+    $('matchupDetailWinner').textContent = `${winner} Team projections blend actual points for games already started with individual projections for games still to play; individual Proj stays static. Win chances are estimates based on those team projections and a 45-point margin-volatility model.`;
 
     const summary = $('matchupDetailSummary');
     summary.replaceChildren();
@@ -7164,6 +7455,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       tab.classList.toggle('active', tab === navTab);
     });
     if (viewName === 'rosters') renderRosters();
+    if (viewName === 'my-team') renderMyTeam();
     if (viewName === 'players') renderPlayerPool();
     if (viewName === 'live') {
       renderLiveGames();
@@ -7794,6 +8086,15 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     });
     $('openTrade').addEventListener('click', openTradeDesk);
     $('renameRosterTeam').addEventListener('click', renameRosterTeam);
+    $('editLineup')?.addEventListener('click', openLineupEditor);
+    $('quickDraft')?.addEventListener('click', () => switchView('draft'));
+    $('myTeamEdit')?.addEventListener('click', openLineupEditor);
+    $('myTeamRename')?.addEventListener('click', renameRosterTeam);
+    $('myTeamTrade')?.addEventListener('click', openTradeDesk);
+    $('myTeamOptimize')?.addEventListener('click', optimizeMyTeamLineup);
+    $('myTeamGoPlayers')?.addEventListener('click', () => switchView('players'));
+    $('myTeamGoRosters')?.addEventListener('click', () => switchView('rosters'));
+    $('myTeamGoMatchups')?.addEventListener('click', () => switchView('matchups'));
     document.querySelectorAll('.nav-tab[data-view]').forEach((tab) => {
       tab.addEventListener('click', () => switchView(tab.dataset.view));
     });
