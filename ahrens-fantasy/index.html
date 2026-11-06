@@ -167,6 +167,8 @@ input::-moz-selection, textarea::-moz-selection { color: #090d12; background: #7
 .roster-player-toggle { display: block; max-width: 100%; padding: 0; border: 0; background: transparent; color: var(--lime); cursor: pointer; font: 600 14px/1.2 var(--sans); text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .player-first-name, .player-last-name { display: block; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .roster-player-toggle:hover { text-decoration: underline; }
+.view#view-my-team .player-name-cell, .view#view-my-team .player-name-wrap, .view#view-my-team .player-name-stack, .view#view-my-team .roster-player-toggle { overflow: visible; }
+.view#view-my-team .player-first-name, .view#view-my-team .player-last-name { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; word-break: break-word; }
 .player-name { color: #e2eae5; font: 600 14px/1.2 var(--sans); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .player-team { margin-top: 3px; color: #74817c; font: 11px var(--mono); }
 .position-tag { display: inline-flex; min-width: 28px; justify-content: center; padding: 4px 5px; border: 1px solid #ffffff14; color: #b9c7c0; font: 10px var(--mono); }
