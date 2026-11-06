@@ -1829,6 +1829,19 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     if (settingsTab.hidden && $('view-commissioner-settings').classList.contains('active')) {
       switchView('overview');
     }
+    updateDraftTabVisibility();
+  }
+
+  // Once the draft is over (complete or ended by the commissioner), the
+  // Draft tab is gone. If the draft view is currently open, move to Home.
+  function updateDraftTabVisibility() {
+    const draftTab = document.querySelector('.nav-tab[data-view="draft"]');
+    if (!draftTab) return;
+    const closed = isDraftClosed();
+    draftTab.hidden = closed;
+    if (closed && $('view-draft')?.classList.contains('active')) {
+      switchView('overview', false);
+    }
   }
 
   function renderCommissionerSettings() {
@@ -4659,6 +4672,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
 
   function renderDraft() {
     startOnlineRefreshTimer();
+    updateDraftTabVisibility();
     const auctionMode = league.draftSettings?.type === 'auction';
     $('draftHeading').textContent = auctionMode ? 'Build your roster in the live auction.' : 'Pick players in snake order.';
     $('draftInstructions').textContent = auctionMode
@@ -8081,6 +8095,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
 
   function switchView(viewName, updateUrl = true) {
     if (!onlineCommissioner && viewName === 'commissioner-settings') viewName = 'overview';
+    if (viewName === 'draft' && isDraftClosed()) viewName = 'overview';
     const target = $(`view-${viewName}`);
     const navTab = document.querySelector(`.nav-tab[data-view="${viewName}"]`);
     if (!target || !navTab) return;
@@ -8109,6 +8124,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
   function restoreViewFromUrl() {
     let viewName = '';
     try { viewName = decodeURIComponent(location.hash.slice(1)); } catch (_) { viewName = ''; }
+    updateDraftTabVisibility();
     const knownView = [...document.querySelectorAll('.nav-tab[data-view]')].some((tab) => tab.dataset.view === viewName && !tab.hidden);
     if (!knownView && viewName === 'commissioner-settings' && !onlineReady && localStorage.getItem('ahrenslabs_sessionId')) {
       switchView('overview', false);
@@ -8128,6 +8144,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     let viewName = '';
     try { viewName = decodeURIComponent(location.hash.slice(1)); } catch (_) { viewName = ''; }
     if (!viewName || viewName === 'overview' || viewName === 'commissioner-settings') return;
+    if (viewName === 'draft' && isDraftClosed()) return;
     const target = $(`view-${viewName}`);
     const navTab = document.querySelector(`.nav-tab[data-view="${viewName}"]`);
     if (!target || !navTab) return;
