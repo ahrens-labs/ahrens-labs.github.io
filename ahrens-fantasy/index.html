@@ -3765,13 +3765,60 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     }
   }
 
+  function qbUnavailable(player) {
+    const statuses = [player.fantasyInjuryStatus, player.status].filter(Boolean).join(' ').replace(/_/g, ' ');
+    if (/\b(out|inactive|suspended|suspension|reserve|ir|pup|nfi|non football|physically unable|exempt)\b/i.test(statuses)) return true;
+    return /practice squad/i.test(player.status || '');
+  }
+
+  // ESPN gives most QBs a full "if he starts" projected stat line, including
+  // backups who will not start. Work out each NFL team's expected starting
+  // QB from ESPN's own starter signals — a weekly ranking and/or a weekly
+  // outlook are only published for the expected starter — falling back to
+  // who actually threw passes recently. When no clear starter emerges (a
+  // genuine QB battle, or no signals at all), nobody is marked and ESPN's
+  // projections are kept as-is rather than zeroing out the wrong QB.
+  function markQbExpectedStarters() {
+    const byTeam = new Map();
+    players.filter((player) => player.position === 'QB' && player.teamId).forEach((player) => {
+      if (!byTeam.has(player.teamId)) byTeam.set(player.teamId, []);
+      byTeam.get(player.teamId).push(player);
+    });
+    byTeam.forEach((qbs) => {
+      const eligible = qbs.filter((player) => !qbUnavailable(player));
+      if (!eligible.length) return;
+      if (eligible.length === 1) {
+        eligible[0].qbStarterStatus = 'starter';
+        return;
+      }
+      const scored = eligible.map((player) => ({
+        player,
+        score: (player.weeklyRank != null ? 4 : 0)
+          + (player.hasOutlook ? 3 : 0)
+          + (Number(player.recentPassAttempts) > 0 ? 1 : 0),
+      })).sort((a, b) => b.score - a.score);
+      const top = scored[0];
+      const second = scored[1];
+      if ((top.score >= 3 && top.score > second.score) || (top.score === 1 && second.score === 0)) {
+        top.player.qbStarterStatus = 'starter';
+        scored.slice(1).forEach(({ player }) => { player.qbStarterStatus = 'backup'; });
+      }
+    });
+  }
+
   function applyFantasyProjections(fantasyData) {
     players.forEach((player) => {
       const data = fantasyData.get(String(player.id)) || (player.position === 'D/ST' ? fantasyData.get(`DST-${player.teamId}`) : null);
       player.espnRank = data?.rank ?? null;
       player.projectedStats = data?.projectedStats || null;
       player.projectedPoints = player.projectedStats ? playerFantasyPoints(player, player.projectedStats) : null;
+      player.weeklyRank = data?.weeklyRank ?? null;
+      player.hasOutlook = Boolean(data?.hasOutlook);
+      player.recentPassAttempts = Number(data?.recentPassAttempts) || 0;
+      player.fantasyInjuryStatus = data?.fantasyInjuryStatus || '';
+      delete player.qbStarterStatus;
     });
+    markQbExpectedStarters();
     reconcileDraftedPlayerData();
   }
 
@@ -3919,6 +3966,27 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     return Object.values(stat).some((value) => typeof value === 'number' && value > 0.01);
   }
 
+  // Pass attempts in the most recent actual week (within the last 3 weeks
+  // before `week`) a QB threw a pass. Used only as a fallback starter signal:
+  // a QB who actually played recently is more likely to start than one who
+  // has not thrown a pass at all.
+  function recentActualPassAttempts(statsList, week) {
+    const weekNum = Number(week);
+    let bestWeek = -1;
+    let attempts = 0;
+    (Array.isArray(statsList) ? statsList : []).forEach((entry) => {
+      if (Number(entry.statSourceId) !== 0) return;
+      const entryWeek = Number(entry.scoringPeriodId);
+      if (!Number.isInteger(entryWeek) || entryWeek >= weekNum || entryWeek < weekNum - 3) return;
+      const entryAttempts = Number(entry.stats?.['0']);
+      if (Number.isFinite(entryAttempts) && entryWeek > bestWeek) {
+        bestWeek = entryWeek;
+        attempts = entryAttempts;
+      }
+    });
+    return attempts;
+  }
+
   async function fetchEspnPlayerRanks() {
     try {
       const week = Number(league.selectedWeek);
@@ -3934,8 +4002,28 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
         const projectedStats = weeklyProjection ? parseEspnProjectedStats(weeklyProjection.stats) : null;
         const hasRank = Number.isFinite(rank) && rank > 0;
         const hasProj = hasProjectedLine(projectedStats);
-        if (player.id == null || (!hasRank && !hasProj)) return;
-        const payload = { rank: hasRank ? rank : null, projectedStats, projectedPoints: null };
+        const isQb = Number(player.defaultPositionId) === 1;
+        // Keep QBs on a real NFL team even without a rank/projection: a new
+        // starter ESPN has not ranked yet still displaces the old starter's
+        // "if he starts" projection (see markQbExpectedStarters).
+        if (player.id == null || (!hasRank && !hasProj && !(isQb && player.proTeamId))) return;
+        // ESPN's weekly rankings and outlooks are only published for the
+        // expected starter at each position. A backup QB often still gets a
+        // full "if he starts" projected stat line, so these are the signals
+        // that tell a real starter apart from a backup.
+        const weeklyRankEntries = (player.rankings && player.rankings[String(week)]) || [];
+        const weeklyRankEntry = weeklyRankEntries.find((entry) => entry && entry.averageRank != null);
+        const weeklyRank = weeklyRankEntry ? Number(weeklyRankEntry.averageRank) : null;
+        const outlookText = player.outlooks?.outlooksByWeek?.[String(week)] || '';
+        const payload = {
+          rank: hasRank ? rank : null,
+          projectedStats,
+          projectedPoints: null,
+          weeklyRank: Number.isFinite(weeklyRank) ? weeklyRank : null,
+          hasOutlook: typeof outlookText === 'string' && outlookText.trim().length > 0,
+          recentPassAttempts: recentActualPassAttempts(player.stats, week),
+          fantasyInjuryStatus: player.injuryStatus || '',
+        };
         const ids = [String(player.id)];
         if (Number(player.defaultPositionId) === 16 && player.proTeamId) ids.push(`DST-${player.proTeamId}`);
         ids.forEach((id) => ranks.set(id, payload));
@@ -8178,6 +8266,14 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
 
   function projectedFantasyPoints(player) {
     if (isNotExpectedToPlay(player)) return 0;
+    // A QB who is not his team's expected starter gets no projection, even
+    // though ESPN still publishes a full "if he starts" line for him. If he
+    // has actually thrown passes this week he did start/play, so keep his
+    // projection in that case.
+    if (player?.position === 'QB' && player.qbStarterStatus === 'backup') {
+      const actual = playerStats.get(player.id) || player.gameStats;
+      if (!(actual && Number(actual.passAttempts) > 0)) return 0;
+    }
     if (!player?.projectedStats) return null;
     return Number(playerFantasyPoints(player, player.projectedStats).toFixed(1));
   }
@@ -8195,6 +8291,9 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
   }
 
   function formatProjectionTitle(player) {
+    if (player?.position === 'QB' && player.qbStarterStatus === 'backup' && projectedFantasyPoints(player) === 0) {
+      return `Projected 0.0 for ${player.name} — ESPN projects him as a backup: he is not his team's expected starting QB this week, so his "if he starts" projection is not counted`;
+    }
     const value = projectedFantasyPoints(player);
     return Number.isFinite(value)
       ? `Projected points (static ESPN projection for this week) for ${player?.name || 'this player'} — not the average`
@@ -8340,12 +8439,14 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
         delete player.gameStats;
         delete player.projectedStats;
         delete player.projectedPoints;
+        delete player.qbStarterStatus;
         player.espnRank = null;
       });
       league.managers.forEach((team) => team.roster.forEach((player) => {
         delete player.gameStats;
         delete player.projectedStats;
         delete player.projectedPoints;
+        delete player.qbStarterStatus;
         player.espnRank = null;
       }));
       saveLeague();
