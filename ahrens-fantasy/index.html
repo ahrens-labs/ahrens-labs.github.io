@@ -137,6 +137,17 @@ input::-moz-selection, textarea::-moz-selection { color: #090d12; background: #7
 .player-table th, .roster-table th, .score-table th { position: sticky; top: 0; z-index: 1; padding: 9px 6px; background: #111922; color: #74837d; font: 8px var(--mono); letter-spacing: .06em; text-align: left; white-space: normal; }
 .player-table td, .roster-table td, .score-table td { padding: 8px 6px; border-top: 1px solid #ffffff0b; color: #c5d0c9; font: 10px var(--mono); white-space: normal; overflow-wrap: anywhere; word-break: break-word; vertical-align: top; }
 .player-table td, .roster-table td { font-size: 12px; }
+/* Roster tables: give Player enough width that the first name fits on one line and the last name on one line (instead of splitting all 10 columns equally). */
+.roster-table th:nth-child(1) { width: 23%; }
+.roster-table th:nth-child(2) { width: 5%; }
+.roster-table th:nth-child(3) { width: 6%; }
+.roster-table th:nth-child(4) { width: 9%; }
+.roster-table th:nth-child(5) { width: 10%; }
+.roster-table th:nth-child(6) { width: 8%; }
+.roster-table th:nth-child(7) { width: 9%; }
+.roster-table th:nth-child(8) { width: 8%; }
+.roster-table th:nth-child(9) { width: 7%; }
+.roster-table th:nth-child(10) { width: 15%; }
 .fantasy-points-cell { color: var(--cyan) !important; font-size: 11px !important; font-weight: 600 !important; }
 .average-points-cell { color: var(--dim) !important; font-size: 10px !important; font-weight: 400 !important; }
 .projection-cell { color: var(--lime) !important; font-size: 12px !important; font-weight: 800 !important; letter-spacing: -.02em; }
@@ -167,8 +178,8 @@ input::-moz-selection, textarea::-moz-selection { color: #090d12; background: #7
 .roster-player-toggle { display: block; max-width: 100%; padding: 0; border: 0; background: transparent; color: var(--lime); cursor: pointer; font: 600 14px/1.2 var(--sans); text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .player-first-name, .player-last-name { display: block; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .roster-player-toggle:hover { text-decoration: underline; }
-.view#view-my-team .player-name-cell, .view#view-my-team .player-name-wrap, .view#view-my-team .player-name-stack, .view#view-my-team .roster-player-toggle { overflow: visible; }
-.view#view-my-team .player-first-name, .view#view-my-team .player-last-name { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; word-break: break-word; }
+.view#view-my-team .player-headshot { width: 36px; height: 36px; }
+.view#view-my-team .player-first-name, .view#view-my-team .player-last-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; overflow-wrap: normal; word-break: normal; }
 .player-name { color: #e2eae5; font: 600 14px/1.2 var(--sans); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .player-team { margin-top: 3px; color: #74817c; font: 11px var(--mono); }
 .position-tag { display: inline-flex; min-width: 28px; justify-content: center; padding: 4px 5px; border: 1px solid #ffffff14; color: #b9c7c0; font: 10px var(--mono); }
@@ -4064,24 +4075,46 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
   }
 
   function normalizeRosterSlotIndexes(team) {
-    const used = new Map();
-    team.roster.forEach((player) => {
+    // Compact indexes per slot to 0..n-1 (preserving their relative order) and
+    // make a missing rosterSlot explicit. Previously indexes such as 5 and 7
+    // were kept even though configured slots are only looked up as 0, 1, ...,
+    // so those players counted as starters but never rendered.
+    const bySlot = new Map();
+    team.roster.forEach((player, rosterOrder) => {
       const slot = player.rosterSlot || 'BENCH';
-      const occupied = used.get(slot) || new Set();
-      let index = Number(player.rosterSlotIndex);
-      if (!Number.isInteger(index) || index < 0 || occupied.has(index)) {
-        index = 0;
-        while (occupied.has(index)) index += 1;
+      player.rosterSlot = slot;
+      if (!bySlot.has(slot)) bySlot.set(slot, []);
+      bySlot.get(slot).push({ player, rosterOrder });
+    });
+    bySlot.forEach((entries) => {
+      entries.sort((a, b) => {
+        const aIndex = Number(a.player.rosterSlotIndex);
+        const bIndex = Number(b.player.rosterSlotIndex);
+        const aKey = Number.isInteger(aIndex) && aIndex >= 0 ? aIndex : Number.MAX_SAFE_INTEGER;
+        const bKey = Number.isInteger(bIndex) && bIndex >= 0 ? bIndex : Number.MAX_SAFE_INTEGER;
+        return aKey - bKey || a.rosterOrder - b.rosterOrder;
+      });
+      entries.forEach(({ player }, index) => {
         player.rosterSlotIndex = index;
-      }
-      occupied.add(index);
-      used.set(slot, occupied);
+      });
     });
   }
 
   function normalizeRosterForSlots(team) {
+    // Bench any player who cannot actually fit in a configured slot:
+    // a missing/unknown slot, an ineligible slot for their position, or a
+    // starter slot beyond the configured count for that slot. Without this,
+    // overflow starters are counted in "STARTING LINEUP · N OF M" but are
+    // rendered neither as starters (only configured slot indexes render) nor
+    // on the bench (only rosterSlot === 'BENCH' renders there).
+    // Locked starters keep their slot first; unlocked overflow goes to bench.
     const used = new Map();
-    team.roster.forEach((player) => {
+    const ordered = [...team.roster].sort((a, b) => {
+      const aLocked = (a.rosterSlot && a.rosterSlot !== 'BENCH' && isPlayerGameLocked(a)) ? 0 : 1;
+      const bLocked = (b.rosterSlot && b.rosterSlot !== 'BENCH' && isPlayerGameLocked(b)) ? 0 : 1;
+      return aLocked - bLocked;
+    });
+    ordered.forEach((player) => {
       const current = player.rosterSlot || 'BENCH';
       const eligible = current === player.position
         || (current === 'FLEX' && OFFENSIVE_FLEX_POSITIONS.includes(player.position));
@@ -4957,9 +4990,27 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     }
   }
 
+  // Starters that actually occupy a configured slot, in configured-slot order.
+  // Grouping by slot (instead of matching an exact rosterSlotIndex) means a
+  // gappy index can never make a starter disappear from the lineup.
+  function configuredStarterPlayers(team, starterSlots) {
+    const bySlot = new Map();
+    team.roster.filter((player) => player.rosterSlot && player.rosterSlot !== 'BENCH').forEach((player) => {
+      if (!bySlot.has(player.rosterSlot)) bySlot.set(player.rosterSlot, []);
+      bySlot.get(player.rosterSlot).push(player);
+    });
+    bySlot.forEach((list) => list.sort((a, b) => Number(a.rosterSlotIndex || 0) - Number(b.rosterSlotIndex || 0)));
+    const displayed = [];
+    starterSlots.forEach((slot) => {
+      const player = (bySlot.get(slot.slot) || [])[slot.index];
+      if (player) displayed.push(player);
+    });
+    return { bySlot, displayed };
+  }
+
   function renderRosters() {
     normalizeManagers();
-    league.managers.forEach(normalizeRosterSlotIndexes);
+    league.managers.forEach(normalizeRosterForSlots);
     const tabs = $('rosterTabs');
     if (!tabs) return;
     tabs.replaceChildren();
@@ -4991,8 +5042,10 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     const body = $('rosterRows');
     body.replaceChildren();
     const starterSlots = configuredRosterSlots();
-    const starters = team.roster.filter((player) => player.rosterSlot !== 'BENCH');
-    const bench = sortRoster(team.roster.filter((player) => player.rosterSlot === 'BENCH'));
+    const { bySlot: startersBySlot, displayed: starters } = configuredStarterPlayers(team, starterSlots);
+    // Everyone not in a displayed starter slot is shown on the bench, so no
+    // rostered player can be counted as a starter yet rendered nowhere.
+    const bench = sortRoster(team.roster.filter((player) => !starters.includes(player)));
     if (!team.roster.length) {
       const row = document.createElement('tr');
       row.innerHTML = `<td colspan="10" class="empty-state">No drafted players yet. Start a draft to build this team.</td>`;
@@ -5001,7 +5054,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     }
     body.append(makeRosterGroupRow(`STARTING LINEUP · ${starters.length} OF ${activeSlots} SLOTS FILLED`, 'starters'));
     starterSlots.forEach((slot) => {
-      const player = team.roster.find((member) => member.rosterSlot === slot.slot && Number(member.rosterSlotIndex) === slot.index);
+      const player = (startersBySlot.get(slot.slot) || [])[slot.index];
       body.append(player ? renderRosterRow(team, player, slot.label) : renderEmptyRosterSlotRow(team, slot));
     });
     body.append(makeRosterGroupRow(`BENCH · ${bench.length} OF ${Number(league.rosterSlots.BENCH || 0)} SLOTS USED`, 'bench'));
@@ -5060,7 +5113,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     const body = $('myTeamRows');
     if (!tabs || !body) return;
     normalizeManagers();
-    league.managers.forEach(normalizeRosterSlotIndexes);
+    league.managers.forEach(normalizeRosterForSlots);
     const team = resolveMyTeam();
     if (!team) return;
     if (rosterMoveSelection?.teamId === team.id) {
@@ -5097,8 +5150,10 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     renderMyTeamMatchup(team);
     body.replaceChildren();
     const starterSlots = configuredRosterSlots();
-    const starters = team.roster.filter((player) => player.rosterSlot !== 'BENCH');
-    const bench = sortRoster(team.roster.filter((player) => player.rosterSlot === 'BENCH'));
+    const { bySlot: startersBySlot, displayed: starters } = configuredStarterPlayers(team, starterSlots);
+    // Everyone not in a displayed starter slot is shown on the bench, so no
+    // rostered player can be counted as a starter yet rendered nowhere.
+    const bench = sortRoster(team.roster.filter((player) => !starters.includes(player)));
     if (!team.roster.length) {
       const row = document.createElement('tr');
       row.innerHTML = `<td colspan="10" class="empty-state">No drafted players yet. <strong>Start a draft</strong> to build this team, then return here to set your lineup.</td>`;
@@ -5107,7 +5162,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     }
     body.append(makeRosterGroupRow(`STARTING LINEUP · ${starters.length} OF ${activeSlots} SLOTS FILLED`, 'starters'));
     starterSlots.forEach((slot) => {
-      const player = team.roster.find((member) => member.rosterSlot === slot.slot && Number(member.rosterSlotIndex) === slot.index);
+      const player = (startersBySlot.get(slot.slot) || [])[slot.index];
       body.append(player ? renderRosterRow(team, player, slot.label) : renderEmptyRosterSlotRow(team, slot));
     });
     body.append(makeRosterGroupRow(`BENCH · ${bench.length} OF ${Number(league.rosterSlots.BENCH || 0)} SLOTS USED`, 'bench'));
@@ -5119,8 +5174,8 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
   function renderMyTeamAlerts(team) {
     const target = $('myTeamAlerts');
     target.replaceChildren();
-    const starters = team.roster.filter((player) => player.rosterSlot && player.rosterSlot !== 'BENCH');
-    const bench = team.roster.filter((player) => !player.rosterSlot || player.rosterSlot === 'BENCH');
+    const starters = configuredStarterPlayers(team, configuredRosterSlots()).displayed;
+    const bench = team.roster.filter((player) => !starters.includes(player));
     const alerts = [];
     const openSlots = Math.max(0, startingSlotCount() - starters.length);
     if (openSlots) alerts.push(['Open starter slot', `${openSlots} starting slot${openSlots === 1 ? '' : 's'} unfilled. Use Move or Use best projections.`]);
@@ -5221,6 +5276,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
         player.rosterSlot = 'BENCH';
       }
     });
+    normalizeRosterSlotIndexes(team);
     saveLeague();
     renderRosters();
     renderOverview();
@@ -5331,7 +5387,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     const target = $(targetId);
     if (!target) return;
     target.replaceChildren();
-    const starters = team.roster.filter((player) => player.rosterSlot && player.rosterSlot !== 'BENCH');
+    const starters = configuredStarterPlayers(team, configuredRosterSlots()).displayed;
     const actual = starters.reduce((sum, player) => sum + playerFantasyPoints(player), 0);
     const projected = starters.reduce((sum, player) => sum + dynamicStarterProjection(player), 0);
     const missingProjections = starters.filter((player) => playerProjectionProgress(player) <= 0 && !Number.isFinite(projectedFantasyPoints(player))).length;
@@ -5711,8 +5767,13 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
         } else if (canPlaySlot(player, 'FLEX') && flexRemaining > 0) {
           player.rosterSlot = 'FLEX';
           flexRemaining -= 1;
+        } else {
+          // Checked but no position/FLEX room left (e.g. locked starters took
+          // it): bench them instead of leaving an over-limit starter slot.
+          player.rosterSlot = 'BENCH';
         }
       });
+      normalizeRosterSlotIndexes(team);
       saveLeague();
       renderRosters();
       renderOverview();
@@ -6835,7 +6896,8 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
         notify(`${player.name} added immediately to ${team.teamName}${selectedDropId ? '; roster spot opened.' : '.'}`);
         return true;
       }
-      team.roster.push({ ...player, draftedBy: team.id, rosterSlot: chooseRosterSlot(team, player), gameStats: {} });
+      const claimedSlot = chooseRosterSlot(team, player);
+      team.roster.push({ ...player, draftedBy: team.id, rosterSlot: claimedSlot, rosterSlotIndex: nextRosterSlotIndex(team, claimedSlot), gameStats: {} });
       saveLeague();
       renderPlayerPool(); renderDraftPlayers(); renderRosters(); renderOverview(); renderMatchups();
       notify(`${player.name} added to ${team.teamName}${selectedDropId ? '; roster spot opened.' : '.'}`);
@@ -7291,14 +7353,14 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
   }
 
   function teamPoints(team) {
-    return team.roster
-      .filter((player) => player.rosterSlot && player.rosterSlot !== 'BENCH')
+    // Only players actually occupying a configured starter slot score, so
+    // over-limit "starters" cannot inflate a team total invisibly.
+    return configuredStarterPlayers(team, configuredRosterSlots()).displayed
       .reduce((sum, player) => sum + playerFantasyPoints(player), 0);
   }
 
   function teamProjectedPoints(team) {
-    return team.roster
-      .filter((player) => player.rosterSlot && player.rosterSlot !== 'BENCH')
+    return configuredStarterPlayers(team, configuredRosterSlots()).displayed
       .reduce((sum, player) => sum + dynamicStarterProjection(player), 0);
   }
 
@@ -7405,6 +7467,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       selectedMatchup = null;
       return;
     }
+    [home, away].forEach(normalizeRosterForSlots);
 
     const homeProjection = teamProjectedPoints(home);
     const awayProjection = teamProjectedPoints(away);
@@ -7487,8 +7550,9 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
         section.append(sectionHeading, sectionTable);
         panel.append(section);
       };
-      appendRosterSection('STARTERS', sortRoster(team.roster.filter((player) => player.rosterSlot !== 'BENCH')));
-      appendRosterSection('BENCH', sortRoster(team.roster.filter((player) => player.rosterSlot === 'BENCH')), 'bench');
+      const { displayed: detailStarters } = configuredStarterPlayers(team, configuredRosterSlots());
+      appendRosterSection('STARTERS', sortRoster(detailStarters));
+      appendRosterSection('BENCH', sortRoster(team.roster.filter((player) => !detailStarters.includes(player))), 'bench');
       rosters.append(panel);
     });
   }
