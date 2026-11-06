@@ -272,6 +272,8 @@ input::-moz-selection, textarea::-moz-selection { color: #090d12; background: #7
 .scoring-group.active { display: block; }
 .scoring-category { margin: 15px 0 7px; color: #8a9892; font: 9px var(--mono); letter-spacing: .12em; }
 .scoring-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 150px) minmax(0, 72px); align-items: center; gap: 10px; min-height: 39px; border-bottom: 1px solid #ffffff0a; }
+.scoring-row.is-customized { background: #d1f36b08; }
+.scoring-custom-badge { display: inline-block; margin-left: 6px; padding: 2px 5px; border: 1px solid #d1f36b55; background: #d1f36b12; color: var(--lime); font: 7px var(--mono); letter-spacing: .08em; vertical-align: middle; }
 .scoring-stat { color: #cbd5cf; font: 10px var(--sans); }
 .scoring-desc { color: #6e7c75; font: 8px var(--mono); margin-top: 3px; }
 .scoring-row input { width: 100%; min-height: 29px; padding: 0 8px; border: 1px solid var(--line-strong); background: #0a1017; color: var(--lime); text-align: right; font: 10px var(--mono); }
@@ -1173,9 +1175,9 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
           <button class="button primary" id="saveWaiverSettings">SAVE WAIVER SETTINGS</button>
         </div>
       </section>
-      <div class="view-title commissioner-scoring-heading"><div><div class="eyebrow">Scoring rules</div><h2>Set how points are earned.</h2><p>Choose a position to customize its stat values independently. Projections, live and historical scores, and averages all recalculate with the selected position’s scoring. Defaults are full PPR.</p></div><div class="title-actions"><button class="button" id="resetScoring">Restore defaults</button><button class="button primary" id="saveScoring">Save scoring</button></div></div>
+      <div class="view-title commissioner-scoring-heading"><div><div class="eyebrow">Scoring rules</div><h2>Set how points are earned.</h2><p><strong>Default</strong> sets the template for every position. Each position follows Default unless you change a specific stat for that position. Changing Default later updates every stat that was never changed for its position. Defaults are full PPR.</p></div><div class="title-actions"><button class="button" id="resetScoring">Restore defaults</button><button class="button primary" id="saveScoring">Save scoring</button></div></div>
       <div class="scoring-layout">
-        <section class="panel"><div class="field scoring-position-select"><label for="scoringPositionSelect">CUSTOMIZE SCORING FOR</label><select class="filter-select" id="scoringPositionSelect"></select></div><div class="scoring-tabs" id="scoringTabs"></div><div id="scoringGroups"></div><div class="scoring-actions"><span class="small-note">Each position starts with the league’s default values. Changes apply only to the selected position.</span><button class="button primary" id="saveScoringBottom">SAVE RULES</button></div></section>
+        <section class="panel"><div class="field scoring-position-select"><label for="scoringPositionSelect">CUSTOMIZE SCORING FOR</label><select class="filter-select" id="scoringPositionSelect"></select><div class="field-help">Default sets scoring for all positions. A position follows Default unless a stat was changed for that position. CUSTOM badges show stats that differ from Default.</div></div><div class="scoring-tabs" id="scoringTabs"></div><div id="scoringGroups"></div><div class="scoring-actions"><span class="small-note">Only stats that differ from Default are stored as customized. Resetting a customized stat back to the Default value removes its override.</span><button class="button primary" id="saveScoringBottom">SAVE RULES</button></div></section>
         <aside>
           <section class="panel scoring-summary"><h3>YOUR SCORING MODEL</h3><p>Players earn points for every matching stat in the live feed. Use negative point values for turnovers, fumbles, or points allowed.</p><ul id="scoringSummary"></ul><div class="data-source-note">REAL-TIME PLAYER STATS COME FROM ESPN'S PUBLIC SCOREBOARD AND GAME-SUMMARY FEEDS. THE PUBLIC FEED IS UNOFFICIAL AND MAY CHANGE OR LAG.</div></section>
         </aside>
@@ -6017,8 +6019,12 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     }
     if (!POSITION_ORDER.includes(selectedScoringPosition)) selectedScoringPosition = 'DEFAULT';
     const selectedPosition = positionSelect.value;
-    positionSelect.replaceChildren(...POSITION_ORDER.map((position) =>
-      new Option(ROSTER_POSITION_LABELS[position], position)));
+    const customizedSetForLabels = new Set([...(league.customizedScoringPositions || []), ...Object.keys(league.positionScoring || {}).filter((position) => league.positionScoring[position] && Object.keys(league.positionScoring[position]).length)]);
+    positionSelect.replaceChildren(...POSITION_ORDER.map((position) => {
+      const baseLabel = ROSTER_POSITION_LABELS[position];
+      const suffix = position === 'DEFAULT' ? ' · SETS ALL POSITIONS' : customizedSetForLabels.has(position) ? ' · CUSTOMIZED' : ' · FOLLOWS DEFAULT';
+      return new Option(`${baseLabel}${suffix}`, position);
+    }));
     if (POSITION_ORDER.includes(selectedPosition)) selectedScoringPosition = selectedPosition;
     positionSelect.value = selectedScoringPosition;
     const categories = SCORING_CATEGORIES;
@@ -6040,22 +6046,38 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       group.className = `scoring-group${category.id === selectedScoringCategory ? ' active' : ''}`;
       group.dataset.category = category.id;
       category.stats.forEach(([key, label, description]) => {
+        const defaultValue = league.scoring[key] ?? DEFAULT_SCORING[key];
+        const draftKey = `${selectedScoringPosition}:${key}`;
+        const effectiveValue = selectedScoringPosition === 'DEFAULT'
+          ? defaultValue
+          : (scoringForPlayer({ position: selectedScoringPosition })[key] ?? defaultValue);
+        const draftValue = Number(scoringDraftValues.has(draftKey) ? scoringDraftValues.get(draftKey) : effectiveValue);
+        const isCustomizedStat = selectedScoringPosition !== 'DEFAULT' && draftValue !== Number(defaultValue);
         const row = document.createElement('div');
-        row.className = 'scoring-row';
+        row.className = `scoring-row${isCustomizedStat ? ' is-customized' : ''}`;
         const stat = document.createElement('div');
-        stat.innerHTML = `<div class="scoring-stat">${escapeHTML(label)}</div><div class="scoring-desc">${escapeHTML(description)}</div>`;
+        stat.innerHTML = `<div class="scoring-stat">${escapeHTML(label)}${isCustomizedStat ? ' <span class="scoring-custom-badge">CUSTOM</span>' : ''}</div><div class="scoring-desc">${escapeHTML(description)}${selectedScoringPosition !== 'DEFAULT' ? (isCustomizedStat ? ` · Overrides Default ${defaultValue} pts` : ` · Follows Default ${defaultValue} pts`) : ''}</div>`;
         const input = document.createElement('input');
         input.type = 'number'; input.step = '0.1'; input.dataset.positionStat = key;
         input.dataset.scoringPosition = selectedScoringPosition;
-        const draftKey = `${selectedScoringPosition}:${key}`;
-        input.value = Number(scoringDraftValues.has(draftKey)
-          ? scoringDraftValues.get(draftKey)
-          : (selectedScoringPosition === 'DEFAULT'
-              ? (league.scoring[key] ?? DEFAULT_SCORING[key])
-              : (scoringForPlayer({ position: selectedScoringPosition })[key] ?? league.scoring[key] ?? DEFAULT_SCORING[key])));
-        input.setAttribute('aria-label', `${ROSTER_POSITION_LABELS[selectedScoringPosition]} ${label} points`);
+        input.value = draftValue;
+        input.setAttribute('aria-label', `${ROSTER_POSITION_LABELS[selectedScoringPosition]} ${label} points${isCustomizedStat ? ' (customized, differs from Default)' : ''}`);
+        input.title = selectedScoringPosition === 'DEFAULT'
+          ? 'This sets the Default template for all positions.'
+          : isCustomizedStat
+            ? `Customized for ${selectedScoringPosition} — differs from Default ${defaultValue} pts. Saving keeps it as an override.`
+            : `Follows Default (${defaultValue} pts). Changing it and saving will mark this stat customized.`;
         input.addEventListener('input', () => {
           scoringDraftValues.set(draftKey, Number(input.value));
+          const nowCustomized = selectedScoringPosition !== 'DEFAULT' && Number(input.value) !== Number(defaultValue);
+          row.classList.toggle('is-customized', nowCustomized);
+          stat.innerHTML = `<div class="scoring-stat">${escapeHTML(label)}${nowCustomized ? ' <span class="scoring-custom-badge">CUSTOM</span>' : ''}</div><div class="scoring-desc">${escapeHTML(description)}${selectedScoringPosition !== 'DEFAULT' ? (nowCustomized ? ` · Overrides Default ${defaultValue} pts` : ` · Follows Default ${defaultValue} pts`) : ''}</div>`;
+          input.setAttribute('aria-label', `${ROSTER_POSITION_LABELS[selectedScoringPosition]} ${label} points${nowCustomized ? ' (customized, differs from Default)' : ''}`);
+          input.title = selectedScoringPosition === 'DEFAULT'
+            ? 'This sets the Default template for all positions.'
+            : nowCustomized
+              ? `Customized for ${selectedScoringPosition} — differs from Default ${defaultValue} pts. Saving keeps it as an override.`
+              : `Follows Default (${defaultValue} pts). Changing it and saving will mark this stat customized.`;
           renderScoringSummary();
         });
         const unit = document.createElement('span'); unit.className = 'unit'; unit.textContent = 'PTS / EVENT';
@@ -6080,7 +6102,14 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       return scoring[key] ?? league.scoring?.[key] ?? DEFAULT_SCORING[key];
     };
     const heading = target.closest('.scoring-summary')?.querySelector('h3');
-    if (heading) heading.textContent = `${ROSTER_POSITION_LABELS[selectedScoringPosition].toUpperCase()} SCORING MODEL`;
+    if (heading) {
+      if (selectedScoringPosition === 'DEFAULT') heading.textContent = 'DEFAULT SCORING MODEL (SETS TEMPLATE FOR ALL POSITIONS)';
+      else {
+        const overrides = league.positionScoring?.[selectedScoringPosition] || {};
+        const isCustomized = Object.keys(overrides).length > 0;
+        heading.textContent = `${ROSTER_POSITION_LABELS[selectedScoringPosition].toUpperCase()} SCORING MODEL (${isCustomized ? 'CUSTOMIZED' : 'FOLLOWS DEFAULT'})`;
+      }
+    }
     const lines = [
       ['Passing TD', valueFor('passTD')],
       ['Passing yards', `${valueFor('passYards')} / yard`],
@@ -6103,7 +6132,8 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       return;
     }
     league.customizedScoringPositions ||= [];
-    const customizedSet = new Set(league.customizedScoringPositions);
+    const defaultValues = { ...DEFAULT_SCORING, ...(league.scoring || {}) };
+    const allStatKeys = SCORING_CATEGORIES.flatMap((category) => category.stats.map(([key]) => key));
     if (selectedScoringPosition === 'DEFAULT') {
       const nextScoring = { ...(league.scoring || {}) };
       scoringDraftValues.forEach((value, key) => {
@@ -6113,34 +6143,43 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
         nextScoring[stat] = Number.isFinite(value) ? value : 0;
       });
       league.scoring = nextScoring;
-      // When default changes, update all scores that have not been changed/customized to match
-      // Positions that have been customized keep their customizations as-is
-      // (non-customized positions will follow new base values since position overrides only exist for customized positions)
-      scoringDraftValues.forEach((value, key) => {
-        if (key.startsWith('DEFAULT:')) {
-          const stat = key.slice('DEFAULT:'.length);
-          if (!/^[a-zA-Z0-9_]{1,60}$/.test(stat)) return;
-          POSITION_ORDER.filter((p) => p !== 'DEFAULT').forEach((pos) => {
-            if (customizedSet.has(pos)) {
-              // keep customization intact - don't overwrite
-            }
-          });
-        }
+      const updatedDefault = { ...DEFAULT_SCORING, ...(league.scoring || {}) };
+      const positionScoring = Object.fromEntries(Object.entries(league.positionScoring || {})
+        .map(([position, values]) => [position, { ...(values || {}) }]));
+      POSITION_ORDER.filter((position) => position !== 'DEFAULT').forEach((position) => {
+        const overrides = positionScoring[position];
+        if (!overrides) return;
+        Object.keys(overrides).forEach((stat) => {
+          if (Number(overrides[stat]) === Number(updatedDefault[stat] ?? DEFAULT_SCORING[stat])) delete overrides[stat];
+        });
+        if (!Object.keys(overrides).length) delete positionScoring[position];
       });
+      league.positionScoring = positionScoring;
+      league.customizedScoringPositions = POSITION_ORDER.filter((position) => position !== 'DEFAULT' && positionScoring[position] && Object.keys(positionScoring[position]).length);
     } else {
       const positionScoring = Object.fromEntries(Object.entries(league.positionScoring || {})
         .map(([position, values]) => [position, { ...values }]));
-      scoringDraftValues.forEach((value, key) => {
+      const draftPositions = new Set([selectedScoringPosition]);
+      scoringDraftValues.forEach((_value, key) => {
         const separator = key.indexOf(':');
         const position = key.slice(0, separator);
-        const stat = key.slice(separator + 1);
-        if (!POSITION_ORDER.includes(position) || position === 'DEFAULT' || !/^[a-zA-Z0-9_]{1,60}$/.test(stat)) return;
-        positionScoring[position] ||= {};
-        positionScoring[position][stat] = Number.isFinite(value) ? value : 0;
+        if (POSITION_ORDER.includes(position) && position !== 'DEFAULT') draftPositions.add(position);
+      });
+      draftPositions.forEach((position) => {
+        const overrides = { ...(positionScoring[position] || {}) };
+        allStatKeys.forEach((stat) => {
+          const draftKey = `${position}:${stat}`;
+          if (!scoringDraftValues.has(draftKey)) return;
+          const draftValue = scoringDraftValues.get(draftKey);
+          const defaultValue = defaultValues[stat] ?? DEFAULT_SCORING[stat];
+          if (Number(draftValue) === Number(defaultValue)) delete overrides[stat];
+          else overrides[stat] = Number.isFinite(draftValue) ? Number(draftValue) : 0;
+        });
+        if (Object.keys(overrides).length) positionScoring[position] = overrides;
+        else delete positionScoring[position];
       });
       league.positionScoring = positionScoring;
-      customizedSet.add(selectedScoringPosition);
-      league.customizedScoringPositions = Array.from(customizedSet);
+      league.customizedScoringPositions = POSITION_ORDER.filter((position) => position !== 'DEFAULT' && positionScoring[position] && Object.keys(positionScoring[position]).length);
     }
     scoringDraftValues.clear();
     scoringDraftContext = JSON.stringify({
@@ -6149,16 +6188,18 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       customizedScoringPositions: league.customizedScoringPositions || [],
     });
     commissionerSettingsDirty = false;
+    feedEvents = feedEvents.filter((event) => !event.position || isLiveScoringPosition({ position: event.position, name: event.name }));
     saveLeague();
-    renderScoringSummary();
+    customScoringRender();
+    renderLiveLeaders();
     renderDraftPlayers();
     renderPlayerPool();
     renderOverview();
     renderMatchups();
     renderRosters();
     notify(selectedScoringPosition === 'DEFAULT'
-      ? 'Default scoring updated for all non-customized positions.'
-      : `${ROSTER_POSITION_LABELS[selectedScoringPosition]} scoring saved. Updating historical matchup scores…`);
+      ? 'Default scoring updated. Positions follow the new default except for stats you specifically changed for that position.'
+      : `${ROSTER_POSITION_LABELS[selectedScoringPosition]} scoring saved. Only stats that differ from Default are stored as customized; everything else follows Default. Updating historical matchup scores…`);
     void rescoreHistoricalMatchupResults()
       .then((updated) => {
         if (updated) notify('Position scoring saved. Historical matchup scores and averages are updated.');
@@ -7385,6 +7426,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     const target = $('liveLeaders');
     const rostered = league.managers.flatMap((team) => team.roster.map((player) => ({ player, team })));
     const leaders = rostered
+      .filter(({ player }) => isLiveScoringPosition(player))
       .filter(({ player }) => playerStats.has(player.id) || (player.position === 'D/ST' && teamStats.has(player.teamId)))
       .map(({ player, team }) => ({ player, team, points: playerFantasyPoints(player) }))
       .sort((a, b) => b.points - a.points)
@@ -7413,15 +7455,20 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
 
   function updateLiveFeed(changedPlayers) {
     const now = new Date();
-    changedPlayers.forEach((player) => {
+    changedPlayers.filter((player) => isLiveScoringPosition(player)).forEach((player) => {
       feedEvents.unshift({
         name: player.name,
+        position: player.position,
         stats: formatPlayerStatLine(player),
         updatedAt: now,
         points: playerFantasyPoints(player),
       });
     });
-    feedEvents = feedEvents.slice(0, 20);
+    feedEvents = feedEvents.filter((event) => {
+      if (!event.position) return true;
+      try { return isLiveScoringPosition({ position: event.position, name: event.name }); }
+      catch { return true; }
+    }).slice(0, 20);
     const target = $('liveFeed');
     target.replaceChildren();
     if (!feedEvents.length) {
@@ -7850,6 +7897,34 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       ...league.scoring,
       ...(league.positionScoring?.[player.position] || {}),
     };
+  }
+
+  function isLiveScoringPosition(player) {
+    const position = player?.position;
+    if (!position) return false;
+    const slots = league.rosterSlots || {};
+    let slotEnabled;
+    if (['RB', 'WR', 'TE'].includes(position)) {
+      slotEnabled = Number(slots[position] || 0) > 0 || Number(slots.FLEX || 0) > 0;
+    } else {
+      slotEnabled = Number(slots[position] || 0) > 0;
+    }
+    if (!slotEnabled) return false;
+    const scoring = scoringForPlayer(player);
+    const hasNonZero = (keys) => keys.some((key) => Number(scoring[key] || 0) !== 0);
+    if (position === 'D/ST') {
+      return hasNonZero(['defSack', 'defInterception', 'defFumbleRecovery', 'defForcedFumble', 'defTD', 'defSafety', 'defBlock', 'defTwoPointReturn', 'defPoints0', 'defPoints1to6', 'defPoints7to13', 'defPoints14to20', 'defPoints21to27', 'defPoints28to34', 'defPoints35Plus', 'defYardsAllowed', 'defTackles', 'defSoloTackles', 'defTacklesForLoss', 'defPassesDefended', 'defQbHits', 'defTurnovers']);
+    }
+    if (IDP_POSITIONS.includes(position)) {
+      return hasNonZero(['idpSack', 'idpInterception', 'idpFumbleRecovery', 'idpForcedFumble', 'idpTD', 'playerSafety', 'idpBlock', 'idpTwoPointReturn', 'idpTackles', 'idpSoloTackles', 'idpTacklesForLoss', 'idpPassesDefended', 'idpQbHits', 'idpTurnovers']);
+    }
+    if (position === 'P') {
+      return hasNonZero(['puntAttempts', 'puntYards', 'puntAverage', 'puntInside20', 'puntTouchbacks']);
+    }
+    if (position === 'K') {
+      return hasNonZero(['fg0to39', 'fg40to49', 'fg50Plus', 'fgMissed', 'xpMade', 'xpMissed', 'fg60PlusBonus', 'fgAttempts', 'fgPercentage', 'fgLongest', 'xpAttempts', 'kickingPoints']);
+    }
+    return hasNonZero(['passYards', 'passTD', 'passInterceptions', 'passTwoPoint', 'passCompletions', 'passAttempts', 'passSacksTaken', 'pass300YardBonus', 'pass400YardBonus', 'passLongTD', 'passCompletionPct', 'passYardsPerAttempt', 'passYardsPerCompletion', 'passerRating', 'passingFumbles', 'rushYards', 'rushTD', 'rushTwoPoint', 'rushAttempts', 'firstDownRush', 'rushingFumbles', 'rushLongTD', 'receptions', 'rushYardsPerAttempt', 'rushLongest', 'receivingYards', 'receivingTD', 'receivingTwoPoint', 'receivingLongTD', 'targets', 'receivingFumbles', 'receivingFumblesLost', 'receivingYardsPerCatch', 'catchRatePct', 'receivingLongest', 'fumbleRecoveryTD', 'fumbleLost', 'offensiveFumbleTD', 'blockedPuntTD', 'kickReturnYards', 'puntReturnYards', 'kickReturnTD', 'puntReturnTD', 'twoPointConversion']);
   }
 
   function playerFantasyPoints(player, statOverride = null) {
