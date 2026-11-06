@@ -166,6 +166,8 @@ input::-moz-selection, textarea::-moz-selection { color: #090d12; background: #7
 .roster-group-row.empty td { background: #fafbf9; color: #859087 !important; font-weight: 400 !important; letter-spacing: 0; }
 .bench-row { opacity: .82; }
 .ir-row { opacity: .82; }
+.roster-totals-row td { padding: 10px 9px !important; background: #1a2620; color: #e2eae5 !important; font: 700 11px var(--mono) !important; letter-spacing: .06em; border-top: 2px solid var(--line-strong); }
+.roster-totals-row .roster-totals-cell { text-align: left; }
 .roster-move-source { outline: 1px solid #d1f36b88; outline-offset: -1px; }
 .roster-move-target { background: #d1f36b0d; }
 .roster-locked-row { opacity: .78; }
@@ -593,6 +595,7 @@ html, body { color: var(--text); background: var(--bg); }
 .roster-group-row td { background: #edf4ff; color: #2458b7 !important; border-color: #dce8f8; }
 .roster-group-row.bench td { background: #f4f6f4; color: #647168 !important; }
 .roster-group-row.ir td { background: #fdf1e7; color: #9a5a1d !important; }
+.roster-totals-row td { background: #eef3ec; color: #24352b !important; border-color: #c3d0c2; }
 .player-table tbody tr:hover, .roster-table tbody tr:hover { background: #f6f9f4; }
 .player-name { color: #29372e; }
 .roster-player-toggle { color: #245dcc; }
@@ -5266,6 +5269,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       const player = (startersBySlot.get(slot.slot) || [])[slot.index];
       body.append(player ? renderRosterRow(team, player, slot.label) : renderEmptyRosterSlotRow(team, slot));
     });
+    body.append(makeStarterTotalsRow(starters));
     body.append(makeRosterGroupRow(`BENCH · ${bench.length} OF ${Number(league.rosterSlots.BENCH || 0)} SLOTS USED`, 'bench'));
     if (bench.length) bench.forEach((player) => body.append(renderRosterRow(team, player)));
     else body.append(makeRosterGroupRow('Bench is empty.', 'empty'));
@@ -5377,6 +5381,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       const player = (startersBySlot.get(slot.slot) || [])[slot.index];
       body.append(player ? renderRosterRow(team, player, slot.label) : renderEmptyRosterSlotRow(team, slot));
     });
+    body.append(makeStarterTotalsRow(starters));
     body.append(makeRosterGroupRow(`BENCH · ${bench.length} OF ${Number(league.rosterSlots.BENCH || 0)} SLOTS USED`, 'bench'));
     if (bench.length) bench.forEach((player) => body.append(renderRosterRow(team, player)));
     else body.append(makeRosterGroupRow('Bench is empty. Browse players to add a free agent.', 'empty'));
@@ -5646,6 +5651,41 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     cell.colSpan = 10;
     cell.textContent = label;
     row.append(cell);
+    return row;
+  }
+
+  // Totals row shown directly below the starters: sums of the Projected,
+  // Actual ("real"), and Avg / G columns for the displayed starters only.
+  function makeStarterTotalsRow(starters) {
+    const row = document.createElement('tr');
+    row.className = 'roster-totals-row';
+    const labelCell = document.createElement('td');
+    labelCell.colSpan = 6;
+    labelCell.textContent = `STARTERS TOTALS · ${starters.length} PLAYER${starters.length === 1 ? '' : 'S'}`;
+    const projectedValues = starters.map((player) => projectedFantasyPoints(player)).filter((value) => Number.isFinite(value));
+    const projectedCell = document.createElement('td');
+    projectedCell.dataset.label = 'Projected';
+    projectedCell.className = 'projection-cell roster-totals-cell';
+    projectedCell.textContent = projectedValues.length ? projectedValues.reduce((sum, value) => sum + value, 0).toFixed(1) : '—';
+    projectedCell.title = projectedValues.length === starters.length
+      ? 'Total projected points for starters (sum of the Projected column)'
+      : `Total projected points for starters with a projection (${projectedValues.length} of ${starters.length})`;
+    const actualCell = document.createElement('td');
+    actualCell.dataset.label = 'Actual';
+    actualCell.className = 'fantasy-points-cell roster-totals-cell';
+    actualCell.textContent = starters.reduce((sum, player) => sum + playerFantasyPoints(player), 0).toFixed(2);
+    actualCell.title = 'Total actual (real) points for starters so far this week (sum of the Actual column)';
+    const averageValues = starters.map((player) => getPlayerAveragePointsValue(player)).filter((value) => Number.isFinite(value));
+    const averageCell = document.createElement('td');
+    averageCell.dataset.label = 'Avg / G';
+    averageCell.className = 'average-points-cell roster-totals-cell';
+    averageCell.textContent = averageValues.length ? averageValues.reduce((sum, value) => sum + value, 0).toFixed(1) : '—';
+    averageCell.title = averageValues.length
+      ? `Total average points per game for starters with averages loaded (${averageValues.length} of ${starters.length})`
+      : 'Average points per game are still loading for starters';
+    const actionCell = document.createElement('td');
+    actionCell.dataset.label = 'Action';
+    row.append(labelCell, projectedCell, actualCell, averageCell, actionCell);
     return row;
   }
 
