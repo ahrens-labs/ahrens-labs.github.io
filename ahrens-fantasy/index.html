@@ -6330,8 +6330,15 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
           actions.append(button);
         };
         if (trade.toId === actingTeam) {
-          addAction('Accept', 'accepted', true);
-          addAction('Decline', 'declined');
+          if (onlineReady && ownsOnlineTeam(trade.fromId)) {
+            const note = document.createElement('p');
+            note.className = 'trade-empty';
+            note.textContent = 'You also manage the offering team, so you cannot accept or decline your own offer.';
+            actions.append(note);
+          } else {
+            addAction('Accept', 'accepted', true);
+            addAction('Decline', 'declined');
+          }
         } else if (trade.fromId === actingTeam) {
           addAction('Cancel offer', 'cancelled');
         }
@@ -6351,6 +6358,10 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       const first = league.managers.find((team) => team.id === leftTeam.value);
       const second = league.managers.find((team) => team.id === rightTeam.value);
       if (!first || !second || first.id === second.id) { notify('Choose two different teams.'); return false; }
+      if (onlineReady && ownsOnlineTeam(first.id) && ownsOnlineTeam(second.id)) {
+        notify('You cannot trade with yourself: both teams are managed by you. Choose a receiving team managed by another manager.');
+        return false;
+      }
       const firstIds = selectedIds(fromPlayers);
       const secondIds = selectedIds(toPlayers);
       const firstDropIds = selectedIds(fromDrops);
@@ -6411,6 +6422,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     const from = league.managers.find((team) => team.id === trade.fromId);
     const to = league.managers.find((team) => team.id === trade.toId);
     if (!from || !to || from.id === to.id) return 'This offer no longer has two valid teams.';
+    if (onlineReady && ownsOnlineTeam(from.id) && ownsOnlineTeam(to.id)) return 'You cannot trade with yourself: both teams are managed by you.';
     const offered = from.roster.filter((player) => trade.offerIds.includes(player.id));
     const requested = to.roster.filter((player) => trade.requestIds.includes(player.id));
     if (offered.length !== trade.offerIds.length || requested.length !== trade.requestIds.length) {

@@ -905,6 +905,9 @@ function idsForTradeAcceptance(previous, candidate, userId, previousTrade, nextT
   const fromNext = managerById(candidate, previousTrade.fromId);
   const toNext = managerById(candidate, previousTrade.toId);
   if (!from || !to || !fromNext || !toNext || to.ownerUserId !== userId) return false;
+  // The acceptor must not also own the offering team: claiming the
+  // receiving team after an offer was made must not enable a self-trade.
+  if (from.ownerUserId === userId) return false;
 
   const offerIds = previousTrade.offerIds || [];
   const requestIds = previousTrade.requestIds || [];
