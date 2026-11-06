@@ -162,8 +162,10 @@ input::-moz-selection, textarea::-moz-selection { color: #090d12; background: #7
 .roster-slot-select { width: 100%; max-width: 140px; min-height: 29px; padding: 0 6px; border: 1px solid var(--line-strong); border-radius: 5px; background: var(--surface); color: var(--text); font: 9px var(--mono); }
 .roster-group-row td { padding: 10px 9px !important; background: #18211d; color: var(--lime) !important; font: 700 9px var(--mono) !important; letter-spacing: .1em; }
 .roster-group-row.bench td { background: #141d25; color: #a8b5ae !important; }
+.roster-group-row.ir td { background: #2a1d12; color: #ffb37a !important; }
 .roster-group-row.empty td { background: #fafbf9; color: #859087 !important; font-weight: 400 !important; letter-spacing: 0; }
 .bench-row { opacity: .82; }
+.ir-row { opacity: .82; }
 .roster-move-source { outline: 1px solid #d1f36b88; outline-offset: -1px; }
 .roster-move-target { background: #d1f36b0d; }
 .roster-locked-row { opacity: .78; }
@@ -357,6 +359,19 @@ input::-moz-selection, textarea::-moz-selection { color: #090d12; background: #7
 .live-feed-time { color: #72827a; font: 8px var(--mono); }
 .live-feed-text { color: #c0ccc4; font: 9px/1.5 var(--mono); }
 .live-placeholder { padding: 25px 15px; color: #89968f; font-size: 11px; line-height: 1.7; text-align: center; }
+.live-leaders-group + .live-leaders-group { border-top: 2px solid var(--line-strong); }
+.live-leaders-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 12px 7px; border-bottom: 1px solid var(--line); background: #ffffff06; color: #b9c6c0; font: 700 9px var(--mono); letter-spacing: .1em; }
+.live-leaders-heading span:last-child { color: var(--dim); font-weight: 400; }
+.live-leader-row { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; gap: 9px; align-items: center; min-height: 52px; padding: 7px 12px; border-bottom: 1px solid #ffffff0a; }
+.live-leader-row:last-child { border-bottom: 0; }
+.live-leader-name { min-width: 0; }
+.live-leader-name .player-name { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.live-leader-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin-top: 4px; color: #788680; font: 9px var(--mono); }
+.live-leader-meta .position-tag { min-width: 24px; padding: 2px 4px; font-size: 8px; }
+.live-leader-points { color: #cdd8d1; font: 10px var(--mono); text-align: right; }
+.live-leader-points strong { display: block; color: var(--lime); font: 700 14px var(--mono); letter-spacing: -.02em; }
+.live-leader-points small { display: block; max-width: 118px; margin-top: 3px; color: #65736d; font-size: 8px; line-height: 1.45; }
+.live-leaders-empty { padding: 12px; color: #899791; font-size: 11px; line-height: 1.6; }
 .player-details { padding: 14px; }
 .player-details h3 { margin: 0; font: 600 18px var(--display); }
 .player-details p { color: #86948c; font-size: 12px; line-height: 1.6; }
@@ -577,6 +592,7 @@ html, body { color: var(--text); background: var(--bg); }
 .roster-slot-select { border-color: #d9e1d6; background: #fff; color: #344239; }
 .roster-group-row td { background: #edf4ff; color: #2458b7 !important; border-color: #dce8f8; }
 .roster-group-row.bench td { background: #f4f6f4; color: #647168 !important; }
+.roster-group-row.ir td { background: #fdf1e7; color: #9a5a1d !important; }
 .player-table tbody tr:hover, .roster-table tbody tr:hover { background: #f6f9f4; }
 .player-name { color: #29372e; }
 .roster-player-toggle { color: #245dcc; }
@@ -700,6 +716,13 @@ html, body { color: var(--text); background: var(--bg); }
 .live-feed-row { border-color: #edf0eb; }
 .live-feed-time { color: #849087; }
 .live-feed-text { color: #536158; }
+.live-leaders-heading { background: #f4f7f2; color: #536780; }
+.live-leader-row { border-color: #edf0eb; }
+.live-leader-meta { color: #869289; }
+.live-leader-points { color: #4b5a51; }
+.live-leader-points strong { color: #2563eb; }
+.live-leader-points small { color: #87938a; }
+.live-leaders-empty { color: #738078; }
 .small-note { color: #788aa1; }
 .player-headshot { border-color: #dce5f1; background: #f0f4fa; }
 .team-logo { background: #f1f5fb; }
@@ -1140,6 +1163,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
           <div class="field full"><h3 class="trade-section-heading">MANAGER · FANTASY TEAM · ABBREVIATION · OWNER</h3><div class="new-team-names" id="settingsTeamRows"></div></div>
           <div class="field full"><h3 class="trade-section-heading">CLAIM OR UNCLAIM TEAMS</h3><div class="new-team-names" id="settingsTeamClaims"></div></div>
           <div class="field full"><h3 class="trade-section-heading">ROSTER SLOTS PER TEAM</h3><div class="slot-editor-grid" id="settingsRosterSlots"></div></div>
+          <div class="field full"><h3 class="trade-section-heading">IR-ELIGIBLE STATUSES · CHECK EVERY STATUS THAT MAY BE PLACED IN IR</h3><div class="new-team-names" id="settingsIrStatuses"></div><span class="small-note">IR slots are extra: players in IR do not count against the active roster limit and do not score. Only players whose status matches a checked option can be moved into IR.</span></div>
           <div class="field full"><span class="small-note">League size and team assignment can only change before the draft. Set a slot count to 0 to disable it.</span></div>
           <button class="button primary" id="saveLeagueSettings">SAVE LEAGUE &amp; TEAM SETTINGS</button>
         </div>
@@ -1248,8 +1272,21 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     K: 'Kicker', 'D/ST': 'Team defense', DL: 'Defensive line', DE: 'Defensive end',
     DT: 'Defensive tackle', LB: 'Linebacker', DB: 'Defensive back',
     CB: 'Cornerback', S: 'Safety', P: 'Punter',
-    FLEX: 'Flex', BENCH: 'Bench',
+    FLEX: 'Flex', BENCH: 'Bench', IR: 'Injured Reserve',
   };
+  // Statuses a commissioner may allow in an IR slot. Keys are stored in
+  // league.irEligibleStatuses; patterns match ESPN roster/fantasy statuses.
+  const IR_STATUS_OPTIONS = [
+    { key: 'INJURED_RESERVE', label: 'Injured Reserve (IR)', pattern: /injur\w*\s+reserve|\bir\b/i },
+    { key: 'OUT', label: 'Out', pattern: /\bout\b/i },
+    { key: 'PUP', label: 'PUP (Physically Unable to Perform)', pattern: /\bpup\b|physically unable/i },
+    { key: 'NFI', label: 'NFI (Non-Football Injury)', pattern: /\bnfi\b|non[- ]football/i },
+    { key: 'SUSPENDED', label: 'Suspended', pattern: /suspend/i },
+    { key: 'INACTIVE', label: 'Inactive', pattern: /inactive/i },
+    { key: 'DOUBTFUL', label: 'Doubtful', pattern: /doubtful/i },
+    { key: 'QUESTIONABLE', label: 'Questionable', pattern: /questionable|day[- ]to[- ]day/i },
+  ];
+  const DEFAULT_IR_STATUSES = ['INJURED_RESERVE', 'OUT', 'PUP', 'NFI', 'SUSPENDED'];
   const NFL_TEAMS = [
     { id: '22', abbreviation: 'ARI', displayName: 'Arizona Cardinals', name: 'Cardinals', shortDisplayName: 'Cardinals', logos: [{ href: 'https://a.espncdn.com/i/teamlogos/nfl/500/ari.png' }] },
     { id: '1', abbreviation: 'ATL', displayName: 'Atlanta Falcons', name: 'Falcons', shortDisplayName: 'Falcons', logos: [{ href: 'https://a.espncdn.com/i/teamlogos/nfl/500/atl.png' }] },
@@ -1286,7 +1323,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
   ];
   const DEFAULT_SLOTS = {
     QB: 1, RB: 2, WR: 2, TE: 1, FLEX: 1, K: 1, 'D/ST': 1,
-    DL: 0, DE: 0, DT: 0, LB: 0, DB: 0, CB: 0, S: 0, P: 0, BENCH: 6,
+    DL: 0, DE: 0, DT: 0, LB: 0, DB: 0, CB: 0, S: 0, P: 0, BENCH: 6, IR: 1,
   };
   const SCORING_CATEGORIES = [
     {
@@ -1457,6 +1494,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     managerName: 'Commissioner',
     teamCount: 10,
     rosterSlots: { ...DEFAULT_SLOTS },
+    irEligibleStatuses: [...DEFAULT_IR_STATUSES],
     scoring: { ...DEFAULT_SCORING },
     positionScoring: {},
     customizedScoringPositions: [],
@@ -1572,6 +1610,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       const merged = { ...structuredClone(STORAGE_FALLBACK), ...stored };
       merged.leagueId ||= createLeagueId();
       merged.rosterSlots = { ...DEFAULT_SLOTS, ...(stored.rosterSlots || {}) };
+      merged.irEligibleStatuses = normalizeIrEligibleStatuses(stored.irEligibleStatuses);
       merged.scoring = { ...DEFAULT_SCORING, ...(stored.scoring || {}) };
       merged.positionScoring = stored.positionScoring && typeof stored.positionScoring === 'object' && !Array.isArray(stored.positionScoring)
         ? stored.positionScoring
@@ -1641,6 +1680,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     if (!data?.league || !Array.isArray(data.league.managers)) throw new Error('The league data is incomplete.');
     league = { ...structuredClone(STORAGE_FALLBACK), ...data.league };
     league.rosterSlots = { ...DEFAULT_SLOTS, ...(data.league.rosterSlots || {}) };
+    league.irEligibleStatuses = normalizeIrEligibleStatuses(data.league.irEligibleStatuses);
     league.scoring = { ...DEFAULT_SCORING, ...(data.league.scoring || {}) };
     league.positionScoring = data.league.positionScoring && typeof data.league.positionScoring === 'object'
       ? data.league.positionScoring
@@ -1944,7 +1984,25 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       empty.textContent = 'No open or personally claimed teams are available at this size.';
       claims.append(empty);
     }
-    const slots = ['QB', 'RB', 'WR', 'TE', 'FLEX', 'K', 'D/ST', ...IDP_POSITIONS, 'P', 'BENCH'];
+    const slots = ['QB', 'RB', 'WR', 'TE', 'FLEX', 'K', 'D/ST', ...IDP_POSITIONS, 'P', 'BENCH', 'IR'];
+    const irStatuses = $('settingsIrStatuses');
+    if (irStatuses && !irStatuses.contains(document.activeElement)) {
+      irStatuses.replaceChildren();
+      const selectedIrStatuses = normalizeIrEligibleStatuses(league.irEligibleStatuses);
+      IR_STATUS_OPTIONS.forEach((option) => {
+        const label = document.createElement('label');
+        label.className = 'lineup-choice claim-drop-choice';
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.value = option.key;
+        checkbox.dataset.inlineIrStatus = option.key;
+        checkbox.checked = selectedIrStatuses.includes(option.key);
+        const text = document.createElement('span');
+        text.textContent = option.label;
+        label.append(checkbox, text);
+        irStatuses.append(label);
+      });
+    }
     const activeSlot = rosterSlots.contains(document.activeElement);
     if (!activeSlot) {
       rosterSlots.replaceChildren();
@@ -2047,6 +2105,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     const claimTeamIds = [...document.querySelectorAll('[data-inline-claim]:checked')].map((input) => input.value);
     const rosterSlots = Object.fromEntries([...document.querySelectorAll('[data-inline-roster-slot]')]
       .map((input) => [input.dataset.inlineRosterSlot, Number(input.value)]));
+    const irEligibleStatuses = [...document.querySelectorAll('[data-inline-ir-status]:checked')].map((input) => input.value);
     if (!newLeagueName || newLeagueName.length > 60) {
       notify('Enter a league name between 1 and 60 characters.');
       return;
@@ -2056,8 +2115,12 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       return;
     }
     if (Object.values(rosterSlots).some((count) => !Number.isInteger(count) || count < 0 || count > 30)
-      || Object.entries(rosterSlots).filter(([position]) => position !== 'BENCH').reduce((sum, [, count]) => sum + count, 0) < 1) {
+      || Object.entries(rosterSlots).filter(([position]) => position !== 'BENCH' && position !== 'IR').reduce((sum, [, count]) => sum + count, 0) < 1) {
       notify('Roster slots must be whole numbers from 0 to 30, with at least one starting slot.');
+      return;
+    }
+    if (!irEligibleStatuses.length) {
+      notify('Check at least one IR-eligible status (or set IR slots to 0 to disable IR).');
       return;
     }
     const teamValues = league.managers.map((team) => ({
@@ -2094,6 +2157,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       }
       league.name = newLeagueName;
       league.rosterSlots = rosterSlots;
+      league.irEligibleStatuses = normalizeIrEligibleStatuses(irEligibleStatuses);
       for (const team of league.managers) {
         const edited = teamValues.find((entry) => entry.id === team.id);
         if (!edited) continue;
@@ -4065,7 +4129,40 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
   }
 
   function rosterCapacity() {
-    return Object.values(league.rosterSlots).reduce((sum, value) => sum + Number(value || 0), 0);
+    // Active roster limit: starters + bench. IR slots are extra and do not
+    // count toward the active limit or the draft.
+    return Object.entries(league.rosterSlots)
+      .filter(([slot]) => slot !== 'IR')
+      .reduce((sum, [, value]) => sum + Number(value || 0), 0);
+  }
+
+  function irSlotCount() {
+    return Number(league.rosterSlots.IR || 0);
+  }
+
+  function activeRosterCount(team) {
+    return (team?.roster || []).filter((player) => player.rosterSlot !== 'IR').length;
+  }
+
+  function normalizeIrEligibleStatuses(value) {
+    const valid = IR_STATUS_OPTIONS.map((option) => option.key);
+    if (!Array.isArray(value)) return [...DEFAULT_IR_STATUSES];
+    const cleaned = [...new Set(value.filter((entry) => valid.includes(entry)))];
+    return cleaned.length ? cleaned : [...DEFAULT_IR_STATUSES];
+  }
+
+  function isIrEligible(player) {
+    if (!player || !irSlotCount()) return false;
+    const statuses = [player.status, player.fantasyInjuryStatus].filter(Boolean).join(' ').replace(/_/g, ' ');
+    if (!statuses.trim()) return false;
+    return normalizeIrEligibleStatuses(league.irEligibleStatuses)
+      .some((key) => IR_STATUS_OPTIONS.find((option) => option.key === key)?.pattern.test(statuses));
+  }
+
+  function canMoveToSlot(player, slot) {
+    if (slot === 'BENCH') return true;
+    if (slot === 'IR') return isIrEligible(player);
+    return canPlaySlot(player, slot);
   }
 
   function activeRosterPositions() {
@@ -4197,9 +4294,10 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     // on the bench (only rosterSlot === 'BENCH' renders there).
     // Locked starters keep their slot first; unlocked overflow goes to bench.
     const used = new Map();
+    const isStarterSlot = (slot) => slot && slot !== 'BENCH' && slot !== 'IR';
     const ordered = [...team.roster].sort((a, b) => {
-      const aLocked = (a.rosterSlot && a.rosterSlot !== 'BENCH' && isPlayerGameLocked(a)) ? 0 : 1;
-      const bLocked = (b.rosterSlot && b.rosterSlot !== 'BENCH' && isPlayerGameLocked(b)) ? 0 : 1;
+      const aLocked = (isStarterSlot(a.rosterSlot) && isPlayerGameLocked(a)) ? 0 : 1;
+      const bLocked = (isStarterSlot(b.rosterSlot) && isPlayerGameLocked(b)) ? 0 : 1;
       return aLocked - bLocked;
     });
     ordered.forEach((player) => {
@@ -4207,7 +4305,16 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       const eligible = current === player.position
         || (current === 'FLEX' && OFFENSIVE_FLEX_POSITIONS.includes(player.position));
       const count = used.get(current) || 0;
-      if (current !== 'BENCH' && eligible && count < Number(league.rosterSlots[current] || 0)) {
+      if (current === 'IR') {
+        // IR players keep their IR spot (up to the configured IR count).
+        // Whether they are still eligible is surfaced as an alert instead
+        // of silently moving them, so managers can activate them manually.
+        if (count < irSlotCount()) {
+          used.set(current, count + 1);
+        } else {
+          player.rosterSlot = 'BENCH';
+        }
+      } else if (current !== 'BENCH' && eligible && count < Number(league.rosterSlots[current] || 0)) {
         used.set(current, count + 1);
       } else {
         player.rosterSlot = 'BENCH';
@@ -4243,7 +4350,9 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
 
   function rosterSlotLabel(slot, index = 0) {
     const count = Number(league.rosterSlots[slot] || 0);
-    return slot === 'BENCH' ? 'BENCH' : count > 1 ? `${slot} ${index + 1}` : slot;
+    if (slot === 'BENCH') return 'BENCH';
+    if (slot === 'IR') return count > 1 ? `IR ${index + 1}` : 'IR';
+    return count > 1 ? `${slot} ${index + 1}` : slot;
   }
 
   function makePick(player, options = {}) {
@@ -5096,6 +5205,17 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     return { bySlot, displayed };
   }
 
+  function appendIrSection(team, body) {
+    const irCount = irSlotCount();
+    if (!irCount) return;
+    const irPlayers = sortRoster(team.roster.filter((player) => player.rosterSlot === 'IR'));
+    body.append(makeRosterGroupRow(`INJURED RESERVE · ${irPlayers.length} OF ${irCount} SLOTS USED`, 'ir'));
+    irPlayers.forEach((player) => body.append(renderRosterRow(team, player, rosterSlotLabel('IR', player.rosterSlotIndex))));
+    for (let index = irPlayers.length; index < irCount; index += 1) {
+      body.append(renderEmptyRosterSlotRow(team, { slot: 'IR', index, label: rosterSlotLabel('IR', index) }));
+    }
+  }
+
   function renderRosters() {
     normalizeManagers();
     league.managers.forEach(normalizeRosterForSlots);
@@ -5122,18 +5242,19 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     }
     $('renameRosterTeam').hidden = onlineReady && !ownsOnlineTeam(team.id);
     const activeSlots = startingSlotCount();
-    const activeCount = team.roster.filter((player) => player.rosterSlot !== 'BENCH').length;
-    const benchCount = team.roster.length - activeCount;
+    const starterSlots = configuredRosterSlots();
+    const { bySlot: startersBySlot, displayed: starters } = configuredStarterPlayers(team, starterSlots);
+    const irPlayers = team.roster.filter((player) => player.rosterSlot === 'IR');
+    // Everyone not in a displayed starter slot or IR is shown on the bench,
+    // so no rostered player can be counted as a starter yet rendered nowhere.
+    const bench = sortRoster(team.roster.filter((player) => !starters.includes(player) && player.rosterSlot !== 'IR'));
+    const activeCount = starters.length;
+    const benchCount = bench.length;
     const commissionerLabel = team.ownerUserId === league.commissionerUserId ? ' · COMMISSIONER' : '';
-    $('rosterSummary').innerHTML = `<span>TEAM <b>${escapeHTML(teamLabel(team))}</b> · MANAGER <b>${escapeHTML(team.name)}</b>${commissionerLabel}</span><span><b>STARTERS ${activeCount}/${activeSlots}</b> · <b>BENCH ${benchCount}/${Number(league.rosterSlots.BENCH || 0)}</b> · ${team.roster.length}/${rosterCapacity()} TOTAL</span>`;
+    $('rosterSummary').innerHTML = `<span>TEAM <b>${escapeHTML(teamLabel(team))}</b> · MANAGER <b>${escapeHTML(team.name)}</b>${commissionerLabel}</span><span><b>STARTERS ${activeCount}/${activeSlots}</b> · <b>BENCH ${benchCount}/${Number(league.rosterSlots.BENCH || 0)}</b> · <b>IR ${irPlayers.length}/${irSlotCount()}</b> · ${activeRosterCount(team)}/${rosterCapacity()} ACTIVE · ${team.roster.length} TOTAL</span>`;
     renderRosterWeekTotals(team);
     const body = $('rosterRows');
     body.replaceChildren();
-    const starterSlots = configuredRosterSlots();
-    const { bySlot: startersBySlot, displayed: starters } = configuredStarterPlayers(team, starterSlots);
-    // Everyone not in a displayed starter slot is shown on the bench, so no
-    // rostered player can be counted as a starter yet rendered nowhere.
-    const bench = sortRoster(team.roster.filter((player) => !starters.includes(player)));
     if (!team.roster.length) {
       const row = document.createElement('tr');
       row.innerHTML = `<td colspan="10" class="empty-state">No drafted players yet. Start a draft to build this team.</td>`;
@@ -5148,6 +5269,10 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     body.append(makeRosterGroupRow(`BENCH · ${bench.length} OF ${Number(league.rosterSlots.BENCH || 0)} SLOTS USED`, 'bench'));
     if (bench.length) bench.forEach((player) => body.append(renderRosterRow(team, player)));
     else body.append(makeRosterGroupRow('Bench is empty.', 'empty'));
+    for (let index = bench.length; index < Number(league.rosterSlots.BENCH || 0); index += 1) {
+      body.append(renderEmptyRosterSlotRow(team, { slot: 'BENCH', index, label: 'BENCH' }));
+    }
+    appendIrSection(team, body);
     void loadPlayerAveragePoints();
     if ($('myTeamRows')) renderMyTeam();
   }
@@ -5229,19 +5354,18 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     $('myTeamEdit').disabled = !canEdit || !team.roster.length;
     $('myTeamOptimize').disabled = !canEdit || !team.roster.length;
     const activeSlots = startingSlotCount();
-    const activeCount = team.roster.filter((player) => player.rosterSlot !== 'BENCH').length;
-    const benchCount = team.roster.length - activeCount;
+    const starterSlots = configuredRosterSlots();
+    const { bySlot: startersBySlot, displayed: starters } = configuredStarterPlayers(team, starterSlots);
+    const irPlayers = team.roster.filter((player) => player.rosterSlot === 'IR');
+    const bench = sortRoster(team.roster.filter((player) => !starters.includes(player) && player.rosterSlot !== 'IR'));
+    const activeCount = starters.length;
+    const benchCount = bench.length;
     const commissionerLabel = team.ownerUserId === league.commissionerUserId ? ' · COMMISSIONER' : '';
-    $('myTeamSummary').innerHTML = `<span>TEAM <b>${escapeHTML(teamLabel(team))}</b> · MANAGER <b>${escapeHTML(team.name)}</b>${commissionerLabel}</span><span><b>STARTERS ${activeCount}/${activeSlots}</b> · <b>BENCH ${benchCount}/${Number(league.rosterSlots.BENCH || 0)}</b> · ${team.roster.length}/${rosterCapacity()} TOTAL</span>`;
+    $('myTeamSummary').innerHTML = `<span>TEAM <b>${escapeHTML(teamLabel(team))}</b> · MANAGER <b>${escapeHTML(team.name)}</b>${commissionerLabel}</span><span><b>STARTERS ${activeCount}/${activeSlots}</b> · <b>BENCH ${benchCount}/${Number(league.rosterSlots.BENCH || 0)}</b> · <b>IR ${irPlayers.length}/${irSlotCount()}</b> · ${activeRosterCount(team)}/${rosterCapacity()} ACTIVE · ${team.roster.length} TOTAL</span>`;
     renderRosterWeekTotals(team, 'myTeamWeekTotals');
     renderMyTeamAlerts(team);
     renderMyTeamMatchup(team);
     body.replaceChildren();
-    const starterSlots = configuredRosterSlots();
-    const { bySlot: startersBySlot, displayed: starters } = configuredStarterPlayers(team, starterSlots);
-    // Everyone not in a displayed starter slot is shown on the bench, so no
-    // rostered player can be counted as a starter yet rendered nowhere.
-    const bench = sortRoster(team.roster.filter((player) => !starters.includes(player)));
     if (!team.roster.length) {
       const row = document.createElement('tr');
       row.innerHTML = `<td colspan="10" class="empty-state">No drafted players yet. <strong>Start a draft</strong> to build this team, then return here to set your lineup.</td>`;
@@ -5256,6 +5380,10 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     body.append(makeRosterGroupRow(`BENCH · ${bench.length} OF ${Number(league.rosterSlots.BENCH || 0)} SLOTS USED`, 'bench'));
     if (bench.length) bench.forEach((player) => body.append(renderRosterRow(team, player)));
     else body.append(makeRosterGroupRow('Bench is empty. Browse players to add a free agent.', 'empty'));
+    for (let index = bench.length; index < Number(league.rosterSlots.BENCH || 0); index += 1) {
+      body.append(renderEmptyRosterSlotRow(team, { slot: 'BENCH', index, label: 'BENCH' }));
+    }
+    appendIrSection(team, body);
     void loadPlayerAveragePoints();
   }
 
@@ -5263,10 +5391,15 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     const target = $('myTeamAlerts');
     target.replaceChildren();
     const starters = configuredStarterPlayers(team, configuredRosterSlots()).displayed;
-    const bench = team.roster.filter((player) => !starters.includes(player));
+    const bench = team.roster.filter((player) => !starters.includes(player) && player.rosterSlot !== 'IR');
+    const irPlayers = team.roster.filter((player) => player.rosterSlot === 'IR');
     const alerts = [];
     const openSlots = Math.max(0, startingSlotCount() - starters.length);
     if (openSlots) alerts.push(['Open starter slot', `${openSlots} starting slot${openSlots === 1 ? '' : 's'} unfilled. Use Move or Use best projections.`]);
+    const healthyIr = irPlayers.filter((player) => !isIrEligible(player));
+    if (healthyIr.length) alerts.push(['IR player active again', `${healthyIr.map((player) => `${player.name} (${player.status})`).join(', ')} — move them out of IR to the bench or lineup.`]);
+    const irCandidates = starters.filter((player) => isIrEligible(player));
+    if (irCandidates.length && irPlayers.length < irSlotCount()) alerts.push(['IR spot available', `${irCandidates.map((player) => `${player.name} (${player.status})`).join(', ')} — move to IR to free an active roster spot.`]);
     const byeStarters = starters.filter((player) => playerMatchup(player).bye);
     if (byeStarters.length) alerts.push(['On bye as starter', `${byeStarters.map((player) => player.name).join(', ')} — swap before kickoff if you can.`]);
     const doubtful = starters.filter((player) => /out|inactive|doubtful|suspended|reserve|\bir\b|pup|nfi/i.test(player.status || ''));
@@ -5342,7 +5475,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     }
     normalizeRosterSlotIndexes(team);
     const oldSlots = new Map(team.roster.map((player) => [player.id, player.rosterSlot || 'BENCH']));
-    const lockedStarters = team.roster.filter((player) => isPlayerGameLocked(player) && player.rosterSlot !== 'BENCH');
+    const lockedStarters = team.roster.filter((player) => isPlayerGameLocked(player) && player.rosterSlot && player.rosterSlot !== 'BENCH' && player.rosterSlot !== 'IR');
     const fixedCounts = Object.fromEntries(POSITION_ORDER.map((position) => [position, Math.max(0, Number(league.rosterSlots[position] || 0))]));
     let flexCount = Math.max(0, Number(league.rosterSlots.FLEX || 0));
     lockedStarters.forEach((player) => {
@@ -5351,7 +5484,8 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       else if (slot === 'FLEX' && flexCount > 0) flexCount -= 1;
       player.rosterSlot = slot;
     });
-    const movable = team.roster.filter((player) => !isPlayerGameLocked(player));
+    // IR players stay in IR: they are out/injured and cannot start.
+    const movable = team.roster.filter((player) => !isPlayerGameLocked(player) && player.rosterSlot !== 'IR');
     movable.sort((a, b) => (projectedFantasyPoints(b) ?? -Infinity) - (projectedFantasyPoints(a) ?? -Infinity));
     movable.forEach((player) => {
       if (fixedCounts[player.position] > 0) {
@@ -5443,9 +5577,9 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       ? team.roster.find((member) => member.id === rosterMoveSelection.playerId)
       : null;
     const movingLocked = moving ? isPlayerGameLocked(moving) : false;
-    const canPlace = Boolean(moving && !movingLocked && slot.slot !== 'BENCH'
-      && canPlaySlot(moving, slot.slot)
-      && (moving.rosterSlot === 'BENCH' || moving.rosterSlot !== slot.slot
+    const canPlace = Boolean(moving && !movingLocked
+      && canMoveToSlot(moving, slot.slot)
+      && ((moving.rosterSlot || 'BENCH') !== slot.slot
         || Number(moving.rosterSlotIndex) !== slot.index));
     const label = document.createElement('span');
     label.textContent = `${slot.label} · OPEN`;
@@ -5516,7 +5650,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
   }
 
   function startingSlotCount() {
-    return Object.entries(league.rosterSlots).filter(([slot]) => slot !== 'BENCH').reduce((sum, [, value]) => sum + Number(value || 0), 0);
+    return Object.entries(league.rosterSlots).filter(([slot]) => slot !== 'BENCH' && slot !== 'IR').reduce((sum, [, value]) => sum + Number(value || 0), 0);
   }
 
   function sortRoster(roster) {
@@ -5547,9 +5681,9 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     const movingLocked = moving ? isPlayerGameLocked(moving) : false;
     const canPlaceHere = Boolean(moving && !isMoveSource && !locked && !movingLocked
       && (targetSlot !== movingSlot || Number(player.rosterSlotIndex) !== Number(moving.rosterSlotIndex))
-      && (targetSlot === 'BENCH' || canPlaySlot(moving, targetSlot))
-      && (movingSlot === 'BENCH' || canPlaySlot(player, movingSlot)));
-    row.className = `${player.rosterSlot === 'BENCH' ? 'bench-row' : 'starter-row'}${locked ? ' roster-locked-row' : ''}${isMoveSource ? ' roster-move-source' : canPlaceHere ? ' roster-move-target' : ''}`;
+      && canMoveToSlot(moving, targetSlot)
+      && canMoveToSlot(player, movingSlot));
+    row.className = `${player.rosterSlot === 'IR' ? 'ir-row' : player.rosterSlot === 'BENCH' ? 'bench-row' : 'starter-row'}${locked ? ' roster-locked-row' : ''}${isMoveSource ? ' roster-move-source' : canPlaceHere ? ' roster-move-target' : ''}`;
     const name = document.createElement('td');
     name.className = 'player-name-cell';
     name.dataset.label = 'Player';
@@ -5669,6 +5803,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     const options = [];
     if (Number(league.rosterSlots[player.position] || 0) > 0) options.push([player.position, `${player.position} · STARTER`]);
     if (['RB', 'WR', 'TE'].includes(player.position) && Number(league.rosterSlots.FLEX || 0) > 0) options.push(['FLEX', 'FLEX · STARTER']);
+    if (irSlotCount() > 0 && isIrEligible(player)) options.push(['IR', 'IR · INJURED RESERVE']);
     options.push(['BENCH', 'BENCH']);
     const current = player.rosterSlot || 'BENCH';
     if (!options.some(([value]) => value === current)) options.unshift([current, `${current} · CURRENT`]);
@@ -5702,9 +5837,11 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       renderRosters();
       return;
     }
-    if ((targetSlot !== 'BENCH' && !canPlaySlot(player, targetSlot))
-      || (occupant && oldSlot !== 'BENCH' && !canPlaySlot(occupant, oldSlot))) {
-      notify('These players are not eligible to switch roster spots.');
+    if (!canMoveToSlot(player, targetSlot)
+      || (occupant && !canMoveToSlot(occupant, oldSlot))) {
+      notify(targetSlot === 'IR' && !isIrEligible(player)
+        ? `${player.name} is not IR-eligible (${player.status || 'status unavailable'}). Only statuses the commissioner allows in IR can be moved there.`
+        : 'These players are not eligible to switch roster spots.');
       rosterMoveSelection = null;
       renderRosters();
       return;
@@ -5795,16 +5932,18 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     container.append(help);
     const slots = team.roster.map((player) => {
       const locked = isPlayerGameLocked(player);
+      const inIr = player.rosterSlot === 'IR';
       const label = document.createElement('label');
       label.className = 'lineup-choice';
       const input = document.createElement('input');
       input.type = 'checkbox';
-      input.checked = player.rosterSlot !== 'BENCH';
+      input.checked = player.rosterSlot && player.rosterSlot !== 'BENCH' && !inIr;
       input.dataset.playerId = player.id;
-      input.disabled = locked;
+      input.disabled = locked || inIr;
       if (locked) input.setAttribute('aria-label', gameLockMessage(player));
+      if (inIr) input.setAttribute('aria-label', `${player.name} is in IR and cannot start`);
       const text = document.createElement('span');
-      text.textContent = `${player.position} · ${player.name} · ${player.rosterSlot === 'BENCH' ? 'BENCH' : 'STARTER'}${locked ? ' · LOCKED' : ''}`;
+      text.textContent = `${player.position} · ${player.name} · ${inIr ? 'IR' : player.rosterSlot === 'BENCH' ? 'BENCH' : 'STARTER'}${locked ? ' · LOCKED' : ''}`;
       label.append(input, text);
       return label;
     });
@@ -5826,8 +5965,8 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
         return false;
       }
       const ids = new Set(checked.map((input) => input.dataset.playerId));
-      const lockedConflict = team.roster.find((player) => isPlayerGameLocked(player)
-        && ids.has(player.id) !== (player.rosterSlot !== 'BENCH'));
+      const lockedConflict = team.roster.find((player) => isPlayerGameLocked(player) && player.rosterSlot !== 'IR'
+        && ids.has(player.id) !== (player.rosterSlot && player.rosterSlot !== 'BENCH'));
       if (lockedConflict) {
         notify(gameLockMessage(lockedConflict));
         return false;
@@ -5844,6 +5983,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
         player.rosterSlot = old;
       });
       team.roster.forEach((player) => {
+        if (player.rosterSlot === 'IR') return; // IR players stay in IR
         if (isPlayerGameLocked(player)) {
           if (!ids.has(player.id)) player.rosterSlot = 'BENCH';
           return;
@@ -5956,10 +6096,11 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       const secondSelected = selectedIds(toPlayers);
       const selectedFromDrops = selectedIds(fromDrops);
       const selectedToDrops = selectedIds(toDrops);
-      const firstOverflow = Math.max(0, (first?.roster.length || 0) - firstSelected.length + secondSelected.length - rosterCapacity());
-      const secondOverflow = Math.max(0, (second?.roster.length || 0) - secondSelected.length + firstSelected.length - rosterCapacity());
-      const firstCandidates = (first?.roster || []).filter((player) => !firstSelected.includes(player.id));
-      const secondCandidates = (second?.roster || []).filter((player) => !secondSelected.includes(player.id));
+      const activeSelected = (team, ids) => (team?.roster || []).filter((player) => ids.includes(player.id) && player.rosterSlot !== 'IR').length;
+      const firstOverflow = Math.max(0, activeRosterCount(first) - activeSelected(first, firstSelected) + activeSelected(second, secondSelected) - rosterCapacity());
+      const secondOverflow = Math.max(0, activeRosterCount(second) - activeSelected(second, secondSelected) + activeSelected(first, firstSelected) - rosterCapacity());
+      const firstCandidates = (first?.roster || []).filter((player) => !firstSelected.includes(player.id) && player.rosterSlot !== 'IR');
+      const secondCandidates = (second?.roster || []).filter((player) => !secondSelected.includes(player.id) && player.rosterSlot !== 'IR');
       fromDropLabel.textContent = firstOverflow
         ? `OFFERING TEAM: SELECT ${firstOverflow} PLAYER${firstOverflow === 1 ? '' : 'S'} TO DROP`
         : 'OFFERING TEAM DROPS (NOT REQUIRED)';
@@ -6144,8 +6285,9 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     const requestedIds = new Set(trade.requestIds);
     const fromDropPlayers = from.roster.filter((player) => dropFromIds.includes(player.id));
     const toDropPlayers = to.roster.filter((player) => dropToIds.includes(player.id));
-    const fromSize = from.roster.length - offered.length + requested.length;
-    const toSize = to.roster.length - requested.length + offered.length;
+    const activeCountOf = (players) => players.filter((player) => player.rosterSlot !== 'IR').length;
+    const fromSize = activeRosterCount(from) - activeCountOf(offered) + activeCountOf(requested);
+    const toSize = activeRosterCount(to) - activeCountOf(requested) + activeCountOf(offered);
     const fromOverflow = Math.max(0, fromSize - rosterCapacity());
     const toOverflow = Math.max(0, toSize - rosterCapacity());
     if (fromDropPlayers.length !== dropFromIds.length || toDropPlayers.length !== dropToIds.length
@@ -6487,7 +6629,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     rosterHeading.style.gridColumn = '1 / -1';
     rosterHeading.textContent = 'ROSTER SLOTS PER TEAM';
     rosterSettings.append(rosterHeading);
-    const rosterPositionOrder = ['QB', 'RB', 'WR', 'TE', 'FLEX', 'K', 'D/ST', ...IDP_POSITIONS, 'P', 'BENCH'];
+    const rosterPositionOrder = ['QB', 'RB', 'WR', 'TE', 'FLEX', 'K', 'D/ST', ...IDP_POSITIONS, 'P', 'BENCH', 'IR'];
     rosterPositionOrder.forEach((slot) => {
       const field = document.createElement('div');
       field.className = 'field';
@@ -6505,6 +6647,27 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       label.textContent = `${ROSTER_POSITION_LABELS[slot].toUpperCase()} SLOTS`;
       field.append(label, input);
       rosterSettings.append(field);
+    });
+    const irSettings = document.createElement('div');
+    irSettings.className = 'field-grid';
+    const irHeading = document.createElement('h3');
+    irHeading.className = 'trade-section-heading';
+    irHeading.style.gridColumn = '1 / -1';
+    irHeading.textContent = 'IR-ELIGIBLE STATUSES · CHECK EVERY STATUS THAT MAY BE PLACED IN IR';
+    irSettings.append(irHeading);
+    const selectedIrStatuses = normalizeIrEligibleStatuses(league.irEligibleStatuses);
+    IR_STATUS_OPTIONS.forEach((option) => {
+      const label = document.createElement('label');
+      label.className = 'lineup-choice claim-drop-choice';
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.value = option.key;
+      checkbox.dataset.irStatus = option.key;
+      checkbox.checked = selectedIrStatuses.includes(option.key);
+      const text = document.createElement('span');
+      text.textContent = option.label;
+      label.append(checkbox, text);
+      irSettings.append(label);
     });
 
     const names = document.createElement('div');
@@ -6547,19 +6710,23 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     const note = document.createElement('div');
     note.className = 'modal-callout';
     note.textContent = 'Set any slot count to 0 to disable that position in this league. Defensive player positions and punters appear in the player pool and scoring settings only when enabled here.';
-    wrapper.append(leagueField, rosterSettings, names, note);
+    wrapper.append(leagueField, rosterSettings, irSettings, names, note);
     openModal('Update your league.', 'LEAGUE SETTINGS', wrapper, () => {
       const nextLeagueName = leagueName.value.trim();
       const managerInputs = [...names.querySelectorAll('[data-settings-manager]')];
       const teamInputs = [...names.querySelectorAll('[data-settings-team]')];
       const abbreviationInputs = [...names.querySelectorAll('[data-settings-team-abbreviation]')];
       const slotInputs = [...rosterSettings.querySelectorAll('[data-roster-slot]')];
+      const irStatusInputs = [...irSettings.querySelectorAll('[data-ir-status]:checked')].map((input) => input.value);
       const nextRosterSlots = { ...league.rosterSlots };
       slotInputs.forEach((input) => { nextRosterSlots[input.dataset.rosterSlot] = Number(input.value); });
       const startingSlots = Object.entries(nextRosterSlots)
-        .filter(([slot]) => slot !== 'BENCH')
+        .filter(([slot]) => slot !== 'BENCH' && slot !== 'IR')
         .reduce((sum, [, count]) => sum + count, 0);
-      const nextCapacity = Object.values(nextRosterSlots).reduce((sum, count) => sum + count, 0);
+      const nextCapacity = Object.entries(nextRosterSlots)
+        .filter(([slot]) => slot !== 'IR')
+        .reduce((sum, [, count]) => sum + count, 0);
+      const nextIrCapacity = Number(nextRosterSlots.IR || 0);
       if (!nextLeagueName || managerInputs.some((input) => !input.value.trim()) || teamInputs.some((input) => !input.value.trim())
         || abbreviationInputs.some((input) => !/^[A-Z0-9]{1,4}$/.test(input.value.trim().toUpperCase()))) {
         notify('Enter a league name, manager name, fantasy team name, and a 1 to 4 character abbreviation for every team.');
@@ -6567,12 +6734,18 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       }
       if (slotInputs.some((input) => !input.value.trim() || !Number.isInteger(Number(input.value)) || Number(input.value) < 0 || Number(input.value) > 30)
         || startingSlots < 1
-        || league.managers.some((team) => team.roster.length > nextCapacity)) {
-        notify('Use whole-number roster slots from 0 to 30, include at least one starter, and keep enough total slots for every current roster.');
+        || league.managers.some((team) => activeRosterCount(team) > nextCapacity)
+        || league.managers.some((team) => team.roster.filter((player) => player.rosterSlot === 'IR').length > nextIrCapacity)) {
+        notify('Use whole-number roster slots from 0 to 30, include at least one starter, keep enough active slots for every current roster, and keep enough IR slots for players currently in IR.');
+        return false;
+      }
+      if (nextIrCapacity > 0 && !irStatusInputs.length) {
+        notify('Check at least one IR-eligible status (or set IR slots to 0 to disable IR).');
         return false;
       }
       league.name = nextLeagueName;
       league.rosterSlots = nextRosterSlots;
+      league.irEligibleStatuses = nextIrCapacity > 0 ? normalizeIrEligibleStatuses(irStatusInputs) : league.irEligibleStatuses;
       managerInputs.forEach((input) => {
         const team = league.managers.find((entry) => entry.id === input.dataset.settingsManager);
         if (team) team.name = input.value.trim();
@@ -6908,7 +7081,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     const label = document.createElement('label'); label.textContent = 'FANTASY TEAM';
     const select = document.createElement('select'); select.className = 'filter-select';
     league.managers.filter((team) => !onlineReady || ownsOnlineTeam(team.id))
-      .forEach((team) => select.add(new Option(`${teamLabel(team)} · ${team.roster.length}/${rosterCapacity()}`, team.id)));
+      .forEach((team) => select.add(new Option(`${teamLabel(team)} · ${activeRosterCount(team)}/${rosterCapacity()}`, team.id)));
     field.append(label, select);
     const dropSection = document.createElement('div');
     dropSection.className = 'claim-drop-roster';
@@ -6918,15 +7091,15 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       dropSection.replaceChildren();
       selectedDropId = null;
       const team = league.managers.find((entry) => entry.id === select.value);
-      if (!team || team.roster.length < rosterCapacity()) {
+      if (!team || activeRosterCount(team) < rosterCapacity()) {
         dropSection.hidden = true;
         return;
       }
       dropSection.hidden = false;
       const heading = document.createElement('strong');
-      heading.textContent = `${team.teamName} roster is full. Select a player to drop:`;
+      heading.textContent = `${team.teamName} active roster is full. Select an active player to drop (IR players do not free an active spot):`;
       dropSection.append(heading);
-      team.roster.forEach((rosteredPlayer) => {
+      team.roster.filter((rosteredPlayer) => rosteredPlayer.rosterSlot !== 'IR').forEach((rosteredPlayer) => {
         const locked = isPlayerGameLocked(rosteredPlayer);
         const choice = document.createElement('label');
         choice.className = 'lineup-choice claim-drop-choice';
@@ -6957,10 +7130,10 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
         closeModal();
         return true;
       }
-      if (team.roster.length >= rosterCapacity()) {
-        const playerToDrop = team.roster.find((member) => member.id === selectedDropId);
+      if (activeRosterCount(team) >= rosterCapacity()) {
+        const playerToDrop = team.roster.find((member) => member.id === selectedDropId && member.rosterSlot !== 'IR');
         if (!playerToDrop) {
-          notify(`Select a player from ${team.teamName} to drop before claiming ${player.name}.`);
+          notify(`Select an active player from ${team.teamName} to drop before claiming ${player.name}.`);
           return false;
         }
         if (isPlayerGameLocked(playerToDrop)) {
@@ -7068,7 +7241,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     const select = document.createElement('select');
     select.className = 'filter-select';
     league.managers.filter((team) => ownsOnlineTeam(team.id))
-      .forEach((team) => select.add(new Option(`${teamLabel(team)} · ${team.roster.length}/${rosterCapacity()}`, team.id)));
+      .forEach((team) => select.add(new Option(`${teamLabel(team)} · ${activeRosterCount(team)}/${rosterCapacity()}`, team.id)));
     field.append(label, select);
     const dropSection = document.createElement('div');
     dropSection.className = 'claim-drop-roster';
@@ -7078,15 +7251,15 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       dropSection.replaceChildren();
       selectedDropId = '';
       const team = league.managers.find((entry) => entry.id === select.value);
-      if (!team || team.roster.length < rosterCapacity()) {
+      if (!team || activeRosterCount(team) < rosterCapacity()) {
         dropSection.hidden = true;
         return;
       }
       dropSection.hidden = false;
       const heading = document.createElement('strong');
-      heading.textContent = `${team.teamName} roster is full. Select a player to drop if this claim is awarded:`;
+      heading.textContent = `${team.teamName} active roster is full. Select an active player to drop if this claim is awarded:`;
       dropSection.append(heading);
-      team.roster.forEach((rosteredPlayer) => {
+      team.roster.filter((rosteredPlayer) => rosteredPlayer.rosterSlot !== 'IR').forEach((rosteredPlayer) => {
         const locked = isPlayerGameLocked(rosteredPlayer);
         const choice = document.createElement('label');
         choice.className = 'lineup-choice claim-drop-choice';
@@ -7111,8 +7284,8 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       }
       const team = league.managers.find((entry) => entry.id === select.value);
       if (!team) return false;
-      if (team.roster.length >= rosterCapacity() && !selectedDropId) {
-        notify(`Select a player to drop if your claim for ${player.name} is awarded.`);
+      if (activeRosterCount(team) >= rosterCapacity() && !selectedDropId) {
+        notify(`Select an active player to drop if your claim for ${player.name} is awarded.`);
         return false;
       }
       if (selectedDropId) {
@@ -7283,8 +7456,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     const leagueId = league.leagueId;
     const throughWeek = Math.max(...weeks);
     const rosteredPlayers = league.managers.flatMap((team) =>
-      team.roster
-        .filter((player) => player.rosterSlot && player.rosterSlot !== 'BENCH')
+      configuredStarterPlayers(team, configuredRosterSlots()).displayed
         .map((player) => ({ teamId: team.id, player })));
     const histories = new Map();
     rosteredPlayers.forEach(({ player }) => {
@@ -7639,41 +7811,95 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
         panel.append(section);
       };
       const { displayed: detailStarters } = configuredStarterPlayers(team, configuredRosterSlots());
+      const detailIr = team.roster.filter((player) => player.rosterSlot === 'IR');
       appendRosterSection('STARTERS', sortRoster(detailStarters));
-      appendRosterSection('BENCH', sortRoster(team.roster.filter((player) => !detailStarters.includes(player))), 'bench');
+      appendRosterSection('BENCH', sortRoster(team.roster.filter((player) => !detailStarters.includes(player) && player.rosterSlot !== 'IR')), 'bench');
+      if (irSlotCount()) appendRosterSection('INJURED RESERVE', sortRoster(detailIr), 'bench');
       rosters.append(panel);
     });
   }
 
   function renderLiveLeaders() {
     const target = $('liveLeaders');
-    const rostered = league.managers.flatMap((team) => team.roster.map((player) => ({ player, team })));
-    const leaders = rostered
-      .filter(({ player }) => isLiveScoringPosition(player))
-      .filter(({ player }) => playerStats.has(player.id) || (player.position === 'D/ST' && teamStats.has(player.teamId)))
-      .map(({ player, team }) => ({ player, team, points: playerFantasyPoints(player) }))
-      .sort((a, b) => b.points - a.points)
-      .slice(0, 10);
     target.replaceChildren();
-    if (!leaders.length) {
-      target.innerHTML = '<div class="empty-state">Draft players and wait for live player game stats to arrive.</div>';
+    const owners = new Map();
+    league.managers.forEach((team) => team.roster.forEach((player) => owners.set(player.id, team)));
+    // Include every player with live stats, not just rostered ones, so
+    // scoring free agents show up too. Rostered copies are added in case
+    // the full player pool has not loaded yet.
+    const byId = new Map();
+    players.forEach((player) => byId.set(player.id, player));
+    league.managers.forEach((team) => team.roster.forEach((player) => {
+      if (!byId.has(player.id)) byId.set(player.id, player);
+    }));
+    const scoring = [...byId.values()]
+      .filter((player) => isLiveScoringPosition(player))
+      .filter((player) => playerStats.has(player.id) || (player.position === 'D/ST' && teamStats.has(player.teamId)))
+      .map((player) => ({ player, team: owners.get(player.id) || null, points: playerFantasyPoints(player) }))
+      .sort((a, b) => b.points - a.points || a.player.name.localeCompare(b.player.name));
+    const rosteredLeaders = scoring.filter((entry) => entry.team);
+    const availableLeaders = scoring.filter((entry) => !entry.team);
+    if (!scoring.length) {
+      target.innerHTML = '<div class="empty-state">Wait for live player game stats to arrive. Leaders will include rostered players and free agents.</div>';
       return;
     }
-    leaders.forEach(({ player, team, points }, index) => {
-      const row = document.createElement('div');
-      row.className = 'team-standing';
-      const rank = document.createElement('span');
-      rank.className = 'rank';
-      rank.textContent = String(index + 1).padStart(2, '0');
-      const name = document.createElement('span');
-      name.className = 'player-name-stack';
-      name.innerHTML = `<span class="player-name">${escapeHTML(player.name)}</span><span class="player-team">${escapeHTML(teamLabel(team))}</span>`;
-      const score = document.createElement('span');
-      score.className = 'standing-points';
-      score.textContent = points.toFixed(2);
-      row.append(rank, name, score);
-      target.append(row);
-    });
+    const renderGroup = (title, entries, total, emptyText) => {
+      const group = document.createElement('section');
+      group.className = 'live-leaders-group';
+      const heading = document.createElement('div');
+      heading.className = 'live-leaders-heading';
+      const headingTitle = document.createElement('span');
+      headingTitle.textContent = title;
+      const headingCount = document.createElement('span');
+      headingCount.textContent = `${total} SCORING`;
+      heading.append(headingTitle, headingCount);
+      group.append(heading);
+      const shown = entries.slice(0, 10);
+      if (!shown.length) {
+        const empty = document.createElement('div');
+        empty.className = 'live-leaders-empty';
+        empty.textContent = emptyText;
+        group.append(empty);
+      }
+      shown.forEach(({ player, team, points }, index) => {
+        const row = document.createElement('div');
+        row.className = 'live-leader-row';
+        const rank = document.createElement('span');
+        rank.className = 'rank';
+        rank.textContent = String(index + 1).padStart(2, '0');
+        const name = document.createElement('span');
+        name.className = 'live-leader-name';
+        const playerName = document.createElement('span');
+        playerName.className = 'player-name';
+        playerName.textContent = player.name;
+        const meta = document.createElement('span');
+        meta.className = 'live-leader-meta';
+        const position = document.createElement('span');
+        position.className = `position-tag ${positionClass(player.position)}`;
+        position.textContent = player.position;
+        const matchup = playerMatchup(player);
+        const details = document.createElement('span');
+        details.textContent = [
+          player.team,
+          matchup && matchup.label && matchup.label !== 'LOADING' && matchup.label !== 'BYE' ? matchup.label : '',
+          team ? teamLabel(team) : 'FREE AGENT',
+        ].filter(Boolean).join(' · ');
+        meta.append(position, details);
+        name.append(playerName, meta);
+        const score = document.createElement('span');
+        score.className = 'live-leader-points';
+        const pointsText = document.createElement('strong');
+        pointsText.textContent = points.toFixed(2);
+        const statLine = document.createElement('small');
+        statLine.textContent = formatPlayerStatLine(player);
+        score.append(pointsText, statLine);
+        row.append(rank, name, score);
+        group.append(row);
+      });
+      target.append(group);
+    };
+    renderGroup('ON A FANTASY ROSTER', rosteredLeaders, rosteredLeaders.length, 'No rostered players have scored yet this week.');
+    renderGroup('AVAILABLE · FREE AGENTS', availableLeaders, availableLeaders.length, 'No free agents have scored yet this week.');
   }
 
   function updateLiveFeed(changedPlayers) {

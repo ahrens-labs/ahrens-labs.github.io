@@ -44,9 +44,31 @@ const MAX_TEAMS = 16;
 const MAX_ROSTER_SLOTS = 30;
 const SEASON_WEEKS = 18;
 const ROSTER_POSITIONS = [
-  'QB', 'RB', 'WR', 'TE', 'K', 'D/ST', 'DL', 'DE', 'DT', 'LB', 'DB', 'CB', 'S', 'P', 'FLEX', 'BENCH',
+  'QB', 'RB', 'WR', 'TE', 'K', 'D/ST', 'DL', 'DE', 'DT', 'LB', 'DB', 'CB', 'S', 'P', 'FLEX', 'BENCH', 'IR',
 ];
 const SCORING_POSITIONS = ['QB', 'RB', 'WR', 'TE', 'K', 'D/ST', 'DL', 'DE', 'DT', 'LB', 'DB', 'CB', 'S', 'P'];
+const IR_STATUSES = ['INJURED_RESERVE', 'OUT', 'PUP', 'NFI', 'SUSPENDED', 'INACTIVE', 'DOUBTFUL', 'QUESTIONABLE'];
+const DEFAULT_IR_STATUSES = ['INJURED_RESERVE', 'OUT', 'PUP', 'NFI', 'SUSPENDED'];
+const DEFAULT_IR_SLOTS = 1;
+
+function activeRosterCapacity(rosterSlots) {
+  return Object.entries(rosterSlots || {})
+    .filter(([slot]) => slot !== 'IR')
+    .reduce((sum, [, count]) => sum + Number(count || 0), 0);
+}
+function starterSlotCapacity(rosterSlots) {
+  return Object.entries(rosterSlots || {})
+    .filter(([slot]) => slot !== 'BENCH' && slot !== 'IR')
+    .reduce((sum, [, count]) => sum + Number(count || 0), 0);
+}
+function activeRosterCount(team) {
+  return (team?.roster || []).filter((player) => player.rosterSlot !== 'IR').length;
+}
+function normalizeIrStatuses(value) {
+  if (!Array.isArray(value)) return [...DEFAULT_IR_STATUSES];
+  const cleaned = [...new Set(value.filter((entry) => IR_STATUSES.includes(entry)))];
+  return cleaned.length ? cleaned : [...DEFAULT_IR_STATUSES];
+}
 
 function randomIndex(max) {
   const value = new Uint32Array(1);
@@ -508,17 +530,17 @@ function normalizeSetup(input, userId, username) {
   const sourceSlots = input.rosterSlots && typeof input.rosterSlots === 'object' ? input.rosterSlots : {};
   const rosterSlots = {};
   for (const position of ROSTER_POSITIONS) {
-    const count = Number(sourceSlots[position] ?? 0);
+    const fallback = position === 'IR' ? DEFAULT_IR_SLOTS : 0;
+    const count = Number(sourceSlots[position] ?? fallback);
     if (!Number.isInteger(count) || count < 0 || count > MAX_ROSTER_SLOTS) {
       return { error: 'Roster slots must be whole numbers from 0 to 30.' };
     }
     rosterSlots[position] = count;
   }
-  if (Object.entries(rosterSlots)
-    .filter(([position]) => position !== 'BENCH')
-    .reduce((sum, [, count]) => sum + count, 0) < 1) {
+  if (starterSlotCapacity(rosterSlots) < 1) {
     return { error: 'Configure at least one starting roster slot.' };
   }
+  const irEligibleStatuses = normalizeIrStatuses(input.irEligibleStatuses);
   const scoring = {};
   if (input.scoring && typeof input.scoring === 'object' && !Array.isArray(input.scoring)) {
     for (const [key, value] of Object.entries(input.scoring)) {
@@ -559,6 +581,7 @@ function normalizeSetup(input, userId, username) {
       managerName: username,
       managers,
       rosterSlots,
+      irEligibleStatuses,
       scoring,
       positionScoring: {},
       customizedScoringPositions: [],
@@ -840,9 +863,12 @@ function idsForTradeAcceptance(previous, candidate, userId, previousTrade, nextT
     || dropFromIds.some((id) => !fromIds.has(String(id)) || offerIds.includes(id))
     || dropToIds.some((id) => !toIds.has(String(id)) || requestIds.includes(id))) return false;
 
-  const capacity = Object.values(previous.rosterSlots || {}).reduce((sum, value) => sum + Number(value || 0), 0);
-  const requiredFromDrops = Math.max(0, from.roster.length - offerIds.length + requestIds.length - capacity);
-  const requiredToDrops = Math.max(0, to.roster.length - requestIds.length + offerIds.length - capacity);
+  const capacity = activeRosterCapacity(previous.rosterSlots);
+  const activeSelected = (team, selectedIds) => team.roster.filter((player) => selectedIds.includes(String(player.id)) && player.rosterSlot !== 'IR').length;
+  const fromAfter = activeRosterCount(from) - activeSelected(from, offerIds) + activeSelected(to, requestIds);
+  const toAfter = activeRosterCount(to) - activeSelected(to, requestIds) + activeSelected(from, offerIds);
+  const requiredFromDrops = Math.max(0, fromAfter - capacity);
+  const requiredToDrops = Math.max(0, toAfter - capacity);
   if (dropFromIds.length !== requiredFromDrops || dropToIds.length !== requiredToDrops) return false;
 
   const expectedFrom = new Set([...fromIds]);
@@ -864,6 +890,18 @@ function validateLeagueSave(previous, incoming, userId) {
     return 'League identity and team membership cannot be changed here.';
   }
   const commissioner = previous.commissionerUserId === userId;
+  // Normalize IR fields so older leagues (saved before IR existed) compare
+  // equal to the current defaults instead of blocking every save.
+  const normalizeSlots = (slots) => Object.fromEntries(ROSTER_POSITIONS.map((position) => [
+    position,
+    slots && slots[position] != null ? Number(slots[position]) : (position === 'IR' ? DEFAULT_IR_SLOTS : 0),
+  ]));
+  const previousSlots = normalizeSlots(previous.rosterSlots);
+  const incomingSlots = normalizeSlots(incoming.rosterSlots);
+  incoming.rosterSlots = incomingSlots;
+  const previousIrStatuses = normalizeIrStatuses(previous.irEligibleStatuses);
+  const incomingIrStatuses = normalizeIrStatuses(incoming.irEligibleStatuses);
+  incoming.irEligibleStatuses = incomingIrStatuses;
   if (!validWaiverSettings(incoming.waiverSettings)) return 'Waiver settings are invalid.';
   const previousDraftSettings = previous.draftSettings || {
     type: 'snake',
@@ -893,7 +931,8 @@ function validateLeagueSave(previous, incoming, userId) {
     return 'Team ownership can only be changed by accepting a league invitation.';
   }
   if (!commissioner && (incoming.name !== previous.name
-    || !sameValue(incoming.rosterSlots, previous.rosterSlots)
+    || !sameValue(incomingSlots, previousSlots)
+    || !sameValue(incomingIrStatuses, previousIrStatuses)
     || !sameValue(incoming.scoring, previous.scoring)
     || !sameValue(incomingPositionScoring, previousPositionScoring)
     || !sameValue(incoming.draftOrder, previous.draftOrder)
@@ -913,9 +952,16 @@ function validateLeagueSave(previous, incoming, userId) {
     if (!ROSTER_POSITIONS.includes(position) || !Number.isInteger(Number(count))
       || Number(count) < 0 || Number(count) > MAX_ROSTER_SLOTS) return 'Roster settings are invalid.';
   }
-  const capacity = Object.values(incoming.rosterSlots || {}).reduce((sum, value) => sum + Number(value || 0), 0);
-  if (capacity < 1 || incoming.managers.some((team) => !Array.isArray(team.roster) || team.roster.length > capacity)) {
+  if (!Array.isArray(incoming.irEligibleStatuses) || !incoming.irEligibleStatuses.length
+    || incoming.irEligibleStatuses.some((status) => !IR_STATUSES.includes(status))) {
+    return 'IR eligible statuses are invalid.';
+  }
+  const capacity = activeRosterCapacity(incoming.rosterSlots);
+  if (capacity < 1 || incoming.managers.some((team) => !Array.isArray(team.roster) || activeRosterCount(team) > capacity)) {
     return 'Roster size exceeds the configured league limits.';
+  }
+  if (incoming.managers.some((team) => (team.roster || []).filter((player) => player.rosterSlot === 'IR').length > Number(incoming.rosterSlots.IR || 0))) {
+    return 'Roster exceeds the configured IR slots.';
   }
   if (incoming.managers.some((team) => !Array.isArray(team.roster)
     || !validString(team.teamName, 40)
@@ -951,9 +997,10 @@ function validateLeagueSave(previous, incoming, userId) {
         return 'Trade selections must be players currently on the selected teams.';
       }
       if (!Array.isArray(nextTrade.dropFromIds) || !Array.isArray(nextTrade.dropToIds)) return 'Trade drop selections are invalid.';
-      const rosterCapacity = Object.values(previous.rosterSlots || {}).reduce((sum, value) => sum + Number(value || 0), 0);
-      if (nextTrade.dropFromIds.length !== Math.max(0, from.roster.length - nextTrade.offerIds.length + nextTrade.requestIds.length - rosterCapacity)
-        || nextTrade.dropToIds.length !== Math.max(0, to.roster.length - nextTrade.requestIds.length + nextTrade.offerIds.length - rosterCapacity)) {
+      const rosterCapacity = activeRosterCapacity(previous.rosterSlots);
+      const activeSelected = (team, ids) => team.roster.filter((player) => ids.includes(String(player.id)) && player.rosterSlot !== 'IR').length;
+      if (nextTrade.dropFromIds.length !== Math.max(0, activeRosterCount(from) - activeSelected(from, nextTrade.offerIds) + activeSelected(to, nextTrade.requestIds) - rosterCapacity)
+        || nextTrade.dropToIds.length !== Math.max(0, activeRosterCount(to) - activeSelected(to, nextTrade.requestIds) + activeSelected(from, nextTrade.offerIds) - rosterCapacity)) {
         return 'Trade drop selections must match the roster limits.';
       }
       continue;
@@ -1774,8 +1821,7 @@ export class FantasyLeagueStore {
       return { status: 409, error: 'The scheduled draft time has not arrived yet.' };
     }
     const pickIndex = league.picks.length;
-    const capacity = Object.values(league.rosterSlots || {})
-      .reduce((sum, count) => sum + Number(count || 0), 0);
+    const capacity = activeRosterCapacity(league.rosterSlots);
     if (pickIndex >= league.teamCount * capacity) {
       return { status: 409, error: 'This draft is already complete.', league, revision: record.revision };
     }
@@ -1794,7 +1840,7 @@ export class FantasyLeagueStore {
     const team = managerById(league, teamId);
     const source = body.player;
     const playerId = String(source?.id || '');
-    const positions = ROSTER_POSITIONS.filter((position) => !['FLEX', 'BENCH'].includes(position));
+    const positions = ROSTER_POSITIONS.filter((position) => !['FLEX', 'BENCH', 'IR'].includes(position));
     if (!team || !validString(playerId, 100) || !validString(source?.name, 100)
       || !positions.includes(source?.position) || allPlayerIds(league).has(playerId)) {
       return { status: 400, error: 'Choose an available player with valid roster data.', league, revision: record.revision };
@@ -1841,11 +1887,9 @@ export class FantasyLeagueStore {
       : ['RB', 'WR', 'TE'].includes(player.position) && flexCount < Number(slots.FLEX || 0)
         ? 'FLEX'
         : 'BENCH';
-    const starterCapacity = Object.entries(slots)
-      .filter(([position]) => position !== 'BENCH')
-      .reduce((sum, [, count]) => sum + Number(count || 0), 0);
-    const openStartingSlots = Math.max(0, starterCapacity - team.roster.filter((member) => member.rosterSlot !== 'BENCH').length);
-    if (capacity <= team.roster.length || (capacity - team.roster.length <= openStartingSlots && rosterSlot === 'BENCH')
+    const starterCapacity = starterSlotCapacity(slots);
+    const openStartingSlots = Math.max(0, starterCapacity - team.roster.filter((member) => member.rosterSlot && member.rosterSlot !== 'BENCH' && member.rosterSlot !== 'IR').length);
+    if (capacity <= activeRosterCount(team) || (capacity - activeRosterCount(team) <= openStartingSlots && rosterSlot === 'BENCH')
       || (rosterSlot === 'BENCH' && team.roster.filter((member) => member.rosterSlot === 'BENCH').length >= Number(slots.BENCH || 0))) {
       return { status: 409, error: 'No eligible roster slot is available for this auto-pick.', league, revision: record.revision };
     }
@@ -1934,10 +1978,9 @@ export class FantasyLeagueStore {
       || Number(auction.endsAt) > now) return false;
     const winner = managerById(league, auction.highBidTeamId);
     const playerId = String(auction.player?.id || '');
-    const rosterCapacity = Object.values(league.rosterSlots || {})
-      .reduce((sum, count) => sum + Number(count || 0), 0);
+    const rosterCapacity = activeRosterCapacity(league.rosterSlots);
     if (!winner || !winner.ownerUserId || !playerId || allPlayerIds(league).has(playerId)
-      || winner.roster.length >= rosterCapacity) {
+      || activeRosterCount(winner) >= rosterCapacity) {
       league.auctionState = null;
       return true;
     }
@@ -1997,8 +2040,7 @@ export class FantasyLeagueStore {
       if (league.draftAt && Date.parse(league.draftAt) > Date.now()) {
         return { status: 409, error: 'The scheduled draft time has not arrived yet.' };
       }
-      if (league.picks.length >= league.teamCount * Object.values(league.rosterSlots || {})
-        .reduce((sum, count) => sum + Number(count || 0), 0)) {
+      if (league.picks.length >= league.teamCount * activeRosterCapacity(league.rosterSlots)) {
         return { status: 409, error: 'This draft is already complete.' };
       }
       if (action === 'start') {
@@ -2011,7 +2053,7 @@ export class FantasyLeagueStore {
         if (team.id !== nominatorId) return { status: 403, error: 'It is not your team’s turn to nominate.' };
         const source = body.player;
         const playerId = String(source?.id || '');
-        const positions = ROSTER_POSITIONS.filter((position) => !['FLEX', 'BENCH'].includes(position));
+        const positions = ROSTER_POSITIONS.filter((position) => !['FLEX', 'BENCH', 'IR'].includes(position));
         if (!validString(playerId, 100) || !validString(source?.name, 100) || !positions.includes(source?.position)
           || allPlayerIds(league).has(playerId)) {
           return { status: 400, error: 'Choose an available player with valid roster data.' };
@@ -2028,8 +2070,7 @@ export class FantasyLeagueStore {
             : '',
           status: String(source.status || 'ACTIVE').slice(0, 40),
         };
-        const remainingSlots = Object.values(league.rosterSlots || {})
-          .reduce((sum, count) => sum + Number(count || 0), 0) - team.roster.length;
+        const remainingSlots = activeRosterCapacity(league.rosterSlots) - activeRosterCount(team);
         const openingBid = 1;
         if (this.auctionTeamSpent(league, team) + openingBid + Math.max(0, remainingSlots - 1) > league.draftSettings.auctionBudget) {
           return { status: 409, error: 'Your team needs to save $1 for each remaining open roster slot.' };
@@ -2046,13 +2087,12 @@ export class FantasyLeagueStore {
         const auction = league.auctionState;
         if (!auction) return { status: 409, error: 'There is no active player auction.' };
         const amount = Number(body.amount);
-        const capacity = Object.values(league.rosterSlots || {})
-          .reduce((sum, count) => sum + Number(count || 0), 0);
-        const remainingSlots = capacity - team.roster.length;
+        const capacity = activeRosterCapacity(league.rosterSlots);
+        const remainingSlots = capacity - activeRosterCount(team);
         if (!Number.isInteger(amount) || amount <= Number(auction.highBid)) {
           return { status: 400, error: `Your bid must be a whole dollar amount above $${auction.highBid}.` };
         }
-        if (team.roster.length >= capacity
+        if (activeRosterCount(team) >= capacity
           || this.auctionTeamSpent(league, team) + amount + Math.max(0, remainingSlots - 1) > league.draftSettings.auctionBudget) {
           return { status: 409, error: 'That bid exceeds your available salary-cap budget.' };
         }
@@ -2090,7 +2130,7 @@ export class FantasyLeagueStore {
       .filter(([, processAt]) => Number(processAt) <= now)
       .map(([playerId]) => playerId);
     if (!duePlayerIds.length) return priorityChanged;
-    const capacity = Object.values(league.rosterSlots || {}).reduce((sum, count) => sum + Number(count || 0), 0);
+    const capacity = activeRosterCapacity(league.rosterSlots);
     let priority = Array.isArray(league.waiverPriorityTeamIds) ? league.waiverPriorityTeamIds : [];
     duePlayerIds.forEach((playerId) => {
       const claims = league.pendingWaiverClaims
@@ -2109,7 +2149,8 @@ export class FantasyLeagueStore {
         const drop = claim.dropPlayerId
           ? team.roster.find((player) => String(player.id) === String(claim.dropPlayerId))
           : null;
-        if (team.roster.length >= capacity && !drop) continue;
+        const dropFreesActiveSpot = Boolean(drop && drop.rosterSlot !== 'IR');
+        if (activeRosterCount(team) >= capacity && !dropFreesActiveSpot) continue;
         if (drop) {
           team.roster = team.roster.filter((player) => String(player.id) !== String(drop.id));
           if (validWaiverSettings(league.waiverSettings) && league.waiverSettings.enabled) {
@@ -2167,7 +2208,7 @@ export class FantasyLeagueStore {
     }
     const source = body.player;
     const playerId = String(source?.id || '');
-    const playerPositions = ROSTER_POSITIONS.filter((position) => !['FLEX', 'BENCH'].includes(position));
+    const playerPositions = ROSTER_POSITIONS.filter((position) => !['FLEX', 'BENCH', 'IR'].includes(position));
     if (!validString(playerId, 100) || !validString(source?.name, 100)
       || !playerPositions.includes(source?.position)) {
       return { status: 400, error: 'Player data is invalid.' };
@@ -2189,8 +2230,9 @@ export class FantasyLeagueStore {
         : '',
       status: String(source.status || 'ACTIVE').slice(0, 40),
     };
-    const capacity = Object.values(league.rosterSlots || {}).reduce((sum, count) => sum + Number(count || 0), 0);
+    const capacity = activeRosterCapacity(league.rosterSlots);
     const dropPlayerId = body.dropPlayerId ? String(body.dropPlayerId) : '';
+    const dropFreesActiveSpot = dropPlayerId && team.roster.some((member) => String(member.id) === dropPlayerId && member.rosterSlot !== 'IR');
     const claimedLockError = await lockedPlayerError(player, league);
     if (claimedLockError) {
       return { status: claimedLockError.startsWith('Could not verify') ? 503 : 409, error: claimedLockError };
@@ -2204,12 +2246,11 @@ export class FantasyLeagueStore {
         }
       }
     }
-    if (team.roster.length >= capacity
-      && (!dropPlayerId || !team.roster.some((member) => String(member.id) === dropPlayerId))) {
-      return { status: 400, error: 'Choose a player on your team to drop when your roster is full.' };
+    if (activeRosterCount(team) >= capacity && !dropFreesActiveSpot) {
+      return { status: 400, error: 'Choose an active player on your team to drop when your active roster is full.' };
     }
-    if (team.roster.length < capacity && dropPlayerId) {
-      return { status: 400, error: 'A roster drop is only allowed when your team is full.' };
+    if (activeRosterCount(team) < capacity && dropPlayerId) {
+      return { status: 400, error: 'A roster drop is only allowed when your active roster is full.' };
     }
     const pending = league.pendingWaiverClaims || [];
     if (pending.some((claim) => claim.teamId === team.id && String(claim.player?.id) === playerId)) {
@@ -2257,7 +2298,7 @@ export class FantasyLeagueStore {
     }
     const source = body.player;
     const playerId = String(source?.id || '');
-    const playerPositions = ROSTER_POSITIONS.filter((position) => !['FLEX', 'BENCH'].includes(position));
+    const playerPositions = ROSTER_POSITIONS.filter((position) => !['FLEX', 'BENCH', 'IR'].includes(position));
     if (!validString(playerId, 100) || !validString(source?.name, 100)
       || !playerPositions.includes(source?.position)) {
       return { status: 400, error: 'Player data is invalid.' };
@@ -2274,7 +2315,7 @@ export class FantasyLeagueStore {
           : 'This player has an active waiver claim and cannot be picked up immediately.',
       };
     }
-    const capacity = Object.values(league.rosterSlots || {}).reduce((sum, count) => sum + Number(count || 0), 0);
+    const capacity = activeRosterCapacity(league.rosterSlots);
     const dropPlayerId = body.dropPlayerId ? String(body.dropPlayerId) : '';
     const dropCandidate = dropPlayerId ? team.roster.find((player) => String(player.id) === dropPlayerId) : null;
     const pickupLockError = await lockedPlayerError({
@@ -2291,12 +2332,12 @@ export class FantasyLeagueStore {
         return { status: dropLockError.startsWith('Could not verify') ? 503 : 409, error: dropLockError };
       }
     }
-    const drop = dropCandidate;
-    if (team.roster.length >= capacity && !drop) {
-      return { status: 400, error: 'Choose a player on your team to drop when your roster is full.' };
+    const drop = dropCandidate && dropCandidate.rosterSlot !== 'IR' ? dropCandidate : null;
+    if (activeRosterCount(team) >= capacity && !drop) {
+      return { status: 400, error: 'Choose an active player on your team to drop when your active roster is full.' };
     }
-    if (team.roster.length < capacity && dropPlayerId) {
-      return { status: 400, error: 'A roster drop is only allowed when your team is full.' };
+    if (activeRosterCount(team) < capacity && dropPlayerId) {
+      return { status: 400, error: 'A roster drop is only allowed when your active roster is full.' };
     }
     if (drop) {
       team.roster = team.roster.filter((player) => String(player.id) !== String(drop.id));
@@ -2427,8 +2468,7 @@ export class FantasyLeagueStore {
       return { status: 409, error: 'The scheduled draft time has not arrived yet.' };
     }
     const pickIndex = league.picks.length;
-    const capacity = Object.values(league.rosterSlots || {})
-      .reduce((sum, count) => sum + Number(count || 0), 0);
+    const capacity = activeRosterCapacity(league.rosterSlots);
     if (pickIndex >= league.teamCount * capacity) {
       return { status: 409, error: 'This draft is already complete.', league, revision: record.revision };
     }
@@ -2451,7 +2491,7 @@ export class FantasyLeagueStore {
     const team = managerById(league, teamId);
     const source = body.player;
     const playerId = String(source?.id || '');
-    const positions = ROSTER_POSITIONS.filter((position) => !['FLEX', 'BENCH'].includes(position));
+    const positions = ROSTER_POSITIONS.filter((position) => !['FLEX', 'BENCH', 'IR'].includes(position));
     if (!team || !validString(playerId, 100) || !validString(source?.name, 100)
       || !positions.includes(source?.position) || allPlayerIds(league).has(playerId)) {
       return { status: 400, error: 'Choose an available player with valid roster data.', league, revision: record.revision };
