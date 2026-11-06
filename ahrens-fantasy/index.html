@@ -1571,6 +1571,28 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
   let rosterViewTeam = 0;
   let myTeamSelectedId = '';
   let rosterMoveSelection = null;
+  // Remember which team was selected on the Rosters/My Team tabs (per
+  // league) so reloading the page stays on that team instead of
+  // resetting to the first owned team.
+  function teamSelectionKey(kind) {
+    return `ahrens.fantasy.${kind}.${league.leagueId || 'local'}`;
+  }
+  function persistTeamSelection() {
+    try {
+      const rosterTeam = league.managers[rosterViewTeam];
+      if (rosterTeam?.id) localStorage.setItem(teamSelectionKey('rosterViewTeamId'), rosterTeam.id);
+      if (myTeamSelectedId) localStorage.setItem(teamSelectionKey('myTeamId'), myTeamSelectedId);
+    } catch (_) { /* storage unavailable */ }
+  }
+  function restoreTeamSelection() {
+    try {
+      const rosterId = localStorage.getItem(teamSelectionKey('rosterViewTeamId'));
+      const rosterIndex = rosterId ? league.managers.findIndex((team) => team.id === rosterId) : -1;
+      if (rosterIndex >= 0) rosterViewTeam = rosterIndex;
+      const myId = localStorage.getItem(teamSelectionKey('myTeamId'));
+      if (myId && league.managers.some((team) => team.id === myId)) myTeamSelectedId = myId;
+    } catch (_) { /* storage unavailable */ }
+  }
   let onlineUserId = '';
   let onlineUsername = '';
   let onlineUserTeamId = '';
@@ -1714,6 +1736,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     draftOrderDraft = [...(league.draftSettings.order || league.draftOrder)];
     rosterViewTeam = Math.max(0, league.managers.findIndex((team) => onlineUserTeamIds.has(team.id)));
     myTeamSelectedId = league.managers[rosterViewTeam]?.id || league.managers[0]?.id || '';
+    restoreTeamSelection();
     normalizeManagers();
     updateOnlineControls();
   }
@@ -5285,6 +5308,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       button.addEventListener('click', () => {
         rosterMoveSelection = null;
         rosterViewTeam = index;
+        persistTeamSelection();
         renderRosters();
       });
       tabs.append(button);
@@ -5346,6 +5370,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     const current = league.managers[rosterViewTeam] || league.managers[0];
     if (current) {
       myTeamSelectedId = current.id;
+      persistTeamSelection();
       return current;
     }
     return current;
@@ -5403,6 +5428,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       button.addEventListener('click', () => {
         rosterMoveSelection = null;
         myTeamSelectedId = candidate.id;
+        persistTeamSelection();
         renderMyTeam();
       });
       tabs.append(button);
@@ -5998,9 +6024,14 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
         return false;
       }
       team.roster = team.roster.filter((member) => member.id !== player.id);
+      if (rosterMoveSelection?.playerId === player.id) rosterMoveSelection = null;
       saveLeague();
       closeModal();
-      renderRosters(); renderPlayerPool(); renderDraft(); renderOverview(); renderMatchups();
+      // Re-render both roster tables immediately so the dropped player
+      // disappears from the roster right away (renderRosters also
+      // re-renders My Team, but render explicitly in case of an
+      // early return there).
+      renderRosters(); renderMyTeam(); renderPlayerPool(); renderDraft(); renderOverview(); renderMatchups();
       notify(`${player.name} is now a free agent.`);
       return true;
     }, { confirmText: 'DROP PLAYER' });
