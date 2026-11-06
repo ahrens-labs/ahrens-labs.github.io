@@ -912,7 +912,10 @@ function idsForTradeAcceptance(previous, candidate, userId, previousTrade, nextT
   const offerIds = previousTrade.offerIds || [];
   const requestIds = previousTrade.requestIds || [];
   const dropFromIds = previousTrade.dropFromIds || [];
-  const dropToIds = previousTrade.dropToIds || [];
+  // Receiving-team drops are chosen by the receiving manager at
+  // acceptance time, not by the offer creator, so validate the drops
+  // in the accepted (incoming) trade, not the stored pending offer.
+  const dropToIds = nextTrade.dropToIds || [];
   const ids = (team) => new Set(team.roster.map((player) => String(player.id)));
   const fromIds = ids(from);
   const toIds = ids(to);
@@ -1056,17 +1059,20 @@ function validateLeagueSave(previous, incoming, userId) {
         return 'Trade selections must be players currently on the selected teams.';
       }
       if (!Array.isArray(nextTrade.dropFromIds) || !Array.isArray(nextTrade.dropToIds)) return 'Trade drop selections are invalid.';
+      // The offering team picks its own drops now; the receiving team
+      // picks its drops when it accepts, so offers carry no receiving drops.
+      if (nextTrade.dropToIds.length) return 'Receiving team drops are chosen when the trade is accepted, not when the offer is sent.';
       const rosterCapacity = activeRosterCapacity(previous.rosterSlots);
       const activeSelected = (team, ids) => team.roster.filter((player) => ids.includes(String(player.id)) && player.rosterSlot !== 'IR').length;
-      if (nextTrade.dropFromIds.length !== Math.max(0, activeRosterCount(from) - activeSelected(from, nextTrade.offerIds) + activeSelected(to, nextTrade.requestIds) - rosterCapacity)
-        || nextTrade.dropToIds.length !== Math.max(0, activeRosterCount(to) - activeSelected(to, nextTrade.requestIds) + activeSelected(from, nextTrade.offerIds) - rosterCapacity)) {
+      if (nextTrade.dropFromIds.length !== Math.max(0, activeRosterCount(from) - activeSelected(from, nextTrade.offerIds) + activeSelected(to, nextTrade.requestIds) - rosterCapacity)) {
         return 'Trade drop selections must match the roster limits.';
       }
       continue;
     }
+    const acceptingTrade = nextTrade.status === 'accepted' && oldTrade.status === 'pending';
     if (!sameValue(
-      { ...oldTrade, status: null, updatedAt: null },
-      { ...nextTrade, status: null, updatedAt: null },
+      { ...oldTrade, status: null, updatedAt: null, ...(acceptingTrade ? { dropToIds: nextTrade.dropToIds } : {}) },
+      { ...nextTrade, status: null, updatedAt: null, ...(acceptingTrade ? { dropToIds: nextTrade.dropToIds } : {}) },
     )) return 'Trade details cannot be changed after an offer is sent.';
     if (nextTrade.status === 'accepted' && oldTrade.status === 'pending') {
       if (!idsForTradeAcceptance(previous, incoming, userId, oldTrade, nextTrade)) {

@@ -6220,11 +6220,13 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     const fromDropLabel = document.createElement('div'); fromDropLabel.className = 'trade-player-heading'; fromDropLabel.textContent = 'PLAYERS OFFERING TEAM WILL DROP';
     const fromDrops = document.createElement('div'); fromDrops.className = 'trade-player-list';
     fromDropList.append(fromDropLabel, fromDrops);
-    const toDropList = document.createElement('div'); toDropList.className = 'field';
-    const toDropLabel = document.createElement('div'); toDropLabel.className = 'trade-player-heading'; toDropLabel.textContent = 'PLAYERS RECEIVING TEAM WILL DROP';
-    const toDrops = document.createElement('div'); toDrops.className = 'trade-player-list';
-    toDropList.append(toDropLabel, toDrops);
-    drops.append(fromDropList, toDropList);
+    const toDropNote = document.createElement('div'); toDropNote.className = 'field';
+    const toDropNoteLabel = document.createElement('div'); toDropNoteLabel.className = 'trade-player-heading'; toDropNoteLabel.textContent = 'RECEIVING TEAM DROPS';
+    const toDropNoteText = document.createElement('p');
+    toDropNoteText.className = 'small-note';
+    toDropNoteText.textContent = 'The receiving team picks their own drop (if needed) when they accept this trade — you cannot pick it for them.';
+    toDropNote.append(toDropNoteLabel, toDropNoteText);
+    drops.append(fromDropList, toDropNote);
     wrapper.append(drops);
     function selectedIds(container) {
       return [...container.querySelectorAll('input[type="checkbox"]:checked')].map((checkbox) => checkbox.value);
@@ -6242,25 +6244,17 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       const firstSelected = selectedIds(fromPlayers);
       const secondSelected = selectedIds(toPlayers);
       const selectedFromDrops = selectedIds(fromDrops);
-      const selectedToDrops = selectedIds(toDrops);
       const activeSelected = (team, ids) => (team?.roster || []).filter((player) => ids.includes(player.id) && player.rosterSlot !== 'IR').length;
+      // Only the offering team's drops are picked at offer time; the
+      // receiving team picks its own drop when it accepts.
       const firstOverflow = Math.max(0, activeRosterCount(first) - activeSelected(first, firstSelected) + activeSelected(second, secondSelected) - rosterCapacity());
-      const secondOverflow = Math.max(0, activeRosterCount(second) - activeSelected(second, secondSelected) + activeSelected(first, firstSelected) - rosterCapacity());
       const firstCandidates = (first?.roster || []).filter((player) => !firstSelected.includes(player.id) && player.rosterSlot !== 'IR');
-      const secondCandidates = (second?.roster || []).filter((player) => !secondSelected.includes(player.id) && player.rosterSlot !== 'IR');
       fromDropLabel.textContent = firstOverflow
         ? `OFFERING TEAM: SELECT ${firstOverflow} PLAYER${firstOverflow === 1 ? '' : 'S'} TO DROP`
         : 'OFFERING TEAM DROPS (NOT REQUIRED)';
-      toDropLabel.textContent = secondOverflow
-        ? `RECEIVING TEAM: SELECT ${secondOverflow} PLAYER${secondOverflow === 1 ? '' : 'S'} TO DROP`
-        : 'RECEIVING TEAM DROPS (NOT REQUIRED)';
       fillTradeCheckboxes(fromDrops, first, firstOverflow ? firstCandidates : [], firstOverflow);
-      fillTradeCheckboxes(toDrops, second, secondOverflow ? secondCandidates : [], secondOverflow);
       fromDrops.querySelectorAll('input[type="checkbox"]').forEach((checkbox) => {
         checkbox.checked = selectedFromDrops.includes(checkbox.value);
-      });
-      toDrops.querySelectorAll('input[type="checkbox"]').forEach((checkbox) => {
-        checkbox.checked = selectedToDrops.includes(checkbox.value);
       });
     }
     leftTeam.addEventListener('change', refreshLists);
@@ -6315,13 +6309,8 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
           button.textContent = label;
           button.addEventListener('click', () => {
             if (status === 'accepted') {
-              const error = acceptTradeOffer(trade);
-              if (error) {
-                notify(error);
-                renderOffers();
-                return;
-              }
-              notify(`Trade accepted: ${from.teamName} ⇄ ${to.teamName}.`);
+              openTradeAcceptance(trade, from, to);
+              return;
             } else {
               trade.status = status;
               trade.updatedAt = Date.now();
@@ -6373,7 +6362,6 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       const firstIds = selectedIds(fromPlayers);
       const secondIds = selectedIds(toPlayers);
       const firstDropIds = selectedIds(fromDrops);
-      const secondDropIds = selectedIds(toDrops);
       if (!firstIds.length || !secondIds.length) { notify('Select at least one player from each team.'); return false; }
       if (firstIds.some((id) => !first.roster.some((player) => player.id === id))
         || secondIds.some((id) => !second.roster.some((player) => player.id === id))) {
@@ -6382,22 +6370,19 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       }
       const lockedTradePlayer = [...firstIds.map((id) => first.roster.find((player) => player.id === id)),
         ...secondIds.map((id) => second.roster.find((player) => player.id === id)),
-        ...firstDropIds.map((id) => first.roster.find((player) => player.id === id)),
-        ...secondDropIds.map((id) => second.roster.find((player) => player.id === id))].find((player) => player && isPlayerGameLocked(player));
+        ...firstDropIds.map((id) => first.roster.find((player) => player.id === id))].find((player) => player && isPlayerGameLocked(player));
       if (lockedTradePlayer) {
         notify(gameLockMessage(lockedTradePlayer));
         return false;
       }
       const activeSelectedIds = (team, ids) => team.roster.filter((player) => ids.includes(player.id) && player.rosterSlot !== 'IR').length;
       const firstOverflow = Math.max(0, activeRosterCount(first) - activeSelectedIds(first, firstIds) + activeSelectedIds(second, secondIds) - rosterCapacity());
-      const secondOverflow = Math.max(0, activeRosterCount(second) - activeSelectedIds(second, secondIds) + activeSelectedIds(first, firstIds) - rosterCapacity());
-      if (firstDropIds.length !== firstOverflow || secondDropIds.length !== secondOverflow) {
-        notify('Select exactly the number of players each team must drop to stay within its roster limit.');
+      if (firstDropIds.length !== firstOverflow) {
+        notify('Select exactly the number of players your team must drop to stay within its roster limit. The receiving team picks its own drop when it accepts.');
         return false;
       }
-      if (firstDropIds.some((id) => !first.roster.some((player) => player.id === id) || firstIds.includes(id))
-        || secondDropIds.some((id) => !second.roster.some((player) => player.id === id) || secondIds.includes(id))) {
-        notify('Drop selections must be different players who remain on that team after the trade.');
+      if (firstDropIds.some((id) => !first.roster.some((player) => player.id === id) || firstIds.includes(id))) {
+        notify('Drop selections must be different players who remain on your team after the trade.');
         return false;
       }
       league.trades ||= [];
@@ -6408,7 +6393,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
         offerIds: firstIds,
         requestIds: secondIds,
         dropFromIds: firstDropIds,
-        dropToIds: secondDropIds,
+        dropToIds: [],
         status: 'pending',
         createdAt: Date.now(),
         updatedAt: Date.now(),
@@ -6423,7 +6408,55 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     }, { confirmText: 'SEND TRADE OFFER' });
   }
 
-  function acceptTradeOffer(trade) {
+  // Receiving team picks its drop (if any) at acceptance time; the
+  // offer creator never picks it. Opens a picker when a drop is needed,
+  // otherwise accepts directly.
+  function openTradeAcceptance(trade, from, to) {
+    const activeSelected = (team, ids) => team.roster.filter((player) => ids.includes(player.id) && player.rosterSlot !== 'IR').length;
+    const toOverflow = Math.max(0, activeRosterCount(to) - activeSelected(to, trade.requestIds) + activeSelected(from, trade.offerIds) - rosterCapacity());
+    const applyAcceptance = (dropToIds) => {
+      const error = acceptTradeOffer(trade, dropToIds);
+      if (error) {
+        notify(error);
+        return;
+      }
+      notify(`Trade accepted: ${from.teamName} ⇄ ${to.teamName}.`);
+    };
+    if (!toOverflow) {
+      applyAcceptance([]);
+      return;
+    }
+    const wrapper = document.createElement('div');
+    const description = document.createElement('p');
+    description.textContent = `Accepting this trade puts ${to.teamName} over its roster limit. Choose ${toOverflow} player${toOverflow === 1 ? '' : 's'} to drop from ${to.teamName} — this is your pick as the receiving team.`;
+    const dropList = document.createElement('div');
+    dropList.className = 'claim-drop-roster';
+    wrapper.append(description, dropList);
+    to.roster.filter((player) => !trade.requestIds.includes(player.id) && player.rosterSlot !== 'IR').forEach((player) => {
+      const locked = isPlayerGameLocked(player);
+      const choice = document.createElement('label');
+      choice.className = 'lineup-choice claim-drop-choice';
+      const input = document.createElement('input');
+      input.type = 'checkbox';
+      input.value = player.id;
+      input.disabled = locked;
+      const text = document.createElement('span');
+      text.textContent = `${player.position} · ${player.name} · ${player.rosterSlot || 'BENCH'}${locked ? ' · LOCKED' : ''}`;
+      choice.append(input, text);
+      dropList.append(choice);
+    });
+    openModal('Accept trade.', 'CHOOSE YOUR DROP', wrapper, () => {
+      const selected = [...dropList.querySelectorAll('input[type="checkbox"]:checked')].map((checkbox) => checkbox.value);
+      if (selected.length !== toOverflow) {
+        notify(`Select exactly ${toOverflow} player${toOverflow === 1 ? '' : 's'} to drop.`);
+        return false;
+      }
+      applyAcceptance(selected);
+      return true;
+    }, { confirmText: 'ACCEPT TRADE' });
+  }
+
+  function acceptTradeOffer(trade, acceptedDropToIds = null) {
     if (trade.status !== 'pending') return 'This offer has already been resolved.';
     if (!Array.isArray(trade.offerIds) || !Array.isArray(trade.requestIds)
       || !trade.offerIds.length || !trade.requestIds.length) return 'This offer has invalid player selections.';
@@ -6440,7 +6473,9 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       return 'This offer expired because a selected player is no longer on that team.';
     }
     const dropFromIds = Array.isArray(trade.dropFromIds) ? trade.dropFromIds : [];
-    const dropToIds = Array.isArray(trade.dropToIds) ? trade.dropToIds : [];
+    // Drops chosen by the receiving team at acceptance time; fall back
+    // to any drops stored on older offers for backward compatibility.
+    const dropToIds = Array.isArray(acceptedDropToIds) ? acceptedDropToIds : (Array.isArray(trade.dropToIds) ? trade.dropToIds : []);
     const offeredIds = new Set(trade.offerIds);
     const requestedIds = new Set(trade.requestIds);
     const fromDropPlayers = from.roster.filter((player) => dropFromIds.includes(player.id));
@@ -6460,7 +6495,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     const lockedInTrade = [...offered, ...requested, ...fromDropPlayers, ...toDropPlayers].find((player) => isPlayerGameLocked(player));
     if (lockedInTrade) return gameLockMessage(lockedInTrade);
     if (dropFromIds.length !== fromOverflow || dropToIds.length !== toOverflow) {
-      return 'The selected drop players no longer match the roster limits. Cancel this offer and create a new one.';
+      return 'The drop selections no longer match the roster limits. The offering team drops were set when the offer was sent; choose your drops again when accepting.';
     }
 
     const releasedFromIds = new Set([...trade.offerIds, ...dropFromIds]);
@@ -6481,6 +6516,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       player.rosterSlotIndex = nextRosterSlotIndex(to, player.rosterSlot);
       to.roster.push(player);
     });
+    trade.dropToIds = dropToIds;
     trade.status = 'accepted';
     trade.updatedAt = Date.now();
     saveLeague();
