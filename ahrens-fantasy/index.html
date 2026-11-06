@@ -137,9 +137,12 @@ input::-moz-selection, textarea::-moz-selection { color: #090d12; background: #7
 .player-table th, .roster-table th, .score-table th { position: sticky; top: 0; z-index: 1; padding: 9px 6px; background: #111922; color: #74837d; font: 8px var(--mono); letter-spacing: .06em; text-align: left; white-space: normal; }
 .player-table td, .roster-table td, .score-table td { padding: 8px 6px; border-top: 1px solid #ffffff0b; color: #c5d0c9; font: 10px var(--mono); white-space: normal; overflow-wrap: anywhere; word-break: break-word; vertical-align: top; }
 .player-table td, .roster-table td { font-size: 12px; }
-.fantasy-points-cell { color: var(--lime) !important; font-weight: 500 !important; }
-.average-points-cell { color: var(--green) !important; }
-.projection-cell { color: #5c7eaf !important; font-weight: 600 !important; }
+.fantasy-points-cell { color: var(--cyan) !important; font-size: 13px !important; font-weight: 600 !important; }
+.average-points-cell { color: var(--dim) !important; font-size: 11px !important; font-weight: 400 !important; }
+.projection-cell { color: var(--lime) !important; font-size: 15px !important; font-weight: 800 !important; letter-spacing: -.02em; }
+.projection-header { color: var(--lime); font-weight: 700; }
+.actual-header { color: var(--cyan); }
+.average-header { color: var(--dim); font-weight: 500; }
 .matchup-cell { min-width: 0; }
 .matchup-detail { margin-top: 3px; color: var(--dim); font-size: 8px; }
 .matchup-tag { display: inline-block; padding: 4px 6px; border: 1px solid #d8e3d9; border-radius: 4px; background: #f3f7f2; color: #41574a; font: 9px var(--mono); }
@@ -1044,7 +1047,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
           <div class="roster-week-totals" id="myTeamWeekTotals"></div>
           <div class="my-team-alerts" id="myTeamAlerts"></div>
           <p class="legend">Press <strong>Move</strong>, then <strong>Place</strong> on the player whose slot you want. Reordering only works for unlocked players. Once a player’s NFL game has kicked off, is live, or is final, they are locked and cannot be moved, dropped, swapped, added, or traded.</p>
-          <div class="player-table-wrap"><table class="roster-table"><thead><tr><th>Player</th><th>Pos</th><th>NFL</th><th>Matchup</th><th>Status</th><th>Slot</th><th>Proj</th><th>Points</th><th>Avg Pts</th><th>Action</th></tr></thead><tbody id="myTeamRows"></tbody></table></div>
+          <div class="player-table-wrap"><table class="roster-table"><thead><tr><th>Player</th><th>Pos</th><th>NFL</th><th>Matchup</th><th>Status</th><th>Slot</th><th class="projection-header" title="Projected points — static ESPN projection for this week (not the average)">Projected</th><th class="actual-header" title="Actual points — fantasy points scored so far this week">Actual</th><th class="average-header" title="Average points per game — historical average, not a projection">Avg / G</th><th>Action</th></tr></thead><tbody id="myTeamRows"></tbody></table></div>
         </section>
         <aside class="draft-side">
           <section class="panel draft-side-card"><div class="panel-head"><h2>This week’s matchup</h2><span id="myTeamMatchupWeek">WEEK 8</span></div><div class="my-team-matchup" id="myTeamMatchup"><div class="empty-state">No matchup set for this week yet.</div></div></section>
@@ -1082,7 +1085,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
           </div>
           <div class="modal-callout hidden" id="draftRequirement" role="status"></div>
           <p class="legend"><strong>Proj</strong> = expected fantasy points under this league’s scoring. <strong>Actual</strong> = points from the live box score for the selected NFL week.</p>
-          <div class="player-table-wrap"><table class="player-table"><thead><tr><th>ESPN rank</th><th>Player</th><th>Pos</th><th>NFL</th><th>Matchup</th><th>Status</th><th>Proj</th><th>Actual</th><th>Draft</th></tr></thead><tbody id="draftPlayerRows"></tbody></table><div class="empty-state" id="playerPoolEmpty">The NFL player pool is loading.</div></div>
+          <div class="player-table-wrap"><table class="player-table"><thead><tr><th>ESPN rank</th><th>Player</th><th>Pos</th><th>NFL</th><th>Matchup</th><th>Status</th><th class="projection-header" title="Projected points — static ESPN projection for this week (not the average)">Projected</th><th class="actual-header" title="Actual points — fantasy points scored so far this week">Actual</th><th>Draft</th></tr></thead><tbody id="draftPlayerRows"></tbody></table><div class="empty-state" id="playerPoolEmpty">The NFL player pool is loading.</div></div>
         </section>
         <aside class="draft-side">
           <section class="panel draft-side-card"><div class="panel-head"><h2>Draft order</h2><span id="draftPickCount">0 PICKS</span></div><div class="draft-order" id="draftOrder"></div></section>
@@ -1093,7 +1096,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
 
     <section class="view" id="view-rosters">
       <div class="view-title"><div><div class="eyebrow">Lineups</div><h1>Set who starts this week.</h1><p>Weekly projections, actual points, and season average points stay visible on every roster row. Select a player’s name to open current and previous weeks’ stats; use Move to change their lineup slot. Once a player’s NFL game for the selected week has kicked off, is live, or is final, they are locked and cannot be moved, dropped, or swapped.</p></div><div class="title-actions"><button class="button" id="renameRosterTeam">Rename team</button><button class="button" id="openTrade">Trade desk</button><button class="button" id="editLineup">Edit lineup</button></div></div>
-      <section class="panel"><div class="roster-tabs" id="rosterTabs"></div><div class="roster-summary" id="rosterSummary"></div><div class="roster-week-totals" id="rosterWeekTotals"></div><p class="legend">Avg Pts is fantasy points per game played in the season through the selected week. Week totals include starters only, matching the lineup points used in matchups. Press <strong>Move</strong>, then <strong>Place</strong> on the player whose slot you want. Full slots swap players when eligible; otherwise the replaced player goes to the bench. Players whose NFL game has started or been played (live, final, or kickoff time passed) are locked: they cannot be moved, swapped, dropped, added, or traded for the selected week.</p><div class="player-table-wrap"><table class="roster-table"><thead><tr><th>Player</th><th>Pos</th><th>NFL</th><th>Matchup</th><th>Status</th><th>Slot</th><th>Proj</th><th>Points</th><th>Avg Pts</th><th>Action</th></tr></thead><tbody id="rosterRows"></tbody></table></div></section>
+      <section class="panel"><div class="roster-tabs" id="rosterTabs"></div><div class="roster-summary" id="rosterSummary"></div><div class="roster-week-totals" id="rosterWeekTotals"></div><p class="legend">Columns left to right: <strong>Projected</strong> (largest) is the static ESPN projection for this week, <strong>Actual</strong> is points scored so far this week, and <strong>Avg / G</strong> is the historical average per game — not a projection. Week totals include starters only, matching the lineup points used in matchups. Press <strong>Move</strong>, then <strong>Place</strong> on the player whose slot you want. Full slots swap players when eligible; otherwise the replaced player goes to the bench. Players whose NFL game has started or been played (live, final, or kickoff time passed) are locked: they cannot be moved, swapped, dropped, added, or traded for the selected week.</p><div class="player-table-wrap"><table class="roster-table"><thead><tr><th>Player</th><th>Pos</th><th>NFL</th><th>Matchup</th><th>Status</th><th>Slot</th><th class="projection-header" title="Projected points — static ESPN projection for this week (not the average)">Projected</th><th class="actual-header" title="Actual points — fantasy points scored so far this week">Actual</th><th class="average-header" title="Average points per game — historical average, not a projection">Avg / G</th><th>Action</th></tr></thead><tbody id="rosterRows"></tbody></table></div></section>
     </section>
 
     <section class="view" id="view-matchups">
@@ -1108,9 +1111,9 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     </section>
 
     <section class="view" id="view-players">
-      <div class="view-title"><div><div class="eyebrow">NFL player pool</div><h1>Players in your league format.</h1><p>Search NFL players at positions enabled in this league. Proj is ESPN’s expected stat line, scored with your league’s rules. Actual is the selected week’s box score, and Avg Pts is fantasy points per game played through that week.</p></div><div class="title-actions"><button class="button accent" id="refreshPlayers">Refresh players</button></div></div>
+      <div class="view-title"><div><div class="eyebrow">NFL player pool</div><h1>Players in your league format.</h1><p>Search NFL players at positions enabled in this league. <strong>Projected</strong> (largest) is ESPN’s static expected stat line for this week, scored with your league’s rules. <strong>Actual</strong> is points scored so far this week. <strong>Avg / G</strong> is the historical average per game — not a projection.</p></div><div class="title-actions"><button class="button accent" id="refreshPlayers">Refresh players</button></div></div>
       <section class="panel" id="waiverClaimsPanel" hidden><div class="panel-head"><h2>My pending waiver claims</h2><span>CLAIMS IN REVIEW</span></div><div class="manager-list" id="waiverClaimsList"></div></section>
-      <section class="panel"><div class="search-toolbar"><input class="input" id="poolSearch" type="search" placeholder="Search player, team, or position" aria-label="Search all NFL players"><select class="filter-select" id="poolPos"><option value="ALL">All positions</option><option>QB</option><option>RB</option><option>WR</option><option>TE</option><option>FLEX</option><option>K</option><option>D/ST</option></select><select class="filter-select" id="poolAvailability" aria-label="Filter by availability"><option value="AVAILABLE">Available to claim</option><option value="ALL">All players</option><option value="ROSTERED">Rostered players</option></select><select class="filter-select" id="poolSort" aria-label="Sort players"><option value="DEFAULT">Default order</option><option value="PROJECTION">Projection: high to low</option><option value="ACTUAL">Actual points: high to low</option><option value="AVERAGE">Average points: high to low</option></select><span class="pool-note" id="poolCount">Loading player directory…</span></div><div class="player-table-wrap"><table class="player-table"><thead><tr><th>Player</th><th>Pos</th><th>NFL</th><th>Matchup</th><th>Status</th><th>Slot</th><th>Proj</th><th>Points</th><th>Avg Pts</th><th>Fantasy team</th><th>Action</th></tr></thead><tbody id="poolRows"></tbody></table><div class="empty-state" id="poolEmpty">Connecting to the NFL roster directory…</div></div></section>
+      <section class="panel"><div class="search-toolbar"><input class="input" id="poolSearch" type="search" placeholder="Search player, team, or position" aria-label="Search all NFL players"><select class="filter-select" id="poolPos"><option value="ALL">All positions</option><option>QB</option><option>RB</option><option>WR</option><option>TE</option><option>FLEX</option><option>K</option><option>D/ST</option></select><select class="filter-select" id="poolAvailability" aria-label="Filter by availability"><option value="AVAILABLE">Available to claim</option><option value="ALL">All players</option><option value="ROSTERED">Rostered players</option></select><select class="filter-select" id="poolSort" aria-label="Sort players"><option value="DEFAULT">Default order</option><option value="PROJECTION">Projection: high to low</option><option value="ACTUAL">Actual points: high to low</option><option value="AVERAGE">Average points: high to low</option></select><span class="pool-note" id="poolCount">Loading player directory…</span></div><div class="player-table-wrap"><table class="player-table"><thead><tr><th>Player</th><th>Pos</th><th>NFL</th><th>Matchup</th><th>Status</th><th>Slot</th><th class="projection-header" title="Projected points — static ESPN projection for this week (not the average)">Projected</th><th class="actual-header" title="Actual points — fantasy points scored so far this week">Actual</th><th class="average-header" title="Average points per game — historical average, not a projection">Avg / G</th><th>Fantasy team</th><th>Action</th></tr></thead><tbody id="poolRows"></tbody></table><div class="empty-state" id="poolEmpty">Connecting to the NFL roster directory…</div></div></section>
     </section>
 
     <section class="view" id="view-commissioner-settings">
@@ -1536,6 +1539,10 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
   let draftAutoPickBusy = false;
   let draftAutoPickAttemptedPick = -1;
   let draftOrderDraft = [];
+  let draftOrderCenteredPick = null;
+  let draftOrderCenteredLeagueId = null;
+  let draftOrderUserMoved = false;
+  let draftOrderProgrammaticScroll = false;
 
   function loadLeague() {
     try {
@@ -3454,7 +3461,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     if (playerAveragePoints.has(key) && playerAveragePoints.get(key) == null) {
       return 'No completed game stats are available for this player yet.';
     }
-    return `Fantasy points per game played through NFL Week ${throughWeek}`;
+    return `Average fantasy points per game (historical average, not a projection) through NFL Week ${throughWeek}`;
   }
 
   async function loadPlayerAveragePoints() {
@@ -3965,15 +3972,17 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
 
   function populatePositionFilters() {
     const active = activeRosterPositions();
+    const flexEnabled = Number(league.rosterSlots.FLEX || 0) > 0;
+    const poolOptions = active.flatMap((position) => (position === 'WR' && flexEnabled ? [position, 'FLEX'] : [position]));
     [
-      [$('positionFilter'), 'ALL POSITIONS'],
-      [$('poolPos'), 'All positions'],
-    ].forEach(([select, allLabel]) => {
+      [$('positionFilter'), 'ALL POSITIONS', active],
+      [$('poolPos'), 'All positions', poolOptions],
+    ].forEach(([select, allLabel, options]) => {
       if (!select) return;
       const current = select.value;
       select.replaceChildren(new Option(allLabel, 'ALL'));
-      active.forEach((position) => select.add(new Option(position, position)));
-      select.value = active.includes(current) ? current : 'ALL';
+      options.forEach((position) => select.add(new Option(position, position)));
+      select.value = options.includes(current) ? current : 'ALL';
     });
   }
 
@@ -4352,7 +4361,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     $('draftHeading').textContent = auctionMode ? 'Build your roster in the live auction.' : 'Pick players in snake order.';
     $('draftInstructions').textContent = auctionMode
       ? 'Nominate an available NFL player, then bid against your league. Every team starts with its configured salary cap and must reserve $1 per open roster slot.'
-      : 'Search the NFL pool, then add a player to the team on the clock. Proj uses ESPN expected stats scored with this league’s rules. Actual uses this week’s box score.';
+      : 'Search the NFL pool, then add a player to the team on the clock. Projected (largest) is the static ESPN expected stat line scored with this league’s rules. Actual is points scored so far this week.';
     renderDraftPlayers();
     renderDraftOrder();
     renderOnClockRoster();
@@ -4628,6 +4637,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
 
   function renderDraftOrder() {
     const container = $('draftOrder');
+    const previousScrollTop = container.scrollTop;
     container.replaceChildren();
     const start = Math.max(0, league.picks.length - 5);
     const end = Math.min(totalDraftPicks(), Math.max(18, league.picks.length + 13));
@@ -4656,8 +4666,39 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       row.append(pickNumber, name, player);
       container.append(row);
     }
-    if (!league.picks.length) container.scrollTop = 0;
-    else container.scrollTop = container.scrollHeight;
+    const currentIndex = league.picks.length;
+    const leagueChanged = draftOrderCenteredLeagueId !== league.leagueId;
+    const shouldCenter = leagueChanged || draftOrderCenteredPick === null || (currentIndex !== draftOrderCenteredPick && !draftOrderUserMoved);
+    if (shouldCenter) {
+      const currentRow = container.querySelector('.draft-order-row.current');
+      if (currentRow && container.clientHeight > 0) {
+        draftOrderProgrammaticScroll = true;
+        const target = currentRow.offsetTop - (container.clientHeight - currentRow.clientHeight) / 2;
+        container.scrollTop = Math.max(0, Math.min(target, Math.max(0, container.scrollHeight - container.clientHeight)));
+        draftOrderCenteredPick = currentIndex;
+        draftOrderCenteredLeagueId = league.leagueId;
+        window.requestAnimationFrame(() => { draftOrderProgrammaticScroll = false; });
+      } else if (!currentRow) {
+        if (leagueChanged || draftOrderCenteredPick === null) {
+          container.scrollTop = 0;
+          draftOrderCenteredPick = currentIndex;
+          draftOrderCenteredLeagueId = league.leagueId;
+        } else {
+          container.scrollTop = previousScrollTop;
+        }
+      } else {
+        // Hidden while another view is active; center on next visible render.
+        draftOrderCenteredLeagueId = league.leagueId;
+      }
+    } else {
+      container.scrollTop = previousScrollTop;
+    }
+    if (container.dataset.scrollListener !== '1') {
+      container.dataset.scrollListener = '1';
+      container.addEventListener('scroll', () => {
+        if (!draftOrderProgrammaticScroll) draftOrderUserMoved = true;
+      }, { passive: true });
+    }
   }
 
   function renderOnClockRoster() {
@@ -5392,16 +5433,16 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     slot.textContent = locked ? `${slotLabel || targetSlot} · LOCKED` : (slotLabel || targetSlot);
     if (locked) slot.title = gameLockMessage(player);
     const projection = document.createElement('td');
-    projection.dataset.label = 'Proj';
+    projection.dataset.label = 'Projected';
     projection.className = 'projection-cell';
     projection.textContent = formatProjection(player);
     projection.title = formatProjectionTitle(player);
     const points = document.createElement('td');
-    points.dataset.label = 'Points';
+    points.dataset.label = 'Actual';
     points.className = 'fantasy-points-cell';
     points.textContent = playerFantasyPoints(player).toFixed(2);
     const average = document.createElement('td');
-    average.dataset.label = 'Avg Pts';
+    average.dataset.label = 'Avg / G';
     average.className = 'average-points-cell';
     average.textContent = formatPlayerAveragePoints(player);
     average.title = playerAverageTitle(player);
@@ -6505,6 +6546,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     const availability = $('poolAvailability').value || 'AVAILABLE';
     const sortBy = $('poolSort').value;
     const enabledPositions = new Set(activeRosterPositions());
+    if (Number(league.rosterSlots.FLEX || 0) > 0) ['RB', 'WR', 'TE'].forEach((position) => enabledPositions.add(position));
     const owners = new Map(league.managers.flatMap((team) => team.roster.map((member) => [member.id, { team, player: member }])));
     const visible = players.filter((player) => {
       if (!enabledPositions.has(player.position)) return false;
@@ -6575,7 +6617,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       slot.className = owner ? 'pool-slot-cell' : 'pool-slot-cell empty-player-slot';
       slot.textContent = owner ? (rosteredPlayer?.rosterSlot || 'BENCH') : '—';
       const projection = document.createElement('td');
-      projection.dataset.label = 'Proj';
+      projection.dataset.label = 'Projected';
       projection.className = 'projection-cell';
       projection.textContent = formatProjection(player);
       projection.title = formatProjectionTitle(player);
@@ -6584,11 +6626,11 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       fantasyTeam.className = owner ? 'fantasy-team-cell' : 'fantasy-team-cell empty-fantasy-team';
       fantasyTeam.textContent = owner ? `${teamLabel(owner.team)} · ${owner.team.name}` : '—';
       const points = document.createElement('td');
-      points.dataset.label = 'Points';
+      points.dataset.label = 'Actual';
       points.className = 'fantasy-points-cell';
       points.textContent = playerFantasyPoints(player).toFixed(2);
       const average = document.createElement('td');
-      average.dataset.label = 'Avg Pts';
+      average.dataset.label = 'Avg / G';
       average.className = 'average-points-cell';
       average.textContent = formatPlayerAveragePoints(player);
       average.title = playerAverageTitle(player);
@@ -7384,7 +7426,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       heading.textContent = `${teamLabel(team)} · ${team.name}`;
       const table = document.createElement('table');
       table.className = 'matchup-roster-table';
-      table.innerHTML = '<thead><tr><th>Player</th><th>Pos</th><th>Slot</th><th>Proj</th><th>Actual</th></tr></thead>';
+      table.innerHTML = '<thead><tr><th>Player</th><th>Pos</th><th>Slot</th><th class="projection-header" title="Projected points — static ESPN projection for this week (not the average)">Projected</th><th class="actual-header" title="Actual points — fantasy points scored so far this week">Actual</th></tr></thead>';
       panel.append(heading);
       const appendRosterSection = (label, rosterPlayers, className = '') => {
         const section = document.createElement('section');
@@ -7498,6 +7540,10 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     const target = $(`view-${viewName}`);
     const navTab = document.querySelector(`.nav-tab[data-view="${viewName}"]`);
     if (!target || !navTab) return;
+    if (viewName === 'draft') {
+      draftOrderUserMoved = false;
+      draftOrderCenteredPick = null;
+    }
     if (updateUrl && location.hash !== `#${viewName}`) history.pushState(null, '', `#${viewName}`);
     document.querySelectorAll('.view').forEach((view) => {
       view.classList.toggle('active', view === target);
@@ -7507,6 +7553,7 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     });
     if (viewName === 'rosters') renderRosters();
     if (viewName === 'my-team') renderMyTeam();
+    if (viewName === 'draft') renderDraftOrder();
     if (viewName === 'players') renderPlayerPool();
     if (viewName === 'live') {
       renderLiveGames();
@@ -8061,13 +8108,15 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
   function formatProjectionTitle(player) {
     const value = projectedFantasyPoints(player);
     return Number.isFinite(value)
-      ? `Estimated points using your league scoring for ${player?.name || 'this player'}`
-      : 'Projected fantasy points are unavailable for this player';
+      ? `Projected points (static ESPN projection for this week) for ${player?.name || 'this player'} — not the average`
+      : 'Projected points are unavailable for this player (static ESPN projection, not the average)';
   }
 
   function initializeNFLFeed() {
     fillWeeks();
     populatePositionFilters();
+    $('poolAvailability').value = 'AVAILABLE';
+    $('poolPos').value = 'ALL';
     customScoringRender();
     renderCommissionerSettings();
     $('managerButton').addEventListener('click', () => { void openOnlineLobby(); });
