@@ -313,8 +313,6 @@ button { font: inherit; }
 .act-h small { font-family: "Fredoka", sans-serif; font-size: 0.8rem; font-weight: 500; color: rgba(222, 240, 255, 0.7); letter-spacing: 0; }
 .act.walk span { display: grid; gap: 0.1rem; }
 .act.walk em { font-style: normal; font-size: 0.8rem; font-weight: 500; color: rgba(222, 240, 255, 0.72); }
-.suggest { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; margin-top: 0.7rem; padding: 0.55rem 0.7rem; border-radius: 12px; background: rgba(143, 227, 211, 0.12); box-shadow: inset 0 0 0 2px rgba(143, 227, 211, 0.55); font-size: 0.95rem; }
-.suggest .btn { flex: none; }
 .step { display: flex; align-items: center; gap: 0.5rem; margin: 0.15rem 0; }
 .step b { display: inline-grid; place-items: center; width: 1.5rem; height: 1.5rem; border-radius: 50%; background: rgba(255, 255, 255, 0.15); font-size: 0.85rem; flex: none; }
 .step.done b { background: #3cc2a8; color: #052033; }

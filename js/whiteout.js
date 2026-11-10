@@ -534,7 +534,6 @@
         <div class="yourturn">📡 Send your signal</div>
         <p class="hint" style="margin-top:0.2rem">Share what your secret tells you — but only by pointing at one place. No other talking about it!</p>
         ${secret}
-        ${suggestBox(s, ci)}
         <div class="sigpick">
           <p class="step${pick ? ' done' : ''}"><b>1</b> ${pick ? `Place: <b>${E.PLACES[pick].icon} ${E.PLACES[pick].name}</b> <span class="muted">(tap another to change)</span>` : 'Tap a place on the map'}</p>
           <p class="step"><b>2</b> Choose what it means</p>
@@ -558,7 +557,6 @@
       <div class="yourturn">🎯 Your turn — ${left} action${left === 1 ? '' : 's'} left</div>
       <p class="hint" style="margin-top:0.2rem">Each action is one step on the map <i>or</i> one thing where you stand. Use up to ${E.ACTIONS}, then end your turn.</p>
       ${peekBtn}${secret}
-      ${suggestBox(s, ci)}
       <h3 class="act-h">📍 At the ${esc(P.name)}</h3>
       <div class="actions">${here.length ? here.map((a) => actionButton(s, ci, a)).join('') : `<p class="hint" style="margin:0">Nothing to do here${c.carry ? ` with ${E.itemName(c.carry)}` : ''} — walk somewhere.</p>`}</div>
       <h3 class="act-h">🦶 Walk <small>${mc} action${mc > 1 ? 's' : ''} a step — or tap a glowing place on the map</small></h3>
@@ -584,27 +582,7 @@
     if ((s.ground[p] || []).length) notes.push(`${s.ground[p].length} item${s.ground[p].length > 1 ? 's' : ''} on the ground`);
     return `<button type="button" class="act walk" data-a='${esc(JSON.stringify(a))}'><span>${P.icon} Walk to ${esc(P.name)}${notes.length ? `<em>${notes.join(' · ')}</em>` : ''}</span></button>`;
   }
-  // The computer crew's advice for this crewmate, using only what its role knows (and never shown while that
-  // role's secret is hidden on a shared device).
-  function suggestion(s, ci) {
-    if (!visibleRoles().has(s.crew[ci].role)) return null;
-    try {
-      const view = G.mode === 'online' ? { ...JSON.parse(JSON.stringify(s)), storms: (s.forecast || []).slice().reverse() } : s;
-      const a = E.aiChoose(view, s.crew[ci].seat);
-      if (!a) return null;
-      if (s.phase === 'act' && !E.actionsFor(s, ci).some((o) => JSON.stringify(o) === JSON.stringify(a))) return null;
-      return a;
-    } catch {
-      return null;
-    }
-  }
-  function suggestBox(s, ci) {
-    const a = suggestion(s, ci);
-    if (!a) return '';
-    const text = a.t === 'signal' ? (a.none ? '🤐 Send no signal' : `${SIG[a.kind]} ${SIG_TEXT[a.kind]} at ${E.PLACES[a.at].name}`) : actLabel(s, ci, a);
-    return `<div class="suggest"><span>💡 <b>Suggested:</b> ${text}</span><button type="button" class="btn sm" id="suggest-go" data-sa='${esc(JSON.stringify(a))}'>Do it</button></div>`;
-  }
-  // Plain words for an action (for buttons, suggestions and confirmations).
+  // Plain words for an action (for the confirmation after it).
   function actLabel(s, ci, a) {
     const c = s.crew[ci];
     const rn = (i) => E.ROLES[s.crew[i].role].name;
@@ -723,8 +701,6 @@
         send({ t: 'signal', ci, at: G.pick, kind: k });
       }));
     }
-    const sg = $('#suggest-go');
-    if (sg) sg.onclick = () => send(JSON.parse(sg.dataset.sa));
     const peek = $('#peek');
     if (peek) peek.onclick = () => {
       G.peek = !G.peek;
