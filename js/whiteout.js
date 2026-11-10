@@ -17,17 +17,30 @@
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
   const $ = (sel, r = document) => r.querySelector(sel);
 
+  // ---------------------------------------------------------------- the home screen frame (shared game-home.css)
+  const topRow = (extra = '') => `<div class="gh-top"><a class="gh-lobby" href="/ahrens-games" title="Back to the game lobby">← <img class="gh-dice" src="/img/board-games-favicon-48.png?v=10" alt="" width="20" height="20"> Game lobby</a>${extra}</div>`;
+  function heroHtml(withTagline) {
+    const snow = Array.from({ length: 18 }, (_, i) => `<i style="left:${(i * 37) % 100}%;animation-delay:${(-i * 0.7).toFixed(1)}s;animation-duration:${(6 + (i % 5)).toFixed(1)}s"></i>`).join('');
+    return `${topRow()}
+      <div class="gh-hero">
+        <img src="/img/whiteout/cover.webp" alt="Four researchers trudge toward Whiteout Station as a storm rolls in under the aurora" class="gh-hero-img">
+        <div class="gh-shade"></div>
+        <div class="hero-snow" aria-hidden="true">${snow}</div>
+        <div class="gh-title"><h1 class="display">Whiteout Station</h1>${withTagline ? '<p>The radio is dead and a storm is coming. Each of you knows something the others don’t — and can share it only one signal a round. Fix the radio, verify the research and call in the plane before the final whiteout.</p>' : ''}</div>
+      </div>`;
+  }
+
   // ---------------------------------------------------------------- gates: an account, and (for now) the admin only
   function gate(html) {
-    app.innerHTML = `<section class="panel gate">${html}</section>`;
+    app.innerHTML = `<div class="setup gh">${heroHtml(false)}<div class="setup-card gh-card panel ol-gate">${html}</div></div>`;
   }
   if (!session()) {
     const back = encodeURIComponent(location.pathname.replace(/^\//, '') + location.search);
-    gate(`<h1>Whiteout Station</h1><h2>🔒 Sign in to play</h2><a class="btn" href="/account.html?return=${back}">Log in or sign up</a>`);
+    gate(`<h2>🔒 Sign in to play</h2><a class="btn big" href="/account.html?return=${back}">Log in or sign up</a>`);
     return;
   }
   if ((read('ahrenslabs_email') || '').trim().toLowerCase() !== 'calebahrens2011@gmail.com') {
-    gate('<h1>Whiteout Station</h1><p>This game is in private testing.</p><a class="btn ghost" href="/ahrens-games">Back to Ahrens Games</a>');
+    gate('<h2>This game is in private testing</h2><a class="btn big" href="/ahrens-games">Back to Ahrens Games</a>');
     return;
   }
 
@@ -47,7 +60,7 @@
   // G: { mode: 'local' | 'online', state, gid, privy (seat holding the device for a private moment), peek, seen (storms shown) }
   let G = null;
   let timer = null;
-  let setup = { diff: 'standard', crew: E.ROLE_ORDER.map((r, i) => ({ human: i === 0, name: '' })) };
+  let setup = { mode: 'ai', role: 'engineer', diff: 'standard', crew: E.ROLE_ORDER.map((r, i) => ({ human: i < 2, name: '' })) };
   try {
     const s = JSON.parse(read('whiteout.setup') || 'null');
     if (s && s.crew && s.crew.length === 4) setup = { ...setup, ...s };
@@ -133,6 +146,7 @@
   function showSetup() {
     stop();
     G = null;
+    if (Online) Online.disconnect();
     const saved = (() => {
       try {
         const g = JSON.parse(read(SAVE_KEY) || 'null');
@@ -142,40 +156,57 @@
       }
     })();
     const d = E.DIFF[setup.diff];
+    const mode = ['ai', 'local', 'online'].includes(setup.mode) ? setup.mode : 'ai';
+    const role = (r) => E.ROLES[r];
+    const resume = saved ? `<div class="gh-resume"><div><b>Mission in progress</b><span>Round ${saved.state.round} · ${esc(E.DIFF[saved.state.diff].name)} · radio ${saved.state.installed}/${E.PARTS} · samples ${saved.state.verified}/${saved.state.need}</span></div><button class="btn" id="resume">Continue</button></div>` : '';
     app.innerHTML = `
-      <section class="hero"><img src="/img/whiteout/cover.webp" alt="The crew trudges toward Whiteout Station as a storm rolls in under the aurora" width="1280" height="720">
-        <div class="copy"><h1>Whiteout Station</h1><p>The radio is dead and a storm is coming. Each of you knows something the others don’t — and the only way to share it is one signal a round. Work together, get the research home, and call in the plane before the whiteout.</p></div></section>
-      <div class="cols">
-        <section class="panel">
-          <h2>Assemble the crew</h2>
-          <p class="muted">Each role is played by a person on this device or by a computer crewmate. Give two roles the same name to play both yourself.</p>
-          <div class="roster">${E.ROLE_ORDER.map((r, i) => {
-            const R = E.ROLES[r];
-            const c = setup.crew[i];
-            return `<div class="rrow" style="--rc:${ROLE_COLOR[r]}"><img src="${crewImg(r)}" alt=""><div><b>${R.icon} ${R.name}</b><small>${R.secret}</small>${c.human ? `<input data-name="${i}" value="${esc(c.name || '')}" maxlength="18" placeholder="Player name" aria-label="${R.name} player name">` : ''}</div>
-              <div class="seg" role="radiogroup" aria-label="${R.name}"><button type="button" data-who="${i}" data-v="p" class="${c.human ? 'on' : ''}">👤 Player</button><button type="button" data-who="${i}" data-v="c" class="${c.human ? '' : 'on'}">🤖 Computer</button></div></div>`;
-          }).join('')}</div>
-          <h3>Difficulty</h3>
-          <div class="seg" role="radiogroup" aria-label="Difficulty">${Object.entries(E.DIFF).map(([k, v]) => `<button type="button" data-diff="${k}" class="${setup.diff === k ? 'on' : ''}">${v.name}</button>`).join('')}</div>
-          <p class="diff-note muted">${d.storms} storms before the final whiteout · ${d.fuel} fuel to start · verify ${d.need} clean samples.</p>
-          <div class="start-row">
-            <button class="btn warm" id="start">❄️ Start the mission</button>
-            ${saved ? `<button class="btn ghost" id="resume">↩ Resume (round ${saved.state.round})</button>` : ''}
-            <button class="btn ghost" id="rules">📜 How to play</button>
+      <div class="setup gh${mode === 'local' ? ' is-local' : ''}${mode === 'online' ? ' is-online' : ''}">
+        ${heroHtml(true)}
+        <div class="setup-card gh-card panel">
+          ${resume}
+          <h2>New mission</h2>
+          <div class="gh-modes" id="mode">
+            <button type="button" data-v="ai" class="gh-mode${mode === 'ai' ? ' on' : ''}"><span>🤖</span><b>Computer</b><small>You and a computer crew</small></button>
+            <button type="button" data-v="local" class="gh-mode${mode === 'local' ? ' on' : ''}"><span>👥</span><b>Players</b><small>2–4 on this device</small></button>
+            <button type="button" data-v="online" class="gh-mode${mode === 'online' ? ' on' : ''}"><span>🌐</span><b>Online</b><small>Invite your crew</small></button>
           </div>
-        </section>
-        <section class="panel">
-          <h2>The mission</h2>
-          <div class="how">
-            <div><img src="/img/whiteout/item-part.webp" alt=""><span><b>Fix the radio</b><small>Three radio parts are lost out on the ice. Find them and install them in the Radio Room.</small></span></div>
-            <div><img src="/img/whiteout/item-sample.webp" alt=""><span><b>Verify the research</b><small>Collect samples from the field sites and analyze them in the Lab. Only clean ones count.</small></span></div>
-            <div><img src="/img/whiteout/mod-hangar.webp" alt=""><span><b>Call the plane</b><small>Radio for rescue. Two rounds later the plane lands — everyone must be in the Hangar.</small></span></div>
-            <div><img src="/img/whiteout/item-fuel.webp" alt=""><span><b>Stay alive</b><small>Keep the generator fuelled, repair storm damage, and never leave a frozen crewmate out on the ice.</small></span></div>
+          <div class="field ai-only offline-only">
+            <span class="label">Your role</span>
+            <div class="role-pick" role="radiogroup" aria-label="Your role">${E.ROLE_ORDER.map((r) => `<button type="button" data-role="${r}" class="${setup.role === r ? 'on' : ''}" style="--rc:${ROLE_COLOR[r]}" role="radio" aria-checked="${setup.role === r}"><img src="${crewImg(r)}" alt=""><b>${role(r).icon} ${role(r).name}</b><small>${role(r).secret}</small></button>`).join('')}</div>
+            <p class="muted">Computer crewmates play the other three roles — and they only share what they know through signals, too.</p>
           </div>
-          <h2 style="margin-top:1.1rem">🌐 Play online</h2>
-          <div id="online-box"></div>
-        </section>
+          <div class="field local-only">
+            <span class="label">The crew</span>
+            <p class="muted" style="margin-top:0">Each role is a player on this device or a computer. Give two roles the same name to play both.</p>
+            <div class="roster">${E.ROLE_ORDER.map((r, i) => {
+              const c = setup.crew[i];
+              return `<div class="rrow" style="--rc:${ROLE_COLOR[r]}"><img src="${crewImg(r)}" alt=""><div><b>${role(r).icon} ${role(r).name}</b><small>${role(r).secret}</small>${c.human ? `<input data-name="${i}" value="${esc(c.name || '')}" maxlength="18" placeholder="Player name" aria-label="${role(r).name} player name">` : ''}</div>
+                <div class="seg" role="radiogroup" aria-label="${role(r).name}"><button type="button" data-who="${i}" data-v="p" class="${c.human ? 'on' : ''}">👤 Player</button><button type="button" data-who="${i}" data-v="c" class="${c.human ? '' : 'on'}">🤖 Computer</button></div></div>`;
+            }).join('')}</div>
+          </div>
+          <div class="field">
+            <span class="label">Difficulty${mode === 'online' ? ' <small class="muted">(for new invites)</small>' : ''}</span>
+            <div class="seg" id="diff" role="radiogroup" aria-label="Difficulty">${Object.entries(E.DIFF).map(([k, v]) => `<button type="button" data-diff="${k}" class="${setup.diff === k ? 'on' : ''}">${v.name}</button>`).join('')}</div>
+            <p class="muted level-hint">${d.storms} storms before the final whiteout · ${d.fuel} fuel to start · verify ${d.need} clean samples.</p>
+          </div>
+          <div class="online-only" id="online-box"></div>
+          <button class="btn big offline-only" id="start">❄️ Start the mission</button>
+          <div class="gh-links">
+            <button type="button" class="btn ghost sm" id="rules">📜 How to play</button>
+            <a class="btn ghost sm" href="/game-history.html">🏆 Game history</a>
+          </div>
+        </div>
       </div>`;
+    app.querySelectorAll('#mode [data-v]').forEach((b) => b.addEventListener('click', () => {
+      setup.mode = b.dataset.v;
+      keepSetup();
+      showSetup();
+    }));
+    app.querySelectorAll('[data-role]').forEach((b) => b.addEventListener('click', () => {
+      setup.role = b.dataset.role;
+      keepSetup();
+      showSetup();
+    }));
     app.querySelectorAll('[data-who]').forEach((b) => b.addEventListener('click', () => {
       const c = setup.crew[+b.dataset.who];
       c.human = b.dataset.v === 'p';
@@ -195,7 +226,7 @@
     $('#start').onclick = startLocal;
     if (saved) $('#resume').onclick = () => startFrom(saved);
     $('#rules').onclick = showRules;
-    if (Online) Online.showLobby();
+    if (Online && mode === 'online') Online.showLobby();
   }
   function keepSetup() {
     try {
@@ -206,6 +237,20 @@
   }
 
   function startLocal() {
+    if (setup.mode !== 'local') {
+      const me = (read('ahrenslabs_username') || 'You').slice(0, 18);
+      const names = [me];
+      const ai = [false];
+      const crew = E.ROLE_ORDER.map((r) => {
+        if (r === setup.role) return 0;
+        names.push(`Computer ${E.ROLES[r].name}`);
+        ai.push(true);
+        return names.length - 1;
+      });
+      startFrom({ mode: 'local', state: E.newGame({ diff: setup.diff, names, ai, crew }), gid: newId(), seen: 0 });
+      showRoundIntro();
+      return;
+    }
     if (!setup.crew.some((c) => c.human)) return toast('At least one role needs a player.');
     // One seat per distinct player name; each computer crewmate gets a seat of its own.
     const names = [];
@@ -352,6 +397,7 @@
     const vis = visibleRoles();
     const ci = s.phase === 'act' ? s.turn : s.phase === 'signal' ? currentSignaller() : -1;
     app.innerHTML = `
+      ${topRow(`<span class="wo-ttl">❄️ Whiteout Station</span>${G.mode === 'local' ? '<button type="button" class="btn ghost sm" id="new-mission">New mission</button>' : ''}`)}
       ${statusBar(s)}
       <div class="layout">
         <section class="board" aria-label="Map of Whiteout Station and the ice">${board(s, vis, ci)}</section>
@@ -542,6 +588,11 @@
   function wire(s, ci) {
     const rb = $('#rules-btn');
     if (rb) rb.onclick = showRules;
+    const nm = $('#new-mission');
+    if (nm) nm.onclick = () => {
+      history.replaceState(null, '', location.pathname);
+      showSetup();
+    };
     const again = $('#again');
     if (again) again.onclick = () => showEnd();
     app.querySelectorAll('[data-a]').forEach((b) => b.addEventListener('click', () => send(JSON.parse(b.dataset.a))));
