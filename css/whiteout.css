@@ -253,3 +253,56 @@ button { font: inherit; }
   .top-mid { grid-row: 2; }
 }
 @media (max-width: 360px) { .brand-logo { display: none; } }
+
+/* ---------------- rulebook (same layout as the other games' rulebooks) */
+.modal-back { position: fixed; inset: 0; z-index: 65; display: grid; place-items: center; padding: 1rem; background: rgba(3, 12, 22, 0.75); backdrop-filter: blur(3px); }
+.modal { position: relative; width: min(600px, 100%); max-height: 92vh; overflow-y: auto; color: #0b2a40; border-radius: 20px; padding: 1.3rem 1.4rem;
+  background: linear-gradient(180deg, #f7fcff, #e8f4fa); box-shadow: 0 0 0 3px #0b2a40, 0 0 0 6px #3cc2a8, 0 24px 60px rgba(0, 0, 0, 0.6); animation: pop 0.3s cubic-bezier(.34, 1.56, .64, 1) both; }
+.modal-back.wide .modal { width: min(900px, 100%); }
+.modal h2 { margin: 0 0 0.6rem; padding-right: 2.4rem; font-size: 1.7rem; color: #0b2a40; }
+.modal-x { position: absolute; top: 0.6rem; right: 0.7rem; border: 0; background: rgba(11, 42, 64, 0.08); width: 34px; height: 34px; border-radius: 50%; cursor: pointer; font-size: 1rem; color: #0b2a40; z-index: 2; }
+.modal-x:hover { background: rgba(11, 42, 64, 0.16); }
+.modal .btn.ghost { color: #0b2a40; background: #fff; box-shadow: inset 0 0 0 2px #c9e2ee; }
+.rules-tabs { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-bottom: 0.8rem; }
+.rules-tabs button { border: 0; border-radius: 999px; padding: 0.35rem 0.75rem; cursor: pointer; font-weight: 600; background: #fff; box-shadow: inset 0 0 0 2px #c9e2ee; color: #0b2a40; }
+.rules-tabs button.on { color: #fff; background: linear-gradient(180deg, #3cc2a8, #1f8f86); box-shadow: none; }
+.rules-body p, .rules-body li { line-height: 1.5; color: #173b52; }
+.rules-body table { width: 100%; border-collapse: collapse; font-size: 0.9rem; margin: 0.5rem 0; }
+.rules-body th, .rules-body td { text-align: left; padding: 0.35rem 0.45rem; border-bottom: 1px solid #c9e2ee; }
+.rules-body th { color: #1f5b73; }
+.rulebook { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 1.1rem; align-items: start; }
+.rb-toc { position: sticky; top: 0; flex-direction: column; flex-wrap: nowrap; gap: 0.25rem; margin: 0; }
+.rb-toc-head { font-family: "Lilita One", sans-serif; font-weight: 400; letter-spacing: 0.03em; font-size: 1.05rem; color: #4d6c7e; padding: 0 0.3rem 0.2rem; }
+.rb-toc button { text-align: left; border-radius: 10px; padding: 0.4rem 0.6rem; display: flex; gap: 0.45rem; align-items: baseline; }
+.rb-toc button span { font-variant-numeric: tabular-nums; color: #4d6c7e; min-width: 1.2em; }
+.rb-toc button.on span { color: #e3faf4; }
+.rb-ch { margin: 0 0 0.6rem; font-size: 1.75rem; color: #0b2a40; border-bottom: 3px solid #0b2a40; padding-bottom: 0.35rem; }
+.rb-ch small { display: block; font-family: "Fredoka", sans-serif; font-size: 0.8rem; font-weight: 600; color: #4d6c7e; letter-spacing: 0.08em; text-transform: uppercase; }
+.rb-sec { margin: 1rem 0 0.35rem; font-family: "Lilita One", sans-serif; font-weight: 400; font-size: 1.25rem; letter-spacing: 0.02em; color: #0b2a40; }
+.rb-sec span { color: #1f8f86; margin-right: 0.25rem; }
+.rb-flow { padding-left: 1.3rem; display: grid; gap: 0.3rem; }
+.rb-flow li::marker { font-weight: 800; color: #1f8f86; }
+.rb-ex { padding: 0.55rem 0.8rem; border-left: 4px solid #3c86c9; background: rgba(60, 134, 201, 0.1); border-radius: 0 10px 10px 0; font-size: 0.94rem; }
+.rb-terms { display: grid; grid-template-columns: max-content 1fr; gap: 0.4rem 0.9rem; margin: 0.4rem 0; }
+.rb-terms dt { font-weight: 700; color: #0b2a40; }
+.rb-terms dd { margin: 0; color: #173b52; }
+.rb-nav { display: flex; justify-content: space-between; gap: 0.5rem; margin-top: 1.2rem; padding-top: 0.8rem; border-top: 2px solid #c9e2ee; }
+.rb-crew { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.5rem; margin: 0.7rem 0; }
+.rb-crew figure { margin: 0; text-align: center; font-weight: 700; font-size: 0.85rem; }
+.rb-crew img { width: 72px; height: 72px; border-radius: 50%; object-fit: cover; object-position: 50% 14%; background: var(--rc); box-shadow: 0 0 0 3px var(--rc); display: block; margin: 0 auto 0.35rem; }
+.rb-role { display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 0.9rem; align-items: center; }
+.rb-role img { width: 84px; height: 84px; border-radius: 50%; object-fit: cover; object-position: 50% 14%; background: var(--rc); box-shadow: 0 0 0 3px var(--rc); }
+.rb-place { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 0.8rem; align-items: center; margin: 0.5rem 0; }
+.rb-place img { width: 96px; height: 76px; object-fit: contain; }
+.rb-place p { margin: 0.15rem 0 0; }
+.rb-storm img { object-fit: cover; border-radius: 10px; box-shadow: 0 0 0 2px #c9e2ee; }
+@media (max-width: 700px) {
+  .rulebook { grid-template-columns: minmax(0, 1fr); gap: 0.6rem; }
+  .rb-toc { position: static; flex-direction: row; overflow-x: auto; scrollbar-width: none; padding-bottom: 0.2rem; }
+  .rb-toc-head { display: none; }
+  .rb-toc button { flex: 0 0 auto; white-space: nowrap; }
+  .rb-terms { grid-template-columns: 1fr; gap: 0.1rem; }
+  .rb-terms dd { margin-bottom: 0.4rem; }
+  .rb-crew { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .rb-nav .btn { font-size: 0.8rem; }
+}

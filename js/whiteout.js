@@ -140,7 +140,7 @@
   function closeVeil() {
     document.querySelectorAll('.veil').forEach((v) => v.remove());
   }
-  const veilOpen = () => !!$('.veil');
+  const veilOpen = () => !!$('.veil, .modal-back');
 
   // ---------------------------------------------------------------- setup screen
   function showSetup() {
@@ -650,29 +650,173 @@
     act(a);
   }
 
-  // ---------------------------------------------------------------- rules
-  function showRules() {
-    const v = document.createElement('div');
-    v.className = 'veil';
-    v.innerHTML = `<div class="card" role="dialog" aria-modal="true" aria-label="How to play" style="width:min(720px,100%)"><div class="body rules">
-      <h2>How to play Whiteout Station</h2>
-      <p>A cooperative game: the whole crew wins or loses together.</p>
-      <h3>🎯 Win</h3><ol><li>Find the <b>3 radio parts</b> on the ice and install them in the <b>Radio Room</b>.</li><li>Take samples at the field sites and <b>analyze</b> them in the <b>Lab</b> until enough clean ones are verified.</li><li>From the Radio Room, <b>call the plane</b>. It lands at the end of the second round after the call — the Hangar must be undamaged and <b>every</b> crewmate in it (frozen ones carried in).</li></ol>
-      <h3>❄️ Lose</h3><ul><li>The storm deck runs out: the final whiteout.</li><li>A crewmate stays frozen to the end of the round after they froze.</li><li>Three modules are damaged at once.</li></ul>
-      <h3>🔁 Each round</h3><ol><li><b>Signals.</b> Each crewmate secretly picks one place on the map and says ✅ go here, ⚠️ avoid here or ❓ check here (or nothing). They’re revealed together. That’s the only way to share your secret — no other talking about it!</li><li><b>Actions.</b> In order (Meteorologist, Engineer, Researcher, Medic), each crewmate takes up to <b>3 actions</b>.</li><li><b>Storm.</b> The next storm card hits, then the generator burns fuel. Inside a heated station you warm up by 1; out on the ice you lose 1.</li></ol>
-      <h3>🦶 Actions</h3><ul><li><b>Walk</b> one step along a path (2 actions while carrying a frozen crewmate, unless you’re the Medic).</li><li><b>Search</b> a field site: if a radio part is there you pick it up.</li><li><b>Take</b> a sample, a fuel drum, something lying on the ground, or a frozen crewmate. You carry one thing at a time; <b>put down</b> to swap.</li><li><b>Install</b> a part (Radio Room), <b>analyze</b> a sample (Lab), <b>feed the generator</b> a fuel drum (+2 fuel), <b>repair</b> a damaged module. Installing and repairing take the Engineer 1 action and everyone else 2; analyzing takes the Researcher 1 and everyone else 2.</li><li><b>Warm up</b> anyone in the station (+1, or +2 in the Infirmary).</li></ul>
-      <h3>🕵️ The roles</h3><ul>${E.ROLE_ORDER.map((r) => `<li><b>${E.ROLES[r].icon} ${E.ROLES[r].name}.</b> ${E.ROLES[r].secret} ${E.ROLES[r].power}</li>`).join('')}</ul>
-      <h3>⛈️ Storms</h3><ul><li><b>Blizzard:</b> anyone in that part of the ice loses 2 warmth.</li><li><b>Whiteout:</b> a site is cut off — nobody moves in or out next round.</li><li><b>Ice storm:</b> a module is damaged until repaired (a damaged Generator gives no heat).</li><li><b>Deep freeze:</b> the generator burns an extra fuel.</li><li><b>Calm:</b> nobody outside gets colder.</li></ul>
-      <h3>🧊 Warmth</h3><p>Everyone starts with 5. At 0 you freeze where you stand and drop what you carry. You can’t act until someone warms you up — carry them inside before the end of the next round.</p>
-    </div><div class="body" style="padding-top:0"><button class="btn" id="rules-close">Got it</button></div></div>`;
-    document.body.appendChild(v);
+  // ---------------------------------------------------------------- rules: the same chaptered rulebook as the other games
+  const RULE_CHAPTERS = [
+    ['overview', 'Overview'],
+    ['setup', 'Setting up'],
+    ['round', 'A round'],
+    ['signals', 'Signals'],
+    ['actions', 'Actions'],
+    ['crew', 'The crew'],
+    ['map', 'The map'],
+    ['storms', 'Storms'],
+    ['warmth', 'Warmth & freezing'],
+    ['end', 'Winning & losing'],
+    ['terms', 'Quick reference'],
+  ];
+  let rulesTab = 'overview';
+  function rulesBody(tab) {
+    const n = RULE_CHAPTERS.findIndex((c) => c[0] === tab) + 1;
+    const sec = (i, title) => `<h4 class="rb-sec"><span>${n}.${i}</span> ${title}</h4>`;
+    const head = `<h3 class="rb-ch"><small>Chapter ${n}</small>${RULE_CHAPTERS[n - 1][1]}</h3>`;
+    const P = E.PLACES;
+    const R = E.ROLES;
+    let body = '';
+    if (tab === 'overview') {
+      body = `<p>Whiteout Station is a <b>cooperative</b> game for 1–4 players: the whole crew wins or loses together, against the storm. A game takes about 30–45 minutes.</p>
+        <div class="rb-crew">${E.ROLE_ORDER.map((r) => `<figure style="--rc:${ROLE_COLOR[r]}"><img src="${crewImg(r)}" alt=""><figcaption>${R[r].icon} ${R[r].name}</figcaption></figure>`).join('')}</div>
+        ${sec(1, 'The story')}
+        <p>Your research crew is stranded at an Arctic station. The radio is dead, its parts are scattered across the ice, and a storm is building. You need to get the radio working, prove your research was worth it, and get everyone onto the rescue plane before the final whiteout.</p>
+        ${sec(2, 'The twist')}
+        <p>Each crewmate holds a <b>secret</b> the others can’t see — where the radio parts are, which samples are clean, which storms are coming, or how cold everyone really is. You can’t just say it: the only way to share what you know is <b>one signal a round</b>, pointed at a place on the map.</p>
+        ${sec(3, 'The mission')}
+        <ol class="rb-flow"><li>Find the <b>${E.PARTS} radio parts</b> out on the ice and install them in the Radio Room.</li><li>Collect samples and <b>verify enough clean ones</b> in the Lab.</li><li><b>Call the plane</b> and have the whole crew in the Hangar when it lands.</li></ol>
+        <p class="rb-ex">Do it before the storm deck runs out — and keep everyone warm, the generator fuelled and the station standing along the way.</p>`;
+    } else if (tab === 'setup') {
+      body = `${sec(1, 'The crew')}
+        <p>There are always four roles: ${E.ROLE_ORDER.map((r) => `${R[r].icon} ${R[r].name}`).join(', ')}. Each is played by a person or a computer crewmate. Playing alone, you take one role and computers take the rest; on one device or online, roles can be shared out however you like (one person can play two).</p>
+        ${sec(2, 'The board')}
+        <ul class="rb-flow"><li>Everyone starts in the <b>Hangar</b> with ${E.MAX_WARMTH} warmth.</li><li>${E.PARTS} of the 4 field sites hide a radio part (the Engineer knows which).</li><li>Each field site has 2 samples; some are clean and some contaminated (the Researcher knows which).</li><li>Fuel drums wait at the Crash Site (3) and Glacier Lake (2).</li><li>The storm deck is shuffled with milder storms on top and harsher ones underneath.</li></ul>
+        ${sec(3, 'Difficulty')}
+        <table><tr><th></th>${Object.values(E.DIFF).map((d) => `<th>${d.name}</th>`).join('')}</tr>
+          <tr><td>Storms in the deck</td>${Object.values(E.DIFF).map((d) => `<td>${d.storms}</td>`).join('')}</tr>
+          <tr><td>Starting fuel</td>${Object.values(E.DIFF).map((d) => `<td>${d.fuel}</td>`).join('')}</tr>
+          <tr><td>Clean samples (of 8)</td>${Object.values(E.DIFF).map((d) => `<td>${d.clean}</td>`).join('')}</tr>
+          <tr><td>Samples to verify</td>${Object.values(E.DIFF).map((d) => `<td>${d.need}</td>`).join('')}</tr></table>`;
+    } else if (tab === 'round') {
+      body = `<p>Each round has three steps.</p>
+        ${sec(1, 'Signals')}
+        <p>Every crewmate secretly picks one signal (or none). All the signals are revealed together. See chapter 4.</p>
+        ${sec(2, 'Actions')}
+        <p>In role order — ${E.ROLE_ORDER.map((r) => R[r].name).join(', ')} — each crewmate takes up to <b>${E.ACTIONS} actions</b>, then ends their turn. You see what everyone before you did. A frozen crewmate skips their turn.</p>
+        ${sec(3, 'The storm')}
+        <ol class="rb-flow"><li>Reveal the next storm card and apply it (chapter 8).</li><li>The generator burns 1 fuel (2 in a deep freeze). If it has fuel and isn’t damaged, the station is heated: everyone inside warms up by 1. If not, everyone inside loses 1.</li><li>Everyone out on the ice loses 1 warmth (not in calm skies).</li><li>Check whether the mission is won or lost (chapter 10).</li></ol>`;
+    } else if (tab === 'signals') {
+      body = `${sec(1, 'Sending a signal')}
+        <p>Pick a place on the map and say one of:</p>
+        <dl class="rb-terms"><dt>✅ Go here</dt><dd>Something good is here — or someone should come.</dd><dt>⚠️ Avoid here</dt><dd>Danger: stay away.</dd><dt>❓ Check here</dt><dd>Worth a look — something needs attention.</dd><dt>🤐 No signal</dt><dd>Say nothing this round.</dd></dl>
+        <p>Every signal shows the sender’s role, and stays on the map for the rest of the round.</p>
+        ${sec(2, 'The one rule')}
+        <p><b>No other talking about your secret.</b> You can talk about plans and what’s on the board — but not what only you can see. On one device, keep the screen to yourself when you’re told to.</p>
+        ${sec(3, 'Reading signals')}
+        <p>A signal means different things from different roles. That’s the puzzle.</p>
+        <p class="rb-ex">The Engineer signals ✅ at the Ice Ridge: there’s probably a radio part there. The Researcher signals ✅ at Glacier Lake: a clean sample, most likely. The Meteorologist signals ⚠️ at the Antenna Mast: a storm is about to hit that part of the ice.</p>`;
+    } else if (tab === 'actions') {
+      const cost = (r, k) => (r ? `<b>1</b> for the ${R[r].name}, <b>2</b> for everyone else` : '<b>1</b>');
+      body = `<p>Each action costs 1 unless it says otherwise. You can stop early. You can carry <b>one</b> thing at a time.</p>
+        <dl class="rb-terms">
+          <dt>🦶 Walk</dt><dd>Move one step along a path. ${cost()} — or 2 while carrying a frozen crewmate (the Medic still pays 1).</dd>
+          <dt>🔎 Search</dt><dd>At a field site you haven’t searched: if a radio part is there, you find it and pick it up (or leave it on the ground if your hands are full).</dd>
+          <dt>🧪 Take a sample</dt><dd>Pick up one of the site’s samples.</dd>
+          <dt>🛢️ Take fuel</dt><dd>Pick up a fuel drum.</dd>
+          <dt>🤲 Pick up / 📥 Put down</dt><dd>Pick up something lying here, or put down what you carry.</dd>
+          <dt>🫴 Carry a crewmate</dt><dd>Lift a frozen crewmate in the same place; they move with you.</dd>
+          <dt>📻 Install</dt><dd>In the Radio Room, install the part you carry. ${cost('engineer')}.</dd>
+          <dt>🔬 Analyze</dt><dd>In the Lab, analyze the sample you carry. A clean one counts toward the mission; a contaminated one is wasted. ${cost('researcher')}.</dd>
+          <dt>⛽ Feed the generator</dt><dd>In the Generator room, burn the fuel drum you carry: +2 fuel.</dd>
+          <dt>🔩 Repair</dt><dd>Fix the damaged module you’re in. ${cost('engineer')}.</dd>
+          <dt>♨️ Warm up</dt><dd>Inside the station: +1 warmth to you or someone with you (+2 in the Infirmary).</dd>
+          <dt>🩺 Treat</dt><dd>Medic only, anywhere: +2 warmth to anyone in the same place.</dd>
+          <dt>🌦️ Reroute</dt><dd>Meteorologist only, in the Radio Room, once a round: send the next storm to the bottom of the deck.</dd>
+          <dt>🛩️ Call the plane</dt><dd>In the Radio Room, once the radio works and the research is verified.</dd>
+        </dl>`;
+    } else if (tab === 'crew') {
+      body = E.ROLE_ORDER.map((r, i) => `${sec(i + 1, `${R[r].icon} ${R[r].name}`)}
+        <div class="rb-role" style="--rc:${ROLE_COLOR[r]}"><img src="${crewImg(r)}" alt=""><dl class="rb-terms"><dt>Secret</dt><dd>${R[r].secret}</dd><dt>Power</dt><dd>${R[r].power}</dd></dl></div>`).join('');
+    } else if (tab === 'map') {
+      const place = (p, txt) => `<div class="rb-place"><img src="${placeImg(p)}" alt=""><div><b>${P[p].icon} ${P[p].name}</b><p>${txt}</p></div></div>`;
+      body = `${sec(1, 'The station')}
+        <p>Five modules joined in a ring. Moving between neighbouring modules is one step. Inside, the generator keeps you warm.</p>
+        ${place('hangar', 'Where everyone starts — and the airlock onto the ice. The plane lands here, so it must not be damaged at the end.')}
+        ${place('radio', 'Install radio parts, call the plane, and (Meteorologist) reroute storms.')}
+        ${place('lab', 'Analyze samples.')}
+        ${place('infirmary', 'Warming up here gives +2 instead of +1.')}
+        ${place('generator', 'Feed it fuel drums. Damaged or empty, the station goes cold.')}
+        ${sec(2, 'The ice')}
+        <p>Four field sites, linked by icy paths. Out here you get colder every round.</p>
+        ${place('mast', 'One step from the Hangar.')}
+        ${place('lake', 'One step from the Hangar. Two fuel drums.')}
+        ${place('crash', 'Two steps out, past the Antenna Mast. Three fuel drums.')}
+        ${place('ridge', 'Two steps out, past Glacier Lake.')}
+        <p class="rb-ex">Each site has 2 samples, and 3 of the 4 hide a radio part. Searched sites are marked on the map.</p>`;
+    } else if (tab === 'storms') {
+      const card = (t, title, txt) => `<div class="rb-place rb-storm"><img src="/img/whiteout/storm-${t}.webp" alt=""><div><b>${title}</b><p>${txt}</p></div></div>`;
+      body = `<p>At the end of every round the next storm card is revealed. The deck starts gentle and gets rougher; when it’s empty, the final whiteout ends the game.</p>
+        ${card('blizzard', '🌨️ Blizzard', 'Over part of the ice (east, west, near, far — or late in the deck, all of it). Anyone there loses 2 warmth.')}
+        ${card('whiteout', '🌫️ Whiteout', 'A field site is cut off: nobody can move into or out of it during the next round.')}
+        ${card('ice', '🧊 Ice storm', 'A station module is damaged. It can’t be used until someone repairs it. Three damaged at once and the station is lost.')}
+        ${card('freeze', '🥶 Deep freeze', 'The generator burns an extra fuel tonight.')}
+        ${card('calm', '🌅 Calm skies', 'The wind drops: nobody out on the ice gets colder this round.')}
+        <p class="rb-ex">Only the Meteorologist sees what’s coming — the next two cards — and can push the next one to the bottom of the deck from the Radio Room.</p>`;
+    } else if (tab === 'warmth') {
+      body = `${sec(1, 'Warmth')}
+        <p>Everyone has up to ${E.MAX_WARMTH} warmth. You can always see your own exactly; everyone else shows as <b>warm</b>, <b>cold</b> or <b>freezing</b> — unless you’re the Medic, who sees it all.</p>
+        <ul class="rb-flow"><li>Out on the ice: −1 each round (not in calm skies), and −2 more in a blizzard.</li><li>Inside a heated station: +1 each round.</li><li>Warm up (+1, or +2 in the Infirmary) and the Medic’s treatment (+2) help too.</li></ul>
+        ${sec(2, 'Freezing')}
+        <p>At 0 warmth you <b>freeze</b> where you stand and drop what you’re carrying. A frozen crewmate can’t act or signal.</p>
+        <p>Someone must bring them back: carry them, warm them up or treat them. <b>If they’re still frozen at the end of the round after they froze, the mission is lost.</b> Carrying them into the heated station is enough — the station warms them overnight.</p>`;
+    } else if (tab === 'end') {
+      body = `${sec(1, 'Winning')}
+        <ol class="rb-flow"><li>All ${E.PARTS} radio parts installed.</li><li>Enough clean samples verified (see the difficulty table).</li><li>The plane called from the Radio Room. It lands at the end of the <b>second round after the call</b>.</li><li>When it lands, the Hangar is undamaged and <b>every</b> crewmate is in it (frozen ones carried in). If not, it circles and tries again at the end of the next round.</li></ol>
+        ${sec(2, 'Losing')}
+        <ul class="rb-flow"><li>The storm deck runs out — the final whiteout.</li><li>A crewmate stays frozen past the end of the round after they froze.</li><li>${E.DAMAGE_LOSS} station modules are damaged at the same time.</li></ul>`;
+    } else if (tab === 'terms') {
+      body = `<dl class="rb-terms">
+        <dt>Round</dt><dd>Signals, then everyone’s turn in role order, then a storm.</dd>
+        <dt>Actions</dt><dd>${E.ACTIONS} per turn; installing and repairing cost the Engineer 1 and others 2; analyzing costs the Researcher 1 and others 2.</dd>
+        <dt>Carry</dt><dd>One thing at a time: a part, a sample, a fuel drum or a frozen crewmate.</dd>
+        <dt>Fuel</dt><dd>1 burned per round (2 in a deep freeze); a drum gives +2.</dd>
+        <dt>Heat</dt><dd>Fuel left and Generator undamaged: +1 warmth inside. Otherwise −1 inside.</dd>
+        <dt>Cold</dt><dd>−1 on the ice each round (none in calm skies), −2 more in a blizzard.</dd>
+        <dt>Frozen</dt><dd>At 0 warmth. Must be warmed by the end of the next round.</dd>
+        <dt>Damage</dt><dd>A damaged module can’t be used until repaired. ${E.DAMAGE_LOSS} at once loses the game.</dd>
+        <dt>Signals</dt><dd>One per crewmate per round: ✅ go, ⚠️ avoid or ❓ check, at one place.</dd>
+        <dt>The plane</dt><dd>Lands at the end of the second round after the call — everyone in an undamaged Hangar.</dd>
+      </dl>`;
+    }
+    const prev = RULE_CHAPTERS[n - 2];
+    const next = RULE_CHAPTERS[n];
+    return `${head}${body}<div class="rb-nav">${prev ? `<button type="button" class="btn ghost sm" data-tab="${prev[0]}">← ${n - 1}. ${prev[1]}</button>` : '<span></span>'}${next ? `<button type="button" class="btn sm" data-tab="${next[0]}">${n + 1}. ${next[1]} →</button>` : ''}</div>`;
+  }
+  function showRules(tab) {
+    if (typeof tab === 'string' && RULE_CHAPTERS.some((c) => c[0] === tab)) rulesTab = tab;
+    const toc = () => RULE_CHAPTERS.map(([k, name], i) => `<button type="button" data-tab="${k}" class="${rulesTab === k ? 'on' : ''}"><span>${i + 1}</span> ${name}</button>`).join('');
+    const back = document.createElement('div');
+    back.className = 'modal-back wide rules-modal';
+    back.innerHTML = `<div class="modal" role="dialog" aria-modal="true" aria-label="Whiteout Station rulebook"><button type="button" class="modal-x" data-close aria-label="Close">✕</button>
+      <h2>📜 Whiteout Station — Rulebook</h2>
+      <div class="rulebook"><nav class="rules-tabs rb-toc" aria-label="Contents"><b class="rb-toc-head">Contents</b>${toc()}</nav>
+      <article class="rules-body">${rulesBody(rulesTab)}</article></div></div>`;
+    document.body.appendChild(back);
     const close = () => {
-      v.remove();
+      back.remove();
+      removeEventListener('keydown', onKey);
       if (G && G.mode === 'local') loop();
     };
-    $('#rules-close', v).onclick = close;
-    v.addEventListener('click', (e) => e.target === v && close());
-    $('#rules-close', v).focus();
+    const onKey = (e) => e.key === 'Escape' && close();
+    addEventListener('keydown', onKey);
+    back.addEventListener('click', (e) => {
+      if (e.target === back || e.target.closest('[data-close]')) return close();
+      const b = e.target.closest('[data-tab]');
+      if (!b) return;
+      rulesTab = b.dataset.tab;
+      back.querySelectorAll('.rb-toc button').forEach((x) => x.classList.toggle('on', x.dataset.tab === rulesTab));
+      back.querySelector('.rules-body').innerHTML = rulesBody(rulesTab);
+      back.querySelector('.modal').scrollTop = 0;
+      const on = back.querySelector('.rb-toc button.on');
+      if (on && on.scrollIntoView) on.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    });
+    back.querySelector('.modal-x').focus();
   }
 
   // ---------------------------------------------------------------- online (the shared board-online.js lobby and live moves)
