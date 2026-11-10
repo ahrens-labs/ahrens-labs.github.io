@@ -1,127 +1,666 @@
+// Whiteout Station — the game page. The rules live in whiteout-engine.js; this draws the map, hands the device
+// between players for their private briefings, plays the computer crew and shows each storm as it lands.
 (() => {
   'use strict';
+  const E = window.WhiteoutEngine;
   const app = document.querySelector('#app');
-  const hasAccount = () => {
-    try { return !!localStorage.getItem('ahrenslabs_sessionId'); } catch { return false; }
+  const API_BASE = window.AHRENS_LABS_API_BASE || 'https://chess-accounts.matthewahrens.workers.dev';
+  const SAVE_KEY = 'whiteout.save';
+  const read = (k) => {
+    try {
+      return localStorage.getItem(k);
+    } catch {
+      return null;
+    }
   };
-  function accountGate() {
+  const session = () => read('ahrenslabs_sessionId') || '';
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  const $ = (sel, r = document) => r.querySelector(sel);
+
+  // ---------------------------------------------------------------- gates: an account, and (for now) the admin only
+  function gate(html) {
+    app.innerHTML = `<section class="panel gate">${html}</section>`;
+  }
+  if (!session()) {
     const back = encodeURIComponent(location.pathname.replace(/^\//, '') + location.search);
-    app.innerHTML = `<section class="panel private-card"><h1>Whiteout Station</h1><h2>🔒 Sign in to play</h2><a class="btn" href="/account.html?return=${back}">Log in or sign up</a></section>`;
-  }
-  app.addEventListener('click', (event) => {
-    if (hasAccount() || event.target.closest('a[href^="/account.html"]')) return;
-    event.preventDefault();
-    event.stopImmediatePropagation();
-    accountGate();
-  }, true);
-  addEventListener('storage', (event) => {
-    if (event.key === 'ahrenslabs_sessionId' && !hasAccount()) location.reload();
-  });
-  if (!hasAccount()) {
-    accountGate();
+    gate(`<h1>Whiteout Station</h1><h2>🔒 Sign in to play</h2><a class="btn" href="/account.html?return=${back}">Log in or sign up</a>`);
     return;
   }
-  let isAdmin = false;
-  try { isAdmin = (localStorage.getItem('ahrenslabs_email') || '').trim().toLowerCase() === 'calebahrens2011@gmail.com'; }
-  catch { isAdmin = false; }
-  if (!isAdmin) {
-    app.innerHTML = '<section class="panel" style="margin:48px auto;max-width:560px;text-align:center"><h1>Whiteout Station</h1><p>This game is currently in private testing.</p><a class="btn secondary" href="/ahrens-games.html">Back to Ahrens Games</a></section>';
+  if ((read('ahrenslabs_email') || '').trim().toLowerCase() !== 'calebahrens2011@gmail.com') {
+    gate('<h1>Whiteout Station</h1><p>This game is in private testing.</p><a class="btn ghost" href="/ahrens-games">Back to Ahrens Games</a>');
     return;
   }
-  const ROLES = [
-    {id:'weather',name:'Meteorologist',icon:'🌦️',knows:'Your forecast shows where the next storm will strike.',special:'Forecast: shield a region from this round’s storm.'},
-    {id:'engineer',name:'Engineer',icon:'🧰',knows:'You know the hidden condition of the station’s critical systems.',special:'Field repair: fix the radio or generator, or reinforce the station.'},
-    {id:'medic',name:'Medic',icon:'🩺',knows:'You can see who is suffering most from cold and exposure.',special:'Treat: protect one crew member from cold and remove an injury.'},
-    {id:'researcher',name:'Researcher',icon:'🔬',knows:'You know which research sample is most likely to be useful this round.',special:'Analyze: verify a sample and reveal whether it meets the mission brief.'}
-  ];
-  const DIFF = {
-    easy:{name:'New Team', rounds:6, cold:0, damage:0, supply:10, samples:2, comms:3, hint:'A shorter mission with two samples, generous supplies, and clear clues.'},
-    standard:{name:'Standard',rounds:8,cold:1,damage:1,supply:8,samples:3,comms:2,hint:'A balanced mission with three samples and a steady storm.'},
-    veteran:{name:'Veteran',rounds:10,cold:2,damage:2,supply:7,samples:4,comms:1,hint:'A longer mission with four samples, tight supplies, and little radio time.'}
-  };
-  const ACTS = [
-    {id:'logs',title:'Check station log',text:'Reveal a public clue about samples or equipment.',type:'info'},
-    {id:'supplies',title:'Gather supplies',text:'Bring in food and fuel before the team runs low.',type:'supply'},
-    {id:'sample',title:'Collect a sample',text:'Bring a core, wildlife trace, or air reading to the lab.',type:'sample'},
-    {id:'radio',title:'Calibrate the radio',text:'Any crew member can work from the station log. The engineer makes faster progress.',type:'radio'},
-    {id:'generator',title:'Repair generator',text:'Prevent station damage and keep the heaters running.',type:'repair',role:'engineer'},
-    {id:'forecast',title:'Shield a field site',text:'Predict the storm and protect a site from exposure.',type:'shield',role:'weather'},
-    {id:'treat',title:'Treat a crewmate',text:'Protect someone from the cold this round.',type:'treat',role:'medic'},
-    {id:'analyze',title:'Analyze a sample',text:'Verify a collected sample against the mission brief.',type:'analyze',role:'researcher'},
-    {id:'warm',title:'Warm the crew',text:'Use the heater and spare blankets to lower exposure.',type:'warm'},
-    {id:'shelter',title:'Reinforce the station',text:'Reduce damage from the coming storm.',type:'shelter'},
-    {id:'evacuate',title:'Prepare evacuation',text:'Once radio and samples are ready, move toward the airstrip.',type:'evacuate'}
-  ];
-  let setup={players:3,diff:'standard'};
-  let game=null, pick=null, selectedSignal=null, pidx=0;
-  const $=(s,r=document)=>r.querySelector(s), esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const clamp=(v,n)=>Math.max(0,Math.min(n,v));
-  const newGame=()=>{
-    const d=DIFF[setup.diff], roleSets={2:['engineer','researcher'],3:['weather','engineer','researcher'],4:['weather','engineer','medic','researcher']}, roles=roleSets[setup.players].map(id=>ROLES.find(r=>r.id===id));
-    const names=['Alex','Riley','Sam','Jordan'];
-    game={diff:setup.diff,round:1,phase:'brief',briefAt:0,planAt:0,roles:roles.map((r,i)=>({...r,player:names[i]})),
-      tracks:{cold:d.cold,damage:d.damage,supplies:d.supply,storm:0,radio:0,samples:0,verified:0,evac:0},
-      max:{danger:8,storm:d.rounds,samples:d.samples}, reports:[],signals:[],log:['The crew reaches Whiteout Station. The radio is silent, and a storm is building.'],
-      missionSamples:d.samples,required:['Ice core','Wildlife trace','Air reading'],shield:null,treated:null,forecast:null,done:false,result:null,
-      sampleLead:null,
-      found:[],plans:Array(roles.length).fill(null),signalsThisRound:[],stormTarget:['North ridge','East field site','West antenna'][Math.floor(Math.random()*3)]};
-    game.sampleLead=['Ice core','Wildlife trace','Air reading'][Math.floor(Math.random()*3)];
-    game.reports=roles.map((r,i)=>makeReport(r,i));pidx=0;render();
-  };
-  function makeReport(r,i){
-    const d=DIFF[game.diff], t=game.tracks;
-    if(r.id==='weather')return {title:'Forecast',text:`The next storm will hit the ${game.stormTarget.toLowerCase()}. ${game.round>2?'Wind is picking up.':'A brief lull may give the crew time.'}`};
-    if(r.id==='engineer')return {title:'Systems check',text:t.radio<2?`Radio diagnostics: ${t.radio===0?'the antenna is down and the relay is untested.':'the relay is repaired; one final calibration should restore the radio.'} The generator ${Math.random()<.5?'is stable for now.':'is running hot.'}`:`Radio is ready. ${t.damage>3?'The station frame is under serious strain.':'Generator readings look steady.'}`};
-    if(r.id==='medic')return {title:'Crew health',text:`${game.roles[i].player} is ${t.cold>4?'showing dangerous exposure':'holding up for now'}. ${t.supplies<4?'Medical stores are nearly empty.':'The infirmary has enough supplies for treatment.'}`};
-    return {title:'Research briefing',text:`Mission needs ${d.samples} verified samples. Your instruments strongly favor the ${game.sampleLead.toLowerCase()} site this round.`};
+
+  // ---------------------------------------------------------------- art and layout
+  const ROLE_COLOR = { weather: '#38a3c9', engineer: '#e0902b', researcher: '#7c5cd6', medic: '#d9475a' };
+  const POS = { radio: [27, 20], lab: [10, 35], infirmary: [11, 64], generator: [27, 77], hangar: [40, 47], mast: [58, 22], lake: [58, 72], crash: [86, 25], ridge: [86, 68] };
+  const placeImg = (p) => `/img/whiteout/${E.PLACES[p].inside ? 'mod' : 'site'}-${p}.webp`;
+  const crewImg = (role) => `/img/whiteout/crew-${role}.webp`;
+  const itemImg = (t) => `/img/whiteout/item-${t === 'crew' ? 'sample' : t}.webp`;
+  const stormImg = (c) => `/img/whiteout/storm-${c.t}.webp`;
+  const SIG = { go: '✅', avoid: '⚠️', check: '❓' };
+  const SIG_TEXT = { go: 'Go here', avoid: 'Avoid here', check: 'Check here' };
+  const AI_STEP = 650;
+  const AI_SIGNAL = 260;
+
+  // ---------------------------------------------------------------- game state
+  // G: { mode: 'local' | 'online', state, gid, privy (seat holding the device for a private moment), peek, seen (storms shown) }
+  let G = null;
+  let timer = null;
+  let setup = { diff: 'standard', crew: E.ROLE_ORDER.map((r, i) => ({ human: i === 0, name: '' })) };
+  try {
+    const s = JSON.parse(read('whiteout.setup') || 'null');
+    if (s && s.crew && s.crew.length === 4) setup = { ...setup, ...s };
+  } catch {
+    /* defaults */
   }
-  function home(){app.innerHTML=`<section class="hero"><div class="snow"></div><div class="hero-copy"><h1>Whiteout<br>Station</h1><p>A storm is closing in. Your crew has the clues—but no one has the whole picture. Share what you can, plan in secret, then reveal your actions together.</p></div></section><div class="setup-grid"><section class="panel"><h2>Prepare the mission</h2><p class="intro">Cooperative pass-and-play for 2–4 players. Keep the screen private during briefings and planning.</p><div class="field"><label>Crew size</label><div class="choices">${[2,3,4].map(n=>`<button class="choice ${setup.players===n?'on':''}" data-players="${n}">${n} players</button>`).join('')}</div></div><div class="field"><label>Mission length and difficulty</label><div class="choices">${Object.entries(DIFF).map(([k,d])=>`<button class="choice ${setup.diff===k?'on':''}" data-diff="${k}">${d.name}</button>`).join('')}</div><p class="intro" id="diff-hint">${DIFF[setup.diff].hint}</p></div><button class="btn" id="start">Start the mission →</button></section><section class="panel"><h2>How to win</h2><div class="how"><article><b>📻 Restore the radio</b><small>The engineer knows the system, but any crewmate can work from the station log.</small></article><article><b>🧪 Verify the research</b><small>Collect samples, inspect clues, then have the researcher analyze enough valid evidence.</small></article><article><b>🚁 Evacuate together</b><small>Once radio and research are ready, spend actions preparing the airstrip and evacuate.</small></article><article><b>❄️ Survive the station</b><small>Cold, structural damage, supplies, and the storm all demand attention before they max out.</small></article></div></section></div>`;
-    app.querySelectorAll('[data-players]').forEach(b=>b.onclick=()=>{setup.players=+b.dataset.players;home()});
-    app.querySelectorAll('[data-diff]').forEach(b=>b.onclick=()=>{setup.diff=b.dataset.diff;home()});$('#start').onclick=newGame;
+  if (!setup.crew[0].name) setup.crew[0].name = (read('ahrenslabs_username') || 'You').slice(0, 18);
+
+  const st = () => G.state;
+  const humanSeats = () => st().players.map((p, i) => (p.ai ? null : i)).filter((i) => i != null);
+  const solo = () => G.mode === 'online' || humanSeats().length <= 1;
+  const mySeat = () => (G.mode === 'online' ? G.me : humanSeats()[0]);
+
+  // Whose secrets may be shown right now.
+  function visibleRoles() {
+    const s = st();
+    if (s.phase === 'over') return new Set(E.ROLE_ORDER);
+    let seat = null;
+    if (G.mode === 'online') seat = G.me;
+    else if (solo()) seat = mySeat();
+    else if (G.privy != null && G.peek) seat = G.privy;
+    if (seat == null) return new Set();
+    return new Set(s.crew.filter((c) => c.seat === seat).map((c) => c.role));
   }
-  function shell(content){app.innerHTML=content}
-  function veil(title,body,button,label){return `<div class="veil"><div class="veil-card"><div class="role-icon">🔒</div><h2>${title}</h2><p>${body}</p><button class="btn" id="veil-go">${button||'Continue →'}</button></div></div>`}
-  function brief(){const role=game.roles[game.briefAt],report=game.reports[game.briefAt];
-    shell(`<section class="hero"><div class="snow"></div><div class="hero-copy"><h1>Whiteout<br>Station</h1><p>Mission briefing · Round ${game.round}</p></div></section><section class="panel private-card"><div class="role-icon">${role.icon}</div><div class="role-title">${esc(role.player)} · ${role.name}</div><p class="intro">${role.knows}</p><div class="private-note"><b>${report.title}</b><br>${esc(report.text)}</div><h3>Special action</h3><p>${role.special}</p><p class="intro">Choose one signal to send over the limited radio. It shares a broad warning, not your full private report.</p><div class="comm-list">${[['warning','⚠️ My report matters'],['sample','🧪 I have research news'],['system','🧰 I found a system clue'],['quiet','🤐 Keep my clue private']].map(([v,t])=>`<button class="comm ${selectedSignal===v?'on':''}" data-signal="${v}">${t}</button>`).join('')}</div><div class="footer-actions"><button id="brief-done" class="btn" ${game.signalsThisRound.length>=DIFF[game.diff].comms&&selectedSignal!=='quiet'?'disabled':''}>${game.briefAt+1<game.roles.length?'Hide briefing & pass device':'Finish briefing →'}</button></div><p class="intro">Radio capacity: ${Math.max(0,DIFF[game.diff].comms-game.signalsThisRound.length)} signal${DIFF[game.diff].comms-game.signalsThisRound.length===1?'':'s'} left this round.</p></section>`);
-    app.querySelectorAll('[data-signal]').forEach(b=>b.onclick=()=>{selectedSignal=b.dataset.signal;brief()});
-    $('#brief-done').onclick=()=>{if(selectedSignal&&selectedSignal!=='quiet'&&game.signalsThisRound.length<DIFF[game.diff].comms)game.signalsThisRound.push(`${role.icon} ${role.player}: ${selectedSignal==='warning'?'my report has a warning':selectedSignal==='sample'?'I have research news':'I found a system clue'}`);selectedSignal=null;game.briefAt++;if(game.briefAt<game.roles.length)handoff('Briefing passed',`${game.roles[game.briefAt].player}, take the device. Keep the screen private while reading your station report.`,'Read my report',brief);else{game.phase='plan';game.planAt=0;planHandoff()}};
+  const ownSeat = () => (G.mode === 'online' ? G.me : solo() ? mySeat() : G.privy);
+
+  // ---------------------------------------------------------------- saving (local games)
+  function newId() {
+    return Array.from({ length: 12 }, () => '0123456789abcdefghijklmnopqrstuvwxyz'[Math.floor(Math.random() * 36)]).join('');
   }
-  function handoff(title,body,button,fn){shell(`<section class="hero"><div class="snow"></div><div class="hero-copy"><h1>Whiteout<br>Station</h1><p>Mission briefing · Round ${game.round}</p></div></section>${veil(title,body,button)}`);$('#veil-go').onclick=fn}
-  function planHandoff(){const r=game.roles[game.planAt];handoff('Private planning',`${r.player}, take the device. Your crew has finished sharing its radio signals. Choose one action in private; all actions will resolve together.`, 'Choose my action',plan)}
-  function getTargets(a){if(a==='sample')return ['Ice core','Wildlife trace','Air reading'];if(a==='treat')return game.roles.map(r=>r.player);if(a==='forecast')return ['North ridge','East field site','West antenna'];if(a==='analyze')return game.found.filter(f=>!f.tested).map((f,i)=>`${f.name} · sample ${i+1}`);return ['Radio relay','Generator','Station frame'];}
-  function actionsFor(r){return ACTS.filter(a=>!a.role||a.role===r.id).filter(a=>a.id!=='evacuate'||(game.tracks.radio>=2&&game.tracks.verified>=game.missionSamples)).filter(a=>a.id!=='analyze'||game.found.some(f=>!f.tested))}
-  function plan(){const r=game.roles[game.planAt];pick=null;
-    shell(`<div class="game-head"><div><h1>Whiteout Station</h1><div class="round">Round ${game.round} · ${r.player}, choose one action</div></div></div>${tracks()}<div class="station-layout"><section class="station-scene"><div class="sun"></div><div class="station-building"></div><div class="weather"></div><div class="scene-label">Whiteout Research Station</div></section><div class="side-stack">${mission()}<section class="panel"><h2>Signals received</h2>${game.signalsThisRound.length?`<ul class="log">${game.signalsThisRound.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:'<p class="intro">No signals sent this round.</p>'}</section></div></div><section class="panel phase"><h2>${r.icon} ${esc(r.name)} actions</h2><div class="action-grid">${actionsFor(r).map(a=>`<button class="act" data-act="${a.id}"><b>${a.title}</b><small>${a.text}${a.role?` Specialist action · ${r.name}`:''}</small></button>`).join('')}</div><div id="target-wrap"></div><button class="btn" id="lock" disabled>Lock action</button></section>`);
-    app.querySelectorAll('[data-act]').forEach(b=>b.onclick=()=>{app.querySelectorAll('[data-act]').forEach(x=>x.classList.remove('on'));b.classList.add('on');pick=ACTS.find(a=>a.id===b.dataset.act);targetPick=null;const targets=getTargets(pick.id);$('#target-wrap').innerHTML=targets.length?`<div class="field"><label>Choose target</label><div class="choices">${targets.map((t,i)=>`<button class="choice ${i===0?'on':''}" data-target="${i}">${esc(t)}</button>`).join('')}</div></div>`:'';targetPick=0;app.querySelectorAll('[data-target]').forEach(x=>x.onclick=()=>{app.querySelectorAll('[data-target]').forEach(y=>y.classList.remove('on'));x.classList.add('on');targetPick=+x.dataset.target});$('#lock').disabled=targets.length===0&&pick.id==='analyze';});
-    let targetPick=0;
-    $('#lock').onclick=()=>{if(!pick)return;game.plans[game.planAt]={action:pick.id,target:targetPick};game.planAt++;if(game.planAt<game.roles.length)planHandoff();else resolveRound()};
+  function save() {
+    if (!G || G.mode !== 'local') return;
+    const data = { mode: 'local', state: st(), gid: G.gid, seen: G.seen, moved: true };
+    try {
+      localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+    } catch {
+      /* storage full: the game still plays */
+    }
+    const BS = window.BoardSaves;
+    if (!BS) return;
+    if (st().phase === 'over') {
+      if (BS.list('whiteout').some((m) => m.id === G.gid)) BS.remove('whiteout', G.gid);
+      return;
+    }
+    BS.put('whiteout', G.gid, data, { mode: humanSeats().length > 1 ? 'local' : 'ai', level: st().diff, names: st().players.filter((p) => !p.ai).map((p) => p.name), round: st().round, rounds: st().round + st().storms.length - 1, moved: true });
   }
-  function tracks(){const t=game.tracks;return `<div class="tracks">${[['Cold',t.cold,8],['Station damage',t.damage,8],['Supplies',t.supplies,12],['Storm',t.storm,game.max.storm]].map(([n,v,m])=>`<div class="track"><div class="track-head"><span>${n}</span><span>${v}/${m}</span></div><div class="meter"><i style="width:${Math.min(100,v/m*100)}%"></i></div></div>`).join('')}</div>`}
-  function mission(){const t=game.tracks;return `<section class="panel mission"><h2>Mission checklist</h2><ul><li>${t.radio>=2?'✅':'⬜'} Radio restored (${t.radio}/2)</li><li>${t.verified>=game.missionSamples?'✅':'⬜'} Verify ${game.missionSamples} clean samples (${t.verified}/${game.missionSamples})</li><li>${t.evac>=2?'✅':'⬜'} Prepare evacuation (${t.evac}/2)</li></ul>${game.found.length?`<b>Lab samples</b><ul>${game.found.map(f=>`<li>${f.tested?(f.valid?'✅ Clean':'⚠️ Contaminated'):'🔎 Unanalyzed'} ${esc(f.name)}</li>`).join('')}</ul>`:''}<b>Goal:</b> complete all three, then evacuate. Any danger track reaching its limit ends the mission.</section>`}
-  function renderActive(){if(game.done){end();return}shell(`<div class="game-head"><div><h1>Whiteout Station</h1><div class="round">Round ${game.round}</div></div><button class="btn secondary" id="restart">New mission</button></div>${tracks()}<div class="station-layout"><section class="station-scene"><div class="sun"></div><div class="station-building"></div><div class="weather"></div><div class="scene-label">Whiteout Research Station</div><div class="status-row"><span class="pill">📻 Radio ${game.tracks.radio}/2</span><span class="pill">🧪 Verified ${game.tracks.verified}/${game.missionSamples}</span><span class="pill">🚁 Evac ${game.tracks.evac}/2</span></div></section><div class="side-stack">${mission()}<section class="panel"><h2>Mission log</h2><ul class="log">${game.log.slice(-5).reverse().map(x=>`<li>${esc(x)}</li>`).join('')}</ul></section></div></div><section class="panel phase"><h2>Next round</h2><p class="intro">Signals: ${game.signalsThisRound.length?game.signalsThisRound.map(esc).join(' · '):'none'}<br>All crew actions will be selected secretly, then revealed together.</p><button class="btn" id="next">Begin round ${game.round} briefings →</button></section>`);$('#next').onclick=beginRound;$('#restart').onclick=home}
-  function beginRound(){game.briefAt=0;game.planAt=0;game.plans=Array(game.roles.length).fill(null);game.signalsThisRound=[];game.shield=null;game.treated=null;game.forecast=null;game.sampleLead=['Ice core','Wildlife trace','Air reading'][Math.floor(Math.random()*3)];game.stormTarget=['North ridge','East field site','West antenna'][Math.floor(Math.random()*3)];game.reports=game.roles.map((r,i)=>makeReport(r,i));selectedSignal=null;brief()}
-  function resolveRound(){const t=game.tracks, actions=game.plans;let messages=[];let repairs=0,radio=0,samples=[],verified=0,info=0,supply=0,shelter=0,shield=0,treats=0,evac=0;
-    const analyses=[];let matchedForecast=false;actions.forEach((p,i)=>{if(!p)return;switch(p.action){case'logs':info++;break;case'supplies':supply++;break;case'sample':samples.push(['Ice core','Wildlife trace','Air reading'][p.target]);break;case'radio':radio+=game.roles[i].id==='engineer'?2:1;break;case'generator':repairs++;break;case'shelter':shelter++;break;case'forecast':shield++;if(['North ridge','East field site','West antenna'][p.target]===game.stormTarget)matchedForecast=true;break;case'treat':treats++;break;case'analyze':analyses.push(p.target);break;case'warm':treats++;break;case'evacuate':evac++;break;}});
-    if(info){const clues=['The logbook says the radio needs two separate calibration passes.','Field notes warn that untreated samples can be contaminated.','The emergency plan says the airstrip is usable only after the radio is restored.','A fuel ledger shows one supply crate is still sealed in the north store.'];messages.push(clues[Math.floor(Math.random()*clues.length)]);}
-    if(supply){t.supplies=clamp(t.supplies+supply,12);messages.push(`The crew gathered ${supply} supply${supply>1?' crates':''}.`)}
-    if(samples.length){samples.forEach(name=>game.found.push({name,valid:name===game.sampleLead||Math.random()<.55,tested:false}));messages.push(`Collected ${samples.length} research sample${samples.length>1?'s':''}.`)}
-    if(analyses.length){const candidates=game.found.filter(x=>!x.tested);for(const n of analyses){const f=candidates[n]||candidates[0];if(!f)continue;f.tested=true;if(f.valid){f.verified=true;t.verified++;messages.push(`Analysis confirms a clean ${f.name.toLowerCase()}.`)}else messages.push(`Analysis found a contaminant in a ${f.name.toLowerCase()}.`);candidates.splice(candidates.indexOf(f),1);} }
-    t.radio=clamp(t.radio+radio,2);if(radio)messages.push(`Radio progress: ${t.radio}/2.`);
-    t.damage=clamp(t.damage-repairs-shelter,8);if(repairs+shelter)messages.push('The station was reinforced and repaired.');
-    if(shield)messages.push(matchedForecast?'The crew protected the storm’s target using the forecast.':'The forecast shield missed the storm’s target.');
-    if(treats){t.cold=clamp(t.cold-treats,8);messages.push('The crew used warmth and treatment to ease exposure.')}
-    t.evac=clamp(t.evac+evac,2);if(evac)messages.push(`Evacuation preparation: ${t.evac}/2.`);
-    // Storm response: one pressure on every system; focused actions can prevent some of it.
-    t.storm++;t.supplies=Math.max(0,t.supplies-1);
-    if(game.stormTarget==='North ridge'&&!matchedForecast)t.cold++;
-    if(game.stormTarget==='West antenna'&&!matchedForecast&&!repairs&&!shelter)t.damage++;
-    if(game.stormTarget==='East field site'&&!matchedForecast)t.supplies=Math.max(0,t.supplies-1);
-    if(t.storm>=game.max.storm){game.done=true;game.result=false;game.log.push(...messages,'The final whiteout closed in before the crew could leave.');end();return}
-    if(t.cold>=8||t.damage>=8||t.supplies<=0){game.done=true;game.result=false;game.log.push(...messages,t.cold>=8?'The crew succumbed to the cold.':t.damage>=8?'The station became uninhabitable.':'The station ran out of supplies.');end();return}
-    if(t.radio>=2&&t.verified>=game.missionSamples&&t.evac>=2){game.done=true;game.result=true;game.log.push(...messages,'Rescue arrived through the whiteout. The crew and research made it home!');end();return}
-    game.log.push(...messages,`Storm intensity rises to ${t.storm}/${game.max.storm}. One supply was used.`);game.round++;game.phase='active';game.plans=Array(game.roles.length).fill(null);game.signalsThisRound=[];renderActive();
+  const validSave = (g) => g && g.state && g.state.v === E.SAVE_V && g.mode === 'local' && g.state.phase !== 'over';
+
+  // ---------------------------------------------------------------- toasts and overlays
+  function toast(html, ms = 3200) {
+    let box = $('.toasts');
+    if (!box) {
+      box = document.createElement('div');
+      box.className = 'toasts';
+      box.setAttribute('aria-live', 'polite');
+      document.body.appendChild(box);
+    }
+    const t = document.createElement('div');
+    t.className = 'toast';
+    t.innerHTML = html;
+    box.appendChild(t);
+    setTimeout(() => t.remove(), ms);
   }
-  function end(){shell(`<section class="hero"><div class="snow"></div><div class="hero-copy"><h1>${game.result?'Rescue!':'Whiteout'}</h1><p>Whiteout Research Station · ${DIFF[game.diff].name}</p></div></section><section class="panel phase end"><h2>${game.result?'The crew made it home!':'Mission lost'}</h2><p>${game.result?'The radio, verified research, and airstrip all came together before the storm.':'The crew could not complete the mission before one of the station’s threats overwhelmed it.'}</p><h3>Final report</h3>${tracks()}<ul class="log">${game.log.slice(-9).reverse().map(x=>`<li>${esc(x)}</li>`).join('')}</ul><div class="footer-actions"><button class="btn" id="again">Play again</button><a class="btn secondary" href="/ahrens-games.html">Back to Ahrens Games</a></div></section>`);$('#again').onclick=home}
-  function render(){if(!hasAccount()){game=null;accountGate();return}if(!game){home();return}if(game.phase==='brief')brief();else if(game.phase==='plan')plan();else renderActive()}
-  home();
+  function veil(html, onGo, label = 'Continue') {
+    closeVeil();
+    const v = document.createElement('div');
+    v.className = 'veil';
+    v.innerHTML = `<div class="card" role="dialog" aria-modal="true">${html}<div class="body" style="padding-top:0"><button class="btn" id="veil-go">${label}</button></div></div>`;
+    document.body.appendChild(v);
+    const go = v.querySelector('#veil-go');
+    go.focus();
+    go.onclick = () => {
+      closeVeil();
+      onGo && onGo();
+    };
+  }
+  function closeVeil() {
+    document.querySelectorAll('.veil').forEach((v) => v.remove());
+  }
+  const veilOpen = () => !!$('.veil');
+
+  // ---------------------------------------------------------------- setup screen
+  function showSetup() {
+    stop();
+    G = null;
+    const saved = (() => {
+      try {
+        const g = JSON.parse(read(SAVE_KEY) || 'null');
+        return validSave(g) ? g : null;
+      } catch {
+        return null;
+      }
+    })();
+    const d = E.DIFF[setup.diff];
+    app.innerHTML = `
+      <section class="hero"><img src="/img/whiteout/cover.webp" alt="The crew trudges toward Whiteout Station as a storm rolls in under the aurora" width="1280" height="720">
+        <div class="copy"><h1>Whiteout Station</h1><p>The radio is dead and a storm is coming. Each of you knows something the others don’t — and the only way to share it is one signal a round. Work together, get the research home, and call in the plane before the whiteout.</p></div></section>
+      <div class="cols">
+        <section class="panel">
+          <h2>Assemble the crew</h2>
+          <p class="muted">Each role is played by a person on this device or by a computer crewmate. Give two roles the same name to play both yourself.</p>
+          <div class="roster">${E.ROLE_ORDER.map((r, i) => {
+            const R = E.ROLES[r];
+            const c = setup.crew[i];
+            return `<div class="rrow" style="--rc:${ROLE_COLOR[r]}"><img src="${crewImg(r)}" alt=""><div><b>${R.icon} ${R.name}</b><small>${R.secret}</small>${c.human ? `<input data-name="${i}" value="${esc(c.name || '')}" maxlength="18" placeholder="Player name" aria-label="${R.name} player name">` : ''}</div>
+              <div class="seg" role="radiogroup" aria-label="${R.name}"><button type="button" data-who="${i}" data-v="p" class="${c.human ? 'on' : ''}">👤 Player</button><button type="button" data-who="${i}" data-v="c" class="${c.human ? '' : 'on'}">🤖 Computer</button></div></div>`;
+          }).join('')}</div>
+          <h3>Difficulty</h3>
+          <div class="seg" role="radiogroup" aria-label="Difficulty">${Object.entries(E.DIFF).map(([k, v]) => `<button type="button" data-diff="${k}" class="${setup.diff === k ? 'on' : ''}">${v.name}</button>`).join('')}</div>
+          <p class="diff-note muted">${d.storms} storms before the final whiteout · ${d.fuel} fuel to start · verify ${d.need} clean samples.</p>
+          <div class="start-row">
+            <button class="btn warm" id="start">❄️ Start the mission</button>
+            ${saved ? `<button class="btn ghost" id="resume">↩ Resume (round ${saved.state.round})</button>` : ''}
+            <button class="btn ghost" id="rules">📜 How to play</button>
+          </div>
+        </section>
+        <section class="panel">
+          <h2>The mission</h2>
+          <div class="how">
+            <div><img src="/img/whiteout/item-part.webp" alt=""><span><b>Fix the radio</b><small>Three radio parts are lost out on the ice. Find them and install them in the Radio Room.</small></span></div>
+            <div><img src="/img/whiteout/item-sample.webp" alt=""><span><b>Verify the research</b><small>Collect samples from the field sites and analyze them in the Lab. Only clean ones count.</small></span></div>
+            <div><img src="/img/whiteout/mod-hangar.webp" alt=""><span><b>Call the plane</b><small>Radio for rescue. Two rounds later the plane lands — everyone must be in the Hangar.</small></span></div>
+            <div><img src="/img/whiteout/item-fuel.webp" alt=""><span><b>Stay alive</b><small>Keep the generator fuelled, repair storm damage, and never leave a frozen crewmate out on the ice.</small></span></div>
+          </div>
+          <h2 style="margin-top:1.1rem">🌐 Play online</h2>
+          <div id="online-box"></div>
+        </section>
+      </div>`;
+    app.querySelectorAll('[data-who]').forEach((b) => b.addEventListener('click', () => {
+      const c = setup.crew[+b.dataset.who];
+      c.human = b.dataset.v === 'p';
+      if (c.human && !c.name) c.name = `Player ${+b.dataset.who + 1}`;
+      keepSetup();
+      showSetup();
+    }));
+    app.querySelectorAll('[data-name]').forEach((inp) => inp.addEventListener('input', () => {
+      setup.crew[+inp.dataset.name].name = inp.value.slice(0, 18);
+      keepSetup();
+    }));
+    app.querySelectorAll('[data-diff]').forEach((b) => b.addEventListener('click', () => {
+      setup.diff = b.dataset.diff;
+      keepSetup();
+      showSetup();
+    }));
+    $('#start').onclick = startLocal;
+    if (saved) $('#resume').onclick = () => startFrom(saved);
+    $('#rules').onclick = showRules;
+    if (Online) Online.showLobby();
+  }
+  function keepSetup() {
+    try {
+      localStorage.setItem('whiteout.setup', JSON.stringify(setup));
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function startLocal() {
+    if (!setup.crew.some((c) => c.human)) return toast('At least one role needs a player.');
+    // One seat per distinct player name; each computer crewmate gets a seat of its own.
+    const names = [];
+    const ai = [];
+    const crew = setup.crew.map((c, i) => {
+      if (!c.human) {
+        names.push(`Computer ${E.ROLES[E.ROLE_ORDER[i]].name}`);
+        ai.push(true);
+        return names.length - 1;
+      }
+      const nm = (c.name || `Player ${i + 1}`).trim() || `Player ${i + 1}`;
+      const k = names.findIndex((n, j) => !ai[j] && n.toLowerCase() === nm.toLowerCase());
+      if (k >= 0) return k;
+      names.push(nm);
+      ai.push(false);
+      return names.length - 1;
+    });
+    const state = E.newGame({ diff: setup.diff, names, ai, crew });
+    startFrom({ mode: 'local', state, gid: newId(), seen: 0 });
+    showRoundIntro();
+  }
+
+  function startFrom(g) {
+    G = { mode: 'local', state: g.state, gid: g.gid || newId(), seen: g.seen || g.state.past.length, privy: null, peek: false, lastSeat: null };
+    history.replaceState(null, '', `${location.pathname}?local=${G.gid}`);
+    save();
+    render();
+    loop();
+  }
+
+  // ---------------------------------------------------------------- the main loop
+  function stop() {
+    clearTimeout(timer);
+    timer = null;
+  }
+  function loop() {
+    stop();
+    if (!G || G.mode !== 'local') return;
+    const s = st();
+    if (s.phase === 'over') return showEnd();
+    if (veilOpen()) return;
+    const waiting = E.waitingOn(s);
+    const aiSeat = waiting.find((seat) => s.players[seat].ai);
+    if (aiSeat != null) {
+      timer = setTimeout(() => {
+        if (veilOpen()) return loop();
+        act(E.aiChoose(s, aiSeat), aiSeat);
+      }, s.phase === 'signal' ? AI_SIGNAL : AI_STEP);
+      return;
+    }
+    // A person decides: hand the device over if that's someone else (only when several people share it).
+    const seat = waiting[0];
+    if (seat == null) return;
+    if (!solo() && G.privy !== seat) {
+      const ci = E.deciding(s, seat);
+      const c = s.crew[ci];
+      const R = E.ROLES[c.role];
+      G.privy = null;
+      G.peek = false;
+      render();
+      veil(`<img class="portrait" src="${crewImg(c.role)}" alt="" style="--rc:${ROLE_COLOR[c.role]}"><div class="body"><h2>${esc(s.players[seat].name)}, take the device</h2><p>${s.phase === 'signal' ? `Time to send the ${R.name}’s signal. Keep the screen to yourself while you read your secret.` : `It’s the ${R.name}’s turn.`}</p></div>`, () => {
+        G.privy = seat;
+        G.peek = s.phase === 'signal';
+        render();
+      }, `I’m ${esc(s.players[seat].name)}`);
+    }
+  }
+
+  function act(a, seat) {
+    const s = st();
+    if (seat == null) seat = E.waitingOn(s).find((x) => !s.players[x].ai);
+    const phase = s.phase;
+    const round = s.round;
+    try {
+      E.apply(s, seat, a);
+    } catch (e) {
+      toast(esc(e.message || 'That isn’t possible right now.'));
+      return;
+    }
+    // When the decision passes to someone else, close the private moment before anything is drawn.
+    const next = E.waitingOn(s).find((x) => !s.players[x].ai);
+    if (!solo() && (next !== seat || s.phase !== phase)) {
+      G.privy = null;
+      G.peek = false;
+    }
+    if (phase === 'act' && s.phase !== 'act') G.peek = false;
+    G.pick = null;
+    save();
+    render();
+    if (s.past.length > G.seen) return showStorm(round);
+    loop();
+  }
+
+  // ---------------------------------------------------------------- storms, rounds and the end
+  function showRoundIntro() {
+    const s = st();
+    const left = s.storms.length;
+    veil(`<img class="art" src="/img/whiteout/scene-signal.webp" alt=""><div class="body"><h2>Round ${s.round}</h2><p>${left} storm${left === 1 ? '' : 's'} left before the final whiteout. First, each crewmate sends one signal — pick a place on the map and say <b>✅ go</b>, <b>⚠️ avoid</b> or <b>❓ check</b>. Then everyone takes 3 actions, in order.</p></div>`, () => loop(), 'Begin');
+  }
+  function showStorm(round) {
+    const s = st();
+    G.seen = s.past.length;
+    save();
+    const card = s.past[s.past.length - 1];
+    const t = E.stormText(card);
+    const hit = s.last && s.last.t === 'storm' ? s.last.hits : [];
+    const notes = [];
+    if (hit.length) notes.push(`Caught in the storm: ${hit.map((i) => `${E.ROLES[s.crew[i].role].icon} ${E.ROLES[s.crew[i].role].name}`).join(', ')}.`);
+    notes.push(s.damaged.generator ? 'The generator is down — no heat tonight.' : s.fuel > 0 || card.t === 'freeze' ? `The generator burned fuel to heat the station (⛽ ${s.fuel} left).` : 'The fuel ran out — no heat tonight.');
+    const out = s.crew.filter((c) => !E.PLACES[c.at].inside).length;
+    if (out && card.t !== 'calm') notes.push(`${out} crewmate${out > 1 ? 's' : ''} out on the ice got colder.`);
+    const frozen = s.crew.filter((c) => c.frozen != null);
+    if (frozen.length && s.phase !== 'over') notes.push(`🧊 Frozen: ${frozen.map((c) => E.ROLES[c.role].name).join(', ')} — bring them inside this round!`);
+    if (s.plane && s.phase !== 'over') notes.push(s.round >= s.plane.round + E.PLANE_ROUNDS ? '🛩️ The plane is overhead now: get everyone to the Hangar!' : `🛩️ The plane lands at the end of round ${s.plane.round + E.PLANE_ROUNDS}.`);
+    veil(`<img class="art" src="${stormImg(card)}" alt=""><div class="body"><p class="muted" style="margin:0">End of round ${round} — the storm hits</p><h2>${esc(t.title)}</h2><p>${esc(t.text)}</p><ul>${notes.map((n) => `<li>${esc(n)}</li>`).join('')}</ul></div>`, () => {
+      if (s.phase === 'over') return showEnd();
+      loop();
+    }, s.phase === 'over' ? 'See what happened' : `On to round ${s.round}`);
+  }
+  function showEnd() {
+    stop();
+    const s = st();
+    const r = s.result;
+    save();
+    const facts = [`Rounds survived: ${r.round}`, `Radio parts installed: ${s.installed}/${E.PARTS}`, `Samples verified: ${s.verified}/${s.need}`, `Difficulty: ${E.DIFF[s.diff].name}`];
+    render();
+    veil(`<img class="art" src="/img/whiteout/${r.win ? 'scene-rescue' : 'scene-lost'}.webp" alt=""><div class="body"><h2>${r.win ? '🏆 Rescued!' : '❄️ Mission lost'}</h2><p>${esc(r.reason)}</p><ul>${facts.map((f) => `<li>${esc(f)}</li>`).join('')}</ul></div>`, () => {
+      if (G && G.mode === 'local') {
+        try {
+          localStorage.removeItem(SAVE_KEY);
+        } catch {
+          /* ignore */
+        }
+        history.replaceState(null, '', location.pathname);
+        showSetup();
+      } else leaveOnline();
+    }, G && G.mode === 'online' ? 'Back to the lobby' : r.win ? 'Play again' : 'Try again');
+  }
+
+  // ---------------------------------------------------------------- drawing
+  function render() {
+    if (!G) return;
+    const s = st();
+    const vis = visibleRoles();
+    const ci = s.phase === 'act' ? s.turn : s.phase === 'signal' ? currentSignaller() : -1;
+    app.innerHTML = `
+      ${statusBar(s)}
+      <div class="layout">
+        <section class="board" aria-label="Map of Whiteout Station and the ice">${board(s, vis, ci)}</section>
+        <div class="side">${turnPanel(s, vis, ci)}${crewPanel(s, vis)}<section class="panel"><h2>Station log</h2><ul class="log">${s.log.slice(-14).reverse().map((l) => `<li>${esc(l.text)}</li>`).join('')}</ul></section></div>
+      </div>`;
+    wire(s, ci);
+    if (G.mode === 'online' && G.gmode === 'quick' && G.status === 'active' && Online && Online.tickClock) Online.tickClock();
+  }
+  function currentSignaller() {
+    const s = st();
+    const seat = E.waitingOn(s).find((x) => !s.players[x].ai && (G.mode === 'online' ? x === G.me : solo() || x === G.privy));
+    return seat == null ? -1 : E.deciding(s, seat);
+  }
+  function statusBar(s) {
+    const left = s.stormsLeft != null ? s.stormsLeft : s.storms.length;
+    const broken = E.MODULES.filter((m) => s.damaged[m]);
+    const chips = [
+      `<span class="chip">Round ${s.round}</span>`,
+      `<span class="chip storm">⛈️ ${left} storm${left === 1 ? '' : 's'} left</span>`,
+      `<span class="chip ${s.fuel <= 1 ? 'bad' : ''}">⛽ Fuel ${s.fuel}</span>`,
+      `<span class="chip ${s.installed >= E.PARTS ? 'good' : ''}">📻 Radio ${s.installed}/${E.PARTS}</span>`,
+      `<span class="chip ${s.verified >= s.need ? 'good' : ''}">🧪 Samples ${s.verified}/${s.need}</span>`,
+      s.plane ? `<span class="chip good">🛩️ Plane lands end of round ${s.plane.round + E.PLANE_ROUNDS}</span>` : '',
+      broken.length ? `<span class="chip bad">⚠️ ${broken.length}/${E.DAMAGE_LOSS} modules damaged</span>` : '',
+    ];
+    const clock = G.mode === 'online' && G.gmode === 'quick' && G.status === 'active' ? '<span class="ol-clock" id="ol-clock"></span>' : '';
+    return `<div class="status">${chips.join('')}${clock}<button class="btn sm ghost" id="rules-btn">📜 Rules</button></div>`;
+  }
+
+  function board(s, vis, ci) {
+    const me = ci >= 0 ? s.crew[ci] : null;
+    const myTurn = s.phase === 'act' && ci >= 0 && canControl(ci);
+    const moves = myTurn ? E.actionsFor(s, ci).filter((a) => a.t === 'move').map((a) => a.to) : [];
+    const signalling = s.phase === 'signal' && ci >= 0 && canControl(ci);
+    const y = (p) => POS[p][1] * 0.5625;
+    const lines = E.EDGES.map(([a, b]) => {
+      const inside = E.PLACES[a].inside && E.PLACES[b].inside;
+      const cut = E.cut(s, a) || E.cut(s, b);
+      const d = `M${POS[a][0]} ${y(a)} L${POS[b][0]} ${y(b)}`;
+      return inside ? `<path class="hall" d="${d}"/><path class="hall-in" d="${d}"/>` : `<path class="trail${cut ? ' cut' : ''}" d="${d}"/>`;
+    }).join('');
+    const nodes = Object.keys(E.PLACES).map((p) => {
+      const P = E.PLACES[p];
+      const site = s.sites[p];
+      const tags = [];
+      if (site) {
+        if (site.searched) tags.push('<span class="tag">🔎 searched</span>');
+        else if (vis.has('engineer') && site.part) tags.push('<span class="tag secret">🔧 radio part</span>');
+        const left = site.samples.filter((x) => !x.taken);
+        if (left.length) {
+          const marks = left.map((x) => (x.clean == null ? '·' : vis.has('researcher') ? (x.clean ? '✅' : '❌') : '·')).join('');
+          tags.push(`<span class="tag${vis.has('researcher') ? ' secret' : ''}">🧪 ${vis.has('researcher') ? marks : `×${left.length}`}</span>`);
+        }
+        if (site.fuel) tags.push(`<span class="tag">🛢️ ×${site.fuel}</span>`);
+      }
+      s.crew.forEach((c, i) => {
+        const g = s.signals[i];
+        if (g && !g.none && g.at === p && (s.phase !== 'signal' || G.mode === 'online' || visibleRoles().has(c.role))) {
+          tags.push(`<span class="tag sig" style="--rc:${ROLE_COLOR[c.role]}" title="${E.ROLES[c.role].name}: ${SIG_TEXT[g.kind]}">${E.ROLES[c.role].icon}${SIG[g.kind]}</span>`);
+        }
+      });
+      const ground = (s.ground[p] || []).map((it) => `<img src="${itemImg(it.t)}" alt="${esc(E.itemName(it))}">`).join('');
+      const cls = ['node', s.damaged[p] ? 'dmg' : '', E.cut(s, p) ? 'fog' : '', moves.includes(p) ? 'go' : '', signalling ? 'pick' : '', G.pick === p ? 'chosen' : ''].filter(Boolean).join(' ');
+      const clickable = moves.includes(p) || signalling;
+      return `<${clickable ? 'button type="button"' : 'div'} class="${cls}" data-place="${p}" style="left:${POS[p][0]}%;top:${POS[p][1]}%;${P.inside ? '' : 'width:15%;'}" ${clickable ? `aria-label="${moves.includes(p) ? 'Walk to' : 'Signal at'} ${P.name}"` : ''}>
+        <img class="art" src="${placeImg(p)}" alt="" draggable="false"><span class="lbl">${P.icon} ${P.name}</span>
+        ${tags.length ? `<span class="tags">${tags.join('')}</span>` : ''}${ground ? `<span class="ground">${ground}</span>` : ''}</${clickable ? 'button' : 'div'}>`;
+    }).join('');
+    // Crew tokens fan out around the place they stand.
+    const at = {};
+    const tokens = s.crew.map((c, i) => {
+      if (c.carriedBy != null) return '';
+      const list = (at[c.at] = at[c.at] || []);
+      const k = list.push(i) - 1;
+      const n = s.crew.filter((o) => o.at === c.at && o.carriedBy == null).length;
+      const off = (k - (n - 1) / 2) * 5;
+      const x = POS[c.at][0] + off;
+      const yy = POS[c.at][1] + 15;
+      const exact = c.warmth != null && (vis.has('medic') || seatOf(i) === ownSeat() || s.phase === 'over');
+      const warmth = exact ? `<span class="pips">${Array.from({ length: E.MAX_WARMTH }, (_, j) => `<i class="${j < c.warmth ? '' : 'off'}"></i>`).join('')}</span>` : `<span class="band ${c.band || E.band(c.warmth)}">${c.band || E.band(c.warmth)}</span>`;
+      const carry = c.carry ? `<img class="carry" src="${c.carry.t === 'crew' ? crewImg(s.crew[c.carry.i].role) : itemImg(c.carry.t)}" alt="">` : '';
+      return `<div class="token${i === ci && s.phase === 'act' ? ' now' : ''}${c.frozen != null ? ' frozen' : ''}" style="--rc:${ROLE_COLOR[c.role]};left:${x}%;top:${yy}%" title="${E.ROLES[c.role].name}"><img src="${crewImg(c.role)}" alt="${E.ROLES[c.role].name}">${carry}${warmth}</div>`;
+    }).join('');
+    return `<div class="compound"></div><svg class="paths" viewBox="0 0 100 56.25" preserveAspectRatio="none" aria-hidden="true">${lines}</svg>${nodes}${tokens}`;
+  }
+  const seatOf = (ci) => st().crew[ci].seat;
+  function canControl(ci) {
+    const s = st();
+    const seat = s.crew[ci].seat;
+    if (G.mode === 'online') return seat === G.me;
+    return !s.players[seat].ai && (solo() || G.privy === seat);
+  }
+
+  function turnPanel(s, vis, ci) {
+    if (s.phase === 'over') return `<section class="panel"><h2>${s.result.win ? '🏆 Rescued!' : '❄️ Mission lost'}</h2><p>${esc(s.result.reason)}</p><div class="start-row"><button class="btn" id="again">${G.mode === 'local' ? 'New mission' : 'Back to the lobby'}</button></div></section>`;
+    const secret = secretBox(s, vis);
+    if (s.phase === 'signal') {
+      if (ci < 0) {
+        const wait = E.waitingOn(s).map((seat) => esc(s.players[seat].name));
+        return `<section class="panel"><h2>📡 Signals</h2><p class="muted">Waiting for ${wait.join(', ') || 'the crew'} to send ${wait.length === 1 ? 'a signal' : 'signals'}…</p>${secret}</section>`;
+      }
+      const c = s.crew[ci];
+      const R = E.ROLES[c.role];
+      const pick = G.pick;
+      return `<section class="panel turn" style="--rc:${ROLE_COLOR[c.role]}">
+        <div class="who"><img src="${crewImg(c.role)}" alt=""><div><b>${R.icon} ${R.name}</b><div class="muted">${esc(s.players[c.seat].name)} · send one signal</div></div></div>
+        ${secret}
+        <div class="sigpick"><p class="hint">${pick ? `Signal at <b>${E.PLACES[pick].name}</b>:` : 'Tap a place on the map, then choose what your signal says. No other talking!'}</p>
+        <div class="seg">${Object.keys(SIG).map((k) => `<button type="button" data-sig="${k}" ${pick ? '' : 'disabled'}>${SIG[k]} ${SIG_TEXT[k]}</button>`).join('')}</div>
+        <button type="button" class="act end" data-sig="none">🤐 Send no signal</button></div></section>`;
+    }
+    const c = s.crew[ci];
+    const R = E.ROLES[c.role];
+    const mine = canControl(ci);
+    const left = s.acts;
+    const dots = `<span class="acts-left" aria-label="${left} action${left === 1 ? '' : 's'} left">${Array.from({ length: E.ACTIONS }, (_, j) => `<i class="${j < left ? '' : 'off'}"></i>`).join('')}</span>`;
+    const head = `<div class="who"><img src="${crewImg(c.role)}" alt=""><div><b>${R.icon} ${R.name}</b>${dots}<div class="muted">${s.players[c.seat].ai ? '🤖 Computer crewmate' : esc(s.players[c.seat].name)}${c.carry ? ` · carrying ${E.itemName(c.carry)}` : ''}</div></div></div>`;
+    if (!mine) return `<section class="panel turn" style="--rc:${ROLE_COLOR[c.role]}">${head}<p class="hint">${s.players[c.seat].ai ? 'The computer crewmate is working…' : 'Waiting for their move…'}</p>${G.mode === 'online' ? secret : ''}</section>`;
+    const opts = E.actionsFor(s, ci).filter((a) => a.t !== 'move');
+    const peekBtn = !solo() && G.mode === 'local' ? `<button type="button" class="btn sm ghost" id="peek">${G.peek ? '🙈 Hide my secret' : '🔒 Show my secret'}</button>` : '';
+    return `<section class="panel turn" style="--rc:${ROLE_COLOR[c.role]}">${head}
+      ${peekBtn}${secret}
+      <p class="hint">Tap a glowing place on the map to walk there${E.cost(s, ci, 'move') > 1 ? ' (2 actions while carrying someone)' : ''}.</p>
+      <div class="actions">${opts.map((a) => actionButton(s, ci, a)).join('')}</div></section>`;
+  }
+  function actionButton(s, ci, a) {
+    const c = s.crew[ci];
+    const cost = (k) => E.cost(s, ci, k);
+    const n = (x) => `<small>${x} action${x > 1 ? 's' : ''}</small>`;
+    const rn = (i) => E.ROLES[s.crew[i].role].name;
+    const data = `data-a='${esc(JSON.stringify(a))}'`;
+    const B = (label, x, key) => `<button type="button" class="act${key ? ' key' : ''}${a.t === 'end' ? ' end' : ''}" ${data}>${label}${x ? n(x) : ''}</button>`;
+    switch (a.t) {
+      case 'end': return B('⏭️ End turn', 0);
+      case 'search': return B('🔎 Search the site for a radio part', 1, true);
+      case 'take':
+        if (a.what === 'sample') {
+          const k = s.sites[c.at].samples.findIndex((x) => x.id === a.id);
+          const smp = s.sites[c.at].samples[k];
+          const tag = visibleRoles().has('researcher') && smp.clean != null ? (smp.clean ? ' ✅ clean' : ' ❌ contaminated') : '';
+          return B(`🧪 Take sample ${'AB'[k]}${tag}`, 1);
+        }
+        if (a.what === 'fuel') return B('🛢️ Pick up a fuel drum', 1);
+        if (a.what === 'crew') return B(`🫴 Carry the frozen ${rn(a.i)}`, 1, true);
+        return B(`🤲 Pick up ${E.itemName(s.ground[c.at][a.k])}`, 1);
+      case 'drop': return B(`📥 Put down ${E.itemName(c.carry)}`, 1);
+      case 'install': return B('📻 Install the radio part', cost('install'), true);
+      case 'analyze': return B('🔬 Analyze the sample', cost('analyze'), true);
+      case 'refuel': return B('⛽ Feed the generator (+2 fuel)', 1, true);
+      case 'repair': return B(`🔩 Repair the ${E.PLACES[c.at].name}`, cost('repair'), true);
+      case 'warm': {
+        const gain = c.at === 'infirmary' && !s.damaged.infirmary ? 2 : 1;
+        return B(a.i === ci ? `♨️ Warm up (+${gain})` : `♨️ Warm the ${rn(a.i)} (+${gain})`, 1, s.crew[a.i].frozen != null);
+      }
+      case 'treat': return B(a.i === ci ? '🩺 Treat yourself (+2)' : `🩺 Treat the ${rn(a.i)} (+2)`, 1, s.crew[a.i].frozen != null);
+      case 'reroute': return B('🌦️ Reroute the next storm', 1, true);
+      case 'call': return B('🛩️ Call the rescue plane!', 1, true);
+      default: return '';
+    }
+  }
+  function secretBox(s, vis) {
+    if (!vis.size || s.phase === 'over') return '';
+    const parts = [];
+    if (vis.has('weather')) {
+      const f = s.forecast || (s.storms ? s.storms.slice(-2).reverse() : []);
+      parts.push(`<b>🌦️ Next storms</b><div class="forecast">${f.map((c, k) => {
+        const t = E.stormText(c);
+        return `<figure><img src="${stormImg(c)}" alt=""><figcaption><b>${k ? 'After that' : 'Next'}:</b> ${esc(t.title)}</figcaption></figure>`;
+      }).join('') || '<p class="muted">No storms left.</p>'}</div>`);
+    }
+    if (vis.has('engineer')) {
+      const parts2 = E.SITES.filter((p) => s.sites[p].part).map((p) => E.PLACES[p].name);
+      parts.push(`<b>🧰 Radio parts are at:</b> ${parts2.length ? parts2.join(', ') : 'none left out there'} <span class="muted">(marked 🔧 on the map)</span>`);
+    }
+    if (vis.has('researcher')) parts.push('<b>🔬 Clean samples</b> are marked ✅ on the map (❌ = contaminated).');
+    if (vis.has('medic')) parts.push('<b>🩺 You can see everyone’s exact warmth</b> on the map.');
+    return `<div class="secret">${parts.map((p) => `<div style="margin:0.25rem 0">${p}</div>`).join('')}</div>`;
+  }
+  function crewPanel(s, vis) {
+    return `<section class="panel"><h2>Crew</h2><div class="crewlist">${s.crew.map((c, i) => {
+      const exact = c.warmth != null && (vis.has('medic') || seatOf(i) === ownSeat() || s.phase === 'over');
+      const w = c.frozen != null ? '🧊 frozen' : exact ? `🔥 ${c.warmth}/${E.MAX_WARMTH}` : c.band || E.band(c.warmth);
+      return `<div class="crow" style="--rc:${ROLE_COLOR[c.role]}"><img src="${crewImg(c.role)}" alt=""><span><b>${E.ROLES[c.role].name}</b> · ${E.PLACES[c.at].name}${c.carry ? ` · 🎒 ${E.itemName(c.carry)}` : ''}<br><span class="muted">${s.players[c.seat].ai ? '🤖 Computer' : `👤 ${esc(s.players[c.seat].name)}`}</span></span><span class="w">${w}</span></div>`;
+    }).join('')}</div></section>`;
+  }
+
+  // ---------------------------------------------------------------- input
+  function wire(s, ci) {
+    const rb = $('#rules-btn');
+    if (rb) rb.onclick = showRules;
+    const again = $('#again');
+    if (again) again.onclick = () => showEnd();
+    app.querySelectorAll('[data-a]').forEach((b) => b.addEventListener('click', () => send(JSON.parse(b.dataset.a))));
+    app.querySelectorAll('.node.go').forEach((n) => n.addEventListener('click', () => send({ t: 'move', to: n.dataset.place })));
+    if (s.phase === 'signal' && ci >= 0 && canControl(ci)) {
+      app.querySelectorAll('.node.pick').forEach((n) => n.addEventListener('click', () => {
+        G.pick = n.dataset.place;
+        render();
+      }));
+      app.querySelectorAll('[data-sig]').forEach((b) => b.addEventListener('click', () => {
+        const k = b.dataset.sig;
+        if (k === 'none') return send({ t: 'signal', ci, none: true });
+        if (!G.pick) return;
+        send({ t: 'signal', ci, at: G.pick, kind: k });
+      }));
+    }
+    const peek = $('#peek');
+    if (peek) peek.onclick = () => {
+      G.peek = !G.peek;
+      render();
+    };
+  }
+  function send(a) {
+    if (!G) return;
+    if (G.mode === 'online') return Online && Online.send(a);
+    act(a);
+  }
+
+  // ---------------------------------------------------------------- rules
+  function showRules() {
+    const v = document.createElement('div');
+    v.className = 'veil';
+    v.innerHTML = `<div class="card" role="dialog" aria-modal="true" aria-label="How to play" style="width:min(720px,100%)"><div class="body rules">
+      <h2>How to play Whiteout Station</h2>
+      <p>A cooperative game: the whole crew wins or loses together.</p>
+      <h3>🎯 Win</h3><ol><li>Find the <b>3 radio parts</b> on the ice and install them in the <b>Radio Room</b>.</li><li>Take samples at the field sites and <b>analyze</b> them in the <b>Lab</b> until enough clean ones are verified.</li><li>From the Radio Room, <b>call the plane</b>. It lands at the end of the second round after the call — the Hangar must be undamaged and <b>every</b> crewmate in it (frozen ones carried in).</li></ol>
+      <h3>❄️ Lose</h3><ul><li>The storm deck runs out: the final whiteout.</li><li>A crewmate stays frozen to the end of the round after they froze.</li><li>Three modules are damaged at once.</li></ul>
+      <h3>🔁 Each round</h3><ol><li><b>Signals.</b> Each crewmate secretly picks one place on the map and says ✅ go here, ⚠️ avoid here or ❓ check here (or nothing). They’re revealed together. That’s the only way to share your secret — no other talking about it!</li><li><b>Actions.</b> In order (Meteorologist, Engineer, Researcher, Medic), each crewmate takes up to <b>3 actions</b>.</li><li><b>Storm.</b> The next storm card hits, then the generator burns fuel. Inside a heated station you warm up by 1; out on the ice you lose 1.</li></ol>
+      <h3>🦶 Actions</h3><ul><li><b>Walk</b> one step along a path (2 actions while carrying a frozen crewmate, unless you’re the Medic).</li><li><b>Search</b> a field site: if a radio part is there you pick it up.</li><li><b>Take</b> a sample, a fuel drum, something lying on the ground, or a frozen crewmate. You carry one thing at a time; <b>put down</b> to swap.</li><li><b>Install</b> a part (Radio Room), <b>analyze</b> a sample (Lab), <b>feed the generator</b> a fuel drum (+2 fuel), <b>repair</b> a damaged module. Installing and repairing take the Engineer 1 action and everyone else 2; analyzing takes the Researcher 1 and everyone else 2.</li><li><b>Warm up</b> anyone in the station (+1, or +2 in the Infirmary).</li></ul>
+      <h3>🕵️ The roles</h3><ul>${E.ROLE_ORDER.map((r) => `<li><b>${E.ROLES[r].icon} ${E.ROLES[r].name}.</b> ${E.ROLES[r].secret} ${E.ROLES[r].power}</li>`).join('')}</ul>
+      <h3>⛈️ Storms</h3><ul><li><b>Blizzard:</b> anyone in that part of the ice loses 2 warmth.</li><li><b>Whiteout:</b> a site is cut off — nobody moves in or out next round.</li><li><b>Ice storm:</b> a module is damaged until repaired (a damaged Generator gives no heat).</li><li><b>Deep freeze:</b> the generator burns an extra fuel.</li><li><b>Calm:</b> nobody outside gets colder.</li></ul>
+      <h3>🧊 Warmth</h3><p>Everyone starts with 5. At 0 you freeze where you stand and drop what you carry. You can’t act until someone warms you up — carry them inside before the end of the next round.</p>
+    </div><div class="body" style="padding-top:0"><button class="btn" id="rules-close">Got it</button></div></div>`;
+    document.body.appendChild(v);
+    const close = () => {
+      v.remove();
+      if (G && G.mode === 'local') loop();
+    };
+    $('#rules-close', v).onclick = close;
+    v.addEventListener('click', (e) => e.target === v && close());
+    $('#rules-close', v).focus();
+  }
+
+  // ---------------------------------------------------------------- online (the shared board-online.js lobby and live moves)
+  let olPrefs = {};
+  try {
+    olPrefs = JSON.parse(read('whiteout.olprefs') || '{}') || {};
+  } catch {
+    olPrefs = {};
+  }
+  const Online = window.BoardOnline ? window.BoardOnline.attach({
+    apiPrefix: '/api/whiteout',
+    title: 'Whiteout Station',
+    onlineKey: 'whiteout.online',
+    maxPlayers: 4,
+    blurb: 'Play Whiteout Station with other Ahrens Labs players: invite up to three crewmates, and computer crewmates take any roles left over. Choose quick (2 minutes a turn) or long (take your turn whenever).',
+    esc,
+    toast: (m) => toast(m),
+    sessionId: session,
+    prefs: () => olPrefs,
+    savePrefs: (p) => {
+      olPrefs = p;
+      try {
+        localStorage.setItem('whiteout.olprefs', JSON.stringify(p));
+      } catch {
+        /* ignore */
+      }
+    },
+    roundText: (g) => (g.round ? `round ${g.round}` : ''),
+    getG: () => G,
+    isMyTurn: () => !!G && G.mode === 'online' && G.status === 'active' && E.waitingOn(G.state).includes(G.me),
+    showSetup: () => showSetup(),
+    challengeExtra: () => ({ opts: { diff: setup.diff } }),
+    enterOnline: (v) => {
+      stop();
+      closeVeil();
+      G = { mode: 'online', id: v.id, me: v.me, version: v.version, status: v.status, result: v.result, deadline: v.deadline || null, gmode: v.mode, skew: v.now ? v.now - Date.now() : 0, state: v.state, seen: v.state.past.length, privy: v.me, peek: true };
+      render();
+      if (v.state.phase === 'over') showEnd();
+    },
+    applyView: (v) => {
+      if (!G || G.mode !== 'online') return;
+      const round = G.state.round;
+      Object.assign(G, { version: v.version, status: v.status, result: v.result, deadline: v.deadline || null });
+      if (v.now) G.skew = v.now - Date.now();
+      if (v.state) G.state = v.state;
+      G.pick = null;
+      render();
+      if (G.state.past.length > G.seen) showStorm(round);
+      else if (G.state.phase === 'over' && !veilOpen()) showEnd();
+    },
+  }) : null;
+  function leaveOnline() {
+    if (Online) Online.forgetOnline();
+    history.replaceState(null, '', location.pathname);
+    showSetup();
+  }
+
+  const params = new URLSearchParams(location.search);
+  const localId = params.get('local');
+  let saved = null;
+  try {
+    saved = JSON.parse(read(SAVE_KEY) || 'null');
+  } catch {
+    saved = null;
+  }
+  if (localId && validSave(saved) && saved.gid === localId) startFrom(saved);
+  else if (localId && window.BoardSaves) {
+    app.innerHTML = '<p class="muted" style="text-align:center;margin:3rem">Loading your mission…</p>';
+    window.BoardSaves.load('whiteout', localId).then((g) => (validSave(g) ? startFrom(g) : showSetup()));
+  } else showSetup(); // a ?game= link opens from the online lobby
 })();

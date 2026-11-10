@@ -3,19 +3,30 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#103448">
+  <meta name="theme-color" content="#0c2a40">
   <title>Whiteout Station — Ahrens Games</title>
-  <meta name="description" content="A cooperative Arctic research station game of hidden information, simultaneous plans, and a race to evacuate.">
+  <meta name="description" content="Whiteout Station: a cooperative Arctic survival game. Share secrets one signal at a time, repair the radio, verify your research and call in the rescue plane before the final whiteout.">
+  <link rel="icon" type="image/png" sizes="32x32" href="/img/whiteout-favicon-32.png?v=1">
+  <link rel="icon" type="image/png" sizes="16x16" href="/img/whiteout-favicon-16.png?v=1">
+  <link rel="icon" type="image/png" sizes="48x48" href="/img/whiteout-favicon-48.png?v=1">
+  <link rel="icon" type="image/png" sizes="96x96" href="/img/whiteout-favicon-96.png?v=1">
+  <link rel="icon" type="image/png" sizes="256x256" href="/img/whiteout-favicon-256.png?v=1">
+  <link rel="icon" href="/img/whiteout-icon.ico?v=1" sizes="any">
+  <link rel="apple-touch-icon" sizes="180x180" href="/img/whiteout-icon-180.png?v=1">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Lilita+One&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/css/whiteout.css?v=1">
+  <link rel="stylesheet" href="/css/whiteout.css?v=3">
+  <link rel="stylesheet" href="/css/emoji.css">
 </head>
 <body>
-  <header class="top"><a href="/ahrens-games.html">← Ahrens Games</a><span>COOPERATIVE · 2–4 PLAYERS</span></header>
-  <main id="app" class="app"></main>
-  <script src="/js/account_session.js?v=1"></script>
-  <script src="/js/whiteout.js?v=4"></script>
-  <script src="/js/games-menu.js?v=10"></script>
+  <header class="gh-top"><a class="gh-lobby" href="/ahrens-games">← Ahrens Games</a><span class="ttl">❄️ Whiteout Station</span><span class="muted">Co-op · 1–4 players</span></header>
+  <main id="app" class="wo"></main>
+  <script src="/js/account_session.js"></script>
+  <script src="/js/board-saves.js?v=2"></script>
+  <script src="/js/whiteout-engine.js?v=1"></script>
+  <script src="/js/board-online.js?v=8"></script>
+  <script src="/js/whiteout.js?v=6"></script>
+  <script src="/js/games-menu.js?v=11"></script>
 </body>
 </html>

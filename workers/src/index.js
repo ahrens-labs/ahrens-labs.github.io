@@ -42,6 +42,7 @@ export { DinoGame, DinoLobby } from './dino.js';
 import { handleHearthholdRequest } from './hearthhold.js';
 import { handleAtlantisRequest } from './atlantis.js';
 import { handleCauldronRequest } from './cauldron.js';
+import { handleLabOnlineRequest } from './lab-online.js';
 import { handleHeroesRequest } from './heroes.js';
 import { handleMasqueradeRequest } from './masquerade.js';
 import { handleBoardGamesRequest, handleBoardSavesDO, deleteBoardSaves } from './board-games.js';
@@ -288,6 +289,12 @@ export default {
           executionCtx,
           notifyChallenge: (notice) => sendLabChallengeEmail(env, notice),
         });
+      } else if (path.startsWith('/api/whiteout/')) {
+        const online = await handleLabOnlineRequest(request, env, corsHeaders, path, 'whiteout', {
+          executionCtx,
+          notifyChallenge: (notice) => sendLabChallengeEmail(env, notice),
+        });
+        return online || new Response(JSON.stringify({ error: 'Not found' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       } else if (path.startsWith('/api/cauldron/')) {
         return handleCauldronRequest(request, env, corsHeaders, path, {
           executionCtx,

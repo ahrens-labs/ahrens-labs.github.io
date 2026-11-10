@@ -11,7 +11,7 @@ const LOBBIES = [
 const CURRENT = new Set(['pending', 'active']);
 
 // Cloud saves of local games live in the player's UserAccount DO, outside the userData blob.
-const SAVE_GAMES = new Set(['dino', 'hearthhold', 'atlantis', 'cauldron', 'heroes', 'masquerade']);
+const SAVE_GAMES = new Set(['dino', 'hearthhold', 'atlantis', 'cauldron', 'heroes', 'masquerade', 'whiteout']);
 const SAVE_ID_RE = /^[a-z0-9]{4,40}$/i;
 const SAVE_MAX_BYTES = 120 * 1024;
 const SAVES_MAX_LIVE = 30;
@@ -123,6 +123,7 @@ const HISTORY_SOURCES = [
   { game: 'cauldron', binding: 'HEARTHHOLD_LOBBY', name: (u) => `cauldron:${u}`, path: '/history' },
   { game: 'heroes', binding: 'HEARTHHOLD_LOBBY', name: (u) => `heroes:${u}`, path: '/history' },
   { game: 'masquerade', binding: 'HEARTHHOLD_LOBBY', name: (u) => `masquerade:${u}`, path: '/history' },
+  { game: 'whiteout', binding: 'HEARTHHOLD_LOBBY', name: (u) => `whiteout:${u}`, path: '/history' },
 ];
 const HISTORY_RETURN = 1700;
 const KINDS = new Set(['ai', 'local', 'online']);
@@ -146,7 +147,8 @@ function scoredRow(game, h) {
   const scores = Array.isArray(h.cats) ? h.cats.map((c) => (c ? num(c.total) : null)) : h.names.map(() => null);
   const me = Number.isInteger(h.me) ? h.me : null;
   const winner = Number.isInteger(h.winner) ? h.winner : null;
-  const result = me == null || winner == null ? null : winner < 0 ? 'tie' : winner === me ? 'win' : 'loss';
+  // Co-op games: the crew won or lost together.
+  const result = h.coop ? (h.win ? 'win' : 'loss') : me == null || winner == null ? null : winner < 0 ? 'tie' : winner === me ? 'win' : 'loss';
   return {
     game, id: str(h.id, 40), kind: h.kind, at: num(h.at) || 0, names: h.names.map((n) => str(n, 18)), scores,
     me, winner, result, level: h.level || null, reason: h.reason || null, ended: h.ended || null,

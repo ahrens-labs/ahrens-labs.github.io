@@ -444,7 +444,7 @@
         const pick = $('#ol-mode .on');
         const mode = pick ? pick.dataset.v : 'quick';
         savePrefs(Object.assign(prefs(), { olMode: mode }, maxSeats > 2 ? { olBots: nBots, olLevel: level } : {}));
-        const r = await api(`${prefix}/challenge`, { opponent: opponents[0], opponents, bots: Array(nBots).fill(level), mode });
+        const r = await api(`${prefix}/challenge`, { opponent: opponents[0], opponents, bots: Array(nBots).fill(level), mode, ...(cfg.challengeExtra ? cfg.challengeExtra() : {}) });
         if (btn) btn.disabled = false;
         if (!r.ok) return toast(esc(r.data.error || 'Couldn’t send the challenge.'), 'bad');
         toast(opponents.length > 1 || nBots ? `Invites sent — you’re playing with <b>${esc(r.data.game.opp)}</b>.` : `Challenge sent to <b>${esc(r.data.game.opp)}</b>.`);

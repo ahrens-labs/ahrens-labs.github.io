@@ -7,6 +7,7 @@ import Atlantis from '../../js/atlantis-engine.js';
 import Cauldron from '../../js/cauldron-engine.js';
 import Heroes from '../../js/heroes-engine.js';
 import Masquerade from '../../js/masquerade-engine.js';
+import Whiteout from '../../js/whiteout-engine.js';
 
 const PENDING_TTL_MS = { quick: 24 * 60 * 60 * 1000, long: 7 * 24 * 60 * 60 * 1000 };
 const MODES = new Set(['quick', 'long']);
@@ -150,6 +151,79 @@ const GAMES = {
 };
 GAMES.masquerade.cleanAction = cleanMasquerade;
 GAMES.masquerade.publicState = publicMasquerade;
+
+// Whiteout Station is cooperative: the crew wins or loses together. The four roles are shared out among the
+// seats; computer seats play theirs. Everyone sends a signal at the same time, then the crew acts in role order.
+const WO_PLACES = new Set(Object.keys(Whiteout.PLACES));
+const WO_T = new Set(['signal', 'end', 'move', 'search', 'take', 'drop', 'install', 'analyze', 'refuel', 'repair', 'warm', 'treat', 'reroute', 'call']);
+function cleanWhiteout(a) {
+  if (!a || typeof a !== 'object' || !WO_T.has(a.t)) return null;
+  const out = { t: a.t };
+  const int = (v, n) => (Number.isInteger(v) && v >= 0 && v < n ? v : null);
+  if (a.t === 'signal') {
+    out.ci = int(a.ci, 4);
+    if (out.ci == null) return null;
+    if (a.none) out.none = true;
+    else {
+      if (!WO_PLACES.has(a.at) || !['go', 'avoid', 'check'].includes(a.kind)) return null;
+      out.at = a.at;
+      out.kind = a.kind;
+    }
+    return out;
+  }
+  if (a.t === 'move') {
+    if (!WO_PLACES.has(a.to)) return null;
+    out.to = a.to;
+  }
+  if (a.t === 'take') {
+    if (!['sample', 'fuel', 'ground', 'crew'].includes(a.what)) return null;
+    out.what = a.what;
+    if (a.what === 'sample') {
+      if (!/^s\d{1,2}$/.test(String(a.id))) return null;
+      out.id = String(a.id);
+    }
+    if (a.what === 'ground') {
+      out.k = int(a.k, 40);
+      if (out.k == null) return null;
+    }
+    if (a.what === 'crew') {
+      out.i = int(a.i, 4);
+      if (out.i == null) return null;
+    }
+  }
+  if (a.t === 'warm' || a.t === 'treat') {
+    out.i = int(a.i, 4);
+    if (out.i == null) return null;
+  }
+  return out;
+}
+const woSame = (a, b) => ['t', 'to', 'what', 'id', 'k', 'i', 'at', 'kind', 'none', 'ci'].every((k) => (a[k] ?? null) === (b[k] ?? null));
+GAMES.whiteout = {
+  key: 'whiteout',
+  E: Whiteout,
+  coop: true,
+  idPrefix: 'wo',
+  idRe: /^wo[0-9a-f]{18}$/,
+  page: 'whiteout.html',
+  title: 'Whiteout Station',
+  maxPlayers: 4,
+  botNames: ['Computer crew A', 'Computer crew B', 'Computer crew C'],
+  cleanOpts: (o) => (o && Whiteout.DIFF[o.diff] ? { diff: o.diff } : { diff: 'standard' }),
+  roundOf: (s) => (s ? s.round : 0),
+  logEntry: (s, text, who) => ({ n: s.round, text, who }),
+  rounds: () => 10,
+  turnOf: (s) => (s && s.phase !== 'over' ? (Whiteout.waitingOn(s)[0] ?? null) : null),
+  waitingOn: (s) => (s ? Whiteout.waitingOn(s) : []),
+  allAtOnce: (s) => !!(s && s.phase === 'signal'),
+  offTurnOk: () => false,
+  legalOk: (E, state, me, a) => (E.legal(state, me).some((o) => woSame(o, a)) ? null : 'That isn’t possible right now.'),
+  afterApply: () => {},
+  // Team progress: radio parts installed plus samples verified.
+  scoreTotal: (E, state) => state.installed + state.verified,
+  historyCats: (E, state) => state.players.map(() => ({ total: state.installed + state.verified, rescued: state.result && state.result.win ? 1 : 0 })),
+  cleanAction: cleanWhiteout,
+  publicState: (state, me) => Whiteout.publicState(state, me),
+};
 
 function sameMove(a, b) {
   if (!a || !b || a.t !== b.t) return false;
@@ -525,6 +599,7 @@ function onlineHistoryItem(cfg, record, me) {
     fixed: 1,
     me,
     reason: record.result ? record.result.reason : null,
+    ...(cfg.coop ? { coop: true, win: !!(record.result && record.result.reason === 'rescued') } : {}),
   };
 }
 
@@ -634,6 +709,7 @@ export async function handleLabOnlineRequest(request, env, corsHeaders, path, ga
         id: gameId,
         game: gameKey,
         mode: MODES.has(body.mode) ? body.mode : 'long',
+        opts: cfg.cleanOpts ? cfg.cleanOpts(body.opts) : null,
         players: [{ userId, username: me.username }, ...opps.map((o) => ({ userId: o.userId, username: o.username })), ...botSeats],
       }),
     }));
@@ -783,8 +859,9 @@ export class LabGame {
       ai: seats.map(isBot),
       levels: seats.map((p) => p.bot || 'normal'),
       first: randomInt(seats.length),
+      ...(record.opts || {}),
     });
-    if (record.state.log) record.state.log.push(cfg.logEntry(record.state, `${record.state.players[record.state.turn].name} goes first.`, null));
+    if (record.state.log && !cfg.coop) record.state.log.push(cfg.logEntry(record.state, `${record.state.players[record.state.turn].name} goes first.`, null));
     if (cfg.botSetup) seats.forEach((p, i) => isBot(p) && cfg.botSetup(cfg.E, record.state, i, p.bot));
     record.status = 'active';
     record.version = 1;
@@ -822,6 +899,18 @@ export class LabGame {
         if (cfg.answering(state)) break;
         delete record.botCall;
         continue;
+      }
+      if (cfg.allAtOnce && cfg.allAtOnce(state)) {
+        const bots = cfg.waitingOn(state).filter((j) => isBot(record.players[j]));
+        if (bots.length) {
+          try {
+            bots.forEach((j) => cfg.E.apply(state, j, cfg.E.aiChoose(state, j, record.players[j].bot)));
+          } catch {
+            break;
+          }
+          moved += bots.length;
+          continue;
+        }
       }
       const t = cfg.turnOf(state);
       const seat = t == null ? null : record.players[t];
@@ -876,6 +965,7 @@ export class LabGame {
   }
 
   finishFromState(cfg, record) {
+    if (cfg.coop) return this.finish(cfg, record, null, record.state.result && record.state.result.win ? 'rescued' : 'lost');
     const w = cfg.E.winner(record.state);
     this.finish(cfg, record, w < 0 ? null : w, 'finished');
   }
@@ -943,6 +1033,7 @@ export class LabGame {
         game: cfg.key,
         status: 'pending',
         mode: MODES.has(body.mode) ? body.mode : 'long',
+        opts: body.opts && typeof body.opts === 'object' ? body.opts : null,
         deadline: null,
         misses: body.players.map(() => 0),
         players: body.players,
@@ -997,7 +1088,7 @@ export class LabGame {
         if (me !== 0) record.declinedBy = me;
       } else if (record.status === 'active' && record.players[me].left) {
         return Response.json({ error: 'You’ve already left this game', ...viewFor(cfg, record, me, false) }, { status: 409 });
-      } else if (record.status === 'active' && record.players.length > 2) {
+      } else if (record.status === 'active' && (record.players.length > 2 || cfg.coop)) {
         this.leaveSeat(cfg, record, me, 'resign');
         record.version += 1;
       } else if (record.status === 'active') this.finish(cfg, record, 1 - me, 'resign');
@@ -1101,7 +1192,7 @@ export class LabGame {
       this.broadcast(record, null, null, steps.length ? steps : null);
       return;
     }
-    const pi = state.turn;
+    const pi = cfg.turnOf ? cfg.turnOf(state) : state.turn;
     record.misses = record.misses || record.players.map(() => 0);
     record.misses[pi] = (record.misses[pi] || 0) + 1;
     if (isBot(record.players[pi])) {
