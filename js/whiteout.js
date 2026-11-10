@@ -397,11 +397,12 @@
     const vis = visibleRoles();
     const ci = s.phase === 'act' ? s.turn : s.phase === 'signal' ? currentSignaller() : -1;
     app.innerHTML = `
-      ${topRow(`<span class="wo-ttl">❄️ Whiteout Station</span>${G.mode === 'local' ? '<button type="button" class="btn ghost sm" id="new-mission">New mission</button>' : ''}`)}
-      ${statusBar(s)}
+      ${topbar(s)}
+      <div class="wo">
       <div class="layout">
         <section class="board" aria-label="Map of Whiteout Station and the ice">${board(s, vis, ci)}</section>
         <div class="side">${turnPanel(s, vis, ci)}${crewPanel(s, vis)}<section class="panel"><h2>Station log</h2><ul class="log">${s.log.slice(-14).reverse().map((l) => `<li>${esc(l.text)}</li>`).join('')}</ul></section></div>
+      </div>
       </div>`;
     wire(s, ci);
     if (G.mode === 'online' && G.gmode === 'quick' && G.status === 'active' && Online && Online.tickClock) Online.tickClock();
@@ -411,20 +412,40 @@
     const seat = E.waitingOn(s).find((x) => !s.players[x].ai && (G.mode === 'online' ? x === G.me : solo() || x === G.privy));
     return seat == null ? -1 : E.deciding(s, seat);
   }
-  function statusBar(s) {
-    const left = s.stormsLeft != null ? s.stormsLeft : s.storms.length;
+  function topbar(s) {
+    const left = E.stormsLeft(s);
+    const total = s.past.length + left;
+    const done = s.phase === 'over' ? total : Math.min(total, s.past.length + 1);
+    const humans = s.players.filter((p) => !p.ai).length;
+    const sub = G.mode === 'online'
+      ? `🌐 Online · ${s.players.length} player${s.players.length > 1 ? 's' : ''}${G.gmode === 'quick' ? ' · ⚡' : ''}${G.gmode === 'quick' && G.status === 'active' ? ' <span class="ol-clock" id="ol-clock"></span>' : ''}`
+      : humans > 1 ? `👥 ${humans} players on this device` : '🤖 You and a computer crew';
     const broken = E.MODULES.filter((m) => s.damaged[m]);
     const chips = [
-      `<span class="chip">Round ${s.round}</span>`,
-      `<span class="chip storm">⛈️ ${left} storm${left === 1 ? '' : 's'} left</span>`,
-      `<span class="chip ${s.fuel <= 1 ? 'bad' : ''}">⛽ Fuel ${s.fuel}</span>`,
-      `<span class="chip ${s.installed >= E.PARTS ? 'good' : ''}">📻 Radio ${s.installed}/${E.PARTS}</span>`,
-      `<span class="chip ${s.verified >= s.need ? 'good' : ''}">🧪 Samples ${s.verified}/${s.need}</span>`,
-      s.plane ? `<span class="chip good">🛩️ Plane lands end of round ${s.plane.round + E.PLANE_ROUNDS}</span>` : '',
-      broken.length ? `<span class="chip bad">⚠️ ${broken.length}/${E.DAMAGE_LOSS} modules damaged</span>` : '',
+      `<span class="chip${s.fuel <= 1 ? ' bad' : ''}" title="Fuel left in the generator; it burns 1 each round">⛽ Fuel ${s.fuel}</span>`,
+      `<span class="chip${s.installed >= E.PARTS ? ' good' : ''}" title="Radio parts installed">📻 Radio ${s.installed}/${E.PARTS}</span>`,
+      `<span class="chip${s.verified >= s.need ? ' good' : ''}" title="Clean samples verified">🧪 Samples ${s.verified}/${s.need}</span>`,
+      s.plane ? `<span class="chip good" title="Everyone must be in the Hangar when it lands">🛩️ Lands end of round ${s.plane.round + E.PLANE_ROUNDS}</span>` : '',
+      broken.length ? `<span class="chip bad" title="${E.DAMAGE_LOSS} damaged modules at once and the station is lost">⚠️ ${broken.length}/${E.DAMAGE_LOSS} damaged</span>` : '',
     ];
-    const clock = G.mode === 'online' && G.gmode === 'quick' && G.status === 'active' ? '<span class="ol-clock" id="ol-clock"></span>' : '';
-    return `<div class="status">${chips.join('')}${clock}<button class="btn sm ghost" id="rules-btn">📜 Rules</button></div>`;
+    const home = G.mode === 'online' ? '🌐<span class="bt"> Game</span>' : '❄️<span class="bt"> New mission</span>';
+    return `<header class="topbar">
+        <div class="brand">
+          <img src="/img/whiteout-icon-180.png?v=1" alt="" class="brand-logo" width="46" height="46">
+          <div><h1>Whiteout Station</h1><small>${sub} · ${esc(E.DIFF[s.diff].name)}</small></div>
+        </div>
+        <div class="top-mid">
+          <div class="day-meter" title="When the storm deck runs out, the final whiteout ends the mission"><span class="dm-label">⛈️ Storm <b>${done}</b> of ${total}</span><span class="dm-bar"><i style="width:${Math.round((done / Math.max(1, total)) * 100)}%"></i></span></div>
+          <div class="top-chips">${chips.join('')}</div>
+        </div>
+        <div class="top-actions">
+          ${G.mode === 'online' && G.status === 'active' ? '<button type="button" class="btn ghost sm" id="leave-online" aria-label="Leave the mission">🏳️<span class="bt"> Leave</span></button>' : ''}
+          <button type="button" class="btn ghost sm" id="rules-btn" aria-label="Rules">📜<span class="bt"> Rules</span></button>
+          <button type="button" class="btn ghost sm" id="new-mission" aria-label="${G.mode === 'online' ? 'Online games' : 'New mission'}" title="${G.mode === 'online' ? 'Back to your online games' : 'Start a new mission (this one stays saved under Your games)'}">${home}</button>
+          <a class="btn ghost sm" href="/ahrens-games/settings" title="Ahrens Games settings" aria-label="Settings">⚙️<span class="bt"> Settings</span></a>
+          <a class="btn ghost sm" href="/ahrens-games" title="Back to the game lobby" aria-label="Game lobby"><img class="gh-dice" src="/img/board-games-favicon-48.png?v=10" alt=""><span class="bt"> Lobby</span></a>
+        </div>
+      </header>`;
   }
 
   function board(s, vis, ci) {
@@ -590,8 +611,16 @@
     if (rb) rb.onclick = showRules;
     const nm = $('#new-mission');
     if (nm) nm.onclick = () => {
+      if (G.mode === 'online') {
+        setup.mode = 'online';
+        return leaveOnline();
+      }
       history.replaceState(null, '', location.pathname);
       showSetup();
+    };
+    const lv = $('#leave-online');
+    if (lv) lv.onclick = () => {
+      if (confirm('Leave this mission? A computer crewmate takes over your roles, and the rest of the crew plays on.') && Online) Online.resign();
     };
     const again = $('#again');
     if (again) again.onclick = () => showEnd();
