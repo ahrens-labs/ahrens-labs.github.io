@@ -306,3 +306,17 @@ button { font: inherit; }
   .rb-crew { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .rb-nav .btn { font-size: 0.8rem; }
 }
+
+/* ---------------- turn guidance */
+.yourturn { margin-top: 0.7rem; padding: 0.5rem 0.75rem; border-radius: 12px; font-family: "Lilita One", sans-serif; font-size: 1.15rem; letter-spacing: 0.02em; color: #052033; background: linear-gradient(180deg, #ffe08a, #ffc94a); box-shadow: 0 3px 0 #b8860b; }
+.act-h { margin: 0.9rem 0 0.1rem; font-size: 1rem; color: #8fe3d3; }
+.act-h small { font-family: "Fredoka", sans-serif; font-size: 0.8rem; font-weight: 500; color: rgba(222, 240, 255, 0.7); letter-spacing: 0; }
+.act.walk span { display: grid; gap: 0.1rem; }
+.act.walk em { font-style: normal; font-size: 0.8rem; font-weight: 500; color: rgba(222, 240, 255, 0.72); }
+.suggest { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; margin-top: 0.7rem; padding: 0.55rem 0.7rem; border-radius: 12px; background: rgba(143, 227, 211, 0.12); box-shadow: inset 0 0 0 2px rgba(143, 227, 211, 0.55); font-size: 0.95rem; }
+.suggest .btn { flex: none; }
+.step { display: flex; align-items: center; gap: 0.5rem; margin: 0.15rem 0; }
+.step b { display: inline-grid; place-items: center; width: 1.5rem; height: 1.5rem; border-radius: 50%; background: rgba(255, 255, 255, 0.15); font-size: 0.85rem; flex: none; }
+.step.done b { background: #3cc2a8; color: #052033; }
+.node.go .lbl { background: #ffd76a; }
+.node.go .lbl::after { content: " · walk here"; font-weight: 600; }

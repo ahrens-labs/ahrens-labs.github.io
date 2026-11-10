@@ -324,6 +324,8 @@
     if (seat == null) seat = E.waitingOn(s).find((x) => !s.players[x].ai);
     const phase = s.phase;
     const round = s.round;
+    const mineNow = phase === 'act' && !s.players[seat].ai;
+    const what = mineNow ? actLabel(s, s.turn, a) : '';
     try {
       E.apply(s, seat, a);
     } catch (e) {
@@ -340,6 +342,10 @@
     G.pick = null;
     save();
     render();
+    if (mineNow && a.t !== 'end') {
+      const more = s.phase === 'act' && E.waitingOn(s)[0] === seat && s.crew[s.turn].seat === seat ? s.acts : 0;
+      toast(`✔ ${esc(what)}${more ? ` · ${more} action${more === 1 ? '' : 's'} left` : ' · turn over'}`, 2200);
+    }
     if (s.past.length > G.seen) return showStorm(round);
     loop();
   }
@@ -525,10 +531,15 @@
       const pick = G.pick;
       return `<section class="panel turn" style="--rc:${ROLE_COLOR[c.role]}">
         <div class="who"><img src="${crewImg(c.role)}" alt=""><div><b>${R.icon} ${R.name}</b><div class="muted">${esc(s.players[c.seat].name)} · send one signal</div></div></div>
+        <div class="yourturn">📡 Send your signal</div>
+        <p class="hint" style="margin-top:0.2rem">Share what your secret tells you — but only by pointing at one place. No other talking about it!</p>
         ${secret}
-        <div class="sigpick"><p class="hint">${pick ? `Signal at <b>${E.PLACES[pick].name}</b>:` : 'Tap a place on the map, then choose what your signal says. No other talking!'}</p>
-        <div class="seg">${Object.keys(SIG).map((k) => `<button type="button" data-sig="${k}" ${pick ? '' : 'disabled'}>${SIG[k]} ${SIG_TEXT[k]}</button>`).join('')}</div>
-        <button type="button" class="act end" data-sig="none">🤐 Send no signal</button></div></section>`;
+        ${suggestBox(s, ci)}
+        <div class="sigpick">
+          <p class="step${pick ? ' done' : ''}"><b>1</b> ${pick ? `Place: <b>${E.PLACES[pick].icon} ${E.PLACES[pick].name}</b> <span class="muted">(tap another to change)</span>` : 'Tap a place on the map'}</p>
+          <p class="step"><b>2</b> Choose what it means</p>
+          <div class="seg">${Object.keys(SIG).map((k) => `<button type="button" data-sig="${k}" ${pick ? '' : 'disabled'}>${SIG[k]} ${SIG_TEXT[k]}</button>`).join('')}</div>
+          <button type="button" class="act end" data-sig="none">🤐 Send no signal this round</button></div></section>`;
     }
     const c = s.crew[ci];
     const R = E.ROLES[c.role];
@@ -537,12 +548,86 @@
     const dots = `<span class="acts-left" aria-label="${left} action${left === 1 ? '' : 's'} left">${Array.from({ length: E.ACTIONS }, (_, j) => `<i class="${j < left ? '' : 'off'}"></i>`).join('')}</span>`;
     const head = `<div class="who"><img src="${crewImg(c.role)}" alt=""><div><b>${R.icon} ${R.name}</b>${dots}<div class="muted">${s.players[c.seat].ai ? '🤖 Computer crewmate' : esc(s.players[c.seat].name)}${c.carry ? ` · carrying ${E.itemName(c.carry)}` : ''}</div></div></div>`;
     if (!mine) return `<section class="panel turn" style="--rc:${ROLE_COLOR[c.role]}">${head}<p class="hint">${s.players[c.seat].ai ? 'The computer crewmate is working…' : 'Waiting for their move…'}</p>${G.mode === 'online' ? secret : ''}</section>`;
-    const opts = E.actionsFor(s, ci).filter((a) => a.t !== 'move');
+    const all = E.actionsFor(s, ci);
+    const here = all.filter((a) => a.t !== 'move' && a.t !== 'end');
+    const walks = all.filter((a) => a.t === 'move');
+    const mc = E.cost(s, ci, 'move');
     const peekBtn = !solo() && G.mode === 'local' ? `<button type="button" class="btn sm ghost" id="peek">${G.peek ? '🙈 Hide my secret' : '🔒 Show my secret'}</button>` : '';
+    const P = E.PLACES[c.at];
     return `<section class="panel turn" style="--rc:${ROLE_COLOR[c.role]}">${head}
+      <div class="yourturn">🎯 Your turn — ${left} action${left === 1 ? '' : 's'} left</div>
+      <p class="hint" style="margin-top:0.2rem">Each action is one step on the map <i>or</i> one thing where you stand. Use up to ${E.ACTIONS}, then end your turn.</p>
       ${peekBtn}${secret}
-      <p class="hint">Tap a glowing place on the map to walk there${E.cost(s, ci, 'move') > 1 ? ' (2 actions while carrying someone)' : ''}.</p>
-      <div class="actions">${opts.map((a) => actionButton(s, ci, a)).join('')}</div></section>`;
+      ${suggestBox(s, ci)}
+      <h3 class="act-h">📍 At the ${esc(P.name)}</h3>
+      <div class="actions">${here.length ? here.map((a) => actionButton(s, ci, a)).join('') : `<p class="hint" style="margin:0">Nothing to do here${c.carry ? ` with ${E.itemName(c.carry)}` : ''} — walk somewhere.</p>`}</div>
+      <h3 class="act-h">🦶 Walk <small>${mc} action${mc > 1 ? 's' : ''} a step — or tap a glowing place on the map</small></h3>
+      <div class="actions">${walks.length ? walks.map((a) => walkButton(s, ci, a)).join('') : '<p class="hint" style="margin:0">You can’t walk anywhere right now.</p>'}</div>
+      <div class="actions" style="margin-top:0.8rem"><button type="button" class="act end" data-a='{"t":"end"}'>⏭️ End turn${left ? ` <small>skips ${left} action${left === 1 ? '' : 's'}</small>` : ''}</button></div></section>`;
+  }
+  // A walk button with what's known about the place.
+  function walkButton(s, ci, a) {
+    const p = a.to;
+    const P = E.PLACES[p];
+    const site = s.sites[p];
+    const vis = visibleRoles();
+    const notes = [];
+    if (!P.inside) notes.push('out on the ice');
+    if (site) {
+      if (vis.has('engineer') && site.part) notes.push('🔧 radio part');
+      else if (!site.searched) notes.push('not searched');
+      const left = site.samples.filter((x) => !x.taken).length;
+      if (left) notes.push(`🧪×${left}`);
+      if (site.fuel) notes.push(`🛢️×${site.fuel}`);
+    }
+    if (s.damaged[p]) notes.push('⚠️ damaged');
+    if ((s.ground[p] || []).length) notes.push(`${s.ground[p].length} item${s.ground[p].length > 1 ? 's' : ''} on the ground`);
+    return `<button type="button" class="act walk" data-a='${esc(JSON.stringify(a))}'><span>${P.icon} Walk to ${esc(P.name)}${notes.length ? `<em>${notes.join(' · ')}</em>` : ''}</span></button>`;
+  }
+  // The computer crew's advice for this crewmate, using only what its role knows (and never shown while that
+  // role's secret is hidden on a shared device).
+  function suggestion(s, ci) {
+    if (!visibleRoles().has(s.crew[ci].role)) return null;
+    try {
+      const view = G.mode === 'online' ? { ...JSON.parse(JSON.stringify(s)), storms: (s.forecast || []).slice().reverse() } : s;
+      const a = E.aiChoose(view, s.crew[ci].seat);
+      if (!a) return null;
+      if (s.phase === 'act' && !E.actionsFor(s, ci).some((o) => JSON.stringify(o) === JSON.stringify(a))) return null;
+      return a;
+    } catch {
+      return null;
+    }
+  }
+  function suggestBox(s, ci) {
+    const a = suggestion(s, ci);
+    if (!a) return '';
+    const text = a.t === 'signal' ? (a.none ? '🤐 Send no signal' : `${SIG[a.kind]} ${SIG_TEXT[a.kind]} at ${E.PLACES[a.at].name}`) : actLabel(s, ci, a);
+    return `<div class="suggest"><span>💡 <b>Suggested:</b> ${text}</span><button type="button" class="btn sm" id="suggest-go" data-sa='${esc(JSON.stringify(a))}'>Do it</button></div>`;
+  }
+  // Plain words for an action (for buttons, suggestions and confirmations).
+  function actLabel(s, ci, a) {
+    const c = s.crew[ci];
+    const rn = (i) => E.ROLES[s.crew[i].role].name;
+    switch (a.t) {
+      case 'end': return '⏭️ End your turn';
+      case 'move': return `${E.PLACES[a.to].icon} Walk to ${E.PLACES[a.to].name}`;
+      case 'search': return '🔎 Search the site for a radio part';
+      case 'take':
+        if (a.what === 'sample') return `🧪 Take sample ${'AB'[s.sites[c.at].samples.findIndex((x) => x.id === a.id)]}`;
+        if (a.what === 'fuel') return '🛢️ Pick up a fuel drum';
+        if (a.what === 'crew') return `🫴 Carry the frozen ${rn(a.i)}`;
+        return `🤲 Pick up ${E.itemName(s.ground[c.at][a.k])}`;
+      case 'drop': return `📥 Put down ${E.itemName(c.carry)}`;
+      case 'install': return '📻 Install the radio part';
+      case 'analyze': return '🔬 Analyze the sample';
+      case 'refuel': return '⛽ Feed the generator';
+      case 'repair': return `🔩 Repair the ${E.PLACES[c.at].name}`;
+      case 'warm': return a.i === ci ? '♨️ Warm up' : `♨️ Warm the ${rn(a.i)}`;
+      case 'treat': return a.i === ci ? '🩺 Treat yourself' : `🩺 Treat the ${rn(a.i)}`;
+      case 'reroute': return '🌦️ Reroute the next storm';
+      case 'call': return '🛩️ Call the rescue plane';
+      default: return '';
+    }
   }
   function actionButton(s, ci, a) {
     const c = s.crew[ci];
@@ -552,7 +637,7 @@
     const data = `data-a='${esc(JSON.stringify(a))}'`;
     const B = (label, x, key) => `<button type="button" class="act${key ? ' key' : ''}${a.t === 'end' ? ' end' : ''}" ${data}>${label}${x ? n(x) : ''}</button>`;
     switch (a.t) {
-      case 'end': return B('⏭️ End turn', 0);
+      case 'end': return '';
       case 'search': return B('🔎 Search the site for a radio part', 1, true);
       case 'take':
         if (a.what === 'sample') {
@@ -638,6 +723,8 @@
         send({ t: 'signal', ci, at: G.pick, kind: k });
       }));
     }
+    const sg = $('#suggest-go');
+    if (sg) sg.onclick = () => send(JSON.parse(sg.dataset.sa));
     const peek = $('#peek');
     if (peek) peek.onclick = () => {
       G.peek = !G.peek;
