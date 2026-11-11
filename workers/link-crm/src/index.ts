@@ -641,7 +641,8 @@ app.get('/api/search', requireAuth, async (c) => {
     return c.json({ contacts: [], interactions: [] })
   }
 
-  return cachedUserGet(c, user.id, '/api/search', LINK_CACHE_TTL.api, async () => {
+  // Skip page cache; search is keyed by query string and should stay fresh while typing.
+  return (async () => {
     const contactsResult = await c.env.DB.prepare(
       'SELECT * FROM contacts WHERE user_id = ? ORDER BY created_at DESC'
     ).bind(user.id).all()
@@ -649,7 +650,7 @@ app.get('/api/search', requireAuth, async (c) => {
     const contacts: Array<any> = []
     for (const contactRow of contactsResult.results || []) {
       const decrypted = await decryptContact(contactRow, c.env.ENCRYPTION_KEY)
-      const tags = Array.isArray(contactRow.tags) ? contactRow.tags : []
+      const tags = parseContactTags(contactRow.tags)
       const searchableText = [
         decrypted.name,
         decrypted.email,
@@ -694,11 +695,15 @@ app.get('/api/search', requireAuth, async (c) => {
       if (searchableText.includes(query)) {
         const date = new Date(interaction.date)
         const dateLabel = date.toLocaleDateString()
+        const notePreview = (decryptedIx.notes || '').trim().slice(0, 80)
         interactions.push({
           id: interaction.id,
           title: `${decryptedContact.name || 'Contact'} · ${interaction.type || 'interaction'}`,
-          meta: `${dateLabel}${decryptedIx.location ? ` • ${decryptedIx.location}` : ''}`,
-          href: publicPath(c.req.raw, `/contacts/${interaction.contact_id}`),
+          meta: [dateLabel, decryptedIx.location, notePreview].filter(Boolean).join(' • '),
+          href: publicPath(
+            c.req.raw,
+            `/interactions/${interaction.id}/edit?return=${encodeURIComponent('/interactions?view=list')}`,
+          ),
         })
       }
     }
@@ -707,7 +712,7 @@ app.get('/api/search', requireAuth, async (c) => {
       contacts: contacts.slice(0, 8),
       interactions: interactions.slice(0, 8),
     })
-  })
+  })()
 })
 
 // Dashboard

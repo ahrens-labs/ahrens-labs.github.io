@@ -186,14 +186,37 @@ const APP_SITE_MENU_DRAWER = `
             </div>
         </div>`
 
-function linkAppHeader(authRight = ''): string {
+function globalSearchHeaderHtml(): string {
+  return `
+            <div class="link-global-search" id="linkGlobalSearchWrap">
+              <span class="link-global-search-icon" aria-hidden="true">⌕</span>
+              <input
+                type="search"
+                id="linkGlobalSearchInput"
+                class="link-global-search-input"
+                placeholder="Search people or interactions"
+                autocomplete="off"
+                spellcheck="false"
+                aria-label="Search people or interactions"
+                aria-expanded="false"
+                aria-controls="linkGlobalSearchDropdown"
+              >
+              <kbd class="link-global-search-kbd" aria-hidden="true">/</kbd>
+              <div id="linkGlobalSearchDropdown" class="link-global-search-dropdown" hidden role="listbox" aria-label="Search results">
+                <div class="link-search-empty">Type to search people and interactions.</div>
+              </div>
+            </div>`
+}
+
+function linkAppHeader(authRight = '', includeGlobalSearch = true): string {
   const authBlock = authRight
     ? `            <div class="th-topbar-auth" id="header-auth-buttons">
                 ${authRight}
             </div>`
     : ''
+  const searchBlock = includeGlobalSearch ? globalSearchHeaderHtml() : ''
   return `<header class="th-app-header">
-        <div class="th-app-topbar">
+        <div class="th-app-topbar link-app-topbar">
             <div class="th-topbar-start">
                 <button type="button" class="th-hamburger" id="th-site-menu-btn" aria-label="Open site menu" aria-expanded="false" aria-controls="th-site-menu">
                     <span></span><span></span><span></span>
@@ -203,6 +226,7 @@ function linkAppHeader(authRight = ''): string {
                     <h1 class="th-topbar-title link-topbar-title">Link</h1>
                 </div>
             </div>
+            ${searchBlock}
 ${authBlock}
         </div>
 ${APP_SITE_MENU_DRAWER}
@@ -350,49 +374,83 @@ export function layout(title: string, content: string): string {
       max-height: 90vh; 
       overflow-y: auto;
     }
-    .link-search-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(17, 24, 39, 0.6);
-      display: none;
-      align-items: flex-start;
-      justify-content: center;
-      padding: 1rem;
-      z-index: 2000;
-    }
-    .link-search-overlay.active {
-      display: flex;
-    }
-    .link-search-panel {
-      width: min(640px, 100%);
-      max-height: min(80vh, 720px);
-      background: white;
-      border-radius: 1rem;
-      box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
-      overflow: hidden;
-    }
-    .link-search-head {
+    .link-app-topbar {
       display: flex;
       align-items: center;
-      gap: 0.75rem;
-      padding: 1rem 1rem 0.75rem;
-      border-bottom: 1px solid #e5e7eb;
+      gap: 0.5rem;
+      flex-wrap: wrap;
     }
-    .link-search-head input {
+    .link-global-search {
       flex: 1;
-      border: none;
-      outline: none;
-      font-size: 1rem;
-      color: #111827;
-      padding: 0.25rem 0;
+      min-width: 0;
+      max-width: 440px;
+      position: relative;
+      margin: 0 auto;
     }
-    .link-search-close {
-      border: none;
-      background: none;
-      font-size: 1.25rem;
-      line-height: 1;
-      color: #6b7280;
-      cursor: pointer;
+    .link-global-search-input {
+      width: 100%;
+      border: 1px solid #d1d5db;
+      border-radius: 9999px;
+      padding: 0.45rem 2.25rem 0.45rem 2rem;
+      font-size: 0.875rem;
+      background: #f9fafb;
+      color: #111827;
+      outline: none;
+    }
+    .link-global-search-input:focus {
+      background: white;
+      border-color: #86efac;
+      box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.15);
+    }
+    .link-global-search-icon {
+      position: absolute;
+      left: 0.65rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #9ca3af;
+      font-size: 0.95rem;
+      pointer-events: none;
+    }
+    .link-global-search-kbd {
+      position: absolute;
+      right: 0.55rem;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 0.65rem;
+      color: #9ca3af;
+      border: 1px solid #e5e7eb;
+      border-radius: 0.25rem;
+      padding: 0.1rem 0.35rem;
+      background: white;
+      pointer-events: none;
+    }
+    .link-global-search-dropdown {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: calc(100% + 0.35rem);
+      z-index: 2100;
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 0.75rem;
+      box-shadow: 0 12px 32px rgba(15, 23, 42, 0.12);
+      max-height: min(60vh, 420px);
+      overflow-y: auto;
+      padding: 0.5rem;
+    }
+    .link-global-search-dropdown:not([hidden]) {
+      display: block;
+    }
+    @media (max-width: 720px) {
+      .link-global-search {
+        order: 3;
+        flex-basis: 100%;
+        max-width: none;
+        margin: 0;
+      }
+      .link-global-search-kbd {
+        display: none;
+      }
     }
     .link-search-results {
       max-height: min(60vh, 560px);
@@ -832,22 +890,57 @@ export function layout(title: string, content: string): string {
       return !!target.isContentEditable;
     }
 
-    function createResultItem(item, itemType) {
+    function navigateToSearchHref(href) {
+      if (!href) return;
+      window.location.href = href;
+    }
+
+    function createResultItem(item) {
       var button = document.createElement('button');
       button.type = 'button';
       button.className = 'link-search-result';
+      button.setAttribute('role', 'option');
       button.innerHTML = '<div class="link-search-result-title"></div><div class="link-search-result-meta"></div>';
       button.querySelector('.link-search-result-title').textContent = item.title;
-      button.querySelector('.link-search-result-meta').textContent = item.meta;
+      button.querySelector('.link-search-result-meta').textContent = item.meta || '';
       button.addEventListener('click', function () {
-        window.location.href = item.href;
+        navigateToSearchHref(item.href);
       });
       return button;
     }
 
+  function getSearchResultsContainer() {
+    return document.getElementById('linkGlobalSearchDropdown');
+  }
+
+  function getGlobalSearchInput() {
+    return document.getElementById('linkGlobalSearchInput');
+  }
+
+  function openSearchDropdown() {
+    var dropdown = getSearchResultsContainer();
+    var input = getGlobalSearchInput();
+    if (!dropdown) return;
+    dropdown.hidden = false;
+    if (input) {
+      input.setAttribute('aria-expanded', 'true');
+    }
+  }
+
+  function closeSearchDropdown() {
+    var dropdown = getSearchResultsContainer();
+    var input = getGlobalSearchInput();
+    if (!dropdown) return;
+    dropdown.hidden = true;
+    if (input) {
+      input.setAttribute('aria-expanded', 'false');
+    }
+  }
+
     function renderSearchResults(data) {
-      var resultsContainer = document.getElementById('linkSearchResults');
+      var resultsContainer = getSearchResultsContainer();
       if (!resultsContainer) return;
+      openSearchDropdown();
       resultsContainer.innerHTML = '';
 
       var contacts = Array.isArray(data && data.contacts) ? data.contacts : [];
@@ -867,7 +960,7 @@ export function layout(title: string, content: string): string {
         peopleTitle.textContent = 'People';
         peopleGroup.appendChild(peopleTitle);
         contacts.forEach(function (item) {
-          peopleGroup.appendChild(createResultItem(item, 'contact'));
+          peopleGroup.appendChild(createResultItem(item));
         });
         resultsContainer.appendChild(peopleGroup);
       }
@@ -880,55 +973,46 @@ export function layout(title: string, content: string): string {
         interactionTitle.textContent = 'Interactions';
         interactionGroup.appendChild(interactionTitle);
         interactions.forEach(function (item) {
-          interactionGroup.appendChild(createResultItem(item, 'interaction'));
+          interactionGroup.appendChild(createResultItem(item));
         });
         resultsContainer.appendChild(interactionGroup);
       }
     }
 
     function renderSearchLoading() {
-      var resultsContainer = document.getElementById('linkSearchResults');
+      var resultsContainer = getSearchResultsContainer();
       if (!resultsContainer) return;
+      openSearchDropdown();
       resultsContainer.innerHTML = '<div class="link-search-loading">Searching people and interactions…</div>';
     }
 
     function renderSearchEmpty() {
-      var resultsContainer = document.getElementById('linkSearchResults');
+      var resultsContainer = getSearchResultsContainer();
       if (!resultsContainer) return;
       resultsContainer.innerHTML = '<div class="link-search-empty">Type to search people and interactions.</div>';
     }
 
-    function openSearchOverlay() {
-      var overlay = document.getElementById('linkSearchOverlay');
-      var input = document.getElementById('linkSearchInput');
-      if (!overlay || !input) return;
-      overlay.hidden = false;
-      overlay.setAttribute('aria-hidden', 'false');
-      overlay.classList.add('active');
-      renderSearchEmpty();
-      window.setTimeout(function () {
-        input.focus();
-        input.select();
-      }, 0);
+    function focusGlobalSearch() {
+      var input = getGlobalSearchInput();
+      if (!input) return;
+      input.focus();
+      input.select();
+      if (input.value.trim()) {
+        performSearch(input.value);
+      } else {
+        openSearchDropdown();
+        renderSearchEmpty();
+      }
     }
 
-    function closeSearchOverlay() {
-      var overlay = document.getElementById('linkSearchOverlay');
-      var input = document.getElementById('linkSearchInput');
-      if (!overlay || !input) return;
-      overlay.classList.remove('active');
-      overlay.setAttribute('aria-hidden', 'true');
-      overlay.hidden = true;
-      input.value = '';
-      renderSearchEmpty();
-    }
-
+    var searchDebounceTimer = null;
     function performSearch(query) {
-      var resultsContainer = document.getElementById('linkSearchResults');
+      var resultsContainer = getSearchResultsContainer();
       if (!resultsContainer) return;
       var trimmed = (query || '').trim();
       if (!trimmed) {
         renderSearchEmpty();
+        closeSearchDropdown();
         return;
       }
       renderSearchLoading();
@@ -944,34 +1028,45 @@ export function layout(title: string, content: string): string {
           renderSearchResults(data);
         })
         .catch(function () {
+          openSearchDropdown();
           resultsContainer.innerHTML = '<div class="link-search-empty">Unable to search right now.</div>';
         });
     }
 
-    document.addEventListener('DOMContentLoaded', function () {
-      var overlay = document.getElementById('linkSearchOverlay');
-      var input = document.getElementById('linkSearchInput');
-      var closeButton = document.getElementById('linkSearchClose');
-
-      if (overlay) {
-        overlay.addEventListener('click', function (event) {
-          if (event.target.id === 'linkSearchOverlay') {
-            closeSearchOverlay();
-          }
-        });
+    function scheduleSearch(query) {
+      if (searchDebounceTimer) {
+        window.clearTimeout(searchDebounceTimer);
       }
+      searchDebounceTimer = window.setTimeout(function () {
+        performSearch(query);
+      }, 200);
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+      var input = getGlobalSearchInput();
+      var wrap = document.getElementById('linkGlobalSearchWrap');
+      var dropdown = getSearchResultsContainer();
 
       if (input) {
         input.addEventListener('input', function (event) {
-          performSearch(event.target.value);
+          scheduleSearch(event.target.value);
+        });
+        input.addEventListener('focus', function () {
+          if (input.value.trim()) {
+            performSearch(input.value);
+          } else {
+            openSearchDropdown();
+            renderSearchEmpty();
+          }
         });
         input.addEventListener('keydown', function (event) {
           if (event.key === 'Escape') {
             event.preventDefault();
-            closeSearchOverlay();
+            input.blur();
+            closeSearchDropdown();
           } else if (event.key === 'Enter') {
             event.preventDefault();
-            var firstResult = document.querySelector('.link-search-result');
+            var firstResult = dropdown && dropdown.querySelector('.link-search-result');
             if (firstResult) {
               firstResult.click();
             }
@@ -979,9 +1074,12 @@ export function layout(title: string, content: string): string {
         });
       }
 
-      if (closeButton) {
-        closeButton.addEventListener('click', closeSearchOverlay);
-      }
+      document.addEventListener('click', function (event) {
+        if (!wrap || !dropdown || dropdown.hidden) return;
+        if (!wrap.contains(event.target)) {
+          closeSearchDropdown();
+        }
+      });
     });
 
     document.addEventListener('keydown', function (event) {
@@ -989,15 +1087,16 @@ export function layout(title: string, content: string): string {
       var key = event.key;
       var code = event.code;
       if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey || event.repeat) return;
-      if (isEditableTarget(target)) return;
 
       if ((key === '/' || code === 'Slash') && !event.shiftKey) {
+        if (isEditableTarget(target) && target.id !== 'linkGlobalSearchInput') return;
+        if (!getGlobalSearchInput()) return;
         event.preventDefault();
-        openSearchOverlay();
+        focusGlobalSearch();
         return;
       }
 
-      if (event.key.toLowerCase() === 'q') {
+      if (event.key.toLowerCase() === 'q' && !isEditableTarget(target)) {
         event.preventDefault();
         window.location.href = window.linkApi ? window.linkApi('/interactions/new') : '/interactions/new';
       }
@@ -1005,25 +1104,14 @@ export function layout(title: string, content: string): string {
 
     document.addEventListener('keydown', function (event) {
       if (event.key === 'Escape') {
-        var overlay = document.getElementById('linkSearchOverlay');
-        if (overlay && !overlay.hidden) {
-          closeSearchOverlay();
+        var dropdown = getSearchResultsContainer();
+        if (dropdown && !dropdown.hidden) {
+          closeSearchDropdown();
         }
       }
     });
   })();
   </script>
-  <div id="linkSearchOverlay" class="link-search-overlay" aria-hidden="true" hidden>
-    <div class="link-search-panel" role="dialog" aria-modal="true" aria-label="Search Link">
-      <div class="link-search-head">
-        <input type="text" id="linkSearchInput" placeholder="Search people or interactions…" autocomplete="off" spellcheck="false">
-        <button type="button" class="link-search-close" id="linkSearchClose" aria-label="Close search">×</button>
-      </div>
-      <div class="link-search-results" id="linkSearchResults">
-        <div class="link-search-empty">Type to search people and interactions.</div>
-      </div>
-    </div>
-  </div>
 
   ${content}
 
@@ -1417,7 +1505,7 @@ export function landingPage(): string {
   return layout('Link', `
     <div style="min-height: 100vh; background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);">
     ${linkAppHeader(`<a href="/auth/signin" class="th-topbar-auth-btn th-topbar-auth-login">Login</a>
-                <a href="/auth/signup" class="th-topbar-auth-btn th-topbar-auth-signup">Sign Up</a>`)}
+                <a href="/auth/signup" class="th-topbar-auth-btn th-topbar-auth-signup">Sign Up</a>`, false)}
 
       <div class="container" style="padding-top: 4rem; padding-bottom: 4rem;">
         <div style="text-align: center; color: white; margin-bottom: 4rem;">
@@ -1457,7 +1545,7 @@ export function landingPage(): string {
 
 export function signinPage(error?: string): string {
   return layout('Sign In', `
-    ${linkAppHeader()}
+    ${linkAppHeader('', false)}
     <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #f9fafb;">
       <div class="card" style="max-width: 400px; width: 100%;">
         <div style="text-align: center; margin-bottom: 2rem;">
@@ -1499,7 +1587,7 @@ export function signinPage(error?: string): string {
 
 export function signupPage(error?: string): string {
   return layout('Sign Up', `
-    ${linkAppHeader()}
+    ${linkAppHeader('', false)}
     <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #f9fafb;">
       <div class="card" style="max-width: 400px; width: 100%;">
         <div style="text-align: center; margin-bottom: 2rem;">
