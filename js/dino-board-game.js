@@ -3004,8 +3004,8 @@
     ? `<button class="btn sm ghost" data-act="onlineLeave" aria-label="My games">🏠<span class="lb-t"> My games</span></button>${online.status === 'active' ? '<button class="btn sm ghost" data-act="onlineResign" aria-label="Resign">🏳️<span class="lb-t"> Resign</span></button>' : ''}`
     : state.sim ? '<button class="btn sm ghost" data-act="simStop" aria-label="Exit simulation">⏹<span class="lb-t"> Exit simulation</span></button>'
       : state.past ? '<a class="btn sm ghost" href="/game-history.html?game=dino" aria-label="Back to history">🏆<span class="lb-t"> Back to history</span></a>' : '<button class="btn sm ghost" data-act="newGame" aria-label="New game">🥚<span class="lb-t"> New game</span></button>'}
-        <a class="btn sm ghost" href="/ahrens-games/settings" title="Ahrens Games settings" aria-label="Settings">⚙️<span class="lb-t"> Settings</span></a>
-        <a class="btn sm ghost" href="/ahrens-games" title="Back to the game lobby" aria-label="Game lobby"><img class="gh-dice" src="/img/board-games-favicon-48.png?v=8" alt=""><span class="lb-t"> Lobby</span></a>
+        <a class="btn sm ghost" href="/settings" title="Ahrens Games settings" aria-label="Settings">⚙️<span class="lb-t"> Settings</span></a>
+        <a class="btn sm ghost" href="/" title="Back to the game lobby" aria-label="Game lobby"><img class="gh-dice" src="/img/board-games-favicon-48.png?v=8" alt=""><span class="lb-t"> Lobby</span></a>
       </div>`);
   }
 
@@ -4235,7 +4235,7 @@
     const floaters = ['coin', 'diamond', 'meat', 'plant', 'coin', 'fence', 'water', 'diamond']
       .map((t, i) => `<img class="floater f${i}" src="${IMG}${t}.webp" alt="">`)
       .join('');
-    return `<div class="gh-top"><a class="gh-lobby" href="/ahrens-games" title="Back to the game lobby">← <img class="gh-dice" src="/img/board-games-favicon-48.png?v=8" alt="" width="20" height="20"> Game lobby</a>${window.GameMusic ? GameMusic.buttonHtml('btn sm ghost gh-music', 'lb-t') : ''}</div>
+    return `<div class="gh-top"><a class="gh-lobby" href="/" title="Back to the game lobby">← <img class="gh-dice" src="/img/board-games-favicon-48.png?v=8" alt="" width="20" height="20"> Game lobby</a>${window.GameMusic ? GameMusic.buttonHtml('btn sm ghost gh-music', 'lb-t') : ''}</div>
       <div class="gh-hero">
         <img class="gh-hero-img" src="${IMG}cover.webp" alt="Dinosaurs in fenced enclosures in a jungle park">
         <div class="gh-shade"></div>

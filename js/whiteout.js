@@ -18,7 +18,7 @@
   const $ = (sel, r = document) => r.querySelector(sel);
 
   // ---------------------------------------------------------------- the home screen frame (shared game-home.css)
-  const topRow = (extra = '') => `<div class="gh-top"><a class="gh-lobby" href="/ahrens-games" title="Back to the game lobby">← <img class="gh-dice" src="/img/board-games-favicon-48.png?v=10" alt="" width="20" height="20"> Game lobby</a>${extra}</div>`;
+  const topRow = (extra = '') => `<div class="gh-top"><a class="gh-lobby" href="/" title="Back to the game lobby">← <img class="gh-dice" src="/img/board-games-favicon-48.png?v=10" alt="" width="20" height="20"> Game lobby</a>${extra}</div>`;
   function heroHtml(withTagline) {
     const snow = Array.from({ length: 18 }, (_, i) => `<i style="left:${(i * 37) % 100}%;animation-delay:${(-i * 0.7).toFixed(1)}s;animation-duration:${(6 + (i % 5)).toFixed(1)}s"></i>`).join('');
     return `${topRow()}
@@ -40,7 +40,7 @@
     return;
   }
   if ((read('ahrenslabs_email') || '').trim().toLowerCase() !== 'calebahrens2011@gmail.com') {
-    gate('<h2>This game is in private testing</h2><a class="btn big" href="/ahrens-games">Back to Ahrens Games</a>');
+    gate('<h2>This game is in private testing</h2><a class="btn big" href="/">Back to Ahrens Games</a>');
     return;
   }
 
@@ -448,8 +448,8 @@
           ${G.mode === 'online' && G.status === 'active' ? '<button type="button" class="btn ghost sm" id="leave-online" aria-label="Leave the mission">🏳️<span class="bt"> Leave</span></button>' : ''}
           <button type="button" class="btn ghost sm" id="rules-btn" aria-label="Rules">📜<span class="bt"> Rules</span></button>
           <button type="button" class="btn ghost sm" id="new-mission" aria-label="${G.mode === 'online' ? 'Online games' : 'New mission'}" title="${G.mode === 'online' ? 'Back to your online games' : 'Start a new mission (this one stays saved under Your games)'}">${home}</button>
-          <a class="btn ghost sm" href="/ahrens-games/settings" title="Ahrens Games settings" aria-label="Settings">⚙️<span class="bt"> Settings</span></a>
-          <a class="btn ghost sm" href="/ahrens-games" title="Back to the game lobby" aria-label="Game lobby"><img class="gh-dice" src="/img/board-games-favicon-48.png?v=10" alt=""><span class="bt"> Lobby</span></a>
+          <a class="btn ghost sm" href="/settings" title="Ahrens Games settings" aria-label="Settings">⚙️<span class="bt"> Settings</span></a>
+          <a class="btn ghost sm" href="/" title="Back to the game lobby" aria-label="Game lobby"><img class="gh-dice" src="/img/board-games-favicon-48.png?v=10" alt=""><span class="bt"> Lobby</span></a>
         </div>
       </header>`;
   }

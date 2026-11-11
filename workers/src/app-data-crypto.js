@@ -4,7 +4,7 @@
  */
 const ENC_PREFIX = 'enc:1:';
 
-function hexToBytes(hex) {
+export function hexToBytes(hex) {
   const clean = String(hex || '').trim();
   if (!/^[0-9a-fA-F]+$/.test(clean) || clean.length % 2 !== 0) {
     throw new Error('APP_DATA_ENCRYPTION_KEY must be a hex string');

@@ -82,13 +82,13 @@ async function sendReminderEmail(env, { to, name, days, title, page, id, others 
   const mail = globalThis.__ahrensMail;
   if (!mail || !mail.real(to)) return;
   const esc = mail.esc;
-  const site = mail.site(env);
+  const site = mail.games(env);
   const who = String(name || '').replace(/\s+/g, ' ').trim().slice(0, 40) || 'there';
   const gameTitle = String(title || 'your game').slice(0, 60);
   const rivals = (others || []).filter(Boolean).slice(0, 4);
   const against = rivals.length ? ` with ${rivals.join(', ')}` : '';
-  const url = `${site}/${String(page || 'ahrens-games').replace(/[^a-z0-9._-]/gi, '')}?game=${encodeURIComponent(id)}`;
-  const settingsUrl = `${site}/ahrens-games/settings`;
+  const url = `${site}/${String(page || '').replace(/[^a-z0-9._-]/gi, '').replace(/^ahrens-games$/, '')}?game=${encodeURIComponent(id)}`;
+  const settingsUrl = `${site}/settings`;
   const waited = days === 1 ? 'a day' : `${days} days`;
   const subject = `It’s your move in ${gameTitle}`;
   const html = `<!DOCTYPE html>

@@ -19,7 +19,7 @@
   if (!isAdmin()) {
     for (let i = GAMES.length - 1; i >= 0; i--) if (GAMES[i].page === 'whiteout') GAMES.splice(i, 1);
   }
-  const here = (location.pathname.split('/').pop() || '').replace(/\.html$/, '');
+  const here = (location.pathname.split('/').pop() || 'ahrens-games').replace(/\.html$/, '');
   const cur = (page) => (page === here ? ' aria-current="page" class="on"' : '');
 
   const css = document.createElement('style');
@@ -79,14 +79,14 @@
   drawer.setAttribute('aria-hidden', 'true');
   drawer.innerHTML = `
     <div class="gm-head"><img src="/img/ahrens-games-logo.webp?v=8" alt=""><b>Ahrens <span>Games</span></b><button type="button" class="gm-x" aria-label="Close menu">✕</button></div>
-    <a href="/ahrens-games"${cur('ahrens-games')}><img src="/img/board-games-favicon-48.png?v=10" alt="">All games</a>
+    <a href="/"${cur('ahrens-games')}><img src="/img/board-games-favicon-48.png?v=10" alt="">All games</a>
     <a href="/game-history.html"${cur('game-history')}><span class="gm-i" aria-hidden="true">🏆</span>Game history</a>
-    <a href="/ahrens-games/settings"${cur('settings')}><span class="gm-i" aria-hidden="true">⚙️</span>Settings</a>
+    <a href="/settings"${cur('settings')}><span class="gm-i" aria-hidden="true">⚙️</span>Settings</a>
     <p class="gm-label">Games</p>
     ${GAMES.map((g) => `<a href="${g.href}"${cur(g.page)}><img src="${g.icon}" alt="" loading="lazy">${g.name}</a>`).join('')}
     <div class="gm-foot">
-      <a href="/index.html"><span class="gm-i" aria-hidden="true">←</span>Ahrens Labs home</a>
-      <a href="/account-dashboard.html"><span class="gm-i" aria-hidden="true">👤</span>Account</a>
+      <a href="https://ahrenslabs.com/"><span class="gm-i" aria-hidden="true">←</span>Ahrens Labs home</a>
+      <a href="https://ahrenslabs.com/account-dashboard.html"><span class="gm-i" aria-hidden="true">👤</span>Account</a>
     </div>`;
 
   const links = () => [...drawer.querySelectorAll('a, button')];

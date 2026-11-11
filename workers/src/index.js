@@ -51,6 +51,7 @@ export { HearthholdGame, HearthholdLobby } from './hearthhold.js';
 export { LabGame, LabLobby } from './lab-online.js';
 export { FantasyLeagueStore };
 import { handleLinkRequest, handleLinkConsumeBridge, handleInternalUserProfile } from './link.js';
+import { handleSessionHandoff, handleSessionRedeem } from './session-handoff.js';
 import {
   getAppDataKey,
   encryptDeckBlob,
@@ -147,6 +148,10 @@ export default {
         return handleLogin(request, env, corsHeaders);
       } else if (path === '/api/logout' && request.method === 'POST') {
         return handleLogout(request, env, corsHeaders);
+      } else if (path === '/api/session/handoff' && request.method === 'POST') {
+        return handleSessionHandoff(request, env, corsHeaders);
+      } else if (path === '/api/session/redeem' && request.method === 'POST') {
+        return handleSessionRedeem(request, env, corsHeaders);
       } else if (path === '/api/sync' && request.method === 'POST') {
         return handleSync(request, env, corsHeaders);
       } else if (path === '/api/user' && request.method === 'GET') {
@@ -6878,9 +6883,15 @@ function sitePublicBase(env) {
 globalThis.__ahrensMail = {
   send: (env, msg) => dispatchTransactionalEmail(env, msg),
   site: (env) => sitePublicBase(env),
+  games: (env) => gamesPublicBase(env),
   esc: (s) => escapeHtmlEmail(s),
   real: (email) => isLikelyRealEmail(email),
 };
+
+/** Ahrens Games lives on its own domain; game pages sit at its root and the lobby is "/". */
+function gamesPublicBase(env) {
+  return String(env.GAMES_SITE_BASE || 'https://ahrensgames.com').replace(/\/$/, '');
+}
 
 /** Links in product/marketing emails (welcome, challenge emails). Defaults to ahrenslabs.com. */
 function siteMarketingBase(env) {
@@ -9326,7 +9337,7 @@ async function sendDinoChallengeEmail(env, { to, recipientName, challengerName, 
   const modeLine = quick
     ? 'Quick game: up to 2 minutes per move, so play it together in one sitting.'
     : 'Long game: no time limit. Take your turn whenever you see it’s your move — it can run over days.';
-  const gameUrl = `${sitePublicBase(env)}/dino-board-game.html?game=${encodeURIComponent(gameId)}`;
+  const gameUrl = `${gamesPublicBase(env)}/dino-board-game.html?game=${encodeURIComponent(gameId)}`;
   const challengerHtml = escapeHtmlEmail(challenger);
   const urlHtml = escapeHtmlEmail(gameUrl);
   const subject = `${challenger} challenged you to a game of Dino Dynasty`;
@@ -9427,8 +9438,8 @@ async function sendLabChallengeEmail(env, { to, recipientName, challengerName, g
   const challenger = String(challengerName || '').replace(/\s+/g, ' ').trim().slice(0, 40) || 'Someone';
   const recipient = String(recipientName || '').replace(/\s+/g, ' ').trim().slice(0, 40) || 'there';
   const gameTitle = String(title || 'a board game').slice(0, 60);
-  const gamePage = String(page || 'ahrens-games').replace(/[^a-z0-9._-]/gi, '');
-  const gameUrl = `${sitePublicBase(env)}/${gamePage}?game=${encodeURIComponent(gameId)}`;
+  const gamePage = String(page || '').replace(/[^a-z0-9._-]/gi, '').replace(/^ahrens-games$/, '');
+  const gameUrl = `${gamesPublicBase(env)}/${gamePage}?game=${encodeURIComponent(gameId)}`;
   const urlHtml = escapeHtmlEmail(gameUrl);
   const quick = mode === 'quick';
   const pace = quick
@@ -9477,7 +9488,7 @@ async function sendHearthholdChallengeEmail(env, { to, recipientName, challenger
   if (!to || !isLikelyRealEmail(to)) return;
   const challenger = String(challengerName || '').replace(/\s+/g, ' ').trim().slice(0, 40) || 'Someone';
   const recipient = String(recipientName || '').replace(/\s+/g, ' ').trim().slice(0, 40) || 'there';
-  const gameUrl = `${sitePublicBase(env)}/oakhaven.html?game=${encodeURIComponent(gameId)}`;
+  const gameUrl = `${gamesPublicBase(env)}/oakhaven.html?game=${encodeURIComponent(gameId)}`;
   const urlHtml = escapeHtmlEmail(gameUrl);
   const quick = mode === 'quick';
   const pace = quick

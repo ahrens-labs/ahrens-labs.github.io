@@ -293,7 +293,7 @@
   // ---------------------------------------------------------------- home
   function heroHtml(withTagline) {
     const bubbles = Array.from({ length: 12 }, (_, i) => `<i style="left:${(i * 37) % 100}%;animation-delay:${(i * 0.8).toFixed(1)}s;width:${6 + (i % 4) * 4}px;height:${6 + (i % 4) * 4}px"></i>`).join('');
-    return `<div class="gh-top"><a class="gh-lobby" href="/ahrens-games" title="Back to the game lobby">← <img class="gh-dice" src="/img/board-games-favicon-48.png?v=8" alt="" width="20" height="20"> Game lobby</a>${window.GameMusic ? GameMusic.buttonHtml('btn ghost sm gh-music', 'bt') : ''}</div>
+    return `<div class="gh-top"><a class="gh-lobby" href="/" title="Back to the game lobby">← <img class="gh-dice" src="/img/board-games-favicon-48.png?v=8" alt="" width="20" height="20"> Game lobby</a>${window.GameMusic ? GameMusic.buttonHtml('btn ghost sm gh-music', 'bt') : ''}</div>
       <div class="gh-hero">
         <img src="${IMG('cover')}" alt="A brass submarine and two divers swimming toward the glowing ruins of Atlantis" class="gh-hero-img">
         <div class="gh-shade"></div>
@@ -462,8 +462,8 @@
           ${G.mode === 'online' && G.status === 'active' ? '<button class="btn ghost sm" data-act="resignOnline" aria-label="Resign">🏳️<span class="bt"> Resign</span></button>' : ''}
           <button class="btn ghost sm" data-act="rules" aria-label="Rules">📜<span class="bt"> Rules</span></button>
           <button class="btn ghost sm" data-act="home" aria-label="${G.mode === 'past' ? 'History' : G.mode === 'sim' ? 'Stop' : 'New game'}" title="${G.mode === 'past' ? 'Back to history' : G.mode === 'sim' ? 'Stop the simulation' : 'Start a new game (this one stays saved under Your games)'}">${home}</button>
-          <a class="btn ghost sm" href="/ahrens-games/settings" title="Ahrens Games settings" aria-label="Settings">⚙️<span class="bt"> Settings</span></a>
-          <a class="btn ghost sm" href="/ahrens-games" title="Back to the game lobby" aria-label="Game lobby"><img class="gh-dice" src="/img/board-games-favicon-48.png?v=8" alt=""><span class="bt"> Lobby</span></a>
+          <a class="btn ghost sm" href="/settings" title="Ahrens Games settings" aria-label="Settings">⚙️<span class="bt"> Settings</span></a>
+          <a class="btn ghost sm" href="/" title="Back to the game lobby" aria-label="Game lobby"><img class="gh-dice" src="/img/board-games-favicon-48.png?v=8" alt=""><span class="bt"> Lobby</span></a>
         </div>
       </header>
       <div class="at">
@@ -1233,7 +1233,7 @@
         <div class="hr-verdict" aria-live="polite"></div>
         <div class="hr-sub">${sub}</div>
         <div class="hr-rows">${rows.map(([label, k]) => `<div class="hr-row"><span class="${sc[0][k] > sc[1][k] ? 'lead' : ''}">${sc[0][k]}</span><small>${label}</small><span class="${sc[1][k] > sc[0][k] ? 'lead' : ''}">${sc[1][k]}</span></div>`).join('')}</div>
-        <div class="hr-actions"><button class="btn" data-rv="close">🗺️ See the chart</button>${G.mode === 'past' ? '' : `<button class="btn" data-rv="again">${G.mode === 'online' ? '🌐 Your games' : G.mode === 'sim' ? '🧪 Run again' : '🔱 Play again'}</button>`}${G.mode === 'sim' ? '' : '<button class="btn ghost" data-rv="hist">🏆 Game history</button>'}<a class="btn ghost" href="/ahrens-games"><img class="gh-dice" src="/img/board-games-favicon-48.png?v=8" alt=""> All board games</a></div>
+        <div class="hr-actions"><button class="btn" data-rv="close">🗺️ See the chart</button>${G.mode === 'past' ? '' : `<button class="btn" data-rv="again">${G.mode === 'online' ? '🌐 Your games' : G.mode === 'sim' ? '🧪 Run again' : '🔱 Play again'}</button>`}${G.mode === 'sim' ? '' : '<button class="btn ghost" data-rv="hist">🏆 Game history</button>'}<a class="btn ghost" href="/"><img class="gh-dice" src="/img/board-games-favicon-48.png?v=8" alt=""> All board games</a></div>
       </div><button class="hr-skip" data-rv="skip">Skip ▸</button>`;
     document.body.appendChild(el);
     const timers = [];
@@ -1431,7 +1431,7 @@
     document.body.className = 'setup-mode';
     $('#app').innerHTML = `
       <div class="setup gh">
-      <div class="gh-top"><a class="gh-lobby" href="/ahrens-games" title="Back to the game lobby">← <img class="gh-dice" src="/img/board-games-favicon-48.png?v=8" alt="" width="20" height="20"> Game lobby</a><button class="btn ghost sm" id="hist-new">🔱 New game</button></div>
+      <div class="gh-top"><a class="gh-lobby" href="/" title="Back to the game lobby">← <img class="gh-dice" src="/img/board-games-favicon-48.png?v=8" alt="" width="20" height="20"> Game lobby</a><button class="btn ghost sm" id="hist-new">🔱 New game</button></div>
         <div class="setup-card gh-card panel hist">
           <h2>🏆 Game history</h2>
           <div id="hist-body"><p class="muted">Loading your games…</p></div>

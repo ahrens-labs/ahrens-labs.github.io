@@ -1,4 +1,4 @@
-// Ahrens Games settings page (/ahrens-games/settings). Account settings (emails, tab alerts, computer move speed)
+// Ahrens Games settings page (ahrensgames.com/settings). Account settings (emails, tab alerts, computer move speed)
 // are saved to the account so they follow the player and the game servers can honour them; a copy is kept in
 // localStorage for the game pages. Sound is a setting of this device (the games' shared ahrens_sound).
 (() => {

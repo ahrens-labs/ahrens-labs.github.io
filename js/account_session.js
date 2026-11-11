@@ -318,4 +318,155 @@
             }
         },
     };
+
+    // Ahrens Games lives on ahrensgames.com (lobby at "/", settings at "/settings"); everything else is ahrenslabs.com.
+    // Pages opened on the wrong domain move over, and since each domain has its own storage the login rides along as
+    // a one-minute sealed token in the URL fragment (/api/session/handoff, then /api/session/redeem on arrival).
+    const LABS_HOST = 'ahrenslabs.com';
+    const GAMES_HOST = 'ahrensgames.com';
+    const GAME_PAGES = new Set(['atlantis', 'cauldron', 'dino-board-game', 'dino-history', 'game-history', 'hearthhold', 'heroes', 'masquerade', 'oakhaven', 'whiteout']);
+    const SHARED_PAGES = new Set(['account', 'reset-password']);
+    const HANDOFF_PARAM = 'al-handoff';
+    const KEPT_HASH_PARAM = 'al-hash';
+    const API_BASE = window.AHRENS_LABS_API_BASE || 'https://chess-accounts.matthewahrens.workers.dev';
+
+    const bareHost = (host) => String(host || '').toLowerCase().replace(/^www\./, '');
+    const isSiteHost = (host) => bareHost(host) === LABS_HOST || bareHost(host) === GAMES_HOST;
+
+    function canonicalUrl(raw) {
+        const url = new URL(raw, location.href);
+        if (!isSiteHost(url.hostname)) return null;
+        const onGames = bareHost(url.hostname) === GAMES_HOST;
+        const slug = url.pathname.replace(/^\/+|\/+$/g, '').replace(/\.html$/i, '').toLowerCase();
+        let games = onGames;
+        let path = url.pathname;
+        if (slug === 'ahrens-games' || slug === 'board-games') {
+            games = true;
+            path = '/';
+        } else if (slug === 'ahrens-games/settings' || (onGames && slug === 'settings')) {
+            games = true;
+            path = '/settings';
+        } else if (GAME_PAGES.has(slug)) {
+            games = true;
+        } else if (onGames && slug === 'index') {
+            games = false;
+            path = '/';
+        } else if (slug && !SHARED_PAGES.has(slug)) {
+            games = false;
+        }
+        const target = new URL(url.href);
+        if (games !== onGames) {
+            target.protocol = 'https:';
+            target.host = games ? GAMES_HOST : LABS_HOST;
+        }
+        target.pathname = path;
+        return target.href === url.href ? null : target.href;
+    }
+
+    async function mintHandoff() {
+        const sessionId = localStorage.getItem('ahrenslabs_sessionId');
+        if (!sessionId) return '';
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 4000);
+        try {
+            const response = await fetch(`${API_BASE}/api/session/handoff`, {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${sessionId}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userId: localStorage.getItem('ahrenslabs_userId') || '',
+                    username: localStorage.getItem('ahrenslabs_username') || '',
+                    email: localStorage.getItem('ahrenslabs_email') || '',
+                }),
+                signal: ctrl.signal,
+            });
+            if (!response.ok) return '';
+            return String((await response.json()).token || '');
+        } catch {
+            return '';
+        } finally {
+            clearTimeout(timer);
+        }
+    }
+
+    async function goAcross(href, replace) {
+        const url = new URL(href);
+        if (url.host !== location.host) {
+            const token = await mintHandoff();
+            if (token) {
+                const kept = url.hash.slice(1);
+                url.hash = `${HANDOFF_PARAM}=${token}` + (kept ? `&${KEPT_HASH_PARAM}=${encodeURIComponent(kept)}` : '');
+            }
+        }
+        if (replace) location.replace(url.href);
+        else location.assign(url.href);
+    }
+
+    // Stops the rest of the page (and its sign-in redirects) from running while we switch domains or redeem a login.
+    function holdPage() {
+        try {
+            window.stop();
+        } catch {
+            /* ignore */
+        }
+        document.documentElement.style.visibility = 'hidden';
+    }
+
+    async function redeemHandoff(token, keptHash) {
+        try {
+            const response = await fetch(`${API_BASE}/api/session/redeem`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token }),
+            });
+            const data = response.ok ? await response.json() : null;
+            if (data && data.sessionId) {
+                localStorage.setItem('ahrenslabs_sessionId', data.sessionId);
+                [['ahrenslabs_userId', data.userId], ['ahrenslabs_username', data.username], ['ahrenslabs_email', data.email]].forEach(([key, value]) => {
+                    if (value) localStorage.setItem(key, value);
+                    else localStorage.removeItem(key);
+                });
+            }
+        } catch {
+            /* arrive signed out on this domain */
+        }
+        history.replaceState(history.state, '', location.href.split('#')[0] + (keptHash ? `#${keptHash}` : ''));
+        location.reload();
+    }
+
+    function onSiteLinkClick(event) {
+        if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+        const link = event.target && event.target.closest ? event.target.closest('a[href]') : null;
+        if (!link || link.hasAttribute('download') || (link.target && link.target !== '_self')) return;
+        let dest;
+        try {
+            if (!isSiteHost(new URL(link.href).hostname)) return;
+            dest = canonicalUrl(link.href) || link.href;
+        } catch {
+            return;
+        }
+        if (new URL(dest).host === location.host) {
+            if (dest !== link.href) {
+                event.preventDefault();
+                location.assign(dest);
+            }
+            return;
+        }
+        event.preventDefault();
+        goAcross(dest, false);
+    }
+
+    if (isSiteHost(location.hostname)) {
+        const fragment = new URLSearchParams(location.hash.slice(1));
+        const handoff = fragment.get(HANDOFF_PARAM);
+        const home = handoff ? null : canonicalUrl(location.href);
+        if (handoff) {
+            holdPage();
+            redeemHandoff(handoff, fragment.get(KEPT_HASH_PARAM) || '');
+        } else if (home) {
+            holdPage();
+            goAcross(home, true);
+        } else {
+            document.addEventListener('click', onSiteLinkClick);
+        }
+    }
 })();
