@@ -2183,7 +2183,7 @@ export function dashboardPage(user: any, hasGoogleAccount: boolean = false, rece
   `)
 }
 
-export function peoplePage(user: any, contacts: any[], allTags: string[], searchQuery: string, tagFilter: string, sortBy: string, hasGoogleAccount: boolean = false): string {
+export function peoplePage(user: any, contacts: any[], allTags: string[], tagFilter: string, sortBy: string, hasGoogleAccount: boolean = false): string {
   const contactsList = contacts.map(c => `
     <tr>
       <td style="width: 2.5rem;">
@@ -2216,12 +2216,7 @@ export function peoplePage(user: any, contacts: any[], allTags: string[], search
         
         <div class="card" style="margin-bottom: 1rem;">
           <form method="GET" action="/people" style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: end;">
-            <div class="form-group" style="flex: 1; min-width: 200px; margin-bottom: 0;">
-              <label class="form-label">Search</label>
-              <input type="text" name="search" class="form-input" placeholder="Search by name, email, or company..." value="${searchQuery}">
-            </div>
-            
-            <div class="form-group" style="min-width: 200px; margin-bottom: 0;">
+            <div class="form-group" style="min-width: 200px; margin-bottom: 0; flex: 1;">
               <label class="form-label">Filter by Tag</label>
               <select name="tag" class="form-select">
                 <option value="">All Tags</option>
@@ -2239,7 +2234,7 @@ export function peoplePage(user: any, contacts: any[], allTags: string[], search
             
             <div style="display: flex; gap: 0.5rem;">
               <button type="submit" class="btn btn-primary">Apply</button>
-              ${searchQuery || tagFilter || sortBy !== 'name' ? `<a href="/people" class="btn btn-secondary">Clear</a>` : ''}
+              ${tagFilter || sortBy !== 'name' ? `<a href="/people" class="btn btn-secondary">Clear</a>` : ''}
             </div>
           </form>
         </div>
@@ -3558,8 +3553,8 @@ function getCalendarHtml(year: number, month: number, interactionsByDate: Map<st
   return calendarHtml;
 }
 
-export function interactionsPage(user: any, recentInteractions: any[], searchQuery: string = '', typeFilter: string = '', hasGoogleAccount: boolean = false, view: string = 'list', year?: number, month?: number): string {
-  const listReturnPath = `/interactions?view=list${searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : ''}${typeFilter ? `&type=${encodeURIComponent(typeFilter)}` : ''}`
+export function interactionsPage(user: any, recentInteractions: any[], hasGoogleAccount: boolean = false, view: string = 'list', year?: number, month?: number): string {
+  const listReturnPath = '/interactions?view=list'
 
   const recentInteractionsList = recentInteractions.map(i => {
     const date = new Date(i.date);
@@ -3615,21 +3610,6 @@ export function interactionsPage(user: any, recentInteractions: any[], searchQue
         </div>
       
       ${view === 'list' ? `
-        <div class="card" style="margin-bottom: 1rem;">
-          <form method="GET" action="/interactions" style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: end;">
-            <input type="hidden" name="view" value="list">
-            <div class="form-group" style="flex: 1; min-width: 200px; margin-bottom: 0;">
-              <label class="form-label">Search</label>
-              <input type="text" name="search" class="form-input" placeholder="Search interactions by contact name or notes..." value="${searchQuery}">
-            </div>
-            
-            <div style="display: flex; gap: 0.5rem;">
-              <button type="submit" class="btn btn-primary">Apply</button>
-              ${searchQuery || typeFilter ? `<a href="/interactions?view=list" class="btn btn-secondary">Clear</a>` : ''}
-            </div>
-          </form>
-        </div>
-        
         ${recentInteractions.length === 0 ? `
           <div class="card text-center">
             <p class="text-gray">No interactions yet. Add your first interaction!</p>

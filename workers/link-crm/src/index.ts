@@ -795,7 +795,6 @@ app.get('/terms', requireAuth, async (c) => {
 app.get('/people', requireAuth, async (c) => {
   const user = c.get('user')
   return cachedUserGet(c, user.id, '/people', LINK_CACHE_TTL.page, async () => {
-    const search = c.req.query('search')
     const tagFilter = c.req.query('tag')
     const sortBy = c.req.query('sort') || 'name' // 'name' or 'date'
 
@@ -815,15 +814,6 @@ app.get('/people', requireAuth, async (c) => {
         }
       })
     )
-
-    if (search) {
-      const searchLower = search.toLowerCase()
-      contacts = contacts.filter((contact: any) =>
-        contact.name?.toLowerCase().includes(searchLower) ||
-        contact.email?.toLowerCase().includes(searchLower) ||
-        contact.company?.toLowerCase().includes(searchLower)
-      )
-    }
 
     if (tagFilter) {
       contacts = contacts.filter((contact: any) =>
@@ -859,7 +849,7 @@ app.get('/people', requireAuth, async (c) => {
 
     return serveLinkHtml(
       c,
-      peoplePage(user, contacts, Array.from(allTags).sort(), search || '', tagFilter || '', sortBy, !!googleAccount)
+      peoplePage(user, contacts, Array.from(allTags).sort(), tagFilter || '', sortBy, !!googleAccount)
     )
   })
 })
@@ -868,8 +858,6 @@ app.get('/people', requireAuth, async (c) => {
 app.get('/interactions', requireAuth, async (c) => {
   const user = c.get('user')
   return cachedUserGet(c, user.id, '/interactions', LINK_CACHE_TTL.page, async () => {
-  const search = c.req.query('search')
-  const typeFilter = c.req.query('type')
   const view = c.req.query('view') || 'list'
   const yearParam = c.req.query('year')
   const monthParam = c.req.query('month')
@@ -923,21 +911,6 @@ app.get('/interactions', requireAuth, async (c) => {
       }
     }
     
-    // Apply search filter (only for list view)
-    if (search && view === 'list') {
-      const searchLower = search.toLowerCase()
-      recentInteractions = recentInteractions.filter((interaction: any) => 
-        interaction.contact_name?.toLowerCase().includes(searchLower) ||
-        interaction.notes?.toLowerCase().includes(searchLower)
-      )
-    }
-    
-    // Apply type filter (only for list view)
-    if (typeFilter && view === 'list') {
-      recentInteractions = recentInteractions.filter((interaction: any) => 
-        interaction.type === typeFilter
-      )
-    }
   } catch (error) {
     console.error('Error fetching interactions:', error)
     recentInteractions = []
@@ -948,7 +921,7 @@ app.get('/interactions', requireAuth, async (c) => {
     'SELECT id FROM accounts WHERE user_id = ? AND provider = ?'
   ).bind(user.id, 'google').first()
   
-  return serveLinkHtml(c, interactionsPage(user, recentInteractions, search || '', typeFilter || '', !!googleAccount, view, year, month))
+  return serveLinkHtml(c, interactionsPage(user, recentInteractions, !!googleAccount, view, year, month))
   })
 })
 
