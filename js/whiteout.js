@@ -736,7 +736,7 @@
     const R = E.ROLES;
     let body = '';
     if (tab === 'overview') {
-      body = `<p>Whiteout Station is a <b>cooperative</b> game for 1–4 players: the whole crew wins or loses together, against the storm. A game takes about 30–45 minutes.</p>
+      body = `<p>Whiteout Station is a <b>cooperative</b> game for 1–4 players: the whole crew wins or loses together, against the storm. A game takes about 20 minutes.</p>
         <div class="rb-crew">${E.ROLE_ORDER.map((r) => `<figure style="--rc:${ROLE_COLOR[r]}"><img src="${crewImg(r)}" alt=""><figcaption>${R[r].icon} ${R[r].name}</figcaption></figure>`).join('')}</div>
         ${sec(1, 'The story')}
         <p>Your research crew is stranded at an Arctic station. The radio is dead, its parts are scattered across the ice, and a storm is building. You need to get the radio working, prove your research was worth it, and get everyone onto the rescue plane before the final whiteout.</p>
