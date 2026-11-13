@@ -322,7 +322,7 @@
       color: #475569;
     }
     .admin-accounts-table.admin-accounts-compact .c-email {
-      width: 22%;
+      width: 24%;
       overflow: hidden;
       text-overflow: ellipsis;
     }
@@ -332,19 +332,12 @@
       text-overflow: ellipsis;
     }
     .admin-accounts-table.admin-accounts-compact .c-apps {
-      width: 16%;
+      width: 18%;
       white-space: normal;
     }
-    .admin-accounts-table.admin-accounts-compact .c-activity {
-      width: 13%;
-      font-size: 0.74rem;
-      line-height: 1.35;
-      color: #475569;
-    }
-    .admin-accounts-table.admin-accounts-compact .c-activity b { color: #0f172a; font-weight: 600; }
     .admin-accounts-table.admin-accounts-compact .c-ver { width: 8%; }
     .admin-accounts-table.admin-accounts-compact .c-act {
-      width: 35%;
+      width: 40%;
       white-space: nowrap;
     }
     .admin-accounts-table.admin-accounts-compact tbody tr:hover { background: #f8fafc; }
@@ -990,12 +983,11 @@
                   <th scope="col" class="c-email">Email</th>
                   <th scope="col" class="c-user">Username</th>
                   <th scope="col" class="c-apps">Apps</th>
-                  <th scope="col" class="c-activity" title="Last sign-in and last time they added, changed or removed app data">Activity</th>
                   <th scope="col" class="c-act">Actions</th>
                 </tr>
               </thead>
               <tbody id="admin-accounts-tbody">
-                <tr><td colspan="6" style="color:#94a3b8;">Click “Load all accounts”.</td></tr>
+                <tr><td colspan="5" style="color:#94a3b8;">Click “Load all accounts”.</td></tr>
               </tbody>
             </table>
           </div>
@@ -3051,13 +3043,6 @@
           return '<span title="' + escHtml(adminFormatDateTime(ms)) + '">' + escHtml(rel) + '</span>';
         }
 
-        function adminActivityCellHtml(a) {
-          const data = a.lastDataChangeAt
-            ? escHtml(ADMIN_APP_NAMES[a.lastDataChangeApp] || 'App') + ' ' + adminWhenHtml(a.lastDataChangeAt)
-            : adminWhenHtml(null, 'No changes recorded');
-          return '<div><b>Login</b> ' + adminWhenHtml(a.lastLoginAt, 'not recorded') + '</div><div><b>Data</b> ' + data + '</div>';
-        }
-
         function adminAppChangesHtml(a) {
           const changes = a.appLastChange && typeof a.appLastChange === 'object' ? a.appLastChange : {};
           const rows = Object.keys(ADMIN_APP_NAMES)
@@ -3425,7 +3410,7 @@
           );
           if (!rows.length) {
             tbody.innerHTML =
-              '<tr><td colspan="6" style="color:#94a3b8;">' +
+              '<tr><td colspan="5" style="color:#94a3b8;">' +
               (adminAccountsAccum.length ? 'No rows match the filter.' : 'No accounts loaded.') +
               '</td></tr>';
           } else {
@@ -3463,7 +3448,6 @@
                   `<td class="c-email" title="${emTitle}">${emailCell}</td>` +
                   `<td class="c-user" title="${unTitle}">${escHtml(a.username || '—')}</td>` +
                   `<td class="c-apps" title="${escHtml(adminAppUsageLabel(a))}">${adminAppUsageBadgesHtml(a)}</td>` +
-                  `<td class="c-activity">${adminActivityCellHtml(a)}</td>` +
                   `<td class="c-act">${activeBadge}${detailsBtn}${historyBtn}${welcomeBtn}${customBtn}${deleteBtn}</td></tr>`
                 );
               })
