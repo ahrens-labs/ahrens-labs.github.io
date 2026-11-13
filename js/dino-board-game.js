@@ -7786,6 +7786,20 @@
     if (v.serverNow) clockSkew = v.serverNow - Date.now();
     if (online.turn !== online.me) online.timedOut = false;
     setTurnTitle();
+    noteSeen();
+  }
+
+  // Once you've seen how a game ended it leaves Your games (where it waits as your turn until then). A hidden tab
+  // waits until you look at it.
+  function noteSeen() {
+    if (!online || online.status !== 'over' || online.seen) return;
+    if (document.hidden) {
+      document.addEventListener('visibilitychange', noteSeen, { once: true });
+      return;
+    }
+    online.seen = true;
+    if (sock && sock.readyState === 1) sock.send(JSON.stringify({ type: 'seen' }));
+    else api(`/api/dino/game?id=${encodeURIComponent(online.id)}&v=${online.version}&seen=1`);
   }
 
   // Server snapshot is the source of truth for anything I didn't just send.
@@ -7821,8 +7835,9 @@
       return;
     }
     stopOnline();
-    online = { id: view.id, me: view.me, timedOut: false };
+    online = { id: view.id, me: view.me, timedOut: false, seen: view.status === 'over' && (!view.unseen || !document.hidden) };
     state = repairFences(view.state);
+    if (view.unseen) state.celebrated = false;
     resetFx();
     prevRes = null;
     eggsSeen = null;
@@ -7872,6 +7887,7 @@
     online.turn = onlineOwner();
     const over = cur() && cur().t === 'gameOver';
     if (over) online.status = 'over';
+    if (over) online.seen = true;
     if (online.turn !== online.me) {
       online.timedOut = false;
       online.deadline = null;
@@ -7989,7 +8005,7 @@
   }
 
   async function openOnlineGame(id) {
-    const r = await api(`/api/dino/game?id=${encodeURIComponent(id)}`);
+    const r = await api(`/api/dino/game?id=${encodeURIComponent(id)}${document.hidden ? '' : '&seen=1'}`);
     if (!r.ok) {
       if (r.status !== 401) toast(r.data.error || 'Couldn’t open that game.');
       history.replaceState(null, '', location.pathname);
@@ -8036,6 +8052,7 @@
       const clock = g.mode === 'quick' && g.deadline ? ` · ⏱ ${Math.max(0, Math.ceil((g.deadline - Date.now() - clockSkew) / 1000))}s` : '';
       return `Round ${g.round} · ${mine ? '<b>your turn</b>' : 'their turn'}${clock}`;
     }
+    if (g.status === 'over' && g.unseen) return `Round ${g.round} · <b>your turn</b>`;
     if (g.status === 'over') {
       const r = g.result || {};
       const how = r.reason === 'resign' ? (r.winner === g.me ? ' — they resigned' : ' — you resigned') : r.reason === 'timeout' ? ' — on time' : '';
@@ -8061,10 +8078,11 @@
     }
     const by = (f) => games.filter(f);
     const incoming = by((g) => g.status === 'pending' && g.me === 1);
-    const yours = by((g) => g.status === 'active' && g.turn === g.me);
+    // A game that ended while you were away waits as your turn until you've seen how it ended.
+    const yours = by((g) => (g.status === 'active' && g.turn === g.me) || (g.status === 'over' && g.unseen));
     const theirs = by((g) => g.status === 'active' && g.turn !== g.me);
     const sent = by((g) => g.status === 'pending' && g.me === 0);
-    const done = by((g) => g.status !== 'pending' && g.status !== 'active');
+    const done = by((g) => g.status !== 'pending' && g.status !== 'active' && !g.unseen);
     const need = incoming.length + yours.length;
     if (badge) badge.textContent = need ? `${need} waiting for you` : 'Challenge a friend';
     const id = (g) => `data-id="${esc(g.id)}"`;

@@ -101,6 +101,10 @@
         const wait = g.waiting && g.waiting.length ? g.waiting.join(', ') : g.opp;
         return `Waiting for <b>${esc(wait)}</b> to accept`;
       }
+      if (g.status === 'over' && g.unseen) {
+        const rd = roundText(g);
+        return `<b class="ol-you">Your turn</b>${rd ? ` · ${rd}` : ''} · ${g.mode === 'quick' ? '⚡ quick' : '🐢 long'}`;
+      }
       if (g.status === 'active') {
         const rd = roundText(g);
         return `${g.turn === g.me ? '<b class="ol-you">Your turn</b>' : `${esc(nameAt(g, g.turn))}’s turn`}${rd ? ` · ${rd}` : ''} · ${g.mode === 'quick' ? '⚡ quick' : '🐢 long'}`;
@@ -127,11 +131,12 @@
         if (g.status === 'pending' && invited(g)) return `<button class="btn sm" data-ol="accept" data-id="${g.id}">Accept</button><button class="btn ghost sm" data-ol="decline" data-id="${g.id}">Decline</button>`;
         if (g.status === 'pending') return `<button class="btn ghost sm" data-ol="cancel" data-id="${g.id}">${g.me === 0 ? 'Cancel' : 'Leave'}</button>`;
         if (g.status === 'active') return `<button class="btn sm" data-ol="open" data-id="${g.id}">${g.turn === g.me ? 'Play' : 'Open'}</button>`;
+        if (g.status === 'over' && g.unseen) return `<button class="btn sm" data-ol="open" data-id="${g.id}">Play</button>`;
         if (g.status === 'over') return `<button class="btn ghost sm" data-ol="open" data-id="${g.id}">View</button>`;
         return '';
       };
       const list = games.length
-        ? games.map((g) => `<li class="ol-game${g.status === 'active' && g.turn === g.me ? ' mine' : ''}${invited(g) ? ' invite' : ''}"><span class="ol-who">vs <b>${esc(g.opp)}</b><small>${onlineStatus(g)}</small></span><span class="ol-btns">${btns(g)}</span></li>`).join('')
+        ? games.map((g) => `<li class="ol-game${(g.status === 'active' && g.turn === g.me) || (g.status === 'over' && g.unseen) ? ' mine' : ''}${invited(g) ? ' invite' : ''}"><span class="ol-who">vs <b>${esc(g.opp)}</b><small>${onlineStatus(g)}</small></span><span class="ol-btns">${btns(g)}</span></li>`).join('')
         : `<li class="muted ol-empty">${loading ? 'Loading your games…' : 'No online games yet — challenge someone below.'}</li>`;
       return `<div class="ol">
       <div class="ol-head"><span class="label">Your online games</span><button class="btn ghost sm" data-ol="refresh" title="Refresh">↻</button></div>
@@ -221,7 +226,7 @@
         const app = $('#app');
         if (app) app.innerHTML = '<p class="ol-loading">Loading your game…</p>';
       }
-      const r = await api(`${prefix}/game?id=${encodeURIComponent(id)}`);
+      const r = await api(`${prefix}/game?id=${encodeURIComponent(id)}${document.hidden ? '' : '&seen=1'}`);
       if (!r.ok || !r.data.state) {
         forgetOnline();
         toast(esc(r.data.error || 'Couldn’t open that game.'), 'bad');
@@ -234,10 +239,26 @@
     function enterOnline(v) {
       const mem = savedOnline();
       const same = mem && mem.id === v.id;
-      cfg.enterOnline(v, same ? mem : null);
+      net.seen = v.status === 'over' && (!v.unseen || !document.hidden) ? v.id : null;
+      cfg.enterOnline(v, same && !v.unseen ? mem : null);
       if (history.replaceState) history.replaceState(null, '', `${location.pathname}?game=${v.id}`);
-      rememberOnline(same ? mem : { id: v.id });
+      rememberOnline(same && !v.unseen ? mem : { id: v.id });
       connectSock();
+      noteSeen();
+    }
+
+    // Once you've seen how a game ended it leaves Your games (where it waits as your turn until then). A hidden tab
+    // waits until you look at it.
+    function noteSeen() {
+      const G = cfg.getG();
+      if (!G || G.mode !== 'online' || G.status !== 'over' || net.seen === G.id) return;
+      if (document.hidden) {
+        document.addEventListener('visibilitychange', noteSeen, { once: true });
+        return;
+      }
+      net.seen = G.id;
+      if (net.sock && net.sock.readyState === 1) net.sock.send(JSON.stringify({ type: 'seen' }));
+      else api(`${prefix}/game?id=${encodeURIComponent(G.id)}&v=${G.version}&seen=1`);
     }
 
     function send(a) {
@@ -320,6 +341,7 @@
       if (fresh.some((l) => l.who === G.me && /ran out of time/.test(l.text))) toast('⏱ Your time ran out, so the computer took that turn for you.', 'bad');
       cfg.applyView(v, fresh, mine);
       rememberOnline();
+      noteSeen();
       if (root.TurnAlert) root.TurnAlert.check();
     }
 

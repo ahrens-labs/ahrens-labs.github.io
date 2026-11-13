@@ -162,7 +162,7 @@
         state: v.state, revealed: !!(mem && mem.revealed),
       };
       startFrom(G);
-      if (G.status === 'over' && st().phase === 'over') showGameOver(true);
+      if (G.status === 'over' && st().phase === 'over') { if (!v.unseen) showGameOver(true); }
       else if (G.status === 'over' && !G.revealed) {
         G.revealed = true;
         openModal(`<h2>${G.result && G.result.winner === G.me ? '🏆 You win!' : '🏳️ Game over'}</h2><p>${esc(onlineEndText())}</p><div class="btn-row"><button class="btn" data-close>See the chart</button><button class="btn ghost" data-ol-lobby>Your games</button></div>`).addEventListener('click', (e) => {

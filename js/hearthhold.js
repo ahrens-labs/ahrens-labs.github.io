@@ -2572,6 +2572,7 @@
   }
   function onlineStatus(g) {
     if (g.status === 'pending') return g.me === 1 ? `<b>${esc(g.opp)}</b> challenged you` : `Waiting for <b>${esc(g.opp)}</b> to accept`;
+    if (g.status === 'over' && g.unseen) return `<b class="ol-you">Your turn</b> · round ${g.round} of ${E.ROUNDS} · ${g.mode === 'quick' ? '⚡ quick' : '🐢 long'}`;
     if (g.status === 'active') return `${g.turn === g.me ? '<b class="ol-you">Your turn</b>' : `${esc(g.opp)}’s turn`} · round ${g.round} of ${E.ROUNDS} · ${g.mode === 'quick' ? '⚡ quick' : '🐢 long'}`;
     if (g.status === 'declined') return `${g.me === 1 ? 'You' : esc(g.opp)} declined`;
     if (g.status === 'cancelled') return 'Challenge cancelled';
@@ -2587,11 +2588,12 @@
       if (g.status === 'pending' && g.me === 1) return `<button class="btn sm" data-ol="accept" data-id="${g.id}">Accept</button><button class="btn ghost sm" data-ol="decline" data-id="${g.id}">Decline</button>`;
       if (g.status === 'pending') return `<button class="btn ghost sm" data-ol="cancel" data-id="${g.id}">Cancel</button>`;
       if (g.status === 'active') return `<button class="btn sm" data-ol="open" data-id="${g.id}">${g.turn === g.me ? 'Play' : 'Open'}</button>`;
+      if (g.status === 'over' && g.unseen) return `<button class="btn sm" data-ol="open" data-id="${g.id}">Play</button>`;
       if (g.status === 'over') return `<button class="btn ghost sm" data-ol="open" data-id="${g.id}">View</button>`;
       return '';
     };
     const list = games.length
-      ? games.map((g) => `<li class="ol-game${g.status === 'active' && g.turn === g.me ? ' mine' : ''}${g.status === 'pending' && g.me === 1 ? ' invite' : ''}"><span class="ol-who">vs <b>${esc(g.opp)}</b><small>${onlineStatus(g)}</small></span><span class="ol-btns">${btns(g)}</span></li>`).join('')
+      ? games.map((g) => `<li class="ol-game${(g.status === 'active' && g.turn === g.me) || (g.status === 'over' && g.unseen) ? ' mine' : ''}${g.status === 'pending' && g.me === 1 ? ' invite' : ''}"><span class="ol-who">vs <b>${esc(g.opp)}</b><small>${onlineStatus(g)}</small></span><span class="ol-btns">${btns(g)}</span></li>`).join('')
       : `<li class="muted ol-empty">${loading ? 'Loading your games…' : 'No online games yet — challenge someone below.'}</li>`;
     return `<div class="ol">
       <div class="ol-head"><span class="label">Your online games</span><button class="btn ghost sm" data-ol="refresh" title="Refresh">↻</button></div>
@@ -2650,7 +2652,7 @@
   // ---- an online game
   async function openOnline(id) {
     if (!G && !$('.setup')) $('#app').innerHTML = '<p class="ol-loading">Loading your game…</p>';
-    const r = await api(`/api/oakhaven/game?id=${encodeURIComponent(id)}`);
+    const r = await api(`/api/oakhaven/game?id=${encodeURIComponent(id)}${document.hidden ? '' : '&seen=1'}`);
     if (!r.ok || !r.data.state) {
       forgetOnline();
       toast(esc(r.data.error || 'Couldn’t open that game.'), 'bad');
@@ -2675,13 +2677,27 @@
       deadline: v.deadline || null,
       skew: v.now ? v.now - Date.now() : 0,
       state: s,
-      revealed: same ? mem.revealed : false,
+      revealed: same && !v.unseen ? mem.revealed : false,
       duskSeen: same ? mem.duskSeen : 0,
       openSeen: same && Array.isArray(mem.openSeen) ? mem.openSeen : [],
     };
     if (history.replaceState) history.replaceState(null, '', `${location.pathname}?game=${v.id}`);
+    net.seen = v.status === 'over' && (!v.unseen || !document.hidden) ? v.id : null;
     startFrom(G);
     if (G.status === 'over' && s.phase !== 'over' && !G.revealed) showResigned();
+    noteSeen();
+  }
+  // Once you've seen how a game ended it leaves Your games (where it waits as your turn until then). A hidden tab
+  // waits until you look at it.
+  function noteSeen() {
+    if (!G || G.mode !== 'online' || G.status !== 'over' || net.seen === G.id) return;
+    if (document.hidden) {
+      document.addEventListener('visibilitychange', noteSeen, { once: true });
+      return;
+    }
+    net.seen = G.id;
+    if (net.sock && net.sock.readyState === 1) net.sock.send(JSON.stringify({ type: 'seen' }));
+    else api(`/api/oakhaven/game?id=${encodeURIComponent(G.id)}&v=${G.version}&seen=1`);
   }
   function onlineEndText() {
     const r = G.result || {};
@@ -2767,6 +2783,7 @@
     G.result = v.result;
     G.deadline = v.deadline || null;
     if (v.now) G.skew = v.now - Date.now();
+    noteSeen();
     if (!v.state) return render();
     const s = v.state;
     G.state = s;

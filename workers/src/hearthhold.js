@@ -187,6 +187,7 @@ function summaryFor(record, me) {
     me,
     opp: opp ? opp.username : '',
     turn: record.turn,
+    unseen: record.status === 'over' && !!(record.unseen && record.unseen[me]),
     mode: record.mode || 'long',
     deadline: record.deadline || null,
     round: record.state ? record.state.round : 0,
@@ -384,7 +385,7 @@ export async function handleHearthholdRequest(request, env, corsHeaders, path, {
     return jsonResponse(await res.json(), corsHeaders, res.status);
   };
 
-  if (path === '/api/oakhaven/game' && request.method === 'GET') return forward('get', { since: Number(url.searchParams.get('v')) || 0 });
+  if (path === '/api/oakhaven/game' && request.method === 'GET') return forward('get', { since: Number(url.searchParams.get('v')) || 0, seen: url.searchParams.get('seen') === '1' });
   if (path === '/api/oakhaven/respond' && request.method === 'POST') return forward('respond', { accept: body.accept === true });
   if (path === '/api/oakhaven/act' && request.method === 'POST') return forward('act', { base: body.base, a: body.a });
   if (path === '/api/oakhaven/resign' && request.method === 'POST') return forward('resign', {});
@@ -427,6 +428,17 @@ export class HearthholdGame {
     await this.persist(record);
   }
 
+  // A player opened the finished game (or watched it end): it leaves their Your games.
+  async markSeen(record, me) {
+    if (record.status !== 'over' || !record.unseen || !record.unseen[me]) return false;
+    record.unseen[me] = false;
+    await this.persist(record);
+    await lobbyStub(this.env, record.players[me].userId)
+      .fetch(new Request('http://do/upsert', { method: 'POST', body: JSON.stringify(summaryFor(record, me)) }))
+      .catch(() => {});
+    return true;
+  }
+
   async publishLobbies(record) {
     await Promise.all(record.players.map((p, i) =>
       lobbyStub(this.env, p.userId)
@@ -467,6 +479,8 @@ export class HearthholdGame {
 
   finish(record, winner, reason) {
     record.status = 'over';
+    // Until each player has seen how it ended, the game stays in their Your games as their turn.
+    record.unseen = record.players.map((p) => !!p.userId);
     record.turn = null;
     record.deadline = null;
     const scores = record.state ? record.state.players.map((p) => E.score(record.state, p).total) : null;
@@ -524,8 +538,10 @@ export class HearthholdGame {
     if (me < 0) return Response.json({ error: 'Game not found' }, { status: 404 });
 
     if (op === 'get') {
+      const reveal = record.status === 'over' && !!(record.unseen && record.unseen[me]);
+      if (body.seen) await this.markSeen(record, me);
       if (body.since && body.since === record.version) return Response.json({ ...viewFor(record, me, false), unchanged: true });
-      return Response.json(viewFor(record, me, true));
+      return Response.json({ ...viewFor(record, me, true), ...(reveal ? { unseen: true } : {}) });
     }
 
     if (op === 'respond') {
@@ -557,6 +573,7 @@ export class HearthholdGame {
       if (record.status === 'pending') record.status = me === 0 ? 'cancelled' : 'declined';
       else if (record.status === 'active') this.finish(record, 1 - me, 'resign');
       else return Response.json({ error: 'This game is already over', ...viewFor(record, me, false) }, { status: 409 });
+      if (record.unseen) record.unseen[me] = false;
       await this.persist(record);
       await this.scheduleAlarm(record);
       await this.publishLobbies(record);
@@ -593,6 +610,7 @@ export class HearthholdGame {
     if (state.phase === 'over') {
       const w = E.winner(state);
       this.finish(record, w < 0 ? null : w, 'finished');
+      record.unseen[me] = false;
     }
     await this.persist(record);
     const newTurn = record.turn !== prevTurn || state.round !== prevRound;
@@ -650,11 +668,12 @@ export class HearthholdGame {
     } catch {
       return;
     }
-    if (!msg || msg.type !== 'act') return;
+    if (!msg || (msg.type !== 'act' && msg.type !== 'seen')) return;
     const record = await this.load();
     const [uid] = this.ctx.getTags(ws);
     const me = this.playerIndex(record, uid);
     if (me < 0) return;
+    if (msg.type === 'seen') return void (await this.markSeen(record, me));
     const out = await this.applyAction(record, me, msg, ws);
     try {
       ws.send(JSON.stringify(out.status === 200 ? { type: 'ack', ...out.body } : { type: 'reject', ...out.body }));
@@ -738,7 +757,7 @@ export class HearthholdLobby {
       if (history) await this.addHistory(history);
       games[s.id] = summary;
       Object.values(games)
-        .filter((g) => g.status !== 'pending' && g.status !== 'active')
+        .filter((g) => g.status !== 'pending' && g.status !== 'active' && !g.unseen)
         .sort((a, b) => b.updatedAt - a.updatedAt)
         .slice(LOBBY_KEEP_FINISHED)
         .forEach((g) => { delete games[g.id]; });

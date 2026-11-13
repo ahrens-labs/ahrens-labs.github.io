@@ -134,7 +134,7 @@
         state: v.state, revealed: !!(mem && mem.revealed), moved: true,
       };
       startFrom(G);
-      if (G.status === 'over' && st().phase === 'over') showGameOver(true);
+      if (G.status === 'over' && st().phase === 'over') { if (!v.unseen) showGameOver(true); }
     },
     applyView: (v, fresh, mine) => {
       const prev = G.state;

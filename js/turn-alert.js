@@ -129,7 +129,7 @@
       if (!response.ok) return;
       const data = await response.json();
       remoteOn = (data.games || []).some((g) =>
-        (g.needsMe != null ? g.needsMe : g.status === 'pending' && g.me === 1) ||
+        g.unseen || (g.needsMe != null ? g.needsMe : g.status === 'pending' && g.me === 1) ||
         (g.status === 'active' && g.turn === g.me)
       );
       tick();

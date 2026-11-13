@@ -553,6 +553,7 @@ function summaryFor(cfg, record, me) {
     names: record.players.map((p) => p.username),
     seats: record.players.length,
     needsMe: record.status === 'pending' && me > 0 && !acc[me],
+    unseen: record.status === 'over' && !!(record.unseen && record.unseen[me]),
     waiting: record.status === 'pending' ? record.players.filter((p, i) => !isBot(p) && !acc[i]).map((p) => p.username) : [],
     declinedBy: record.declinedBy != null ? record.declinedBy : null,
     turn: turnFor(cfg, record, me),
@@ -741,7 +742,7 @@ export async function handleLabOnlineRequest(request, env, corsHeaders, path, ga
     return jsonResponse(await res.json(), corsHeaders, res.status);
   };
 
-  if (path === `${base}/game` && request.method === 'GET') return forward('get', { since: Number(url.searchParams.get('v')) || 0 });
+  if (path === `${base}/game` && request.method === 'GET') return forward('get', { since: Number(url.searchParams.get('v')) || 0, seen: url.searchParams.get('seen') === '1' });
   if (path === `${base}/respond` && request.method === 'POST') return forward('respond', { accept: body.accept === true });
   if (path === `${base}/act` && request.method === 'POST') return forward('act', { base: body.base, a: body.a });
   if (path === `${base}/resign` && request.method === 'POST') return forward('resign', {});
@@ -793,6 +794,21 @@ export class LabGame {
       others: (i) => record.players.filter((p, j) => j !== i).map((p) => p.username),
     });
     await this.persist(record);
+  }
+
+  // A player opened the finished game (or watched it end): it leaves their Your games.
+  async markSeen(record, me) {
+    if (record.status !== 'over' || !record.unseen || !record.unseen[me]) return false;
+    record.unseen[me] = false;
+    await this.persist(record);
+    const cfg = this.cfg(record);
+    const p = record.players[me];
+    if (cfg && p && p.userId) {
+      await lobbyStub(this.env, p.userId)
+        .fetch(new Request('http://do/upsert', { method: 'POST', body: JSON.stringify(summaryFor(cfg, record, me)) }))
+        .catch(() => {});
+    }
+    return true;
   }
 
   async publishLobbies(record) {
@@ -993,6 +1009,8 @@ export class LabGame {
 
   finish(cfg, record, winner, reason) {
     record.status = 'over';
+    // Until each player has seen how it ended, the game stays in their Your games as their turn.
+    record.unseen = record.players.map((p) => !!p.userId && !isBot(p) && !p.left);
     record.turn = null;
     record.deadline = null;
     const scores = record.state ? record.state.players.map((p) => cfg.scoreTotal(cfg.E, record.state, p)) : null;
@@ -1057,8 +1075,10 @@ export class LabGame {
     if (me < 0 || !cfg) return Response.json({ error: 'Game not found' }, { status: 404 });
 
     if (op === 'get') {
+      const reveal = record.status === 'over' && !!(record.unseen && record.unseen[me]);
+      if (body.seen) await this.markSeen(record, me);
       if (body.since && body.since === record.version) return Response.json({ ...viewFor(cfg, record, me, false), unchanged: true });
-      return Response.json(viewFor(cfg, record, me, true));
+      return Response.json({ ...viewFor(cfg, record, me, true), ...(reveal ? { unseen: true } : {}) });
     }
 
     if (op === 'respond') {
@@ -1093,6 +1113,7 @@ export class LabGame {
         record.version += 1;
       } else if (record.status === 'active') this.finish(cfg, record, 1 - me, 'resign');
       else return Response.json({ error: 'This game is already over', ...viewFor(cfg, record, me, false) }, { status: 409 });
+      if (record.unseen) record.unseen[me] = false;
       await this.persist(record);
       await this.scheduleAlarm(record);
       await this.publishLobbies(record);
@@ -1137,6 +1158,7 @@ export class LabGame {
     record.version += 1;
     record.turn = cfg.turnOf(state);
     if (state.phase === 'over') this.finishFromState(cfg, record);
+    if (record.unseen) record.unseen[me] = false;
     const newTurn = record.turn !== prevTurn || cfg.roundOf(state) !== prevRound || botMoves > 0;
     if (record.status === 'active' && record.mode === 'quick' && newTurn) record.deadline = Date.now() + QUICK_TURN_MS;
     await this.persist(record);
@@ -1243,11 +1265,12 @@ export class LabGame {
     } catch {
       return;
     }
-    if (!msg || msg.type !== 'act') return;
+    if (!msg || (msg.type !== 'act' && msg.type !== 'seen')) return;
     const record = await this.load();
     const [uid] = this.ctx.getTags(ws);
     const me = this.playerIndex(record, uid);
     if (me < 0) return;
+    if (msg.type === 'seen') return void (await this.markSeen(record, me));
     const out = await this.applyAction(record, me, msg, ws);
     try {
       ws.send(JSON.stringify(out.status === 200 ? { type: 'ack', ...out.body } : { type: 'reject', ...out.body }));
@@ -1306,7 +1329,7 @@ export class LabLobby {
       if (history) await this.addHistory(history);
       games[s.id] = summary;
       Object.values(games)
-        .filter((g) => g.status !== 'pending' && g.status !== 'active')
+        .filter((g) => g.status !== 'pending' && g.status !== 'active' && !g.unseen)
         .sort((a, b) => b.updatedAt - a.updatedAt)
         .slice(LOBBY_KEEP_FINISHED)
         .forEach((g) => { delete games[g.id]; });

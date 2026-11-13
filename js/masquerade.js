@@ -130,9 +130,10 @@
       G = {
         mode: 'online', id: v.id, me: v.me, version: v.version, status: v.status, result: v.result,
         gmode: v.mode || 'long', deadline: v.deadline || null, skew: v.now ? v.now - Date.now() : 0,
-        state: v.state, revealed: !!(mem && mem.revealed), moved: true,
+        state: v.state, revealed: !!(mem && mem.revealed), moved: true, unseen: !!v.unseen,
       };
       startFrom(G);
+      if (v.unseen && v.state.phase !== 'over') onlineEndNotice();
     },
     applyView: (v, fresh, mine) => {
       const prev = G.state;
@@ -150,13 +151,14 @@
       tellFresh(fresh, prev);
       if (v.state.phase === 'over' && prev.phase !== 'over') return setTimeout(() => G && showGameOver(false), 600);
       if (v.state.phase === 'over') return showGameOver(true);
-      if (G.status === 'over' && !G.revealed) {
-        G.revealed = true;
-        const r = G.result || {};
-        openModal(`<h2>${r.winner === G.me ? '🏆 You win!' : '🎭 The ball is over'}</h2><p>${esc(r.reason === 'resign' ? (r.winner === G.me ? 'They left the ball.' : 'You left the ball.') : r.reason === 'timeout' ? (r.winner === G.me ? 'They ran out of time.' : 'You ran out of time.') : 'This game has ended.')}</p><div class="btn-row"><button class="btn" data-close>OK</button></div>`);
-      }
+      if (G.status === 'over' && !G.revealed) onlineEndNotice();
     },
   });
+  function onlineEndNotice() {
+    G.revealed = true;
+    const r = G.result || {};
+    openModal(`<h2>${r.winner === G.me ? '🏆 You win!' : '🎭 The ball is over'}</h2><p>${esc(r.reason === 'resign' ? (r.winner === G.me ? 'They left the ball.' : 'You left the ball.') : r.reason === 'timeout' ? (r.winner === G.me ? 'They ran out of time.' : 'You ran out of time.') : 'This game has ended.')}</p><div class="btn-row"><button class="btn" data-close>OK</button></div>`);
+  }
 
   // ---------------------------------------------------------------- small helpers
   const st = () => G.state;
@@ -373,7 +375,7 @@
     if (history.replaceState && location.search !== q) history.replaceState(null, '', location.pathname + q);
     render();
     if (G.mode === 'online' && G.gmode === 'quick' && G.status === 'active') Online.tickClock();
-    if (st().phase === 'over') showGameOver(true);
+    if (st().phase === 'over') showGameOver(!(G.mode === 'online' && G.unseen));
     else if (G.mode === 'online') {
       if (G.status === 'active') Online.connectSock();
     } else scheduleAI();

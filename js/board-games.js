@@ -143,7 +143,8 @@
   }
 
   const invitedMe = (g) => (g.needsMe != null ? g.needsMe : g.status === 'pending' && g.me === 1);
-  const myMove = (g) => invitedMe(g) || (g.status === 'active' && g.turn === g.me);
+  // A game that ended while you were away stays your turn until you've opened it and seen how it ended.
+  const myMove = (g) => invitedMe(g) || !!g.unseen || (g.status === 'active' && g.turn === g.me);
   function onlineItem(g) {
     const invited = invitedMe(g);
     const yours = myMove(g);

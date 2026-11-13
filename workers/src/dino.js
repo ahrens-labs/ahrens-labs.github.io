@@ -153,6 +153,7 @@ function summaryFor(record, me) {
     me,
     opp: opp ? opp.username : '',
     turn: record.turn,
+    unseen: record.status === 'over' && !!(record.unseen && record.unseen[me]),
     deadline: record.deadline || null,
     round: st ? st.round : 0,
     createdAt: record.createdAt,
@@ -350,7 +351,7 @@ export async function handleDinoRequest(request, env, corsHeaders, path, { execu
     return jsonResponse(await res.json(), corsHeaders, res.status);
   };
 
-  if (path === '/api/dino/game' && request.method === 'GET') return forward('get', { since: Number(url.searchParams.get('v')) || 0 });
+  if (path === '/api/dino/game' && request.method === 'GET') return forward('get', { since: Number(url.searchParams.get('v')) || 0, seen: url.searchParams.get('seen') === '1' });
   if (path === '/api/dino/respond' && request.method === 'POST') return forward('respond', { accept: body.accept === true, state: body.state });
   if (path === '/api/dino/move' && request.method === 'POST') return forward('move', { base: body.base, rules: body.rules, state: body.state, scores: body.scores });
   if (path === '/api/dino/resign' && request.method === 'POST') return forward('resign', {});
@@ -391,6 +392,17 @@ export class DinoGame {
     await this.persist(record);
   }
 
+  // A player opened the finished game (or watched it end): it leaves their Your games.
+  async markSeen(record, me) {
+    if (record.status !== 'over' || !record.unseen || !record.unseen[me]) return false;
+    record.unseen[me] = false;
+    await this.persist(record);
+    await lobbyStub(this.env, record.players[me].userId)
+      .fetch(new Request('http://do/upsert', { method: 'POST', body: JSON.stringify(summaryFor(record, me)) }))
+      .catch(() => {});
+    return true;
+  }
+
   async publishLobbies(record) {
     await Promise.all(record.players.map((p, i) =>
       lobbyStub(this.env, p.userId)
@@ -428,6 +440,8 @@ export class DinoGame {
 
   async finish(record, winner, reason, scores) {
     record.status = 'over';
+    // Until each player has seen how it ended, the game stays in their Your games as their turn.
+    record.unseen = record.players.map((p) => !!p.userId);
     record.turn = null;
     record.deadline = null;
     record.result = { winner, reason, scores: scores || null };
@@ -483,8 +497,10 @@ export class DinoGame {
     if (me < 0) return Response.json({ error: 'Game not found' }, { status: 404 });
 
     if (op === 'get') {
+      const reveal = record.status === 'over' && !!(record.unseen && record.unseen[me]);
+      if (body.seen) await this.markSeen(record, me);
       if (body.since && body.since === record.version) return Response.json(viewFor(record, me, { unchanged: true }));
-      return Response.json(viewFor(record, me, { state: record.state }));
+      return Response.json(viewFor(record, me, { state: record.state, ...(reveal ? { unseen: true } : {}) }));
     }
 
     if (op === 'respond') {
@@ -515,6 +531,7 @@ export class DinoGame {
       if (record.status === 'pending') record.status = me === 0 ? 'cancelled' : 'declined';
       else if (record.status === 'active') await this.finish(record, 1 - me, 'resign');
       else return Response.json({ error: 'This game is already over', ...viewFor(record, me) }, { status: 409 });
+      if (record.unseen) record.unseen[me] = false;
       await this.persist(record);
       await this.scheduleAlarm(record);
       await this.publishLobbies(record);
@@ -552,6 +569,7 @@ export class DinoGame {
       const scores = cleanScores(body.scores);
       const winner = scores ? (scores[0] === scores[1] ? null : scores[0] > scores[1] ? 0 : 1) : null;
       await this.finish(record, winner, 'finished', scores);
+      record.unseen[me] = false;
     } else if (record.turn !== prevTurn) {
       record.deadline = record.mode === 'quick' ? Date.now() + QUICK_TURN_MS : null;
     }
@@ -577,11 +595,12 @@ export class DinoGame {
     } catch {
       return;
     }
-    if (!msg || msg.type !== 'move') return;
+    if (!msg || (msg.type !== 'move' && msg.type !== 'seen')) return;
     const record = await this.load();
     const [uid] = this.ctx.getTags(ws);
     const me = this.playerIndex(record, uid);
     if (me < 0) return;
+    if (msg.type === 'seen') return void (await this.markSeen(record, me));
     const out = await this.applyMove(record, me, msg, ws);
     try {
       ws.send(JSON.stringify(out.status === 200 ? { type: 'ack', ...out.body } : { type: 'reject', ...out.body }));
@@ -680,7 +699,7 @@ export class DinoLobby {
       if (s.status === 'over' && !(games[s.id] && games[s.id].status === 'over')) await this.addHistory(onlineHistoryItem(s), games);
       games[s.id] = s;
       const done = Object.values(games)
-        .filter((g) => g.status !== 'pending' && g.status !== 'active')
+        .filter((g) => g.status !== 'pending' && g.status !== 'active' && !g.unseen)
         .sort((a, b) => b.updatedAt - a.updatedAt);
       done.slice(LOBBY_KEEP_FINISHED).forEach((g) => { delete games[g.id]; });
       await this.storage.put('games', games);

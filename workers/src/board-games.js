@@ -57,7 +57,7 @@ async function userIdForSession(env, sessionId) {
   return data.userId || null;
 }
 
-const needsMe = (g) => (g.status === 'pending' && g.me === 1) || (g.status === 'active' && g.turn === g.me);
+const needsMe = (g) => g.unseen || (g.status === 'pending' && g.me === 1) || (g.status === 'active' && g.turn === g.me);
 
 function accountStub(env, userId) {
   return env.USER_ACCOUNT.get(env.USER_ACCOUNT.idFromName(userId));
@@ -83,13 +83,15 @@ async function onlineGames(env, userId) {
       const ns = env[l.binding];
       const res = await ns.get(ns.idFromName(`lobby:${userId}`)).fetch(new Request('http://do/list'));
       const data = await res.json();
-      return (data.games || []).filter((g) => CURRENT.has(g.status)).map((g) => ({
+      // A finished game stays until the player has seen how it ended; it shows as their turn so the result isn't spoiled.
+      return (data.games || []).filter((g) => CURRENT.has(g.status) || (g.status === 'over' && g.unseen)).map((g) => ({
         game: l.fromSummary ? g.game : l.game,
         id: g.id,
         status: g.status,
         me: g.me,
         opp: g.opp,
         turn: g.turn,
+        ...(g.unseen ? { unseen: true } : {}),
         mode: g.mode || 'long',
         deadline: g.deadline || null,
         round: g.round || 0,
