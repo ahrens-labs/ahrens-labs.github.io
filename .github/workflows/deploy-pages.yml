@@ -28,6 +28,7 @@ jobs:
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          wranglerVersion: '4.161.0'
           accountId: 67e1b6f34b4b7cf8ed0d354dc5b2e9c7
           command: pages deploy . --project-name=ahrens-labs-github-io --branch=main
         env:
