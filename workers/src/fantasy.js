@@ -1,3 +1,5 @@
+import FantasyScoring from '../../js/fantasy-scoring.js';
+
 const STORE_ID = 'fantasy-leagues-v1';
 const LEAGUE_PREFIX = 'league:';
 const USER_PREFIX = 'user:';
@@ -779,6 +781,51 @@ function sameRosterPlacement(left, right) {
 }
 
 const ESPN_SCOREBOARD_URL = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard';
+const ESPN_SUMMARY_URL = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary';
+// A finished week is settled (results, records, next week) only while it's fresh, so it's always scored with the
+// lineups that played it: rosters stay locked until the league moves on.
+const SETTLE_FRESH_MS = 3 * 86400000;
+const SETTLED_PREFIX = 'settled:';
+
+// Weeks end on Monday night (a Sunday in week 18); only look for a finished week from then until Thursday.
+function inSettleWindow(now = Date.now()) {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', weekday: 'short', hour: 'numeric', hourCycle: 'h23' })
+    .formatToParts(new Date(now)).map(({ type, value }) => [type, value]));
+  const hour = Number(parts.hour);
+  return (parts.weekday === 'Sun' && hour >= 19) || parts.weekday === 'Mon' || parts.weekday === 'Tue' || parts.weekday === 'Wed'
+    || (parts.weekday === 'Thu' && hour < 12);
+}
+
+function scoreboardGame(event) {
+  const competition = event.competitions?.[0] || {};
+  const competitors = competition.competitors || [];
+  const home = competitors.find((team) => team.homeAway === 'home') || competitors[0] || {};
+  const away = competitors.find((team) => team.homeAway === 'away') || competitors[1] || {};
+  const status = competition.status?.type || event.status?.type || {};
+  return {
+    id: String(event.id || ''),
+    date: event.date || competition.date || '',
+    completed: Boolean(status.completed),
+    home: { id: String(home.team?.id || ''), score: home.score || '0' },
+    away: { id: String(away.team?.id || ''), score: away.score || '0' },
+  };
+}
+
+// Every team's points for a finished week, from the same scoring the page uses.
+function weekScores(league, stats) {
+  const leagueScoring = { ...FantasyScoring.DEFAULT_SCORING, ...(league.scoring || {}) };
+  const scoringLeague = { scoring: leagueScoring, positionScoring: league.positionScoring || {} };
+  const slots = FantasyScoring.starterSlots({ ...league.rosterSlots });
+  return Object.fromEntries(league.managers.map((team) => {
+    const total = FantasyScoring.starters(team, slots).displayed.reduce((sum, player) => {
+      const line = player.position === 'D/ST'
+        ? stats.teamStats.get(String(player.teamId)) || {}
+        : stats.playerStats.get(String(player.id)) || {};
+      return sum + FantasyScoring.pointsFor(player, line, FantasyScoring.scoringFor(scoringLeague, player.position));
+    }, 0);
+    return [team.id, Number(total.toFixed(2))];
+  }));
+}
 
 async function fetchStartedNflTeamIds(week, { fetchFn = globalThis.fetch, now = Date.now() } = {}) {
   const normalizedWeek = Number(week);
@@ -1233,7 +1280,14 @@ export class FantasyLeagueStore {
       }
       else if (path === '/claim-waiver') result = await this.claimWaiver(body);
       else if (path === '/cancel-waiver-claim') result = await this.cancelWaiverClaim(body);
-      else if (path === '/process-waivers') result = await this.processAllWaivers();
+      else if (path === '/process-waivers') {
+        result = await this.processAllWaivers();
+        try {
+          result.settled = await this.settleFinishedWeek();
+        } catch (error) {
+          console.error('Fantasy week settlement failed:', error);
+        }
+      }
       else if (path === '/save') result = await this.save(body);
       else result = { status: 404, error: 'Not found.' };
       return fantasyJson(result, result.status || 200);
@@ -2269,6 +2323,63 @@ export class FantasyLeagueStore {
       cursor = page.list_complete ? undefined : page.cursor;
     } while (cursor);
     return { success: true, processedLeagues };
+  }
+
+  // Once the last game of an NFL week (Monday night) is final: every league's matchup results for that week are
+  // recorded (records and standings follow from them) and the league moves on to the next week.
+  async settleFinishedWeek({ fetchFn = globalThis.fetch, now = Date.now() } = {}) {
+    if (!inSettleWindow(now)) return null;
+    const current = await (await fetchFn(ESPN_SCOREBOARD_URL)).json();
+    const season = Number(current.season?.year) || 0;
+    const type = Number(current.season?.type);
+    const week = Number(current.week?.number);
+    const candidates = type === 2 ? [week, week - 1] : type === 3 ? [SEASON_WEEKS] : [];
+    for (const candidate of candidates.filter((w) => Number.isInteger(w) && w >= 1 && w <= SEASON_WEEKS)) {
+      if (await this.storage.get(`${SETTLED_PREFIX}${season}:${candidate}`)) return null;
+      const data = type === 2 && candidate === week
+        ? current
+        : await (await fetchFn(`${ESPN_SCOREBOARD_URL}?week=${candidate}&seasontype=2&limit=100`)).json();
+      const games = (data.events || []).map(scoreboardGame).filter((game) => game.id);
+      if (!games.length || games.some((game) => !game.completed)) continue;
+      const lastKickoff = Math.max(...games.map((game) => Date.parse(game.date) || 0));
+      if (now - lastKickoff > SETTLE_FRESH_MS) {
+        await this.storage.put(`${SETTLED_PREFIX}${season}:${candidate}`, { at: now, skipped: 'stale' });
+        return null;
+      }
+      const stats = { teamStats: new Map(), playerStats: new Map() };
+      const summaries = await Promise.all(games.map(async (game) => {
+        const response = await fetchFn(`${ESPN_SUMMARY_URL}?event=${encodeURIComponent(game.id)}`);
+        if (!response.ok) throw new Error(`ESPN summary ${game.id} returned ${response.status}`);
+        return [game, await response.json()];
+      }));
+      summaries.forEach(([game, summary]) => FantasyScoring.parseGameSummary(summary, game, stats));
+      const leagues = await this.settleLeagues(candidate, stats);
+      await this.storage.put(`${SETTLED_PREFIX}${season}:${candidate}`, { at: now, leagues });
+      return { week: candidate, leagues };
+    }
+    return null;
+  }
+
+  async settleLeagues(week, stats) {
+    let cursor;
+    let settled = 0;
+    do {
+      const page = await this.storage.list({ prefix: LEAGUE_PREFIX, cursor, limit: 1000 });
+      for (const record of page.values()) {
+        const league = record?.league;
+        if (!league || !Array.isArray(league.managers) || !league.picks?.length) continue;
+        // A league already looking past this week moved on without the server (rosters may have changed since).
+        if (Number(league.selectedWeek) > week) continue;
+        league.matchupResults ||= {};
+        league.matchupResults[week] = weekScores(league, stats);
+        if (week < SEASON_WEEKS) league.selectedWeek = week + 1;
+        record.revision += 1;
+        await this.putLeague(record);
+        settled += 1;
+      }
+      cursor = page.list_complete ? undefined : page.cursor;
+    } while (cursor);
+    return settled;
   }
 
   async claimWaiver(body) {
