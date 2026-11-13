@@ -502,7 +502,7 @@ async function getIdentity(request, env) {
   const session = await sessionResponse.json();
   if (!session.userId) return null;
   const accountStub = env.USER_ACCOUNT.get(env.USER_ACCOUNT.idFromName(session.userId));
-  const accountResponse = await accountStub.fetch(new Request('https://account.internal/getData'));
+  const accountResponse = await accountStub.fetch(new Request('https://account.internal/getData', { headers: { 'X-Ahrens-Seen': '1' } }));
   if (!accountResponse.ok) return null;
   const account = await accountResponse.json();
   const username = String(account?.username || '').trim();

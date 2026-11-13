@@ -3258,7 +3258,7 @@
           }
           accountHtml += adminDetailRow('Last login', a.lastLoginAt
             ? escHtml(adminFormatDateTime(a.lastLoginAt)) + ' (' + adminWhenHtml(a.lastLoginAt) + ')'
-            : adminWhenHtml(null, 'Not recorded since sign-in tracking began'));
+            : adminWhenHtml(null, 'Not on ahrenslabs.com or ahrensgames.com since tracking began'));
           accountHtml += adminDetailRow('Last data change', a.lastDataChangeAt
             ? escHtml(ADMIN_APP_NAMES[a.lastDataChangeApp] || 'App') + ' · ' + escHtml(adminFormatDateTime(a.lastDataChangeAt)) + ' (' + adminWhenHtml(a.lastDataChangeAt) + ')'
             : adminWhenHtml(null, 'No changes recorded'));

@@ -106,7 +106,7 @@ async function onlineGames(env, userId) {
 
 async function savedGames(env, userId) {
   try {
-    const res = await accountStub(env, userId).fetch(new Request('http://do/boardSaves/index'));
+    const res = await accountStub(env, userId).fetch(new Request('http://do/boardSaves/index', { headers: { 'X-Ahrens-Seen': '1' } }));
     const data = await res.json();
     return { saves: Object.values(data.index || {}), introSeen: !!data.introSeen, settings: data.settings || {} };
   } catch {
@@ -210,7 +210,7 @@ export async function handleBoardGamesRequest(request, env, corsHeaders, path) {
 
   if (path === '/api/board-games/settings') {
     if (request.method === 'GET') {
-      const res = await accountStub(env, userId).fetch(new Request('http://do/boardSaves/settings'));
+      const res = await accountStub(env, userId).fetch(new Request('http://do/boardSaves/settings', { headers: { 'X-Ahrens-Seen': '1' } }));
       return jsonResponse(await res.json().catch(() => ({ settings: {} })), corsHeaders);
     }
     if (request.method === 'POST') {

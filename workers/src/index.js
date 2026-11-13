@@ -3405,7 +3405,8 @@ async function handleGetUser(request, env, corsHeaders) {
   const userAccount = env.USER_ACCOUNT.get(userAccountId);
   
   const getDataReq = new Request('http://do/getData', {
-    method: 'GET'
+    method: 'GET',
+    headers: { [SEEN_HEADER]: '1' },
   });
   
   const dataRes = await userAccount.fetch(getDataReq);
@@ -4897,7 +4898,7 @@ function adminAppUsageFields(row) {
   };
 
   return {
-    lastLoginAt: latest(activity.lastLoginAt),
+    lastLoginAt: latest(activity.lastSeenAt, activity.lastLoginAt),
     appLastChange,
     appClassify,
     appClassifyTaskCount,
@@ -10703,6 +10704,9 @@ const USER_APP_WRITE_ROUTES = {
 const ACTOR_ONLY_ROUTES = new Set(['/bumpPlatterSyncGeneration', '/bumpTetherSyncGeneration']);
 const ACTIVITY_KEY = 'activity';
 const ACTIVITY_MIN_GAP_MS = 60000;
+// Reads made because the person has a page open on ahrenslabs.com or ahrensgames.com carry this header.
+const SEEN_HEADER = 'X-Ahrens-Seen';
+const SEEN_MIN_GAP_MS = 5 * 60000;
 
 export class UserAccount {
   constructor(state, env) {
@@ -10715,20 +10719,32 @@ export class UserAccount {
     const url = new URL(request.url);
     const app = request.method === 'GET' ? null : USER_APP_WRITE_ROUTES[url.pathname];
     const counts = app && (!ACTOR_ONLY_ROUTES.has(url.pathname) || url.searchParams.get('actor') === '1');
+    const seen = request.headers.get(SEEN_HEADER) === '1';
     const response = await this.handleFetch(request);
-    if (counts && response.ok) await this.noteActivity({ app });
+    if ((counts || seen) && response.ok) await this.noteActivity({ app: counts ? app : null, seen });
     return response;
   }
 
-  // Last sign-in and last change per app, kept beside the profile (not inside the big userData blob). At most one
-  // write a minute per app.
-  async noteActivity({ app = null, login = false } = {}) {
+  // Last time on either site, last sign-in, and last change per app, kept beside the profile (not inside the big
+  // userData blob). Written at most every few minutes for visits and once a minute per app.
+  async noteActivity({ app = null, login = false, seen = false } = {}) {
     const now = Date.now();
     const activity = (await this.storage.get(ACTIVITY_KEY)) || {};
     const apps = activity.apps && typeof activity.apps === 'object' ? activity.apps : {};
-    if (app && now - (Number(apps[app]) || 0) < ACTIVITY_MIN_GAP_MS && !login) return;
-    if (app) apps[app] = now;
-    await this.storage.put(ACTIVITY_KEY, { ...activity, apps, ...(login ? { lastLoginAt: now } : {}) });
+    let changed = false;
+    if (app && now - (Number(apps[app]) || 0) >= ACTIVITY_MIN_GAP_MS) {
+      apps[app] = now;
+      changed = true;
+    }
+    if ((seen || login) && now - (Number(activity.lastSeenAt) || 0) >= SEEN_MIN_GAP_MS) {
+      activity.lastSeenAt = now;
+      changed = true;
+    }
+    if (login) {
+      activity.lastLoginAt = now;
+      changed = true;
+    }
+    if (changed) await this.storage.put(ACTIVITY_KEY, { ...activity, apps });
   }
 
   async handleFetch(request) {
