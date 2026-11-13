@@ -215,9 +215,9 @@ async function notifyTetherSync(env, userId, payload) {
   }
 }
 
-async function publishInboxSync(env, userId, sourceClientId, ctx) {
+async function publishInboxSync(env, userId, sourceClientId, ctx, actorId = null) {
   scheduleTetherCacheWork(ctx, invalidateTetherUserCache(userId));
-  await bumpTetherSyncGeneration(env, userId);
+  await bumpTetherSyncGeneration(env, userId, userId === actorId);
   await notifyTetherSync(env, userId, {
     type: 'inbox',
     ts: Date.now(),
@@ -225,14 +225,14 @@ async function publishInboxSync(env, userId, sourceClientId, ctx) {
   });
 }
 
-async function publishProjectSync(env, project, sourceClientId, ctx) {
+async function publishProjectSync(env, project, sourceClientId, ctx, actorId = null) {
   const memberIds = [...projectMemberIds(project)];
   const projectId = project?.id || null;
   scheduleTetherCacheWork(
     ctx,
     invalidateTetherUsersCache(memberIds, { projectIds: projectId ? [projectId] : [] })
   );
-  await bumpTetherSyncGenerationForUsers(env, memberIds);
+  await bumpTetherSyncGenerationForUsers(env, memberIds, actorId);
   const payload = {
     type: 'project',
     projectId,
@@ -242,10 +242,10 @@ async function publishProjectSync(env, project, sourceClientId, ctx) {
   await Promise.all(memberIds.map((uid) => notifyTetherSync(env, uid, payload)));
 }
 
-async function publishProjectsListSync(env, userIds, sourceClientId, ctx) {
+async function publishProjectsListSync(env, userIds, sourceClientId, ctx, actorId = null) {
   const ids = userIds instanceof Set ? userIds : new Set(userIds || []);
   scheduleTetherCacheWork(ctx, invalidateTetherUsersCache(ids));
-  await bumpTetherSyncGenerationForUsers(env, ids);
+  await bumpTetherSyncGenerationForUsers(env, ids, actorId);
   const payload = {
     type: 'projects',
     ts: Date.now(),
@@ -254,19 +254,20 @@ async function publishProjectsListSync(env, userIds, sourceClientId, ctx) {
   await Promise.all([...ids].filter(Boolean).map((uid) => notifyTetherSync(env, uid, payload)));
 }
 
-async function bumpTetherSyncGeneration(env, userId) {
+// `actor`: this user made the change (their account's "last Tether change" moves; other members' don't).
+async function bumpTetherSyncGeneration(env, userId, actor = false) {
   const stub = userAccountStub(env, userId);
   if (!stub) return;
   try {
-    await stub.fetch(new Request('http://do/bumpTetherSyncGeneration', { method: 'POST' }));
+    await stub.fetch(new Request(`http://do/bumpTetherSyncGeneration${actor ? '?actor=1' : ''}`, { method: 'POST' }));
   } catch {
     /* sync meta is best-effort */
   }
 }
 
-async function bumpTetherSyncGenerationForUsers(env, userIds) {
+async function bumpTetherSyncGenerationForUsers(env, userIds, actorId = null) {
   const ids = userIds instanceof Set ? [...userIds] : Array.isArray(userIds) ? userIds : [];
-  await Promise.all(ids.filter(Boolean).map((uid) => bumpTetherSyncGeneration(env, uid)));
+  await Promise.all(ids.filter(Boolean).map((uid) => bumpTetherSyncGeneration(env, uid, uid === actorId)));
 }
 
 function userAccountStub(env, userId) {
@@ -1152,7 +1153,7 @@ export async function handleTetherRequest(request, env, corsHeaders, path, ctx) 
     const depError = validateTaskDependencyCompletion(tasks);
     if (depError) return jsonResponse({ error: depError.error }, corsHeaders, depError.status);
     const saved = await saveInboxTasks(env, userId, tasks);
-    await publishInboxSync(env, userId, readSyncClientId(request, body), ctx);
+    await publishInboxSync(env, userId, readSyncClientId(request, body), ctx, userId);
     return jsonResponse({ tasks: saved }, corsHeaders);
   }
 
@@ -1226,8 +1227,8 @@ export async function handleTetherRequest(request, env, corsHeaders, path, ctx) 
     await saveInboxTasks(env, userId, inboxTasks);
     await persistProject(env, project);
     const syncClientId = readSyncClientId(request, body);
-    await publishInboxSync(env, userId, syncClientId, ctx);
-    await publishProjectSync(env, project, syncClientId, ctx);
+    await publishInboxSync(env, userId, syncClientId, ctx, userId);
+    await publishProjectSync(env, project, syncClientId, ctx, userId);
     return jsonResponse({ task: moved, projectId, tasks: inboxTasks }, corsHeaders);
   }
 
@@ -1288,8 +1289,8 @@ export async function handleTetherRequest(request, env, corsHeaders, path, ctx) 
         await persistProject(env, sourceProject);
       }
       const syncClientId = readSyncClientId(request, body);
-      await publishInboxSync(env, userId, syncClientId, ctx);
-      if (sourceProject) await publishProjectSync(env, sourceProject, syncClientId, ctx);
+      await publishInboxSync(env, userId, syncClientId, ctx, userId);
+      if (sourceProject) await publishProjectSync(env, sourceProject, syncClientId, ctx, userId);
       return jsonResponse({ task: moved, fromProjectId, toProjectId: null }, corsHeaders);
     }
 
@@ -1311,9 +1312,9 @@ export async function handleTetherRequest(request, env, corsHeaders, path, ctx) 
 
     await persistProject(env, targetProject);
     const syncClientId = readSyncClientId(request, body);
-    await publishInboxSync(env, userId, syncClientId, ctx);
-    if (sourceProject) await publishProjectSync(env, sourceProject, syncClientId, ctx);
-    await publishProjectSync(env, targetProject, syncClientId, ctx);
+    await publishInboxSync(env, userId, syncClientId, ctx, userId);
+    if (sourceProject) await publishProjectSync(env, sourceProject, syncClientId, ctx, userId);
+    await publishProjectSync(env, targetProject, syncClientId, ctx, userId);
     return jsonResponse({ task: moved, fromProjectId, toProjectId }, corsHeaders);
   }
 
@@ -1351,8 +1352,8 @@ export async function handleTetherRequest(request, env, corsHeaders, path, ctx) 
     await removeProjectStorage(env, projectId);
 
     const syncClientId = readSyncClientId(request, body);
-    await publishInboxSync(env, userId, syncClientId, ctx);
-    await publishProjectsListSync(env, projectMemberIds(project), syncClientId, ctx);
+    await publishInboxSync(env, userId, syncClientId, ctx, userId);
+    await publishProjectsListSync(env, projectMemberIds(project), syncClientId, ctx, userId);
     return jsonResponse({ moved, inboxTaskCount: inboxTasks.length }, corsHeaders);
   }
 
@@ -1388,7 +1389,7 @@ export async function handleTetherRequest(request, env, corsHeaders, path, ctx) 
 
     await persistProject(env, project, { create: true });
     await addTetherProjectId(env, userId, projectId);
-    await publishProjectsListSync(env, [userId], readSyncClientId(request, body), ctx);
+    await publishProjectsListSync(env, [userId], readSyncClientId(request, body), ctx, userId);
     return jsonResponse({ project: { ...project, isOwner: true } }, corsHeaders, 201);
   }
 
@@ -1475,7 +1476,7 @@ export async function handleTetherRequest(request, env, corsHeaders, path, ctx) 
     if (depError) return jsonResponse({ error: depError.error }, corsHeaders, depError.status);
 
     await persistProject(env, updated);
-    await publishProjectSync(env, updated, readSyncClientId(request, body), ctx);
+    await publishProjectSync(env, updated, readSyncClientId(request, body), ctx, userId);
     return jsonResponse({ project: { ...updated, isOwner: userIsOwner(updated, userId) } }, corsHeaders);
   }
 
@@ -1494,7 +1495,7 @@ export async function handleTetherRequest(request, env, corsHeaders, path, ctx) 
       if (member.userId) await removeTetherProjectId(env, member.userId, projectId);
     }
     await removeProjectStorage(env, projectId);
-    await publishProjectsListSync(env, projectMemberIds(project), readSyncClientId(request, null), ctx);
+    await publishProjectsListSync(env, projectMemberIds(project), readSyncClientId(request, null), ctx, userId);
     return jsonResponse({ success: true }, corsHeaders);
   }
 
@@ -1531,8 +1532,8 @@ export async function handleTetherRequest(request, env, corsHeaders, path, ctx) 
       await persistProject(env, projectForShare);
     }
     const updated = await addMemberToProject(env, projectForShare, target);
-    await publishProjectSync(env, updated, readSyncClientId(request, body), ctx);
-    await publishProjectsListSync(env, [target.userId], readSyncClientId(request, body), ctx);
+    await publishProjectSync(env, updated, readSyncClientId(request, body), ctx, userId);
+    await publishProjectsListSync(env, [target.userId], readSyncClientId(request, body), ctx, userId);
     return jsonResponse({ project: { ...updated, isOwner: userIsOwner(updated, userId) } }, corsHeaders);
   }
 
@@ -1563,8 +1564,8 @@ export async function handleTetherRequest(request, env, corsHeaders, path, ctx) 
     await persistProject(env, updated);
     await removeTetherProjectId(env, removeUserId, projectId);
     const syncClientId = readSyncClientId(request, body);
-    await publishProjectSync(env, updated, syncClientId, ctx);
-    await publishProjectsListSync(env, [removeUserId], syncClientId, ctx);
+    await publishProjectSync(env, updated, syncClientId, ctx, userId);
+    await publishProjectsListSync(env, [removeUserId], syncClientId, ctx, userId);
     return jsonResponse({ project: { ...updated, isOwner: userIsOwner(updated, userId) } }, corsHeaders);
   }
 

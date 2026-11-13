@@ -4880,7 +4880,25 @@ function adminAppUsageFields(row) {
     deck?.lastUpdated != null && Number(deck.lastUpdated) > 0 ? Number(deck.lastUpdated) : null;
   const appDeck = appDeckCount > 0;
 
+  // Last sign-in and last change per app (recorded by the account since activity tracking began; Classify and Deck
+  // also carry their own sync times).
+  const activity = row && typeof row.activity === 'object' && row.activity ? row.activity : {};
+  const stamps = activity.apps && typeof activity.apps === 'object' ? activity.apps : {};
+  const latest = (...values) => {
+    const nums = values.map(Number).filter((v) => Number.isFinite(v) && v > 0);
+    return nums.length ? Math.max(...nums) : null;
+  };
+  const appLastChange = {
+    classify: latest(stamps.classify, appClassifyLastUpdated),
+    tether: latest(stamps.tether),
+    platter: latest(stamps.platter),
+    deck: latest(stamps.deck, appDeckLastUpdated),
+    link: null,
+  };
+
   return {
+    lastLoginAt: latest(activity.lastLoginAt),
+    appLastChange,
     appClassify,
     appClassifyTaskCount,
     appClassifyCompletedCount,
@@ -4959,6 +4977,57 @@ async function loadLinkAppUsageByAhrensId(env) {
     console.error('Link app-usage load failed', error?.message || error);
   }
   return { byId: map, byEmail };
+}
+
+// Most recent app data change across apps (filled after Link and D1-backed apps are merged in).
+function finishAdminLastDataChange(acc) {
+  let at = null;
+  let app = null;
+  for (const [name, value] of Object.entries(acc.appLastChange || {})) {
+    const t = Number(value);
+    if (Number.isFinite(t) && t > 0 && (!at || t > at)) {
+      at = t;
+      app = name;
+    }
+  }
+  acc.lastDataChangeAt = at;
+  acc.lastDataChangeApp = app;
+}
+
+// Deck and Tether now keep their data in D1: one query each for every account's latest change (Tether: inbox saves,
+// which are the user's own; shared-project edits are credited through the account's own activity stamps).
+async function enrichAdminAccountsAppActivity(env, accounts) {
+  if (!Array.isArray(accounts) || !accounts.length) return;
+  const deckAt = new Map();
+  const tetherAt = new Map();
+  await Promise.all([
+    env.DECK_DB
+      ? env.DECK_DB.prepare('SELECT user_id, MAX(COALESCE(last_updated, updated_at)) AS at FROM deck_user_data GROUP BY user_id')
+        .all()
+        .then(({ results }) => (results || []).forEach((r) => deckAt.set(String(r.user_id), Number(r.at) || null)))
+        .catch((err) => console.warn('admin deck activity query failed', err?.message || err))
+      : null,
+    env.TETHER_DB
+      ? env.TETHER_DB.prepare(
+          'SELECT owner_user_id AS user_id, MAX(updated_at) AS at FROM tether_tasks WHERE project_id IS NULL AND owner_user_id IS NOT NULL GROUP BY owner_user_id'
+        )
+        .all()
+        .then(({ results }) => (results || []).forEach((r) => tetherAt.set(String(r.user_id), Number(r.at) || null)))
+        .catch((err) => console.warn('admin tether activity query failed', err?.message || err))
+      : null,
+  ]);
+  for (const acc of accounts) {
+    if (!acc || typeof acc !== 'object') continue;
+    const ids = [acc.userId, acc.doUserId].map((v) => String(v || '').trim()).filter(Boolean);
+    const pick = (map) => Math.max(0, ...ids.map((id) => Number(map.get(id)) || 0)) || null;
+    const change = acc.appLastChange && typeof acc.appLastChange === 'object' ? acc.appLastChange : {};
+    const best = (a, b) => (Number(a) > 0 && Number(b) > 0 ? Math.max(a, b) : Number(a) > 0 ? a : Number(b) > 0 ? b : null);
+    change.deck = best(change.deck, pick(deckAt));
+    change.tether = best(change.tether, pick(tetherAt));
+    change.link = Number(acc.appLinkLastActivity) || null;
+    acc.appLastChange = change;
+    finishAdminLastDataChange(acc);
+  }
 }
 
 function enrichAdminAccountsLinkUsage(accounts, linkUsage) {
@@ -5587,6 +5656,7 @@ async function handleAdminListAccounts(request, env, corsHeaders) {
     enrichAdminAccountsDigestKv(merged, sportsKvIds, dailyKvIds);
     const linkUsageMap = await loadLinkAppUsageByAhrensId(env);
     enrichAdminAccountsLinkUsage(merged, linkUsageMap);
+    await enrichAdminAccountsAppActivity(env, merged);
 
     return new Response(
       JSON.stringify({
@@ -5636,6 +5706,7 @@ async function handleAdminListAccounts(request, env, corsHeaders) {
   enrichAdminAccountsDigestKv(merged, sportsKvIds, dailyKvIds);
   const linkUsageMap = await loadLinkAppUsageByAhrensId(env);
   enrichAdminAccountsLinkUsage(merged, linkUsageMap);
+  await enrichAdminAccountsAppActivity(env, merged);
 
   return new Response(
     JSON.stringify({
@@ -10613,6 +10684,26 @@ function mergeChessGameHistoryForSync(prev, incoming) {
 }
 
 // Durable Object: UserAccount
+// Account routes that add, change, or remove a user's own data in an app (admin "last data change").
+const USER_APP_WRITE_ROUTES = {
+  '/updateClassifyData': 'classify',
+  '/updateDeckData': 'deck',
+  '/setPlatterState': 'platter',
+  '/addPlatterMenuId': 'platter',
+  '/removePlatterMenuId': 'platter',
+  '/bumpPlatterSyncGeneration': 'platter',
+  '/addTetherProjectId': 'tether',
+  '/removeTetherProjectId': 'tether',
+  '/saveTetherInbox': 'tether',
+  '/saveTetherLabelColors': 'tether',
+  '/saveTetherSettings': 'tether',
+  '/bumpTetherSyncGeneration': 'tether',
+};
+// Sync-generation bumps go to every member of a shared project or menu; only the one who made the change counts.
+const ACTOR_ONLY_ROUTES = new Set(['/bumpPlatterSyncGeneration', '/bumpTetherSyncGeneration']);
+const ACTIVITY_KEY = 'activity';
+const ACTIVITY_MIN_GAP_MS = 60000;
+
 export class UserAccount {
   constructor(state, env) {
     this.state = state;
@@ -10621,6 +10712,26 @@ export class UserAccount {
   }
 
   async fetch(request) {
+    const url = new URL(request.url);
+    const app = request.method === 'GET' ? null : USER_APP_WRITE_ROUTES[url.pathname];
+    const counts = app && (!ACTOR_ONLY_ROUTES.has(url.pathname) || url.searchParams.get('actor') === '1');
+    const response = await this.handleFetch(request);
+    if (counts && response.ok) await this.noteActivity({ app });
+    return response;
+  }
+
+  // Last sign-in and last change per app, kept beside the profile (not inside the big userData blob). At most one
+  // write a minute per app.
+  async noteActivity({ app = null, login = false } = {}) {
+    const now = Date.now();
+    const activity = (await this.storage.get(ACTIVITY_KEY)) || {};
+    const apps = activity.apps && typeof activity.apps === 'object' ? activity.apps : {};
+    if (app && now - (Number(apps[app]) || 0) < ACTIVITY_MIN_GAP_MS && !login) return;
+    if (app) apps[app] = now;
+    await this.storage.put(ACTIVITY_KEY, { ...activity, apps, ...(login ? { lastLoginAt: now } : {}) });
+  }
+
+  async handleFetch(request) {
     const url = new URL(request.url);
     const path = url.pathname;
     
@@ -11264,6 +11375,7 @@ export class UserAccount {
       userData.passwordHash = await hashPasswordSecure(password);
       await this.storage.put('userData', userData);
     }
+    await this.noteActivity({ login: true });
     return { success: true };
   }
 
@@ -11295,10 +11407,12 @@ export class UserAccount {
       emailPreferences.digestTimeZone = DEFAULT_DIGEST_TIMEZONE;
     }
     emailPreferences.sportsDigest = normalizeSportsDigestPrefs(emailPreferences.sportsDigest);
+    const activity = (await this.storage.get(ACTIVITY_KEY)) || null;
     const out = {
       userId: this.state.id.toString(),
       ...safeData,
       emailPreferences,
+      ...(activity ? { activity } : {}),
     };
     // Do not expose Deck/Tether content bodies via generic profile reads (ciphertext or plaintext).
     if (out.games && typeof out.games === 'object') {

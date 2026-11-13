@@ -322,7 +322,7 @@
       color: #475569;
     }
     .admin-accounts-table.admin-accounts-compact .c-email {
-      width: 24%;
+      width: 22%;
       overflow: hidden;
       text-overflow: ellipsis;
     }
@@ -332,12 +332,19 @@
       text-overflow: ellipsis;
     }
     .admin-accounts-table.admin-accounts-compact .c-apps {
-      width: 18%;
+      width: 16%;
       white-space: normal;
     }
+    .admin-accounts-table.admin-accounts-compact .c-activity {
+      width: 13%;
+      font-size: 0.74rem;
+      line-height: 1.35;
+      color: #475569;
+    }
+    .admin-accounts-table.admin-accounts-compact .c-activity b { color: #0f172a; font-weight: 600; }
     .admin-accounts-table.admin-accounts-compact .c-ver { width: 8%; }
     .admin-accounts-table.admin-accounts-compact .c-act {
-      width: 40%;
+      width: 35%;
       white-space: nowrap;
     }
     .admin-accounts-table.admin-accounts-compact tbody tr:hover { background: #f8fafc; }
@@ -983,11 +990,12 @@
                   <th scope="col" class="c-email">Email</th>
                   <th scope="col" class="c-user">Username</th>
                   <th scope="col" class="c-apps">Apps</th>
+                  <th scope="col" class="c-activity" title="Last sign-in and last time they added, changed or removed app data">Activity</th>
                   <th scope="col" class="c-act">Actions</th>
                 </tr>
               </thead>
               <tbody id="admin-accounts-tbody">
-                <tr><td colspan="5" style="color:#94a3b8;">Click “Load all accounts”.</td></tr>
+                <tr><td colspan="6" style="color:#94a3b8;">Click “Load all accounts”.</td></tr>
               </tbody>
             </table>
           </div>
@@ -3028,6 +3036,37 @@
           return Math.floor(days / 365) + 'y ago';
         }
 
+        const ADMIN_APP_NAMES = { classify: 'Classify', tether: 'Tether', platter: 'Platter', deck: 'Deck', link: 'Link' };
+
+        function adminFormatDateTime(ms) {
+          const t = Number(ms);
+          if (!Number.isFinite(t) || t <= 0) return '';
+          return new Date(t).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+        }
+
+        // "3d ago" with the exact date and time on hover.
+        function adminWhenHtml(ms, empty) {
+          const rel = adminFormatRelativeTime(ms);
+          if (!rel) return '<span style="color:#94a3b8;">' + escHtml(empty || 'Not recorded') + '</span>';
+          return '<span title="' + escHtml(adminFormatDateTime(ms)) + '">' + escHtml(rel) + '</span>';
+        }
+
+        function adminActivityCellHtml(a) {
+          const data = a.lastDataChangeAt
+            ? escHtml(ADMIN_APP_NAMES[a.lastDataChangeApp] || 'App') + ' ' + adminWhenHtml(a.lastDataChangeAt)
+            : adminWhenHtml(null, 'No changes recorded');
+          return '<div><b>Login</b> ' + adminWhenHtml(a.lastLoginAt, 'not recorded') + '</div><div><b>Data</b> ' + data + '</div>';
+        }
+
+        function adminAppChangesHtml(a) {
+          const changes = a.appLastChange && typeof a.appLastChange === 'object' ? a.appLastChange : {};
+          const rows = Object.keys(ADMIN_APP_NAMES)
+            .filter((k) => Number(changes[k]) > 0)
+            .sort((x, y) => Number(changes[y]) - Number(changes[x]))
+            .map((k) => escHtml(ADMIN_APP_NAMES[k]) + ' ' + adminWhenHtml(changes[k]));
+          return rows.length ? rows.join(' · ') : adminWhenHtml(null, 'No changes recorded');
+        }
+
         function adminAppClassifyDetail(a) {
           if (!a?.appClassify) return 'None';
           const parts = [];
@@ -3232,6 +3271,12 @@
           if (a.legacyEmailInferred) {
             accountHtml += adminDetailRow('Note', 'Email inferred from signup check (legacy profile).');
           }
+          accountHtml += adminDetailRow('Last login', a.lastLoginAt
+            ? escHtml(adminFormatDateTime(a.lastLoginAt)) + ' (' + adminWhenHtml(a.lastLoginAt) + ')'
+            : adminWhenHtml(null, 'Not recorded since sign-in tracking began'));
+          accountHtml += adminDetailRow('Last data change', a.lastDataChangeAt
+            ? escHtml(ADMIN_APP_NAMES[a.lastDataChangeApp] || 'App') + ' · ' + escHtml(adminFormatDateTime(a.lastDataChangeAt)) + ' (' + adminWhenHtml(a.lastDataChangeAt) + ')'
+            : adminWhenHtml(null, 'No changes recorded'));
           accountHtml += '</dl></section>';
 
           accountHtml +=
@@ -3241,6 +3286,7 @@
           accountHtml += adminDetailRow('Platter', escHtml(adminAppPlatterDetail(a)));
           accountHtml += adminDetailRow('Deck', escHtml(adminAppDeckDetail(a)));
           accountHtml += adminDetailRow('Link', escHtml(adminAppLinkDetail(a)));
+          accountHtml += adminDetailRow('Last change by app', adminAppChangesHtml(a));
           accountHtml += '</dl></section>';
 
           accountHtml +=
@@ -3379,7 +3425,7 @@
           );
           if (!rows.length) {
             tbody.innerHTML =
-              '<tr><td colspan="5" style="color:#94a3b8;">' +
+              '<tr><td colspan="6" style="color:#94a3b8;">' +
               (adminAccountsAccum.length ? 'No rows match the filter.' : 'No accounts loaded.') +
               '</td></tr>';
           } else {
@@ -3417,6 +3463,7 @@
                   `<td class="c-email" title="${emTitle}">${emailCell}</td>` +
                   `<td class="c-user" title="${unTitle}">${escHtml(a.username || '—')}</td>` +
                   `<td class="c-apps" title="${escHtml(adminAppUsageLabel(a))}">${adminAppUsageBadgesHtml(a)}</td>` +
+                  `<td class="c-activity">${adminActivityCellHtml(a)}</td>` +
                   `<td class="c-act">${activeBadge}${detailsBtn}${historyBtn}${welcomeBtn}${customBtn}${deleteBtn}</td></tr>`
                 );
               })
@@ -3812,7 +3859,7 @@
             return s;
           };
           const lines = [
-            'username,email,user_id,apps,classify,classify_tasks,classify_completed,tether,tether_projects,tether_inbox,platter,platter_menus,deck,deck_count,deck_cards,link,link_contacts,link_interactions,trifangx_digest_on,trifangx_digest_eligible,trifangx_digest_scheduled,sports_digest_subscribed,sports_digest_teams,sports_digest_frequency,sports_digest_top_headlines,sports_digest_scheduled',
+            'username,email,user_id,last_login,last_data_change,last_data_change_app,classify_last_change,tether_last_change,platter_last_change,deck_last_change,link_last_change,apps,classify,classify_tasks,classify_completed,tether,tether_projects,tether_inbox,platter,platter_menus,deck,deck_count,deck_cards,link,link_contacts,link_interactions,trifangx_digest_on,trifangx_digest_eligible,trifangx_digest_scheduled,sports_digest_subscribed,sports_digest_teams,sports_digest_frequency,sports_digest_top_headlines,sports_digest_scheduled',
           ];
           for (const a of adminAccountsAccum) {
             lines.push(
@@ -3820,6 +3867,13 @@
                 escCsv(a.username),
                 escCsv(a.email),
                 escCsv(a.userId),
+                escCsv(a.lastLoginAt ? new Date(a.lastLoginAt).toISOString() : ''),
+                escCsv(a.lastDataChangeAt ? new Date(a.lastDataChangeAt).toISOString() : ''),
+                escCsv(ADMIN_APP_NAMES[a.lastDataChangeApp] || ''),
+                ...Object.keys(ADMIN_APP_NAMES).map((k) => {
+                  const t = Number(a.appLastChange?.[k]);
+                  return escCsv(t > 0 ? new Date(t).toISOString() : '');
+                }),
                 escCsv(adminAppUsageLabel(a)),
                 a.appClassify ? 'yes' : 'no',
                 escCsv(a.appClassifyTaskCount || 0),
