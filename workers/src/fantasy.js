@@ -786,6 +786,8 @@ const ESPN_SUMMARY_URL = 'https://site.api.espn.com/apis/site/v2/sports/football
 // lineups that played it: rosters stay locked until the league moves on.
 const SETTLE_FRESH_MS = 3 * 86400000;
 const SETTLED_PREFIX = 'settled:';
+const BACKFILL_KEY = 'backfill:state';
+const BACKFILL_IDLE_MS = 6 * 3600000;
 
 // Weeks end on Monday night (a Sunday in week 18); only look for a finished week from then until Thursday.
 function inSettleWindow(now = Date.now()) {
@@ -809,6 +811,29 @@ function scoreboardGame(event) {
     home: { id: String(home.team?.id || ''), score: home.score || '0' },
     away: { id: String(away.team?.id || ''), score: away.score || '0' },
   };
+}
+
+// Every player's and defense's stat line for a week, parsed from ESPN box scores the same way the page does.
+async function fetchWeekStats(games, fetchFn) {
+  const stats = { teamStats: new Map(), playerStats: new Map() };
+  const summaries = await Promise.all(games.map(async (game) => {
+    const response = await fetchFn(`${ESPN_SUMMARY_URL}?event=${encodeURIComponent(game.id)}`);
+    if (!response.ok) throw new Error(`ESPN summary ${game.id} returned ${response.status}`);
+    return [game, await response.json()];
+  }));
+  summaries.forEach(([game, summary]) => FantasyScoring.parseGameSummary(summary, game, stats));
+  return stats;
+}
+
+function hasWeekResults(league, week) {
+  const scores = league.matchupResults?.[week];
+  return Boolean(scores) && league.managers.every((team) => Number.isFinite(Number(scores[team.id])));
+}
+
+// When the league's draft finished (its last pick); its first week is the first one still open then.
+function draftDoneAt(league) {
+  const stamps = (league.picks || []).map((pick) => Number(pick.timestamp)).filter((value) => Number.isFinite(value) && value > 0);
+  return stamps.length ? Math.max(...stamps) : Date.parse(league.draftAt || '') || Number(league.createdAt) || 0;
 }
 
 // Every team's points for a finished week, from the same scoring the page uses.
@@ -1284,6 +1309,7 @@ export class FantasyLeagueStore {
         result = await this.processAllWaivers();
         try {
           result.settled = await this.settleFinishedWeek();
+          if (!result.settled) result.backfilled = await this.backfillPastWeeks();
         } catch (error) {
           console.error('Fantasy week settlement failed:', error);
         }
@@ -2346,18 +2372,81 @@ export class FantasyLeagueStore {
         await this.storage.put(`${SETTLED_PREFIX}${season}:${candidate}`, { at: now, skipped: 'stale' });
         return null;
       }
-      const stats = { teamStats: new Map(), playerStats: new Map() };
-      const summaries = await Promise.all(games.map(async (game) => {
-        const response = await fetchFn(`${ESPN_SUMMARY_URL}?event=${encodeURIComponent(game.id)}`);
-        if (!response.ok) throw new Error(`ESPN summary ${game.id} returned ${response.status}`);
-        return [game, await response.json()];
-      }));
-      summaries.forEach(([game, summary]) => FantasyScoring.parseGameSummary(summary, game, stats));
+      const stats = await fetchWeekStats(games, fetchFn);
       const leagues = await this.settleLeagues(candidate, stats);
       await this.storage.put(`${SETTLED_PREFIX}${season}:${candidate}`, { at: now, leagues });
       return { week: candidate, leagues };
     }
     return null;
+  }
+
+  // Fills in finished weeks that never got results, back to the week each league drafted, one NFL week per run
+  // (about 16 ESPN requests). Weeks already recorded keep their results; a missing week can only be scored with the
+  // lineups teams have now. Leagues still showing an old week move on to the current one. Once caught up it only
+  // looks again every few hours.
+  async backfillPastWeeks({ fetchFn = globalThis.fetch, now = Date.now() } = {}) {
+    const state = (await this.storage.get(BACKFILL_KEY)) || {};
+    if (Number(state.idleUntil) > now) return null;
+    const current = await (await fetchFn(ESPN_SCOREBOARD_URL)).json();
+    const regular = (current.leagues?.[0]?.calendar || []).find((part) => String(part.value) === '2')?.entries || [];
+    const weekEnds = new Map(regular.map((entry) => [Number(entry.value), Date.parse(entry.endDate)])
+      .filter(([week, end]) => week >= 1 && week <= SEASON_WEEKS && Number.isFinite(end)));
+    if (!weekEnds.size) return null;
+    const weekStarts = new Map(regular.map((entry) => [Number(entry.value), Date.parse(entry.startDate)]));
+    const seasonStart = Math.min(...weekStarts.values());
+    const finished = [...weekEnds].filter(([, end]) => end <= now).map(([week]) => week);
+    const lastFinished = finished.length ? Math.max(...finished) : 0;
+
+    const records = [];
+    let cursor;
+    do {
+      const page = await this.storage.list({ prefix: LEAGUE_PREFIX, cursor, limit: 1000 });
+      for (const record of page.values()) {
+        const league = record?.league;
+        if (!league?.draftEnded || !Array.isArray(league.managers) || !league.picks?.length) continue;
+        const done = draftDoneAt(league);
+        // A league drafted before last season ended belongs to an earlier season.
+        if (done < seasonStart - 200 * 86400000) continue;
+        const firstWeek = [...weekEnds].filter(([, end]) => end > done).map(([week]) => week).sort((a, b) => a - b)[0];
+        const missing = [];
+        for (let week = firstWeek || Infinity; week <= lastFinished; week += 1) if (!hasWeekResults(league, week)) missing.push(week);
+        records.push({ record, missing });
+      }
+      cursor = page.list_complete ? undefined : page.cursor;
+    } while (cursor);
+
+    const pending = records.flatMap(({ missing }) => missing);
+    if (!pending.length) {
+      let moved = 0;
+      for (const { record } of records) {
+        if (lastFinished < 1 || lastFinished >= SEASON_WEEKS || Number(record.league.selectedWeek) > lastFinished) continue;
+        record.league.selectedWeek = lastFinished + 1;
+        record.revision += 1;
+        await this.putLeague(record);
+        moved += 1;
+      }
+      await this.storage.put(BACKFILL_KEY, { idleUntil: now + BACKFILL_IDLE_MS, lastFinished });
+      return moved ? { moved } : null;
+    }
+
+    const week = Math.min(...pending);
+    const data = await (await fetchFn(`${ESPN_SCOREBOARD_URL}?week=${week}&seasontype=2&limit=100`)).json();
+    const games = (data.events || []).map(scoreboardGame).filter((game) => game.id);
+    if (!games.length || games.some((game) => !game.completed)) {
+      await this.storage.put(BACKFILL_KEY, { idleUntil: now + BACKFILL_IDLE_MS, blockedWeek: week });
+      return null;
+    }
+    const stats = await fetchWeekStats(games, fetchFn);
+    let filled = 0;
+    for (const { record, missing } of records) {
+      if (!missing.includes(week)) continue;
+      record.league.matchupResults ||= {};
+      record.league.matchupResults[week] = weekScores(record.league, stats);
+      record.revision += 1;
+      await this.putLeague(record);
+      filled += 1;
+    }
+    return { week, leagues: filled };
   }
 
   async settleLeagues(week, stats) {
