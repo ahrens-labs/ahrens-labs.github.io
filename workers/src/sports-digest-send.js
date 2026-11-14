@@ -112,6 +112,9 @@ export async function fetchSportsDigestEmailContent(env, { teams, username, sinc
   if (!secret) {
     throw new Error('Set SPORTS_DIGEST_INTERNAL_SECRET or TEST_SECRET for sports digest content builds');
   }
+  if (!Array.isArray(teams) || teams.length === 0) {
+    throw new Error('No teams to build — save at least one team, then try preview again');
+  }
   const payload = { teams, username };
   if (typeof sinceMs === 'number' && Number.isFinite(sinceMs)) {
     payload.sinceMs = sinceMs;
