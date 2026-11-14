@@ -117,10 +117,8 @@ export async function fetchSportsDigestEmailContent(env, { teams, username, sinc
   if (typeof sinceMs === 'number' && Number.isFinite(sinceMs)) {
     payload.sinceMs = sinceMs;
   }
-  if (includeTopHeadlines !== false) {
+  if (includeTopHeadlines === true) {
     payload.includeTopHeadlines = true;
-  } else {
-    payload.includeTopHeadlines = false;
   }
   const init = {
     method: 'POST',
