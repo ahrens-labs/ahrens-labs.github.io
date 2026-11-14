@@ -26,6 +26,7 @@ import {
   applySendKey,
   fetchSportsDigestEmailContent,
   getSportsDigestCronTick,
+  resolvePreviewSinceMs,
   resolveSubscriberSinceMs,
   subscriberSendKey,
 } from './sports-digest-send.js';
@@ -3186,8 +3187,15 @@ async function handleSportsDigestSendNow(request, env, corsHeaders) {
   }
 
   let content;
-  // Preview always covers the last 12 hours — not since the last scheduled send.
-  const sinceMs = Date.now() - 12 * 60 * 60 * 1000;
+  let digestSub = null;
+  if (env.SPORTS_DIGEST_KV && auth.userId) {
+    try {
+      digestSub = await env.SPORTS_DIGEST_KV.get(`sub:${auth.userId}`, 'json');
+    } catch {
+      digestSub = null;
+    }
+  }
+  const sinceMs = resolvePreviewSinceMs(digestSub, Date.now());
   const previewPrefs = normalizeSportsDigestPrefs(auth.profile.emailPreferences?.sportsDigest);
   const includeTopHeadlines =
     typeof body.includeTopHeadlines === 'boolean'
