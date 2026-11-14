@@ -86,7 +86,7 @@ export const DEFAULT_SPORTS_DIGEST_PREFS = {
   frequency: 'twice_daily',
   customTimes: ['09:00'],
   customDays: [0, 1, 2, 3, 4, 5, 6],
-  includeTopHeadlines: false,
+  includeTopHeadlines: true,
 };
 
 function mapLegacyTeamId(id, now = new Date()) {
@@ -164,7 +164,7 @@ export function normalizeSportsDigestPrefs(raw, now = new Date()) {
     frequency,
     customTimes: customTimes.length ? customTimes : DEFAULT_SPORTS_DIGEST_PREFS.customTimes.slice(),
     customDays,
-    includeTopHeadlines: src.includeTopHeadlines === true,
+    includeTopHeadlines: src.includeTopHeadlines !== false,
   };
 }
 
@@ -229,7 +229,7 @@ export function validateSportsDigestSave(body) {
       frequency,
       customTimes: customTimes.length ? customTimes : DEFAULT_SPORTS_DIGEST_PREFS.customTimes.slice(),
       customDays,
-      includeTopHeadlines: body.includeTopHeadlines === true,
+      includeTopHeadlines: body.includeTopHeadlines !== false,
     },
   };
 }
