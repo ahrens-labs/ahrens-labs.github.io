@@ -108,7 +108,7 @@ export function getSportsDigestCronTick(event) {
   };
 }
 
-export async function fetchSportsDigestEmailContent(env, { teams, username, sinceMs, includeTopHeadlines }) {
+export async function fetchSportsDigestEmailContent(env, { teams, username, sinceMs, includeTopHeadlines, preview }) {
   const secret = env.SPORTS_DIGEST_INTERNAL_SECRET || env.TEST_SECRET;
   if (!secret) {
     throw new Error('Set SPORTS_DIGEST_INTERNAL_SECRET or TEST_SECRET for sports digest content builds');
@@ -119,6 +119,9 @@ export async function fetchSportsDigestEmailContent(env, { teams, username, sinc
   }
   if (includeTopHeadlines === true) {
     payload.includeTopHeadlines = true;
+  }
+  if (preview === true) {
+    payload.skipAiSummaries = true;
   }
   const init = {
     method: 'POST',

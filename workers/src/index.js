@@ -3199,6 +3199,7 @@ async function handleSportsDigestSendNow(request, env, corsHeaders) {
       username: auth.profile.username,
       sinceMs,
       includeTopHeadlines,
+      preview: true,
     });
   } catch (e) {
     const msg = e?.message || String(e);
