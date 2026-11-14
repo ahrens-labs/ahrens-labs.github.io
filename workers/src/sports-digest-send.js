@@ -122,6 +122,7 @@ export async function fetchSportsDigestEmailContent(env, { teams, username, sinc
   if (includeTopHeadlines === true) {
     payload.includeTopHeadlines = true;
   }
+  payload.skipAiSummaries = true;
   const init = {
     method: 'POST',
     headers: {
