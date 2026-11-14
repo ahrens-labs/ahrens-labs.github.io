@@ -3186,15 +3186,8 @@ async function handleSportsDigestSendNow(request, env, corsHeaders) {
   }
 
   let content;
-  let digestSub = null;
-  if (env.SPORTS_DIGEST_KV && auth.userId) {
-    try {
-      digestSub = await env.SPORTS_DIGEST_KV.get(`sub:${auth.userId}`, 'json');
-    } catch {
-      digestSub = null;
-    }
-  }
-  const sinceMs = resolveSubscriberSinceMs(digestSub, Date.now());
+  // Preview uses a fixed 12h window — avoids an extra KV read before the digest build (tight subrequest budgets).
+  const sinceMs = Date.now() - 12 * 60 * 60 * 1000;
   const previewPrefs = normalizeSportsDigestPrefs(auth.profile.emailPreferences?.sportsDigest);
   const includeTopHeadlines =
     typeof body.includeTopHeadlines === 'boolean'
