@@ -1507,7 +1507,7 @@
           setStatus('Choose at least one team first.', 'err', { tab: 'teams', switchTab: 'teams' });
           return;
         }
-        setStatus('Building and sending preview… excerpt blurbs, no AI; usually under 45 seconds.', '', { tab: 'preferences' });
+        setStatus('Building and sending preview (same content as scheduled)… this can take 1–2 minutes.', '', { tab: 'preferences' });
         btn.disabled = true;
         try {
           const res = await fetch(API_BASE + '/api/sports-digest-send-now', {

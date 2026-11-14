@@ -26,7 +26,6 @@ import {
   applySendKey,
   fetchSportsDigestEmailContent,
   getSportsDigestCronTick,
-  resolvePreviewSinceMs,
   resolveSubscriberSinceMs,
   subscriberSendKey,
 } from './sports-digest-send.js';
@@ -3195,7 +3194,7 @@ async function handleSportsDigestSendNow(request, env, corsHeaders) {
       digestSub = null;
     }
   }
-  const sinceMs = resolvePreviewSinceMs(digestSub, Date.now());
+  const sinceMs = resolveSubscriberSinceMs(digestSub, Date.now());
   const previewPrefs = normalizeSportsDigestPrefs(auth.profile.emailPreferences?.sportsDigest);
   const includeTopHeadlines =
     typeof body.includeTopHeadlines === 'boolean'
@@ -3207,7 +3206,6 @@ async function handleSportsDigestSendNow(request, env, corsHeaders) {
       username: auth.profile.username,
       sinceMs,
       includeTopHeadlines,
-      preview: true,
     });
   } catch (e) {
     const msg = e?.message || String(e);

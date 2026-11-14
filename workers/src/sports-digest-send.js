@@ -12,8 +12,6 @@ import {
 
 const CENTRAL_OFFSET_MS = SPORTS_DIGEST_CENTRAL_UTC_OFFSET_HOURS * 60 * 60 * 1000;
 const DEFAULT_DIGEST_SINCE_MS = 12 * 60 * 60 * 1000;
-const PREVIEW_MAX_LOOKBACK_MS = 24 * 60 * 60 * 1000;
-
 function normalizeHm(t) {
   const m = /^(\d{1,2}):(\d{2})$/.exec(String(t || '').trim());
   if (!m) return null;
@@ -67,13 +65,6 @@ export function parseSendKeyToUtcMs(sendKey) {
   return Date.UTC(y, mo - 1, d, h, min) + CENTRAL_OFFSET_MS;
 }
 
-function subscriberHasSendHistory(sub) {
-  if (!sub || typeof sub !== 'object') return false;
-  if (Array.isArray(sub.lastSentKeys) && sub.lastSentKeys.length) return true;
-  if (sub.lastSentMorningYmd || sub.lastSentEveningYmd || sub.lastSentWeeklyYmd) return true;
-  return false;
-}
-
 /** News/social window start: last successful send, or 12h fallback for first digest. */
 export function resolveSubscriberSinceMs(sub, nowMs = Date.now()) {
   if (!sub || typeof sub !== 'object') return nowMs - DEFAULT_DIGEST_SINCE_MS;
@@ -99,13 +90,6 @@ export function resolveSubscriberSinceMs(sub, nowMs = Date.now()) {
   return best;
 }
 
-/** Preview window: since last scheduled send, capped at 24h; first-time preview uses full 24h. */
-export function resolvePreviewSinceMs(sub, nowMs = Date.now()) {
-  const floorMs = nowMs - PREVIEW_MAX_LOOKBACK_MS;
-  if (!subscriberHasSendHistory(sub)) return floorMs;
-  return Math.max(resolveSubscriberSinceMs(sub, nowMs), floorMs);
-}
-
 /** @returns {{ ymd: string, hm: string, weekday: number, utcHm: string } | null} */
 export function getSportsDigestCronTick(event) {
   const scheduledMs =
@@ -123,7 +107,7 @@ export function getSportsDigestCronTick(event) {
   };
 }
 
-export async function fetchSportsDigestEmailContent(env, { teams, username, sinceMs, includeTopHeadlines, preview }) {
+export async function fetchSportsDigestEmailContent(env, { teams, username, sinceMs, includeTopHeadlines }) {
   const secret = env.SPORTS_DIGEST_INTERNAL_SECRET || env.TEST_SECRET;
   if (!secret) {
     throw new Error('Set SPORTS_DIGEST_INTERNAL_SECRET or TEST_SECRET for sports digest content builds');
@@ -134,9 +118,6 @@ export async function fetchSportsDigestEmailContent(env, { teams, username, sinc
   }
   if (includeTopHeadlines === true) {
     payload.includeTopHeadlines = true;
-  }
-  if (preview === true) {
-    payload.skipAiSummaries = true;
   }
   const init = {
     method: 'POST',
