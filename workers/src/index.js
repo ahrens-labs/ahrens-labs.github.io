@@ -9413,6 +9413,7 @@ async function sendWelcomeGuideEmail(env, email, username, sendOptions = {}) {
 
   const gamesLogo = `${img}/ahrens-games-logo-official.png`;
   const eagleLogo = `${img}/EagleLogo.png`;
+  const labsLogo = `${img}/EagleLogo-blue-128.png`;
   const trifangLogo = `${img}/trifangx-logo.png`;
   const classifyLogo = `${img}/classify-logo-128.png`;
   const digestLogo = `${img}/digest-logo-128.png`;
@@ -9421,11 +9422,11 @@ async function sendWelcomeGuideEmail(env, email, username, sendOptions = {}) {
 
   const gameIcons = [
     { src: `${img}/dino-favicon-128.png`, alt: 'Dino Dynasty' },
+    { src: `${img}/oakhaven-favicon-128.png`, alt: 'Oakhaven' },
     { src: `${img}/atlantis-favicon-128.png`, alt: 'Atlantis' },
     { src: `${img}/cauldron-favicon-128.png`, alt: 'Cauldron Lane' },
     { src: `${img}/heroes-favicon-128.png`, alt: 'Hero League' },
     { src: `${img}/masquerade-favicon-128.png`, alt: 'Masquerade' },
-    { src: `${img}/whiteout-favicon-96.png`, alt: 'Whiteout Station' },
   ];
 
   const gameIconCells = gameIcons
@@ -9490,7 +9491,7 @@ async function sendWelcomeGuideEmail(env, email, username, sendOptions = {}) {
                       Board games to play online with friends, pass-and-play on one device, or vs the computer. Your games sync to this account, and you can get turn reminders when it’s your move.
                     </p>
                     <p style="margin:10px 0 0 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:13px;line-height:1.45;color:#99f6e4;max-width:380px;">
-                      Includes Dino Dynasty, Hearthhold, Atlantis, Cauldron Lane, Hero League, Masquerade, Whiteout Station, and more at ahrensgames.com.
+                      Includes Dino Dynasty, Oakhaven, Atlantis, Cauldron Lane, Hero League, Masquerade, and more at ahrensgames.com.
                     </p>
                   </td>
                 </tr>
@@ -9530,7 +9531,7 @@ async function sendWelcomeGuideEmail(env, email, username, sendOptions = {}) {
                 </tr>
                 <tr>
                   ${appTile(tetherUrl, tetherLogo, 'Tether', 'Organize projects, tasks, and notes with shared lists when you need them.')}
-                  ${appTile(labsUrl, eagleLogo, 'Labs', 'Browse smaller experiments — language, music, coding toys, and other prototypes.')}
+                  ${appTile(labsUrl, labsLogo, 'Labs', 'Browse smaller experiments — language, music, coding toys, and other prototypes.')}
                 </tr>
               </table>
             </td>
@@ -9561,7 +9562,7 @@ async function sendWelcomeGuideEmail(env, email, username, sendOptions = {}) {
     '',
     '★ Ahrens Games',
     'Board games online with friends, pass-and-play, or vs the computer. Games sync to this account; optional turn reminders when it’s your move.',
-    'Titles include Dino Dynasty, Hearthhold, Atlantis, Cauldron Lane, Hero League, Masquerade, Whiteout Station, and more.',
+    'Titles include Dino Dynasty, Oakhaven, Atlantis, Cauldron Lane, Hero League, Masquerade, and more.',
     gamesLobbyUrl,
     `Ahrens Fantasy (same login): ${fantasyUrl}`,
     '',
