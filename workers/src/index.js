@@ -363,6 +363,27 @@ export default {
         const sender = String(env.SENDER_EMAIL || env.VERIFICATION_FROM_EMAIL || '').trim();
 
 
+
+        let resendUnsuppress = null;
+        if (url.searchParams.get('resendUnsuppress') === '1' && env.RESEND_API_KEY) {
+          const target = normalizeEmail(url.searchParams.get('to') || '');
+          if (!target) {
+            resendUnsuppress = { ok: false, error: 'Missing to=' };
+          } else {
+            const before = await fetchResendSuppression(env.RESEND_API_KEY, target);
+            const removed = await removeResendSuppression(env.RESEND_API_KEY, target);
+            const after = await fetchResendSuppression(env.RESEND_API_KEY, target);
+            resendUnsuppress = {
+              email: target,
+              before: before.ok ? before.data : null,
+              beforeHttp: before.status,
+              removedHttp: removed.status,
+              removedOk: removed.ok,
+              afterHttp: after.status,
+              stillSuppressed: after.ok && after.status !== 404,
+            };
+          }
+        }
         let resendSuppressions = null;
         if (url.searchParams.get('resendSuppressions') === '1' && env.RESEND_API_KEY) {
           const res = await fetch('https://api.resend.com/suppressions?limit=100', {
@@ -427,6 +448,7 @@ export default {
             checkLogs: 'Workers → chess-accounts → Logs (grep EmailService send failed / Resend).',
             codesDoc: 'https://developers.cloudflare.com/email-service/api/send-emails/workers-api/#error-codes',
           },
+          ...(resendUnsuppress ? { resendUnsuppress } : {}),
           ...(resendSuppressions ? { resendSuppressions } : {}),
           ...(resendProbe ? { resendProbe } : {}),
           ...debugData
