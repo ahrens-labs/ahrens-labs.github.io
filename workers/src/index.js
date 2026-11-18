@@ -3989,29 +3989,11 @@ async function sendViaResend(env, { fromAddr, fromName, to, subject, html, text,
     console.error('Resend response missing id', raw);
     throw new Error('Resend accepted the request but returned no message id');
   }
-  let lastEvent = null;
-  try {
-    await new Promise((r) => setTimeout(r, 1200));
-    const st = await fetchResendEmailStatus(key, resendId);
-    lastEvent = st.data?.last_event || st.data?.lastEvent || null;
-    console.log('Resend email status', {
-      id: resendId,
-      http: st.status,
-      lastEvent,
-      to,
-      from: st.data?.from || from,
-    });
-    if (typeof lastEvent === 'string' && /^(bounced|failed|complained)$/i.test(lastEvent)) {
-      const err = new Error(`Resend marked the message as ${lastEvent}`);
-      err.code = `RESEND_${String(lastEvent).toUpperCase()}`;
-      throw err;
-    }
-  } catch (e) {
-    if (e?.code && String(e.code).startsWith('RESEND_')) throw e;
-    console.warn('Resend status check failed', e?.message || e);
-  }
-  console.log('Resend send ok', { id: resendId, subject, to, lastEvent });
-  return { provider: 'resend', messageId: resendId, lastEvent };
+  // Do not poll last_event here: Resend can report "bounced" within a second for
+  // unknown mailboxes (and greylist noise), which was incorrectly failing signup
+  // confirmation after a successful accept. Delivery outcome belongs in Resend logs.
+  console.log('Resend send ok', { id: resendId, subject, to, from });
+  return { provider: 'resend', messageId: resendId };
 }
 
 /** Prefer EMAIL_TRANSACTIONAL so an old "EMAIL" binding with dashboard allowlist does not block arbitrary recipients. */
@@ -9305,9 +9287,10 @@ async function sendWelcomeGuideEmail(env, email, username, sendOptions = {}) {
   const safeName = String(username).replace(/[<>]/g, '');
   const safeNameHtml = escapeHtmlEmail(safeName);
   const base = siteMarketingBase(env);
-  const subject = 'Welcome to Ahrens Labs — your hub for TrifangX, labs & more';
+  const gamesBase = gamesPublicBase(env);
+  const subject = 'Welcome to Ahrens Labs — TrifangX, Ahrens Games, labs & more';
   const preheader =
-    'Dice dungeons, chess with daily quests, sports headlines for your teams, a cloud-synced planner, language lessons, and more — one free account, every device.';
+    'Online board games on Ahrens Games, chess with daily quests, sports headlines, a cloud-synced planner, language lessons, and more — one free account, every device.';
   const chessUrl = `${base}/chess_engine.html`;
   const dashUrl = `${base}/account-dashboard.html`;
   const labsUrl = `${base}/labs.html`;
@@ -9317,6 +9300,9 @@ async function sendWelcomeGuideEmail(env, email, username, sendOptions = {}) {
   const sportsDigestUrl = `${base}/digest.html`;
   const codingLabUrl = `${base}/coding-lab.html`;
   const homeUrl = `${base}/`;
+  const gamesLobbyUrl = `${gamesBase}/`;
+  const gamesSettingsUrl = `${gamesBase}/settings`;
+  const fantasyUrl = `${base}/ahrens-fantasy/`;
   const emailInnerMax = '720px';
 
   const html = `<!DOCTYPE html>
@@ -9341,9 +9327,14 @@ async function sendWelcomeGuideEmail(env, email, username, sendOptions = {}) {
           <tr>
             <td style="padding:32px 32px 8px 32px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
               <p style="margin:0 0 16px 0;font-size:18px;font-weight:700;color:#0f172a;">Hi ${safeNameHtml},</p>
-              <p style="margin:0 0 18px 0;font-size:15px;line-height:1.65;color:#334155;">Thanks for joining <strong style="color:#0f172a;">Ahrens Labs</strong>. Your free account stores progress in the cloud so you can pick up where you left off on any device.</p>
+              <p style="margin:0 0 18px 0;font-size:15px;line-height:1.65;color:#334155;">Thanks for joining <strong style="color:#0f172a;">Ahrens Labs</strong>. Your free account stores progress in the cloud so you can pick up where you left off on any device — including <strong>Ahrens Games</strong> online board games at <a href="${gamesLobbyUrl}" style="color:#2563eb;font-weight:600;">ahrensgames.com</a>.</p>
               <p style="margin:0 0 22px 0;font-size:15px;line-height:1.65;color:#334155;">Below is a quick tour of what you can play, build, and learn — all tied to the same login. Jump in anywhere; your saves and settings follow you.</p>
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 24px 0;">
+                <tr>
+                  <td align="center" style="padding:0 0 8px 0;">
+                    <a href="${gamesLobbyUrl}" style="display:inline-block;padding:14px 28px;background:linear-gradient(135deg,#0f766e,#0e7490);color:#ffffff !important;text-decoration:none;border-radius:10px;font-weight:700;font-size:15px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">Open Ahrens Games lobby</a>
+                  </td>
+                </tr>
                 <tr>
                   <td align="center" style="padding:0 0 8px 0;">
                     <a href="${chessUrl}" style="display:inline-block;padding:14px 28px;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#ffffff !important;text-decoration:none;border-radius:10px;font-weight:700;font-size:15px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">Play TrifangX (chess engine)</a>
@@ -9356,6 +9347,15 @@ async function sendWelcomeGuideEmail(env, email, username, sendOptions = {}) {
                 </tr>
               </table>
               <p style="margin:0 0 12px 0;font-size:13px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.06em;">What your account unlocks</p>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 20px 0;">
+                <tr>
+                  <td style="padding:14px 16px;border:1px solid #e2e8f0;border-radius:12px;background:#ecfdf5;">
+                    <p style="margin:0 0 6px 0;font-size:15px;font-weight:700;color:#0f172a;">Ahrens Games</p>
+                    <p style="margin:0;font-size:14px;line-height:1.55;color:#475569;">Board games to play against the computer, a friend on the same device, or <strong>other players online</strong> — with cloud saves, turn alerts, and a shared lobby at <a href="${gamesLobbyUrl}" style="color:#0f766e;font-weight:600;">ahrensgames.com</a>. Titles include Dino Dynasty, Hearthhold, Atlantis, Cauldron Lane, Hero League, The Masquerade Court, Whiteout Station, and more. Same Ahrens Labs login; open <a href="${gamesSettingsUrl}" style="color:#0f766e;font-weight:600;">Games settings</a> for reminders. Fantasy football leagues live at <a href="${fantasyUrl}" style="color:#0f766e;font-weight:600;">Ahrens Fantasy</a>.</p>
+                    <p style="margin:10px 0 0 0;font-size:14px;"><a href="${gamesLobbyUrl}" style="color:#0f766e;font-weight:600;">Open the Ahrens Games lobby →</a></p>
+                  </td>
+                </tr>
+              </table>
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 20px 0;">
                 <tr>
                   <td style="padding:14px 16px;border:1px solid #e2e8f0;border-radius:12px;background:#f8fafc;">
@@ -9431,6 +9431,19 @@ async function sendWelcomeGuideEmail(env, email, username, sendOptions = {}) {
                 </tr>
               </table>
               <p style="margin:24px 0 10px 0;font-size:13px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.06em;">More about each experience</p>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 16px 0;">
+                <tr>
+                  <td style="padding:16px 18px;border:1px solid #e2e8f0;border-radius:12px;background:#ecfdf5;">
+                    <p style="margin:0 0 10px 0;font-size:15px;font-weight:700;color:#0f172a;">Ahrens Games</p>
+                    <ul style="margin:0;padding:0 0 0 18px;font-size:14px;line-height:1.65;color:#475569;">
+                      <li style="margin:0 0 8px 0;"><strong>One lobby</strong> — browse games and resume <strong>Your games</strong> (local + online) at <a href="${gamesLobbyUrl}" style="color:#0f766e;font-weight:600;">ahrensgames.com</a>.</li>
+                      <li style="margin:0 0 8px 0;"><strong>Play how you want</strong> — vs computer, pass-and-play, or match other accounts online.</li>
+                      <li style="margin:0 0 8px 0;"><strong>Cloud + alerts</strong> — saves follow your login; optional email when a long online game is waiting on your turn (see <a href="${gamesSettingsUrl}" style="color:#0f766e;font-weight:600;">Games settings</a>).</li>
+                      <li style="margin:0;"><strong>Fantasy too</strong> — shared leagues at <a href="${fantasyUrl}" style="color:#0f766e;font-weight:600;">Ahrens Fantasy</a> with the same account.</li>
+                    </ul>
+                  </td>
+                </tr>
+              </table>
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 16px 0;">
                 <tr>
                   <td style="padding:16px 18px;border:1px solid #e2e8f0;border-radius:12px;background:#f8fafc;">
@@ -9530,9 +9543,12 @@ async function sendWelcomeGuideEmail(env, email, username, sendOptions = {}) {
   const text = [
     `Hi ${safeName},`,
     '',
-    'Thanks for joining Ahrens Labs. Your free account stores progress in the cloud so you can pick up where you left off on any device.',
+    'Thanks for joining Ahrens Labs. Your free account stores progress in the cloud so you can pick up where you left off on any device — including Ahrens Games online board games at ahrensgames.com.',
     '',
     preheader,
+    '',
+    'Ahrens Games lobby:',
+    gamesLobbyUrl,
     '',
     'Play TrifangX (chess):',
     chessUrl,
@@ -9541,6 +9557,12 @@ async function sendWelcomeGuideEmail(env, email, username, sendOptions = {}) {
     dashUrl,
     '',
     '--- What your account unlocks ---',
+    '',
+    'Ahrens Games —',
+    'Board games vs the computer, a friend on the same device, or other players online — with cloud saves, turn alerts, and a shared lobby. Titles include Dino Dynasty, Hearthhold, Atlantis, Cauldron Lane, Hero League, The Masquerade Court, Whiteout Station, and more. Same login; Games settings for reminders:',
+    gamesSettingsUrl,
+    'Ahrens Fantasy football:',
+    fantasyUrl,
     '',
     'TrifangX chess —',
     'Spar with a strong engine, unlock hundreds of achievements, spend points in a cosmetic shop (boards, pieces, themes, effects), and complete three daily challenges that refresh each day on your device. From your account dashboard you can opt into a daily roundup email or request today’s list anytime.',
@@ -9578,6 +9600,12 @@ async function sendWelcomeGuideEmail(env, email, username, sendOptions = {}) {
     '• Modes — casual engine sparring, clocked games with increments, optional live-engine play from the lobby when enabled.',
     '',
     '--- More about each experience ---',
+    '',
+    'Ahrens Games:',
+    `• One lobby — browse games and resume Your games at ${gamesLobbyUrl}`,
+    '• Play how you want — vs computer, pass-and-play, or online with other accounts.',
+    `• Cloud + alerts — saves follow your login; turn reminders in Games settings: ${gamesSettingsUrl}`,
+    `• Fantasy too — ${fantasyUrl}`,
     '',
     'Dungeon:',
     '• Exploration — combat, loot, merchants, hazards; dice-driven outcomes.',

@@ -154,6 +154,8 @@ TRANSACTIONAL_EMAIL_VIA = "resend"
 # TRANSACTIONAL_FROM_NAME = "Ahrens Labs"
 # Public website for links in welcome/digest emails (no trailing slash).
 PUBLIC_SITE_BASE = "https://ahrenslabs.com"
+# Ahrens Games lobby / online board games (separate domain; same login).
+GAMES_SITE_BASE = "https://ahrensgames.com"
 # Link CRM app URL (custom domain or workers.dev). Used by /api/link/bridge redirect.
 LINK_APP_URL = "https://ahrenslabs.com/link"
 # Daily challenge roundup send time (UTC, 24h). Must align with [triggers] crons.
