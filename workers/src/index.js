@@ -362,6 +362,17 @@ export default {
         const debugData = await debugRes.json();
         const sender = String(env.SENDER_EMAIL || env.VERIFICATION_FROM_EMAIL || '').trim();
 
+
+        let resendSuppressions = null;
+        if (url.searchParams.get('resendSuppressions') === '1' && env.RESEND_API_KEY) {
+          const res = await fetch('https://api.resend.com/suppressions?limit=100', {
+            headers: { Authorization: `Bearer ${env.RESEND_API_KEY}` },
+          });
+          const raw = await res.text();
+          let data = null;
+          try { data = raw ? JSON.parse(raw) : null; } catch { data = null; }
+          resendSuppressions = { http: res.status, data };
+        }
         let resendProbe = null;
         if (url.searchParams.get('resendProbe') === '1' && env.RESEND_API_KEY) {
           const probeTo = normalizeEmail(url.searchParams.get('to') || '') || 'delivered@resend.dev';
@@ -416,6 +427,7 @@ export default {
             checkLogs: 'Workers → chess-accounts → Logs (grep EmailService send failed / Resend).',
             codesDoc: 'https://developers.cloudflare.com/email-service/api/send-emails/workers-api/#error-codes',
           },
+          ...(resendSuppressions ? { resendSuppressions } : {}),
           ...(resendProbe ? { resendProbe } : {}),
           ...debugData
         }), {
