@@ -9413,7 +9413,7 @@ async function sendWelcomeGuideEmail(env, email, username, sendOptions = {}) {
 
   const gamesLogo = `${img}/ahrens-games-logo-official.png`;
   const eagleLogo = `${img}/EagleLogo.png`;
-  const labsLogo = `${img}/EagleLogo-blue-128.png`;
+  const labsLogo = `${img}/favicon.png`;
   const trifangLogo = `${img}/trifangx-logo.png`;
   const classifyLogo = `${img}/classify-logo-128.png`;
   const digestLogo = `${img}/digest-logo-128.png`;
