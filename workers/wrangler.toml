@@ -145,8 +145,11 @@ GRACE_FALLBACK_FROM_EMAIL = "caleb@ahrenslabs.com"
 GRACE_SENDER_EMAIL = "grace@ahrenslabs.com"
 GRACE_FROM_NAME = "Grace Ahrens"
 GRACE_REPLY_TO_EMAIL = "grace@graceahrens.com"
-# Set to "resend" to skip Cloudflare Email send entirely (needs RESEND_API_KEY). Fixes stubborn E_RECIPIENT_NOT_ALLOWED from account/dashboard allowlists.
-# TRANSACTIONAL_EMAIL_VIA = "resend"
+# Skip Cloudflare Email send entirely (needs RESEND_API_KEY).
+# Cloudflare EMAIL_TRANSACTIONAL is stuck in verified-destination-only mode:
+# allowlisted inboxes can get a false "sent" with no delivery, and everyone else
+# gets E_RECIPIENT_NOT_ALLOWED. Resend is the reliable path for signup confirms.
+TRANSACTIONAL_EMAIL_VIA = "resend"
 # Optional display name on the From header for Cloudflare Email Service (default "Ahrens Labs").
 # TRANSACTIONAL_FROM_NAME = "Ahrens Labs"
 # Public website for links in welcome/digest emails (no trailing slash).
