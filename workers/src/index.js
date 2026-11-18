@@ -210,6 +210,8 @@ export default {
         return handleDeleteAccount(request, env, corsHeaders, executionCtx);
       } else if (path === '/api/verify' && request.method === 'GET') {
         return handleVerifyEmail(request, env, corsHeaders, executionCtx);
+      } else if (path === '/api/resend-verification' && request.method === 'POST') {
+        return handleResendVerification(request, env, corsHeaders);
       } else if (path === '/api/forgot-password' && request.method === 'POST') {
         return handleForgotPassword(request, env, corsHeaders);
       } else if (path === '/api/reset-password' && request.method === 'POST') {
@@ -360,6 +362,40 @@ export default {
         const debugData = await debugRes.json();
         const sender = String(env.SENDER_EMAIL || env.VERIFICATION_FROM_EMAIL || '').trim();
 
+        let resendProbe = null;
+        if (url.searchParams.get('resendProbe') === '1' && env.RESEND_API_KEY) {
+          const probeTo = normalizeEmail(url.searchParams.get('to') || '') || 'delivered@resend.dev';
+          const domains = await fetchResendDomains(env.RESEND_API_KEY);
+          let sendResult = null;
+          let sendError = null;
+          let status = null;
+          try {
+            sendResult = await sendViaResend(env, {
+              fromAddr: sender || 'noreply@ahrenslabs.com',
+              fromName: 'Ahrens Labs',
+              to: probeTo,
+              subject: `[Probe] Ahrens Labs mail check ${new Date().toISOString()}`,
+              html: '<p>Resend delivery probe from chess-accounts.</p>',
+              text: 'Resend delivery probe from chess-accounts.',
+            });
+            if (sendResult?.messageId) {
+              status = await fetchResendEmailStatus(env.RESEND_API_KEY, sendResult.messageId);
+            }
+          } catch (e) {
+            sendError = summarizeEmailSendError(e);
+          }
+          resendProbe = {
+            to: probeTo,
+            from: sender || null,
+            domainsHttp: domains.status,
+            domains: domains.data,
+            sendResult,
+            sendError,
+            statusHttp: status?.status ?? null,
+            status: status?.data ?? null,
+          };
+        }
+
         return new Response(JSON.stringify({
           email: testEmail,
           userId,
@@ -374,9 +410,10 @@ export default {
           },
           emailHelp: {
             signupShowsWhy: 'On failed signup mail, JSON includes emailSendError { code, message, hint }.',
-            checkLogs: 'Workers → chess-accounts → Logs (grep EmailService send failed).',
+            checkLogs: 'Workers → chess-accounts → Logs (grep EmailService send failed / Resend).',
             codesDoc: 'https://developers.cloudflare.com/email-service/api/send-emails/workers-api/#error-codes',
           },
+          ...(resendProbe ? { resendProbe } : {}),
           ...debugData
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -1781,11 +1818,14 @@ async function handleLogin(request, env, corsHeaders) {
   }
 
   if (preUserData.emailVerified === false) {
+    const pendingEmail = normalizeEmail(preUserData.email || '');
     return new Response(
       JSON.stringify({
         error:
           'Confirm your email first — open the link we sent when you signed up. Then you can sign in here.',
         code: 'EMAIL_NOT_VERIFIED',
+        email: pendingEmail || undefined,
+        canResendVerification: true,
       }),
       {
         status: 403,
@@ -3878,28 +3918,59 @@ function buildStandaloneEmailHeaders(env, { kind, digestYmd, fromAddr } = {}) {
   };
 }
 
+async function fetchResendEmailStatus(apiKey, emailId) {
+  const res = await fetch(`https://api.resend.com/emails/${encodeURIComponent(emailId)}`, {
+    headers: { Authorization: `Bearer ${apiKey}` },
+  });
+  const raw = await res.text();
+  let data = null;
+  try {
+    data = raw ? JSON.parse(raw) : null;
+  } catch {
+    data = null;
+  }
+  return { ok: res.ok, status: res.status, data, raw: raw.slice(0, 800) };
+}
+
+async function fetchResendDomains(apiKey) {
+  const res = await fetch('https://api.resend.com/domains', {
+    headers: { Authorization: `Bearer ${apiKey}` },
+  });
+  const raw = await res.text();
+  let data = null;
+  try {
+    data = raw ? JSON.parse(raw) : null;
+  } catch {
+    data = null;
+  }
+  return { ok: res.ok, status: res.status, data, raw: raw.slice(0, 1200) };
+}
+
 // Resend fallback when Cloudflare EmailService send fails or EMAIL binding is absent.
-async function sendViaResend(env, { fromAddr, fromName, to, subject, html, text, headers }) {
+async function sendViaResend(env, { fromAddr, fromName, to, subject, html, text, headers, replyTo }) {
   const key = env.RESEND_API_KEY;
   if (!key || typeof key !== 'string') {
     throw new Error('RESEND_API_KEY is not set');
   }
   const displayName = (fromName != null && String(fromName).trim()) || 'Ahrens Labs';
   const from = `${displayName} <${fromAddr}>`;
+  const payload = {
+    from,
+    to: [to],
+    subject,
+    html,
+    text,
+    ...(headers && typeof headers === 'object' && Object.keys(headers).length ? { headers } : {}),
+  };
+  const reply = replyTo != null ? String(replyTo).trim() : '';
+  if (reply) payload.reply_to = reply;
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${key}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      from,
-      to: [to],
-      subject,
-      html,
-      text,
-      ...(headers && typeof headers === 'object' && Object.keys(headers).length ? { headers } : {}),
-    }),
+    body: JSON.stringify(payload),
   });
   const raw = await res.text();
   let data = null;
@@ -3918,8 +3989,29 @@ async function sendViaResend(env, { fromAddr, fromName, to, subject, html, text,
     console.error('Resend response missing id', raw);
     throw new Error('Resend accepted the request but returned no message id');
   }
-  console.log('Resend send ok', { id: resendId, subject, to });
-  return { provider: 'resend', messageId: resendId };
+  let lastEvent = null;
+  try {
+    await new Promise((r) => setTimeout(r, 1200));
+    const st = await fetchResendEmailStatus(key, resendId);
+    lastEvent = st.data?.last_event || st.data?.lastEvent || null;
+    console.log('Resend email status', {
+      id: resendId,
+      http: st.status,
+      lastEvent,
+      to,
+      from: st.data?.from || from,
+    });
+    if (typeof lastEvent === 'string' && /^(bounced|failed|complained)$/i.test(lastEvent)) {
+      const err = new Error(`Resend marked the message as ${lastEvent}`);
+      err.code = `RESEND_${String(lastEvent).toUpperCase()}`;
+      throw err;
+    }
+  } catch (e) {
+    if (e?.code && String(e.code).startsWith('RESEND_')) throw e;
+    console.warn('Resend status check failed', e?.message || e);
+  }
+  console.log('Resend send ok', { id: resendId, subject, to, lastEvent });
+  return { provider: 'resend', messageId: resendId, lastEvent };
 }
 
 /** Prefer EMAIL_TRANSACTIONAL so an old "EMAIL" binding with dashboard allowlist does not block arbitrary recipients. */
@@ -4126,7 +4218,16 @@ async function dispatchTransactionalEmail(env, {
         'TRANSACTIONAL_EMAIL_VIA=resend requires wrangler secret put RESEND_API_KEY (and SENDER_EMAIL verified in Resend).'
       );
     }
-    return await sendViaResend(env, { fromAddr, fromName, to, subject, html, text, headers });
+    return await sendViaResend(env, {
+      fromAddr,
+      fromName,
+      to,
+      subject,
+      html,
+      text,
+      headers,
+      replyTo,
+    });
   }
 
   const cfMail = getCloudflareEmailBinding(env);
@@ -6788,32 +6889,32 @@ async function sendVerificationEmail(env, email, username, token) {
   const verificationUrl = buildVerificationUrl(env, email, token);
   const safeName = String(username).replace(/[<>]/g, '');
   const safeNameHtml = escapeHtmlEmail(safeName);
-  const subject = 'You are one tap away — confirm your Ahrens Labs account';
+  const subject = 'Confirm your Ahrens Labs email';
   const urlEsc = escapeHtmlEmail(verificationUrl);
+  // Keep HTML simple — heavy gradients/marketing copy land in spam more often.
   const html = `<!DOCTYPE html>
 <html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width"></head>
-<body style="margin:0;padding:0;background:linear-gradient(165deg,#042f2e 0%,#0f172a 50%,#1e3a8a 100%);">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f8fafc;">
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
-    <tr><td align="center" style="padding:32px 14px;">
-      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:560px;background:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.35);">
+    <tr><td align="center" style="padding:28px 16px;">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:520px;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;">
         <tr>
-          <td style="padding:28px 32px;background:linear-gradient(120deg,#0d9488 0%,#2563eb 55%,#7c3aed 100%);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
-            <p style="margin:0;font-size:13px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#ecfeff;opacity:.95;">Ahrens Labs</p>
-            <p style="margin:10px 0 0 0;font-size:26px;font-weight:900;line-height:1.2;color:#ffffff;">Confirm your email</p>
-            <p style="margin:10px 0 0 0;font-size:15px;line-height:1.55;color:#cffafe;">Unlock TrifangX saves, cloud sync, and every lab tied to one login.</p>
+          <td style="padding:24px 28px 8px 28px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#0f172a;">
+            <p style="margin:0;font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#0f766e;">Ahrens Labs</p>
+            <p style="margin:12px 0 0 0;font-size:22px;font-weight:700;line-height:1.3;">Confirm your email</p>
           </td>
         </tr>
         <tr>
-          <td style="padding:28px 32px 8px 32px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#0f172a;">
-            <p style="margin:0 0 14px 0;font-size:18px;font-weight:700;">Hi ${safeNameHtml},</p>
-            <p style="margin:0 0 18px 0;font-size:15px;line-height:1.65;color:#334155;">Thanks for signing up. <strong style="color:#0f172a;">One quick confirm</strong> proves this inbox is yours — then you can sign in everywhere.</p>
-            <div style="text-align:center;margin:28px 0;">
-              <a href="${verificationUrl}" style="display:inline-block;padding:16px 36px;background:linear-gradient(135deg,#14b8a6,#2563eb);color:#ffffff !important;text-decoration:none;border-radius:999px;font-weight:800;font-size:16px;box-shadow:0 12px 28px rgba(37,99,235,.35);">Confirm email address</a>
-            </div>
-            <p style="margin:0 0 8px 0;font-size:13px;color:#64748b;">Or paste this link:</p>
-            <p style="margin:0;padding:12px 14px;background:#f1f5f9;border-radius:10px;word-break:break-all;font-size:12px;color:#475569;line-height:1.5;">${urlEsc}</p>
-            <p style="margin:22px 0 0 0;font-size:12px;line-height:1.55;color:#94a3b8;">If you did not create this account, you can ignore this message.</p>
+          <td style="padding:8px 28px 28px 28px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#0f172a;">
+            <p style="margin:0 0 14px 0;font-size:16px;">Hi ${safeNameHtml},</p>
+            <p style="margin:0 0 18px 0;font-size:15px;line-height:1.6;color:#334155;">Thanks for signing up. Confirm this email address to finish creating your account and sign in.</p>
+            <p style="margin:0 0 22px 0;">
+              <a href="${verificationUrl}" style="display:inline-block;padding:12px 22px;background:#0f766e;color:#ffffff !important;text-decoration:none;border-radius:8px;font-weight:700;font-size:15px;">Confirm email</a>
+            </p>
+            <p style="margin:0 0 6px 0;font-size:13px;color:#64748b;">Or paste this link into your browser:</p>
+            <p style="margin:0;padding:10px 12px;background:#f1f5f9;border-radius:8px;word-break:break-all;font-size:12px;color:#475569;line-height:1.5;">${urlEsc}</p>
+            <p style="margin:20px 0 0 0;font-size:12px;line-height:1.5;color:#94a3b8;">If you did not create this account, you can ignore this message.</p>
           </td>
         </tr>
       </table>
@@ -6832,6 +6933,136 @@ async function sendVerificationEmail(env, email, username, token) {
   ].join('\n');
 
   await dispatchTransactionalEmail(env, { to: email, subject, html, text });
+}
+
+/**
+ * Resend signup confirmation for an unconfirmed account (password required).
+ * Body: { email } or { username } plus { password }.
+ */
+async function handleResendVerification(request, env, corsHeaders) {
+  let body = {};
+  try {
+    body = await request.json();
+  } catch {
+    body = {};
+  }
+  const password = body.password != null ? String(body.password) : '';
+  const emailRaw = body.email != null ? String(body.email).trim() : '';
+  const usernameRaw = body.username != null ? String(body.username).trim() : '';
+  if (!password || (!emailRaw && !usernameRaw)) {
+    return new Response(JSON.stringify({ error: 'Email (or username) and password are required' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  let userId = '';
+  let normalizedEmail = normalizeEmail(emailRaw);
+  if (normalizedEmail) {
+    userId = generateUserId(normalizedEmail);
+  } else if (usernameRaw) {
+    const usernameRegistry = env.USERNAME_REGISTRY.get(env.USERNAME_REGISTRY.idFromName('global'));
+    const resolveRes = await usernameRegistry.fetch(
+      new Request('http://do/resolve', {
+        method: 'POST',
+        body: JSON.stringify({ username: normalizeUsernameForIndex(usernameRaw) }),
+      })
+    );
+    let resolved = null;
+    try {
+      resolved = await resolveRes.json();
+    } catch {
+      resolved = null;
+    }
+    if (!resolveRes.ok || !resolved?.userId) {
+      return new Response(JSON.stringify({ error: 'Invalid credentials' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    userId = String(resolved.userId);
+  }
+
+  const userAccount = env.USER_ACCOUNT.get(env.USER_ACCOUNT.idFromName(userId));
+  const dataRes = await userAccount.fetch(new Request('http://do/getData', { method: 'GET' }));
+  const row = await dataRes.json();
+  if (!userAccountProfileExists(row)) {
+    return new Response(JSON.stringify({ error: 'Invalid credentials' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const authRes = await userAccount.fetch(
+    new Request('http://do/authenticate', {
+      method: 'POST',
+      body: JSON.stringify({ password }),
+    })
+  );
+  const auth = await authRes.json();
+  if (!auth?.success) {
+    return new Response(JSON.stringify({ error: 'Invalid credentials' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  if (row.emailVerified !== false) {
+    return new Response(
+      JSON.stringify({
+        success: true,
+        alreadyVerified: true,
+        message: 'This account is already confirmed. You can sign in.',
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  normalizedEmail = normalizeEmail(row.email || normalizedEmail);
+  const username = row.username || usernameRaw || 'there';
+  if (!normalizedEmail || !isLikelyRealEmail(normalizedEmail)) {
+    return new Response(JSON.stringify({ error: 'No valid email on this account' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const verificationToken = generateVerificationToken();
+  await userAccount.fetch(
+    new Request('http://do/setVerificationToken', {
+      method: 'POST',
+      body: JSON.stringify({ token: verificationToken }),
+    })
+  );
+
+  try {
+    await sendVerificationEmail(env, normalizedEmail, username, verificationToken);
+  } catch (error) {
+    const emailSendError = summarizeEmailSendError(error);
+    console.error(
+      'Failed to resend verification email:',
+      emailSendError.code,
+      emailSendError.message,
+      emailSendError.hint || ''
+    );
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: emailSendError.hint || emailSendError.message || 'Could not send confirmation email',
+        emailSendError,
+      }),
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  return new Response(
+    JSON.stringify({
+      success: true,
+      message: 'Confirmation email sent. Check your inbox (and spam), then open the link.',
+      email: normalizedEmail,
+    }),
+    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  );
 }
 
 const CHESS_MILESTONE_WIN_THRESHOLDS = [1, 5, 10, 25, 50, 100, 250, 500];

@@ -731,13 +731,39 @@
                             showNotification(err.message || 'Could not continue after login', 'error');
                         }
                     }, 1000);
+                } else if (data.code === 'EMAIL_NOT_VERIFIED') {
+                    showNotification(
+                        data.error ||
+                            'Confirm your email using the link we sent, then try signing in again.',
+                        'error',
+                        8000
+                    );
+                    try {
+                        const resend = await fetch(`${API_BASE_URL}/api/resend-verification`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                username,
+                                password,
+                                email: data.email || undefined,
+                            }),
+                        });
+                        const resent = await resend.json().catch(() => ({}));
+                        if (resend.ok && resent.success && !resent.alreadyVerified) {
+                            showNotification(
+                                resent.message ||
+                                    'We sent another confirmation email. Check inbox and spam.',
+                                'success',
+                                8000
+                            );
+                        } else if (resent && resent.error && !resent.alreadyVerified) {
+                            showNotification(resent.error, 'warning', 7000);
+                        }
+                    } catch (resendErr) {
+                        console.warn('Resend verification failed', resendErr);
+                    }
                 } else {
-                    const msg =
-                        data.code === 'EMAIL_NOT_VERIFIED'
-                            ? data.error ||
-                              'Confirm your email using the link we sent, then try signing in again.'
-                            : data.error || 'Login failed';
-                    showNotification(msg, 'error');
+                    showNotification(data.error || 'Login failed', 'error');
                 }
             } catch (error) {
                 console.error('Login error:', error);
