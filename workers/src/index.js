@@ -9438,12 +9438,12 @@ async function sendWelcomeGuideEmail(env, email, username, sendOptions = {}) {
 
   const appTile = (href, logo, title, blurb) => `<td width="50%" valign="top" style="padding:6px;">
       <a href="${href}" style="text-decoration:none;color:#0f172a;">
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border:1px solid #e2e8f0;border-radius:12px;background:#ffffff;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border:1px solid #e2e8f0;border-radius:12px;background:#ffffff;height:100%;">
           <tr>
             <td style="padding:14px 12px;text-align:center;">
-              <img src="${logo}" width="56" height="56" alt="" style="display:block;margin:0 auto 8px auto;border:0;border-radius:12px;" />
-              <p style="margin:0 0 4px 0;font-size:14px;font-weight:700;color:#0f172a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">${title}</p>
-              <p style="margin:0;font-size:12px;line-height:1.4;color:#64748b;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">${blurb}</p>
+              <img src="${logo}" width="52" height="52" alt="" style="display:block;margin:0 auto 8px auto;border:0;border-radius:12px;" />
+              <p style="margin:0 0 6px 0;font-size:14px;font-weight:700;color:#0f172a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">${title}</p>
+              <p style="margin:0;font-size:12px;line-height:1.45;color:#64748b;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">${blurb}</p>
             </td>
           </tr>
         </table>
@@ -9471,8 +9471,9 @@ async function sendWelcomeGuideEmail(env, email, username, sendOptions = {}) {
           </tr>
           <tr>
             <td style="padding:24px 24px 8px 24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#0f172a;">
-              <p style="margin:0 0 8px 0;font-size:22px;font-weight:800;line-height:1.25;">Welcome, ${safeNameHtml}</p>
-              <p style="margin:0;font-size:15px;line-height:1.55;color:#475569;">One free account for games, chess, planners, and labs — synced across your devices.</p>
+              <p style="margin:0 0 10px 0;font-size:22px;font-weight:800;line-height:1.25;">Welcome, ${safeNameHtml}</p>
+              <p style="margin:0 0 10px 0;font-size:15px;line-height:1.6;color:#334155;"><strong style="color:#0f172a;">Ahrens Labs</strong> is a free home for games, tools, and learning — chess, board games, planners, flashcards, and small experiments — with one login and cloud saves so you can pick up on any device.</p>
+              <p style="margin:0;font-size:14px;line-height:1.55;color:#64748b;">Start with <strong style="color:#0f766e;">Ahrens Games</strong> below, then explore the rest of your account whenever you want.</p>
             </td>
           </tr>
 
@@ -9485,8 +9486,11 @@ async function sendWelcomeGuideEmail(env, email, username, sendOptions = {}) {
                     <a href="${gamesLobbyUrl}" style="text-decoration:none;">
                       <img src="${gamesLogo}" width="220" alt="Ahrens Games" style="display:block;border:0;max-width:100%;height:auto;" />
                     </a>
-                    <p style="margin:16px 0 0 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:15px;line-height:1.5;color:#ecfdf5;max-width:360px;">
-                      Online board games with friends — or vs the computer. Same login as Ahrens Labs.
+                    <p style="margin:16px 0 0 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:15px;line-height:1.55;color:#ecfdf5;max-width:380px;">
+                      Board games to play online with friends, pass-and-play on one device, or vs the computer. Your games sync to this account, and you can get turn reminders when it’s your move.
+                    </p>
+                    <p style="margin:10px 0 0 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:13px;line-height:1.45;color:#99f6e4;max-width:380px;">
+                      Includes Dino Dynasty, Hearthhold, Atlantis, Cauldron Lane, Hero League, Masquerade, Whiteout Station, and more at ahrensgames.com.
                     </p>
                   </td>
                 </tr>
@@ -9498,8 +9502,8 @@ async function sendWelcomeGuideEmail(env, email, username, sendOptions = {}) {
                 <tr>
                   <td align="center" style="padding:14px 20px 26px 20px;">
                     <a href="${gamesLobbyUrl}" style="display:inline-block;padding:14px 28px;background:#fbbf24;color:#042f2e !important;text-decoration:none;border-radius:999px;font-weight:800;font-size:15px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">Open Ahrens Games</a>
-                    <p style="margin:12px 0 0 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:12px;color:#99f6e4;">
-                      <a href="${fantasyUrl}" style="color:#99f6e4;font-weight:600;">Ahrens Fantasy</a> · same account
+                    <p style="margin:12px 0 0 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:12px;line-height:1.45;color:#99f6e4;">
+                      <a href="${fantasyUrl}" style="color:#99f6e4;font-weight:600;">Ahrens Fantasy</a> — shared fantasy football leagues on the same login
                     </p>
                   </td>
                 </tr>
@@ -9509,23 +9513,24 @@ async function sendWelcomeGuideEmail(env, email, username, sendOptions = {}) {
 
           <tr>
             <td style="padding:18px 24px 6px 24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
-              <p style="margin:0;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94a3b8;">Also on your account</p>
+              <p style="margin:0 0 4px 0;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94a3b8;">Also on your account</p>
+              <p style="margin:0;font-size:13px;line-height:1.5;color:#64748b;">Each app below uses this same email and password.</p>
             </td>
           </tr>
           <tr>
             <td style="padding:4px 14px 8px 14px;">
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
                 <tr>
-                  ${appTile(chessUrl, trifangLogo, 'TrifangX', 'Chess engine, dailies & shop')}
-                  ${appTile(classifyUrl, classifyLogo, 'Classify', 'Cloud class planner')}
+                  ${appTile(chessUrl, trifangLogo, 'TrifangX', 'Play our chess engine, earn achievements and points, unlock cosmetics, and take on three daily challenges.')}
+                  ${appTile(classifyUrl, classifyLogo, 'Classify', 'Plan courses, weekly blocks, and deadlines in one cloud-synced class planner.')}
                 </tr>
                 <tr>
-                  ${appTile(digestUrl, digestLogo, 'Digest', 'Team schedules & headlines')}
-                  ${appTile(deckUrl, deckLogo, 'Deck', 'Flashcards that sync')}
+                  ${appTile(digestUrl, digestLogo, 'Digest', 'Optional email for your teams’ schedules and headlines across major sports.')}
+                  ${appTile(deckUrl, deckLogo, 'Deck', 'Build flashcard decks and keep them synced so you can study on any device.')}
                 </tr>
                 <tr>
-                  ${appTile(tetherUrl, tetherLogo, 'Tether', 'Projects & tasks')}
-                  ${appTile(labsUrl, eagleLogo, 'Labs', 'Experiments & toys')}
+                  ${appTile(tetherUrl, tetherLogo, 'Tether', 'Organize projects, tasks, and notes with shared lists when you need them.')}
+                  ${appTile(labsUrl, eagleLogo, 'Labs', 'Browse smaller experiments — language, music, coding toys, and other prototypes.')}
                 </tr>
               </table>
             </td>
@@ -9534,7 +9539,8 @@ async function sendWelcomeGuideEmail(env, email, username, sendOptions = {}) {
           <tr>
             <td style="padding:12px 24px 28px 24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;text-align:center;">
               <a href="${dashUrl}" style="display:inline-block;padding:12px 22px;background:#0f172a;color:#ffffff !important;text-decoration:none;border-radius:10px;font-weight:700;font-size:14px;">Account dashboard</a>
-              <p style="margin:16px 0 0 0;font-size:12px;line-height:1.5;color:#94a3b8;">
+              <p style="margin:14px 0 0 0;font-size:13px;line-height:1.5;color:#64748b;">Manage email preferences, password, and username from your dashboard.</p>
+              <p style="margin:14px 0 0 0;font-size:12px;line-height:1.5;color:#94a3b8;">
                 Questions? <a href="mailto:caleb@ahrenslabs.com" style="color:#64748b;">caleb@ahrenslabs.com</a><br />
                 <a href="${homeUrl}" style="color:#64748b;">ahrenslabs.com</a> · <a href="${gamesLobbyUrl}" style="color:#64748b;">ahrensgames.com</a>
               </p>
@@ -9550,22 +9556,24 @@ async function sendWelcomeGuideEmail(env, email, username, sendOptions = {}) {
   const text = [
     `Hi ${safeName},`,
     '',
-    'Welcome to Ahrens Labs — one login for games, chess, planners, and labs.',
+    'Welcome to Ahrens Labs.',
+    'Ahrens Labs is a free home for games, tools, and learning — chess, board games, planners, flashcards, and small experiments — with one login and cloud saves on any device.',
     '',
-    '★ Ahrens Games (highlight)',
-    'Online board games with friends or vs the computer:',
+    '★ Ahrens Games',
+    'Board games online with friends, pass-and-play, or vs the computer. Games sync to this account; optional turn reminders when it’s your move.',
+    'Titles include Dino Dynasty, Hearthhold, Atlantis, Cauldron Lane, Hero League, Masquerade, Whiteout Station, and more.',
     gamesLobbyUrl,
-    `Fantasy leagues: ${fantasyUrl}`,
+    `Ahrens Fantasy (same login): ${fantasyUrl}`,
     '',
     'Also on your account:',
-    `• TrifangX chess — ${chessUrl}`,
-    `• Classify planner — ${classifyUrl}`,
-    `• Digest — ${digestUrl}`,
-    `• Deck — ${deckUrl}`,
-    `• Tether — ${tetherUrl}`,
-    `• Labs — ${labsUrl}`,
+    `• TrifangX — chess engine, achievements, shop, daily challenges — ${chessUrl}`,
+    `• Classify — cloud class planner for courses and deadlines — ${classifyUrl}`,
+    `• Digest — optional team schedules & headlines by email — ${digestUrl}`,
+    `• Deck — flashcards that sync across devices — ${deckUrl}`,
+    `• Tether — projects, tasks, and notes — ${tetherUrl}`,
+    `• Labs — smaller experiments and toys — ${labsUrl}`,
     '',
-    `Dashboard: ${dashUrl}`,
+    `Account dashboard (email prefs, password, username): ${dashUrl}`,
     '',
     'Questions: caleb@ahrenslabs.com',
   ].join('\n');
