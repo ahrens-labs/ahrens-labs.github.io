@@ -9397,249 +9397,147 @@ async function sendWelcomeGuideEmail(env, email, username, sendOptions = {}) {
   const safeNameHtml = escapeHtmlEmail(safeName);
   const base = siteMarketingBase(env);
   const gamesBase = gamesPublicBase(env);
-  const subject = 'Welcome to Ahrens Labs — TrifangX, Ahrens Games, labs & more';
-  const preheader =
-    'Online board games on Ahrens Games, chess with daily quests, sports headlines, a cloud-synced planner, language lessons, and more — one free account, every device.';
-  const chessUrl = `${base}/chess_engine.html`;
-  const dashUrl = `${base}/account-dashboard.html`;
-  const labsUrl = `${base}/labs.html`;
-  const classifyUrl = `${base}/classify`;
-  const dungeonUrl = `${base}/dungeon_game.html`;
-  const kyrachyngUrl = `${base}/kyrachyng-lessons.html`;
-  const sportsDigestUrl = `${base}/digest.html`;
-  const codingLabUrl = `${base}/coding-lab.html`;
+  const img = `${base}/img`;
+  const subject = 'Welcome to Ahrens Labs — start with Ahrens Games';
+  const preheader = 'Your account is ready. Jump into Ahrens Games, TrifangX, and the rest of the labs — one login everywhere.';
   const homeUrl = `${base}/`;
-  const gamesLobbyUrl = `${gamesBase}/`;
-  const gamesSettingsUrl = `${gamesBase}/settings`;
+  const dashUrl = `${base}/account-dashboard.html`;
+  const chessUrl = `${base}/chess_engine.html`;
+  const classifyUrl = `${base}/classify`;
+  const digestUrl = `${base}/digest.html`;
+  const deckUrl = `${base}/deck.html`;
+  const tetherUrl = `${base}/tether.html`;
+  const labsUrl = `${base}/labs.html`;
   const fantasyUrl = `${base}/ahrens-fantasy/`;
-  const emailInnerMax = '720px';
+  const gamesLobbyUrl = `${gamesBase}/`;
+
+  const gamesLogo = `${img}/ahrens-games-logo-official.png`;
+  const eagleLogo = `${img}/EagleLogo.png`;
+  const trifangLogo = `${img}/trifangx-logo.png`;
+  const classifyLogo = `${img}/classify-logo-128.png`;
+  const digestLogo = `${img}/digest-logo-128.png`;
+  const deckLogo = `${img}/deck-logo-128.png`;
+  const tetherLogo = `${img}/tether-logo.png`;
+
+  const gameIcons = [
+    { src: `${img}/dino-favicon-128.png`, alt: 'Dino Dynasty' },
+    { src: `${img}/atlantis-favicon-128.png`, alt: 'Atlantis' },
+    { src: `${img}/cauldron-favicon-128.png`, alt: 'Cauldron Lane' },
+    { src: `${img}/heroes-favicon-128.png`, alt: 'Hero League' },
+    { src: `${img}/masquerade-favicon-128.png`, alt: 'Masquerade' },
+    { src: `${img}/whiteout-favicon-96.png`, alt: 'Whiteout Station' },
+  ];
+
+  const gameIconCells = gameIcons
+    .map(
+      (g) => `<td align="center" style="padding:4px 6px;">
+        <img src="${g.src}" width="44" height="44" alt="${escapeHtmlEmail(g.alt)}" style="display:block;border:0;border-radius:10px;" />
+      </td>`
+    )
+    .join('');
+
+  const appTile = (href, logo, title, blurb) => `<td width="50%" valign="top" style="padding:6px;">
+      <a href="${href}" style="text-decoration:none;color:#0f172a;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border:1px solid #e2e8f0;border-radius:12px;background:#ffffff;">
+          <tr>
+            <td style="padding:14px 12px;text-align:center;">
+              <img src="${logo}" width="56" height="56" alt="" style="display:block;margin:0 auto 8px auto;border:0;border-radius:12px;" />
+              <p style="margin:0 0 4px 0;font-size:14px;font-weight:700;color:#0f172a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">${title}</p>
+              <p style="margin:0;font-size:12px;line-height:1.4;color:#64748b;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">${blurb}</p>
+            </td>
+          </tr>
+        </table>
+      </a>
+    </td>`;
 
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width">
-  <title>${subject}</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>${escapeHtmlEmail(subject)}</title>
 </head>
-<body style="margin:0;padding:0;background:linear-gradient(165deg,#0c4a6e 0%,#1e1b4b 40%,#312e81 100%);">
-  <div style="display:none;max-height:0;overflow:hidden;">${preheader}</div>
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:transparent;">
+<body style="margin:0;padding:0;background:#0f172a;">
+  <div style="display:none;max-height:0;overflow:hidden;">${escapeHtmlEmail(preheader)}</div>
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
     <tr>
-      <td align="center" style="padding:28px 12px;">
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:${emailInnerMax};width:100%;background:#ffffff;border-radius:18px;overflow:hidden;box-shadow:0 20px 55px rgba(0,0,0,0.28);border:1px solid rgba(255,255,255,0.12);">
+      <td align="center" style="padding:24px 12px;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:560px;background:#ffffff;border-radius:16px;overflow:hidden;">
           <tr>
-            <td style="background:linear-gradient(125deg,#0ea5e9 0%,#6366f1 40%,#a855f7 85%);padding:30px 32px;text-align:center;">
-              <p style="margin:0 0 6px 0;font-family:Georgia,'Times New Roman',serif;font-size:22px;font-weight:700;color:#f8fafc;letter-spacing:0.02em;text-shadow:0 2px 12px rgba(0,0,0,0.2);">Ahrens Labs</p>
-              <p style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;font-size:14px;color:#e0e7ff;line-height:1.5;">Games, tools & learning — one sign-in everywhere</p>
+            <td style="padding:20px 24px 8px 24px;text-align:center;background:#0f172a;">
+              <img src="${eagleLogo}" width="48" height="48" alt="Ahrens Labs" style="display:inline-block;border:0;" />
+              <p style="margin:10px 0 0 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94a3b8;">Ahrens Labs</p>
             </td>
           </tr>
           <tr>
-            <td style="padding:32px 32px 8px 32px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
-              <p style="margin:0 0 16px 0;font-size:18px;font-weight:700;color:#0f172a;">Hi ${safeNameHtml},</p>
-              <p style="margin:0 0 18px 0;font-size:15px;line-height:1.65;color:#334155;">Thanks for joining <strong style="color:#0f172a;">Ahrens Labs</strong>. Your free account stores progress in the cloud so you can pick up where you left off on any device — including <strong>Ahrens Games</strong> online board games at <a href="${gamesLobbyUrl}" style="color:#2563eb;font-weight:600;">ahrensgames.com</a>.</p>
-              <p style="margin:0 0 22px 0;font-size:15px;line-height:1.65;color:#334155;">Below is a quick tour of what you can play, build, and learn — all tied to the same login. Jump in anywhere; your saves and settings follow you.</p>
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 24px 0;">
+            <td style="padding:24px 24px 8px 24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#0f172a;">
+              <p style="margin:0 0 8px 0;font-size:22px;font-weight:800;line-height:1.25;">Welcome, ${safeNameHtml}</p>
+              <p style="margin:0;font-size:15px;line-height:1.55;color:#475569;">One free account for games, chess, planners, and labs — synced across your devices.</p>
+            </td>
+          </tr>
+
+          <!-- Ahrens Games highlight -->
+          <tr>
+            <td style="padding:16px 20px 8px 20px;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:linear-gradient(160deg,#042f2e 0%,#0f766e 55%,#115e59 100%);border-radius:16px;">
                 <tr>
-                  <td align="center" style="padding:0 0 8px 0;">
-                    <a href="${gamesLobbyUrl}" style="display:inline-block;padding:14px 28px;background:linear-gradient(135deg,#0f766e,#0e7490);color:#ffffff !important;text-decoration:none;border-radius:10px;font-weight:700;font-size:15px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">Open Ahrens Games lobby</a>
+                  <td align="center" style="padding:28px 20px 12px 20px;">
+                    <a href="${gamesLobbyUrl}" style="text-decoration:none;">
+                      <img src="${gamesLogo}" width="220" alt="Ahrens Games" style="display:block;border:0;max-width:100%;height:auto;" />
+                    </a>
+                    <p style="margin:16px 0 0 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:15px;line-height:1.5;color:#ecfdf5;max-width:360px;">
+                      Online board games with friends — or vs the computer. Same login as Ahrens Labs.
+                    </p>
                   </td>
                 </tr>
                 <tr>
-                  <td align="center" style="padding:0 0 8px 0;">
-                    <a href="${chessUrl}" style="display:inline-block;padding:14px 28px;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#ffffff !important;text-decoration:none;border-radius:10px;font-weight:700;font-size:15px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">Play TrifangX (chess engine)</a>
+                  <td align="center" style="padding:8px 12px 6px 12px;">
+                    <table role="presentation" cellspacing="0" cellpadding="0" border="0"><tr>${gameIconCells}</tr></table>
                   </td>
                 </tr>
                 <tr>
-                  <td align="center" style="padding:4px 0 0 0;">
-                    <a href="${dashUrl}" style="color:#2563eb;font-size:14px;font-weight:600;text-decoration:none;">Account dashboard →</a>
-                  </td>
-                </tr>
-              </table>
-              <p style="margin:0 0 12px 0;font-size:13px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.06em;">What your account unlocks</p>
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 20px 0;">
-                <tr>
-                  <td style="padding:14px 16px;border:1px solid #e2e8f0;border-radius:12px;background:#ecfdf5;">
-                    <p style="margin:0 0 6px 0;font-size:15px;font-weight:700;color:#0f172a;">Ahrens Games</p>
-                    <p style="margin:0;font-size:14px;line-height:1.55;color:#475569;">Board games to play against the computer, a friend on the same device, or <strong>other players online</strong> — with cloud saves, turn alerts, and a shared lobby at <a href="${gamesLobbyUrl}" style="color:#0f766e;font-weight:600;">ahrensgames.com</a>. Titles include Dino Dynasty, Hearthhold, Atlantis, Cauldron Lane, Hero League, The Masquerade Court, Whiteout Station, and more. Same Ahrens Labs login; open <a href="${gamesSettingsUrl}" style="color:#0f766e;font-weight:600;">Games settings</a> for reminders. Fantasy football leagues live at <a href="${fantasyUrl}" style="color:#0f766e;font-weight:600;">Ahrens Fantasy</a>.</p>
-                    <p style="margin:10px 0 0 0;font-size:14px;"><a href="${gamesLobbyUrl}" style="color:#0f766e;font-weight:600;">Open the Ahrens Games lobby →</a></p>
-                  </td>
-                </tr>
-              </table>
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 20px 0;">
-                <tr>
-                  <td style="padding:14px 16px;border:1px solid #e2e8f0;border-radius:12px;background:#f8fafc;">
-                    <p style="margin:0 0 6px 0;font-size:15px;font-weight:700;color:#0f172a;">TrifangX chess</p>
-                    <p style="margin:0;font-size:14px;line-height:1.55;color:#475569;">Our flagship chess experience: spar with a strong engine, unlock <strong>hundreds of achievements</strong>, spend points in a <strong>cosmetic shop</strong> (boards, pieces, themes, effects), and complete <strong>three daily challenges</strong> that refresh each day on your device. From your <a href="${dashUrl}" style="color:#2563eb;font-weight:600;">account dashboard</a> you can opt into a <strong>daily roundup email</strong> or request today’s list anytime.</p>
-                    <p style="margin:10px 0 0 0;font-size:14px;"><a href="${chessUrl}" style="color:#2563eb;font-weight:600;">Open the chess lobby</a></p>
+                  <td align="center" style="padding:14px 20px 26px 20px;">
+                    <a href="${gamesLobbyUrl}" style="display:inline-block;padding:14px 28px;background:#fbbf24;color:#042f2e !important;text-decoration:none;border-radius:999px;font-weight:800;font-size:15px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">Open Ahrens Games</a>
+                    <p style="margin:12px 0 0 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:12px;color:#99f6e4;">
+                      <a href="${fantasyUrl}" style="color:#99f6e4;font-weight:600;">Ahrens Fantasy</a> · same account
+                    </p>
                   </td>
                 </tr>
               </table>
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 20px 0;">
-                <tr>
-                  <td style="padding:14px 16px;border:1px solid #e2e8f0;border-radius:12px;background:#f8fafc;">
-                    <p style="margin:0 0 6px 0;font-size:15px;font-weight:700;color:#0f172a;">Digest</p>
-                    <p style="margin:0;font-size:14px;line-height:1.55;color:#475569;">Optional email updates for the teams you follow across <strong>MLB, NFL, NBA, NHL, Premier League, Big Ten, and SEC</strong>. Pick up to 25 teams, choose how often you hear from us (daily, weekly, or custom times in <strong>Central Time</strong>), and get schedules plus headlines in one message. Turn it on from <a href="${sportsDigestUrl}" style="color:#2563eb;font-weight:600;">Digest</a> (linked from the <a href="${codingLabUrl}" style="color:#2563eb;font-weight:600;">Coding Lab</a>) once your email is confirmed.</p>
-                    <p style="margin:10px 0 0 0;font-size:14px;"><a href="${sportsDigestUrl}" style="color:#2563eb;font-weight:600;">Set up Digest →</a></p>
-                  </td>
-                </tr>
-              </table>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding:18px 24px 6px 24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+              <p style="margin:0;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94a3b8;">Also on your account</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:4px 14px 8px 14px;">
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
                 <tr>
-                  <td style="padding:0 0 14px 0;">
-                    <div style="padding:16px 18px;border:1px solid #e2e8f0;border-radius:12px;box-sizing:border-box;background:#fafafa;">
-                      <p style="margin:0 0 8px 0;font-size:15px;font-weight:700;color:#0f172a;">Dungeon</p>
-                      <p style="margin:0;font-size:14px;line-height:1.6;color:#475569;">A <strong>dice-driven dungeon crawl</strong> in the browser: each step can surface combat, treasure, shops, or story beats. Fights use directional attacks, defensive stances, consumables, and risk/reward retreat rolls—so every encounter feels tactical, not automatic. Collect gear, chase achievements, and use <strong>multiple cloud save slots</strong> so a great run survives a new device or browser tab.</p>
-                      <p style="margin:12px 0 0 0;font-size:14px;"><a href="${dungeonUrl}" style="color:#2563eb;font-weight:600;">Open dungeon game →</a></p>
-                    </div>
-                  </td>
+                  ${appTile(chessUrl, trifangLogo, 'TrifangX', 'Chess engine, dailies & shop')}
+                  ${appTile(classifyUrl, classifyLogo, 'Classify', 'Cloud class planner')}
                 </tr>
                 <tr>
-                  <td style="padding:0 0 14px 0;">
-                    <div style="padding:16px 18px;border:1px solid #e2e8f0;border-radius:12px;box-sizing:border-box;background:#fafafa;">
-                      <p style="margin:0 0 8px 0;font-size:15px;font-weight:700;color:#0f172a;">Classify</p>
-                      <p style="margin:0;font-size:14px;line-height:1.6;color:#475569;">An <strong>advanced class planner</strong> for real academic terms: map courses, weekly blocks, deadlines, and rhythm in one calm workspace instead of scattered notes. Dark/light styling, structured layouts, and export-minded workflows help you see the whole semester at a glance. With your Ahrens Labs login, your planner <strong>syncs to the cloud</strong>—reopen it on laptop or phone without retyping your schedule.</p>
-                      <p style="margin:12px 0 0 0;font-size:14px;"><a href="${classifyUrl}" style="color:#2563eb;font-weight:600;">Open Classify →</a></p>
-                    </div>
-                  </td>
+                  ${appTile(digestUrl, digestLogo, 'Digest', 'Team schedules & headlines')}
+                  ${appTile(deckUrl, deckLogo, 'Deck', 'Flashcards that sync')}
                 </tr>
                 <tr>
-                  <td style="padding:0 0 14px 0;">
-                    <div style="padding:16px 18px;border:1px solid #e2e8f0;border-radius:12px;box-sizing:border-box;background:#fafafa;">
-                      <p style="margin:0 0 8px 0;font-size:15px;font-weight:700;color:#0f172a;">Kyrachyng</p>
-                      <p style="margin:0;font-size:14px;line-height:1.6;color:#475569;">A <strong>constructed language you can actually learn</strong>: lessons introduce the writing system, sounds, grammar, and vocabulary in a deliberate sequence—more like a mini language course than a wiki. Mark a lesson complete to <strong>light the path and unlock the next stop</strong>; your place is saved on your account so short study sessions still add up. Great if you love linguistics, worldbuilding, or learning something off the beaten path.</p>
-                      <p style="margin:12px 0 0 0;font-size:14px;"><a href="${kyrachyngUrl}" style="color:#2563eb;font-weight:600;">Start Kyrachyng lessons →</a></p>
-                    </div>
-                  </td>
-                </tr>
-                <tr>
-                  <td style="padding:0 0 0 0;">
-                    <div style="padding:16px 18px;border:1px solid #e2e8f0;border-radius:12px;box-sizing:border-box;background:#fafafa;">
-                      <p style="margin:0 0 8px 0;font-size:15px;font-weight:700;color:#0f172a;">Labs hub</p>
-                      <p style="margin:0;font-size:14px;line-height:1.6;color:#475569;">Our <strong>project gallery</strong> for experiments that don’t fit a single box: language games, music and ear-training toys, coding playgrounds, writing tools, STEM demos, and odd prototypes. Some labs plug into your account for saves; others are one-click “try it now” experiences. Use it as a discovery page when you want something fresh after chess or the dungeon.</p>
-                      <p style="margin:12px 0 0 0;font-size:14px;"><a href="${labsUrl}" style="color:#2563eb;font-weight:600;">Browse labs →</a></p>
-                    </div>
-                  </td>
+                  ${appTile(tetherUrl, tetherLogo, 'Tether', 'Projects & tasks')}
+                  ${appTile(labsUrl, eagleLogo, 'Labs', 'Experiments & toys')}
                 </tr>
               </table>
-              <p style="margin:28px 0 10px 0;font-size:13px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.06em;">More detail — TrifangX</p>
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 20px 0;">
-                <tr>
-                  <td style="padding:16px 18px;border:1px solid #e2e8f0;border-radius:12px;background:#ffffff;">
-                    <p style="margin:0 0 10px 0;font-size:15px;font-weight:700;color:#0f172a;">Chess engine &amp; account tie-in</p>
-                    <ul style="margin:0;padding:0 0 0 18px;font-size:14px;line-height:1.65;color:#475569;">
-                      <li style="margin:0 0 8px 0;"><strong>Progress &amp; cloud save</strong> — wins, losses, draws, and summaries stay on your profile. <strong>Lifetime stats</strong> track captures, openings, streaks, and long-term goals across many games.</li>
-                      <li style="margin:0 0 8px 0;"><strong>Achievements &amp; points</strong> — a large catalog spanning tactics, speed, material, blindfold milestones, time controls, and unusual feats. Points feed <strong>Total Points</strong> and unlock rarer goals.</li>
-                      <li style="margin:0 0 8px 0;"><strong>Shop &amp; cosmetics</strong> — spend earned points on boards, piece sets, highlights, arrows, themes, move and checkmate flair, and time controls. Purchases stay on your profile across devices.</li>
-                      <li style="margin:0 0 8px 0;"><strong>Daily challenges &amp; roundup</strong> — three rotating achievements refresh each day in TrifangX. In your <a href="${dashUrl}" style="color:#2563eb;font-weight:600;">dashboard</a>, turn on the <strong>daily challenge roundup email</strong> (sent once per day) or use <strong>email today’s challenges now</strong> anytime.</li>
-                      <li style="margin:0 0 8px 0;"><strong>Digest</strong> — separate optional mail for your favorite teams’ schedules and headlines; configure teams and send times on the <a href="${sportsDigestUrl}" style="color:#2563eb;font-weight:600;">Digest</a> page.</li>
-                      <li style="margin:0 0 8px 0;"><strong>Board tools</strong> — legal-move hints, arrows and highlights, premoves, and blindfold or mental-board modes for training or variety.</li>
-                      <li style="margin:0 0 8px 0;"><strong>Game history &amp; replay</strong> — reopen recent games from the cloud on the board and step through move-by-move.</li>
-                      <li style="margin:0;"><strong>Modes</strong> — casual engine sparring, clocked games with increments, and optional live-engine play from the lobby when you enable it.</li>
-                    </ul>
-                  </td>
-                </tr>
-              </table>
-              <p style="margin:24px 0 10px 0;font-size:13px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.06em;">More about each experience</p>
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 16px 0;">
-                <tr>
-                  <td style="padding:16px 18px;border:1px solid #e2e8f0;border-radius:12px;background:#ecfdf5;">
-                    <p style="margin:0 0 10px 0;font-size:15px;font-weight:700;color:#0f172a;">Ahrens Games</p>
-                    <ul style="margin:0;padding:0 0 0 18px;font-size:14px;line-height:1.65;color:#475569;">
-                      <li style="margin:0 0 8px 0;"><strong>One lobby</strong> — browse games and resume <strong>Your games</strong> (local + online) at <a href="${gamesLobbyUrl}" style="color:#0f766e;font-weight:600;">ahrensgames.com</a>.</li>
-                      <li style="margin:0 0 8px 0;"><strong>Play how you want</strong> — vs computer, pass-and-play, or match other accounts online.</li>
-                      <li style="margin:0 0 8px 0;"><strong>Cloud + alerts</strong> — saves follow your login; optional email when a long online game is waiting on your turn (see <a href="${gamesSettingsUrl}" style="color:#0f766e;font-weight:600;">Games settings</a>).</li>
-                      <li style="margin:0;"><strong>Fantasy too</strong> — shared leagues at <a href="${fantasyUrl}" style="color:#0f766e;font-weight:600;">Ahrens Fantasy</a> with the same account.</li>
-                    </ul>
-                  </td>
-                </tr>
-              </table>
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 16px 0;">
-                <tr>
-                  <td style="padding:16px 18px;border:1px solid #e2e8f0;border-radius:12px;background:#f8fafc;">
-                    <p style="margin:0 0 10px 0;font-size:15px;font-weight:700;color:#0f172a;">Dungeon</p>
-                    <ul style="margin:0;padding:0 0 0 18px;font-size:14px;line-height:1.65;color:#475569;">
-                      <li style="margin:0 0 8px 0;"><strong>Exploration</strong> — rooms can bring combat, loot, merchants, or hazards; dice keep outcomes tense but readable.</li>
-                      <li style="margin:0 0 8px 0;"><strong>Combat</strong> — attack lanes, defense, items, and retreat when health is low; gear matters.</li>
-                      <li style="margin:0 0 8px 0;"><strong>Progression</strong> — achievements and stats reward repeat play; <strong>multiple save slots</strong> for different runs.</li>
-                      <li style="margin:0;"><strong>Cloud saves</strong> — slot data stays on your profile when you switch device or browser.</li>
-                    </ul>
-                  </td>
-                </tr>
-              </table>
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 16px 0;">
-                <tr>
-                  <td style="padding:16px 18px;border:1px solid #e2e8f0;border-radius:12px;background:#ffffff;">
-                    <p style="margin:0 0 10px 0;font-size:15px;font-weight:700;color:#0f172a;">Classify planner</p>
-                    <ul style="margin:0;padding:0 0 0 18px;font-size:14px;line-height:1.65;color:#475569;">
-                      <li style="margin:0 0 8px 0;"><strong>Semester view</strong> — courses, weekly blocks, and recurring commitments in one place.</li>
-                      <li style="margin:0 0 8px 0;"><strong>Built for real terms</strong> — midterms, projects, and shifting schedules—not only a generic grid.</li>
-                      <li style="margin:0 0 8px 0;"><strong>Cloud backup</strong> — signed-in users sync to the server and recover after a reinstall.</li>
-                      <li style="margin:0;"><strong>Same account</strong> — academics in Classify, breaks in TrifangX or the dungeon without extra logins.</li>
-                    </ul>
-                  </td>
-                </tr>
-              </table>
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 16px 0;">
-                <tr>
-                  <td style="padding:16px 18px;border:1px solid #e2e8f0;border-radius:12px;background:#f8fafc;">
-                    <p style="margin:0 0 10px 0;font-size:15px;font-weight:700;color:#0f172a;">Kyrachyng</p>
-                    <ul style="margin:0;padding:0 0 0 18px;font-size:14px;line-height:1.65;color:#475569;">
-                      <li style="margin:0 0 8px 0;"><strong>Structured path</strong> — lessons build on each other with clear unlocks.</li>
-                      <li style="margin:0 0 8px 0;"><strong>Reading &amp; writing</strong> — practice recognition and production, not only passive reading.</li>
-                      <li style="margin:0 0 8px 0;"><strong>Saved progress</strong> — resume on any device.</li>
-                      <li style="margin:0;"><strong>For curious learners</strong> — conlangs, puzzles, or short daily study alongside games.</li>
-                    </ul>
-                  </td>
-                </tr>
-              </table>
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 16px 0;">
-                <tr>
-                  <td style="padding:16px 18px;border:1px solid #e2e8f0;border-radius:12px;background:#ffffff;">
-                    <p style="margin:0 0 10px 0;font-size:15px;font-weight:700;color:#0f172a;">Digest</p>
-                    <ul style="margin:0;padding:0 0 0 18px;font-size:14px;line-height:1.65;color:#475569;">
-                      <li style="margin:0 0 8px 0;"><strong>Your teams</strong> — MLB, NFL, NBA, NHL, Premier League, Big Ten, and SEC; search or browse by league.</li>
-                      <li style="margin:0 0 8px 0;"><strong>Your schedule</strong> — daily, weekly, or custom delivery on 15-minute marks in Central Time.</li>
-                      <li style="margin:0 0 8px 0;"><strong>What you get</strong> — upcoming games and headlines for the teams you picked, in one email.</li>
-                      <li style="margin:0;"><strong>Opt-in only</strong> — off by default; enable anytime after email confirmation at <a href="${sportsDigestUrl}" style="color:#2563eb;font-weight:600;">Digest</a>.</li>
-                    </ul>
-                  </td>
-                </tr>
-              </table>
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 16px 0;">
-                <tr>
-                  <td style="padding:16px 18px;border:1px solid #e2e8f0;border-radius:12px;background:#ffffff;">
-                    <p style="margin:0 0 10px 0;font-size:15px;font-weight:700;color:#0f172a;">Labs hub</p>
-                    <ul style="margin:0;padding:0 0 0 18px;font-size:14px;line-height:1.65;color:#475569;">
-                      <li style="margin:0 0 8px 0;"><strong>Browse by card</strong> — clear entry points for each public experiment.</li>
-                      <li style="margin:0 0 8px 0;"><strong>Quick or deep</strong> — five-minute toys and tools you can revisit for weeks.</li>
-                      <li style="margin:0 0 8px 0;"><strong>Varied topics</strong> — language, audio, code, STEM demos, writing, humor.</li>
-                      <li style="margin:0;"><strong>Account when useful</strong> — persistence uses the same login where a lab needs it.</li>
-                    </ul>
-                  </td>
-                </tr>
-              </table>
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 20px 0;">
-                <tr>
-                  <td style="padding:16px 18px;border:1px solid #e2e8f0;border-radius:12px;background:#ffffff;">
-                    <p style="margin:0 0 10px 0;font-size:15px;font-weight:700;color:#0f172a;">Account dashboard</p>
-                    <ul style="margin:0;padding:0 0 0 18px;font-size:14px;line-height:1.65;color:#475569;">
-                      <li style="margin:0 0 8px 0;"><strong>Profile &amp; sign-in</strong> — change <strong>password</strong> or <strong>username</strong> (username changes need your current password).</li>
-                      <li style="margin:0 0 8px 0;"><strong>Email</strong> — toggle the <strong>daily challenge roundup</strong>, set up <strong><a href="${sportsDigestUrl}" style="color:#2563eb;font-weight:600;">Digest</a></strong> for your teams, <strong>resend this welcome guide</strong>, or <strong>email today’s challenges now</strong>.</li>
-                      <li style="margin:0 0 8px 0;"><strong>TrifangX shortcuts</strong> — open <strong>shop, settings, or achievements</strong> straight from the dashboard.</li>
-                      <li style="margin:0;"><strong>Delete account</strong> — start removal when you want cloud data wiped; you get a confirmation email when it finishes.</li>
-                    </ul>
-                    <p style="margin:12px 0 0 0;font-size:14px;line-height:1.55;color:#475569;">One <strong>email and password</strong> for every product above.</p>
-                  </td>
-                </tr>
-              </table>
-              <p style="margin:24px 0 0 0;padding:16px;background:#eff6ff;border-radius:12px;font-size:14px;line-height:1.6;color:#1e3a8a;border-left:4px solid #2563eb;"><strong>Email from us:</strong> we’ll message you to <strong>confirm your address</strong> and for account security (for example password reset). Optional TrifangX roundup, <strong>Digest</strong>, and milestone mail — change anytime in <a href="${dashUrl}" style="color:#1d4ed8;font-weight:600;">your dashboard</a> or on the <a href="${sportsDigestUrl}" style="color:#1d4ed8;font-weight:600;">Digest</a> page.</p>
-              <p style="margin:24px 0 0 0;font-size:15px;line-height:1.65;color:#334155;">Questions, ideas, or bug reports? Email <a href="mailto:caleb@ahrenslabs.com" style="color:#2563eb;font-weight:600;">caleb@ahrenslabs.com</a>.</p>
-              <p style="margin:24px 0 0 0;font-size:13px;line-height:1.55;color:#94a3b8;">All links point to <a href="${homeUrl}" style="color:#64748b;">ahrenslabs.com</a>. If you didn’t create this account, you can ignore this email.</p>
             </td>
           </tr>
+
           <tr>
-            <td style="padding:20px 32px 28px 32px;background:#f1f5f9;border-top:1px solid #e2e8f0;text-align:center;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:12px;color:#64748b;line-height:1.5;">
-              © Ahrens Labs · <a href="${homeUrl}" style="color:#64748b;">ahrenslabs.com</a>
+            <td style="padding:12px 24px 28px 24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;text-align:center;">
+              <a href="${dashUrl}" style="display:inline-block;padding:12px 22px;background:#0f172a;color:#ffffff !important;text-decoration:none;border-radius:10px;font-weight:700;font-size:14px;">Account dashboard</a>
+              <p style="margin:16px 0 0 0;font-size:12px;line-height:1.5;color:#94a3b8;">
+                Questions? <a href="mailto:caleb@ahrenslabs.com" style="color:#64748b;">caleb@ahrenslabs.com</a><br />
+                <a href="${homeUrl}" style="color:#64748b;">ahrenslabs.com</a> · <a href="${gamesLobbyUrl}" style="color:#64748b;">ahrensgames.com</a>
+              </p>
             </td>
           </tr>
         </table>
@@ -9652,115 +9550,24 @@ async function sendWelcomeGuideEmail(env, email, username, sendOptions = {}) {
   const text = [
     `Hi ${safeName},`,
     '',
-    'Thanks for joining Ahrens Labs. Your free account stores progress in the cloud so you can pick up where you left off on any device — including Ahrens Games online board games at ahrensgames.com.',
+    'Welcome to Ahrens Labs — one login for games, chess, planners, and labs.',
     '',
-    preheader,
-    '',
-    'Ahrens Games lobby:',
+    '★ Ahrens Games (highlight)',
+    'Online board games with friends or vs the computer:',
     gamesLobbyUrl,
+    `Fantasy leagues: ${fantasyUrl}`,
     '',
-    'Play TrifangX (chess):',
-    chessUrl,
+    'Also on your account:',
+    `• TrifangX chess — ${chessUrl}`,
+    `• Classify planner — ${classifyUrl}`,
+    `• Digest — ${digestUrl}`,
+    `• Deck — ${deckUrl}`,
+    `• Tether — ${tetherUrl}`,
+    `• Labs — ${labsUrl}`,
     '',
-    'Account dashboard:',
-    dashUrl,
+    `Dashboard: ${dashUrl}`,
     '',
-    '--- What your account unlocks ---',
-    '',
-    'Ahrens Games —',
-    'Board games vs the computer, a friend on the same device, or other players online — with cloud saves, turn alerts, and a shared lobby. Titles include Dino Dynasty, Hearthhold, Atlantis, Cauldron Lane, Hero League, The Masquerade Court, Whiteout Station, and more. Same login; Games settings for reminders:',
-    gamesSettingsUrl,
-    'Ahrens Fantasy football:',
-    fantasyUrl,
-    '',
-    'TrifangX chess —',
-    'Spar with a strong engine, unlock hundreds of achievements, spend points in a cosmetic shop (boards, pieces, themes, effects), and complete three daily challenges that refresh each day on your device. From your account dashboard you can opt into a daily roundup email or request today’s list anytime.',
-    '',
-    'Digest —',
-    'Optional email for the teams you follow across MLB, NFL, NBA, NHL, Premier League, Big Ten, and SEC. Pick teams, choose daily/weekly/custom send times (Central Time), and get schedules plus headlines. Turn it on after email confirmation:',
-    sportsDigestUrl,
-    '',
-    'Dungeon —',
-    `A dice-driven dungeon crawl in the browser: combat, treasure, shops, and story beats. Tactical fights with directional attacks, defense, consumables, and retreat. Multiple cloud save slots so a run survives a new device or browser.`,
-    dungeonUrl,
-    '',
-    'Classify —',
-    `An advanced class planner for real academic terms: courses, weekly blocks, deadlines, and rhythm in one workspace. With your Ahrens Labs login, your planner syncs to the cloud.`,
-    classifyUrl,
-    '',
-    'Kyrachyng —',
-    `A constructed language you can learn step by step: writing, sounds, grammar, and vocabulary in sequence. Progress is saved on your account.`,
-    kyrachyngUrl,
-    '',
-    'Labs hub —',
-    `Experiments and toys: language games, music tools, coding playgrounds, writing helpers, STEM demos, and prototypes. Some use your account for saves; others are one-click to try.`,
-    labsUrl,
-    '',
-    '--- More detail — TrifangX ---',
-    '',
-    'Chess engine & account:',
-    '• Progress & cloud save — wins, losses, draws, and summaries on your profile. Lifetime stats for captures, openings, streaks, and long-term goals.',
-    '• Achievements & points — large catalog (tactics, speed, material, blindfold, time controls, unusual feats). Points feed Total Points and rarer goals.',
-    '• Shop & cosmetics — boards, piece sets, highlights, arrows, themes, move and checkmate flair, time controls. Purchases stay on your profile across devices.',
-    `• Daily challenges & roundup — three rotating achievements each day. Dashboard: daily roundup email (once per day) or email today’s challenges now.`,
-    `• Digest — optional team schedules and headlines; pick teams and send times at ${sportsDigestUrl}`,
-    '• Board tools — legal-move hints, arrows and highlights, premoves, blindfold or mental-board modes.',
-    '• Game history & replay — reopen recent games from the cloud and step through move-by-move.',
-    '• Modes — casual engine sparring, clocked games with increments, optional live-engine play from the lobby when enabled.',
-    '',
-    '--- More about each experience ---',
-    '',
-    'Ahrens Games:',
-    `• One lobby — browse games and resume Your games at ${gamesLobbyUrl}`,
-    '• Play how you want — vs computer, pass-and-play, or online with other accounts.',
-    `• Cloud + alerts — saves follow your login; turn reminders in Games settings: ${gamesSettingsUrl}`,
-    `• Fantasy too — ${fantasyUrl}`,
-    '',
-    'Dungeon:',
-    '• Exploration — combat, loot, merchants, hazards; dice-driven outcomes.',
-    '• Combat — attack lanes, defense, items, retreat when health is low.',
-    '• Progression — achievements and stats; multiple save slots.',
-    '• Cloud saves — slot data on your profile across devices.',
-    '',
-    'Classify planner:',
-    '• Semester view — courses, weekly blocks, recurring commitments.',
-    '• Built for real terms — midterms, projects, shifting schedules.',
-    '• Cloud backup — sync when signed in; recover after reinstall.',
-    '• Same account — planner plus games without extra logins.',
-    '',
-    'Kyrachyng:',
-    '• Structured path — lessons unlock in order.',
-    '• Reading & writing — practice production, not only passive reading.',
-    '• Saved progress — resume on any device.',
-    '• For curious learners — conlangs, puzzles, short daily study.',
-    '',
-    'Digest:',
-    '• Your teams — MLB, NFL, NBA, NHL, Premier League, Big Ten, SEC.',
-    '• Your schedule — daily, weekly, or custom times in Central Time.',
-    '• What you get — upcoming games and headlines for picked teams.',
-    `• Opt-in only — enable after confirmation at ${sportsDigestUrl}`,
-    '',
-    'Labs hub:',
-    '• Browse by card — clear entry for each experiment.',
-    '• Quick or deep — short tries or tools to revisit.',
-    '• Varied topics — language, audio, code, STEM, writing, humor.',
-    '• Account when useful — same login where a lab needs persistence.',
-    '',
-    'Account dashboard:',
-    `• Profile & sign-in — change password or username (username needs current password).`,
-    '• Email — daily challenge roundup, Digest for your teams, resend this welcome guide, email today’s challenges now.',
-    '• TrifangX shortcuts — open shop, settings, or achievements from the dashboard.',
-    '• Delete account — start removal when you want cloud data wiped; confirmation email when it finishes.',
-    'One email and password for every product above.',
-    '',
-    'Email from us: we will message you to confirm your address and for account security (for example password reset). Optional TrifangX roundup, Digest, and milestone mail — change anytime in your dashboard or Digest page:',
-    dashUrl,
-    sportsDigestUrl,
-    '',
-    'Questions, ideas, or bug reports? caleb@ahrenslabs.com',
-    '',
-    `All links: ${homeUrl}`,
-    'If you did not create this account, you can ignore this message.',
+    'Questions: caleb@ahrenslabs.com',
   ].join('\n');
 
   const dispatchOpts = { to: email, subject, html, text };
