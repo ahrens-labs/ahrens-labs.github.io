@@ -366,6 +366,7 @@ export default {
         if (url.searchParams.get('resendProbe') === '1' && env.RESEND_API_KEY) {
           const probeTo = normalizeEmail(url.searchParams.get('to') || '') || 'delivered@resend.dev';
           const domains = await fetchResendDomains(env.RESEND_API_KEY);
+          const beforeSuppression = await fetchResendSuppression(env.RESEND_API_KEY, probeTo);
           let sendResult = null;
           let sendError = null;
           let status = null;
@@ -379,6 +380,7 @@ export default {
               text: 'Resend delivery probe from chess-accounts.',
             });
             if (sendResult?.messageId) {
+              await new Promise((r) => setTimeout(r, 1500));
               status = await fetchResendEmailStatus(env.RESEND_API_KEY, sendResult.messageId);
             }
           } catch (e) {
@@ -389,6 +391,7 @@ export default {
             from: sender || null,
             domainsHttp: domains.status,
             domains: domains.data,
+            suppressionBefore: beforeSuppression.ok ? beforeSuppression.data : null,
             sendResult,
             sendError,
             statusHttp: status?.status ?? null,
@@ -3873,6 +3876,8 @@ function summarizeEmailSendError(err) {
     E_FIELD_MISSING: 'Missing to, from, or subject.',
     E_NO_MESSAGE_ID:
       'Email send returned no message id — check Workers runtime / upgrade wrangler; or set RESEND_API_KEY as fallback.',
+    RESEND_SUPPRESSED:
+      'Resend is blocking this inbox (suppression list — usually after an earlier bounce). Use another email, or remove the address in Resend → Suppressions, then try again.',
   };
   const hint = (code && hints[code]) || null;
   return { code, message: rawMsg, hint };
@@ -3946,17 +3951,82 @@ async function fetchResendDomains(apiKey) {
   return { ok: res.ok, status: res.status, data, raw: raw.slice(0, 1200) };
 }
 
+/** GET /suppressions/{email} — 200 if suppressed, 404 if clear. */
+async function fetchResendSuppression(apiKey, email) {
+  const res = await fetch(`https://api.resend.com/suppressions/${encodeURIComponent(String(email || '').trim())}`, {
+    headers: { Authorization: `Bearer ${apiKey}` },
+  });
+  const raw = await res.text();
+  let data = null;
+  try {
+    data = raw ? JSON.parse(raw) : null;
+  } catch {
+    data = null;
+  }
+  return { ok: res.ok, status: res.status, data, raw: raw.slice(0, 800) };
+}
+
+async function removeResendSuppression(apiKey, email) {
+  const res = await fetch(`https://api.resend.com/suppressions/${encodeURIComponent(String(email || '').trim())}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${apiKey}` },
+  });
+  const raw = await res.text();
+  let data = null;
+  try {
+    data = raw ? JSON.parse(raw) : null;
+  } catch {
+    data = null;
+  }
+  return { ok: res.ok, status: res.status, data, raw: raw.slice(0, 800) };
+}
+
+/**
+ * If Resend previously bounced this address (common after MX/routing was fixed),
+ * clear bounce suppressions so confirmation mail can go through once.
+ * Complaint/manual suppressions are left alone.
+ */
+async function clearResendBounceSuppressionIfPresent(apiKey, email) {
+  const em = normalizeEmail(email);
+  if (!em || !apiKey) return { cleared: false };
+  const existing = await fetchResendSuppression(apiKey, em);
+  if (!existing.ok || existing.status === 404) return { cleared: false, present: false };
+  const origin = String(existing.data?.origin || existing.data?.data?.origin || '').toLowerCase();
+  if (origin && origin !== 'bounce') {
+    return { cleared: false, present: true, origin, blocked: true };
+  }
+  const removed = await removeResendSuppression(apiKey, em);
+  console.log('Resend suppression remove', { email: em, origin: origin || 'unknown', ok: removed.ok, status: removed.status });
+  return { cleared: removed.ok, present: true, origin: origin || 'bounce', removeStatus: removed.status };
+}
+
 // Resend fallback when Cloudflare EmailService send fails or EMAIL binding is absent.
 async function sendViaResend(env, { fromAddr, fromName, to, subject, html, text, headers, replyTo }) {
   const key = env.RESEND_API_KEY;
   if (!key || typeof key !== 'string') {
     throw new Error('RESEND_API_KEY is not set');
   }
+  const toAddr = normalizeEmail(to) || String(to || '').trim();
+  // Bounce suppressions block delivery silently (API may still return an id). Clear bounce
+  // entries before send; complainers stay blocked with a clear error.
+  const cleared = await clearResendBounceSuppressionIfPresent(key, toAddr);
+  if (cleared.blocked) {
+    const err = new Error(
+      'That inbox is blocked from receiving mail from us (Resend suppression). Use a different email, or remove it from Resend → Suppressions.'
+    );
+    err.code = 'RESEND_SUPPRESSED';
+    throw err;
+  }
+  // Resend can still mark the next send "suppressed" if we fire immediately after DELETE.
+  if (cleared.cleared) {
+    await new Promise((r) => setTimeout(r, 800));
+  }
+
   const displayName = (fromName != null && String(fromName).trim()) || 'Ahrens Labs';
   const from = `${displayName} <${fromAddr}>`;
   const payload = {
     from,
-    to: [to],
+    to: [toAddr],
     subject,
     html,
     text,
@@ -3982,18 +4052,23 @@ async function sendViaResend(env, { fromAddr, fromName, to, subject, html, text,
   if (!res.ok) {
     const msg = (data && (data.message || data.name)) || raw || res.statusText;
     console.error('Resend send failed', res.status, msg);
-    throw new Error(typeof msg === 'string' ? msg : `Resend HTTP ${res.status}`);
+    const err = new Error(typeof msg === 'string' ? msg : `Resend HTTP ${res.status}`);
+    if (/suppressed/i.test(String(msg))) err.code = 'RESEND_SUPPRESSED';
+    throw err;
   }
   const resendId = data && typeof data.id === 'string' ? data.id.trim() : '';
   if (!resendId) {
     console.error('Resend response missing id', raw);
     throw new Error('Resend accepted the request but returned no message id');
   }
-  // Do not poll last_event here: Resend can report "bounced" within a second for
-  // unknown mailboxes (and greylist noise), which was incorrectly failing signup
-  // confirmation after a successful accept. Delivery outcome belongs in Resend logs.
-  console.log('Resend send ok', { id: resendId, subject, to, from });
-  return { provider: 'resend', messageId: resendId };
+  console.log('Resend send ok', {
+    id: resendId,
+    subject,
+    to: toAddr,
+    from,
+    clearedBounceSuppression: !!cleared.cleared,
+  });
+  return { provider: 'resend', messageId: resendId, clearedBounceSuppression: !!cleared.cleared };
 }
 
 /** Prefer EMAIL_TRANSACTIONAL so an old "EMAIL" binding with dashboard allowlist does not block arbitrary recipients. */
