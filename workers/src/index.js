@@ -9439,11 +9439,11 @@ async function sendWelcomeGuideEmail(env, email, username, sendOptions = {}) {
 
   const appTile = (href, logo, title, blurb) => `<td width="50%" valign="top" style="padding:6px;">
       <a href="${href}" style="text-decoration:none;color:#0f172a;">
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border:1px solid #e2e8f0;border-radius:12px;background:#ffffff;height:100%;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border:1px solid #dbeafe;border-radius:12px;background:#f8fbff;height:100%;">
           <tr>
             <td style="padding:14px 12px;text-align:center;">
               <img src="${logo}" width="52" height="52" alt="" style="display:block;margin:0 auto 8px auto;border:0;border-radius:12px;" />
-              <p style="margin:0 0 6px 0;font-size:14px;font-weight:700;color:#0f172a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">${title}</p>
+              <p style="margin:0 0 6px 0;font-size:14px;font-weight:700;color:#1e3a8a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">${title}</p>
               <p style="margin:0;font-size:12px;line-height:1.45;color:#64748b;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">${blurb}</p>
             </td>
           </tr>
@@ -9458,39 +9458,39 @@ async function sendWelcomeGuideEmail(env, email, username, sendOptions = {}) {
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>${escapeHtmlEmail(subject)}</title>
 </head>
-<body style="margin:0;padding:0;background:#0f172a;">
+<body style="margin:0;padding:0;background:linear-gradient(165deg,#0c4a6e 0%,#0f172a 55%,#1e3a8a 100%);">
   <div style="display:none;max-height:0;overflow:hidden;">${escapeHtmlEmail(preheader)}</div>
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
     <tr>
       <td align="center" style="padding:24px 12px;">
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:560px;background:#ffffff;border-radius:16px;overflow:hidden;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:560px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 24px 60px rgba(15,23,42,.35);">
           <tr>
-            <td style="padding:20px 24px 8px 24px;text-align:center;background:#0f172a;">
-              <img src="${eagleLogo}" width="48" height="48" alt="Ahrens Labs" style="display:inline-block;border:0;" />
-              <p style="margin:10px 0 0 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94a3b8;">Ahrens Labs</p>
+            <td style="padding:22px 24px 14px 24px;text-align:center;background:linear-gradient(120deg,#2563eb 0%,#0ea5e9 55%,#3b82f6 100%);">
+              <img src="${labsLogo}" width="56" height="56" alt="Ahrens Labs" style="display:inline-block;border:0;border-radius:14px;background:#ffffff;padding:4px;" />
+              <p style="margin:12px 0 0 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:13px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#eff6ff;">Ahrens Labs</p>
             </td>
           </tr>
           <tr>
             <td style="padding:24px 24px 8px 24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#0f172a;">
-              <p style="margin:0 0 10px 0;font-size:22px;font-weight:800;line-height:1.25;">Welcome, ${safeNameHtml}</p>
-              <p style="margin:0 0 10px 0;font-size:15px;line-height:1.6;color:#334155;"><strong style="color:#0f172a;">Ahrens Labs</strong> is a free home for games, tools, and learning — chess, board games, planners, flashcards, and small experiments — with one login and cloud saves so you can pick up on any device.</p>
-              <p style="margin:0;font-size:14px;line-height:1.55;color:#64748b;">Start with <strong style="color:#0f766e;">Ahrens Games</strong> below, then explore the rest of your account whenever you want.</p>
+              <p style="margin:0 0 10px 0;font-size:22px;font-weight:800;line-height:1.25;color:#0f172a;">Welcome, ${safeNameHtml}</p>
+              <p style="margin:0 0 10px 0;font-size:15px;line-height:1.6;color:#334155;"><strong style="color:#1d4ed8;">Ahrens Labs</strong> is a free home for games, tools, and learning — chess, board games, planners, flashcards, and small experiments — with one login and cloud saves so you can pick up on any device.</p>
+              <p style="margin:0;font-size:14px;line-height:1.55;color:#64748b;">Start with <strong style="color:#2563eb;">Ahrens Games</strong> below, then explore the rest of your account whenever you want.</p>
             </td>
           </tr>
 
           <!-- Ahrens Games highlight -->
           <tr>
             <td style="padding:16px 20px 8px 20px;">
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:linear-gradient(160deg,#042f2e 0%,#0f766e 55%,#115e59 100%);border-radius:16px;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:linear-gradient(160deg,#0f172a 0%,#1e3a8a 45%,#1d4ed8 100%);border-radius:16px;border:1px solid #93c5fd;">
                 <tr>
                   <td align="center" style="padding:28px 20px 12px 20px;">
                     <a href="${gamesLobbyUrl}" style="text-decoration:none;">
                       <img src="${gamesLogo}" width="220" alt="Ahrens Games" style="display:block;border:0;max-width:100%;height:auto;" />
                     </a>
-                    <p style="margin:16px 0 0 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:15px;line-height:1.55;color:#ecfdf5;max-width:380px;">
+                    <p style="margin:16px 0 0 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:15px;line-height:1.55;color:#eff6ff;max-width:380px;">
                       Board games to play online with friends, pass-and-play on one device, or vs the computer. Your games sync to this account, and you can get turn reminders when it’s your move.
                     </p>
-                    <p style="margin:10px 0 0 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:13px;line-height:1.45;color:#99f6e4;max-width:380px;">
+                    <p style="margin:10px 0 0 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:13px;line-height:1.45;color:#bfdbfe;max-width:380px;">
                       Includes Dino Dynasty, Oakhaven, Atlantis, Cauldron Lane, Hero League, Masquerade, and more at ahrensgames.com.
                     </p>
                   </td>
@@ -9502,9 +9502,9 @@ async function sendWelcomeGuideEmail(env, email, username, sendOptions = {}) {
                 </tr>
                 <tr>
                   <td align="center" style="padding:14px 20px 26px 20px;">
-                    <a href="${gamesLobbyUrl}" style="display:inline-block;padding:14px 28px;background:#fbbf24;color:#042f2e !important;text-decoration:none;border-radius:999px;font-weight:800;font-size:15px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">Open Ahrens Games</a>
-                    <p style="margin:12px 0 0 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:12px;line-height:1.45;color:#99f6e4;">
-                      <a href="${fantasyUrl}" style="color:#99f6e4;font-weight:600;">Ahrens Fantasy</a> — shared fantasy football leagues on the same login
+                    <a href="${gamesLobbyUrl}" style="display:inline-block;padding:14px 28px;background:#ffffff;color:#1d4ed8 !important;text-decoration:none;border-radius:999px;font-weight:800;font-size:15px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">Open Ahrens Games</a>
+                    <p style="margin:12px 0 0 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:12px;line-height:1.45;color:#bfdbfe;">
+                      <a href="${fantasyUrl}" style="color:#dbeafe;font-weight:600;">Ahrens Fantasy</a> — shared fantasy football leagues on the same login
                     </p>
                   </td>
                 </tr>
@@ -9514,7 +9514,7 @@ async function sendWelcomeGuideEmail(env, email, username, sendOptions = {}) {
 
           <tr>
             <td style="padding:18px 24px 6px 24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
-              <p style="margin:0 0 4px 0;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94a3b8;">Also on your account</p>
+              <p style="margin:0 0 4px 0;font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#2563eb;">Also on your account</p>
               <p style="margin:0;font-size:13px;line-height:1.5;color:#64748b;">Each app below uses this same email and password.</p>
             </td>
           </tr>
@@ -9539,11 +9539,11 @@ async function sendWelcomeGuideEmail(env, email, username, sendOptions = {}) {
 
           <tr>
             <td style="padding:12px 24px 28px 24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;text-align:center;">
-              <a href="${dashUrl}" style="display:inline-block;padding:12px 22px;background:#0f172a;color:#ffffff !important;text-decoration:none;border-radius:10px;font-weight:700;font-size:14px;">Account dashboard</a>
+              <a href="${dashUrl}" style="display:inline-block;padding:12px 22px;background:linear-gradient(135deg,#2563eb,#3b82f6);color:#ffffff !important;text-decoration:none;border-radius:10px;font-weight:700;font-size:14px;">Account dashboard</a>
               <p style="margin:14px 0 0 0;font-size:13px;line-height:1.5;color:#64748b;">Manage email preferences, password, and username from your dashboard.</p>
               <p style="margin:14px 0 0 0;font-size:12px;line-height:1.5;color:#94a3b8;">
-                Questions? <a href="mailto:caleb@ahrenslabs.com" style="color:#64748b;">caleb@ahrenslabs.com</a><br />
-                <a href="${homeUrl}" style="color:#64748b;">ahrenslabs.com</a> · <a href="${gamesLobbyUrl}" style="color:#64748b;">ahrensgames.com</a>
+                Questions? <a href="mailto:caleb@ahrenslabs.com" style="color:#2563eb;">caleb@ahrenslabs.com</a><br />
+                <a href="${homeUrl}" style="color:#2563eb;">ahrenslabs.com</a> · <a href="${gamesLobbyUrl}" style="color:#64748b;">ahrensgames.com</a>
               </p>
             </td>
           </tr>
