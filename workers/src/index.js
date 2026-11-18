@@ -491,6 +491,30 @@ async function evaluateSignupEmailForCreate(env, emailRaw) {
   }
 
   if (accountExists) {
+    // Pending (never confirmed) signups do not count as real accounts — allow replace.
+    if (accountEmailVerified === false) {
+      steps.push({
+        id: 'account_slot',
+        ok: true,
+        reclaimUnverified: true,
+        userId,
+        username: accountUsername,
+        message: 'Unconfirmed signup can be replaced',
+      });
+      return {
+        ok: true,
+        normalizedEmail,
+        userId,
+        accountExists: true,
+        accountUsername,
+        accountEmailVerified: false,
+        reclaimUnverified: true,
+        legacyEmailNotOnFile: false,
+        steps,
+        signupError: null,
+      };
+    }
+
     steps.push({
       id: 'account_slot',
       ok: false,
@@ -527,6 +551,94 @@ async function evaluateSignupEmailForCreate(env, emailRaw) {
   };
 }
 
+/**
+ * Remove a never-confirmed signup so the email/username slot can be reused.
+ * Confirmed or legacy accounts are left alone.
+ */
+async function clearUnverifiedSignupAccount(env, userId) {
+  if (!userId) return { cleared: false };
+  const stub = env.USER_ACCOUNT.get(env.USER_ACCOUNT.idFromName(userId));
+  let row = null;
+  try {
+    const dataRes = await stub.fetch(new Request('http://do/getData', { method: 'GET' }));
+    row = await dataRes.json();
+  } catch {
+    return { cleared: false };
+  }
+  if (!userAccountProfileExists(row)) return { cleared: false };
+  if (row.emailVerified !== false) {
+    return { cleared: false, blocked: true, reason: 'confirmed_or_legacy' };
+  }
+
+  const usernameForRelease = normalizeUsernameForIndex(row.username);
+  const delRes = await stub.fetch(
+    new Request('http://do/adminForceDeleteAccount', { method: 'POST', body: '{}' })
+  );
+  let result = null;
+  try {
+    result = await delRes.json();
+  } catch {
+    result = null;
+  }
+  if (!result?.success) {
+    return { cleared: false, error: result?.error || 'Could not clear pending account' };
+  }
+  await purgeAccountSideEffects(env, userId, usernameForRelease);
+  return { cleared: true, username: usernameForRelease || '' };
+}
+
+/** Reserve a username; if held only by an unconfirmed account, clear that pending signup and retry. */
+async function reserveUsernameForSignup(env, usernameRegistry, normalizedUsername, userId) {
+  const reserveUsernameReq = new Request('http://do/reserve', {
+    method: 'POST',
+    body: JSON.stringify({ username: normalizedUsername, userId }),
+  });
+  let reserveUsernameRes = await usernameRegistry.fetch(reserveUsernameReq);
+  let reserveUsernameData = null;
+  try {
+    reserveUsernameData = await reserveUsernameRes.json();
+  } catch {
+    reserveUsernameData = null;
+  }
+  if (reserveUsernameRes.ok && reserveUsernameData?.success) {
+    return { ok: true };
+  }
+
+  const resolveRes = await usernameRegistry.fetch(
+    new Request('http://do/resolve', {
+      method: 'POST',
+      body: JSON.stringify({ username: normalizedUsername }),
+    })
+  );
+  let resolveData = null;
+  try {
+    resolveData = await resolveRes.json();
+  } catch {
+    resolveData = null;
+  }
+  const ownerId = resolveData?.userId ? String(resolveData.userId) : '';
+  if (ownerId && ownerId !== String(userId)) {
+    const cleared = await clearUnverifiedSignupAccount(env, ownerId);
+    if (cleared.cleared) {
+      reserveUsernameRes = await usernameRegistry.fetch(reserveUsernameReq);
+      try {
+        reserveUsernameData = await reserveUsernameRes.json();
+      } catch {
+        reserveUsernameData = null;
+      }
+      if (reserveUsernameRes.ok && reserveUsernameData?.success) {
+        return { ok: true, clearedPendingOwner: ownerId };
+      }
+    }
+  }
+
+  return {
+    ok: false,
+    status: reserveUsernameRes.status === 409 ? 409 : 400,
+    error: reserveUsernameData?.error || 'Username is already taken',
+  };
+}
+
 async function handleSignup(request, env, corsHeaders) {
   const { email, password, username } = await request.json();
   const normalizedEmail = normalizeEmail(email);
@@ -550,23 +662,31 @@ async function handleSignup(request, env, corsHeaders) {
   const userId = emailEval.userId;
   console.log('Signup - email:', normalizedEmail, 'userId:', userId);
 
+  // Replace a previous unconfirmed signup for this email so retry is allowed.
+  if (emailEval.reclaimUnverified) {
+    const cleared = await clearUnverifiedSignupAccount(env, userId);
+    if (cleared.blocked) {
+      return new Response(JSON.stringify({ error: 'User already exists' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    if (cleared.error) {
+      return new Response(JSON.stringify({ error: cleared.error }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    console.log('Signup - cleared unconfirmed account for reclaim', userId);
+  }
+
   // Reserve username globally (case-insensitive) before creating the user.
   const usernameRegistryId = env.USERNAME_REGISTRY.idFromName('global');
   const usernameRegistry = env.USERNAME_REGISTRY.get(usernameRegistryId);
-  const reserveUsernameReq = new Request('http://do/reserve', {
-    method: 'POST',
-    body: JSON.stringify({ username: normalizedUsername, userId }),
-  });
-  const reserveUsernameRes = await usernameRegistry.fetch(reserveUsernameReq);
-  let reserveUsernameData = null;
-  try {
-    reserveUsernameData = await reserveUsernameRes.json();
-  } catch {
-    reserveUsernameData = null;
-  }
-  if (!reserveUsernameRes.ok || !reserveUsernameData?.success) {
-    return new Response(JSON.stringify({ error: reserveUsernameData?.error || 'Username is already taken' }), {
-      status: reserveUsernameRes.status === 409 ? 409 : 400,
+  const reserved = await reserveUsernameForSignup(env, usernameRegistry, normalizedUsername, userId);
+  if (!reserved.ok) {
+    return new Response(JSON.stringify({ error: reserved.error || 'Username is already taken' }), {
+      status: reserved.status || 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
@@ -6058,13 +6178,16 @@ async function handleAdminCheckSignupEmail(request, env, corsHeaders) {
       userId: evalResult.userId || '',
       canSignup,
       accountExists: !!evalResult.accountExists,
+      reclaimUnverified: !!evalResult.reclaimUnverified,
       accountUsername: evalResult.accountUsername || '',
       accountEmailVerified: evalResult.accountEmailVerified ?? null,
       legacyEmailNotOnFile: !!evalResult.legacyEmailNotOnFile,
       signupError: evalResult.signupError || null,
       steps: evalResult.steps || [],
       summary: canSignup
-        ? 'Signup would accept this email (username and password still required).'
+        ? evalResult.reclaimUnverified
+          ? 'Unconfirmed signup exists — a new signup would replace it and send a fresh confirmation email.'
+          : 'Signup would accept this email (username and password still required).'
         : evalResult.signupError || 'Signup would reject this email.',
     }),
     { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -11153,11 +11276,15 @@ export class UserAccount {
   }
 
   async create(email, password, username) {
-    // Check if already exists
-    const exists = await this.checkExists();
-    console.log('Create user - exists:', exists, 'email:', email);
-    if (exists) {
-      return { success: false, error: 'User already exists' };
+    // Check if already exists — unconfirmed pending signups may be replaced.
+    const existing = await this.storage.get('userData');
+    console.log('Create user - exists:', !!existing, 'email:', email);
+    if (existing) {
+      if (existing.emailVerified === false) {
+        await this.adminForceDeleteAccount();
+      } else {
+        return { success: false, error: 'User already exists' };
+      }
     }
 
     const passwordHash = await hashPasswordSecure(password);
