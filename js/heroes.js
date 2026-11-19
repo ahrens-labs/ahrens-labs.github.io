@@ -513,7 +513,7 @@
       <header class="topbar">
         <div class="brand">
           <img src="/img/heroes-icon-180.png?v=3" alt="" class="brand-logo" width="46" height="46">
-          <div><h1>Hero League</h1><small>${esc(sub)}</small></div>
+          <div><h1>Hero League</h1><small>${sub}</small></div>
         </div>
         <div class="top-mid">
           <div class="day-meter" title="The game ends the moment the ${E.PLAZA_END}th card is sent to the Plaza"><span class="dm-label">🏙️ Plaza <b>${pz}</b> of ${E.PLAZA_END}</span><span class="dm-bar"><i style="width:${Math.round((pz / E.PLAZA_END) * 100)}%"></i></span></div>

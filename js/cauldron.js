@@ -436,7 +436,7 @@
       <header class="topbar">
         <div class="brand">
           <img src="/img/cauldron-icon-180.png?v=3" alt="" class="brand-logo" width="46" height="46">
-          <div><h1>Cauldron Lane</h1><small>${esc(sub)}</small></div>
+          <div><h1>Cauldron Lane</h1><small>${sub}</small></div>
         </div>
         <div class="top-mid">
           <div class="day-meter" title="The calendar runs to the Moon Fair on day ${E.DAYS}"><span class="dm-label">📅 Day <b>${s.phase === 'over' ? E.DAYS : day}</b> of ${E.DAYS}</span><span class="dm-bar"><i style="width:${Math.round(((s.phase === 'over' ? E.DAYS : day) / E.DAYS) * 100)}%"></i></span></div>
