@@ -3028,7 +3028,23 @@
           return Math.floor(days / 365) + 'y ago';
         }
 
-        const ADMIN_APP_NAMES = { classify: 'Classify', tether: 'Tether', platter: 'Platter', deck: 'Deck', link: 'Link' };
+        const ADMIN_APP_NAMES = {
+          classify: 'Classify',
+          tether: 'Tether',
+          platter: 'Platter',
+          deck: 'Deck',
+          ahrensGames: 'Ahrens Games',
+          link: 'Link',
+        };
+        const AHRENS_GAMES_LABELS = {
+          dino: 'Dino Dynasty',
+          hearthhold: 'Oakhaven',
+          atlantis: 'Atlantis',
+          cauldron: 'Cauldron Lane',
+          heroes: 'Hero League',
+          masquerade: 'Masquerade',
+          whiteout: 'Whiteout Station',
+        };
 
         function adminFormatDateTime(ms) {
           const t = Number(ms);
@@ -3112,6 +3128,19 @@
           return parts.join(' · ');
         }
 
+        function adminAppAhrensGamesDetail(a) {
+          if (!a?.appAhrensGames) return 'No activity recorded';
+          const parts = [];
+          if (a.appAhrensGamesHasSettings) parts.push('settings saved');
+          const rel = adminFormatRelativeTime(a.appAhrensGamesLastSeen);
+          if (rel) parts.push('seen ' + rel);
+          if (a.appAhrensGamesTurnReminders === true) parts.push('turn reminders on');
+          if (a.appAhrensGamesTurnReminders === false) parts.push('turn reminders off');
+          if (a.appAhrensGamesChallengeEmails === true) parts.push('challenge emails on');
+          if (a.appAhrensGamesChallengeEmails === false) parts.push('challenge emails off');
+          return parts.length ? parts.join(' · ') : 'Used Ahrens Games';
+        }
+
         function adminAppUsageBadgesHtml(a) {
           if (!a || typeof a !== 'object') return '';
           const badges = [];
@@ -3143,6 +3172,13 @@
                 '">Deck</span>'
             );
           }
+          if (a.appAhrensGames) {
+            badges.push(
+              '<span class="admin-app-badge is-on" title="' +
+                escHtml(adminAppAhrensGamesDetail(a)) +
+                '">Ahrens Games</span>'
+            );
+          }
           if (a.appLink) {
             badges.push(
               '<span class="admin-app-badge is-on" title="' +
@@ -3151,7 +3187,7 @@
             );
           }
           if (!badges.length) {
-            return '<span class="admin-app-badge is-empty" title="No Classify, Tether, Platter, Deck, or Link data saved">—</span>';
+            return '<span class="admin-app-badge is-empty" title="No Classify, Tether, Platter, Deck, Ahrens Games, or Link data saved">—</span>';
           }
           return '<div class="admin-app-badges">' + badges.join('') + '</div>';
         }
@@ -3163,6 +3199,7 @@
           if (a.appTether) parts.push('Tether');
           if (a.appPlatter) parts.push('Platter');
           if (a.appDeck) parts.push('Deck');
+          if (a.appAhrensGames) parts.push('Ahrens Games');
           if (a.appLink) parts.push('Link');
           return parts.length ? parts.join(', ') : 'None';
         }
@@ -3187,6 +3224,10 @@
           return 'admin-details-gh-stats-' + adminRowKey(account).replace(/[^a-z0-9_-]/g, '_');
         }
 
+        function adminDetailsAgStatsId(account) {
+          return 'admin-details-ag-stats-' + adminRowKey(account).replace(/[^a-z0-9_-]/g, '_');
+        }
+
         function adminGameHistoryUrl(account) {
           if (!account) return 'chess_engine/game_history/';
           const q = new URLSearchParams();
@@ -3195,6 +3236,15 @@
           if (account.username) q.set('viewUsername', account.username);
           const qs = q.toString();
           return 'chess_engine/game_history/' + (qs ? '?' + qs : '');
+        }
+
+        function adminAhrensGamesHistoryUrl(account) {
+          const q = new URLSearchParams();
+          if (account?.userId) q.set('viewUserId', account.userId);
+          if (account?.email) q.set('viewEmail', account.email);
+          if (account?.username) q.set('viewUsername', account.username);
+          const qs = q.toString();
+          return 'https://ahrensgames.com/game-history.html' + (qs ? '?' + qs : '');
         }
 
         async function loadAdminAccountGameHistorySummary(account) {
@@ -3229,6 +3279,53 @@
               `${ps.wins || 0}W ${ps.losses || 0}L ${ps.draws || 0}D · ${data.points || 0} pts`;
           } catch (e) {
             el.textContent = 'Could not load game stats.';
+          }
+        }
+
+        async function loadAdminAccountAhrensGamesSummary(account) {
+          const el = document.getElementById(adminDetailsAgStatsId(account));
+          if (!el) return;
+          const sessionId = getSessionId();
+          if (!sessionId) {
+            el.textContent = '';
+            return;
+          }
+          const body = {};
+          if (account.userId) body.userId = account.userId;
+          if (account.email) body.email = account.email;
+          if (account.username) body.username = account.username;
+          try {
+            const res = await fetch(`${API_BASE_URL}/api/admin/board-games/load-for-user`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${sessionId}`,
+              },
+              body: JSON.stringify(body),
+            });
+            const { ok, data } = await readApiJsonResponse(res);
+            if (!ok || !data.success) {
+              el.textContent = data.error || 'Could not load Ahrens Games stats.';
+              return;
+            }
+            const parts = [
+              `${data.played || 0} finished`,
+              `${data.wins || 0}W ${data.losses || 0}L ${data.ties || 0}T`,
+              `${data.onlineCount || 0} open online`,
+              `${data.saveCount || 0} cloud save${data.saveCount === 1 ? '' : 's'}`,
+            ];
+            const byGame = data.stats && typeof data.stats === 'object' ? data.stats : {};
+            const playedGames = Object.keys(byGame)
+              .filter((k) => Number(byGame[k]?.played) > 0)
+              .map((k) => (AHRENS_GAMES_LABELS[k] || k) + ' ' + byGame[k].played)
+              .slice(0, 6);
+            el.innerHTML =
+              escHtml(parts.join(' · ')) +
+              (playedGames.length
+                ? '<br><span style="color:#64748b;">' + escHtml(playedGames.join(' · ')) + '</span>'
+                : '');
+          } catch (e) {
+            el.textContent = 'Could not load Ahrens Games stats.';
           }
         }
 
@@ -3270,9 +3367,19 @@
           accountHtml += adminDetailRow('Tether', escHtml(adminAppTetherDetail(a)));
           accountHtml += adminDetailRow('Platter', escHtml(adminAppPlatterDetail(a)));
           accountHtml += adminDetailRow('Deck', escHtml(adminAppDeckDetail(a)));
+          accountHtml += adminDetailRow('Ahrens Games', escHtml(adminAppAhrensGamesDetail(a)));
           accountHtml += adminDetailRow('Link', escHtml(adminAppLinkDetail(a)));
           accountHtml += adminDetailRow('Last change by app', adminAppChangesHtml(a));
           accountHtml += '</dl></section>';
+
+          accountHtml +=
+            '<section class="admin-account-details-section admin-account-details-section--compact"><h3>Ahrens Games</h3>' +
+            '<p style="margin:0 0 6px 0;"><a class="btn btn-ghost" href="' +
+            escHtml(adminAhrensGamesHistoryUrl(a)) +
+            '" style="padding:4px 10px;font-size:0.78rem;">Open game history</a></p>' +
+            '<p id="' +
+            escHtml(adminDetailsAgStatsId(a)) +
+            '" class="hint" style="margin:0;font-size:0.78rem;color:#64748b;">Loading Ahrens Games stats…</p></section>';
 
           accountHtml +=
             '<section class="admin-account-details-section"><h3>TrifangX daily challenge roundup</h3><dl class="admin-account-details-dl">';
@@ -3352,6 +3459,7 @@
           content.innerHTML = buildAdminAccountDetailsHtml(account);
           modal.hidden = false;
           loadAdminAccountGameHistorySummary(account);
+          loadAdminAccountAhrensGamesSummary(account);
           document.getElementById('admin-account-details-close')?.focus();
         }
 
@@ -3438,7 +3546,8 @@
                   (activeN || '—') +
                   '</span>';
                 const detailsBtn = `<button type="button" class="btn-admin-row admin-acct-details" data-admin-user-id="${uidAttr}" data-admin-email="${emAttr}" title="View subscriptions and account info">Details</button>`;
-                const historyBtn = `<a class="btn-admin-row" href="${escHtml(adminGameHistoryUrl(a))}" title="View TrifangX game history">History</a>`;
+                const historyBtn = `<a class="btn-admin-row" href="${escHtml(adminGameHistoryUrl(a))}" title="View TrifangX game history">Chess</a>`;
+                const gamesHistBtn = `<a class="btn-admin-row" href="${escHtml(adminAhrensGamesHistoryUrl(a))}" title="View Ahrens Games history">Games</a>`;
                 const welcomeBtn = `<button type="button" class="btn-admin-row btn-admin-row-primary admin-acct-welcome" data-admin-user-id="${uidAttr}" data-admin-email="${emAttr}">Welcome</button>`;
                 const customBtn = `<button type="button" class="btn-admin-row admin-acct-custom" data-admin-user-id="${uidAttr}" data-admin-email="${emAttr}" data-admin-username="${unAttr}">Custom</button>`;
                 const deleteBtn = `<button type="button" class="btn-admin-row btn-admin-row-danger admin-acct-delete" data-admin-user-id="${uidAttr}" data-admin-email="${emAttr}" data-admin-username="${unAttr}">Delete</button>`;
@@ -3448,7 +3557,7 @@
                   `<td class="c-email" title="${emTitle}">${emailCell}</td>` +
                   `<td class="c-user" title="${unTitle}">${escHtml(a.username || '—')}</td>` +
                   `<td class="c-apps" title="${escHtml(adminAppUsageLabel(a))}">${adminAppUsageBadgesHtml(a)}</td>` +
-                  `<td class="c-act">${activeBadge}${detailsBtn}${historyBtn}${welcomeBtn}${customBtn}${deleteBtn}</td></tr>`
+                  `<td class="c-act">${activeBadge}${detailsBtn}${historyBtn}${gamesHistBtn}${welcomeBtn}${customBtn}${deleteBtn}</td></tr>`
                 );
               })
               .join('');

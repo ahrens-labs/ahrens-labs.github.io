@@ -184,6 +184,16 @@ h1, h2 { font-family: "Montserrat", "Fredoka", sans-serif; font-weight: 800; let
 .hx-view { font-size: 0.75rem; font-weight: 600; color: #0b1530; white-space: nowrap; }
 .hx-row:hover .hx-view, .hx-row:focus-visible .hx-view { color: #b23a48; }
 .hx-note a { color: #ffd21f; }
+.hx-admin-banner {
+  margin: 0 0 0.85rem;
+  padding: 0.7rem 0.95rem;
+  border-radius: 12px;
+  background: rgba(37, 99, 235, 0.22);
+  box-shadow: inset 0 0 0 1px rgba(147, 197, 253, 0.45);
+  color: #dbeafe;
+  font: 600 0.95rem "Fredoka", system-ui, sans-serif;
+  line-height: 1.4;
+}
 .hx-signin { display: inline-block; margin-top: 0.6rem; --accent: #2f8cff; color: #0a0f1c; }
 @media (max-width: 560px) { .hx-view { display: none; } }
 .lobby-title > div:not(.surprise-box) { flex: 1 1 22rem; min-width: 0; }

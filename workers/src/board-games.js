@@ -77,7 +77,7 @@ function cleanSummary(s) {
   return out;
 }
 
-async function onlineGames(env, userId) {
+export async function onlineGames(env, userId) {
   const lists = await Promise.all(LOBBIES.filter((l) => env[l.binding]).map(async (l) => {
     try {
       const ns = env[l.binding];
@@ -104,7 +104,7 @@ async function onlineGames(env, userId) {
   return lists.flat().filter((g) => g.game && SAVE_GAMES.has(g.game)).sort((a, b) => needsMe(b) - needsMe(a) || b.updatedAt - a.updatedAt);
 }
 
-async function savedGames(env, userId) {
+export async function savedGames(env, userId) {
   try {
     const res = await accountStub(env, userId).fetch(new Request('http://do/boardSaves/index', { headers: { 'X-Ahrens-Seen': '1' } }));
     const data = await res.json();
@@ -159,7 +159,7 @@ function scoredRow(game, h) {
   };
 }
 
-async function combinedHistory(env, userId) {
+export async function combinedHistory(env, userId) {
   const lists = await Promise.all(HISTORY_SOURCES.filter((s) => env[s.binding]).map(async (s) => {
     try {
       const ns = env[s.binding];

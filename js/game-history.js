@@ -1,6 +1,8 @@
 // Game history: every finished game across all the board games, with a link to each saved board.
+// Admins can open another player's history with ?viewUserId= / viewEmail= / viewUsername=.
 (() => {
   const API_BASE = window.AHRENS_LABS_API_BASE || 'https://chess-accounts.matthewahrens.workers.dev';
+  const ADMIN_BROADCAST_EMAIL = 'calebahrens2011@gmail.com';
   const CACHE_KEY = 'ahrensBoardGames.history';
   // Shown straight away on the next visit, then refreshed if it's more than a few seconds old.
   const FRESH_MS = 30 * 1000;
@@ -27,25 +29,106 @@
       return '';
     }
   };
+  const isAdminViewer = () => {
+    try {
+      return (localStorage.getItem('ahrenslabs_email') || '').trim().toLowerCase() === ADMIN_BROADCAST_EMAIL;
+    } catch {
+      return false;
+    }
+  };
+
+  function parseAdminViewTarget() {
+    if (!isAdminViewer()) return null;
+    const u = new URLSearchParams(location.search);
+    const userId = (u.get('viewUserId') || '').trim();
+    const email = (u.get('viewEmail') || '').trim();
+    const username = (u.get('viewUsername') || '').trim();
+    if (!userId && !email && !username) return null;
+    const out = {};
+    if (userId) out.userId = userId;
+    if (email) out.email = email;
+    if (username) out.username = username;
+    return out;
+  }
+
+  function buildQuery(extra) {
+    const q = new URLSearchParams();
+    if (view.game && view.game !== 'all') q.set('game', view.game);
+    if (view.adminTarget) {
+      if (view.adminTarget.userId) q.set('viewUserId', view.adminTarget.userId);
+      if (view.adminTarget.email) q.set('viewEmail', view.adminTarget.email);
+      if (view.adminTarget.username) q.set('viewUsername', view.adminTarget.username);
+    }
+    if (extra) {
+      Object.entries(extra).forEach(([k, v]) => {
+        if (v == null || v === '') q.delete(k);
+        else q.set(k, v);
+      });
+    }
+    const s = q.toString();
+    return s ? `?${s}` : '';
+  }
+
   const params = new URLSearchParams(location.search);
-  const view = { data: null, game: GAMES[params.get('game')] ? params.get('game') : 'all', shown: PAGE, loading: false };
+  const view = {
+    data: null,
+    game: GAMES[params.get('game')] ? params.get('game') : 'all',
+    shown: PAGE,
+    loading: false,
+    adminTarget: parseAdminViewTarget(),
+    subject: null,
+  };
 
   function signedOutBox() {
-    const back = encodeURIComponent('game-history.html');
+    const back = encodeURIComponent('game-history.html' + location.search);
     box.innerHTML = `<div class="mg-head"><h2 id="gh-title">🏆 Game history</h2></div><p class="mg-note">Sign in to see every game you’ve finished.</p><a class="play hx-signin" href="/account.html?return=${back}">Log in or sign up</a>`;
   }
   if (!session()) return signedOutBox();
 
+  function updateAdminBanner() {
+    const banner = document.getElementById('gh-admin-viewing-banner');
+    const title = document.querySelector('.lobby-title h1');
+    const blurb = document.querySelector('.lobby-title p');
+    if (!view.adminTarget) {
+      if (banner) banner.hidden = true;
+      if (title) title.textContent = 'Game history';
+      if (blurb) blurb.textContent = 'Every game you’ve finished, across all the boxes. Tap a game to see its final board.';
+      return;
+    }
+    const label =
+      (view.subject && (view.subject.username || view.subject.email)) ||
+      view.adminTarget.username ||
+      view.adminTarget.email ||
+      view.adminTarget.userId ||
+      'Player';
+    if (banner) {
+      banner.hidden = false;
+      banner.textContent =
+        'Admin view — read-only Ahrens Games history for ' +
+        label +
+        (view.subject && view.subject.email && view.subject.username ? ` (${view.subject.email})` : '') +
+        '.';
+    }
+    if (title) title.textContent = `Game history · ${label}`;
+    if (blurb) blurb.textContent = 'Finished games for this account across all Ahrens Games titles.';
+  }
+
   // Where a row leads: its saved board, or the game's own history when no board was kept.
   function hrefOf(h) {
     const G = GAMES[h.game];
+    if (!G) return '/game-history.html';
+    // Admin viewing someone else: don't open their private past boards as if they were yours.
+    if (view.adminTarget) return G.history;
     if (h.game === 'dino') {
       if (h.kind === 'online' && h.gameId) return `${G.page}?game=${encodeURIComponent(h.gameId)}`;
       return h.board ? `${G.page}?past=${encodeURIComponent(h.id)}` : G.history;
     }
     return h.board ? `${G.page}?past=${encodeURIComponent(h.id)}` : G.history;
   }
-  const hasBoard = (h) => (h.game === 'dino' && h.kind === 'online' ? !!h.gameId : !!h.board);
+  const hasBoard = (h) => {
+    if (view.adminTarget) return false;
+    return h.game === 'dino' && h.kind === 'online' ? !!h.gameId : !!h.board;
+  };
 
   function opponents(h) {
     const others = h.names.map((n, i) => ({ n, i })).filter((x) => x.i !== h.me);
@@ -70,6 +153,7 @@
   }
   function row(h) {
     const G = GAMES[h.game];
+    if (!G) return '';
     const who = h.me == null ? h.names.join(' vs ') : opponents(h);
     const when = h.at ? new Date(h.at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '';
     const why = h.reason === 'resign' ? (h.result === 'win' ? ' · they resigned' : ' · resigned') : h.reason === 'timeout' ? ' · out of time' : '';
@@ -95,6 +179,7 @@
   function render() {
     const d = view.data;
     if (!d) return;
+    updateAdminBanner();
     const stats = d.stats || {};
     const t = totals(stats, view.game);
     const rated = t.wins + t.losses + t.ties;
@@ -112,16 +197,52 @@
     $('.hx-more').hidden = items.length <= view.shown;
     $('.hx-note').innerHTML = items.length
       ? ''
-      : 'No finished games yet. Games show up here when they end.';
+      : view.adminTarget
+        ? 'No finished Ahrens Games for this account yet.'
+        : 'No finished games yet. Games show up here when they end.';
   }
 
   function cached() {
+    if (view.adminTarget) return null;
     try {
       return JSON.parse(sessionStorage.getItem(CACHE_KEY) || 'null');
     } catch {
       return null;
     }
   }
+
+  function fetchHistory() {
+    if (view.adminTarget) {
+      return fetch(`${API_BASE}/api/admin/board-games/load-for-user`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session()}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(view.adminTarget),
+      }).then(async (r) => {
+        if (r.status === 401 || r.status === 403) {
+          throw new Error(r.status === 403 ? 'Admin only' : 'Unauthorized');
+        }
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const data = await r.json();
+        if (!data.success) throw new Error(data.error || 'Failed');
+        view.subject = { username: data.username || '', email: data.email || '', userId: data.userId || '' };
+        return { items: data.items || [], stats: data.stats || {} };
+      });
+    }
+    return fetch(`${API_BASE}/api/board-games/history`, { headers: { Authorization: `Bearer ${session()}` } }).then(
+      async (r) => {
+        if (r.status === 401) {
+          signedOutBox();
+          return null;
+        }
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      }
+    );
+  }
+
   function load() {
     if (view.loading) return;
     const c = cached();
@@ -131,27 +252,29 @@
     }
     if (c && Date.now() - c.at < FRESH_MS) return;
     view.loading = true;
-    fetch(`${API_BASE}/api/board-games/history`, { headers: { Authorization: `Bearer ${session()}` } })
-      .then((r) => {
-        if (r.status === 401) {
-          signedOutBox();
-          return null;
-        }
-        if (!r.ok) throw new Error('HTTP ' + r.status);
-        return r.json();
-      })
+    fetchHistory()
       .then((data) => {
         if (!data) return;
         view.data = { items: data.items || [], stats: data.stats || {} };
-        try {
-          sessionStorage.setItem(CACHE_KEY, JSON.stringify({ at: Date.now(), data: view.data }));
-        } catch {
-          /* storage blocked */
+        if (!view.adminTarget) {
+          try {
+            sessionStorage.setItem(CACHE_KEY, JSON.stringify({ at: Date.now(), data: view.data }));
+          } catch {
+            /* storage blocked */
+          }
         }
         render();
       })
-      .catch(() => {
-        if (!view.data) $('.hx-note').textContent = 'Couldn’t load your game history right now.';
+      .catch((err) => {
+        if (!view.data) {
+          const note = $('.hx-note');
+          if (note) {
+            note.textContent =
+              err && String(err.message || '').includes('Admin')
+                ? 'Admin access is required to view another player’s history.'
+                : 'Couldn’t load game history right now.';
+          }
+        }
       })
       .finally(() => {
         view.loading = false;
@@ -163,8 +286,7 @@
     if (f) {
       view.game = f.dataset.hx;
       view.shown = PAGE;
-      // Each filter has its own address, so it can be shared or bookmarked.
-      if (history.replaceState) history.replaceState(null, '', view.game === 'all' ? location.pathname : `${location.pathname}?game=${view.game}`);
+      if (history.replaceState) history.replaceState(null, '', location.pathname + buildQuery());
       return render();
     }
     if (e.target.closest('.hx-more')) {
@@ -175,5 +297,6 @@
   addEventListener('pageshow', (e) => {
     if (e.persisted) load();
   });
+  updateAdminBanner();
   load();
 })();

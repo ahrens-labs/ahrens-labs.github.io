@@ -45,7 +45,14 @@ import { handleCauldronRequest } from './cauldron.js';
 import { handleLabOnlineRequest } from './lab-online.js';
 import { handleHeroesRequest } from './heroes.js';
 import { handleMasqueradeRequest } from './masquerade.js';
-import { handleBoardGamesRequest, handleBoardSavesDO, deleteBoardSaves } from './board-games.js';
+import {
+  handleBoardGamesRequest,
+  handleBoardSavesDO,
+  deleteBoardSaves,
+  combinedHistory,
+  onlineGames,
+  savedGames,
+} from './board-games.js';
 import { FantasyLeagueStore, handleFantasyRequest, processScheduledFantasyWaivers } from './fantasy.js';
 export { HearthholdGame, HearthholdLobby } from './hearthhold.js';
 export { LabGame, LabLobby } from './lab-online.js';
@@ -194,6 +201,8 @@ export default {
         return handleAdminSendEmailToGroup(request, env, corsHeaders);
       } else if (path === '/api/admin/chess/load-for-user' && request.method === 'POST') {
         return handleAdminChessLoadForUser(request, env, corsHeaders);
+      } else if (path === '/api/admin/board-games/load-for-user' && request.method === 'POST') {
+        return handleAdminBoardGamesLoadForUser(request, env, corsHeaders);
       } else if (path === '/api/admin/send-all-test-emails' && request.method === 'POST') {
         return handleAdminSendAllTestEmails(request, env, corsHeaders);
       } else if (path === '/api/admin/send-test-email' && request.method === 'POST') {
@@ -5201,11 +5210,25 @@ function adminAppUsageFields(row) {
     const nums = values.map(Number).filter((v) => Number.isFinite(v) && v > 0);
     return nums.length ? Math.max(...nums) : null;
   };
+  const gs = row && typeof row.gamesSettings === 'object' && row.gamesSettings ? row.gamesSettings : null;
+  const appAhrensGamesHasSettings = !!(
+    gs &&
+    (typeof gs.turnReminders === 'boolean' ||
+      typeof gs.challengeEmails === 'boolean' ||
+      typeof gs.tabAlerts === 'boolean' ||
+      typeof gs.phonePush === 'boolean' ||
+      Number.isFinite(Number(gs.reminderDays)) ||
+      (typeof gs.replaySpeed === 'string' && gs.replaySpeed))
+  );
+  const appAhrensGamesLastSeen = latest(stamps.ahrensGames);
+  const appAhrensGames = appAhrensGamesHasSettings || Number(appAhrensGamesLastSeen) > 0;
+
   const appLastChange = {
     classify: latest(stamps.classify, appClassifyLastUpdated),
     tether: latest(stamps.tether),
     platter: latest(stamps.platter),
     deck: latest(stamps.deck, appDeckLastUpdated),
+    ahrensGames: appAhrensGamesLastSeen,
     link: null,
   };
 
@@ -5228,11 +5251,17 @@ function adminAppUsageFields(row) {
     appDeckCount,
     appDeckCardCount,
     appDeckLastUpdated,
+    appAhrensGames,
+    appAhrensGamesHasSettings,
+    appAhrensGamesLastSeen,
+    appAhrensGamesTurnReminders: gs && typeof gs.turnReminders === 'boolean' ? gs.turnReminders : null,
+    appAhrensGamesChallengeEmails: gs && typeof gs.challengeEmails === 'boolean' ? gs.challengeEmails : null,
     appLink: false,
     appLinkContactCount: 0,
     appLinkInteractionCount: 0,
     appLinkLastActivity: null,
-    appDataCount: Number(appClassify) + Number(appTether) + Number(appPlatter) + Number(appDeck),
+    appDataCount:
+      Number(appClassify) + Number(appTether) + Number(appPlatter) + Number(appDeck) + Number(appAhrensGames),
   };
 }
 
@@ -6163,6 +6192,101 @@ async function resolveAdminChessUserTarget(env, body) {
   } catch {
     return resolved;
   }
+}
+
+/** Admin: load another account’s Ahrens Games history, open games, saves, and settings. */
+async function handleAdminBoardGamesLoadForUser(request, env, corsHeaders) {
+  let body = {};
+  try {
+    const raw = await request.text();
+    if (raw && String(raw).trim()) body = JSON.parse(raw);
+  } catch {
+    return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const sessionId = parseBearerToken(request.headers.get('Authorization'));
+  const gate = await assertAdminBroadcastSession(env, sessionId);
+  if (!gate.ok) {
+    return new Response(JSON.stringify({ error: gate.error }), {
+      status: gate.status,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const resolved = await resolveAdminChessUserTarget(env, body);
+  if (!resolved.ok) {
+    return new Response(JSON.stringify({ success: false, error: resolved.error }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const userId = resolved.userId;
+  let history = { items: [], stats: {} };
+  let online = [];
+  let saves = [];
+  let introSeen = true;
+  let settings = {};
+  try {
+    const [hist, live, saved] = await Promise.all([
+      combinedHistory(env, userId),
+      onlineGames(env, userId),
+      savedGames(env, userId),
+    ]);
+    history = hist && typeof hist === 'object' ? hist : history;
+    online = Array.isArray(live) ? live : [];
+    saves = Array.isArray(saved?.saves) ? saved.saves : [];
+    introSeen = saved?.introSeen !== false;
+    settings = saved?.settings && typeof saved.settings === 'object' ? saved.settings : {};
+  } catch (e) {
+    return new Response(
+      JSON.stringify({ success: false, error: e?.message || 'Could not load Ahrens Games data' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  const stats = history.stats && typeof history.stats === 'object' ? history.stats : {};
+  let played = 0;
+  let wins = 0;
+  let losses = 0;
+  let ties = 0;
+  const byGame = {};
+  for (const [game, st] of Object.entries(stats)) {
+    if (!st || typeof st !== 'object') continue;
+    const p = Number(st.played) || 0;
+    const w = Number(st.wins) || 0;
+    const l = Number(st.losses) || 0;
+    const t = Number(st.ties) || 0;
+    byGame[game] = { played: p, wins: w, losses: l, ties: t };
+    played += p;
+    wins += w;
+    losses += l;
+    ties += t;
+  }
+
+  return new Response(
+    JSON.stringify({
+      success: true,
+      userId,
+      username: resolved.username,
+      email: resolved.email || '',
+      items: Array.isArray(history.items) ? history.items : [],
+      stats: byGame,
+      played,
+      wins,
+      losses,
+      ties,
+      onlineCount: online.length,
+      online,
+      saveCount: saves.length,
+      introSeen,
+      settings,
+    }),
+    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  );
 }
 
 /** Admin: load another account’s TrifangX chess data (game history + summary stats). */
@@ -7981,37 +8105,37 @@ const SEASON_CLAIM_NODES_07 = [
 
 /** Winter holiday quarter (Nov–Jan); must match `SEASON_TRACK_MECHANICAL_11` in js/chess_seasons.js. */
 const SEASON_CLAIM_NODES_11 = [
-  { challengeAchievementId: 'first_game', bonusPoints: 40, rewards: [{ kind: 'lb_prefix', prefix: '🎄' }] },
+  { challengeAchievementId: 'first_win', bonusPoints: 40, rewards: [{ kind: 'lb_prefix', prefix: '🎄' }] },
+  {
+    challengeAchievementId: 'solstice_win_night_ct',
+    bonusPoints: 57,
+    rewards: [{ kind: 'shop', category: 'boards', id: 'season_winter_frostline' }],
+  },
   {
     challengeAchievementId: 'knight_to_f3',
-    bonusPoints: 57,
-    rewards: [{ kind: 'shop', category: 'boards', id: 'season_awakening' }],
+    bonusPoints: 82,
+    rewards: [{ kind: 'shop', category: 'highlightColors', id: 'season_winter_lantern_glow' }],
   },
   {
     challengeAchievementId: 'bishop_to_f4',
-    bonusPoints: 82,
-    rewards: [{ kind: 'shop', category: 'highlightColors', id: 'season_glacier_glow' }],
-  },
-  {
-    challengeAchievementId: 'en_passant',
     bonusPoints: 118,
     rewards: [
-      { kind: 'shop', category: 'pieces', id: 'season_trail' },
+      { kind: 'shop', category: 'pieces', id: 'season_winter_snowsilhouette' },
       { kind: 'lb_row_finish', presets: ['emerald_glade', 'glacier_ribbon'] },
     ],
   },
   {
-    challengeAchievementId: 'queen_capturer',
+    challengeAchievementId: 'en_passant',
     bonusPoints: 169,
     rewards: [{ kind: 'lb_frame', frame: 'silver_lane' }],
   },
   {
-    challengeAchievementId: 'capture_master',
+    challengeAchievementId: 'queen_capturer',
     bonusPoints: 242,
-    rewards: [{ kind: 'lb_title', title: 'Frostline hunter' }],
+    rewards: [{ kind: 'lb_title', title: 'Ornament skewer' }],
   },
   {
-    challengeAchievementId: 'castler',
+    challengeAchievementId: 'capture_master',
     bonusPoints: 347,
     rewards: [
       { kind: 'lb_frame', frame: 'amber_pulse' },
@@ -8019,14 +8143,14 @@ const SEASON_CLAIM_NODES_11 = [
     ],
   },
   {
-    challengeAchievementId: 'promoter',
+    challengeAchievementId: 'castler',
     bonusPoints: 496,
-    rewards: [{ kind: 'shop', category: 'boards', id: 'season_rift' }],
+    rewards: [{ kind: 'shop', category: 'boards', id: 'season_winter_aurora_path' }],
   },
   {
     challengeAchievementId: 'checkmate_rook',
     bonusPoints: 709,
-    rewards: [{ kind: 'lb_title', title: 'Yuletide spire sniper' }],
+    rewards: [{ kind: 'lb_title', title: 'Generous gambit' }],
   },
   {
     challengeAchievementId: 'checkmate_queen',
@@ -8035,15 +8159,15 @@ const SEASON_CLAIM_NODES_11 = [
       { kind: 'lb_frame', frame: 'violet_arc' },
       { kind: 'lb_title', title: 'Holiday ascendant' },
       { kind: 'lb_title', title: 'Frost crown' },
-      { kind: 'lb_title', title: 'Midnight finisher' },
+      { kind: 'lb_title', title: 'Hearthside finisher' },
       { kind: 'lb_suffix', suffix: '❄' },
-      { kind: 'shop', category: 'boards', id: 'season_canopy_crown' },
-      { kind: 'shop', category: 'pieces', id: 'season_canopy_pieces' },
-      { kind: 'shop', category: 'highlightColors', id: 'season_gilded_leaf' },
-      { kind: 'shop', category: 'arrowColors', id: 'season_grove_arrow' },
-      { kind: 'shop', category: 'themes', id: 'season_moonlit_canopy' },
-      { kind: 'shop', category: 'checkmateEffects', id: 'season_finale_flare' },
-      { kind: 'shop', category: 'legalMoveDots', id: 'season_emerald_star' },
+      { kind: 'shop', category: 'boards', id: 'season_winter_hearth_crown' },
+      { kind: 'shop', category: 'pieces', id: 'season_winter_regalia' },
+      { kind: 'shop', category: 'highlightColors', id: 'season_winter_holly_gleam' },
+      { kind: 'shop', category: 'arrowColors', id: 'season_winter_starfall_arrow' },
+      { kind: 'shop', category: 'themes', id: 'season_winter_holiday' },
+      { kind: 'shop', category: 'checkmateEffects', id: 'season_winter_hearth_flare' },
+      { kind: 'shop', category: 'legalMoveDots', id: 'season_winter_snowflake_star' },
       { kind: 'lb_row_finish', presets: ['finale_aurora'] },
     ],
   },
@@ -8305,6 +8429,11 @@ function snapshotSeasonEarnBaselineFromChess(chess) {
     creativeRookBatteryWins: Math.max(0, Number(lt.creativeRookBatteryWins) || 0),
     creativeQueenGrandTourWins: Math.max(0, Number(lt.creativeQueenGrandTourWins) || 0),
     creativeTriplePromotionWins: Math.max(0, Number(lt.creativeTriplePromotionWins) || 0),
+    creativePinGalleryWins: Math.max(0, Number(lt.creativePinGalleryWins) || 0),
+    creativeSkewerSalonWins: Math.max(0, Number(lt.creativeSkewerSalonWins) || 0),
+    creativeKingMarathonWins: Math.max(0, Number(lt.creativeKingMarathonWins) || 0),
+    creativeZwischenzugWins: Math.max(0, Number(lt.creativeZwischenzugWins) || 0),
+    comebackWins: Math.max(0, Number(lt.comebackWins) || 0),
   };
 }
 
@@ -8340,6 +8469,11 @@ const SEASON_STEP_EARN_RULES = Object.freeze({
   flair_battery_1: { type: 'lifetime', key: 'creativeRookBatteryWins', target: 1 },
   flair_queen_tour_1: { type: 'lifetime', key: 'creativeQueenGrandTourWins', target: 1 },
   flair_triple_promo_1: { type: 'lifetime', key: 'creativeTriplePromotionWins', target: 1 },
+  flair_pins_1: { type: 'lifetime', key: 'creativePinGalleryWins', target: 1 },
+  flair_skewer_1: { type: 'lifetime', key: 'creativeSkewerSalonWins', target: 1 },
+  flair_king_hike_1: { type: 'lifetime', key: 'creativeKingMarathonWins', target: 1 },
+  flair_zwischen_1: { type: 'lifetime', key: 'creativeZwischenzugWins', target: 1 },
+  flair_comeback_1: { type: 'lifetime', key: 'comebackWins', target: 1 },
 });
 
 function readEarnBaselineField(baseline, key) {
