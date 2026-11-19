@@ -386,12 +386,14 @@
     if (!G) return;
     const s = st();
     const v = viewer();
-    const sub = G.mode === 'past' ? '📜 Finished ball' : G.mode === 'sim' ? `🧪 ${SIM_SPEEDS[G.speed].name} · computer vs computer` : G.mode === 'online' ? `🌐 ${s.players.length > 2 ? `${s.players.length}-player game` : `vs ${esc(pl(1 - G.me).name)}`}${G.gmode === 'quick' ? ' · ⚡' : ''}${G.gmode === 'quick' && G.deadline ? ' <span class="ol-clock" id="ol-clock"></span>' : ''}` : G.mode === 'local' ? `👥 ${s.players.length} nobles` : `🤖 vs ${plural(s.players.length - 1, 'rival')} · ${LEVEL_NAME[G.level] || ''}`;
+    const sub = G.mode === 'past' ? '📜 Finished ball' : G.mode === 'sim' ? `🧪 ${SIM_SPEEDS[G.speed].name} · computer vs computer` : G.mode === 'online' ? `🌐 ${s.players.length > 2 ? `${s.players.length}-player game` : `vs ${esc(pl(1 - G.me).name)}`}${G.gmode === 'quick' ? ' · ⚡' : ''}` : G.mode === 'local' ? `👥 ${s.players.length} nobles` : `🤖 vs ${plural(s.players.length - 1, 'rival')} · ${LEVEL_NAME[G.level] || ''}`;
+    const clock = G.mode === 'online' && G.gmode === 'quick' && G.status === 'active' && G.deadline ? '<span class="ol-clock" id="ol-clock"></span>' : '';
     const home = G.mode === 'past' ? '🏆<span class="bt"> History</span>' : G.mode === 'sim' ? '⏹<span class="bt"> Stop</span>' : G.mode === 'online' ? '🌐<span class="bt"> Game</span>' : '🎭<span class="bt"> New game</span>';
     $('#app').innerHTML = `
       <header class="topbar">
         <div class="brand"><img src="/img/masquerade-icon-180.png?v=3" alt="" class="brand-logo" width="46" height="46"><div><h1>The Masquerade Court</h1><small>${sub}</small></div></div>
         <div class="top-mid">
+          ${clock}
           <div class="top-chips"><span class="chip">⭐ ${E.FAVOR_WIN} Favor wins</span><span class="chip">🎭 or be the last still masked</span></div>
         </div>
         <div class="top-actions">

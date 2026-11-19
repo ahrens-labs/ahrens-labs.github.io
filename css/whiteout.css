@@ -163,7 +163,7 @@ button { font: inherit; }
 .ol-loading { text-align: center; padding: 4rem 1rem; font-size: 1.1rem; }
 .ol-new .seg button { display: grid; text-align: left; }
 .ol-new .seg small { font-weight: 500; opacity: 0.85; }
-.ol-clock { display: inline-block; margin-left: 0.5rem; padding: 0.1rem 0.55rem; border-radius: 999px; background: rgba(255, 255, 255, 0.85); color: #0b2a40; font-weight: 700; font-variant-numeric: tabular-nums; }
+.ol-clock { display: inline-block; align-self: center; flex-shrink: 0; margin: 0; padding: 0.1rem 0.55rem; border-radius: 999px; background: rgba(255, 255, 255, 0.85); color: #0b2a40; font-weight: 700; font-variant-numeric: tabular-nums; }
 .ol-clock.low { background: #ffe1dc; color: #a3241a; }
 .ol-more-row { display: flex; align-items: center; gap: 0.4rem; }
 .ol-more-row input { flex: 1; min-width: 0; }

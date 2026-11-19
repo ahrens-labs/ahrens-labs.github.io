@@ -430,7 +430,8 @@
     const v = viewIndex();
     const day = E.today(s);
     const nextMarket = E.MARKET_DAYS[s.market];
-    const sub = G.mode === 'past' ? '📜 Finished game' : G.mode === 'sim' ? `🧪 ${SIM_SPEEDS[G.speed].name} · computer vs computer` : G.mode === 'online' ? `🌐 ${s.players.length > 2 ? `${s.players.length}-player game` : `vs ${esc(pl(1 - G.me).name)}`}${G.gmode === 'quick' ? ' · ⚡' : ''}${G.gmode === 'quick' && G.deadline ? ' <span class="ol-clock" id="ol-clock"></span>' : ''}` : G.mode === 'local' ? `👥 ${s.players.length} players` : `🤖 vs ${plural(s.players.length - 1, 'rival')} · ${LEVEL_NAME[G.level] || ''}`;
+    const sub = G.mode === 'past' ? '📜 Finished game' : G.mode === 'sim' ? `🧪 ${SIM_SPEEDS[G.speed].name} · computer vs computer` : G.mode === 'online' ? `🌐 ${s.players.length > 2 ? `${s.players.length}-player game` : `vs ${esc(pl(1 - G.me).name)}`}${G.gmode === 'quick' ? ' · ⚡' : ''}` : G.mode === 'local' ? `👥 ${s.players.length} players` : `🤖 vs ${plural(s.players.length - 1, 'rival')} · ${LEVEL_NAME[G.level] || ''}`;
+    const clock = G.mode === 'online' && G.gmode === 'quick' && G.status === 'active' && G.deadline ? '<span class="ol-clock" id="ol-clock"></span>' : '';
     const home = G.mode === 'past' ? '🏆<span class="bt"> History</span>' : G.mode === 'sim' ? '⏹<span class="bt"> Stop</span>' : G.mode === 'online' ? '🌐<span class="bt"> Game</span>' : '⚗️<span class="bt"> New game</span>';
     $('#app').innerHTML = `
       <header class="topbar">
@@ -439,6 +440,7 @@
           <div><h1>Cauldron Lane</h1><small>${sub}</small></div>
         </div>
         <div class="top-mid">
+          ${clock}
           <div class="day-meter" title="The calendar runs to the Moon Fair on day ${E.DAYS}"><span class="dm-label">📅 Day <b>${s.phase === 'over' ? E.DAYS : day}</b> of ${E.DAYS}</span><span class="dm-bar"><i style="width:${Math.round(((s.phase === 'over' ? E.DAYS : day) / E.DAYS) * 100)}%"></i></span></div>
           <div class="top-chips">
             ${s.phase === 'act' && nextMarket ? `<span class="chip" title="On market day the market restocks, Guild prices recover, and the bestiary and library change">🛒 Market day ${nextMarket}</span>` : ''}

@@ -506,7 +506,8 @@
     if (!G) return;
     const s = st();
     const M = mission();
-    const sub = G.mode === 'past' ? '📜 Finished game' : G.mode === 'sim' ? `🧪 ${SIM_SPEEDS[G.speed].name} · computer vs computer` : G.mode === 'online' ? `🌐 ${s.players.length > 2 ? `${s.players.length}-player game` : `vs ${esc(pl(1 - G.me).name)}`}${G.gmode === 'quick' ? ' · ⚡' : ''}${G.gmode === 'quick' && G.deadline ? ' <span class="ol-clock" id="ol-clock"></span>' : ''}` : G.mode === 'local' ? `👥 ${s.players.length} leagues` : `🤖 vs ${plural(s.players.length - 1, 'rival')} · ${LEVEL_NAME[G.level] || ''}`;
+    const sub = G.mode === 'past' ? '📜 Finished game' : G.mode === 'sim' ? `🧪 ${SIM_SPEEDS[G.speed].name} · computer vs computer` : G.mode === 'online' ? `🌐 ${s.players.length > 2 ? `${s.players.length}-player game` : `vs ${esc(pl(1 - G.me).name)}`}${G.gmode === 'quick' ? ' · ⚡' : ''}` : G.mode === 'local' ? `👥 ${s.players.length} leagues` : `🤖 vs ${plural(s.players.length - 1, 'rival')} · ${LEVEL_NAME[G.level] || ''}`;
+    const clock = G.mode === 'online' && G.gmode === 'quick' && G.status === 'active' && G.deadline ? '<span class="ol-clock" id="ol-clock"></span>' : '';
     const home = G.mode === 'past' ? '🏆<span class="bt"> History</span>' : G.mode === 'sim' ? '⏹<span class="bt"> Stop</span>' : G.mode === 'online' ? '🌐<span class="bt"> Game</span>' : '🦸<span class="bt"> New game</span>';
     const pz = s.plaza.length;
     $('#app').innerHTML = `
@@ -516,6 +517,7 @@
           <div><h1>Hero League</h1><small>${sub}</small></div>
         </div>
         <div class="top-mid">
+          ${clock}
           <div class="day-meter" title="The game ends the moment the ${E.PLAZA_END}th card is sent to the Plaza"><span class="dm-label">🏙️ Plaza <b>${pz}</b> of ${E.PLAZA_END}</span><span class="dm-bar"><i style="width:${Math.round((pz / E.PLAZA_END) * 100)}%"></i></span></div>
           <div class="top-chips">
             <span class="chip" title="The Mission everyone is building for" data-act="mission">${M.icon} ${esc(M.name)}</span>

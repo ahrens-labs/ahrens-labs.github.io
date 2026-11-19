@@ -424,8 +424,9 @@
     const done = s.phase === 'over' ? total : Math.min(total, s.past.length + 1);
     const humans = s.players.filter((p) => !p.ai).length;
     const sub = G.mode === 'online'
-      ? `🌐 Online · ${s.players.length} player${s.players.length > 1 ? 's' : ''}${G.gmode === 'quick' ? ' · ⚡' : ''}${G.gmode === 'quick' && G.status === 'active' ? ' <span class="ol-clock" id="ol-clock"></span>' : ''}`
+      ? `🌐 Online · ${s.players.length} player${s.players.length > 1 ? 's' : ''}${G.gmode === 'quick' ? ' · ⚡' : ''}`
       : humans > 1 ? `👥 ${humans} players on this device` : '🤖 You and a computer crew';
+    const clock = G.mode === 'online' && G.gmode === 'quick' && G.status === 'active' && G.deadline ? '<span class="ol-clock" id="ol-clock"></span>' : '';
     const broken = E.MODULES.filter((m) => s.damaged[m]);
     const chips = [
       `<span class="chip${s.fuel <= 1 ? ' bad' : ''}" title="Fuel left in the generator; it burns 1 each round">⛽ Fuel ${s.fuel}</span>`,
@@ -441,6 +442,7 @@
           <div><h1>Whiteout Station</h1><small>${sub} · ${esc(E.DIFF[s.diff].name)}</small></div>
         </div>
         <div class="top-mid">
+          ${clock}
           <div class="day-meter" title="When the storm deck runs out, the final whiteout ends the mission"><span class="dm-label">⛈️ Storm <b>${done}</b> of ${total}</span><span class="dm-bar"><i style="width:${Math.round((done / Math.max(1, total)) * 100)}%"></i></span></div>
           <div class="top-chips">${chips.join('')}</div>
         </div>

@@ -98,7 +98,7 @@ button { font-family: inherit; }
 .ol-loading { text-align: center; padding: 4rem 1rem; }
 .seg.ol-mode button { display: flex; flex-direction: column; align-items: center; gap: 0.1rem; flex: 1 1 12rem; }
 .seg.ol-mode small { font-weight: 400; font-size: 0.78rem; opacity: 0.8; }
-.ol-clock { display: inline-block; margin-left: 0.4rem; padding: 0.05rem 0.5rem; border-radius: 999px; background: rgba(255, 255, 255, 0.85); color: var(--ink); font-weight: 700; font-variant-numeric: tabular-nums; }
+.ol-clock { display: inline-block; align-self: center; flex-shrink: 0; margin: 0; padding: 0.05rem 0.5rem; border-radius: 999px; background: rgba(255, 255, 255, 0.85); color: var(--ink); font-weight: 700; font-variant-numeric: tabular-nums; }
 .ol-clock.mine { box-shadow: 0 0 0 2px var(--gold); }
 .ol-clock.low { background: #ffe1dc; color: #a3241a; }
 #app.ol-wait .power, #app.ol-wait .basic, #app.ol-wait [data-ans], #app.ol-wait [data-lose] { pointer-events: none; opacity: 0.8; }

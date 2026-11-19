@@ -435,7 +435,8 @@
     const v = viewIndex();
     const sea = E.SEA[E.sea(s)];
     const next = s.tide < E.TIDES ? E.SEA[s.forecast[s.tide]] : null;
-    const sub = G.mode === 'past' ? '📜 Finished game' : G.mode === 'sim' ? `🧪 ${SIM_SPEEDS[G.speed].name} · computer vs computer` : G.mode === 'online' ? `🌐 vs ${esc(pl(1 - G.me).name)}${G.gmode === 'quick' ? ' · ⚡' : ''}${G.gmode === 'quick' && G.deadline ? ' <span class="ol-clock" id="ol-clock"></span>' : ''}` : G.mode === 'local' ? '👥 Two players' : `🤖 vs computer · ${LEVEL_NAME[G.level] || ''}`;
+    const sub = G.mode === 'past' ? '📜 Finished game' : G.mode === 'sim' ? `🧪 ${SIM_SPEEDS[G.speed].name} · computer vs computer` : G.mode === 'online' ? `🌐 vs ${esc(pl(1 - G.me).name)}${G.gmode === 'quick' ? ' · ⚡' : ''}` : G.mode === 'local' ? '👥 Two players' : `🤖 vs computer · ${LEVEL_NAME[G.level] || ''}`;
+    const clock = G.mode === 'online' && G.gmode === 'quick' && G.status === 'active' && G.deadline ? '<span class="ol-clock" id="ol-clock"></span>' : '';
     let pips = '';
     for (let t = 1; t <= E.TIDES; t++) {
       const cls = s.phase === 'over' || t < s.tide ? 'done' : t === s.tide ? 'cur' : '';
@@ -450,6 +451,7 @@
           <div><h1>Atlantis Expedition</h1><small>${sub}</small></div>
         </div>
         <div class="top-mid">
+          ${clock}
           <div class="tracker"><span class="tracker-label">Tide</span>${pips}</div>
           <div class="top-sea">
             <span class="chip" title="${esc(sea.note)}">${sea.icon} ${esc(sea.name)}</span>
