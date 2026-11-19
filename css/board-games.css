@@ -247,6 +247,21 @@ h1, h2 { font-family: "Montserrat", "Fredoka", sans-serif; font-weight: 800; let
 .gs-card h2 { margin: 0 0 0.6rem; font-size: 1.2rem; color: #ffd21f; }
 .gs-note { margin: 0 0 0.7rem; color: rgba(226, 235, 255, 0.85); }
 .gs-note a, .gs-text a { color: #ffd21f; }
+.gs-video-wrap {
+  margin-top: 0.35rem;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #050a16;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+.gs-video {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  vertical-align: top;
+  background: #050a16;
+}
 .gs-warn { color: #ffd9a0; }
 .gs-row { display: flex; gap: 0.9rem; align-items: flex-start; padding: 0.6rem 0; }
 .gs-row + .gs-row { border-top: 1px solid rgba(226, 235, 255, 0.1); }
