@@ -1,13 +1,14 @@
 /**
- * TrifangX monthly season track (client + worker merge for `seasonTrack` / `seasonBonusPoints`).
+ * TrifangX quarterly season track (client + worker merge for `seasonTrack` / `seasonBonusPoints`).
  *
  * =============================================================================
  * SEASON DESIGN GUIDELINES (apply every month; update this block when rules change)
  * =============================================================================
  *
  * 1) Calendar
- *    - Season id is UTC: `YYYY-MM` (see `getChessSeasonIdUtc`). All players share the same window.
- *    - Start: first instant of the month UTC. End: last instant before next month UTC (`seasonBoundsUtc`).
+ *    - Season id is UTC: `YYYY-MM` where `MM` is the quarter anchor (`02` spring, `05` summer, `08` autumn, `11` winter).
+ *    - Each season runs three months: Feb–Apr, May–Jul, Aug–Oct, Nov–Jan (winter id uses the year November starts).
+ *    - Bounds: `seasonBoundsUtc` (first instant of opening month through last instant of closing month UTC).
  *
  * 2) Track shape
  *    - One linear track of steps (currently 10). Each step = exactly one existing achievement id
@@ -39,8 +40,8 @@
  *    - Leaderboard flair: `lb_frame` (allowlist in worker `sanitizeChessLbFlair`), `lb_title`,
  *      `lb_prefix`, `lb_suffix`. Keep strings short; worker sanitizes length / charset.
  *
- * 5) Theming (optional per month)
- *    - Keys in `SEASON_THEMES_BY_UTC_MONTH` are two-digit UTC month strings `'01'` … `'12'`.
+ * 5) Theming (optional per quarter)
+ *    - Keys in `SEASON_THEMES_BY_UTC_MONTH` are quarter anchors `'02'`, `'05'`, `'08'`, `'11'`.
  *    - If present, `stepTitles` MUST have the same length as `SEASON_TRACK_MECHANICAL` (copy only;
  *      mechanics stay in the mechanical template). Flavor text must not contradict the real rule.
  *    - Months without an entry use `DEFAULT_STEP_TITLES`.
@@ -71,7 +72,7 @@
   /** @typedef {{ key: string, name: string, tagline: string, stepTitles: string[] }} SeasonThemeDef */
 
   const GUIDELINES = Object.freeze([
-    'UTC month boundaries; shared season id YYYY-MM.',
+    'UTC quarter boundaries; shared season id YYYY-{02|05|08|11}.',
     'Linear gated steps; each step = one real TrifangX achievement id.',
     'Bonus points on claim; leaderboard uses achievement points + season bonus.',
     'Exclusive cosmetics via shopUnlocks ids; flair allowlisted on the worker.',
@@ -83,46 +84,104 @@
     return String(n).padStart(2, '0');
   }
 
-  function getChessSeasonIdUtc(d) {
-    const x = d || new Date();
-    return x.getUTCFullYear() + '-' + pad2(x.getUTCMonth() + 1);
-  }
+  /** Quarter anchors in calendar order (also season id suffix). */
+  const SEASON_QUARTER_ANCHORS = Object.freeze(['02', '05', '08', '11']);
 
-  function utcMonthFromSeasonId(seasonId) {
-    const m = /^(\d{4})-(\d{2})$/.exec(String(seasonId || '').trim());
-    return m ? m[2] : null;
-  }
-
-  function seasonBoundsUtc(seasonId) {
+  /**
+   * Map any legacy monthly `YYYY-MM` or canonical quarter id to anchor + canonical season id.
+   * @returns {{ canonicalId: string, anchor: string, startYear: number } | null}
+   */
+  function parseSeasonQuarter(seasonId) {
     const m = /^(\d{4})-(\d{2})$/.exec(String(seasonId || '').trim());
     if (!m) return null;
     const y = parseInt(m[1], 10);
-    const mo = parseInt(m[2], 10) - 1;
-    if (mo < 0 || mo > 11) return null;
-    const startMs = Date.UTC(y, mo, 1, 0, 0, 0, 0);
-    const endMs = Date.UTC(y, mo + 1, 1, 0, 0, 0, 0) - 1;
-    return { startMs, endMs, label: m[1] + ' · ' + ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][mo] };
+    const mm = parseInt(m[2], 10);
+    if (mm === 2 || mm === 5 || mm === 8 || mm === 11) {
+      return { canonicalId: y + '-' + pad2(mm), anchor: pad2(mm), startYear: y };
+    }
+    if (mm === 1) return { canonicalId: y - 1 + '-11', anchor: '11', startYear: y - 1 };
+    if (mm >= 2 && mm <= 4) return { canonicalId: y + '-02', anchor: '02', startYear: y };
+    if (mm >= 5 && mm <= 7) return { canonicalId: y + '-05', anchor: '05', startYear: y };
+    if (mm >= 8 && mm <= 10) return { canonicalId: y + '-08', anchor: '08', startYear: y };
+    if (mm >= 11 && mm <= 12) return { canonicalId: y + '-11', anchor: '11', startYear: y };
+    return null;
   }
 
-  /** UTC months whose season page and shop cosmetics stay hidden until that month starts. */
-  const SEASON_MONTHS_HIDDEN_UNTIL_START = new Set(['06', '07']);
+  function getChessSeasonIdUtc(d) {
+    const x = d || new Date();
+    const y = x.getUTCFullYear();
+    const mo = x.getUTCMonth() + 1;
+    if (mo >= 11) return y + '-11';
+    if (mo === 1) return y - 1 + '-11';
+    if (mo <= 4) return y + '-02';
+    if (mo <= 7) return y + '-05';
+    return y + '-08';
+  }
 
-  /** Months with season-exclusive shop catalog entries (retire when the next month starts). */
-  const SEASON_SHOP_CATALOG_MONTHS = ['05', '06', '07'];
+  /** Season id anchor month (`02`|`05`|`08`|`11`) or legacy month digits. */
+  function utcMonthFromSeasonId(seasonId) {
+    const q = parseSeasonQuarter(seasonId);
+    return q ? q.anchor : null;
+  }
 
-  /** @returns {string|null} */
+  function seasonBoundsUtc(seasonId) {
+    const q = parseSeasonQuarter(seasonId);
+    if (!q) return null;
+    const y = q.startYear;
+    const a = q.anchor;
+    if (a === '11') {
+      return {
+        startMs: Date.UTC(y, 10, 1, 0, 0, 0, 0),
+        endMs: Date.UTC(y + 1, 1, 1, 0, 0, 0, 0) - 1,
+        label: y + ' · Winter holiday (Nov–Jan)',
+      };
+    }
+    if (a === '02') {
+      return {
+        startMs: Date.UTC(y, 1, 1, 0, 0, 0, 0),
+        endMs: Date.UTC(y, 4, 1, 0, 0, 0, 0) - 1,
+        label: y + ' · Spring (Feb–Apr)',
+      };
+    }
+    if (a === '05') {
+      return {
+        startMs: Date.UTC(y, 4, 1, 0, 0, 0, 0),
+        endMs: Date.UTC(y, 7, 1, 0, 0, 0, 0) - 1,
+        label: y + ' · Summer (May–Jul)',
+      };
+    }
+    if (a === '08') {
+      return {
+        startMs: Date.UTC(y, 7, 1, 0, 0, 0, 0),
+        endMs: Date.UTC(y, 10, 1, 0, 0, 0, 0) - 1,
+        label: y + ' · Autumn (Aug–Oct)',
+      };
+    }
+    return null;
+  }
+
+  /** Quarters whose season page / cosmetics stay hidden until the season opens (UTC). */
+  const SEASON_MONTHS_HIDDEN_UNTIL_START = new Set(['11']);
+
+  /** Quarter anchors with season-exclusive shop catalog entries (retire when the next quarter starts). */
+  const SEASON_SHOP_CATALOG_MONTHS = SEASON_QUARTER_ANCHORS.slice();
+
+  /** @returns {string} mechanical track key (`05`|`06`|`07`|`11`) */
   function getSeasonMechanicalMonthKey(seasonId) {
-    const mm = utcMonthFromSeasonId(seasonId);
-    if (mm === '07') return '07';
-    if (mm === '06') return '06';
-    if (mm === '05') return '05';
-    const curMm = utcMonthFromSeasonId(getChessSeasonIdUtc());
-    if (curMm && curMm >= '07') return '07';
-    if (curMm && curMm >= '06') return '06';
+    const q = parseSeasonQuarter(seasonId);
+    if (!q) return '05';
+    const a = q.anchor;
+    if (a === '11') return '11';
+    if (a === '08') return '07';
+    if (a === '05') return '06';
+    if (a === '02') return '05';
     return '05';
   }
 
   function compareSeasonIds(a, b) {
+    const ba = seasonBoundsUtc(a);
+    const bb = seasonBoundsUtc(b);
+    if (ba && bb) return ba.startMs - bb.startMs;
     return String(a || '').trim().localeCompare(String(b || '').trim());
   }
 
@@ -187,6 +246,76 @@
         { kind: 'lb_title', title: 'Emerald crown' },
         { kind: 'lb_title', title: 'Canopy finisher' },
         { kind: 'lb_suffix', suffix: '✦' },
+        { kind: 'shop', category: 'boards', id: 'season_canopy_crown' },
+        { kind: 'shop', category: 'pieces', id: 'season_canopy_pieces' },
+        { kind: 'shop', category: 'highlightColors', id: 'season_gilded_leaf' },
+        { kind: 'shop', category: 'arrowColors', id: 'season_grove_arrow' },
+        { kind: 'shop', category: 'themes', id: 'season_moonlit_canopy' },
+        { kind: 'shop', category: 'checkmateEffects', id: 'season_finale_flare' },
+        { kind: 'shop', category: 'legalMoveDots', id: 'season_emerald_star' },
+        { kind: 'lb_row_finish', presets: ['finale_aurora'] },
+      ],
+    },
+  ];
+
+  /** Winter holiday quarter (Nov–Jan) — glacier / moonlit cosmetics; keep worker `SEASON_CLAIM_NODES_11` in sync. */
+  const SEASON_TRACK_MECHANICAL_11 = [
+    { challengeAchievementId: 'first_game', bonusPoints: 40, rewards: [{ kind: 'lb_prefix', prefix: '🎄' }] },
+    {
+      challengeAchievementId: 'knight_to_f3',
+      bonusPoints: 57,
+      rewards: [{ kind: 'shop', category: 'boards', id: 'season_awakening' }],
+    },
+    {
+      challengeAchievementId: 'bishop_to_f4',
+      bonusPoints: 82,
+      rewards: [{ kind: 'shop', category: 'highlightColors', id: 'season_glacier_glow' }],
+    },
+    {
+      challengeAchievementId: 'en_passant',
+      bonusPoints: 118,
+      rewards: [
+        { kind: 'shop', category: 'pieces', id: 'season_trail' },
+        { kind: 'lb_row_finish', presets: ['emerald_glade', 'glacier_ribbon'] },
+      ],
+    },
+    {
+      challengeAchievementId: 'queen_capturer',
+      bonusPoints: 169,
+      rewards: [{ kind: 'lb_frame', frame: 'silver_lane' }],
+    },
+    {
+      challengeAchievementId: 'capture_master',
+      bonusPoints: 242,
+      rewards: [{ kind: 'lb_title', title: 'Frostline hunter' }],
+    },
+    {
+      challengeAchievementId: 'castler',
+      bonusPoints: 347,
+      rewards: [
+        { kind: 'lb_frame', frame: 'amber_pulse' },
+        { kind: 'lb_row_finish', presets: ['violet_canopy', 'moonlit_band'] },
+      ],
+    },
+    {
+      challengeAchievementId: 'promoter',
+      bonusPoints: 496,
+      rewards: [{ kind: 'shop', category: 'boards', id: 'season_rift' }],
+    },
+    {
+      challengeAchievementId: 'checkmate_rook',
+      bonusPoints: 709,
+      rewards: [{ kind: 'lb_title', title: 'Yuletide spire sniper' }],
+    },
+    {
+      challengeAchievementId: 'checkmate_queen',
+      bonusPoints: 1015,
+      rewards: [
+        { kind: 'lb_frame', frame: 'violet_arc' },
+        { kind: 'lb_title', title: 'Holiday ascendant' },
+        { kind: 'lb_title', title: 'Frost crown' },
+        { kind: 'lb_title', title: 'Midnight finisher' },
+        { kind: 'lb_suffix', suffix: '❄' },
         { kind: 'shop', category: 'boards', id: 'season_canopy_crown' },
         { kind: 'shop', category: 'pieces', id: 'season_canopy_pieces' },
         { kind: 'shop', category: 'highlightColors', id: 'season_gilded_leaf' },
@@ -348,6 +477,7 @@
    */
   function getSeasonMechanicalRows(seasonId) {
     const key = getSeasonMechanicalMonthKey(seasonId || getChessSeasonIdUtc());
+    if (key === '11') return SEASON_TRACK_MECHANICAL_11;
     if (key === '07') return SEASON_TRACK_MECHANICAL_07;
     if (key === '06') return SEASON_TRACK_MECHANICAL_06;
     return SEASON_TRACK_MECHANICAL_05;
@@ -509,17 +639,35 @@
   ];
 
   /**
-   * Optional themed copy keyed by UTC month `MM`.
+   * Optional themed copy keyed by quarter anchor (`02` spring, `05` summer, `08` autumn, `11` winter).
    * @type {Record<string, SeasonThemeDef>}
    */
   const SEASON_THEMES_BY_UTC_MONTH = {
-    '05': {
+    '11': {
+      key: 'winter_holiday',
+      name: 'Winter holiday',
+      tagline:
+        'November through January on the board — frost on the files, lights on the long diagonal, and holiday tempo from first snow to a midnight crown. Each step is a different skill — not a win ladder.',
+      stepTitles: [
+        'First snowfall — your first game of the winter season',
+        'Ice skate — develop a knight to f3',
+        'Candled diagonal — slide a bishop to f4',
+        'Gift-horse gambit — one en passant capture',
+        'Storm along the files — 10 captures made by your queen',
+        'Sugar-plum tempo — 50 total captures with any piece',
+        'Castle by the hearth — castle 5 times',
+        'Crown the gingerbread — promote 5 pawns',
+        'Strike from the spires — checkmate with a rook',
+        'Midnight crown — checkmate with a queen',
+      ],
+    },
+    '02': {
       key: 'may_emerald_ascent',
       name: 'Emerald ascent',
       tagline:
-        'May’s track is a forest climb: step in, develop knights and bishops like branches, spring a trap, trade tempest, fortify, grow new queens, then endgames from the treeline to the crown. Each step is a different skill — not a win ladder.',
+        'Spring’s track is a forest climb: step in, develop knights and bishops like branches, spring a trap, trade tempest, fortify, grow new queens, then endgames from the treeline to the crown. Each step is a different skill — not a win ladder.',
       stepTitles: [
-        'Cross the threshold — your first game in the emerald month',
+        'Cross the threshold — your first game of the spring season',
         'First leap — develop a knight to f3 (the path opens)',
         'Shaft of green light — slide a bishop to f4',
         'Secret forest path — one en passant capture',
@@ -531,13 +679,13 @@
         'Canopy apex — checkmate with a queen',
       ],
     },
-    '06': {
+    '05': {
       key: 'june_solstice_gold',
       name: 'Solstice Gold',
       tagline:
-        'June burns gold — win at dawn, hold the center, ride the heat, and crown the board from golden hour to night. Each step is a different skill — not a win ladder.',
+        'Summer burns gold — win at dawn, hold the center, ride the heat, and crown the board from golden hour to night. Each step is a different skill — not a win ladder.',
       stepTitles: [
-        'First light — win your first game of the golden month',
+        'First light — win your first game of the summer season',
         'Dawn victory — win a game before 10:00 AM Central Time',
         'Sunrise push — advance a pawn to e4',
         'Sun in the center — win after your pieces occupy d4, d5, e4, and e5 at least once each in the same game (not all at once)',
@@ -549,13 +697,13 @@
         'Night crown — win a game after 9:00 PM Central Time',
       ],
     },
-    '07': {
+    '08': {
       key: 'july_world_cup',
       name: 'World Cup',
       tagline:
-        'July is tournament month — field the full squad, flood the wings, press with checks, spring traps, score a hat trick, tour every corner, and rise from behind like a phoenix goal. Each step is a different skill — not a win ladder.',
+        'Autumn is tournament season — field the full squad, flood the wings, press with checks, spring traps, score a hat trick, tour every corner, and rise from behind like a phoenix goal. Each step is a different skill — not a win ladder.',
       stepTitles: [
-        'Opening whistle — win your first game of the tournament month',
+        'Opening whistle — win your first game of the autumn season',
         'Full squad — win after moving every piece type in one game',
         'Pawn wave — win with 5+ of your pawns reaching the 6th rank (as White) or 3rd rank (as Black) at least once each in the same game (they need not still be there at the end)',
         'Wing overlap — win a game where, after one of your rook moves, both your rooks stand on the 7th rank (as White) or 2nd rank (as Black) at the same time (not required at checkmate)',
@@ -582,9 +730,10 @@
     return Date.now() >= bounds.startMs;
   }
 
-  /** Shop reward ids from a season mechanical track (June cosmetics, etc.). */
+  /** Shop reward ids from a season mechanical track for a quarter anchor. */
   function seasonShopRewardIdsForMonth(mm) {
-    const sid = new Date().getUTCFullYear() + '-' + String(mm || '').padStart(2, '0');
+    const anchor = String(mm || '').padStart(2, '0');
+    const sid = new Date().getUTCFullYear() + '-' + anchor;
     const rows = getSeasonMechanicalRows(sid);
     const ids = new Set();
     rows.forEach(function (row) {
@@ -608,17 +757,20 @@
     const id = String(itemId);
     const y = new Date().getUTCFullYear();
     for (let i = 0; i < SEASON_SHOP_CATALOG_MONTHS.length; i++) {
-      const mm = SEASON_SHOP_CATALOG_MONTHS[i];
-      if (!seasonShopRewardIdsForMonth(mm).has(id)) continue;
-      const nextMm = SEASON_SHOP_CATALOG_MONTHS[i + 1];
-      if (nextMm) {
-        const nextBounds = seasonBoundsUtc(y + '-' + nextMm);
+      const anchor = SEASON_SHOP_CATALOG_MONTHS[i];
+      if (!seasonShopRewardIdsForMonth(anchor).has(id)) continue;
+      const sid = y + '-' + anchor;
+      const nextAnchor = SEASON_SHOP_CATALOG_MONTHS[i + 1];
+      if (nextAnchor) {
+        const nextY = anchor === '11' && nextAnchor === '02' ? y + 1 : y;
+        const nextSid = nextY + '-' + nextAnchor;
+        const nextBounds = seasonBoundsUtc(nextSid);
         if (nextBounds && Date.now() >= nextBounds.startMs) {
           return !!alreadyUnlocked;
         }
       }
-      if (SEASON_MONTHS_HIDDEN_UNTIL_START.has(mm)) {
-        return isSeasonPubliclyVisible(y + '-' + mm);
+      if (SEASON_MONTHS_HIDDEN_UNTIL_START.has(anchor)) {
+        return isSeasonPubliclyVisible(sid);
       }
       return true;
     }
@@ -626,19 +778,16 @@
   }
 
   /**
-   * Upcoming hidden season id for admin preview (previous UTC month, before that season starts).
+   * Upcoming hidden season id for admin preview (month before that season starts UTC).
    * @returns {string|null}
    */
   function getUpcomingPreviewSeasonId() {
-    const y = new Date().getUTCFullYear();
-    const curMm = utcMonthFromSeasonId(getChessSeasonIdUtc());
-    const hiddenMonths = Array.from(SEASON_MONTHS_HIDDEN_UNTIL_START).sort();
-    for (let i = 0; i < hiddenMonths.length; i++) {
-      const mm = hiddenMonths[i];
-      const sid = y + '-' + mm;
-      if (isSeasonPubliclyVisible(sid)) continue;
-      const prevMm = pad2(parseInt(mm, 10) - 1);
-      if (curMm === prevMm) return sid;
+    const d = new Date();
+    const utcMon = d.getUTCMonth() + 1;
+    const y = d.getUTCFullYear();
+    if (utcMon === 10) {
+      const sid = y + '-11';
+      if (!isSeasonPubliclyVisible(sid)) return sid;
     }
     return null;
   }
@@ -655,8 +804,9 @@
   function getChessSeasonTrack(seasonId) {
     const sid = seasonId || getChessSeasonIdUtc();
     const bounds = seasonBoundsUtc(sid) || seasonBoundsUtc(getChessSeasonIdUtc());
-    const mm = utcMonthFromSeasonId(sid);
-    const theme = mm && SEASON_THEMES_BY_UTC_MONTH[mm] ? SEASON_THEMES_BY_UTC_MONTH[mm] : null;
+    const anchor = utcMonthFromSeasonId(sid);
+    const theme =
+      anchor && SEASON_THEMES_BY_UTC_MONTH[anchor] ? SEASON_THEMES_BY_UTC_MONTH[anchor] : null;
     const mechanical = getSeasonMechanicalRows(sid);
     const titles =
       theme && Array.isArray(theme.stepTitles) && theme.stepTitles.length === mechanical.length
@@ -880,8 +1030,10 @@
   global.ChessSeasons = {
     GUIDELINES: GUIDELINES,
     getChessSeasonIdUtc: getChessSeasonIdUtc,
+    parseSeasonQuarter: parseSeasonQuarter,
     utcMonthFromSeasonId: utcMonthFromSeasonId,
     seasonBoundsUtc: seasonBoundsUtc,
+    SEASON_QUARTER_ANCHORS: SEASON_QUARTER_ANCHORS,
     getChessSeasonTrack: getChessSeasonTrack,
     getSeasonMechanicalRows: getSeasonMechanicalRows,
     isSeasonPubliclyVisible: isSeasonPubliclyVisible,

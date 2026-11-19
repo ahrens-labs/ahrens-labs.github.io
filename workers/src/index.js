@@ -7320,12 +7320,15 @@ function buildChessMilestoneEmail({ username, kind, threshold, stats, chessUrl }
 }
 
 function formatSeasonIdForEmail(seasonId) {
-  const m = /^(\d{4})-(\d{2})$/.exec(String(seasonId || '').trim());
-  if (!m) return String(seasonId || '').trim() || 'this month';
-  const names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  const idx = parseInt(m[2], 10) - 1;
-  const mo = names[idx] || m[2];
-  return `${mo} ${m[1]}`;
+  const q = parseSeasonQuarterWorker(seasonId);
+  if (!q) return String(seasonId || '').trim() || 'this season';
+  const y = q.startYear;
+  const a = q.anchor;
+  if (a === '11') return `Winter holiday ${y} (Nov–Jan)`;
+  if (a === '02') return `Spring ${y} (Feb–Apr)`;
+  if (a === '05') return `Summer ${y} (May–Jul)`;
+  if (a === '08') return `Autumn ${y} (Aug–Oct)`;
+  return String(seasonId || '').trim();
 }
 
 function buildSeasonTrackFinaleEmail({ username, seasonId, seasonBonusPoints, chessUrl, trackUrl }) {
@@ -7377,7 +7380,7 @@ function buildSeasonTrackFinaleEmail({ username, seasonId, seasonBonusPoints, ch
   const text = [
     `Hi ${username || 'there'},`,
     '',
-    `You cleared every rung of the ${formatSeasonIdForEmail(seasonId)} season ladder — all 10 TrifangX monthly challenges. That is a rare finish.`,
+    `You cleared every rung of the ${formatSeasonIdForEmail(seasonId)} season ladder — all 10 TrifangX season challenges. That is a rare finish.`,
     '',
     'You unlocked the finale bundle: exclusive boards, pieces, themes, and flair so you can stand out on the public leaderboard. You also piled on bonus points for the season — ',
     `${bonusLabel} extra — on top of what you earned from achievements, so your career score gets a serious bump.`,
@@ -7698,9 +7701,72 @@ const CHESS_LB_FLAIR_FRAMES = new Set([
   'world_cup_flare',
 ]);
 
-function utcMonthFromSeasonIdWorker(seasonId) {
+function padSeason2(n) {
+  return String(n).padStart(2, '0');
+}
+
+function parseSeasonQuarterWorker(seasonId) {
   const m = /^(\d{4})-(\d{2})$/.exec(String(seasonId || '').trim());
-  return m ? m[2] : null;
+  if (!m) return null;
+  const y = parseInt(m[1], 10);
+  const mm = parseInt(m[2], 10);
+  if (mm === 2 || mm === 5 || mm === 8 || mm === 11) {
+    return { canonicalId: `${y}-${padSeason2(mm)}`, anchor: padSeason2(mm), startYear: y };
+  }
+  if (mm === 1) return { canonicalId: `${y - 1}-11`, anchor: '11', startYear: y - 1 };
+  if (mm >= 2 && mm <= 4) return { canonicalId: `${y}-02`, anchor: '02', startYear: y };
+  if (mm >= 5 && mm <= 7) return { canonicalId: `${y}-05`, anchor: '05', startYear: y };
+  if (mm >= 8 && mm <= 10) return { canonicalId: `${y}-08`, anchor: '08', startYear: y };
+  if (mm >= 11 && mm <= 12) return { canonicalId: `${y}-11`, anchor: '11', startYear: y };
+  return null;
+}
+
+function seasonBoundsUtcWorker(seasonId) {
+  const q = parseSeasonQuarterWorker(seasonId);
+  if (!q) return null;
+  const y = q.startYear;
+  const a = q.anchor;
+  if (a === '11') {
+    return {
+      startMs: Date.UTC(y, 10, 1, 0, 0, 0, 0),
+      endMs: Date.UTC(y + 1, 1, 1, 0, 0, 0, 0) - 1,
+    };
+  }
+  if (a === '02') {
+    return {
+      startMs: Date.UTC(y, 1, 1, 0, 0, 0, 0),
+      endMs: Date.UTC(y, 4, 1, 0, 0, 0, 0) - 1,
+    };
+  }
+  if (a === '05') {
+    return {
+      startMs: Date.UTC(y, 4, 1, 0, 0, 0, 0),
+      endMs: Date.UTC(y, 7, 1, 0, 0, 0, 0) - 1,
+    };
+  }
+  if (a === '08') {
+    return {
+      startMs: Date.UTC(y, 7, 1, 0, 0, 0, 0),
+      endMs: Date.UTC(y, 10, 1, 0, 0, 0, 0) - 1,
+    };
+  }
+  return null;
+}
+
+function utcMonthFromSeasonIdWorker(seasonId) {
+  const q = parseSeasonQuarterWorker(seasonId);
+  return q ? q.anchor : null;
+}
+
+function seasonMechanicalKeyWorker(seasonId) {
+  const q = parseSeasonQuarterWorker(seasonId);
+  if (!q) return '05';
+  const a = q.anchor;
+  if (a === '11') return '11';
+  if (a === '08') return '07';
+  if (a === '05') return '06';
+  if (a === '02') return '05';
+  return '05';
 }
 
 /** Must match `SEASON_TRACK_MECHANICAL_05` in js/chess_seasons.js (claim validation). */
@@ -7913,41 +7979,105 @@ const SEASON_CLAIM_NODES_07 = [
   },
 ];
 
+/** Winter holiday quarter (Nov–Jan); must match `SEASON_TRACK_MECHANICAL_11` in js/chess_seasons.js. */
+const SEASON_CLAIM_NODES_11 = [
+  { challengeAchievementId: 'first_game', bonusPoints: 40, rewards: [{ kind: 'lb_prefix', prefix: '🎄' }] },
+  {
+    challengeAchievementId: 'knight_to_f3',
+    bonusPoints: 57,
+    rewards: [{ kind: 'shop', category: 'boards', id: 'season_awakening' }],
+  },
+  {
+    challengeAchievementId: 'bishop_to_f4',
+    bonusPoints: 82,
+    rewards: [{ kind: 'shop', category: 'highlightColors', id: 'season_glacier_glow' }],
+  },
+  {
+    challengeAchievementId: 'en_passant',
+    bonusPoints: 118,
+    rewards: [
+      { kind: 'shop', category: 'pieces', id: 'season_trail' },
+      { kind: 'lb_row_finish', presets: ['emerald_glade', 'glacier_ribbon'] },
+    ],
+  },
+  {
+    challengeAchievementId: 'queen_capturer',
+    bonusPoints: 169,
+    rewards: [{ kind: 'lb_frame', frame: 'silver_lane' }],
+  },
+  {
+    challengeAchievementId: 'capture_master',
+    bonusPoints: 242,
+    rewards: [{ kind: 'lb_title', title: 'Frostline hunter' }],
+  },
+  {
+    challengeAchievementId: 'castler',
+    bonusPoints: 347,
+    rewards: [
+      { kind: 'lb_frame', frame: 'amber_pulse' },
+      { kind: 'lb_row_finish', presets: ['violet_canopy', 'moonlit_band'] },
+    ],
+  },
+  {
+    challengeAchievementId: 'promoter',
+    bonusPoints: 496,
+    rewards: [{ kind: 'shop', category: 'boards', id: 'season_rift' }],
+  },
+  {
+    challengeAchievementId: 'checkmate_rook',
+    bonusPoints: 709,
+    rewards: [{ kind: 'lb_title', title: 'Yuletide spire sniper' }],
+  },
+  {
+    challengeAchievementId: 'checkmate_queen',
+    bonusPoints: 1015,
+    rewards: [
+      { kind: 'lb_frame', frame: 'violet_arc' },
+      { kind: 'lb_title', title: 'Holiday ascendant' },
+      { kind: 'lb_title', title: 'Frost crown' },
+      { kind: 'lb_title', title: 'Midnight finisher' },
+      { kind: 'lb_suffix', suffix: '❄' },
+      { kind: 'shop', category: 'boards', id: 'season_canopy_crown' },
+      { kind: 'shop', category: 'pieces', id: 'season_canopy_pieces' },
+      { kind: 'shop', category: 'highlightColors', id: 'season_gilded_leaf' },
+      { kind: 'shop', category: 'arrowColors', id: 'season_grove_arrow' },
+      { kind: 'shop', category: 'themes', id: 'season_moonlit_canopy' },
+      { kind: 'shop', category: 'checkmateEffects', id: 'season_finale_flare' },
+      { kind: 'shop', category: 'legalMoveDots', id: 'season_emerald_star' },
+      { kind: 'lb_row_finish', presets: ['finale_aurora'] },
+    ],
+  },
+];
+
 /** @deprecated alias */
 const SEASON_CLAIM_NODES = SEASON_CLAIM_NODES_05;
 
-const SEASON_MONTHS_HIDDEN_UNTIL_START_WORKER = new Set(['06', '07']);
+const SEASON_MONTHS_HIDDEN_UNTIL_START_WORKER = new Set(['11']);
 
 function getSeasonClaimNodesForSeasonId(seasonId) {
-  const mm = utcMonthFromSeasonIdWorker(seasonId);
-  if (mm === '07') return SEASON_CLAIM_NODES_07;
-  if (mm === '06') return SEASON_CLAIM_NODES_06;
+  const key = seasonMechanicalKeyWorker(seasonId);
+  if (key === '11') return SEASON_CLAIM_NODES_11;
+  if (key === '07') return SEASON_CLAIM_NODES_07;
+  if (key === '06') return SEASON_CLAIM_NODES_06;
   return SEASON_CLAIM_NODES_05;
 }
 
 function isSeasonPubliclyVisibleWorker(seasonId) {
-  const mm = utcMonthFromSeasonIdWorker(seasonId);
-  if (!mm || !SEASON_MONTHS_HIDDEN_UNTIL_START_WORKER.has(mm)) return true;
-  const m = /^(\d{4})-(\d{2})$/.exec(String(seasonId || '').trim());
-  if (!m) return false;
-  const y = parseInt(m[1], 10);
-  const mo = parseInt(m[2], 10) - 1;
-  const startMs = Date.UTC(y, mo, 1, 0, 0, 0, 0);
-  return Date.now() >= startMs;
+  const anchor = utcMonthFromSeasonIdWorker(seasonId);
+  if (!anchor || !SEASON_MONTHS_HIDDEN_UNTIL_START_WORKER.has(anchor)) return true;
+  const bounds = seasonBoundsUtcWorker(seasonId);
+  if (!bounds) return false;
+  return Date.now() >= bounds.startMs;
 }
 
-/** Upcoming hidden season id while preview window is open (previous UTC month). */
+/** Upcoming hidden season id while preview window is open (October UTC before winter). */
 function adminPreviewSeasonIdIfOpen() {
   const d = new Date();
+  const utcMon = d.getUTCMonth() + 1;
   const y = d.getUTCFullYear();
-  const curMm = String(d.getUTCMonth() + 1).padStart(2, '0');
-  const hiddenMonths = Array.from(SEASON_MONTHS_HIDDEN_UNTIL_START_WORKER).sort();
-  for (let i = 0; i < hiddenMonths.length; i++) {
-    const mm = hiddenMonths[i];
-    const sid = `${y}-${mm}`;
-    if (isSeasonPubliclyVisibleWorker(sid)) continue;
-    const prevMm = String(parseInt(mm, 10) - 1).padStart(2, '0');
-    if (curMm === prevMm) return sid;
+  if (utcMon === 10) {
+    const sid = `${y}-11`;
+    if (!isSeasonPubliclyVisibleWorker(sid)) return sid;
   }
   return null;
 }
@@ -7964,6 +8094,9 @@ function isValidAdminPreviewSeasonId(seasonId) {
 }
 
 function compareSeasonIdsWorker(a, b) {
+  const ba = seasonBoundsUtcWorker(a);
+  const bb = seasonBoundsUtcWorker(b);
+  if (ba && bb) return ba.startMs - bb.startMs;
   return String(a || '').trim().localeCompare(String(b || '').trim());
 }
 
@@ -8124,8 +8257,12 @@ async function maybeSendSeasonTrackFinaleEmail(env, storage, userData, prevChess
 function utcChessSeasonIdNow() {
   const d = new Date();
   const y = d.getUTCFullYear();
-  const m = String(d.getUTCMonth() + 1).padStart(2, '0');
-  return `${y}-${m}`;
+  const mo = d.getUTCMonth() + 1;
+  if (mo >= 11) return `${y}-11`;
+  if (mo === 1) return `${y - 1}-11`;
+  if (mo <= 4) return `${y}-02`;
+  if (mo <= 7) return `${y}-05`;
+  return `${y}-08`;
 }
 
 /** Snapshot career counters after a season claim so the next step only earns post-claim progress. */

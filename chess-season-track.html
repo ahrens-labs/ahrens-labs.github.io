@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ahrens Labs — TrifangX season track</title>
-    <meta name="description" content="Monthly TrifangX season track: challenges, bonus points, exclusive cosmetics, and leaderboard flair.">
+    <meta name="description" content="Quarterly TrifangX season track (three months each): challenges, bonus points, exclusive cosmetics, and leaderboard flair.">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -72,6 +72,27 @@
         }
         .st-main.st-season-july .st-stat-value {
             color: #15803d;
+        }
+        .st-main.st-season-winter {
+            background:
+                radial-gradient(ellipse 120% 80% at 50% -30%, rgba(147, 197, 253, 0.22), transparent 55%),
+                radial-gradient(ellipse 90% 60% at 100% 40%, rgba(196, 181, 253, 0.16), transparent 50%),
+                linear-gradient(165deg, #f0f9ff 0%, #e0e7ff 35%, #faf5ff 70%, #f8fafc 100%);
+            background-color: #f0f9ff;
+        }
+        .st-main.st-season-winter .st-panel {
+            box-shadow:
+                0 4px 6px rgba(15, 23, 42, 0.04),
+                0 20px 48px rgba(99, 102, 241, 0.12),
+                0 0 0 1px rgba(255, 255, 255, 0.85) inset;
+            border-color: rgba(99, 102, 241, 0.22);
+        }
+        .st-main.st-season-winter .st-stat {
+            background: linear-gradient(135deg, rgba(219, 234, 254, 0.55), rgba(224, 231, 255, 0.4));
+            border-color: rgba(99, 102, 241, 0.22);
+        }
+        .st-main.st-season-winter .st-stat-value {
+            color: #4338ca;
         }
         .st-hero {
             width: 100vw;
@@ -703,13 +724,13 @@
 
         <main class="st-main">
             <section class="st-hero">
-                <div class="st-tag">TrifangX · Monthly season</div>
+                <div class="st-tag">TrifangX · Quarterly season (3 months)</div>
                 <span class="trifangx-brand-logo-plate trifangx-brand-logo-plate--on-dark">
                     <img src="img/trifangx-icon.png" alt="TrifangX" class="trifangx-brand-logo trifangx-brand-logo--hero" width="96" height="96">
                 </span>
                 <h2>Season track</h2>
                 <p class="st-hero-sub">
-                    One path per calendar month. Each step is a concrete in-game feat (openings, tactics, material, endgames)—not a generic grind. After you claim a step, the next one only counts what you earn <strong>from that point on</strong> in TrifangX, then <strong>claim the step on this page</strong> to add bonus points, cosmetics, and leaderboard flair to your account. (Claiming is what advances the track.) Stuck? You can spend <strong>shop points</strong> (the same balance you use in the TrifangX shop) to skip the in-game requirement for that step and still collect that step’s rewards (the underlying achievement stays unearned until you do it in TrifangX).
+                    One path per three-month season (winter Nov–Jan, then spring, summer, autumn). Each step is a concrete in-game feat (openings, tactics, material, endgames)—not a generic grind. After you claim a step, the next one only counts what you earn <strong>from that point on</strong> in TrifangX, then <strong>claim the step on this page</strong> to add bonus points, cosmetics, and leaderboard flair to your account. (Claiming is what advances the track.) Stuck? You can spend <strong>shop points</strong> (the same balance you use in the TrifangX shop) to skip the in-game requirement for that step and still collect that step’s rewards (the underlying achievement stays unearned until you do it in TrifangX).
                 </p>
             </section>
 
@@ -722,9 +743,9 @@
                 <div id="st-reset-modal" class="st-modal" aria-hidden="true">
                   <div class="st-modal-backdrop" tabindex="-1"></div>
                   <div class="st-modal-card" role="dialog" aria-modal="true" aria-labelledby="st-reset-modal-title">
-                    <h3 id="st-reset-modal-title" class="st-modal-title">Reset this month’s season track?</h3>
+                    <h3 id="st-reset-modal-title" class="st-modal-title">Reset this season’s track?</h3>
                     <div class="st-modal-body">
-                      <p>This clears <strong>claimed steps</strong> for the month on your save, removes <strong>cosmetics and leaderboard flair</strong> from those claims, subtracts the matching <strong>season bonus career points</strong>, and resets your season earn baseline. Your global TrifangX achievements are <strong>not</strong> removed. Shop points spent on step buyouts are <strong>not</strong> refunded.</p>
+                      <p>This clears <strong>claimed steps</strong> for the current season on your save, removes <strong>cosmetics and leaderboard flair</strong> from those claims, subtracts the matching <strong>season bonus career points</strong>, and resets your season earn baseline. Your global TrifangX achievements are <strong>not</strong> removed. Shop points spent on step buyouts are <strong>not</strong> refunded.</p>
                       <p><strong>This cannot be undone.</strong></p>
                     </div>
                     <div class="st-modal-actions">
@@ -736,9 +757,9 @@
                 <div id="st-preview-reset-modal" class="st-modal" aria-hidden="true">
                   <div class="st-modal-backdrop" tabindex="-1" data-st-modal-dismiss="st-preview-reset-modal"></div>
                   <div class="st-modal-card" role="dialog" aria-modal="true" aria-labelledby="st-preview-reset-modal-title">
-                    <h3 id="st-preview-reset-modal-title" class="st-modal-title">Reset the June preview track?</h3>
+                    <h3 id="st-preview-reset-modal-title" class="st-modal-title">Reset the preview track?</h3>
                     <div class="st-modal-body">
-                      <p>This removes preview-granted <strong>cosmetics and leaderboard flair</strong> from the June admin preview track and clears preview claim progress on your save.</p>
+                      <p>This removes preview-granted <strong>cosmetics and leaderboard flair</strong> from the admin season preview track and clears preview claim progress on your save.</p>
                       <p><strong>This cannot be undone.</strong></p>
                     </div>
                     <div class="st-modal-actions">
@@ -1014,7 +1035,7 @@
 
       function formatCountdown(endMs) {
         var now = Date.now();
-        if (endMs <= now) return 'This season has ended. A new track starts on the 1st of the month.';
+        if (endMs <= now) return 'This season has ended. The next quarterly track starts when the new season opens (UTC).';
         var sec = Math.floor((endMs - now) / 1000);
         var d = Math.floor(sec / 86400);
         var h = Math.floor((sec % 86400) / 3600);
@@ -1043,17 +1064,31 @@
       }
 
       function previewMonthLabelFromSeasonId(seasonId) {
+        var CsRef = typeof ChessSeasons !== 'undefined' ? ChessSeasons : null;
+        var bounds =
+          CsRef && typeof CsRef.seasonBoundsUtc === 'function' ? CsRef.seasonBoundsUtc(seasonId) : null;
+        if (bounds && bounds.label) return bounds.label;
         var mm = String(seasonId || '').split('-')[1] || '';
-        if (mm === '07') return 'July';
-        if (mm === '06') return 'June';
+        if (mm === '11') return 'Winter holiday';
+        if (mm === '02') return 'Spring';
+        if (mm === '05') return 'Summer';
+        if (mm === '08') return 'Autumn';
         return 'Upcoming season';
       }
 
       function previewOpensLabelFromSeasonId(seasonId) {
-        var mm = String(seasonId || '').split('-')[1] || '';
-        if (mm === '07') return 'July 1 UTC';
-        if (mm === '06') return 'June 1 UTC';
-        return 'the first day of that month UTC';
+        var CsRef = typeof ChessSeasons !== 'undefined' ? ChessSeasons : null;
+        var bounds =
+          CsRef && typeof CsRef.seasonBoundsUtc === 'function' ? CsRef.seasonBoundsUtc(seasonId) : null;
+        if (bounds && bounds.startMs) {
+          return new Date(bounds.startMs).toLocaleString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+            timeZone: 'UTC',
+          }) + ' UTC';
+        }
+        return 'when the season opens (UTC)';
       }
 
       /** Live-month progress while admin is previewing a future month. */
@@ -1108,6 +1143,7 @@
         var main = document.querySelector('.st-main');
         if (!main) return;
         var themeKey = meta && meta.theme ? meta.theme.key : '';
+        main.classList.toggle('st-season-winter', themeKey === 'winter_holiday');
         main.classList.toggle('st-season-june', themeKey === 'june_solstice_gold');
         main.classList.toggle('st-season-july', themeKey === 'july_world_cup');
       }
