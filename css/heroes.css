@@ -105,6 +105,8 @@ button { font-family: inherit; }
 .ol-btns { display: flex; gap: 0.35rem; flex-shrink: 0; }
 .ol-empty { padding: 0.5rem 0.2rem; }
 .ol-new { display: grid; gap: 0.5rem; }
+.ol-recent { display: grid; gap: 0.35rem; }
+.ol-recent-list { display: flex; flex-wrap: wrap; gap: 0.35rem; }
 .ol-new label { flex: 1; }
 .ol-new input { width: 100%; padding: 0.55rem 0.7rem; border-radius: 10px; border: 2px solid var(--parchment-2); font: inherit; background: #fffdf6; }
 .ol .small { font-size: 0.85rem; margin: 0.6rem 0 0; }

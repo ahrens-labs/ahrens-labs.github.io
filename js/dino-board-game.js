@@ -4262,9 +4262,10 @@
           <div class="ol-form">
             <label for="ol-opp">Challenge another Ahrens Labs player</label>
             <input id="ol-opp" maxlength="80" placeholder="Their username or email" autocomplete="off">
+            <div class="ol-recent" id="ol-recent" hidden></div>
             <div class="seg ol-mode" role="radiogroup">
-              <button class="seg-btn${olMode === 'quick' ? ' on' : ''}" data-act="olMode" data-v="quick"><b>⚡ Quick game</b><small>2 minutes per move — play it now</small></button>
               <button class="seg-btn${olMode === 'long' ? ' on' : ''}" data-act="olMode" data-v="long"><b>🐢 Long game</b><small>No time limit — move whenever it’s your turn, over days</small></button>
+              <button class="seg-btn${olMode === 'quick' ? ' on' : ''}" data-act="olMode" data-v="quick"><b>⚡ Quick game</b><small>2 minutes per move — play it now</small></button>
             </div>
             <button class="btn big" data-act="olChallenge">🦖 Send challenge</button>
             <p class="muted">They get an email, and the challenge shows up here when they sign in.</p>
@@ -4303,10 +4304,52 @@
 
   function savePrefs(level, pace) {
     try {
-      localStorage.setItem(PREFS_KEY, JSON.stringify({ level, pace }));
+      localStorage.setItem(PREFS_KEY, JSON.stringify({
+        ...prefs,
+        level,
+        pace,
+        olMode: prefs.olMode,
+        olRecent: prefs.olRecent,
+      }));
     } catch {
       /* storage blocked */
     }
+  }
+
+  function writeOlPrefs(patch) {
+    Object.assign(prefs, patch);
+    try {
+      localStorage.setItem(PREFS_KEY, JSON.stringify({
+        ...prefs,
+        level: setupLevel,
+        pace: setupPace,
+      }));
+    } catch {
+      /* storage blocked */
+    }
+  }
+
+  function recentOpponents() {
+    const seen = new Set();
+    const out = [];
+    const add = (name) => {
+      const n = String(name || '').trim();
+      if (!n || n.length > 80) return;
+      const key = n.toLowerCase();
+      if (seen.has(key)) return;
+      seen.add(key);
+      out.push(n);
+    };
+    (Array.isArray(prefs.olRecent) ? prefs.olRecent : []).forEach(add);
+    (lobby.games || []).forEach((g) => add(g.opp));
+    return out.slice(0, 8);
+  }
+
+  function rememberOpponent(name) {
+    const n = String(name || '').trim();
+    if (!n) return;
+    const next = [n, ...(Array.isArray(prefs.olRecent) ? prefs.olRecent : []).filter((x) => x.toLowerCase() !== n.toLowerCase())];
+    writeOlPrefs({ olRecent: next.slice(0, 8) });
   }
 
   // ---------------------------------------------------------------- modals
@@ -7521,7 +7564,7 @@
   const BASE_TITLE = document.title;
   let online = null;
   let lobby = { games: null, error: '', busy: false };
-  let olMode = 'quick';
+  let olMode = prefs.olMode === 'quick' ? 'quick' : 'long';
   let setupTouched = false;
   let authFailed = false;
   let sock = null;
@@ -8067,11 +8110,25 @@
     return `<div class="ol-game"><div class="olg-main"><b>${esc(g.opp)}</b> <span class="olg-mode">${MODE_LABEL[g.mode] || ''}</span><small>${lobbyNote(g)}</small></div><div class="olg-btns">${btns}</div></div>`;
   }
 
+  function renderRecentOpponents() {
+    const box = document.getElementById('ol-recent');
+    if (!box) return;
+    const names = recentOpponents();
+    if (!names.length) {
+      box.hidden = true;
+      box.innerHTML = '';
+      return;
+    }
+    box.hidden = false;
+    box.innerHTML = `<span class="label">Recent opponents</span><div class="ol-recent-list">${names.map((n) => `<button type="button" class="btn sm ghost" data-act="olRecent" data-name="${esc(n)}">${esc(n)}</button>`).join('')}</div>`;
+  }
+
   function renderLobby() {
     const el = document.getElementById('ol-list');
     if (!el) return;
     const games = lobby.games;
     const badge = document.getElementById('ol-badge');
+    renderRecentOpponents();
     if (!games) {
       el.innerHTML = `<p class="muted">${lobby.error ? esc(lobby.error) : 'Loading your games…'}</p>`;
       return;
@@ -8108,7 +8165,16 @@
   async function onlineAct(act, ds, el) {
     if (act === 'olMode') {
       olMode = ds.v;
+      writeOlPrefs({ olMode });
       el.parentElement.querySelectorAll('.seg-btn').forEach((b) => b.classList.toggle('on', b === el));
+      return;
+    }
+    if (act === 'olRecent') {
+      const input = document.getElementById('ol-opp');
+      if (input) {
+        input.value = ds.name || '';
+        input.focus();
+      }
       return;
     }
     if (act === 'olRefresh') { loadLobby(); return; }
@@ -8145,6 +8211,7 @@
         if (r.status !== 401) toast(r.data.error || 'Couldn’t send the challenge.');
         return;
       }
+      rememberOpponent(opponent);
       toast(`📨 Challenge sent to ${r.data.game.opp}!`);
       if (input) input.value = '';
       updateLobbyGame(r.data.game);

@@ -125,6 +125,45 @@
       return `${r.winner == null ? '🤝 Tie' : r.winner === g.me ? '🏆 You won' : 'You lost'}${sc}${why}`;
     }
 
+    function recentOpponents() {
+      const seen = new Set();
+      const out = [];
+      const add = (name) => {
+        const n = String(name || '').trim();
+        if (!n || n.length > 80) return;
+        const key = n.toLowerCase();
+        if (seen.has(key)) return;
+        seen.add(key);
+        out.push(n);
+      };
+      (Array.isArray(prefs().olRecent) ? prefs().olRecent : []).forEach(add);
+      (net.lobby || []).forEach((g) => {
+        if (Array.isArray(g.names)) g.names.forEach((n, i) => { if (i !== g.me) add(n); });
+        else add(g.opp);
+      });
+      return out.slice(0, 8);
+    }
+
+    function rememberOpponents(names) {
+      const next = [];
+      const seen = new Set();
+      [...names, ...(Array.isArray(prefs().olRecent) ? prefs().olRecent : [])].forEach((name) => {
+        const n = String(name || '').trim();
+        if (!n) return;
+        const key = n.toLowerCase();
+        if (seen.has(key)) return;
+        seen.add(key);
+        next.push(n);
+      });
+      savePrefs(Object.assign(prefs(), { olRecent: next.slice(0, 8) }));
+    }
+
+    function recentHtml() {
+      const names = recentOpponents();
+      if (!names.length) return '';
+      return `<div class="ol-recent"><span class="label">Recent opponents</span><div class="ol-recent-list">${names.map((n) => `<button type="button" class="btn ghost sm" data-ol="recent" data-name="${esc(n)}">${esc(n)}</button>`).join('')}</div></div>`;
+    }
+
     function lobbyHtml(loading) {
       const games = net.lobby || [];
       const btns = (g) => {
@@ -138,14 +177,16 @@
       const list = games.length
         ? games.map((g) => `<li class="ol-game${(g.status === 'active' && g.turn === g.me) || (g.status === 'over' && g.unseen) ? ' mine' : ''}${invited(g) ? ' invite' : ''}"><span class="ol-who">vs <b>${esc(g.opp)}</b><small>${onlineStatus(g)}</small></span><span class="ol-btns">${btns(g)}</span></li>`).join('')
         : `<li class="muted ol-empty">${loading ? 'Loading your games…' : 'No online games yet — challenge someone below.'}</li>`;
+      const mode = prefs().olMode === 'quick' ? 'quick' : 'long';
       return `<div class="ol">
       <div class="ol-head"><span class="label">Your online games</span><button class="btn ghost sm" data-ol="refresh" title="Refresh">↻</button></div>
       ${net.err ? `<p class="bad">${esc(net.err)}</p>` : ''}
       <ul class="ol-list">${list}</ul>
       <form class="ol-new" data-ol-form>
         <label><span class="label">${maxSeats > 2 ? 'Invite players' : 'Challenge a player'}</span><input id="ol-opp" class="ol-opp" maxlength="80" placeholder="Username or email" autocomplete="off"></label>
+        ${recentHtml()}
         ${maxSeats > 2 ? seatsHtml() : ''}
-        <div class="seg ol-mode" id="ol-mode">${['quick', 'long'].map((m) => `<button type="button" data-v="${m}" class="${(prefs().olMode || 'quick') === m ? 'on' : ''}">${m === 'quick' ? '<b>⚡ Quick game</b><small>2 minutes per turn — play it now</small>' : '<b>🐢 Long game</b><small>No time limit — take your turn whenever, over days</small>'}</button>`).join('')}</div>
+        <div class="seg ol-mode" id="ol-mode">${['long', 'quick'].map((m) => `<button type="button" data-v="${m}" class="${mode === m ? 'on' : ''}">${m === 'quick' ? '<b>⚡ Quick game</b><small>2 minutes per turn — play it now</small>' : '<b>🐢 Long game</b><small>No time limit — take your turn whenever, over days</small>'}</button>`).join('')}</div>
         <button class="btn" type="submit">Send challenge</button>
       </form>
       <p class="muted small">In a quick game, if your time runs out the computer takes that turn for you; miss three turns in a row and you lose${maxSeats > 2 ? ' (with more than two players, the computer takes over your seat instead)' : ''}. You’ll see each other’s moves live while you both have the game open.</p>
@@ -464,11 +505,12 @@
         const btn = e.target.querySelector('button[type="submit"]') || e.target.querySelector('button');
         if (btn) btn.disabled = true;
         const pick = $('#ol-mode .on');
-        const mode = pick ? pick.dataset.v : 'quick';
+        const mode = pick ? pick.dataset.v : 'long';
         savePrefs(Object.assign(prefs(), { olMode: mode }, maxSeats > 2 ? { olBots: nBots, olLevel: level } : {}));
         const r = await api(`${prefix}/challenge`, { opponent: opponents[0], opponents, bots: Array(nBots).fill(level), mode, ...(cfg.challengeExtra ? cfg.challengeExtra() : {}) });
         if (btn) btn.disabled = false;
         if (!r.ok) return toast(esc(r.data.error || 'Couldn’t send the challenge.'), 'bad');
+        rememberOpponents(opponents);
         toast(opponents.length > 1 || nBots ? `Invites sent — you’re playing with <b>${esc(r.data.game.opp)}</b>.` : `Challenge sent to <b>${esc(r.data.game.opp)}</b>.`);
         net.lobby = [r.data.game].concat((net.lobby || []).filter((g) => g.id !== r.data.game.id));
         renderLobby();
@@ -483,6 +525,16 @@
         if (!b || b.disabled || !$('#online-box')) return;
         const id = b.dataset.id;
         const what = b.dataset.ol;
+        if (what === 'recent') {
+          const name = b.dataset.name || '';
+          const inputs = [...document.querySelectorAll('[data-ol-form] .ol-opp')];
+          const target = inputs.find((inp) => !inp.value.trim()) || inputs[0] || $('#ol-opp');
+          if (target) {
+            target.value = name;
+            target.focus();
+          }
+          return;
+        }
         if (what === 'add-opp' || what === 'drop-opp' || what === 'bots+' || what === 'bots-') {
           if (what === 'add-opp' && seatCounts().total < maxSeats) {
             const row = document.createElement('label');

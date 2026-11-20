@@ -773,6 +773,9 @@ button { font-family: inherit; color: #000; }
 .ol-form { display: grid; gap: 0.55rem; }
 .ol-form label { font-weight: 700; }
 .ol-form input { width: 100%; padding: 0.7rem 0.8rem; border-radius: 12px; border: 2px solid var(--bone-dark); font: inherit; font-size: 1.05rem; background: #fff; color: var(--ink); }
+.ol-recent { display: grid; gap: 0.35rem; }
+.ol-recent .label { font-weight: 700; font-size: 0.9rem; }
+.ol-recent-list { display: flex; flex-wrap: wrap; gap: 0.35rem; }
 .ol-form input:focus { outline: none; border-color: var(--amber); }
 .ol-form .muted { margin: 0; font-size: 0.85rem; }
 .seg.ol-mode { grid-template-columns: 1fr 1fr; }

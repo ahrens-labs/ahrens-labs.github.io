@@ -158,6 +158,8 @@ button { font: inherit; }
 .ol-btns { display: flex; gap: 0.35rem; flex-shrink: 0; }
 .ol-empty { padding: 0.5rem 0.2rem; }
 .ol-new { display: grid; gap: 0.5rem; }
+.ol-recent { display: grid; gap: 0.35rem; }
+.ol-recent-list { display: flex; flex-wrap: wrap; gap: 0.35rem; }
 .ol-new input { width: 100%; padding: 0.55rem 0.7rem; border-radius: 10px; border: 0; font: inherit; background: #eaf6ff; color: #082033; }
 .ol .small { font-size: 0.85rem; margin: 0.6rem 0 0; }
 .ol-loading { text-align: center; padding: 4rem 1rem; font-size: 1.1rem; }
