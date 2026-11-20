@@ -5,6 +5,27 @@
 
   const MAX = 12;
 
+  // Fixed computer seat names from workers/src/lab-online.js (plus generic fallbacks).
+  const KNOWN_BOT_NAMES = new Set([
+    'the red cauldron',
+    'blue phial & co.',
+    'greenroot remedy',
+    'violet moon',
+    'crimson league',
+    'azure guard',
+    'emerald watch',
+    'violet vanguard',
+    'golden legion',
+    'contessa rosa',
+    'count azzurro',
+    'lady verde',
+    'baron viola',
+    'marchesa oro',
+    'computer crew a',
+    'computer crew b',
+    'computer crew c',
+  ]);
+
   function storageKey() {
     try {
       const uid = localStorage.getItem('ahrenslabs_userId');
@@ -15,10 +36,37 @@
     }
   }
 
+  function isBotName(name) {
+    const n = String(name || '').trim();
+    if (!n) return true;
+    const key = n.toLowerCase();
+    if (KNOWN_BOT_NAMES.has(key)) return true;
+    // Multi-seat lobby "opp" text, e.g. "Ada + 2 computers", or generic computer labels.
+    if (/computer|\+\s*\d|\bbots?\b/i.test(n)) return true;
+    if (/^computer\s+\d+$/i.test(n)) return true;
+    // Joined summary strings are never a single username.
+    if (n.includes(',')) return true;
+    return false;
+  }
+
+  function cleanNames(names) {
+    const seen = new Set();
+    const out = [];
+    (Array.isArray(names) ? names : [names]).forEach((raw) => {
+      const n = String(raw || '').trim();
+      if (!n || n.length > 80 || isBotName(n)) return;
+      const key = n.toLowerCase();
+      if (seen.has(key)) return;
+      seen.add(key);
+      out.push(n);
+    });
+    return out;
+  }
+
   function read() {
     try {
       const raw = JSON.parse(localStorage.getItem(storageKey()) || '[]');
-      return Array.isArray(raw) ? raw.map((n) => String(n || '').trim()).filter(Boolean) : [];
+      return cleanNames(Array.isArray(raw) ? raw : []);
     } catch {
       return [];
     }
@@ -26,52 +74,32 @@
 
   function write(names) {
     try {
-      localStorage.setItem(storageKey(), JSON.stringify(names.slice(0, MAX)));
+      localStorage.setItem(storageKey(), JSON.stringify(cleanNames(names).slice(0, MAX)));
     } catch {
       /* storage blocked */
     }
   }
 
-  function isLikelyBotName(name) {
-    const n = String(name || '').trim();
-    if (!n) return true;
-    // Multi-seat lobby "opp" text, e.g. "Ada + 2 computers", or generic computer labels.
-    if (/computer|\+\s*\d|\bbots?\b/i.test(n)) return true;
-    if (n.includes(',')) return true;
-    return false;
-  }
-
   // Human usernames from a lobby/game summary. Prefers an explicit `opponents` list from the server.
   function humansFromGame(g) {
     if (!g) return [];
-    if (Array.isArray(g.opponents)) {
-      return g.opponents.map((n) => String(n || '').trim()).filter((n) => n && !isLikelyBotName(n));
+    if (Array.isArray(g.opponents)) return cleanNames(g.opponents);
+    if (Array.isArray(g.names) && Array.isArray(g.bots)) {
+      return cleanNames(g.names.map((n, i) => (i === g.me || g.bots[i] ? '' : n)));
     }
-    if (Array.isArray(g.names)) {
-      const bots = Array.isArray(g.bots) ? g.bots : null;
-      return g.names
-        .map((n, i) => (i === g.me || (bots && bots[i]) ? '' : String(n || '').trim()))
-        .filter((n) => n && !isLikelyBotName(n));
-    }
+    // Without a bots[] flag, `names` can include computer seats — only trust a plain single-seat `opp`.
     const opp = String(g.opp || '').trim();
-    return opp && !isLikelyBotName(opp) ? [opp] : [];
+    return cleanNames(opp && !opp.includes(',') && !/\+/i.test(opp) ? [opp] : []);
   }
 
   function absorb(names) {
-    const cleaned = (Array.isArray(names) ? names : [names])
-      .map((n) => String(n || '').trim())
-      .filter((n) => n && n.length <= 80 && !isLikelyBotName(n));
-    if (!cleaned.length) return list();
-    const seen = new Set();
-    const next = [];
-    [...cleaned, ...read()].forEach((n) => {
-      const key = n.toLowerCase();
-      if (seen.has(key)) return;
-      seen.add(key);
-      next.push(n);
-    });
-    write(next);
-    return next.slice(0, MAX);
+    const cleaned = cleanNames(names);
+    if (!cleaned.length) {
+      write(read());
+      return list();
+    }
+    write([...cleaned, ...read()]);
+    return list();
   }
 
   function list(lobbyGames) {
@@ -80,20 +108,9 @@
     (Array.isArray(lobbyGames) ? lobbyGames : []).forEach((g) => {
       humansFromGame(g).forEach((n) => fromLobby.push(n));
     });
-    if (fromLobby.length) absorb(fromLobby);
-
-    const seen = new Set();
-    const out = [];
-    const add = (n) => {
-      const name = String(n || '').trim();
-      if (!name || name.length > 80 || isLikelyBotName(name)) return;
-      const key = name.toLowerCase();
-      if (seen.has(key)) return;
-      seen.add(key);
-      out.push(name);
-    };
-    read().forEach(add);
-    return out.slice(0, MAX);
+    // Always rewrite storage through cleanNames so previously saved bot names drop out.
+    write([...fromLobby, ...read()]);
+    return read().slice(0, MAX);
   }
 
   root.AhrensRecentOpponents = {
@@ -101,5 +118,6 @@
     remember: absorb,
     absorb,
     humansFromGame,
+    isBotName,
   };
 })(typeof window !== 'undefined' ? window : globalThis);
