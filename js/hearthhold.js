@@ -2582,27 +2582,27 @@
     const why = r.reason === 'resign' ? (r.winner === g.me ? ' — they resigned' : ' — you resigned') : r.reason === 'timeout' ? (r.winner === g.me ? ' — they ran out of time' : ' — you ran out of time') : '';
     return `${r.winner == null ? '🤝 Tie' : r.winner === g.me ? '🏆 You won' : 'You lost'}${sc}${why}`;
   }
+  function migrateLegacyRecent() {
+    const Recent = window.AhrensRecentOpponents;
+    if (!Recent) return;
+    const legacy = prefs().olRecent;
+    if (!Array.isArray(legacy) || !legacy.length) return;
+    Recent.remember(legacy);
+    const next = Object.assign({}, prefs());
+    delete next.olRecent;
+    savePrefs(next);
+  }
+
   function recentOpponents() {
-    const seen = new Set();
-    const out = [];
-    const add = (name) => {
-      const n = String(name || '').trim();
-      if (!n || n.length > 80) return;
-      const key = n.toLowerCase();
-      if (seen.has(key)) return;
-      seen.add(key);
-      out.push(n);
-    };
-    (Array.isArray(prefs().olRecent) ? prefs().olRecent : []).forEach(add);
-    (net.lobby || []).forEach((g) => add(g.opp));
-    return out.slice(0, 8);
+    migrateLegacyRecent();
+    const Recent = window.AhrensRecentOpponents;
+    if (Recent) return Recent.list(net.lobby || []);
+    return [];
   }
 
   function rememberOpponent(name) {
-    const n = String(name || '').trim();
-    if (!n) return;
-    const next = [n, ...(Array.isArray(prefs().olRecent) ? prefs().olRecent : []).filter((x) => x.toLowerCase() !== n.toLowerCase())];
-    savePrefs(Object.assign(prefs(), { olRecent: next.slice(0, 8) }));
+    const Recent = window.AhrensRecentOpponents;
+    if (Recent) Recent.remember(name);
   }
 
   function lobbyHtml(loading) {
@@ -2647,7 +2647,7 @@
     const r = await api('/api/oakhaven/challenge', { opponent, mode });
     btn.disabled = false;
     if (!r.ok) return toast(esc(r.data.error || 'Couldn’t send the challenge.'), 'bad');
-    rememberOpponent(opponent);
+    rememberOpponent((r.data.game?.opponents && r.data.game.opponents[0]) || opponent);
     toast(`Challenge sent to <b>${esc(r.data.game.opp)}</b>.`);
     net.lobby = [r.data.game].concat((net.lobby || []).filter((g) => g.id !== r.data.game.id));
     renderLobby();

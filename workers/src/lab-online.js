@@ -544,13 +544,19 @@ function turnFor(cfg, record, me) {
 
 function summaryFor(cfg, record, me) {
   const acc = acceptedOf(record);
+  const humans = record.players
+    .map((p, i) => (!isBot(p) && i !== me ? p.username : null))
+    .filter(Boolean);
   return {
     game: cfg.key,
     id: record.id,
     status: record.status,
     me,
     opp: othersText(record, me),
+    // Real online players only — used by the shared “recent opponents” chips.
+    opponents: humans,
     names: record.players.map((p) => p.username),
+    bots: record.players.map((p) => !!p.bot),
     seats: record.players.length,
     needsMe: record.status === 'pending' && me > 0 && !acc[me],
     unseen: record.status === 'over' && !!(record.unseen && record.unseen[me]),

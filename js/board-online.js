@@ -125,37 +125,27 @@
       return `${r.winner == null ? '🤝 Tie' : r.winner === g.me ? '🏆 You won' : 'You lost'}${sc}${why}`;
     }
 
+    function migrateLegacyRecent() {
+      const Recent = root.AhrensRecentOpponents;
+      if (!Recent) return;
+      const legacy = prefs().olRecent;
+      if (!Array.isArray(legacy) || !legacy.length) return;
+      Recent.remember(legacy);
+      const next = Object.assign({}, prefs());
+      delete next.olRecent;
+      savePrefs(next);
+    }
+
     function recentOpponents() {
-      const seen = new Set();
-      const out = [];
-      const add = (name) => {
-        const n = String(name || '').trim();
-        if (!n || n.length > 80) return;
-        const key = n.toLowerCase();
-        if (seen.has(key)) return;
-        seen.add(key);
-        out.push(n);
-      };
-      (Array.isArray(prefs().olRecent) ? prefs().olRecent : []).forEach(add);
-      (net.lobby || []).forEach((g) => {
-        if (Array.isArray(g.names)) g.names.forEach((n, i) => { if (i !== g.me) add(n); });
-        else add(g.opp);
-      });
-      return out.slice(0, 8);
+      migrateLegacyRecent();
+      const Recent = root.AhrensRecentOpponents;
+      if (Recent) return Recent.list(net.lobby || []);
+      return [];
     }
 
     function rememberOpponents(names) {
-      const next = [];
-      const seen = new Set();
-      [...names, ...(Array.isArray(prefs().olRecent) ? prefs().olRecent : [])].forEach((name) => {
-        const n = String(name || '').trim();
-        if (!n) return;
-        const key = n.toLowerCase();
-        if (seen.has(key)) return;
-        seen.add(key);
-        next.push(n);
-      });
-      savePrefs(Object.assign(prefs(), { olRecent: next.slice(0, 8) }));
+      const Recent = root.AhrensRecentOpponents;
+      if (Recent) Recent.remember(names);
     }
 
     function recentHtml() {
@@ -510,7 +500,9 @@
         const r = await api(`${prefix}/challenge`, { opponent: opponents[0], opponents, bots: Array(nBots).fill(level), mode, ...(cfg.challengeExtra ? cfg.challengeExtra() : {}) });
         if (btn) btn.disabled = false;
         if (!r.ok) return toast(esc(r.data.error || 'Couldn’t send the challenge.'), 'bad');
-        rememberOpponents(opponents);
+        rememberOpponents(Array.isArray(r.data.game?.opponents) && r.data.game.opponents.length
+          ? r.data.game.opponents
+          : opponents);
         toast(opponents.length > 1 || nBots ? `Invites sent — you’re playing with <b>${esc(r.data.game.opp)}</b>.` : `Challenge sent to <b>${esc(r.data.game.opp)}</b>.`);
         net.lobby = [r.data.game].concat((net.lobby || []).filter((g) => g.id !== r.data.game.id));
         renderLobby();

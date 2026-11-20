@@ -186,6 +186,7 @@ function summaryFor(record, me) {
     status: record.status,
     me,
     opp: opp ? opp.username : '',
+    opponents: opp ? [opp.username] : [],
     turn: record.turn,
     unseen: record.status === 'over' && !!(record.unseen && record.unseen[me]),
     mode: record.mode || 'long',

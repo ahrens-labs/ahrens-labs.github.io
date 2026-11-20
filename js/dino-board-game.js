@@ -4309,7 +4309,6 @@
         level,
         pace,
         olMode: prefs.olMode,
-        olRecent: prefs.olRecent,
       }));
     } catch {
       /* storage blocked */
@@ -4329,27 +4328,24 @@
     }
   }
 
+  function migrateLegacyRecent() {
+    const Recent = window.AhrensRecentOpponents;
+    if (!Recent || !Array.isArray(prefs.olRecent) || !prefs.olRecent.length) return;
+    Recent.remember(prefs.olRecent);
+    delete prefs.olRecent;
+    writeOlPrefs({});
+  }
+
   function recentOpponents() {
-    const seen = new Set();
-    const out = [];
-    const add = (name) => {
-      const n = String(name || '').trim();
-      if (!n || n.length > 80) return;
-      const key = n.toLowerCase();
-      if (seen.has(key)) return;
-      seen.add(key);
-      out.push(n);
-    };
-    (Array.isArray(prefs.olRecent) ? prefs.olRecent : []).forEach(add);
-    (lobby.games || []).forEach((g) => add(g.opp));
-    return out.slice(0, 8);
+    migrateLegacyRecent();
+    const Recent = window.AhrensRecentOpponents;
+    if (Recent) return Recent.list(lobby.games || []);
+    return [];
   }
 
   function rememberOpponent(name) {
-    const n = String(name || '').trim();
-    if (!n) return;
-    const next = [n, ...(Array.isArray(prefs.olRecent) ? prefs.olRecent : []).filter((x) => x.toLowerCase() !== n.toLowerCase())];
-    writeOlPrefs({ olRecent: next.slice(0, 8) });
+    const Recent = window.AhrensRecentOpponents;
+    if (Recent) Recent.remember(name);
   }
 
   // ---------------------------------------------------------------- modals
@@ -8211,7 +8207,7 @@
         if (r.status !== 401) toast(r.data.error || 'Couldn’t send the challenge.');
         return;
       }
-      rememberOpponent(opponent);
+      rememberOpponent((r.data.game?.opponents && r.data.game.opponents[0]) || opponent);
       toast(`📨 Challenge sent to ${r.data.game.opp}!`);
       if (input) input.value = '';
       updateLobbyGame(r.data.game);
