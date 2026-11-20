@@ -8,6 +8,9 @@ class MemoryStorage {
   }
 
   async get(key) {
+    if (Array.isArray(key)) {
+      return new Map(key.map((entry) => [entry, this.values.get(entry)]).filter(([, value]) => value !== undefined));
+    }
     return this.values.get(key);
   }
 
@@ -92,6 +95,74 @@ test('auto-pick requests require league membership', async () => {
   const { response } = await autoPick(store, 'outsider');
 
   assert.equal(response.status, 403);
+});
+
+test('the team on the clock can make a manual snake pick before the timer expires', async () => {
+  const { store, storage } = createStore();
+  const record = await storage.get('league:league-1');
+  record.league.draftPickStartedAt = Date.now() - 5_000;
+  await storage.put('league:league-1', record);
+
+  const response = await store.fetch(new Request('https://fantasy.internal/draft-pick', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      leagueId: 'league-1',
+      userId: 'user-1',
+      manual: true,
+      player: { id: 'player-9', name: 'Manual Pick', position: 'QB', team: 'NFL' },
+    }),
+  }));
+  const data = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(data.league.picks.length, 1);
+  assert.equal(data.league.picks[0].playerId, 'player-9');
+  assert.equal(data.league.picks[0].teamId, 'team-1');
+});
+
+test('manual snake picks are rejected for managers who are not on the clock', async () => {
+  const { store } = createStore();
+
+  const response = await store.fetch(new Request('https://fantasy.internal/draft-pick', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      leagueId: 'league-1',
+      userId: 'user-2',
+      manual: true,
+      player: { id: 'player-9', name: 'Manual Pick', position: 'QB', team: 'NFL' },
+    }),
+  }));
+  const data = await response.json();
+
+  assert.equal(response.status, 403);
+  assert.match(data.error, /on the clock/i);
+});
+
+test('league loads can report unchanged when the client already has the revision', async () => {
+  const { store } = createStore();
+
+  const firstResponse = await store.fetch(new Request('https://fantasy.internal/load', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ leagueId: 'league-1', userId: 'user-1' }),
+  }));
+  const first = await firstResponse.json();
+  assert.equal(firstResponse.status, 200);
+  assert.ok(first.league);
+
+  const secondResponse = await store.fetch(new Request('https://fantasy.internal/load', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ leagueId: 'league-1', userId: 'user-1', since: first.revision }),
+  }));
+  const second = await secondResponse.json();
+
+  assert.equal(secondResponse.status, 200);
+  assert.equal(second.unchanged, true);
+  assert.equal(second.revision, first.revision);
+  assert.equal(second.league, undefined);
 });
 
 test('the authenticated Fantasy API routes timed auto-picks to the league store', async () => {

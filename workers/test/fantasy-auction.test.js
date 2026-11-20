@@ -8,6 +8,9 @@ class MemoryStorage {
   }
 
   async get(key) {
+    if (Array.isArray(key)) {
+      return new Map(key.map((entry) => [entry, this.values.get(entry)]).filter(([, value]) => value !== undefined));
+    }
     return this.values.get(key);
   }
 

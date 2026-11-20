@@ -1762,6 +1762,16 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
           { league: snapshot, revision: onlineRevision },
         );
         if (!response.ok) {
+          // Conflict/rejection responses include the server league. Adopt it so
+          // onlineDirty cannot stay stuck and block draft polling forever.
+          if (data.league && (response.status === 409 || response.status === 403)) {
+            installOnlineLeague(data);
+            renderOnlineLeague();
+            ui.saveStatus.textContent = 'SYNCED FROM SERVER';
+            ui.saveStatus.style.color = 'var(--orange)';
+            notify(data.error || 'The league changed on the server. Latest state loaded.');
+            return;
+          }
           ui.saveStatus.textContent = 'SYNC BLOCKED';
           ui.saveStatus.style.color = 'var(--red)';
           notify(data.error || 'The league update was rejected.');
@@ -2821,7 +2831,8 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
 
   function startOnlineRefreshTimer() {
     const activeDraft = $('onlineLobby').hidden && onlineReady && league.draftStarted && !league.draftEnded;
-    const intervalMs = activeDraft ? 5000 : 60000;
+    // Draft polling stays modest: unchanged revisions return a tiny payload.
+    const intervalMs = activeDraft ? 8000 : 60000;
     if (onlineRefreshTimer && onlineRefreshIntervalMs === intervalMs) return;
     if (onlineRefreshTimer) window.clearInterval(onlineRefreshTimer);
     onlineRefreshIntervalMs = intervalMs;
@@ -2847,13 +2858,14 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     if (document.visibilityState !== 'visible') return;
     if (!onlineReady || onlineDirty || commissionerSettingsDirty || $('onlineLobby').hidden === false) return;
     try {
-      const { response, data } = await fantasyRequest(`/api/fantasy/leagues/${encodeURIComponent(league.leagueId)}`);
+      const since = Number.isFinite(onlineRevision) ? `?since=${encodeURIComponent(onlineRevision)}` : '';
+      const { response, data } = await fantasyRequest(`/api/fantasy/leagues/${encodeURIComponent(league.leagueId)}${since}`);
       if (response.status === 403 || response.status === 404) {
         await handleUnavailableActiveLeague();
         return;
       }
       if (!response.ok) throw new Error(data.error || 'Could not refresh the league.');
-      if (Number(data.revision) <= onlineRevision) {
+      if (data.unchanged || Number(data.revision) <= onlineRevision) {
         renderDraft();
         return;
       }
@@ -4547,6 +4559,10 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       notify(`${player.name} has already been drafted.`);
       return;
     }
+    if (onlineReady) {
+      void submitOnlineManualPick(player, team, options);
+      return;
+    }
     normalizeRosterSlotIndexes(team);
     const round = Math.floor(index / league.teamCount) + 1;
     const number = index + 1;
@@ -4582,9 +4598,39 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
     if (!options.silent) notify(`${player.name} drafted by ${team.teamName}.`);
   }
 
+  async function submitOnlineManualPick(player, team, options = {}) {
+    if (draftAutoPickBusy) {
+      notify('A pick is already being submitted.');
+      return;
+    }
+    draftAutoPickBusy = true;
+    try {
+      const { response, data } = await fantasyRequest(
+        `/api/fantasy/leagues/${encodeURIComponent(league.leagueId)}/draft-pick`,
+        'POST',
+        { player, manual: true },
+      );
+      if (data.league) {
+        installOnlineLeague(data);
+        renderOnlineLeague();
+      }
+      if (!response.ok) {
+        notify(data.error || 'Could not make that pick.');
+        return;
+      }
+      draftAutoPickAttemptedPick = -1;
+      if (!options.silent) notify(`${player.name} drafted by ${team.teamName}.`);
+    } catch (error) {
+      notify(error.message || 'Could not reach the league server for that pick.');
+    } finally {
+      draftAutoPickBusy = false;
+      updateDraftPickClock();
+    }
+  }
+
   function undoPick() {
-    if (onlineReady && !ownsOnlineTeam(league.picks.at(-1)?.teamId)) {
-      notify('Only the manager who made the latest pick can undo it.');
+    if (onlineReady) {
+      notify('Online drafts cannot undo picks. Ask the commissioner to restart if needed.');
       return;
     }
     const lastPick = league.picks.pop();
@@ -4790,9 +4836,8 @@ body { font-size: 15px; -webkit-font-smoothing: antialiased; text-rendering: opt
       : league.draftStarted ? auctionMode ? 'VIEW LIVE AUCTION ↗' : 'CONTINUE YOUR DRAFT ↗'
         : auctionMode ? 'START THE AUCTION ↗' : 'START A DRAFT ↗';
     homeStart.disabled = isDraftClosed() || (auctionMode && !onlineReady);
-    $('undoPick').disabled = !league.picks.length
-      || (onlineReady && !ownsOnlineTeam(league.picks.at(-1)?.teamId));
-    $('undoPick').classList.toggle('hidden', auctionMode);
+    $('undoPick').disabled = onlineReady || !league.picks.length;
+    $('undoPick').classList.toggle('hidden', auctionMode || onlineReady);
     $('resetDraft').classList.toggle('hidden', auctionMode);
     $('autoDraft').classList.toggle('hidden', auctionMode);
     $('autoDraft').disabled = auctionMode || !league.draftStarted || isDraftClosed()
