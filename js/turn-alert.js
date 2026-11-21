@@ -110,9 +110,27 @@
     tick();
   }
 
+  function applyRemoteGames(games, opts) {
+    const list = Array.isArray(games) ? games : [];
+    remoteOn = list.some((g) =>
+      g.unseen || (g.needsMe != null ? g.needsMe : g.status === 'pending' && g.me === 1) ||
+      (g.status === 'active' && g.turn === g.me)
+    );
+    tick();
+    if (opts && opts.skipChallengeSync) return;
+    if (window.AhrensChallengeAlert && typeof window.AhrensChallengeAlert.sync === 'function') {
+      window.AhrensChallengeAlert.sync(list);
+    }
+  }
+
   // Keep game tabs informed even when their own game hasn't been opened. This lets any
   // already-loaded game page show its favicon alert while it sits in the background.
+  // When ChallengeAlert is present it owns the /api/board-games/current poll (one request for both).
   async function refreshOnlineTurns() {
+    if (window.AhrensChallengeAlert && typeof window.AhrensChallengeAlert.refresh === 'function') {
+      window.AhrensChallengeAlert.refresh();
+      return;
+    }
     let session = '';
     try {
       session = localStorage.getItem('ahrenslabs_sessionId') || '';
@@ -128,17 +146,13 @@
       const response = await fetch(`${API_BASE}/api/board-games/current`, { headers: { Authorization: `Bearer ${session}` } });
       if (!response.ok) return;
       const data = await response.json();
-      remoteOn = (data.games || []).some((g) =>
-        g.unseen || (g.needsMe != null ? g.needsMe : g.status === 'pending' && g.me === 1) ||
-        (g.status === 'active' && g.turn === g.me)
-      );
-      tick();
+      applyRemoteGames(data.games || []);
     } catch {
       // Keep the last known alert state when the network is unavailable.
     }
   }
   refreshOnlineTurns();
-  setInterval(refreshOnlineTurns, 15000);
+  setInterval(refreshOnlineTurns, 10000);
   document.addEventListener('resume', refreshOnlineTurns);
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') refreshOnlineTurns();
@@ -153,5 +167,11 @@
   });
 
   // Background tabs run timers as rarely as once a minute; pages call check() the moment a game update lands.
-  window.TurnAlert = { set, watch, check: () => checks.length && tick(), get on() { return on; } };
+  window.TurnAlert = {
+    set,
+    watch,
+    check: () => checks.length && tick(),
+    fromRemote: applyRemoteGames,
+    get on() { return on; },
+  };
 })();

@@ -319,6 +319,25 @@
         },
     };
 
+    // Challenge accept/decline toasts on both ahrenslabs.com and ahrensgames.com.
+    (function loadChallengeAlert() {
+        const host = String(location.hostname || '').toLowerCase().replace(/^www\./, '');
+        const onSite =
+            host === 'ahrenslabs.com' ||
+            host === 'ahrensgames.com' ||
+            host === 'localhost' ||
+            host === '127.0.0.1';
+        if (!onSite || window.AhrensChallengeAlert) return;
+        const self = document.querySelector('script[src*="account_session"]');
+        const src = self && self.src
+            ? self.src.replace(/account_session[^/?#]*/i, 'challenge-alert.js').replace(/(\?[^#]*)?$/, '?v=1')
+            : '/js/challenge-alert.js?v=1';
+        const s = document.createElement('script');
+        s.src = src;
+        s.async = false;
+        (document.head || document.documentElement).appendChild(s);
+    })();
+
     // Ahrens Games lives on ahrensgames.com (lobby at "/", settings at "/settings"); everything else is ahrenslabs.com.
     // Pages opened on the wrong domain move over, and since each domain has its own storage the login rides along as
     // a one-minute sealed token in the URL fragment (/api/session/handoff, then /api/session/redeem on arrival).

@@ -8044,7 +8044,24 @@
     if (window.TurnAlert) window.TurnAlert.check();
   }
 
-  async function openOnlineGame(id) {
+  async function acceptOnlineInvite(g) {
+    const names = g.me === 1 ? [g.opp, myUsername()] : [myUsername(), g.opp];
+    const keep = state;
+    buildGame(names, rand(2), null, 'medium', 'medium', true);
+    const start = state;
+    state = keep;
+    const r = await api('/api/dino/respond', { id: g.id, accept: true, state: start });
+    if (!r.ok) {
+      if (r.status !== 401) toast(r.data.error || 'Couldn’t start the game.');
+      loadLobby();
+      return false;
+    }
+    enterOnline(r.data);
+    return true;
+  }
+
+  async function openOnlineGame(id, opts) {
+    const autoAccept = !!(opts && opts.accept);
     const r = await api(`/api/dino/game?id=${encodeURIComponent(id)}${document.hidden ? '' : '&seen=1'}`);
     if (!r.ok) {
       if (r.status !== 401) toast(r.data.error || 'Couldn’t open that game.');
@@ -8056,7 +8073,15 @@
       enterOnline(r.data);
       return;
     }
-    if (r.data.status === 'pending' && r.data.me === 1) toast(`🦖 ${r.data.players[0]} challenged you — accept below!`);
+    if (r.data.status === 'pending' && r.data.me === 1) {
+      if (autoAccept) {
+        const opp = r.data.opp || (r.data.players && r.data.players[0]) || 'Opponent';
+        history.replaceState(null, '', `${location.pathname}?game=${encodeURIComponent(id)}`);
+        await acceptOnlineInvite({ id, me: 1, opp });
+        return;
+      }
+      toast(`🦖 ${r.data.players[0]} challenged you — accept below!`);
+    }
     loadLobby();
   }
 
@@ -8236,20 +8261,9 @@
     if (act === 'olOpen') { openOnlineGame(ds.id); return; }
     if (!g) return;
     if (act === 'olAccept') {
-      const names = g.me === 1 ? [g.opp, myUsername()] : [myUsername(), g.opp];
-      const keep = state;
-      buildGame(names, rand(2), null, 'medium', 'medium', true);
-      const start = state;
-      state = keep;
       if (el) el.disabled = true;
-      const r = await api('/api/dino/respond', { id: g.id, accept: true, state: start });
+      await acceptOnlineInvite(g);
       if (el) el.disabled = false;
-      if (!r.ok) {
-        if (r.status !== 401) toast(r.data.error || 'Couldn’t start the game.');
-        loadLobby();
-        return;
-      }
-      enterOnline(r.data);
       return;
     }
     if (act === 'olDecline' || act === 'olCancel') {
@@ -8570,6 +8584,7 @@
   // ---------------------------------------------------------------- boot
   const params = new URLSearchParams(location.search);
   const linkedGame = params.get('game');
+  const wantAccept = params.get('accept') === '1';
   const pastGame = linkedGame ? null : params.get('past');
   const localId = linkedGame || pastGame ? null : params.get('local');
   // ?home (from the game shelf): the start screen, not whatever was played last.
@@ -8602,7 +8617,7 @@
   if (pastGame && sessionId()) pastLoading = true;
   render();
   if (sessionId()) {
-    if (linkedGame) openOnlineGame(linkedGame);
+    if (linkedGame) openOnlineGame(linkedGame, { accept: wantAccept });
     else if (pastGame) openPastGame(pastGame);
     else loadLobby();
     if (state && cur() && cur().t === 'gameOver') recordLocalGame();

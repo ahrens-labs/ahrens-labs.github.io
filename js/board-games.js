@@ -352,6 +352,9 @@
       })
       .then((data) => {
         const games = (data.games || []).filter((g) => shown(g.game));
+        if (window.AhrensChallengeAlert && typeof window.AhrensChallengeAlert.sync === 'function') {
+          window.AhrensChallengeAlert.sync(data.games || []);
+        }
         if (BS && data.saves) BS.merge(data.saves);
         if (window.AhrensGamesIntro && 'introSeen' in data) window.AhrensGamesIntro.fromServer(data.introSeen);
         if (data.settings) {
