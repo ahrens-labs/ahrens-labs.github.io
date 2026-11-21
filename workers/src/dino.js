@@ -9,7 +9,8 @@ const QUICK_TURN_MS = 2 * 60 * 1000;
 const QUICK_FORFEIT_GRACE_MS = 30 * 1000;
 // The challenger may not be watching when a quick game is accepted, so the first turn is longer.
 const QUICK_FIRST_TURN_MS = 5 * 60 * 1000;
-const PENDING_TTL_MS = { quick: 24 * 60 * 60 * 1000, long: 7 * 24 * 60 * 60 * 1000 };
+// Quick challenges are for people who are both online now — expire fast so stale invites don't linger.
+const PENDING_TTL_MS = { quick: 90 * 1000, long: 7 * 24 * 60 * 60 * 1000 };
 const MAX_STATE_BYTES = 400 * 1024;
 const MAX_PENDING_OUT = 5;
 const MAX_OPEN_GAMES = 20;
@@ -382,6 +383,19 @@ export class DinoGame {
     await this.storage.put('game', record);
   }
 
+  // Pending invites can outlive a delayed alarm — expire them the moment anyone touches the game.
+  async expirePendingIfDue(record) {
+    if (!record || record.status !== 'pending') return false;
+    const ttl = PENDING_TTL_MS[record.mode] || PENDING_TTL_MS.long;
+    if (Date.now() < record.createdAt + ttl - 1000) return false;
+    record.status = 'expired';
+    await this.persist(record);
+    await this.scheduleAlarm(record);
+    await this.publishLobbies(record);
+    this.broadcast(record, null);
+    return true;
+  }
+
   async remind(record) {
     await sendDueReminders(this.env, record, {
       title: 'Dino Dynasty',
@@ -454,6 +468,7 @@ export class DinoGame {
 
     if (op === 'live') {
       const record = await this.load();
+      await this.expirePendingIfDue(record);
       const userId = request.headers.get('X-Dino-User') || '';
       const me = this.playerIndex(record, userId);
       if (me < 0) return new Response('Not found', { status: 404 });
@@ -494,6 +509,7 @@ export class DinoGame {
     }
 
     const record = await this.load();
+    await this.expirePendingIfDue(record);
     const me = this.playerIndex(record, body.userId);
     if (me < 0) return Response.json({ error: 'Game not found' }, { status: 404 });
 

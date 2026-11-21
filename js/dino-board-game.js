@@ -4265,7 +4265,7 @@
             <div class="ol-recent" id="ol-recent" hidden></div>
             <div class="seg ol-mode" role="radiogroup">
               <button class="seg-btn${olMode === 'long' ? ' on' : ''}" data-act="olMode" data-v="long"><b>🐢 Long game</b><small>No time limit — move whenever it’s your turn, over days</small></button>
-              <button class="seg-btn${olMode === 'quick' ? ' on' : ''}" data-act="olMode" data-v="quick"><b>⚡ Quick game</b><small>2 minutes per move — play it now</small></button>
+              <button class="seg-btn${olMode === 'quick' ? ' on' : ''}" data-act="olMode" data-v="quick"><b>⚡ Quick game</b><small>Invite expires in 90 seconds · 2 minutes per move</small></button>
             </div>
             <button class="btn big" data-act="olChallenge">🦖 Send challenge</button>
             <p class="muted">They get an email, and the challenge shows up here when they sign in.</p>

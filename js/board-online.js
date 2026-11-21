@@ -114,7 +114,7 @@
         return `${g.me === 1 ? 'You' : esc(g.opp)} declined`;
       }
       if (g.status === 'cancelled') return 'Challenge cancelled';
-      if (g.status === 'expired') return 'Nobody answered in a week';
+      if (g.status === 'expired') return g.mode === 'quick' ? 'Nobody answered in time' : 'Nobody answered in a week';
       const r = g.result || {};
       if (seatsOf(g) > 2) {
         const mine = r.scores ? ` · you scored ${r.scores[g.me]}` : '';
@@ -170,7 +170,7 @@
           <div class="seg ol-level" id="ol-level">${LEVELS.map(([k, name]) => `<button type="button" data-v="${k}" class="${k === level ? 'on' : ''}">${name}</button>`).join('')}</div>
         </div>
         <p class="muted small" id="ol-seats"></p>` : ''}
-        <div class="seg ol-mode" id="ol-mode">${['long', 'quick'].map((m) => `<button type="button" data-v="${m}" class="${mode === m ? 'on' : ''}">${m === 'quick' ? '<b>⚡ Quick game</b><small>2 minutes per turn — play it now</small>' : '<b>🐢 Long game</b><small>No time limit — take your turn whenever, over days</small>'}</button>`).join('')}</div>
+        <div class="seg ol-mode" id="ol-mode">${['long', 'quick'].map((m) => `<button type="button" data-v="${m}" class="${mode === m ? 'on' : ''}">${m === 'quick' ? '<b>⚡ Quick game</b><small>Invite expires in 90 seconds · 2 minutes per turn</small>' : '<b>🐢 Long game</b><small>No time limit — take your turn whenever, over days</small>'}</button>`).join('')}</div>
         <button class="btn" type="submit">Send challenge</button>
       </form>
       <p class="muted small">In a quick game, if your time runs out the computer takes that turn for you; miss three turns in a row and you lose${maxSeats > 2 ? ' (with more than two players, the computer takes over your seat instead)' : ''}. You’ll see each other’s moves live while you both have the game open. Open games from the Ahrens Games lobby.</p>

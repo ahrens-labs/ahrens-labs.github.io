@@ -9984,7 +9984,7 @@ async function sendDinoChallengeEmail(env, { to, recipientName, challengerName, 
   const recipient = String(recipientName || '').replace(/\s+/g, ' ').trim().slice(0, 40) || 'there';
   const quick = mode === 'quick';
   const modeLine = quick
-    ? 'Quick game: up to 2 minutes per move, so play it together in one sitting.'
+    ? 'Quick game: the invite expires in 90 seconds if you don’t answer, then up to 2 minutes per move once you accept — play it together while you’re both online.'
     : 'Long game: no time limit. Take your turn whenever you see it’s your move — it can run over days.';
   const gameUrl = `${gamesPublicBase(env)}/dino-board-game.html?game=${encodeURIComponent(gameId)}`;
   const challengerHtml = escapeHtmlEmail(challenger);
@@ -10092,7 +10092,7 @@ async function sendLabChallengeEmail(env, { to, recipientName, challengerName, g
   const urlHtml = escapeHtmlEmail(gameUrl);
   const quick = mode === 'quick';
   const pace = quick
-    ? 'It’s a quick game: once you accept, each turn has a 2-minute clock.'
+    ? 'It’s a quick game: the invite expires in 90 seconds if you don’t answer. Once you accept, each turn has a 2-minute clock — play while you’re both online.'
     : 'There’s no time limit — take your turn whenever you see it’s your move.';
   const subject = `${challenger} challenged you to ${quick ? 'a quick game of ' : ''}${gameTitle}`;
   const html = `<!DOCTYPE html>
@@ -10141,7 +10141,7 @@ async function sendHearthholdChallengeEmail(env, { to, recipientName, challenger
   const urlHtml = escapeHtmlEmail(gameUrl);
   const quick = mode === 'quick';
   const pace = quick
-    ? 'It’s a quick game: once you accept, each turn has a 2-minute clock.'
+    ? 'It’s a quick game: the invite expires in 90 seconds if you don’t answer. Once you accept, each turn has a 2-minute clock — play while you’re both online.'
     : 'There’s no time limit — take your turn whenever you see it’s your move.';
   const subject = `${challenger} challenged you to ${quick ? 'a quick game of ' : ''}Oakhaven`;
   const html = `<!DOCTYPE html>

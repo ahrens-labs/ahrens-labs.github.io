@@ -149,7 +149,11 @@
     const invited = invitedMe(g);
     const yours = myMove(g);
     let note;
-    if (g.status === 'pending') note = invited ? `<b>${(g.seats || 2) > 2 ? 'Invited you' : 'Challenged you'}</b> — accept or decline` : 'Waiting for them to accept';
+    if (g.status === 'pending') {
+      note = invited
+        ? `<b>${(g.seats || 2) > 2 ? 'Invited you' : 'Challenged you'}</b> — ${g.mode === 'quick' ? 'accept within 90s' : 'accept or decline'}`
+        : (g.mode === 'quick' ? 'Waiting — expires in 90s' : 'Waiting for them to accept');
+    }
     else note = `${yours ? '<b>Your turn</b>' : 'Their turn'}${g.round ? ` · round ${g.round}${g.game === 'hearthhold' ? ' of 12' : ''}` : ''}`;
     return {
       game: g.game,

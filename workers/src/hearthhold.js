@@ -5,7 +5,8 @@
 import E from '../../js/hearthhold-engine.js';
 import { trackTurns, nextReminderAt, remindersDue, sendDueReminders } from './game-reminders.js';
 
-const PENDING_TTL_MS = { quick: 24 * 60 * 60 * 1000, long: 7 * 24 * 60 * 60 * 1000 };
+// Quick challenges are for people who are both online now — expire fast so stale invites don't linger.
+const PENDING_TTL_MS = { quick: 90 * 1000, long: 7 * 24 * 60 * 60 * 1000 };
 const MODES = new Set(['quick', 'long']);
 // Quick games: each turn has a time limit. When it runs out the computer takes that turn for the
 // absent player; missing several turns in a row loses the game.
@@ -418,6 +419,18 @@ export class HearthholdGame {
     await this.storage.put('game', record);
   }
 
+  // Pending invites can outlive a delayed alarm — expire them the moment anyone touches the game.
+  async expirePendingIfDue(record) {
+    if (!record || record.status !== 'pending') return false;
+    if (Date.now() < record.createdAt + pendingTtl(record) - 1000) return false;
+    record.status = 'expired';
+    await this.persist(record);
+    await this.scheduleAlarm(record);
+    await this.publishLobbies(record);
+    this.broadcast(record, null);
+    return true;
+  }
+
   async remind(record) {
     await sendDueReminders(this.env, record, {
       title: 'Oakhaven',
@@ -495,6 +508,7 @@ export class HearthholdGame {
     if (op === 'live') {
       const userId = request.headers.get('X-Hearthhold-User');
       const record = await this.load();
+      await this.expirePendingIfDue(record);
       const me = this.playerIndex(record, userId);
       if (me < 0) return new Response('Not found', { status: 404 });
       const pair = new WebSocketPair();
@@ -535,6 +549,7 @@ export class HearthholdGame {
     }
 
     const record = await this.load();
+    await this.expirePendingIfDue(record);
     const me = this.playerIndex(record, body.userId);
     if (me < 0) return Response.json({ error: 'Game not found' }, { status: 404 });
 

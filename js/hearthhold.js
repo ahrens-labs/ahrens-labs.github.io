@@ -2576,7 +2576,7 @@
     if (g.status === 'active') return `${g.turn === g.me ? '<b class="ol-you">Your turn</b>' : `${esc(g.opp)}’s turn`} · round ${g.round} of ${E.ROUNDS} · ${g.mode === 'quick' ? '⚡ quick' : '🐢 long'}`;
     if (g.status === 'declined') return `${g.me === 1 ? 'You' : esc(g.opp)} declined`;
     if (g.status === 'cancelled') return 'Challenge cancelled';
-    if (g.status === 'expired') return 'Nobody answered in a week';
+    if (g.status === 'expired') return g.mode === 'quick' ? 'Nobody answered in time' : 'Nobody answered in a week';
     const r = g.result || {};
     const sc = r.scores ? ` · ${r.scores[g.me]}–${r.scores[1 - g.me]}` : '';
     const why = r.reason === 'resign' ? (r.winner === g.me ? ' — they resigned' : ' — you resigned') : r.reason === 'timeout' ? (r.winner === g.me ? ' — they ran out of time' : ' — you ran out of time') : '';
@@ -2614,7 +2614,7 @@
       <form class="ol-new" data-ol-form>
         <label><span class="label">Challenge a player</span><input id="ol-opp" maxlength="80" placeholder="Username or email" autocomplete="off"></label>
         ${recent.length ? `<div class="ol-recent"><span class="label">Recent opponents</span><div class="ol-recent-list">${recent.map((n) => `<button type="button" class="btn ghost sm" data-ol="recent" data-name="${esc(n)}">${esc(n)}</button>`).join('')}</div></div>` : ''}
-        <div class="seg ol-mode" id="ol-mode">${['long', 'quick'].map((m) => `<button type="button" data-v="${m}" class="${mode === m ? 'on' : ''}">${m === 'quick' ? '<b>⚡ Quick game</b><small>2 minutes per turn — play it now</small>' : '<b>🐢 Long game</b><small>No time limit — take your turn whenever, over days</small>'}</button>`).join('')}</div>
+        <div class="seg ol-mode" id="ol-mode">${['long', 'quick'].map((m) => `<button type="button" data-v="${m}" class="${mode === m ? 'on' : ''}">${m === 'quick' ? '<b>⚡ Quick game</b><small>Invite expires in 90 seconds · 2 minutes per turn</small>' : '<b>🐢 Long game</b><small>No time limit — take your turn whenever, over days</small>'}</button>`).join('')}</div>
         <button class="btn" type="submit">Send challenge</button>
       </form>
       <p class="muted small">In a quick game, if your time runs out the computer takes that turn for you; miss three turns in a row and you lose. You’ll see each other’s moves live while you both have the game open. Open games from the Ahrens Games lobby.</p>

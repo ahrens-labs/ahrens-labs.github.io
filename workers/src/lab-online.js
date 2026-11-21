@@ -9,7 +9,8 @@ import Heroes from '../../js/heroes-engine.js';
 import Masquerade from '../../js/masquerade-engine.js';
 import Whiteout from '../../js/whiteout-engine.js';
 
-const PENDING_TTL_MS = { quick: 24 * 60 * 60 * 1000, long: 7 * 24 * 60 * 60 * 1000 };
+// Quick challenges are for people who are both online now — expire fast so stale invites don't linger.
+const PENDING_TTL_MS = { quick: 90 * 1000, long: 7 * 24 * 60 * 60 * 1000 };
 const MODES = new Set(['quick', 'long']);
 const QUICK_TURN_MS = 2 * 60 * 1000;
 const QUICK_FIRST_TURN_MS = 5 * 60 * 1000;
@@ -781,6 +782,18 @@ export class LabGame {
     await this.storage.put('game', record);
   }
 
+  // Pending invites can outlive a delayed alarm — expire them the moment anyone touches the game.
+  async expirePendingIfDue(record) {
+    if (!record || record.status !== 'pending') return false;
+    if (Date.now() < record.createdAt + pendingTtl(record) - 1000) return false;
+    record.status = 'expired';
+    await this.persist(record);
+    await this.scheduleAlarm(record);
+    await this.publishLobbies(record);
+    this.broadcast(record, null);
+    return true;
+  }
+
   // People (not computer seats) whose decision the game is waiting on.
   waitingPeople(record) {
     const cfg = this.cfg(record);
@@ -1030,6 +1043,7 @@ export class LabGame {
     if (op === 'live') {
       const userId = request.headers.get('X-Lab-User');
       const record = await this.load();
+      await this.expirePendingIfDue(record);
       const me = this.playerIndex(record, userId);
       if (me < 0) return new Response('Not found', { status: 404 });
       const cfg = this.cfg(record);
@@ -1076,6 +1090,7 @@ export class LabGame {
     }
 
     const record = await this.load();
+    await this.expirePendingIfDue(record);
     const cfg = this.cfg(record);
     const me = this.playerIndex(record, body.userId);
     if (me < 0 || !cfg) return Response.json({ error: 'Game not found' }, { status: 404 });
