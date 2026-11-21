@@ -173,14 +173,41 @@
       });
     }
 
+    function challengesHtml() {
+      // Only pending invites — open/active games stay on the Ahrens Games lobby.
+      const games = net.lobby || [];
+      const incoming = games.filter((g) => g.status === 'pending' && invited(g));
+      const outgoing = games.filter((g) => g.status === 'pending' && !invited(g));
+      if (!incoming.length && !outgoing.length) return '';
+      const row = (g, btns) =>
+        `<li class="ol-game${invited(g) ? ' invite' : ''}"><span class="ol-who">vs <b>${esc(g.opp)}</b><small>${onlineStatus(g)} · ${g.mode === 'quick' ? '⚡ quick' : '🐢 long'}</small></span><span class="ol-btns">${btns}</span></li>`;
+      const inRows = incoming
+        .map(
+          (g) =>
+            row(
+              g,
+              `<button type="button" class="btn sm" data-ol="accept" data-id="${g.id}">Accept</button><button type="button" class="btn ghost sm" data-ol="decline" data-id="${g.id}">Decline</button>`
+            )
+        )
+        .join('');
+      const outRows = outgoing
+        .map((g) => row(g, `<button type="button" class="btn ghost sm" data-ol="cancel" data-id="${g.id}">${g.me === 0 ? 'Cancel' : 'Leave'}</button>`))
+        .join('');
+      return `<div class="ol-inbox">
+        ${incoming.length ? `<div class="ol-inbox-block"><span class="label">Challenges for you</span><p class="muted small ol-inbox-hint">Accept to start playing, or decline to pass.</p><ul class="ol-list">${inRows}</ul></div>` : ''}
+        ${outgoing.length ? `<div class="ol-inbox-block"><span class="label">Waiting on them</span><ul class="ol-list">${outRows}</ul></div>` : ''}
+      </div>`;
+    }
+
     function lobbyHtml() {
-      // Online games themselves live on the Ahrens Games “Your games” lobby — this section is only for sending a challenge.
+      // Open games live on the Ahrens Games lobby; here we show pending invites + the send form.
       const mode = prefs().olMode === 'quick' ? 'quick' : 'long';
       const pr = prefs();
       const level = LEVELS.some(([k]) => k === pr.olLevel) ? pr.olLevel : 'normal';
       const recent = recentHtml();
       return `<div class="ol">
       ${net.err ? `<p class="bad">${esc(net.err)}</p>` : ''}
+      ${challengesHtml()}
       <form class="ol-new" data-ol-form>
         <div class="field">
           <span class="label">${maxSeats > 2 ? 'Invite players' : 'Challenge a player'}</span>
@@ -247,6 +274,11 @@
       const auto = net.autoOpen;
       net.autoOpen = null;
       if (f && f.status === 'active' && cfg.getG() == null && auto === f.id) openOnline(f.id);
+      else if (f && f.status === 'pending' && invited(f)) {
+        const inbox = box.querySelector('.ol-inbox');
+        if (inbox) inbox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        toast(`<b>${esc(f.opp)}</b> challenged you — Accept or Decline below.`);
+      }
     }
 
     function renderLobby() {

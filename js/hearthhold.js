@@ -2565,6 +2565,11 @@
     const auto = net.autoOpen;
     net.autoOpen = null;
     if (f && f.status === 'active' && G == null && auto === f.id) openOnline(f.id);
+    else if (f && f.status === 'pending' && f.me === 1) {
+      const inbox = box.querySelector('.ol-inbox');
+      if (inbox) inbox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      toast(`${esc(f.opp)} challenged you — Accept or Decline below.`);
+    }
   }
   function renderLobby() {
     const box = $('#online-box');
@@ -2606,12 +2611,26 @@
     if (Recent) Recent.remember(name);
   }
 
+  function challengesHtml() {
+    const games = net.lobby || [];
+    const incoming = games.filter((g) => g.status === 'pending' && g.me === 1);
+    const outgoing = games.filter((g) => g.status === 'pending' && g.me === 0);
+    if (!incoming.length && !outgoing.length) return '';
+    const row = (g, btns) =>
+      `<li class="ol-game${g.me === 1 ? ' invite' : ''}"><span class="ol-who">vs <b>${esc(g.opp)}</b><small>${onlineStatus(g)} · ${g.mode === 'quick' ? '⚡ quick' : '🐢 long'}</small></span><span class="ol-btns">${btns}</span></li>`;
+    return `<div class="ol-inbox">
+      ${incoming.length ? `<div class="ol-inbox-block"><span class="label">Challenges for you</span><p class="muted small ol-inbox-hint">Accept to start playing, or decline to pass.</p><ul class="ol-list">${incoming.map((g) => row(g, `<button type="button" class="btn sm" data-ol="accept" data-id="${g.id}">Accept</button><button type="button" class="btn ghost sm" data-ol="decline" data-id="${g.id}">Decline</button>`)).join('')}</ul></div>` : ''}
+      ${outgoing.length ? `<div class="ol-inbox-block"><span class="label">Waiting on them</span><ul class="ol-list">${outgoing.map((g) => row(g, `<button type="button" class="btn ghost sm" data-ol="cancel" data-id="${g.id}">Cancel</button>`)).join('')}</ul></div>` : ''}
+    </div>`;
+  }
+
   function lobbyHtml() {
-    // Online games themselves live on the Ahrens Games “Your games” lobby — this section is only for sending a challenge.
+    // Open games live on the Ahrens Games lobby; here we show pending invites + the send form.
     const mode = prefs().olMode === 'quick' ? 'quick' : 'long';
     const recent = recentOpponents();
     return `<div class="ol">
       ${net.err ? `<p class="bad">${esc(net.err)}</p>` : ''}
+      ${challengesHtml()}
       <form class="ol-new" data-ol-form>
         <div class="field">
           <span class="label">Challenge a player</span>

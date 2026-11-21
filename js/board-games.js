@@ -151,7 +151,7 @@
     let note;
     if (g.status === 'pending') {
       note = invited
-        ? `<b>${(g.seats || 2) > 2 ? 'Invited you' : 'Challenged you'}</b> — ${g.mode === 'quick' ? 'accept within 90s' : 'accept or decline'}`
+        ? `<b>${(g.seats || 2) > 2 ? 'Invited you' : 'Challenged you'}</b> — open to Accept or Decline${g.mode === 'quick' ? ' (90s)' : ''}`
         : (g.mode === 'quick' ? 'Waiting — expires in 90s' : 'Waiting for them to accept');
     }
     else note = `${yours ? '<b>Your turn</b>' : 'Their turn'}${g.round ? ` · round ${g.round}${g.game === 'hearthhold' ? ' of 12' : ''}` : ''}`;
@@ -162,6 +162,7 @@
       noteHtml: `${note} · ${g.mode === 'quick' ? '⚡ quick' : '🐢 long'}`,
       where: 'online',
       yours,
+      invite: invited && g.status === 'pending',
     };
   }
 
@@ -169,14 +170,14 @@
     const G = GAMES[it.game];
     const tag = it.where === 'online' ? '🌐 Online' : session() ? '☁️ Saved to your account' : '💾 This device';
     const x = it.removable ? `<button class="mg-x" data-remove="${esc(it.game)}" data-id="${esc(it.id)}" title="Remove this saved game" aria-label="Remove this saved game">✕</button>` : '';
-    return `<div class="mg-item"><a class="mg-card${it.yours ? ' yours' : ''}" href="${it.href}">
+    return `<div class="mg-item"><a class="mg-card${it.yours ? ' yours' : ''}${it.invite ? ' invite' : ''}" href="${it.href}">
       <img class="mg-logo" src="${G.logo}" alt="" loading="lazy">
       <span class="mg-body">
         <span class="mg-game">${G.icon} ${G.name}<small>${tag}</small></span>
         <b class="mg-who">${esc(it.who)}</b>
         <span class="mg-state">${it.noteHtml || esc(it.note)}</span>
       </span>
-      ${it.yours ? '<span class="mg-flag">Your move</span>' : ''}
+      ${it.invite ? '<span class="mg-flag invite">Accept / Decline</span>' : it.yours ? '<span class="mg-flag">Your move</span>' : ''}
     </a>${x}</div>`;
   }
 

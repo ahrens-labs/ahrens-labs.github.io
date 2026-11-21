@@ -779,6 +779,8 @@ button { font-family: inherit; color: #000; }
 .ol-form input:focus { outline: none; border-color: var(--amber); }
 .ol-form .muted { margin: 0; font-size: 0.85rem; }
 .seg.ol-mode { grid-template-columns: 1fr 1fr; }
+.ol-inbox { display: grid; gap: 0.75rem; margin: 0 0 0.9rem; padding: 0.75rem 0.85rem; border-radius: 14px; background: #fff8e1; border: 2px solid #f0c75a; }
+.ol-inbox-block { display: grid; gap: 0.25rem; }
 .ol-h { margin: 0.6rem 0 0.35rem; font-size: 1rem; }
 .ol-game { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; padding: 0.55rem 0.7rem; margin-bottom: 0.4rem; border-radius: 12px; background: #fff; border: 2px solid var(--bone-dark); }
 .olg-main { display: grid; gap: 1px; min-width: 0; }

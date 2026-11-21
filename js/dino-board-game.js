@@ -4259,6 +4259,7 @@
           <button class="gh-mode mode-btn m-online" data-act="setupMode" data-mode="online" role="radio"><span>🌐</span><b>Online</b><small id="ol-badge">Challenge a friend</small></button>
         </div>
         <div class="online-box only-online">
+          <div id="ol-inbox" class="ol-inbox" hidden></div>
           <div class="ol-form">
             <label for="ol-opp">Challenge a player</label>
             <input id="ol-opp" maxlength="80" placeholder="Username or email" autocomplete="off">
@@ -4269,7 +4270,7 @@
               <button class="seg-btn${olMode === 'quick' ? ' on' : ''}" data-act="olMode" data-v="quick"><b>⚡ Quick game</b><small>Invite expires in 90 seconds · 2 minutes per move</small></button>
             </div>
             <button class="btn big" data-act="olChallenge">🦖 Send challenge</button>
-            <p class="muted">They get an email, and the challenge shows up here when they sign in.</p>
+            <p class="muted">They get an email, and the challenge shows up here when they sign in. Open games stay on the Ahrens Games lobby.</p>
           </div>
         </div>
         <div class="name-row">
@@ -8124,10 +8125,36 @@
     }
   }
 
+  function renderInbox() {
+    const el = document.getElementById('ol-inbox');
+    if (!el) return;
+    const games = lobby.games || [];
+    const incoming = games.filter((g) => g.status === 'pending' && g.me === 1);
+    const outgoing = games.filter((g) => g.status === 'pending' && g.me === 0);
+    if (!incoming.length && !outgoing.length) {
+      el.hidden = true;
+      el.innerHTML = '';
+      return;
+    }
+    const id = (g) => `data-id="${esc(g.id)}"`;
+    const group = (title, hint, list, btns) =>
+      list.length
+        ? `<div class="ol-inbox-block"><h3 class="ol-h">${title}</h3>${hint ? `<p class="muted small">${hint}</p>` : ''}${list.map((g) => lobbyRow(g, btns(g))).join('')}</div>`
+        : '';
+    el.hidden = false;
+    el.innerHTML = tokify(
+      group('Challenges for you', 'Accept to start playing, or decline to pass.', incoming, (g) =>
+        `<button class="btn sm" data-act="olAccept" ${id(g)}>Accept</button><button class="btn sm ghost" data-act="olDecline" ${id(g)}>Decline</button>`
+      ) +
+        group('Waiting on them', '', outgoing, (g) => `<button class="btn sm ghost" data-act="olCancel" ${id(g)}>Cancel</button>`)
+    );
+  }
+
   function renderLobby() {
-    // Online games themselves live on the Ahrens Games “Your games” lobby — this section is only for sending a challenge.
+    // Open games live on the Ahrens Games lobby; here we show pending invites + the send form.
     const games = lobby.games || [];
     const badge = document.getElementById('ol-badge');
+    renderInbox();
     renderRecentOpponents();
     const need = games.filter((g) => (g.status === 'pending' && g.me === 1) || (g.status === 'active' && g.turn === g.me) || (g.status === 'over' && g.unseen)).length;
     if (badge) badge.textContent = need ? `${need} waiting for you` : 'Challenge a friend';

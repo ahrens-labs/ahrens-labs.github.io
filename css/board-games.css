@@ -108,6 +108,8 @@ h1, h2 { font-family: "Montserrat", "Fredoka", sans-serif; font-weight: 800; let
 .mg-card { position: relative; display: flex; gap: 0.75rem; align-items: center; padding: 0.6rem 0.75rem; border-radius: 12px; text-decoration: none; color: #0a0f1c; background: linear-gradient(180deg, #ffffff, #eaf1fc); box-shadow: 0 0 0 3px #0b1530, 0 6px 14px rgba(0, 0, 0, 0.3); transition: transform 0.2s cubic-bezier(.34, 1.56, .64, 1), box-shadow 0.2s ease; }
 .mg-card:hover, .mg-card:focus-visible { transform: translateY(-3px); box-shadow: 0 0 0 3px #ffd21f, 0 10px 20px rgba(0, 0, 0, 0.35); outline: none; }
 .mg-card.yours { box-shadow: 0 0 0 3px #b23a48, 0 6px 14px rgba(0, 0, 0, 0.3); }
+.mg-card.invite { box-shadow: 0 0 0 3px #c98512, 0 6px 14px rgba(0, 0, 0, 0.3); }
+.mg-flag.invite { background: #c98512; }
 .mg-item { position: relative; display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; }
 .mg-card { min-width: 0; }
 .mg-x { position: absolute; top: -8px; right: -8px; z-index: 2; min-width: 26px; height: 26px; padding: 0 0.45rem; border: 0; border-radius: 13px; font: 700 0.8rem/26px Fredoka, sans-serif; color: #fff; background: #0b1530; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35); cursor: pointer; opacity: 0.85; transition: background 0.15s ease, opacity 0.15s ease; }
