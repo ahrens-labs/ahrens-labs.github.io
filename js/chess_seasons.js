@@ -258,39 +258,39 @@
     },
   ];
 
-  /** Winter holiday quarter (Nov–Jan) — glacier / moonlit cosmetics; keep worker `SEASON_CLAIM_NODES_11` in sync. */
+  /** Winter holiday quarter (Nov–Jan) — festive + trackable; keep worker `SEASON_CLAIM_NODES_11` in sync. */
   const SEASON_TRACK_MECHANICAL_11 = [
-    { challengeAchievementId: 'first_game', bonusPoints: 40, rewards: [{ kind: 'lb_prefix', prefix: '🎄' }] },
+    { challengeAchievementId: 'first_win', bonusPoints: 40, rewards: [{ kind: 'lb_prefix', prefix: '🎄' }] },
     {
-      challengeAchievementId: 'knight_to_f3',
+      challengeAchievementId: 'solstice_win_night_ct',
       bonusPoints: 57,
-      rewards: [{ kind: 'shop', category: 'boards', id: 'season_awakening' }],
+      rewards: [{ kind: 'shop', category: 'boards', id: 'season_winter_frostline' }],
     },
     {
-      challengeAchievementId: 'bishop_to_f4',
+      challengeAchievementId: 'pawn_to_e4',
       bonusPoints: 82,
-      rewards: [{ kind: 'shop', category: 'highlightColors', id: 'season_glacier_glow' }],
+      rewards: [{ kind: 'shop', category: 'highlightColors', id: 'season_winter_lantern_glow' }],
     },
     {
-      challengeAchievementId: 'en_passant',
+      challengeAchievementId: 'castle_on_10',
       bonusPoints: 118,
       rewards: [
-        { kind: 'shop', category: 'pieces', id: 'season_trail' },
+        { kind: 'shop', category: 'pieces', id: 'season_winter_snowsilhouette' },
         { kind: 'lb_row_finish', presets: ['emerald_glade', 'glacier_ribbon'] },
       ],
     },
     {
-      challengeAchievementId: 'queen_capturer',
+      challengeAchievementId: 'underpromote',
       bonusPoints: 169,
       rewards: [{ kind: 'lb_frame', frame: 'silver_lane' }],
     },
     {
-      challengeAchievementId: 'capture_master',
+      challengeAchievementId: 'solstice_win_dawn_ct',
       bonusPoints: 242,
-      rewards: [{ kind: 'lb_title', title: 'Frostline hunter' }],
+      rewards: [{ kind: 'lb_title', title: 'Ornament skewer' }],
     },
     {
-      challengeAchievementId: 'castler',
+      challengeAchievementId: 'checkmate_bishop',
       bonusPoints: 347,
       rewards: [
         { kind: 'lb_frame', frame: 'amber_pulse' },
@@ -298,14 +298,14 @@
       ],
     },
     {
-      challengeAchievementId: 'promoter',
+      challengeAchievementId: 'castler',
       bonusPoints: 496,
-      rewards: [{ kind: 'shop', category: 'boards', id: 'season_rift' }],
+      rewards: [{ kind: 'shop', category: 'boards', id: 'season_winter_aurora_path' }],
     },
     {
-      challengeAchievementId: 'checkmate_rook',
+      challengeAchievementId: 'checkmate_knight',
       bonusPoints: 709,
-      rewards: [{ kind: 'lb_title', title: 'Yuletide spire sniper' }],
+      rewards: [{ kind: 'lb_title', title: 'Generous gambit' }],
     },
     {
       challengeAchievementId: 'checkmate_queen',
@@ -314,15 +314,15 @@
         { kind: 'lb_frame', frame: 'violet_arc' },
         { kind: 'lb_title', title: 'Holiday ascendant' },
         { kind: 'lb_title', title: 'Frost crown' },
-        { kind: 'lb_title', title: 'Midnight finisher' },
+        { kind: 'lb_title', title: 'Hearthside finisher' },
         { kind: 'lb_suffix', suffix: '❄' },
-        { kind: 'shop', category: 'boards', id: 'season_canopy_crown' },
-        { kind: 'shop', category: 'pieces', id: 'season_canopy_pieces' },
-        { kind: 'shop', category: 'highlightColors', id: 'season_gilded_leaf' },
-        { kind: 'shop', category: 'arrowColors', id: 'season_grove_arrow' },
-        { kind: 'shop', category: 'themes', id: 'season_moonlit_canopy' },
-        { kind: 'shop', category: 'checkmateEffects', id: 'season_finale_flare' },
-        { kind: 'shop', category: 'legalMoveDots', id: 'season_emerald_star' },
+        { kind: 'shop', category: 'boards', id: 'season_winter_hearth_crown' },
+        { kind: 'shop', category: 'pieces', id: 'season_winter_regalia' },
+        { kind: 'shop', category: 'highlightColors', id: 'season_winter_holly_gleam' },
+        { kind: 'shop', category: 'arrowColors', id: 'season_winter_starfall_arrow' },
+        { kind: 'shop', category: 'themes', id: 'season_winter_holiday' },
+        { kind: 'shop', category: 'checkmateEffects', id: 'season_winter_hearth_flare' },
+        { kind: 'shop', category: 'legalMoveDots', id: 'season_winter_snowflake_star' },
         { kind: 'lb_row_finish', presets: ['finale_aurora'] },
       ],
     },
@@ -518,6 +518,17 @@
     'themes:season_world_cup': 'Page theme · World Cup (season exclusive)',
     'checkmateEffects:season_cup_celebration': 'Checkmate effect · Cup celebration (season exclusive)',
     'legalMoveDots:season_pitch_star': 'Legal move markers · Pitch star (season exclusive)',
+    'boards:season_winter_frostline': 'Board style · Frostline — moonlit snow over midnight blue (season exclusive)',
+    'highlightColors:season_winter_lantern_glow': 'Square highlights · Lantern glow (season exclusive)',
+    'pieces:season_winter_snowsilhouette': 'Piece set · Snow Silhouette (season exclusive)',
+    'boards:season_winter_aurora_path': 'Board style · Aurora Path — northern lights over polar night (season exclusive)',
+    'boards:season_winter_hearth_crown': 'Board style · Hearth Crown — ember gold over frost and flame (season exclusive)',
+    'pieces:season_winter_regalia': 'Piece set · Winter Regalia (season exclusive)',
+    'highlightColors:season_winter_holly_gleam': 'Square highlights · Holly gleam (season exclusive)',
+    'arrowColors:season_winter_starfall_arrow': 'Move arrows · Starfall (season exclusive)',
+    'themes:season_winter_holiday': 'Page theme · Winter holiday hearth (season exclusive)',
+    'checkmateEffects:season_winter_hearth_flare': 'Checkmate effect · Hearth flare (season exclusive)',
+    'legalMoveDots:season_winter_snowflake_star': 'Legal move markers · Snowflake star (season exclusive)',
   });
 
   const SEASON_LB_FRAME_LABELS = Object.freeze({
@@ -647,18 +658,18 @@
       key: 'winter_holiday',
       name: 'Winter holiday',
       tagline:
-        'November through January on the board — frost on the files, lights on the long diagonal, and holiday tempo from first snow to a midnight crown. Each step is a different skill — not a win ladder.',
+        'November through January — carols after dark, king’s-pawn gifts, hearthside castling, humble promotions, dawn victories, and crowning mates. Every step is counted from stats TrifangX records when you play.',
       stepTitles: [
-        'First snowfall — your first game of the winter season',
-        'Ice skate — develop a knight to f3',
-        'Candled diagonal — slide a bishop to f4',
-        'Gift-horse gambit — one en passant capture',
-        'Storm along the files — 10 captures made by your queen',
-        'Sugar-plum tempo — 50 total captures with any piece',
-        'Castle by the hearth — castle 5 times',
-        'Crown the gingerbread — promote 5 pawns',
-        'Strike from the spires — checkmate with a rook',
-        'Midnight crown — checkmate with a queen',
+        'Lighting the tree — win your first game of the winter season',
+        'Carols at nine — win a game after 9:00 PM Central Time',
+        'King’s pawn gift — advance a pawn to e4',
+        'Hearth by ten — castle on your 10th move of a game',
+        'Humble coronation — underpromote once (knight, bishop, or rook)',
+        'Morning carol — win a game before 10:00 AM Central Time',
+        'Blessing diagonal — checkmate with a bishop',
+        'Five hearths — castle 5 times',
+        'Knight’s delivery — checkmate with a knight',
+        'Hearth crown — checkmate with a queen',
       ],
     },
     '02': {
@@ -879,6 +890,11 @@
       creativeRookBatteryWins: 0,
       creativeQueenGrandTourWins: 0,
       creativeTriplePromotionWins: 0,
+      creativePinGalleryWins: 0,
+      creativeSkewerSalonWins: 0,
+      creativeKingMarathonWins: 0,
+      creativeZwischenzugWins: 0,
+      comebackWins: 0,
     };
   }
 
@@ -985,11 +1001,27 @@
     flair_battery_1: { type: 'lifetime', key: 'creativeRookBatteryWins', target: 1 },
     flair_queen_tour_1: { type: 'lifetime', key: 'creativeQueenGrandTourWins', target: 1 },
     flair_triple_promo_1: { type: 'lifetime', key: 'creativeTriplePromotionWins', target: 1 },
+    flair_pins_1: { type: 'lifetime', key: 'creativePinGalleryWins', target: 1 },
+    flair_skewer_1: { type: 'lifetime', key: 'creativeSkewerSalonWins', target: 1 },
+    flair_king_hike_1: { type: 'lifetime', key: 'creativeKingMarathonWins', target: 1 },
+    flair_zwischen_1: { type: 'lifetime', key: 'creativeZwischenzugWins', target: 1 },
+    flair_comeback_1: { type: 'lifetime', key: 'comebackWins', target: 1 },
   });
 
   function readEarnBaselineField(baseline, key) {
     if (!baseline || typeof baseline !== 'object') return 0;
     return Math.max(0, Number(baseline[key]) || 0);
+  }
+
+  /** Merge stored baseline with zero defaults so missing keys do not behave like “count full career”. */
+  function coalesceEarnBaseline(stored) {
+    const base = emptySeasonEarnBaseline();
+    if (!stored || typeof stored !== 'object') return base;
+    const out = { ...base };
+    Object.keys(stored).forEach(function (k) {
+      out[k] = Math.max(0, Number(stored[k]) || 0);
+    });
+    return out;
   }
 
   /**
@@ -1002,6 +1034,7 @@
     const id = String(achId || '');
     const rule = SEASON_STEP_EARN_RULES[id];
     if (!rule) return false;
+    baseline = coalesceEarnBaseline(baseline);
     const ps =
       chess && chess.stats && chess.stats.playerStats && typeof chess.stats.playerStats === 'object'
         ? chess.stats.playerStats
@@ -1051,5 +1084,6 @@
     formatSeasonRewardLine: formatSeasonRewardLine,
     getSeasonLbRowPresetSwatch: getSeasonLbRowPresetSwatch,
     seasonChallengeMetSinceBaseline: seasonChallengeMetSinceBaseline,
+    coalesceEarnBaseline: coalesceEarnBaseline,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -292,6 +292,33 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           description: 'World Cup — trophy gold over midnight turf.',
           purchasable: false,
         },
+        {
+          id: 'season_winter_frostline',
+          name: 'Season · Frostline',
+          price: 0,
+          preview: '❄️',
+          coolness: 10,
+          description: 'Winter holiday — moonlit snow over midnight blue.',
+          purchasable: false,
+        },
+        {
+          id: 'season_winter_aurora_path',
+          name: 'Season · Aurora Path',
+          price: 0,
+          preview: '🌌',
+          coolness: 10,
+          description: 'Winter holiday — northern lights over polar night.',
+          purchasable: false,
+        },
+        {
+          id: 'season_winter_hearth_crown',
+          name: 'Season · Hearth Crown',
+          price: 0,
+          preview: '🔥',
+          coolness: 10,
+          description: 'Winter holiday — ember gold, frost, and hearth flame.',
+          purchasable: false,
+        },
       ],
       pieces: [
         { id: 'classic', name: 'Classic', price: 0, preview: '♟️', coolness: 1 },
@@ -363,6 +390,24 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           description: 'Quarterly season track reward (not sold for points).',
           purchasable: false,
         },
+        {
+          id: 'season_winter_snowsilhouette',
+          name: 'Season · Snow Silhouette',
+          price: 0,
+          preview: '♟',
+          coolness: 10,
+          description: 'Winter holiday — crisp silhouettes on fresh powder.',
+          purchasable: false,
+        },
+        {
+          id: 'season_winter_regalia',
+          name: 'Season · Winter Regalia',
+          price: 0,
+          preview: '♚',
+          coolness: 10,
+          description: 'Winter holiday — crown pieces for the hearth finale.',
+          purchasable: false,
+        },
       ],
       highlightColors: [
         { id: 'red', name: 'Red Highlights', price: 0, preview: '🔴', coolness: 1, description: 'Classic red' },
@@ -428,6 +473,24 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           description: 'Quarterly season track reward (not sold for points).',
           purchasable: false,
         },
+        {
+          id: 'season_winter_lantern_glow',
+          name: 'Season · Lantern glow',
+          price: 0,
+          preview: '🏮',
+          coolness: 10,
+          description: 'Winter holiday — warm lantern light on ice blue.',
+          purchasable: false,
+        },
+        {
+          id: 'season_winter_holly_gleam',
+          name: 'Season · Holly gleam',
+          price: 0,
+          preview: '🍃',
+          coolness: 10,
+          description: 'Winter holiday — holly green with gilded frost.',
+          purchasable: false,
+        },
       ],
       arrowColors: [
         { id: 'red', name: 'Red Arrows', price: 0, preview: '🔴', coolness: 1, description: 'Classic red' },
@@ -464,6 +527,15 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           preview: '🏹',
           coolness: 10,
           description: 'Quarterly season track reward (not sold for points).',
+          purchasable: false,
+        },
+        {
+          id: 'season_winter_starfall_arrow',
+          name: 'Season · Starfall',
+          price: 0,
+          preview: '✨',
+          coolness: 10,
+          description: 'Winter holiday — icy trails with silver star tips.',
           purchasable: false,
         },
       ],
@@ -513,6 +585,17 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           shape: 'star',
           purchasable: false,
         },
+        {
+          id: 'season_winter_snowflake_star',
+          name: 'Season · Snowflake star',
+          price: 0,
+          preview: '❄',
+          coolness: 10,
+          description: 'Winter holiday — pale ice markers for legal moves.',
+          color: '#7dd3fc',
+          shape: 'star',
+          purchasable: false,
+        },
       ],
       themes: [
         { id: 'light', name: 'Light', price: 0, preview: '☀️', coolness: 1, description: 'Default light page' },
@@ -555,6 +638,15 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           description: 'Quarterly season track reward (not sold for points).',
           purchasable: false,
         },
+        {
+          id: 'season_winter_holiday',
+          name: 'Season · Winter holiday hearth',
+          price: 0,
+          preview: '🎄',
+          coolness: 10,
+          description: 'Winter holiday — aurora night with hearth-lit panels.',
+          purchasable: false,
+        },
       ],
       checkmateEffects: [
         { id: 'confetti', name: 'Confetti', price: 750, preview: '🎊', coolness: 5, description: 'Confetti add-on' },
@@ -592,6 +684,15 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           preview: '🎉',
           coolness: 10,
           description: 'Quarterly season track reward (not sold for points).',
+          purchasable: false,
+        },
+        {
+          id: 'season_winter_hearth_flare',
+          name: 'Season · Hearth flare',
+          price: 0,
+          preview: '🔥',
+          coolness: 10,
+          description: 'Winter holiday — ember and ice filaments from the board.',
           purchasable: false,
         },
       ],
@@ -752,6 +853,18 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       season_world_cup_final: {
         w: 'linear-gradient(145deg,#fef9c3 0%,#fde047 32%,#eab308 68%,#ca8a04 100%)',
         b: 'linear-gradient(145deg,#0f172a 0%,#14532d 38%,#052e16 72%,#020617 100%)',
+      },
+      season_winter_frostline: {
+        w: 'linear-gradient(145deg,#f8fafc,#e2e8f0,#cbd5e1)',
+        b: 'linear-gradient(145deg,#1e3a5f,#0f2744,#0b1d33)',
+      },
+      season_winter_aurora_path: {
+        w: 'linear-gradient(160deg,#ecfeff,#a5f3fc,#e0f2fe)',
+        b: 'linear-gradient(160deg,#0f172a,#134e4a,#312e81,#1e1b4b)',
+      },
+      season_winter_hearth_crown: {
+        w: 'linear-gradient(145deg,#fff7ed,#ffedd5,#fde68a)',
+        b: 'linear-gradient(145deg,#450a0a,#7f1d1d,#1e3a8a,#0f172a)',
       },
     };
     
@@ -1641,6 +1754,8 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       season_crown_regalia: 'https://lichess1.org/assets/piece/fantasy/{piece}.svg',
       season_world_cup_kit: 'https://lichess1.org/assets/piece/cooke/{piece}.svg',
       season_trophy_regalia: 'https://lichess1.org/assets/piece/celtic/{piece}.svg',
+      season_winter_snowsilhouette: 'https://lichess1.org/assets/piece/dubrovny/{piece}.svg',
+      season_winter_regalia: 'https://lichess1.org/assets/piece/horsey/{piece}.svg',
     };
 
     /** Same URLs as the board / captured pieces (e.g. wQ, bN). */
@@ -3698,6 +3813,9 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         pink: { h: 'rgba(236,112,99,0.5)', a: 'rgba(236,112,99,0.9)' },
         cyan: { h: 'rgba(52,152,219,0.5)', a: 'rgba(52,152,219,0.9)' },
         season_glacier_glow: { h: 'rgba(56,189,248,0.55)', a: 'rgba(14,165,233,0.95)' },
+        season_winter_lantern_glow: { h: 'rgba(251,146,60,0.5)', a: 'rgba(125,211,252,0.95)' },
+        season_winter_holly_gleam: { h: 'rgba(34,197,94,0.48)', a: 'rgba(251,191,36,0.92)' },
+        season_winter_starfall_arrow: { h: 'rgba(125,211,252,0.5)', a: 'rgba(254,243,199,0.95)' },
         rainbow: { h: 'linear-gradient(90deg,red,orange,yellow,green,blue,violet)', a: 'rgba(250,180,0,0.9)' }
       };
       const themePreviews = {
@@ -4222,6 +4340,30 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         h: 'rgba(34,197,94,0.5)',
         a: 'rgba(202,138,4,0.9)',
       },
+      season_winter_lantern_glow: {
+        highlightLight: 'rgba(251, 146, 60, 0.46)',
+        highlightDark: 'rgba(56, 189, 248, 0.5)',
+        arrow: 'rgba(125, 211, 252, 0.78)',
+        arrowFill: 'rgba(255, 247, 237, 1)',
+        h: 'rgba(251,146,60,0.48)',
+        a: 'rgba(56,189,248,0.9)',
+      },
+      season_winter_holly_gleam: {
+        highlightLight: 'rgba(74, 222, 128, 0.44)',
+        highlightDark: 'rgba(22, 101, 52, 0.52)',
+        arrow: 'rgba(250, 204, 21, 0.82)',
+        arrowFill: 'rgba(254, 249, 195, 1)',
+        h: 'rgba(34,197,94,0.48)',
+        a: 'rgba(234,179,8,0.9)',
+      },
+      season_winter_starfall_arrow: {
+        highlightLight: 'rgba(186, 230, 253, 0.48)',
+        highlightDark: 'rgba(30, 64, 175, 0.52)',
+        arrow: 'rgba(226, 232, 240, 0.88)',
+        arrowFill: 'rgba(191, 219, 254, 1)',
+        h: 'rgba(125,211,252,0.5)',
+        a: 'rgba(248,250,252,0.95)',
+      },
       rainbow: { isRainbow: true, h: 'linear-gradient(90deg,red,orange,yellow,green,blue,violet)', a: 'rgba(250,180,0,0.9)' }
     };
     
@@ -4243,7 +4385,8 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           '.board-theme-glass,.board-theme-carbon,.board-theme-velvet,.board-theme-stone,.board-theme-cyber,' +
           '.board-theme-season_awakening,.board-theme-season_rift,.board-theme-season_canopy_crown,' +
           '.board-theme-season_golden_hour,.board-theme-season_high_sun,.board-theme-season_solstice_crown,' +
-          '.board-theme-season_kickoff_pitch,.board-theme-season_championship_pitch,.board-theme-season_world_cup_final,.board-theme-luxury';
+          '.board-theme-season_kickoff_pitch,.board-theme-season_championship_pitch,.board-theme-season_world_cup_final,' +
+          '.board-theme-season_winter_frostline,.board-theme-season_winter_aurora_path,.board-theme-season_winter_hearth_crown,.board-theme-luxury';
         const rcW =
           '#board .square-55d63.right-click-highlight.white-1e1d7,\n#board div.right-click-highlight.white-1e1d7,\n#board :is(' +
           BT +
@@ -4390,6 +4533,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         'page-theme-season_moonlit_canopy',
         'page-theme-season_solstice_gold',
         'page-theme-season_world_cup',
+        'page-theme-season_winter_holiday',
       ];
       themeBaseClasses.forEach(function (c) {
         document.documentElement.classList.remove(c);
@@ -4403,6 +4547,9 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       } else if (themeId === 'season_world_cup') {
         document.documentElement.classList.add('page-theme-forest');
         document.documentElement.classList.add('page-theme-season_world_cup');
+      } else if (themeId === 'season_winter_holiday') {
+        document.documentElement.classList.add('page-theme-aurora');
+        document.documentElement.classList.add('page-theme-season_winter_holiday');
       } else {
       document.documentElement.classList.add('page-theme-' + themeId);
       }
@@ -7996,12 +8143,29 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         }
 
         // Season finale flare: centered on the board — emerald / gold filaments (not sky rockets)
-        if (addons.includes('season_finale_flare')) {
+        if (addons.includes('season_finale_flare') || addons.includes('season_winter_hearth_flare')) {
         const board = document.getElementById('board');
           const boardRect = board ? board.getBoundingClientRect() : { left: window.innerWidth / 2, top: window.innerHeight / 2, width: 0, height: 0 };
         const centerX = boardRect.left + boardRect.width / 2;
         const centerY = boardRect.top + boardRect.height / 2;
-          const colors = ['#34d399', '#10b981', '#059669', '#fbbf24', '#fde68a', '#a7f3d0', '#ecfccb', '#d1fae5', '#f59e0b', '#047857', '#6ee7b7', '#facc15', '#22c55e', '#15803d'];
+          const colors = addons.includes('season_winter_hearth_flare')
+            ? [
+                '#7dd3fc',
+                '#38bdf8',
+                '#0ea5e9',
+                '#fb923c',
+                '#fdba74',
+                '#fde68a',
+                '#fef3c7',
+                '#e2e8f0',
+                '#f97316',
+                '#1e3a8a',
+                '#bae6fd',
+                '#fbbf24',
+                '#94a3b8',
+                '#ea580c',
+              ]
+            : ['#34d399', '#10b981', '#059669', '#fbbf24', '#fde68a', '#a7f3d0', '#ecfccb', '#d1fae5', '#f59e0b', '#047857', '#6ee7b7', '#facc15', '#22c55e', '#15803d'];
           for (let burst = 0; burst < 6; burst++) {
           setTimeout(() => {
               const numParticles = 42;
@@ -9170,6 +9334,21 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         winsFinishedBefore10amCt: Math.max(0, Number(lt.winsFinishedBefore10amCt) || 0),
         winsFinishedGoldenHourCt: Math.max(0, Number(lt.winsFinishedGoldenHourCt) || 0),
         winsFinishedAfter9pmCt: Math.max(0, Number(lt.winsFinishedAfter9pmCt) || 0),
+        checkmateWithKnight: Math.max(0, Number(lt.checkmateWithKnight) || 0),
+        creativeFullOrchestraWins: Math.max(0, Number(lt.creativeFullOrchestraWins) || 0),
+        creativeRookLadderWins: Math.max(0, Number(lt.creativeRookLadderWins) || 0),
+        creativeForkFeastWins: Math.max(0, Number(lt.creativeForkFeastWins) || 0),
+        creativeQueenDownWins: Math.max(0, Number(lt.creativeQueenDownWins) || 0),
+        creativePawnStormWins: Math.max(0, Number(lt.creativePawnStormWins) || 0),
+        creativeSacrificeSymphonyWins: Math.max(0, Number(lt.creativeSacrificeSymphonyWins) || 0),
+        creativeRookBatteryWins: Math.max(0, Number(lt.creativeRookBatteryWins) || 0),
+        creativeQueenGrandTourWins: Math.max(0, Number(lt.creativeQueenGrandTourWins) || 0),
+        creativeTriplePromotionWins: Math.max(0, Number(lt.creativeTriplePromotionWins) || 0),
+        creativePinGalleryWins: Math.max(0, Number(lt.creativePinGalleryWins) || 0),
+        creativeSkewerSalonWins: Math.max(0, Number(lt.creativeSkewerSalonWins) || 0),
+        creativeKingMarathonWins: Math.max(0, Number(lt.creativeKingMarathonWins) || 0),
+        creativeZwischenzugWins: Math.max(0, Number(lt.creativeZwischenzugWins) || 0),
+        comebackWins: Math.max(0, Number(lt.comebackWins) || 0),
       };
     }
 

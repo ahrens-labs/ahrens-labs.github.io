@@ -8199,12 +8199,12 @@ const SEASON_CLAIM_NODES_11 = [
     rewards: [{ kind: 'shop', category: 'boards', id: 'season_winter_frostline' }],
   },
   {
-    challengeAchievementId: 'knight_to_f3',
+    challengeAchievementId: 'pawn_to_e4',
     bonusPoints: 82,
     rewards: [{ kind: 'shop', category: 'highlightColors', id: 'season_winter_lantern_glow' }],
   },
   {
-    challengeAchievementId: 'bishop_to_f4',
+    challengeAchievementId: 'castle_on_10',
     bonusPoints: 118,
     rewards: [
       { kind: 'shop', category: 'pieces', id: 'season_winter_snowsilhouette' },
@@ -8212,17 +8212,17 @@ const SEASON_CLAIM_NODES_11 = [
     ],
   },
   {
-    challengeAchievementId: 'en_passant',
+    challengeAchievementId: 'underpromote',
     bonusPoints: 169,
     rewards: [{ kind: 'lb_frame', frame: 'silver_lane' }],
   },
   {
-    challengeAchievementId: 'queen_capturer',
+    challengeAchievementId: 'solstice_win_dawn_ct',
     bonusPoints: 242,
     rewards: [{ kind: 'lb_title', title: 'Ornament skewer' }],
   },
   {
-    challengeAchievementId: 'capture_master',
+    challengeAchievementId: 'checkmate_bishop',
     bonusPoints: 347,
     rewards: [
       { kind: 'lb_frame', frame: 'amber_pulse' },
@@ -8235,7 +8235,7 @@ const SEASON_CLAIM_NODES_11 = [
     rewards: [{ kind: 'shop', category: 'boards', id: 'season_winter_aurora_path' }],
   },
   {
-    challengeAchievementId: 'checkmate_rook',
+    challengeAchievementId: 'checkmate_knight',
     bonusPoints: 709,
     rewards: [{ kind: 'lb_title', title: 'Generous gambit' }],
   },
@@ -8568,10 +8568,57 @@ function readEarnBaselineField(baseline, key) {
   return Math.max(0, Number(baseline[key]) || 0);
 }
 
+/** Merge stored baseline with snapshot defaults (missing keys → 0) so empty `{}` never inflates progress. */
+function coalesceEarnBaselineWorker(stored) {
+  const template = snapshotSeasonEarnBaselineFromChess({
+    stats: { playerStats: { wins: 0, losses: 0, draws: 0 }, lifetimeStats: {} },
+  });
+  Object.keys(template).forEach((k) => {
+    template[k] = 0;
+  });
+  if (!stored || typeof stored !== 'object') return template;
+  const out = { ...template };
+  for (const k of Object.keys(stored)) {
+    out[k] = Math.max(0, Number(stored[k]) || 0);
+  }
+  return out;
+}
+
+/** Backfill empty or legacy saves so claim validation matches season-track UI. */
+function ensureSeasonTrackEarnBaselineFilled(chess) {
+  if (!chess || typeof chess !== 'object') return false;
+  const st = chess.seasonTrack && typeof chess.seasonTrack === 'object' ? chess.seasonTrack : null;
+  if (!st) return false;
+  const sid = String(st.seasonId || '').trim();
+  if (!/^\d{4}-\d{2}$/.test(sid)) return false;
+  const b = st.earnBaseline;
+  const empty = !b || typeof b !== 'object' || Object.keys(b).length === 0;
+  const snap = snapshotSeasonEarnBaselineFromChess(chess);
+  if (empty) {
+    st.earnBaseline = snap;
+    chess.seasonTrack = st;
+    return true;
+  }
+  let changed = false;
+  const out = { ...b };
+  for (const key of Object.keys(snap)) {
+    if (!Object.prototype.hasOwnProperty.call(out, key)) {
+      out[key] = 0;
+      changed = true;
+    }
+  }
+  if (changed) {
+    st.earnBaseline = out;
+    chess.seasonTrack = st;
+  }
+  return empty || changed;
+}
+
 function seasonChallengeMetSinceBaseline(chess, baseline, achId) {
   const id = String(achId || '');
   const rule = SEASON_STEP_EARN_RULES[id];
   if (!rule) return false;
+  baseline = coalesceEarnBaselineWorker(baseline);
   const ps = chess?.stats?.playerStats || {};
   const w = Math.max(0, Number(ps.wins) || 0);
   const l = Math.max(0, Number(ps.losses) || 0);
@@ -12491,6 +12538,12 @@ export class UserAccount {
     const chess = userData.games.chess;
 
     ensureSeasonTrackAlignedToUtcMonth(chess);
+    let baselineFilled = ensureSeasonTrackEarnBaselineFilled(chess);
+    if (baselineFilled) {
+      chess.lastUpdated = Date.now();
+      userData.games.chess = chess;
+      await this.storage.put('userData', userData);
+    }
 
     if (adminPreviewClaim) {
       if (!isValidAdminPreviewSeasonId(previewSeasonId)) {
@@ -13044,6 +13097,7 @@ export class UserAccount {
     const repairResult = repairChessCareerStatsInPlace(c);
     let previewMigrated = false;
     const seasonAligned = ensureSeasonTrackAlignedToUtcMonth(c);
+    const baselineFilled = ensureSeasonTrackEarnBaselineFilled(c);
     let lbRowPersisted = false;
     const stNow = c.seasonTrack && typeof c.seasonTrack === 'object' ? c.seasonTrack : {};
     if (persistSeasonLbRowPresetsFromProgress(c, stNow.seasonId, stNow.nodesCompleted)) {
@@ -13069,7 +13123,7 @@ export class UserAccount {
       delete c.seasonPreviewTrack;
       previewMigrated = true;
     }
-    if (repairResult.repaired || previewMigrated || seasonAligned || lbRowPersisted) {
+    if (repairResult.repaired || previewMigrated || seasonAligned || baselineFilled || lbRowPersisted) {
       userData.games.chess = c;
       await this.storage.put('userData', userData);
       if (repairResult.repaired) {

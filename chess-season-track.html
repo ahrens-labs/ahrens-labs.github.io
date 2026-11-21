@@ -730,7 +730,7 @@
                 </span>
                 <h2>Season track</h2>
                 <p class="st-hero-sub">
-                    One path per three-month season (winter Nov–Jan, then spring, summer, autumn). Each step is a concrete in-game feat (openings, tactics, material, endgames)—not a generic grind. After you claim a step, the next one only counts what you earn <strong>from that point on</strong> in TrifangX, then <strong>claim the step on this page</strong> to add bonus points, cosmetics, and leaderboard flair to your account. (Claiming is what advances the track.) Stuck? You can spend <strong>shop points</strong> (the same balance you use in the TrifangX shop) to skip the in-game requirement for that step and still collect that step’s rewards (the underlying achievement stays unearned until you do it in TrifangX).
+                    One path per three-month season (winter Nov–Jan, then spring, summer, autumn). Each step is a concrete in-game feat (openings, material, castling, checkmates)—counted from stats TrifangX already records, not a generic grind. After you claim a step, the next one only counts what you earn <strong>from that point on</strong> in TrifangX, then <strong>claim the step on this page</strong> to add bonus points, cosmetics, and leaderboard flair to your account. (Claiming is what advances the track.) Stuck? You can spend <strong>shop points</strong> (the same balance you use in the TrifangX shop) to skip the in-game requirement for that step and still collect that step’s rewards (the underlying achievement stays unearned until you do it in TrifangX).
                 </p>
             </section>
 
@@ -930,6 +930,7 @@
           castledOnMove10: Math.max(0, Number(b.castledOnMove10) || 0),
           underpromotions: Math.max(0, Number(b.underpromotions) || 0),
           checkmateWithBishop: Math.max(0, Number(b.checkmateWithBishop) || 0),
+          checkmateWithKnight: Math.max(0, Number(b.checkmateWithKnight) || 0),
           creativeCenterDominationWins: Math.max(0, Number(b.creativeCenterDominationWins) || 0),
           creativeWindmillWins: Math.max(0, Number(b.creativeWindmillWins) || 0),
           winsFinishedBefore10amCt: Math.max(0, Number(b.winsFinishedBefore10amCt) || 0),
@@ -963,6 +964,7 @@
           castledOnMove10: Math.max(0, Number(lt.castledOnMove10) || 0),
           underpromotions: Math.max(0, Number(lt.underpromotions) || 0),
           checkmateWithBishop: Math.max(0, Number(lt.checkmateWithBishop) || 0),
+          checkmateWithKnight: Math.max(0, Number(lt.checkmateWithKnight) || 0),
           creativeCenterDominationWins: Math.max(0, Number(lt.creativeCenterDominationWins) || 0),
           creativeWindmillWins: Math.max(0, Number(lt.creativeWindmillWins) || 0),
           winsFinishedBefore10amCt: Math.max(0, Number(lt.winsFinishedBefore10amCt) || 0),
@@ -986,6 +988,7 @@
         castledOnMove10: 'castles on your 10th move (lifetime, since prior claims)',
         underpromotions: 'underpromotions (lifetime, since prior claims)',
         checkmateWithBishop: 'checkmates with a bishop (since prior claims)',
+        checkmateWithKnight: 'checkmates with a knight (since prior claims)',
         creativeCenterDominationWins:
           'wins where d4, d5, e4, and e5 were each occupied at least once (since prior claims)',
         creativeWindmillWins: 'wins with 5+ consecutive checks (since prior claims)',
@@ -1003,7 +1006,12 @@
         var rules = CS && CS.SEASON_STEP_EARN_RULES ? CS.SEASON_STEP_EARN_RULES : null;
         var rule = rules && rules[achId] ? rules[achId] : null;
         if (!rule) return null;
-        var base = getEarnBaselineFromData(data);
+        var stEarn = data.seasonTrack && typeof data.seasonTrack === 'object' ? data.seasonTrack : {};
+        var CSref = typeof ChessSeasons !== 'undefined' ? ChessSeasons : null;
+        var base =
+          CSref && typeof CSref.coalesceEarnBaseline === 'function'
+            ? CSref.coalesceEarnBaseline(stEarn.earnBaseline)
+            : getEarnBaselineFromData(data);
         var pstats = getPlayerStatsFromData(data);
         var lt = getLifetimeFromData(data);
         var cur = 0;
@@ -1348,10 +1356,11 @@
 
         var currentSid = CS.getChessSeasonIdUtc();
         var displaySid = currentSid;
-        var stMain = getMainSeasonTrackForDisplay(data, displaySid, CS);
-        var cloudSid = String(
-          (data.seasonTrack && data.seasonTrack.seasonId) || ''
-        ).trim();
+        var stCloud =
+          data && data.seasonTrack && typeof data.seasonTrack === 'object' ? data.seasonTrack : {};
+        var cloudSid = String(stCloud.seasonId || '').trim();
+        var trackInSync = cloudSid === displaySid && cloudSid === currentSid;
+        var stMain = trackInSync ? stCloud : getMainSeasonTrackForDisplay(data, displaySid, CS);
         var liveTrackSid = String(
           (data && (data.liveTrackSid || data.liveTrackSeasonId || data.liveTrackSeason)) || currentSid || ''
         ).trim();
@@ -1360,13 +1369,22 @@
         var nodes = meta.nodes;
         var bounds = meta.bounds;
 
-        var nodesDone = Math.max(0, Math.floor(Number(stMain.nodesCompleted) || 0));
+        var nodesDone = trackInSync
+          ? Math.max(0, Math.floor(Number(stCloud.nodesCompleted) || 0))
+          : 0;
         if (nodesDone > nodes.length) nodesDone = nodes.length;
 
         var bonus = Math.max(0, Math.floor(Number(data.seasonBonusPoints) || 0));
 
-        var flair = stMain.lbFlair && typeof stMain.lbFlair === 'object' ? stMain.lbFlair : {};
-        var mainTrackData = Object.assign({}, data, { seasonTrack: stMain });
+        var flair =
+          (trackInSync ? stCloud : stMain).lbFlair && typeof (trackInSync ? stCloud : stMain).lbFlair === 'object'
+            ? (trackInSync ? stCloud : stMain).lbFlair
+            : {};
+        var mainTrackData = Object.assign({}, data, { seasonTrack: trackInSync ? stCloud : stMain });
+        var earnBaselineForProgress =
+          CS && typeof CS.coalesceEarnBaseline === 'function'
+            ? CS.coalesceEarnBaseline(trackInSync ? stCloud.earnBaseline : {})
+            : getEarnBaselineFromData(mainTrackData);
         var previewSid = getUpcomingPreviewSeasonId(CS);
         var previewActiveOnSave = !!(previewSid && cloudSid === previewSid);
         var flairLine = '';
@@ -1444,14 +1462,11 @@
           }
 
           var earnMet =
+            trackInSync &&
             i === nodesDone &&
             CS &&
             typeof CS.seasonChallengeMetSinceBaseline === 'function' &&
-            CS.seasonChallengeMetSinceBaseline(
-              mainTrackData,
-              stMain.earnBaseline,
-              node.challengeAchievementId
-            );
+            CS.seasonChallengeMetSinceBaseline(mainTrackData, earnBaselineForProgress, node.challengeAchievementId);
           var statusMsg = '';
           if (i < nodesDone) {
             statusMsg =
@@ -1460,6 +1475,9 @@
             if (earnMet) {
               statusMsg =
                 'You have met this step’s challenge since your last claim. Press Claim reward below to add this step’s unlocks and bonus points and advance the track. (Claiming is required.)';
+            } else if (!trackInSync) {
+              statusMsg =
+                'Your save is not on the live season yet. Open TrifangX while signed in once to sync, then finish this step’s challenge.';
             } else {
               statusMsg =
                 'Work toward this in TrifangX. Only stats earned after you claimed all earlier track steps count toward this step.';
@@ -1567,7 +1585,7 @@
             }
           }
           html += '<p class="st-status-msg">' + escapeHtml(statusMsg) + '</p>';
-          if (i === nodesDone && nodesDone < nodes.length && !previewActiveOnSave) {
+          if (i === nodesDone && nodesDone < nodes.length && !previewActiveOnSave && trackInSync) {
             var shopPts = getShopSpendableFromChess(data);
             var buyCost =
               CS && typeof CS.getSeasonStepBuyoutCost === 'function' ? CS.getSeasonStepBuyoutCost(i) : 0;
