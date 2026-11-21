@@ -2553,7 +2553,7 @@
       box.innerHTML = `<div class="ol-gate"><p>Play Oakhaven against another Ahrens Labs player — a quick game with a 2-minute turn clock, or a long game where you take your turn whenever you like.</p><a class="btn big" href="/account.html?return=${back}">Log in or sign up</a></div>`;
       return;
     }
-    box.innerHTML = lobbyHtml(true);
+    box.innerHTML = lobbyHtml();
     const r = await api('/api/oakhaven/games');
     if (!$('#online-box')) return;
     if (r.status === 401) return signedOut();
@@ -2568,7 +2568,7 @@
   }
   function renderLobby() {
     const box = $('#online-box');
-    if (box) box.innerHTML = lobbyHtml(false);
+    if (box) box.innerHTML = lobbyHtml();
   }
   function onlineStatus(g) {
     if (g.status === 'pending') return g.me === 1 ? `<b>${esc(g.opp)}</b> challenged you` : `Waiting for <b>${esc(g.opp)}</b> to accept`;
@@ -2605,32 +2605,19 @@
     if (Recent) Recent.remember(name);
   }
 
-  function lobbyHtml(loading) {
-    const games = net.lobby || [];
-    const btns = (g) => {
-      if (g.status === 'pending' && g.me === 1) return `<button class="btn sm" data-ol="accept" data-id="${g.id}">Accept</button><button class="btn ghost sm" data-ol="decline" data-id="${g.id}">Decline</button>`;
-      if (g.status === 'pending') return `<button class="btn ghost sm" data-ol="cancel" data-id="${g.id}">Cancel</button>`;
-      if (g.status === 'active') return `<button class="btn sm" data-ol="open" data-id="${g.id}">${g.turn === g.me ? 'Play' : 'Open'}</button>`;
-      if (g.status === 'over' && g.unseen) return `<button class="btn sm" data-ol="open" data-id="${g.id}">Play</button>`;
-      if (g.status === 'over') return `<button class="btn ghost sm" data-ol="open" data-id="${g.id}">View</button>`;
-      return '';
-    };
-    const list = games.length
-      ? games.map((g) => `<li class="ol-game${(g.status === 'active' && g.turn === g.me) || (g.status === 'over' && g.unseen) ? ' mine' : ''}${g.status === 'pending' && g.me === 1 ? ' invite' : ''}"><span class="ol-who">vs <b>${esc(g.opp)}</b><small>${onlineStatus(g)}</small></span><span class="ol-btns">${btns(g)}</span></li>`).join('')
-      : `<li class="muted ol-empty">${loading ? 'Loading your games…' : 'No online games yet — challenge someone below.'}</li>`;
+  function lobbyHtml() {
+    // Online games themselves live on the Ahrens Games “Your games” lobby — this section is only for sending a challenge.
     const mode = prefs().olMode === 'quick' ? 'quick' : 'long';
     const recent = recentOpponents();
     return `<div class="ol">
-      <div class="ol-head"><span class="label">Your online games</span><button class="btn ghost sm" data-ol="refresh" title="Refresh">↻</button></div>
       ${net.err ? `<p class="bad">${esc(net.err)}</p>` : ''}
-      <ul class="ol-list">${list}</ul>
       <form class="ol-new" data-ol-form>
         <label><span class="label">Challenge a player</span><input id="ol-opp" maxlength="80" placeholder="Username or email" autocomplete="off"></label>
         ${recent.length ? `<div class="ol-recent"><span class="label">Recent opponents</span><div class="ol-recent-list">${recent.map((n) => `<button type="button" class="btn ghost sm" data-ol="recent" data-name="${esc(n)}">${esc(n)}</button>`).join('')}</div></div>` : ''}
         <div class="seg ol-mode" id="ol-mode">${['long', 'quick'].map((m) => `<button type="button" data-v="${m}" class="${mode === m ? 'on' : ''}">${m === 'quick' ? '<b>⚡ Quick game</b><small>2 minutes per turn — play it now</small>' : '<b>🐢 Long game</b><small>No time limit — take your turn whenever, over days</small>'}</button>`).join('')}</div>
         <button class="btn" type="submit">Send challenge</button>
       </form>
-      <p class="muted small">In a quick game, if your time runs out the computer takes that turn for you; miss three turns in a row and you lose. You’ll see each other’s moves live while you both have the game open.</p>
+      <p class="muted small">In a quick game, if your time runs out the computer takes that turn for you; miss three turns in a row and you lose. You’ll see each other’s moves live while you both have the game open. Open games from the Ahrens Games lobby.</p>
     </div>`;
   }
   document.addEventListener('submit', async (e) => {

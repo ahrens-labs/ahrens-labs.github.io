@@ -4270,7 +4270,6 @@
             <button class="btn big" data-act="olChallenge">🦖 Send challenge</button>
             <p class="muted">They get an email, and the challenge shows up here when they sign in.</p>
           </div>
-          <div id="ol-list"></div>
         </div>
         <div class="name-row">
           <div class="name-field"><label for="name0"><span class="only-2p">Red player</span><span class="only-ai">Your name</span></label><input id="name0" maxlength="18" value="Red" autocomplete="off"></div>
@@ -8120,36 +8119,12 @@
   }
 
   function renderLobby() {
-    const el = document.getElementById('ol-list');
-    if (!el) return;
-    const games = lobby.games;
+    // Online games themselves live on the Ahrens Games “Your games” lobby — this section is only for sending a challenge.
+    const games = lobby.games || [];
     const badge = document.getElementById('ol-badge');
     renderRecentOpponents();
-    if (!games) {
-      el.innerHTML = `<p class="muted">${lobby.error ? esc(lobby.error) : 'Loading your games…'}</p>`;
-      return;
-    }
-    const by = (f) => games.filter(f);
-    const incoming = by((g) => g.status === 'pending' && g.me === 1);
-    // A game that ended while you were away waits as your turn until you've seen how it ended.
-    const yours = by((g) => (g.status === 'active' && g.turn === g.me) || (g.status === 'over' && g.unseen));
-    const theirs = by((g) => g.status === 'active' && g.turn !== g.me);
-    const sent = by((g) => g.status === 'pending' && g.me === 0);
-    const done = by((g) => g.status !== 'pending' && g.status !== 'active' && !g.unseen);
-    const need = incoming.length + yours.length;
+    const need = games.filter((g) => (g.status === 'pending' && g.me === 1) || (g.status === 'active' && g.turn === g.me) || (g.status === 'over' && g.unseen)).length;
     if (badge) badge.textContent = need ? `${need} waiting for you` : 'Challenge a friend';
-    const id = (g) => `data-id="${esc(g.id)}"`;
-    const group = (title, list, btns) => (list.length ? `<h3 class="ol-h">${title}</h3>${list.map((g) => lobbyRow(g, btns(g))).join('')}` : '');
-    el.innerHTML = tokify([
-      lobby.error ? `<p class="muted">${esc(lobby.error)}</p>` : '',
-      group('🦖 Challenges for you', incoming, (g) => `<button class="btn sm" data-act="olAccept" ${id(g)}>Accept</button><button class="btn sm ghost" data-act="olDecline" ${id(g)}>Decline</button>`),
-      group('▶ Your turn', yours, (g) => `<button class="btn sm" data-act="olOpen" ${id(g)}>Play</button>`),
-      group('⏳ Their turn', theirs, (g) => `<button class="btn sm ghost" data-act="olOpen" ${id(g)}>Watch</button>`),
-      group('📨 Sent challenges', sent, (g) => `<button class="btn sm ghost" data-act="olCancel" ${id(g)}>Cancel</button>`),
-      group('🏁 Finished', done, (g) => (g.status === 'over' ? `<button class="btn sm ghost" data-act="olOpen" ${id(g)}>View</button>` : '')),
-      games.length ? '' : '<p class="muted">No online games yet. Challenge someone above!</p>',
-      `<button class="link ol-refresh" data-act="olRefresh">↻ Refresh</button>`,
-    ].join(''));
   }
 
   function updateLobbyGame(summary) {

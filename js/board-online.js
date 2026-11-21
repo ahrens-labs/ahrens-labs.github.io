@@ -154,46 +154,27 @@
       return `<div class="ol-recent"><span class="label">Recent opponents</span><div class="ol-recent-list">${names.map((n) => `<button type="button" class="btn ghost sm" data-ol="recent" data-name="${esc(n)}">${esc(n)}</button>`).join('')}</div></div>`;
     }
 
-    function lobbyHtml(loading) {
-      const games = net.lobby || [];
-      const btns = (g) => {
-        if (g.status === 'pending' && invited(g)) return `<button class="btn sm" data-ol="accept" data-id="${g.id}">Accept</button><button class="btn ghost sm" data-ol="decline" data-id="${g.id}">Decline</button>`;
-        if (g.status === 'pending') return `<button class="btn ghost sm" data-ol="cancel" data-id="${g.id}">${g.me === 0 ? 'Cancel' : 'Leave'}</button>`;
-        if (g.status === 'active') return `<button class="btn sm" data-ol="open" data-id="${g.id}">${g.turn === g.me ? 'Play' : 'Open'}</button>`;
-        if (g.status === 'over' && g.unseen) return `<button class="btn sm" data-ol="open" data-id="${g.id}">Play</button>`;
-        if (g.status === 'over') return `<button class="btn ghost sm" data-ol="open" data-id="${g.id}">View</button>`;
-        return '';
-      };
-      const list = games.length
-        ? games.map((g) => `<li class="ol-game${(g.status === 'active' && g.turn === g.me) || (g.status === 'over' && g.unseen) ? ' mine' : ''}${invited(g) ? ' invite' : ''}"><span class="ol-who">vs <b>${esc(g.opp)}</b><small>${onlineStatus(g)}</small></span><span class="ol-btns">${btns(g)}</span></li>`).join('')
-        : `<li class="muted ol-empty">${loading ? 'Loading your games…' : 'No online games yet — challenge someone below.'}</li>`;
+    function lobbyHtml() {
+      // Online games themselves live on the Ahrens Games “Your games” lobby — this section is only for sending a challenge.
       const mode = prefs().olMode === 'quick' ? 'quick' : 'long';
-      return `<div class="ol">
-      <div class="ol-head"><span class="label">Your online games</span><button class="btn ghost sm" data-ol="refresh" title="Refresh">↻</button></div>
-      ${net.err ? `<p class="bad">${esc(net.err)}</p>` : ''}
-      <ul class="ol-list">${list}</ul>
-      <form class="ol-new" data-ol-form>
-        <label><span class="label">${maxSeats > 2 ? 'Invite players' : 'Challenge a player'}</span><input id="ol-opp" class="ol-opp" maxlength="80" placeholder="Username or email" autocomplete="off"></label>
-        ${recentHtml()}
-        ${maxSeats > 2 ? seatsHtml() : ''}
-        <div class="seg ol-mode" id="ol-mode">${['long', 'quick'].map((m) => `<button type="button" data-v="${m}" class="${mode === m ? 'on' : ''}">${m === 'quick' ? '<b>⚡ Quick game</b><small>2 minutes per turn — play it now</small>' : '<b>🐢 Long game</b><small>No time limit — take your turn whenever, over days</small>'}</button>`).join('')}</div>
-        <button class="btn" type="submit">Send challenge</button>
-      </form>
-      <p class="muted small">In a quick game, if your time runs out the computer takes that turn for you; miss three turns in a row and you lose${maxSeats > 2 ? ' (with more than two players, the computer takes over your seat instead)' : ''}. You’ll see each other’s moves live while you both have the game open.</p>
-    </div>`;
-    }
-
-    // Extra invites and computer seats, for games with room for more than two.
-    function seatsHtml() {
       const pr = prefs();
       const level = LEVELS.some(([k]) => k === pr.olLevel) ? pr.olLevel : 'normal';
-      return `<div id="ol-more"></div>
-        <button type="button" class="btn ghost sm ol-add" data-ol="add-opp">➕ Invite another player</button>
-        <div class="ol-bots"><span class="label">🤖 Computer players</span>
+      return `<div class="ol">
+      ${net.err ? `<p class="bad">${esc(net.err)}</p>` : ''}
+      <form class="ol-new" data-ol-form>
+        <label><span class="label">${maxSeats > 2 ? 'Invite players' : 'Challenge a player'}</span><input id="ol-opp" class="ol-opp" maxlength="80" placeholder="Username or email" autocomplete="off"></label>
+        ${maxSeats > 2 ? `<div id="ol-more"></div><button type="button" class="btn ghost sm ol-add" data-ol="add-opp">➕ Invite another player</button>` : ''}
+        ${recentHtml()}
+        ${maxSeats > 2 ? `<div class="ol-bots"><span class="label">🤖 Computer players</span>
           <div class="ol-step"><button type="button" class="btn ghost sm" data-ol="bots-" aria-label="Fewer computer players">−</button><b id="ol-bots-n">0</b><button type="button" class="btn ghost sm" data-ol="bots+" aria-label="More computer players">+</button></div>
           <div class="seg ol-level" id="ol-level">${LEVELS.map(([k, name]) => `<button type="button" data-v="${k}" class="${k === level ? 'on' : ''}">${name}</button>`).join('')}</div>
         </div>
-        <p class="muted small" id="ol-seats"></p>`;
+        <p class="muted small" id="ol-seats"></p>` : ''}
+        <div class="seg ol-mode" id="ol-mode">${['long', 'quick'].map((m) => `<button type="button" data-v="${m}" class="${mode === m ? 'on' : ''}">${m === 'quick' ? '<b>⚡ Quick game</b><small>2 minutes per turn — play it now</small>' : '<b>🐢 Long game</b><small>No time limit — take your turn whenever, over days</small>'}</button>`).join('')}</div>
+        <button class="btn" type="submit">Send challenge</button>
+      </form>
+      <p class="muted small">In a quick game, if your time runs out the computer takes that turn for you; miss three turns in a row and you lose${maxSeats > 2 ? ' (with more than two players, the computer takes over your seat instead)' : ''}. You’ll see each other’s moves live while you both have the game open. Open games from the Ahrens Games lobby.</p>
+    </div>`;
     }
     function seatCounts() {
       const invites = document.querySelectorAll('[data-ol-form] .ol-opp').length;
@@ -224,7 +205,7 @@
         box.innerHTML = `<div class="ol-gate"><p>${esc(blurb)}</p><a class="btn big" href="/account.html?return=${back}">Log in or sign up</a></div>`;
         return;
       }
-      box.innerHTML = lobbyHtml(true);
+      box.innerHTML = lobbyHtml();
       const r = await api(`${prefix}/games`);
       if (!$('#online-box')) return;
       if (r.status === 401) {
@@ -244,7 +225,7 @@
     function renderLobby() {
       const box = $('#online-box');
       if (!box) return;
-      box.innerHTML = lobbyHtml(false);
+      box.innerHTML = lobbyHtml();
       if (maxSeats > 2) {
         const el = $('#ol-bots-n');
         if (el) el.textContent = String(Math.max(0, Math.min(maxSeats - 2, Number(prefs().olBots) || 0)));
