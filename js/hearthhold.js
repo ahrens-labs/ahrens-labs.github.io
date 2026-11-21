@@ -2569,6 +2569,7 @@
   function renderLobby() {
     const box = $('#online-box');
     if (box) box.innerHTML = lobbyHtml();
+    paintPresenceDots();
   }
   function onlineStatus(g) {
     if (g.status === 'pending') return g.me === 1 ? `<b>${esc(g.opp)}</b> challenged you` : `Waiting for <b>${esc(g.opp)}</b> to accept`;
@@ -2620,16 +2621,27 @@
       <p class="muted small">In a quick game, if your time runs out the computer takes that turn for you; miss three turns in a row and you lose. You’ll see each other’s moves live while you both have the game open. Open games from the Ahrens Games lobby.</p>
     </div>`;
   }
+  function paintPresenceDots() {
+    const Presence = window.AhrensPresence;
+    if (!Presence) return;
+    Presence.start();
+    Presence.paint($('#online-box') || document);
+  }
   document.addEventListener('submit', async (e) => {
     if (!e.target.closest('[data-ol-form]')) return;
     e.preventDefault();
     const inp = $('#ol-opp');
     const opponent = inp.value.trim();
     if (!opponent) return inp.focus();
-    const btn = e.target.querySelector('button');
-    btn.disabled = true;
     const pick = $('#ol-mode .on');
     const mode = pick ? pick.dataset.v : 'long';
+    const Presence = window.AhrensPresence;
+    if (Presence && Presence.confirmChallenge) {
+      const ok = await Presence.confirmChallenge({ game: 'Oakhaven', players: [opponent], mode });
+      if (!ok) return;
+    }
+    const btn = e.target.querySelector('button');
+    btn.disabled = true;
     savePrefs(Object.assign(prefs(), { olMode: mode }));
     const r = await api('/api/oakhaven/challenge', { opponent, mode });
     btn.disabled = false;

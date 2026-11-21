@@ -66,6 +66,7 @@ import {
   encryptInboxTasks,
   decryptInboxTasks,
 } from './app-data-crypto.js';
+import { markPresent, checkPresent, isPresentByUserId } from './presence.js';
 
 /** Stored on `emailPreferences.digestTimeZone` for compatibility; digest send time uses UTC (see `getDigestSendUtcHM`). */
 const DEFAULT_DIGEST_TIMEZONE = 'Etc/UTC';
@@ -163,6 +164,10 @@ export default {
         return handleSync(request, env, corsHeaders);
       } else if (path === '/api/user' && request.method === 'GET') {
         return handleGetUser(request, env, corsHeaders);
+      } else if (path === '/api/presence/ping' && request.method === 'POST') {
+        return handlePresencePing(request, env, corsHeaders);
+      } else if (path === '/api/presence/check' && request.method === 'POST') {
+        return handlePresenceCheck(request, env, corsHeaders);
       } else if (path === '/api/email-preferences' && request.method === 'POST') {
         return handleEmailPreferences(request, env, corsHeaders);
       } else if (path === '/api/header-nav-preferences' && request.method === 'POST') {
@@ -3636,9 +3641,87 @@ async function handleGetUser(request, env, corsHeaders) {
     console.warn('ensureSportsDigestKvSubscriber on getUser failed:', e?.message || e);
   }
 
+  // Soft presence ping — Cache API only (no KV/DO). Best-effort; never blocks the profile response.
+  try {
+    await markPresent(userResult.userId, userData.username);
+  } catch {
+    /* ignore */
+  }
+
   return new Response(JSON.stringify(userData), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
+}
+
+async function sessionUserId(env, sessionId) {
+  if (!sessionId) return null;
+  const session = env.SESSION.get(env.SESSION.idFromName(sessionId));
+  const userRes = await session.fetch(new Request('http://do/getUserId', { method: 'GET' }));
+  const userResult = await userRes.json();
+  return userResult && userResult.userId ? String(userResult.userId) : null;
+}
+
+async function handlePresencePing(request, env, corsHeaders) {
+  const sessionId = parseBearerToken(request.headers.get('Authorization'));
+  const userId = await sessionUserId(env, sessionId);
+  if (!userId) {
+    return new Response(JSON.stringify({ error: 'Not authenticated' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+  let username = '';
+  try {
+    const account = env.USER_ACCOUNT.get(env.USER_ACCOUNT.idFromName(userId));
+    const dataRes = await account.fetch(new Request('http://do/getData', { method: 'GET' }));
+    const row = await dataRes.json();
+    username = row && row.username != null ? String(row.username) : '';
+  } catch {
+    /* still mark by id */
+  }
+  await markPresent(userId, username);
+  return new Response(JSON.stringify({ success: true, online: true }), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
+async function handlePresenceCheck(request, env, corsHeaders) {
+  const sessionId = parseBearerToken(request.headers.get('Authorization'));
+  const userId = await sessionUserId(env, sessionId);
+  if (!userId) {
+    return new Response(JSON.stringify({ error: 'Not authenticated' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+  let body = {};
+  try {
+    body = await request.json();
+  } catch {
+    body = {};
+  }
+  const userIds = Array.isArray(body.userIds) ? body.userIds.slice(0, 100) : [];
+  const usernames = Array.isArray(body.usernames) ? body.usernames.slice(0, 100) : [];
+  const result = await checkPresent({ userIds, usernames });
+  return new Response(JSON.stringify({ success: true, ...result }), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
+async function enrichAdminAccountsOnline(accounts) {
+  if (!Array.isArray(accounts) || !accounts.length) return;
+  const batch = 20;
+  for (let i = 0; i < accounts.length; i += batch) {
+    const slice = accounts.slice(i, i + batch);
+    await Promise.all(
+      slice.map(async (a) => {
+        const online =
+          (await isPresentByUserId(a.userId)) ||
+          (a.doUserId && a.doUserId !== a.userId ? await isPresentByUserId(a.doUserId) : false);
+        a.online = !!online;
+      })
+    );
+  }
 }
 
 // Helper functions
@@ -5999,6 +6082,7 @@ async function handleAdminListAccounts(request, env, corsHeaders) {
     const linkUsageMap = await loadLinkAppUsageByAhrensId(env);
     enrichAdminAccountsLinkUsage(merged, linkUsageMap);
     await enrichAdminAccountsAppActivity(env, merged);
+    await enrichAdminAccountsOnline(merged);
 
     return new Response(
       JSON.stringify({
@@ -6012,6 +6096,7 @@ async function handleAdminListAccounts(request, env, corsHeaders) {
         pageStubCount: stubs.length,
         skippedMissingData,
         registrySupplement: true,
+        onlineCount: merged.filter((a) => a.online).length,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
@@ -6049,6 +6134,7 @@ async function handleAdminListAccounts(request, env, corsHeaders) {
   const linkUsageMap = await loadLinkAppUsageByAhrensId(env);
   enrichAdminAccountsLinkUsage(merged, linkUsageMap);
   await enrichAdminAccountsAppActivity(env, merged);
+  await enrichAdminAccountsOnline(merged);
 
   return new Response(
     JSON.stringify({
@@ -6057,6 +6143,7 @@ async function handleAdminListAccounts(request, env, corsHeaders) {
       nextListCursor: nextCursor || null,
       hasMore: Boolean(nextCursor),
       pageStubCount: stubs.length,
+      onlineCount: merged.filter((a) => a.online).length,
       skippedMissingData,
     }),
     { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

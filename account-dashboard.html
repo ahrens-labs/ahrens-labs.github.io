@@ -15,6 +15,7 @@
   <script src="js/header_nav.js"></script>
   <script src="js/chess_seasons.js"></script>
   <script src="js/chess_lb_row.js"></script>
+  <script src="js/games-presence.js?v=1"></script>
   <style>
     .dash-wrap { max-width: 920px; margin: 0 auto; padding: 28px 20px 48px; font-family: Inter, system-ui, sans-serif; }
     .dash-wrap h1 { margin: 0 0 8px 0; color: #1e293b; font-size: 1.85rem; }
@@ -325,6 +326,16 @@
       width: 24%;
       overflow: hidden;
       text-overflow: ellipsis;
+    }
+    .presence-dot {
+      display: inline-block;
+      width: 0.55em;
+      height: 0.55em;
+      margin-right: 0.35em;
+      border-radius: 50%;
+      background: #2563eb;
+      vertical-align: middle;
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.18);
     }
     .admin-accounts-table.admin-accounts-compact .c-user {
       width: 14%;
@@ -2494,6 +2505,8 @@
       applyUserToForm(user);
       loadTrifangxPointsForDashboard();
 
+      if (window.AhrensPresence) window.AhrensPresence.start();
+
       if (isAdminBroadcastAccount(user.email)) {
         document.documentElement.classList.add('dash-is-admin');
         wireAdminBulkEmailControls();
@@ -3555,7 +3568,11 @@
                   `<tr class="admin-acct-line${checked ? ' admin-acct-selected' : ''}">` +
                   `<td class="c-sel"><input type="checkbox" class="admin-acct-select" data-admin-row-key="${escHtml(rowKey)}"${checked ? ' checked' : ''} aria-label="Select account"></td>` +
                   `<td class="c-email" title="${emTitle}">${emailCell}</td>` +
-                  `<td class="c-user" title="${unTitle}">${escHtml(a.username || '—')}</td>` +
+                  `<td class="c-user" title="${unTitle}">${
+                    a.online
+                      ? '<span class="presence-dot" title="Online now" aria-label="Online now"></span>'
+                      : ''
+                  }${escHtml(a.username || '—')}</td>` +
                   `<td class="c-apps" title="${escHtml(adminAppUsageLabel(a))}">${adminAppUsageBadgesHtml(a)}</td>` +
                   `<td class="c-act">${activeBadge}${detailsBtn}${historyBtn}${gamesHistBtn}${welcomeBtn}${customBtn}${deleteBtn}</td></tr>`
                 );
@@ -3570,13 +3587,15 @@
           const deckCount = adminAccountsAccum.filter((a) => a.appDeck).length;
           const linkCount = adminAccountsAccum.filter((a) => a.appLink).length;
           const anyAppCount = adminAccountsAccum.filter((a) => Number(a.appDataCount) > 0).length;
+          const onlineNow = adminAccountsAccum.filter((a) => a.online).length;
           const q = ((filterEl && filterEl.value) || '').trim();
           const digestOnly = !!(digestOnlyEl && digestOnlyEl.checked);
           const appsOnly = !!(appsOnlyEl && appsOnlyEl.checked);
           const filtNote = q || digestOnly || appsOnly ? ` · ${rows.length} match filter` : '';
           const selNote = adminSelectedKeys.size ? ` · ${adminSelectedKeys.size} selected` : '';
+          const onlineNote = onlineNow ? ` · ${onlineNow} online now` : '';
           meta.textContent =
-            `Loaded ${adminAccountsAccum.length} account${adminAccountsAccum.length === 1 ? '' : 's'} · ${trifangxDigestCount} TrifangX digest · ${sportsDigestCount} sports digest · ${anyAppCount} with app data (Classify ${classifyCount}, Tether ${tetherCount}, Platter ${platterCount}, Deck ${deckCount}, Link ${linkCount})${filtNote}${selNote}` +
+            `Loaded ${adminAccountsAccum.length} account${adminAccountsAccum.length === 1 ? '' : 's'}${onlineNote} · ${trifangxDigestCount} TrifangX digest · ${sportsDigestCount} sports digest · ${anyAppCount} with app data (Classify ${classifyCount}, Tether ${tetherCount}, Platter ${platterCount}, Deck ${deckCount}, Link ${linkCount})${filtNote}${selNote}` +
             (adminListHasMore ? ' · more pages available' : adminAccountsAccum.length ? ' · end of list' : '');
           if (moreBtn) moreBtn.disabled = !adminListHasMore;
           updateAdminGroupEmailToolbar();

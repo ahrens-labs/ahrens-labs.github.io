@@ -8116,6 +8116,11 @@
     }
     box.hidden = false;
     box.innerHTML = `<span class="label">Recent opponents</span><div class="ol-recent-list">${names.map((n) => `<button type="button" class="btn sm ghost" data-act="olRecent" data-name="${esc(n)}">${esc(n)}</button>`).join('')}</div>`;
+    const Presence = window.AhrensPresence;
+    if (Presence) {
+      Presence.start();
+      Presence.paint(box);
+    }
   }
 
   function renderLobby() {
@@ -8174,6 +8179,16 @@
       if (!opponent) {
         toast('Type their username or email first.');
         return;
+      }
+      const Presence = window.AhrensPresence;
+      if (Presence && Presence.confirmChallenge) {
+        const ok = await Presence.confirmChallenge({
+          game: 'Dino Dynasty',
+          players: [opponent],
+          mode,
+          extraHtml: act === 'olRematch' ? '<p>This is a rematch of your last game.</p>' : '',
+        });
+        if (!ok) return;
       }
       if (el) el.disabled = true;
       const r = await api('/api/dino/challenge', { opponent, mode });

@@ -342,6 +342,7 @@
   }, 30000);
 
   function load() {
+    if (session() && window.AhrensPresence) window.AhrensPresence.start();
     fetch(`${API_BASE}/api/board-games/current`, { headers: { Authorization: `Bearer ${session()}` } })
       .then((r) => {
         if (r.status === 401) return { games: [], signedOut: true };

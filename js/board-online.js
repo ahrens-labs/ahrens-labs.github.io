@@ -154,6 +154,25 @@
       return `<div class="ol-recent"><span class="label">Recent opponents</span><div class="ol-recent-list">${names.map((n) => `<button type="button" class="btn ghost sm" data-ol="recent" data-name="${esc(n)}">${esc(n)}</button>`).join('')}</div></div>`;
     }
 
+    function paintPresenceDots() {
+      const Presence = root.AhrensPresence;
+      if (!Presence) return;
+      Presence.start();
+      Presence.paint($('#online-box') || document);
+    }
+
+    async function confirmSend(opponents, mode, nBots, level) {
+      const Presence = root.AhrensPresence;
+      if (!Presence || !Presence.confirmChallenge) return true;
+      return Presence.confirmChallenge({
+        game: title,
+        players: opponents,
+        mode,
+        bots: nBots,
+        level,
+      });
+    }
+
     function lobbyHtml() {
       // Online games themselves live on the Ahrens Games “Your games” lobby — this section is only for sending a challenge.
       const mode = prefs().olMode === 'quick' ? 'quick' : 'long';
@@ -231,6 +250,7 @@
         if (el) el.textContent = String(Math.max(0, Math.min(maxSeats - 2, Number(prefs().olBots) || 0)));
         updateSeats();
       }
+      paintPresenceDots();
     }
 
     async function openOnline(id) {
@@ -473,10 +493,11 @@
         const nBots = maxSeats > 2 ? seatCounts().bots : 0;
         const lvl = $('#ol-level .on');
         const level = lvl ? lvl.dataset.v : 'normal';
-        const btn = e.target.querySelector('button[type="submit"]') || e.target.querySelector('button');
-        if (btn) btn.disabled = true;
         const pick = $('#ol-mode .on');
         const mode = pick ? pick.dataset.v : 'long';
+        if (!(await confirmSend(opponents, mode, nBots, level))) return;
+        const btn = e.target.querySelector('button[type="submit"]') || e.target.querySelector('button');
+        if (btn) btn.disabled = true;
         savePrefs(Object.assign(prefs(), { olMode: mode }, maxSeats > 2 ? { olBots: nBots, olLevel: level } : {}));
         const r = await api(`${prefix}/challenge`, { opponent: opponents[0], opponents, bots: Array(nBots).fill(level), mode, ...(cfg.challengeExtra ? cfg.challengeExtra() : {}) });
         if (btn) btn.disabled = false;
