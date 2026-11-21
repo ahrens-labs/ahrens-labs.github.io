@@ -27,18 +27,52 @@
 .presence-dot{display:inline-block;width:.55em;height:.55em;margin-right:.35em;border-radius:50%;background:#2563eb;vertical-align:middle;box-shadow:0 0 0 2px rgba(37,99,235,.18)}
 .presence-dot[hidden]{display:none!important}
 .presence-name{display:inline-flex;align-items:center;gap:0}
-.chal-confirm-root{position:fixed;inset:0;z-index:10050;display:grid;place-items:center;padding:1rem}
-.chal-confirm-back{position:absolute;inset:0;background:rgba(15,23,42,.45)}
-.chal-confirm{position:relative;width:min(420px,100%);background:#fff;color:#0f172a;border-radius:16px;padding:1.15rem 1.25rem 1.2rem;box-shadow:0 18px 50px rgba(15,23,42,.28);font:inherit}
-.chal-confirm h2{margin:0 0 .85rem;font-size:1.2rem}
-.chal-facts{margin:0;display:grid;gap:.65rem}
-.chal-facts>div{display:grid;gap:.15rem}
-.chal-facts dt{font-size:.75rem;letter-spacing:.04em;text-transform:uppercase;color:#64748b}
-.chal-facts dd{margin:0;font-weight:600}
-.chal-players{margin:.2rem 0 0;padding-left:1.1rem}
-.chal-players li{margin:.15rem 0;font-weight:500}
-.chal-actions{display:flex;justify-content:flex-end;gap:.5rem;margin-top:1.1rem;flex-wrap:wrap}
-.chal-extra{margin-top:.75rem;font-size:.92rem;color:#475569}
+.chal-confirm-root{position:fixed;inset:0;z-index:10050;display:grid;place-items:center;padding:1.1rem;animation:chalFade .22s ease both}
+.chal-confirm-back{position:absolute;inset:0;background:rgba(8,14,28,.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.chal-confirm{position:relative;width:min(440px,100%);color:#0a1224;border-radius:20px;overflow:hidden;
+  background:linear-gradient(165deg,#ffffff 0%,#eef4ff 55%,#e4edfb 100%);
+  box-shadow:0 0 0 3px #0b1530,0 0 0 6px rgba(74,163,255,.35),0 28px 60px rgba(0,0,0,.45);
+  font:600 1rem/1.45 system-ui,Segoe UI,sans-serif;animation:chalPop .32s cubic-bezier(.34,1.45,.64,1) both}
+.chal-confirm-top{padding:1.15rem 1.25rem .95rem;background:linear-gradient(135deg,#1a3a6e 0%,#0f274d 55%,#163861 100%);color:#fff6e2}
+.chal-kicker{margin:0;font-size:.72rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#9ec5ff}
+.chal-confirm-top h2{margin:.35rem 0 0;font-size:clamp(1.25rem,4vw,1.55rem);line-height:1.15;font-weight:800;letter-spacing:.01em;color:#fff}
+.chal-body{padding:1.05rem 1.2rem 1.2rem;display:grid;gap:.85rem}
+.chal-game{display:flex;align-items:center;gap:.75rem;padding:.7rem .8rem;border-radius:14px;
+  background:rgba(255,255,255,.72);box-shadow:inset 0 0 0 2px rgba(11,21,48,.14)}
+.chal-game-mark{flex:0 0 auto;width:2.55rem;height:2.55rem;border-radius:12px;display:grid;place-items:center;
+  font-size:1.35rem;background:linear-gradient(160deg,#4aa3ff,#1f6fe0);box-shadow:0 3px 0 #0b3d8f;color:#fff}
+.chal-game-text{min-width:0;display:grid;gap:.1rem}
+.chal-game-text b{font-size:1.08rem;line-height:1.2;overflow-wrap:anywhere}
+.chal-game-text span{font-size:.84rem;font-weight:600;color:#4a5d7a}
+.chal-pace{display:grid;gap:.35rem;padding:.85rem .9rem;border-radius:14px;box-shadow:inset 0 0 0 2px rgba(11,21,48,.12)}
+.chal-pace.quick{background:linear-gradient(135deg,#fff7e0,#ffe3a8);color:#5a3a08}
+.chal-pace.long{background:linear-gradient(135deg,#e8f6ff,#cfe9fb);color:#0f3a55}
+.chal-pace-head{display:flex;align-items:center;gap:.45rem;font-weight:800;font-size:1.02rem}
+.chal-pace-head .chal-ico{font-size:1.15rem;line-height:1}
+.chal-pace p{margin:0;font-size:.88rem;font-weight:600;opacity:.88;line-height:1.4}
+.chal-section-label{margin:0;font-size:.72rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#5b6b84}
+.chal-players{list-style:none;margin:0;padding:0;display:grid;gap:.45rem}
+.chal-players li{display:flex;align-items:center;gap:.65rem;padding:.55rem .7rem;border-radius:12px;
+  background:rgba(255,255,255,.8);box-shadow:inset 0 0 0 1.5px rgba(11,21,48,.12);font-weight:700}
+.chal-players li.you{background:linear-gradient(90deg,rgba(74,163,255,.16),rgba(255,255,255,.85));box-shadow:inset 0 0 0 2px rgba(31,111,224,.35)}
+.chal-players li.bot{color:#4a5d7a;font-weight:600;font-style:italic}
+.chal-avatar{flex:0 0 auto;width:1.9rem;height:1.9rem;border-radius:50%;display:grid;place-items:center;
+  font-size:.78rem;font-weight:800;color:#fff;background:#1f6fe0;letter-spacing:.02em}
+.chal-players li.you .chal-avatar{background:#0b3d8f}
+.chal-players li.bot .chal-avatar{background:#7b879c}
+.chal-pname{min-width:0;flex:1;overflow-wrap:anywhere;display:inline-flex;align-items:center}
+.chal-tag{margin-left:auto;font-size:.72rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#1f6fe0;opacity:.85}
+.chal-extra{padding:.65rem .75rem;border-radius:12px;background:rgba(15,39,77,.06);color:#334155;font-size:.9rem;font-weight:600}
+.chal-actions{display:flex;justify-content:stretch;gap:.55rem;flex-wrap:wrap;margin-top:.15rem}
+.chal-actions button{flex:1 1 auto;min-width:7.5rem;padding:.7rem 1rem;border-radius:14px;border:0;cursor:pointer;
+  font:800 .98rem/1.1 system-ui,Segoe UI,sans-serif;transition:transform .12s ease,filter .12s ease}
+.chal-actions button:hover,.chal-actions button:focus-visible{transform:translateY(-2px);outline:none}
+.chal-actions button:active{transform:translateY(0)}
+.chal-btn-cancel{color:#1a2a44;background:#e8eef8;box-shadow:0 3px 0 #b7c4da}
+.chal-btn-send{color:#fff;background:linear-gradient(180deg,#4aa3ff,#1f6fe0);box-shadow:0 3px 0 #0b3d8f}
+@keyframes chalFade{from{opacity:0}to{opacity:1}}
+@keyframes chalPop{from{opacity:0;transform:translateY(12px) scale(.96)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.chal-confirm-root,.chal-confirm{animation:none}}
 `;
     document.head.appendChild(s);
   }
@@ -128,6 +162,23 @@
     started = false;
   }
 
+  function initialOf(name) {
+    const t = String(name || '').trim();
+    return (t[0] || '?').toUpperCase();
+  }
+
+  function gameGlyph(game) {
+    const g = String(game || '').toLowerCase();
+    if (g.includes('dino')) return '🦖';
+    if (g.includes('oak') || g.includes('hearth')) return '🏰';
+    if (g.includes('atlantis')) return '🌊';
+    if (g.includes('cauldron')) return '🧪';
+    if (g.includes('hero')) return '🦸';
+    if (g.includes('masquerade') || g.includes('mask')) return '🎭';
+    if (g.includes('whiteout')) return '❄️';
+    return '🎲';
+  }
+
   /** Promise<boolean> — confirm challenge details before sending. */
   function confirmChallenge(opts) {
     ensureStyle();
@@ -137,33 +188,69 @@
     const players = (Array.isArray(o.players) ? o.players : []).map((p) => String(p || '').trim()).filter(Boolean);
     const bots = Math.max(0, Number(o.bots) || 0);
     const level = String(o.level || 'normal');
-    const pace =
+    const paceTitle = mode === 'quick' ? 'Quick game' : 'Long game';
+    const paceDetail =
       mode === 'quick'
-        ? '⚡ Quick — invite expires in 90 seconds · 2 minutes per turn once accepted'
-        : '🐢 Long — no time limit · take turns whenever, over days';
-    const playerLines = players.length
-      ? players.map((p) => `<li><span data-presence-name="${escAttr(p)}">${esc(p)}</span></li>`).join('')
-      : '<li class="muted">Nobody invited yet</li>';
+        ? 'Invite expires in 90 seconds. Once accepted, each turn has a 2-minute clock — play while you’re both online.'
+        : 'No time limit. Take your turn whenever you like; the game can run over days.';
+    const playerLines = players
+      .map(
+        (p) => `<li>
+          <span class="chal-avatar" aria-hidden="true">${esc(initialOf(p))}</span>
+          <span class="chal-pname" data-presence-name="${escAttr(p)}">${esc(p)}</span>
+        </li>`
+      )
+      .join('');
     const botLine = bots
-      ? `<li class="muted">${bots} computer player${bots === 1 ? '' : 's'}${o.level ? ` · ${esc(level)}` : ''}</li>`
+      ? `<li class="bot">
+          <span class="chal-avatar" aria-hidden="true">🤖</span>
+          <span class="chal-pname">${bots} computer player${bots === 1 ? '' : 's'}${o.level ? ` · ${esc(level)}` : ''}</span>
+        </li>`
       : '';
     const extra = o.extraHtml ? `<div class="chal-extra">${o.extraHtml}</div>` : '';
+    const seatNote =
+      players.length + bots === 0
+        ? 'Nobody invited yet'
+        : `${1 + players.length + bots} seat${1 + players.length + bots === 1 ? '' : 's'} at the table`;
 
     return new Promise((resolve) => {
       const host = document.createElement('div');
       host.className = 'chal-confirm-root';
       host.innerHTML = `<div class="chal-confirm-back" data-chal="cancel"></div>
         <div class="chal-confirm" role="dialog" aria-modal="true" aria-labelledby="chal-confirm-title">
-          <h2 id="chal-confirm-title">Send this challenge?</h2>
-          <dl class="chal-facts">
-            <div><dt>Game</dt><dd>${esc(game)}</dd></div>
-            <div><dt>Pace</dt><dd>${pace}</dd></div>
-            <div><dt>Players</dt><dd><ul class="chal-players"><li>You</li>${playerLines}${botLine}</ul></dd></div>
-          </dl>
-          ${extra}
-          <div class="chal-actions">
-            <button type="button" class="btn ghost" data-chal="cancel">Cancel</button>
-            <button type="button" class="btn" data-chal="send">Send challenge</button>
+          <div class="chal-confirm-top">
+            <p class="chal-kicker">Online challenge</p>
+            <h2 id="chal-confirm-title">Ready to send?</h2>
+          </div>
+          <div class="chal-body">
+            <div class="chal-game">
+              <span class="chal-game-mark" aria-hidden="true">${gameGlyph(game)}</span>
+              <div class="chal-game-text">
+                <b>${esc(game)}</b>
+                <span>${esc(seatNote)}</span>
+              </div>
+            </div>
+            <div class="chal-pace ${mode}">
+              <div class="chal-pace-head"><span class="chal-ico" aria-hidden="true">${mode === 'quick' ? '⚡' : '🐢'}</span>${paceTitle}</div>
+              <p>${paceDetail}</p>
+            </div>
+            <div>
+              <p class="chal-section-label">Players</p>
+              <ul class="chal-players">
+                <li class="you">
+                  <span class="chal-avatar" aria-hidden="true">You</span>
+                  <span class="chal-pname">You</span>
+                  <span class="chal-tag">Host</span>
+                </li>
+                ${playerLines || '<li class="bot"><span class="chal-avatar" aria-hidden="true">?</span><span class="chal-pname">Nobody invited yet</span></li>'}
+                ${botLine}
+              </ul>
+            </div>
+            ${extra}
+            <div class="chal-actions">
+              <button type="button" class="chal-btn-cancel" data-chal="cancel">Not yet</button>
+              <button type="button" class="chal-btn-send" data-chal="send">Send challenge</button>
+            </div>
           </div>
         </div>`;
       const done = (ok) => {
