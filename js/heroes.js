@@ -553,7 +553,7 @@
     const choosing = s.phase === 'suits' && !p.suits;
     const turn = (playing() && s.turn === i) || choosing;
     const owner = handOwner();
-    const tag = choosing ? '<span class="co-tag turn">Choosing suits…</span>' : turn ? `<span class="co-tag turn">${p.ai ? 'Thinking…' : G.mode === 'ai' ? 'Your turn' : 'Up now'}</span>` : '';
+    const tag = choosing ? '<span class="co-tag turn">Choosing suits…</span>' : turn ? `<span class="co-tag turn">${p.ai ? 'Thinking…' : you(i) ? 'Your turn' : 'Up now'}</span>` : '';
     const sc = secret(i) || !showScores() ? null : E.score(s, p);
     const known = p.took.length ? `<span class="co-known" title="Cards everyone saw ${esc(p.name)} recruit from the Plaza">👁️ ${p.took.slice(-4).map((c) => face(c)).join('')}</span>` : '';
     return `<div class="co${turn ? ' turn' : ''}${owner === i ? ' viewing' : ''}" style="--pc:${PCOLOR[i]}" data-view="${i}" title="${secret(i) ? `What you know about ${esc(p.name)}` : `Show ${esc(p.name)}’s team`}">
@@ -652,7 +652,7 @@
     const p = pl(owner);
     const hidden = secret(owner);
     const idChip = !hidden && p.identity ? `<button class="ident-chip" data-act="identity" title="Your secret identity — only you can see it">🎭 ${identName(p.identity)}<small>${esc(E.identityText(p.identity))}</small></button>` : '';
-    const head = `<div class="hand-head"><span class="sign" style="--pc:${PCOLOR[owner]}">${SIGN[owner]}</span><div><h2>${G.mode === 'ai' && owner === 0 ? 'Your team' : `${esc(p.name)}’s team`}</h2><small>${hidden ? 'Face down' : `${plural(p.hand.length, 'card')}`}</small></div>${idChip}`;
+    const head = `<div class="hand-head"><span class="sign" style="--pc:${PCOLOR[owner]}">${SIGN[owner]}</span><div><h2>${you(owner) ? 'Your team' : `${esc(p.name)}’s team`}</h2><small>${hidden ? 'Face down' : `${plural(p.hand.length, 'card')}`}</small></div>${idChip}`;
     if (hidden) {
       return `<section class="panel hand" style="--pc:${PCOLOR[owner]}">${head}</div>
         <div class="hand-cards curtained">${p.hand.map(() => backHtml()).join('')}
@@ -864,7 +864,7 @@
       <div class="cv-text"><h2>${cname(id)}</h2><p class="cv-suit">${suitTag(c.suit)} · power ${c.power}</p>
         <p class="cv-fx">${fxHtml(id) || '<span class="muted">No special ability.</span>'}</p>
         <p class="cv-flavor">“${esc(c.flavor)}”</p>
-        ${row ? `<h3>In ${G.mode === 'ai' && owner === 0 ? 'your' : `${esc(pl(owner).name)}’s`} team</h3><ul class="cv-rows">${rowLines(row)}</ul>` : ''}
+        ${row ? `<h3>In ${you(owner) ? 'your' : `${esc(pl(owner).name)}’s`} team</h3><ul class="cv-rows">${rowLines(row)}</ul>` : ''}
       </div></div>`;
     openModal(body, { cls: 'wide', onClose: () => scheduleAI() });
   }
@@ -897,7 +897,7 @@
         <li class="good"><span>For each ${suitTag(M.need[0])} or ${suitTag(M.need[1])}</span><b>+${E.MISSION_FIT}</b></li>
         <li class="good"><span>For each ${suitTag(M.plus.s)}</span><b>+${M.plus.n}</b></li>
         <li class="bad"><span>For each ${suitTag(M.minus.s)}</span><b>−${M.minus.n}</b></li>
-        ${r ? `<li class="tot"><span>${G.mode === 'ai' && owner === 0 ? 'Your' : `${esc(pl(owner).name)}’s`} team right now</span><b>${signed(r.total)}</b></li>` : ''}
+        ${r ? `<li class="tot"><span>${you(owner) ? 'Your' : `${esc(pl(owner).name)}’s`} team right now</span><b>${signed(r.total)}</b></li>` : ''}
       </ul>
       <p class="muted">Blanked cards don’t count for the Mission. Seer Sela doubles the +${E.MISSION_DONE} for having both suits.</p></div>`, { onClose: () => scheduleAI() });
   }
@@ -1040,7 +1040,7 @@
     const p = pl(i);
     if (!p.identity || secret(i)) return;
     const r = showScores() ? E.score(st(), p) : null;
-    openModal(`<h2>🎭 ${G.mode === 'ai' && i === 0 ? 'Your' : `${esc(p.name)}’s`} secret identity</h2>
+    openModal(`<h2>🎭 ${you(i) ? 'Your' : `${esc(p.name)}’s`} secret identity</h2>
       <div class="ident-pick one">${identTile(p.identity, 'disabled')}</div>
       ${r ? `<p>It scored <b>${signed(r.ident)}</b>.</p>` : '<p class="muted">Blanked cards don’t count. Mimic and the Hero Signal count as the suit they copy. It’s scored at the end, with the Mission.</p>'}`, { onClose: () => scheduleAI() });
   }

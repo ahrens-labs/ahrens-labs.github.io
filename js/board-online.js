@@ -178,19 +178,27 @@
       const mode = prefs().olMode === 'quick' ? 'quick' : 'long';
       const pr = prefs();
       const level = LEVELS.some(([k]) => k === pr.olLevel) ? pr.olLevel : 'normal';
+      const recent = recentHtml();
       return `<div class="ol">
       ${net.err ? `<p class="bad">${esc(net.err)}</p>` : ''}
       <form class="ol-new" data-ol-form>
-        <label><span class="label">${maxSeats > 2 ? 'Invite players' : 'Challenge a player'}</span><input id="ol-opp" class="ol-opp" maxlength="80" placeholder="Username or email" autocomplete="off"></label>
-        ${maxSeats > 2 ? `<div id="ol-more"></div><button type="button" class="btn ghost sm ol-add" data-ol="add-opp">➕ Invite another player</button>` : ''}
-        ${recentHtml()}
-        ${maxSeats > 2 ? `<div class="ol-bots"><span class="label">🤖 Computer players</span>
+        <div class="field">
+          <span class="label">${maxSeats > 2 ? 'Invite players' : 'Challenge a player'}</span>
+          <input id="ol-opp" class="ol-opp" maxlength="80" placeholder="Username or email" autocomplete="off">
+          ${maxSeats > 2 ? `<div id="ol-more"></div><button type="button" class="btn ghost sm ol-add" data-ol="add-opp">➕ Invite another player</button>` : ''}
+        </div>
+        ${recent ? `<div class="field ol-recent-wrap">${recent}</div>` : ''}
+        ${maxSeats > 2 ? `<div class="field ol-bots">
+          <span class="label">🤖 Computer players</span>
           <div class="ol-step"><button type="button" class="btn ghost sm" data-ol="bots-" aria-label="Fewer computer players">−</button><b id="ol-bots-n">0</b><button type="button" class="btn ghost sm" data-ol="bots+" aria-label="More computer players">+</button></div>
           <div class="seg ol-level" id="ol-level">${LEVELS.map(([k, name]) => `<button type="button" data-v="${k}" class="${k === level ? 'on' : ''}">${name}</button>`).join('')}</div>
+          <p class="muted small" id="ol-seats"></p>
+        </div>` : ''}
+        <div class="field">
+          <span class="label">Pace</span>
+          <div class="seg ol-mode" id="ol-mode">${['long', 'quick'].map((m) => `<button type="button" data-v="${m}" class="${mode === m ? 'on' : ''}">${m === 'quick' ? '<b>⚡ Quick game</b><small>Invite expires in 90 seconds · 2 minutes per turn</small>' : '<b>🐢 Long game</b><small>No time limit — take your turn whenever, over days</small>'}</button>`).join('')}</div>
         </div>
-        <p class="muted small" id="ol-seats"></p>` : ''}
-        <div class="seg ol-mode" id="ol-mode">${['long', 'quick'].map((m) => `<button type="button" data-v="${m}" class="${mode === m ? 'on' : ''}">${m === 'quick' ? '<b>⚡ Quick game</b><small>Invite expires in 90 seconds · 2 minutes per turn</small>' : '<b>🐢 Long game</b><small>No time limit — take your turn whenever, over days</small>'}</button>`).join('')}</div>
-        <button class="btn" type="submit">Send challenge</button>
+        <button class="btn big" type="submit">📨 Send challenge</button>
       </form>
       <p class="muted small">In a quick game, if your time runs out the computer takes that turn for you; miss three turns in a row and you lose${maxSeats > 2 ? ' (with more than two players, the computer takes over your seat instead)' : ''}. You’ll see each other’s moves live while you both have the game open. Open games from the Ahrens Games lobby.</p>
     </div>`;

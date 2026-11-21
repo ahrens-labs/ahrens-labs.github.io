@@ -104,18 +104,24 @@ button { font-family: inherit; }
 .ol-you { color: #a15c00; }
 .ol-btns { display: flex; gap: 0.35rem; flex-shrink: 0; }
 .ol-empty { padding: 0.5rem 0.2rem; }
-.ol-new { display: grid; gap: 0.5rem; }
+.ol-new { display: grid; gap: 0; }
+.ol-new .field { margin: 0.8rem 0; }
+.ol-new .field:first-child { margin-top: 0; }
 .ol-recent { display: grid; gap: 0.35rem; }
 .ol-recent-list { display: flex; flex-wrap: wrap; gap: 0.35rem; }
-.ol-new label { flex: 1; }
-.ol-new input { width: 100%; padding: 0.55rem 0.7rem; border-radius: 10px; border: 2px solid var(--parchment-2); font: inherit; background: #fffdf6; }
+.ol-new .ol-opp, .ol-new input.ol-opp { width: 100%; box-sizing: border-box; padding: 0.55rem 0.7rem; border-radius: 10px; border: 2px solid var(--paper-2); font: inherit; background: #fff; color: var(--ink); }
+.ol-new .ol-add { margin-top: 0.45rem; }
 .ol .small { font-size: 0.85rem; margin: 0.6rem 0 0; }
 .ol-loading { text-align: center; padding: 4rem 1rem; color: #f4e6c8; font-size: 1.1rem; }
 #app.ol-wait { cursor: progress; }
 #app.ol-wait .act, #app.ol-wait button.btn:not([data-ol]):not([data-close]) { pointer-events: none; opacity: 0.85; }
 .ol-new .seg.ol-mode { margin: 0; }
-.seg.ol-mode button { display: flex; flex-direction: column; align-items: center; gap: 0.1rem; flex: 1 1 12rem; }
-.seg.ol-mode small { font-weight: 400; font-size: 0.78rem; opacity: 0.8; }
+.seg.ol-mode button { display: flex; flex-direction: column; align-items: flex-start; gap: 0.15rem; flex: 1 1 12rem; text-align: left; padding: 0.65rem 0.85rem; }
+.seg.ol-mode button b { font-family: "Hero Digits", "Bangers", sans-serif; font-weight: 400; letter-spacing: 0.04em; font-size: 1.15rem; }
+.seg.ol-mode small { font-weight: 500; font-size: 0.82rem; opacity: 0.85; line-height: 1.25; }
+.ol-bots .ol-step { display: inline-flex; align-items: center; gap: 0.45rem; margin: 0.35rem 0 0.55rem; }
+.ol-bots .ol-step b { min-width: 1.4rem; text-align: center; font-family: "Hero Digits", "Bangers", sans-serif; font-size: 1.35rem; }
+.ol-new .btn.big { margin-top: 0.35rem; }
 .ol-clock { display: inline-block; align-self: center; flex-shrink: 0; margin: 0; padding: 0.1rem 0.55rem; border-radius: 999px; background: rgba(255, 255, 255, 0.85); color: #3b2a14; font-weight: 700; font-variant-numeric: tabular-nums; }
 .ol-clock.mine { box-shadow: 0 0 0 2px var(--gold, #c9a227); }
 .ol-clock.low { background: #ffe1dc; color: #a3241a; }
@@ -229,8 +235,8 @@ button { font-family: inherit; }
 .hc-name.wrap { white-space: normal; overflow-wrap: anywhere; line-height: 1.05; }
 .hc-band { display: block; flex: none; margin-top: 3px; padding: 0.1em 0.3em; border-radius: 5px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   font-size: 0.7em; font-weight: 800; line-height: 1.25; text-transform: uppercase; letter-spacing: 0.08em; color: #fff; background: color-mix(in srgb, var(--sc) 88%, #000); text-shadow: 0 1px 1px rgba(0, 0, 0, 0.45); }
-.hc-fx { margin: 0.1em 0 0; font-size: 0.76em; line-height: 1.2; font-weight: 600; }
-.hc.long .hc-fx { font-size: 0.68em; line-height: 1.15; }
+.hc-fx { margin: 0.1em 0 0; font-size: 0.88em; line-height: 1.22; font-weight: 600; }
+.hc.long .hc-fx { font-size: 0.8em; line-height: 1.18; }
 .fx { display: block; word-spacing: 0.08em; }
 .fx.pos { color: var(--good); }
 .fx.neg { color: var(--bad); }

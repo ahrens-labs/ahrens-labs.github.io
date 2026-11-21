@@ -2613,10 +2613,16 @@
     return `<div class="ol">
       ${net.err ? `<p class="bad">${esc(net.err)}</p>` : ''}
       <form class="ol-new" data-ol-form>
-        <label><span class="label">Challenge a player</span><input id="ol-opp" maxlength="80" placeholder="Username or email" autocomplete="off"></label>
-        ${recent.length ? `<div class="ol-recent"><span class="label">Recent opponents</span><div class="ol-recent-list">${recent.map((n) => `<button type="button" class="btn ghost sm" data-ol="recent" data-name="${esc(n)}">${esc(n)}</button>`).join('')}</div></div>` : ''}
-        <div class="seg ol-mode" id="ol-mode">${['long', 'quick'].map((m) => `<button type="button" data-v="${m}" class="${mode === m ? 'on' : ''}">${m === 'quick' ? '<b>⚡ Quick game</b><small>Invite expires in 90 seconds · 2 minutes per turn</small>' : '<b>🐢 Long game</b><small>No time limit — take your turn whenever, over days</small>'}</button>`).join('')}</div>
-        <button class="btn" type="submit">Send challenge</button>
+        <div class="field">
+          <span class="label">Challenge a player</span>
+          <input id="ol-opp" maxlength="80" placeholder="Username or email" autocomplete="off">
+        </div>
+        ${recent.length ? `<div class="field"><div class="ol-recent"><span class="label">Recent opponents</span><div class="ol-recent-list">${recent.map((n) => `<button type="button" class="btn ghost sm" data-ol="recent" data-name="${esc(n)}">${esc(n)}</button>`).join('')}</div></div></div>` : ''}
+        <div class="field">
+          <span class="label">Pace</span>
+          <div class="seg ol-mode" id="ol-mode">${['long', 'quick'].map((m) => `<button type="button" data-v="${m}" class="${mode === m ? 'on' : ''}">${m === 'quick' ? '<b>⚡ Quick game</b><small>Invite expires in 90 seconds · 2 minutes per turn</small>' : '<b>🐢 Long game</b><small>No time limit — take your turn whenever, over days</small>'}</button>`).join('')}</div>
+        </div>
+        <button class="btn big" type="submit">📨 Send challenge</button>
       </form>
       <p class="muted small">In a quick game, if your time runs out the computer takes that turn for you; miss three turns in a row and you lose. You’ll see each other’s moves live while you both have the game open. Open games from the Ahrens Games lobby.</p>
     </div>`;

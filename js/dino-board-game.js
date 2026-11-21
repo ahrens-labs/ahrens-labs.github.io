@@ -4260,9 +4260,10 @@
         </div>
         <div class="online-box only-online">
           <div class="ol-form">
-            <label for="ol-opp">Challenge another Ahrens Labs player</label>
-            <input id="ol-opp" maxlength="80" placeholder="Their username or email" autocomplete="off">
+            <label for="ol-opp">Challenge a player</label>
+            <input id="ol-opp" maxlength="80" placeholder="Username or email" autocomplete="off">
             <div class="ol-recent" id="ol-recent" hidden></div>
+            <div class="seg-label">Pace</div>
             <div class="seg ol-mode" role="radiogroup">
               <button class="seg-btn${olMode === 'long' ? ' on' : ''}" data-act="olMode" data-v="long"><b>🐢 Long game</b><small>No time limit — move whenever it’s your turn, over days</small></button>
               <button class="seg-btn${olMode === 'quick' ? ' on' : ''}" data-act="olMode" data-v="quick"><b>⚡ Quick game</b><small>Invite expires in 90 seconds · 2 minutes per move</small></button>
