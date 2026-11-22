@@ -2759,18 +2759,20 @@ export function editInteractionPage(contact: any, interaction: any, allContacts:
         <form id="interactionForm">
           <div class="form-group">
             <label class="form-label">Contact</label>
-            <div style="display: flex; gap: 0.75rem; align-items: center; margin-bottom: 0.5rem;">
-              ${contactAvatarHtml(contact.name || 'Unknown', contact.photoUrl, 40)}
+            <div id="selectedContactPreview" style="display: flex; gap: 0.75rem; align-items: center; margin-bottom: 0.5rem;">
+              <span id="selectedContactAvatar">${contactAvatarHtml(contact.name || 'Unknown', contact.photoUrl, 40)}</span>
               <div>
-                <div style="font-weight: 600;">${escapeHtml(contact.name || 'Unknown')}</div>
+                <div id="selectedContactName" style="font-weight: 600;">${escapeHtml(contact.name || 'Unknown')}</div>
                 <div class="text-sm text-gray">Selected contact</div>
               </div>
             </div>
-            <select name="contactId" class="form-select" required id="contactSelect">
-              ${allContacts.map(c => `
-                <option value="${c.id}" ${c.id === contact.id ? 'selected' : ''}>${escapeHtml(c.name || 'Unknown')}</option>
-              `).join('')}
-            </select>
+            <div style="position: relative;">
+              <input type="hidden" name="contactId" id="contactIdInput" value="${escapeHtml(contact.id)}" required>
+              <input type="text" id="contactSearch" class="form-input" placeholder="Search for a contact..." autocomplete="off"
+                value="${escapeHtml(contact.name || '')}">
+              <div id="contactDropdown" style="display: none; position: absolute; left: 0; right: 0; top: 100%; z-index: 50; background: white; border: 1px solid #d1d5db; border-top: none; border-radius: 0 0 0.375rem 0.375rem; max-height: 200px; overflow-y: auto; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+              </div>
+            </div>
             <p class="text-sm text-gray" style="margin-top: 0.25rem;">Change this if the interaction was added to the wrong contact</p>
           </div>
           
@@ -2811,9 +2813,122 @@ export function editInteractionPage(contact: any, interaction: any, allContacts:
     
     <script>
       const afterSaveHref = ${JSON.stringify(afterSaveHref)};
+      const allContacts = ${JSON.stringify(allContacts.map(c => ({ id: c.id, name: c.name || 'Unknown' })))};
+      const contactSearch = document.getElementById('contactSearch');
+      const contactDropdown = document.getElementById('contactDropdown');
+      const contactIdInput = document.getElementById('contactIdInput');
+      const selectedContactName = document.getElementById('selectedContactName');
+      const selectedContactAvatar = document.getElementById('selectedContactAvatar');
+      let selectedIndex = -1;
+      let selectedContact = allContacts.find(c => c.id === contactIdInput.value) || {
+        id: contactIdInput.value,
+        name: contactSearch.value || 'Unknown'
+      };
+
+      function avatarHtml(name) {
+        const initial = (name || '?').charAt(0).toUpperCase().replace(/</g, '&lt;');
+        return '<div style="width: 40px; height: 40px; border-radius: 9999px; background: #16a34a; color: white; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 600; flex-shrink: 0;">' + initial + '</div>';
+      }
+
+      function updateSelectedPreview(id, name) {
+        selectedContact = { id: id, name: name };
+        contactIdInput.value = id;
+        contactSearch.value = name;
+        selectedContactName.textContent = name;
+        selectedContactAvatar.innerHTML = avatarHtml(name);
+      }
+
+      function renderDropdown(filter) {
+        const query = (filter || '').toLowerCase();
+        const filtered = query
+          ? allContacts.filter(c => c.name.toLowerCase().includes(query))
+          : allContacts;
+
+        let html = '';
+        if (filtered.length === 0) {
+          html = '<div style="padding: 0.5rem 0.75rem; color: #6b7280; font-size: 0.875rem;">No contacts found</div>';
+        } else {
+          html = filtered.map((c, i) =>
+            '<div class="contact-option" data-id="' + c.id + '" data-name="' + c.name.replace(/"/g, '&quot;') + '" style="padding: 0.5rem 0.75rem; cursor: pointer; font-size: 0.875rem;' + (i === selectedIndex ? ' background: #f0fdf4; color: #16a34a; font-weight: 500;' : '') + '">' + c.name.replace(/</g, '&lt;') + '</div>'
+          ).join('');
+        }
+        contactDropdown.innerHTML = html;
+        contactDropdown.style.display = 'block';
+        selectedIndex = -1;
+
+        contactDropdown.querySelectorAll('.contact-option').forEach(el => {
+          el.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            selectContact(el.dataset.id, el.dataset.name);
+          });
+          el.addEventListener('mouseover', () => {
+            el.style.background = '#f0fdf4';
+          });
+          el.addEventListener('mouseout', () => {
+            el.style.background = '';
+          });
+        });
+      }
+
+      function selectContact(id, name) {
+        updateSelectedPreview(id, name);
+        contactDropdown.style.display = 'none';
+      }
+
+      contactSearch.addEventListener('focus', () => {
+        renderDropdown(contactSearch.value);
+      });
+
+      contactSearch.addEventListener('input', () => {
+        contactIdInput.value = '';
+        renderDropdown(contactSearch.value);
+      });
+
+      contactSearch.addEventListener('blur', () => {
+        setTimeout(() => {
+          contactDropdown.style.display = 'none';
+          if (!contactIdInput.value && selectedContact) {
+            contactIdInput.value = selectedContact.id;
+            contactSearch.value = selectedContact.name;
+          }
+        }, 200);
+      });
+
+      contactSearch.addEventListener('keydown', (e) => {
+        const options = contactDropdown.querySelectorAll('.contact-option');
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          selectedIndex = Math.min(selectedIndex + 1, options.length - 1);
+          options.forEach((opt, i) => {
+            opt.style.background = i === selectedIndex ? '#f0fdf4' : '';
+            opt.style.fontWeight = i === selectedIndex ? '500' : '';
+            if (i === selectedIndex) opt.scrollIntoView({ block: 'nearest' });
+          });
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          selectedIndex = Math.max(selectedIndex - 1, 0);
+          options.forEach((opt, i) => {
+            opt.style.background = i === selectedIndex ? '#f0fdf4' : '';
+            opt.style.fontWeight = i === selectedIndex ? '500' : '';
+            if (i === selectedIndex) opt.scrollIntoView({ block: 'nearest' });
+          });
+        } else if (e.key === 'Enter' && selectedIndex >= 0 && options[selectedIndex]) {
+          e.preventDefault();
+          selectContact(options[selectedIndex].dataset.id, options[selectedIndex].dataset.name);
+        } else if (e.key === 'Escape') {
+          contactDropdown.style.display = 'none';
+          contactIdInput.value = selectedContact.id;
+          contactSearch.value = selectedContact.name;
+        }
+      });
 
       document.getElementById('interactionForm').addEventListener('submit', async (e) => {
         e.preventDefault();
+        if (!contactIdInput.value) {
+          alert('Please select a contact');
+          contactSearch.focus();
+          return;
+        }
         const formData = new FormData(e.target);
         const data = {
           contactId: formData.get('contactId'),
