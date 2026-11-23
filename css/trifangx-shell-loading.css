@@ -1,9 +1,26 @@
+/* Chess shells: keep site header flush to viewport top (style.css centers body vertically). */
+body.trifangx-page-lobby,
+body.trifangx-page-live,
+body.trifangx-page-replay {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: stretch;
+}
+
+body.trifangx-page-lobby > .wrapper,
+body.trifangx-page-live > .wrapper,
+body.trifangx-page-replay > .wrapper {
+  width: 100%;
+  flex: 0 0 auto;
+}
+
 /* In-page loading state for chess_engine.html / trifangx_live.html (no full-screen blur). */
 .trifangx-shell-loading {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: min(380px, 52vh);
+  min-height: min(280px, 42vh);
   margin: 0 auto;
   max-width: 1400px;
   padding: 2rem 1.5rem;
@@ -80,6 +97,12 @@ html.trifangx-shell-booting #trifangx-live-empty,
 html.trifangx-shell-booting #trifangx-replay-empty {
   visibility: hidden !important;
   pointer-events: none !important;
+}
+
+html.trifangx-shell-booting #game-title,
+html.trifangx-shell-booting #trifangx-games-shelf,
+html.trifangx-shell-booting #chess-pregame-tools {
+  display: none !important;
 }
 
 @keyframes trifangx-shell-spin {
