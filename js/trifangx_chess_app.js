@@ -2657,15 +2657,23 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       window.addEventListener('boardsaves:removed', () => renderTrifangxPausedGamesLobby());
     }
 
-    async function startEngineSessionFromSync(moves, playerColorStr) {
+    async function startEngineSessionFromSync(moves, playerColorStr, syncOpts) {
+      syncOpts = syncOpts || {};
       const uname = getTrifangxEngineAccountUsername();
       if (!uname) throw new Error('Login required');
       const hist = Array.isArray(moves) ? moves : [];
-      const data = await sendEngineCommand('sync', {
+      const body = {
         username: uname,
         moves: hist,
         player_color: normalizeLobbyPlayerColor(playerColorStr || playerColor),
-      });
+      };
+      if (syncOpts.resume) body.resume = true;
+      const replaceGid =
+        syncOpts.replaceGameId && String(syncOpts.replaceGameId).trim()
+          ? String(syncOpts.replaceGameId).trim()
+          : '';
+      if (replaceGid) body.replace_game_id = replaceGid;
+      const data = await sendEngineCommand('sync', body);
       const gid = data && data.game_id ? String(data.game_id).trim() : '';
       if (!gid) throw new Error('Sync did not return a game_id');
       setEngineGameId(gid);
@@ -3478,7 +3486,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       if (!uname) return false;
       try {
         const hist = typeof game.history === 'function' ? game.history() : [];
-        await startEngineSessionFromSync(hist, playerColor);
+        await startEngineSessionFromSync(hist, playerColor, { resume: true });
         const snap = buildLiveSnapshotForPersist();
         await persistSnapGameIdAfterEngineSync(snap);
         resetStaleEngineSessionFlag();
@@ -3517,10 +3525,15 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       }
 
       try {
+        const staleGid = gid;
         clearEngineGameId();
         await startEngineSessionFromSync(
           moves,
-          snap && snap.playerColor ? snap.playerColor : playerColor
+          snap && snap.playerColor ? snap.playerColor : playerColor,
+          {
+            resume: forceSync,
+            replaceGameId: staleGid,
+          }
         );
         await persistSnapGameIdAfterEngineSync(snap);
         return true;

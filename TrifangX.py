@@ -37,6 +37,9 @@ except (AttributeError, OSError, ValueError):
 # If you move to a dedicated VM with real multi-core CPU, you can flip this on.
 ENABLE_MULTIPROCESSING = False
 
+# Bump when HTTP contract changes (pause/resume `/sync`, etc.) so deploys are easy to verify.
+TRIFANGX_API_VERSION = '20261123-resume'
+
 # Noisy debug prints can dominate runtime on web servers due to log I/O.
 DEBUG_LOGS = True
 SUPPRESS_ENGINE_STDOUT = os.environ.get('TRIFANGX_ENGINE_STDOUT') != '1'
@@ -620,6 +623,53 @@ def _prune_stale_games():
         engine_running = remaining_after > 0
 
 
+def _release_game_session(gid, account_key=None):
+    """Remove one server game session, pending move jobs, and its dedicated worker."""
+    global engine_running
+    if not gid or not isinstance(gid, str):
+        return False
+    norm = _normalize_account_key(account_key) if account_key else None
+    with _GAMES_LOCK:
+        info = GAMES.get(gid)
+        if info is None:
+            remaining = len(GAMES)
+        else:
+            if norm:
+                owner = (info.get('account') or '')
+                if owner and owner != norm:
+                    return False
+            GAMES.pop(gid, None)
+            remaining = len(GAMES)
+    with _MOVE_JOBS_LOCK:
+        pend_jid = _PENDING_MOVE_JOB_BY_GAME.pop(gid, None)
+        if pend_jid:
+            rec = MOVE_JOBS.get(pend_jid)
+            if rec and rec.get('status') == 'pending':
+                rec['status'] = 'error'
+                rec['error'] = 'Game ended'
+    _shutdown_dedicated_worker(gid)
+    _drop_game_move_lock(gid)
+    with _GAMES_LOCK:
+        engine_running = len(GAMES) > 0
+    return True
+
+
+def _release_all_games_for_account(account_key):
+    """Drop every in-flight session for one account (shelf resume after /stop was missed)."""
+    norm = _normalize_account_key(account_key)
+    if not norm:
+        return 0
+    with _GAMES_LOCK:
+        gids = [
+            gid
+            for gid, info in GAMES.items()
+            if (info.get('account') or '') == norm
+        ]
+    for gid in gids:
+        _release_game_session(gid, account_key=norm)
+    return len(gids)
+
+
 def _shutdown_move_pool():
     global _MOVE_POOL
     with _MOVE_POOL_LOCK:
@@ -933,6 +983,8 @@ def engine_status():
         out["my_active_games"] = my_n
         out["my_max_games"] = MAX_ACTIVE_GAMES_PER_ACCOUNT
         out["my_slots_full"] = my_n >= MAX_ACTIVE_GAMES_PER_ACCOUNT
+    out["api_version"] = TRIFANGX_API_VERSION
+    out["features"] = ["sync", "resume_sync"]
     return jsonify(out)
 
 
@@ -1079,6 +1131,12 @@ def sync_engine_from_history():
     if len(moves) > 500:
         return jsonify({"error": "Too many moves to sync"}), 400
     _prune_stale_games()
+    if data.get('resume'):
+        _release_all_games_for_account(account_key)
+    else:
+        replace_gid = data.get('replace_game_id') or data.get('retire_game_id')
+        if replace_gid and isinstance(replace_gid, str):
+            _release_game_session(replace_gid.strip(), account_key=account_key)
     with _GAMES_LOCK:
         if len(GAMES) >= MAX_CONCURRENT_GAMES:
             return jsonify({
@@ -1144,38 +1202,25 @@ def sync_engine_from_history():
         "message": "Engine synced from history",
         "game_id": gid,
         "plies": len(moves),
+        "api_version": TRIFANGX_API_VERSION,
     })
 
 
 @app.route('/stop', methods=['POST'])
 def stop_engine():
-    global engine_running
     data = request.get_json() or {}
     gid = data.get('game_id')
     if not gid or not isinstance(gid, str):
         return jsonify({"error": "game_id required"}), 400
+    claimed = _normalize_account_key(data.get('username') or data.get('account'))
     with _GAMES_LOCK:
         info = GAMES.get(gid)
-        if info is not None:
-            owner = (info.get('account') or '')
-            if owner:
-                claimed = _normalize_account_key(data.get('username') or data.get('account'))
-                if not claimed:
-                    return jsonify({"error": "username is required to stop this game"}), 400
-                if claimed != owner:
-                    return jsonify({"error": "Access denied"}), 403
-            GAMES.pop(gid, None)
-        remaining = len(GAMES)
-    with _MOVE_JOBS_LOCK:
-        pend_jid = _PENDING_MOVE_JOB_BY_GAME.pop(gid, None)
-        if pend_jid:
-            rec = MOVE_JOBS.get(pend_jid)
-            if rec and rec.get('status') == 'pending':
-                rec['status'] = 'error'
-                rec['error'] = 'Game ended'
-    _shutdown_dedicated_worker(gid)
-    _drop_game_move_lock(gid)
-    engine_running = remaining > 0
+    if info is not None and (info.get('account') or ''):
+        if not claimed:
+            return jsonify({"error": "username is required to stop this game"}), 400
+        if claimed != (info.get('account') or ''):
+            return jsonify({"error": "Access denied"}), 403
+    _release_game_session(gid, account_key=claimed if claimed else None)
     return jsonify({"message": "Engine stopped and game released"})
 
 
