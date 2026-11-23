@@ -2228,6 +2228,14 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
     };
     }
 
+    function persistSnapshotObjectToBoardSaves(snap) {
+      if (!window.BoardSaves || typeof window.BoardSaves.put !== 'function') return;
+      if (!snap || !snap.pauseSaveId) return;
+      try {
+        window.BoardSaves.put('trifangx', snap.pauseSaveId, snap, pauseSummaryFromSnapshot(snap));
+      } catch (e) {}
+    }
+
     function persistPausedTrifangxBoardSave(opts) {
     opts = opts || {};
     if (!window.BoardSaves || typeof window.BoardSaves.put !== 'function') return;
@@ -5666,7 +5674,20 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           revealTrifangxGameShellUnderLoading(isLiveShell);
           setTrifangxShellLoadingMessage(getTrifangxLiveHandoffLoadingMessage());
           if (willTryPausedSave) {
-            liveResumed = await tryResumeTrifangxFromPausedSave(pausedLocalId);
+            let handoffSnap = null;
+            try {
+              const raw = sessionStorage.getItem(TRIFANGX_LIVE_SNAPSHOT_KEY);
+              handoffSnap = raw ? JSON.parse(raw) : null;
+            } catch (eHandoff) {}
+            const handoffMatch =
+              handoffSnap &&
+              String(handoffSnap.pauseSaveId || '').trim() === String(pausedLocalId || '').trim() &&
+              (handoffSnap.game_id || handoffSnap.isFreshStart);
+            if (handoffMatch) {
+              liveResumed = await tryResumeLiveTrifangxFromSnapshot();
+            } else {
+              liveResumed = await tryResumeTrifangxFromPausedSave(pausedLocalId);
+            }
           } else {
             liveResumed = await tryResumeLiveTrifangxFromSnapshot();
           }
@@ -5678,14 +5699,13 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         if (isTrifangxLiveDedicatedPage() && !liveResumed && !hasPendingReplay) {
           const no = document.createElement('div');
           no.id = 'trifangx-live-empty';
+          no.className = 'trifangx-live-empty-panel';
           no.setAttribute('role', 'status');
-          no.style.cssText =
-            'max-width:32rem;margin:2rem auto;padding:1.5rem 1.75rem;background:#1a1a24;color:#eee;border-radius:12px;font-family:system-ui,sans-serif;line-height:1.55;box-sizing:border-box;';
           no.innerHTML =
-            '<h2 style="margin:0 0 0.75rem;font-size:1.25rem;font-weight:600;">No active live game</h2>' +
-            '<p style="margin:0 0 1rem;opacity:0.92;">Start a game from the main lobby, or continue a paused match below.</p>' +
-            '<div id="trifangx-live-paused" style="margin:0 0 1rem;text-align:left;" hidden></div>' +
-            '<p style="margin:0"><a href="chess_engine.html" style="color:#6cf;">Return to TrifangX lobby</a> · <a href="ahrens-games.html" style="color:#6cf;">All board games</a></p>';
+            '<h2>No active live game</h2>' +
+            '<p>Start a game from the main lobby, or continue a paused match below.</p>' +
+            '<div id="trifangx-live-paused" class="trifangx-live-paused" hidden></div>' +
+            '<p class="trifangx-live-empty-links"><a href="chess_engine.html">Return to TrifangX lobby</a></p>';
           if (typeof renderTrifangxPausedGamesLiveEmpty === 'function') {
             try {
               renderTrifangxPausedGamesLiveEmpty();
@@ -14182,6 +14202,9 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       let pauseId = '';
       try {
         pauseId = sessionStorage.getItem(TRIFANGX_PAUSED_SAVE_ID_KEY) || '';
+        const rawSnap = sessionStorage.getItem(TRIFANGX_LIVE_SNAPSHOT_KEY);
+        const handoffSnap = rawSnap ? JSON.parse(rawSnap) : null;
+        if (handoffSnap) persistSnapshotObjectToBoardSaves(handoffSnap);
       } catch (ePid) {}
 
         try {

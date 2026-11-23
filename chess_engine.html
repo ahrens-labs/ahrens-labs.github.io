@@ -35,7 +35,7 @@
     <link rel="stylesheet" href="css/trifangx-season-winter.css?v=20261118">
     <link rel="stylesheet" href="css/trifangx-shell-loading.css?v=20260626c">
     <link rel="icon" type="image/x-icon" href="/img/favicon.ico">
-    <script src="js/account_session.js"></script>
+    <script src="js/account_session.js?v=3"></script>
     <script src="js/script.js"></script>
   <script src="js/header_nav.js"></script>
     <script src="js/chess_seasons.js"></script>
@@ -5535,12 +5535,12 @@
 
     .trifangx-games-shelf {
       margin: 0 auto 1.5rem;
-      padding: 1rem 1.2rem 1.15rem;
-      border-radius: 14px;
-      max-width: 52rem;
-      background: linear-gradient(165deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.98));
-      border: 1px solid rgba(148, 163, 184, 0.4);
-      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
+      padding: 1.1rem 1.35rem 1.2rem;
+      border-radius: 20px;
+      max-width: 800px;
+      background: linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%);
+      border: 1px solid rgba(52, 152, 219, 0.12);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.85);
       text-align: left;
     }
     .trifangx-games-shelf[hidden] {
@@ -5553,26 +5553,26 @@
       margin: 0 0 0.25rem;
       font-size: 1.2rem;
       font-weight: 700;
-      color: #f1f5f9;
+      color: #2c3e50;
     }
     .trifangx-paused-hint {
       margin: 0;
       font-size: 0.88rem;
-      color: #94a3b8;
+      color: #5a6c7d;
       line-height: 1.45;
     }
     .trifangx-paused-hint code {
       font-size: 0.82em;
-      color: #cbd5e1;
+      color: #34495e;
     }
     .trifangx-paused-empty {
       margin: 0.5rem 0 0;
       font-size: 0.9rem;
-      color: #94a3b8;
+      color: #5a6c7d;
     }
     .trifangx-paused-id {
       font-size: 0.78rem;
-      color: #64748b;
+      color: #7f8c8d;
       font-family: ui-monospace, monospace;
       word-break: break-all;
     }
@@ -5594,9 +5594,9 @@
       max-width: 16rem;
       padding: 0.65rem 0.75rem;
       border-radius: 12px;
-      background: rgba(15, 23, 42, 0.72);
-      border: 1px solid rgba(100, 116, 139, 0.4);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+      background: #fff;
+      border: 1px solid rgba(52, 152, 219, 0.15);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
     }
     .trifangx-paused-item-actions {
       display: flex;
@@ -5607,10 +5607,10 @@
     .trifangx-paused-item-meta {
       flex: 1 1 10rem;
       font-size: 0.9rem;
-      color: #cbd5e1;
+      color: #5a6c7d;
     }
     .trifangx-paused-item-meta strong {
-      color: #f8fafc;
+      color: #2c3e50;
     }
     .trifangx-paused-continue {
       padding: 0.45rem 0.9rem;
@@ -5635,8 +5635,45 @@
       cursor: pointer;
     }
     .trifangx-paused-remove:hover {
-      color: #fca5a5;
-      border-color: #f87171;
+      color: #c0392b;
+      border-color: #e74c3c;
+    }
+
+    .trifangx-live-empty-panel {
+      max-width: 32rem;
+      margin: 2rem auto;
+      padding: 1.5rem 1.75rem;
+      background: linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%);
+      color: #2c3e50;
+      border-radius: 20px;
+      border: 1px solid rgba(52, 152, 219, 0.12);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+      font-family: system-ui, sans-serif;
+      line-height: 1.55;
+      text-align: center;
+      box-sizing: border-box;
+    }
+    .trifangx-live-empty-panel h2 {
+      margin: 0 0 0.75rem;
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: #2c3e50;
+    }
+    .trifangx-live-empty-panel p {
+      margin: 0 0 1rem;
+      color: #5a6c7d;
+    }
+    .trifangx-live-empty-links a {
+      color: #3498db;
+      font-weight: 600;
+      text-decoration: none;
+    }
+    .trifangx-live-empty-links a:hover {
+      text-decoration: underline;
+    }
+    .trifangx-live-paused {
+      margin: 0 0 1rem;
+      text-align: left;
     }
   </style>
 <link rel="stylesheet" href="/css/emoji.css">
@@ -6175,7 +6212,7 @@
 </script>
 <script>window.TRIFANGX_PAGE_MODE = "lobby";</script>
     <script src="js/board-saves.js?v=3"></script>
-    <script src="js/trifangx_chess_app.js?v=20261123d"></script>
+    <script src="js/trifangx_chess_app.js?v=20261123e"></script>
   <div class="push"></div>
     </div>
   <footer>

@@ -21,6 +21,14 @@
     const nativeSetItem = Storage.prototype.setItem;
     const nativeRemoveItem = Storage.prototype.removeItem;
 
+    function getLocalStorageRef() {
+        try {
+            return window.localStorage;
+        } catch {
+            return null;
+        }
+    }
+
     function usesPerTabSessions() {
         return readLastUserAuth(MULTI_USER_FLAG) === 'true';
     }
@@ -34,7 +42,17 @@
     }
 
     function readLastUserAuth(key) {
-        return nativeGetItem.call(localStorage, key);
+        const ls = getLocalStorageRef();
+        if (!ls) return null;
+        try {
+            return nativeGetItem.call(ls, key);
+        } catch {
+            try {
+                return ls.getItem(key);
+            } catch {
+                return null;
+            }
+        }
     }
 
     function readLastUserSnapshot() {
@@ -49,22 +67,42 @@
     }
 
     function writeLastUserSnapshot(snapshot) {
+        const ls = getLocalStorageRef();
+        if (!ls) return;
         if (!snapshot || !snapshot.ahrenslabs_sessionId) {
-            nativeRemoveItem.call(localStorage, LAST_USER_SNAPSHOT_KEY);
+            try {
+                nativeRemoveItem.call(ls, LAST_USER_SNAPSHOT_KEY);
+            } catch {
+                try {
+                    ls.removeItem(LAST_USER_SNAPSHOT_KEY);
+                } catch {
+                    /* ignore */
+                }
+            }
             return;
         }
         try {
-            nativeSetItem.call(localStorage, LAST_USER_SNAPSHOT_KEY, JSON.stringify(snapshot));
+            nativeSetItem.call(ls, LAST_USER_SNAPSHOT_KEY, JSON.stringify(snapshot));
         } catch {
-            /* ignore */
+            try {
+                ls.setItem(LAST_USER_SNAPSHOT_KEY, JSON.stringify(snapshot));
+            } catch {
+                /* ignore */
+            }
         }
     }
 
     function writeLastUserAuth(key, value) {
+        const ls = getLocalStorageRef();
+        if (!ls) return;
         try {
-            nativeSetItem.call(localStorage, key, String(value));
+            nativeSetItem.call(ls, key, String(value));
         } catch {
-            /* ignore */
+            try {
+                ls.setItem(key, String(value));
+            } catch {
+                /* ignore */
+            }
         }
     }
 
@@ -83,10 +121,16 @@
         } catch {
             /* ignore */
         }
+        const ls = getLocalStorageRef();
+        if (!ls) return;
         try {
-            nativeRemoveItem.call(localStorage, key);
+            nativeRemoveItem.call(ls, key);
         } catch {
-            /* ignore */
+            try {
+                ls.removeItem(key);
+            } catch {
+                /* ignore */
+            }
         }
     }
 
@@ -259,14 +303,16 @@
     }
 
     Storage.prototype.getItem = function getItemPatched(key) {
-        if (this === localStorage && AUTH_KEYS.includes(key)) {
+        const ls = getLocalStorageRef();
+        if (ls && this === ls && AUTH_KEYS.includes(key)) {
             return readActiveAuth(key);
         }
         return nativeGetItem.call(this, key);
     };
 
     Storage.prototype.setItem = function setItemPatched(key, value) {
-        if (this === localStorage && AUTH_KEYS.includes(key)) {
+        const ls = getLocalStorageRef();
+        if (ls && this === ls && AUTH_KEYS.includes(key)) {
             writeActiveAuth(key, value);
             return;
         }
@@ -274,29 +320,46 @@
     };
 
     Storage.prototype.removeItem = function removeItemPatched(key) {
-        if (this === localStorage && AUTH_KEYS.includes(key)) {
+        const ls = getLocalStorageRef();
+        if (ls && this === ls && AUTH_KEYS.includes(key)) {
             clearActiveAuth(key);
             if (!readActiveAuth('ahrenslabs_sessionId')) {
-                nativeRemoveItem.call(localStorage, LAST_USER_SNAPSHOT_KEY);
+                try {
+                    nativeRemoveItem.call(ls, LAST_USER_SNAPSHOT_KEY);
+                } catch {
+                    try {
+                        ls.removeItem(LAST_USER_SNAPSHOT_KEY);
+                    } catch {
+                        /* ignore */
+                    }
+                }
             }
             return;
         }
         return nativeRemoveItem.call(this, key);
     };
 
+    function safePublishTabSession() {
+        try {
+            publishTabSessionAsMostRecent();
+        } catch (err) {
+            console.warn('AhrensTabAccountSession publish failed:', err);
+        }
+    }
+
     bootstrapBrowserUserTracking();
     ensureTabSessionSeeded();
-    publishTabSessionAsMostRecent();
+    safePublishTabSession();
 
     if (usesPerTabSessions()) {
         document.addEventListener('visibilitychange', () => {
-            publishTabSessionAsMostRecent();
+            safePublishTabSession();
         });
         window.addEventListener('pagehide', () => {
-            publishTabSessionAsMostRecent();
+            safePublishTabSession();
         });
         window.addEventListener('focus', () => {
-            publishTabSessionAsMostRecent();
+            safePublishTabSession();
         });
     }
 
@@ -311,10 +374,17 @@
             } catch {
                 /* ignore */
             }
-            try {
-                nativeRemoveItem.call(localStorage, LAST_USER_SNAPSHOT_KEY);
-            } catch {
-                /* ignore */
+            const ls = getLocalStorageRef();
+            if (ls) {
+                try {
+                    nativeRemoveItem.call(ls, LAST_USER_SNAPSHOT_KEY);
+                } catch {
+                    try {
+                        ls.removeItem(LAST_USER_SNAPSHOT_KEY);
+                    } catch {
+                        /* ignore */
+                    }
+                }
             }
         },
     };
