@@ -2357,6 +2357,116 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       );
     }
 
+    const TRIFANGX_SHELF_THUMB_PX = 96;
+    const TRIFANGX_SHELF_THUMB_PIECES = 'lib/img/chesspieces/wikipedia/{piece}.png';
+    const _trifangxShelfPieceImgCache = Object.create(null);
+
+    function fenPositionFromPausedSave(fen) {
+      const raw = String(fen || '').trim();
+      if (!raw) return fenPositionOnlyFromStart();
+      return raw.split(/\s+/)[0] || fenPositionOnlyFromStart();
+    }
+
+    function fenPositionOnlyFromStart() {
+      return String(TRIFANGX_START_FEN).trim().split(/\s+/)[0];
+    }
+
+    function parseFenRowsForShelf(fen) {
+      const rows = fenPositionFromPausedSave(fen).split('/');
+      const board = [];
+      for (let r = 0; r < 8; r++) {
+        board[r] = [];
+        let c = 0;
+        const line = rows[r] || '8';
+        for (const ch of line) {
+          if (ch >= '1' && ch <= '8') {
+            for (let i = 0; i < parseInt(ch, 10); i++) board[r][c++] = null;
+          } else {
+            const up = ch.toUpperCase();
+            const types = { P: 'P', N: 'N', B: 'B', R: 'R', Q: 'Q', K: 'K' };
+            if (types[up]) board[r][c++] = (ch === up ? 'w' : 'b') + types[up];
+          }
+        }
+        while (c < 8) board[r][c++] = null;
+      }
+      return board;
+    }
+
+    function getShelfPieceImage(pieceCode) {
+      if (_trifangxShelfPieceImgCache[pieceCode]) return _trifangxShelfPieceImgCache[pieceCode];
+      const img = new Image();
+      img.decoding = 'async';
+      img.src = TRIFANGX_SHELF_THUMB_PIECES.replace('{piece}', pieceCode);
+      _trifangxShelfPieceImgCache[pieceCode] = img;
+      return img;
+    }
+
+    function drawTrifangxShelfThumb(canvas, fen) {
+      if (!canvas || !canvas.getContext) return;
+      const ctx = canvas.getContext('2d');
+      const n = TRIFANGX_SHELF_THUMB_PX;
+      const sq = n / 8;
+      canvas.width = n;
+      canvas.height = n;
+      const board = parseFenRowsForShelf(fen);
+      const light = '#f0d9b5';
+      const dark = '#b58863';
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          ctx.fillStyle = (r + c) % 2 === 0 ? light : dark;
+          ctx.fillRect(c * sq, r * sq, sq, sq);
+        }
+      }
+      const drawPiece = (img, r, c) => {
+        if (img.complete && img.naturalWidth > 0) {
+          ctx.drawImage(img, c * sq, r * sq, sq, sq);
+        }
+      };
+      const pending = [];
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          const code = board[r][c];
+          if (!code) continue;
+          const img = getShelfPieceImage(code);
+          if (img.complete) drawPiece(img, r, c);
+          else
+            pending.push(
+              new Promise((resolve) => {
+                img.onload = () => {
+                  drawPiece(img, r, c);
+                  resolve();
+                };
+                img.onerror = resolve;
+              })
+            );
+        }
+      }
+      if (pending.length) Promise.all(pending).catch(() => {});
+    }
+
+    function paintTrifangxPausedShelfThumbs(root) {
+      const scope = root && root.querySelectorAll ? root : document;
+      const thumbs = scope.querySelectorAll('.trifangx-paused-thumb[data-fen]');
+      thumbs.forEach((wrap) => {
+        const fen = wrap.getAttribute('data-fen');
+        let canvas = wrap.querySelector('canvas.trifangx-paused-thumb-canvas');
+        if (!canvas) {
+          canvas = document.createElement('canvas');
+          canvas.className = 'trifangx-paused-thumb-canvas';
+          canvas.setAttribute('role', 'img');
+          canvas.setAttribute('aria-label', 'Saved position');
+          wrap.appendChild(canvas);
+        }
+        drawTrifangxShelfThumb(canvas, fen);
+      });
+    }
+
+    function trifangxPausedSaveFen(entry) {
+      const body = entry && entry._body;
+      if (body && typeof body.fen === 'string' && body.fen.trim()) return body.fen.trim();
+      return TRIFANGX_START_FEN;
+    }
+
     /** Safe before account globals initialize (no `isLoggedIn` TDZ). */
     function trifangxHasAccountSessionForShelf() {
       try {
@@ -2402,8 +2512,12 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           const round = moves > 0 ? Math.max(1, Math.ceil(moves / 2)) : s.round || 0;
           const moveLabel = moves > 0 ? `move ${round}` : 'just started';
           const href = buildTrifangxLiveGameUrl(m.id);
+          const fenAttr = escPausedHtml(trifangxPausedSaveFen(m));
           return `<li class="trifangx-paused-item" title="Save id ${escPausedHtml(m.id)}">
-            <span class="trifangx-paused-item-meta"><strong>${escPausedHtml(side)}</strong> · ${escPausedHtml(moveLabel)}</span>
+            <div class="trifangx-paused-item-top">
+              <div class="trifangx-paused-thumb" data-fen="${fenAttr}"></div>
+              <span class="trifangx-paused-item-meta"><strong>${escPausedHtml(side)}</strong> · ${escPausedHtml(moveLabel)}</span>
+            </div>
             <div class="trifangx-paused-item-actions">
               <a class="trifangx-paused-continue" href="${escPausedHtml(href)}">Continue</a>
               <button type="button" class="trifangx-paused-remove" data-pause-id="${escPausedHtml(m.id)}">Remove</button>
@@ -2411,6 +2525,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           </li>`;
         })
         .join('');
+      paintTrifangxPausedShelfThumbs(list);
     }
 
     function renderTrifangxPausedGamesLiveEmpty() {
@@ -2432,10 +2547,12 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
             const side = s.side || 'vs TrifangX';
             const round = s.round || 1;
             const href = `trifangx_live.html?local=${encodeURIComponent(m.id)}`;
-            return `<li class="trifangx-paused-item"><span class="trifangx-paused-item-meta"><strong>${escPausedHtml(side)}</strong> · move ${round}</span><a class="trifangx-paused-continue" href="${escPausedHtml(href)}">Continue</a></li>`;
+            const fenAttr = escPausedHtml(trifangxPausedSaveFen(m));
+            return `<li class="trifangx-paused-item"><div class="trifangx-paused-item-top"><div class="trifangx-paused-thumb" data-fen="${fenAttr}"></div><span class="trifangx-paused-item-meta"><strong>${escPausedHtml(side)}</strong> · move ${round}</span></div><a class="trifangx-paused-continue" href="${escPausedHtml(href)}">Continue</a></li>`;
           })
           .join('') +
         '</ul>';
+      paintTrifangxPausedShelfThumbs(host);
     }
 
     function setupTrifangxPausedGamesLobbyUi() {
