@@ -2233,6 +2233,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       if (!snap || !snap.pauseSaveId) return;
       try {
         window.BoardSaves.put('trifangx', snap.pauseSaveId, snap, pauseSummaryFromSnapshot(snap));
+        renderTrifangxPausedGamesLobby();
       } catch (e) {}
     }
 
