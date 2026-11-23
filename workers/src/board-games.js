@@ -209,6 +209,12 @@ export async function handleBoardGamesRequest(request, env, corsHeaders, path) {
     return jsonResponse({ games, saves, introSeen, ...(settings ? { settings } : {}) }, corsHeaders);
   }
 
+  // One UserAccount DO read — for TrifangX shelf merge without waking every online-game lobby DO.
+  if (path === '/api/board-games/saves-index' && request.method === 'GET') {
+    const { saves, introSeen, settings } = await savedGames(env, userId);
+    return jsonResponse({ saves, introSeen, ...(settings ? { settings } : {}) }, corsHeaders);
+  }
+
   if (path === '/api/board-games/settings') {
     if (request.method === 'GET') {
       const res = await accountStub(env, userId).fetch(new Request('http://do/boardSaves/settings', { headers: { 'X-Ahrens-Seen': '1' } }));

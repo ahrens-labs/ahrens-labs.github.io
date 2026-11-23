@@ -2257,9 +2257,6 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
     } catch (e) {}
       window.BoardSaves.put('trifangx', snap.pauseSaveId, snap, pauseSummaryFromSnapshot(snap));
       renderTrifangxPausedGamesLobby();
-      try {
-        if (window.BoardSaves.flush) window.BoardSaves.flush(false);
-      } catch (eFlush) {}
     }
 
     function clearPausedTrifangxBoardSave() {
@@ -2327,28 +2324,38 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       } catch (e) {}
     }
 
+    let _trifangxShelfAccountMergeAt = 0;
+    const TRIFANGX_SHELF_ACCOUNT_MERGE_MS = 90000;
+
     async function refreshTrifangxShelfFromAccount() {
+      renderTrifangxPausedGamesLobby();
       let sid = '';
       try {
         sid = localStorage.getItem('ahrenslabs_sessionId') || '';
       } catch (e) {}
       if (!sid || !window.BoardSaves || typeof window.BoardSaves.merge !== 'function') {
-        renderTrifangxPausedGamesLobby();
         return;
       }
+      const now = Date.now();
+      const localTrifangx =
+        typeof window.BoardSaves.list === 'function' ? window.BoardSaves.list('trifangx').length : 0;
+      if (localTrifangx > 0 && now - _trifangxShelfAccountMergeAt < TRIFANGX_SHELF_ACCOUNT_MERGE_MS) {
+        return;
+      }
+      _trifangxShelfAccountMergeAt = now;
       const api =
         (typeof window !== 'undefined' && window.AHRENS_LABS_API_BASE) ||
         'https://chess-accounts.matthewahrens.workers.dev';
       try {
-        const r = await fetch(`${api}/api/board-games/current`, {
+        const r = await fetch(`${api}/api/board-games/saves-index`, {
           headers: { Authorization: `Bearer ${sid}` },
         });
         if (r.ok) {
           const data = await r.json();
           if (data && Array.isArray(data.saves)) window.BoardSaves.merge(data.saves);
+          renderTrifangxPausedGamesLobby();
         }
       } catch (e) {}
-      renderTrifangxPausedGamesLobby();
     }
 
     function escPausedHtml(s) {
@@ -2962,7 +2969,6 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
     function releaseEngineOccupancyOnPageExit() {
       try {
         persistTrifangxBoardSaveFromSessionStorage();
-        if (window.BoardSaves && window.BoardSaves.flush) window.BoardSaves.flush(true);
       } catch (eSaveExit) {}
       try {
         stopHeartbeat();
@@ -3528,7 +3534,6 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       try {
         persistTrifangxLiveSnapshot();
         persistTrifangxBoardSaveFromSessionStorage();
-        if (window.BoardSaves && window.BoardSaves.flush) window.BoardSaves.flush(true);
       } catch (eBu) {}
     });
 
@@ -3619,7 +3624,6 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           try {
             persistTrifangxLiveSnapshot();
             persistTrifangxBoardSaveFromSessionStorage();
-            if (window.BoardSaves && window.BoardSaves.flush) window.BoardSaves.flush(true);
           } catch (eVis) {}
         }
         return;

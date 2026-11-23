@@ -7,7 +7,7 @@
   if (window.BoardSaves) return;
   const API_BASE = window.AHRENS_LABS_API_BASE || 'https://chess-accounts.matthewahrens.workers.dev';
   const LEGACY_INDEX_KEY = 'ahrensBoardSaves.index';
-  const FLUSH_MS = 6000;
+  const FLUSH_MS = 20000;
   const KEEPALIVE_MAX = 60000;
 
   const session = () => {
@@ -415,7 +415,7 @@
   };
   addEventListener('pagehide', leave);
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') leave();
+    if (document.visibilityState === 'hidden') schedule(1500);
   });
   // Anything left unsent from last time goes up shortly after the page opens — for this account only.
   adoptLocalGuestSaves();
