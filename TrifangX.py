@@ -1031,6 +1031,122 @@ def start_engine():
     return jsonify({"message": "Engine started and state reset", "game_id": gid})
 
 
+def _normalize_san_for_engine_replay(san):
+    """Map chess.js SAN (O-O) to engine literals where needed."""
+    s = str(san or '').strip()
+    if not s:
+        return ''
+    if s in ('O-O', '0-0'):
+        return '0-0'
+    if s in ('O-O-O', '0-0-0'):
+        return '0-0-0'
+    return s
+
+
+def _replay_san_history(moves):
+    """Apply a full SAN list onto current globals (no engine search). Chess.js order: white, black, …"""
+    global board
+    with _engine_stdout_context():
+        for i, raw in enumerate(moves or []):
+            san = _normalize_san_for_engine_replay(raw)
+            if not san:
+                continue
+            notation_move = str(raw or san).strip()
+            if i % 2 == 0:
+                if san in ('0-0', '0-0-0'):
+                    players_turn_white(board, san, san)
+                else:
+                    players_turn_white(board, san, notation_move)
+            else:
+                if san in ('0-0', '0-0-0'):
+                    players_turn(board, san, san)
+                else:
+                    players_turn(board, san, notation_move)
+
+
+@app.route('/sync', methods=['POST'])
+def sync_engine_from_history():
+    """Start a fresh game_id and replay move history so the client can resume after pause or expiry."""
+    data = request.get_json() or {}
+    account_key = _normalize_account_key(
+        data.get('username') or data.get('account') or ''
+    )
+    if not account_key:
+        return jsonify({"error": "username is required to sync a game"}), 400
+    moves = data.get('moves') or data.get('history') or []
+    if not isinstance(moves, list):
+        return jsonify({"error": "moves must be an array"}), 400
+    if len(moves) > 500:
+        return jsonify({"error": "Too many moves to sync"}), 400
+    _prune_stale_games()
+    with _GAMES_LOCK:
+        if len(GAMES) >= MAX_CONCURRENT_GAMES:
+            return jsonify({
+                "error": "Server is at maximum concurrent games. Please try again shortly.",
+            }), 503
+        my_active = sum(1 for info in GAMES.values() if (info.get('account') or '') == account_key)
+        if my_active >= MAX_ACTIVE_GAMES_PER_ACCOUNT:
+            return jsonify({
+                "error": (
+                    f"You already have {MAX_ACTIVE_GAMES_PER_ACCOUNT} active games on this server. "
+                    "Close or finish one (or wait for a session to expire) before starting another."
+                ),
+            }), 403
+        n_existing = len(GAMES)
+        gid = str(uuid.uuid4())
+    if n_existing == 0:
+        with _INLINE_ENGINE_LOCK:
+            reset_engine_state()
+            try:
+                _replay_san_history(moves)
+            except Exception as e:
+                return jsonify({"error": f"Could not replay moves: {e}"}), 400
+            snap = _capture_engine_state_to_dict()
+    else:
+        with _INLINE_ENGINE_LOCK:
+            try:
+                saved = _capture_engine_state_to_dict()
+                reset_engine_state()
+                _replay_san_history(moves)
+                snap = _capture_engine_state_to_dict()
+                _restore_engine_state_from_dict(saved)
+            except Exception as e:
+                return jsonify({"error": f"Could not replay moves: {e}"}), 400
+    with _GAMES_LOCK:
+        if len(GAMES) >= MAX_CONCURRENT_GAMES:
+            return jsonify({
+                "error": "Server is at maximum concurrent games. Please try again shortly.",
+            }), 503
+        my_active = sum(1 for info in GAMES.values() if (info.get('account') or '') == account_key)
+        if my_active >= MAX_ACTIVE_GAMES_PER_ACCOUNT:
+            return jsonify({
+                "error": (
+                    f"You already have {MAX_ACTIVE_GAMES_PER_ACCOUNT} active games on this server. "
+                    "Close or finish one (or wait for a session to expire) before starting another."
+                ),
+            }), 403
+        engine_running = True
+        GAMES[gid] = {
+            'active_since': time.time(),
+            'snapshot': snap,
+            'account': account_key,
+        }
+    if os.environ.get('TRIFANGX_DISABLE_DEDICATED_WORKERS') != '1':
+
+        def _warm_dedicated_worker():
+            try:
+                _ensure_dedicated_worker(gid)
+            except Exception:
+                pass
+
+        threading.Thread(target=_warm_dedicated_worker, daemon=True).start()
+    return jsonify({
+        "message": "Engine synced from history",
+        "game_id": gid,
+        "plies": len(moves),
+    })
+
+
 @app.route('/stop', methods=['POST'])
 def stop_engine():
     global engine_running

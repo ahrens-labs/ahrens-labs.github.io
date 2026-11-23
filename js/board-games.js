@@ -10,6 +10,7 @@
     heroes: { name: 'Hero League', icon: '🦸', page: '/heroes.html', img: '/img/heroes/cover.webp?v=2', logo: '/img/heroes-favicon-128.png?v=3' },
     masquerade: { name: 'The Masquerade Court', icon: '🎭', page: '/masquerade.html', img: '/img/masquerade/cover.webp?v=2', logo: '/img/masquerade-favicon-128.png?v=3' },
     whiteout: { name: 'Whiteout Station', icon: '❄️', page: '/whiteout.html', img: '/img/whiteout/cover.webp', logo: '/img/whiteout-favicon-96.png?v=1' },
+    trifangx: { name: 'TrifangX', icon: '♟️', page: '/trifangx_live.html', img: '/img/trifangx-icon.png', logo: '/img/trifangx-icon.png' },
   };
   // "Surprise me": a random game against a random number of computer rivals (up to as many as the game seats).
   const MAX_RIVALS = { dino: 1, hearthhold: 1, atlantis: 1, cauldron: 3, heroes: 4, masquerade: 4 };
@@ -64,6 +65,7 @@
   const hhMoved = (s) => (s.round || 1) > 1 || (s.log || []).some((e) => e && e.who != null && s.players[e.who] && !s.players[e.who].ai);
   // Dino saves from before the moved flag existed keep showing.
   const dinoMoved = (d) => d.moved !== false;
+  const trifangxMoved = (s) => s.moved !== false && (s.round || 0) > 0;
   const BS = window.BoardSaves;
   const randomId = (prefix) => {
     const b = new Uint8Array(8);
@@ -130,7 +132,9 @@
               ? `Plaza ${s.round || 0} of ${s.rounds || 12}`
               : m.game === 'masquerade'
                 ? `Top Favor ⭐${s.favor || 0} of 7`
-                : `Round ${r}${s.rounds ? ` of ${s.rounds}` : ''}`,
+                : m.game === 'trifangx'
+                  ? `${s.names && s.names[0] ? s.names[0] : 'vs TrifangX'} · move ${(s.round || 1) * 2 - 1}${s.side ? ` · ${s.side}` : ''}`
+                  : `Round ${r}${s.rounds ? ` of ${s.rounds}` : ''}`,
       where: m.local === false ? 'cloud' : 'local',
       updatedAt: m.updatedAt || 0,
       removable: true,
@@ -139,7 +143,13 @@
 
   function localGames() {
     if (!BS) return [];
-    return BS.list().filter((m) => shown(m.game) && (!m.summary || m.summary.moved !== false)).map(savedItem);
+    return BS.list()
+      .filter((m) => {
+        if (!shown(m.game)) return false;
+        if (m.game === 'trifangx') return trifangxMoved(m.summary || {});
+        return !m.summary || m.summary.moved !== false;
+      })
+      .map(savedItem);
   }
 
   const invitedMe = (g) => (g.needsMe != null ? g.needsMe : g.status === 'pending' && g.me === 1);

@@ -2006,6 +2006,8 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
     const TRIFANGX_START_FEN =
       'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
     const TRIFANGX_LIVE_SNAPSHOT_KEY = 'trifangx_live_snapshot';
+    /** Stable id for BoardSaves pause (`game: trifangx`); survives tab close. */
+    const TRIFANGX_PAUSED_SAVE_ID_KEY = 'trifangx_paused_save_id';
     const TRIFANGX_PENDING_ENGINE_MOVE_MAX_AGE_MS = 5 * 60 * 1000;
     /** URL flag for an in-progress engine game (legacy; primary flow uses `trifangx_live.html`). */
     const TRIFANGX_LIVE_URL_PARAM = 'txlive';
@@ -2099,9 +2101,152 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       });
     }
 
+    function randomTrifangxPauseSaveId() {
+      const b = new Uint8Array(8);
+      try {
+        crypto.getRandomValues(b);
+      } catch (e) {
+        for (let i = 0; i < b.length; i++) b[i] = (Math.random() * 256) | 0;
+      }
+      return 'tx' + [...b].map((x) => x.toString(16).padStart(2, '0')).join('');
+    }
+
+    function getTrifangxPauseSaveId() {
+      try {
+        const fromSnap = getStoredLiveSnapshotObject();
+        if (fromSnap && typeof fromSnap.pauseSaveId === 'string' && fromSnap.pauseSaveId.trim()) {
+          return fromSnap.pauseSaveId.trim();
+        }
+        let id = sessionStorage.getItem(TRIFANGX_PAUSED_SAVE_ID_KEY) || '';
+        if (!id) {
+          id = randomTrifangxPauseSaveId();
+          sessionStorage.setItem(TRIFANGX_PAUSED_SAVE_ID_KEY, id);
+        }
+        return id;
+      } catch (e) {
+        return randomTrifangxPauseSaveId();
+      }
+    }
+
+    function ensurePauseSaveIdOnSnapshot(snap) {
+      if (!snap || typeof snap !== 'object') return snap;
+      if (!snap.pauseSaveId) snap.pauseSaveId = getTrifangxPauseSaveId();
+      return snap;
+    }
+
+    function buildLiveSnapshotForPersist() {
+    const tcEl = document.getElementById('time-control');
+    let gameStatsClone = null;
+    try {
+      gameStatsClone = JSON.parse(JSON.stringify(gameStats));
+    } catch (eGs) {}
+    const snap = {
+      v: 2,
+      pauseSaveId: getTrifangxPauseSaveId(),
+      game_id: getEngineGameId(),
+      fen: game ? game.fen() : TRIFANGX_START_FEN,
+      moves: game ? game.history() : [],
+      gameStats: gameStatsClone,
+      playerColor: playerColor,
+      timeLimited: !!timeLimited,
+      increment: increment != null ? increment : 0,
+      whiteTime: whiteTime != null ? whiteTime : 0,
+      blackTime: blackTime != null ? blackTime : 0,
+      blindfoldMode: !!blindfoldMode,
+      showHistoryInBlindfold: !!showHistoryInBlindfold,
+      moveClockTimes: Array.isArray(moveClockTimes) ? moveClockTimes.slice() : [],
+      moveHistory: Array.isArray(moveHistory) ? moveHistory.slice() : [],
+      lastMoveSquares: {
+        from: lastMoveSquares && lastMoveSquares.from != null ? lastMoveSquares.from : null,
+        to: lastMoveSquares && lastMoveSquares.to != null ? lastMoveSquares.to : null,
+      },
+      capturedPieces: {
+        white: capturedPieces && capturedPieces.white ? capturedPieces.white.slice() : [],
+        black: capturedPieces && capturedPieces.black ? capturedPieces.black.slice() : [],
+      },
+      currentMoveIndex: typeof currentMoveIndex === 'number' ? currentMoveIndex : -1,
+      lastLiveMoveDisplayText:
+        typeof lastLiveMoveDisplayText !== 'undefined' ? lastLiveMoveDisplayText : 'None',
+      currentTimeControl: typeof currentTimeControl !== 'undefined' ? currentTimeControl : null,
+      timeControlOption: tcEl && tcEl.value ? tcEl.value : null,
+      premoves: Array.isArray(premoves) ? premoves.slice() : [],
+      pendingEngineMove: sanitizePendingEngineMove(pendingEngineMove),
+      moveTimerElapsedMs:
+        timerInterval != null &&
+        typeof performance !== 'undefined' &&
+        typeof timerStart === 'number' &&
+        Number.isFinite(timerStart)
+          ? Math.max(0, Math.round(performance.now() - timerStart))
+          : 0,
+    };
+      return ensurePauseSaveIdOnSnapshot(snap);
+    }
+
+    function pauseSummaryFromSnapshot(snap) {
+    const moves = snap && Array.isArray(snap.moves) ? snap.moves : [];
+    const pc = snap && snap.playerColor ? String(snap.playerColor).toLowerCase() : 'white';
+    return {
+      mode: 'ai',
+      level: 'trifangx',
+      names: [pc === 'black' ? 'You (Black)' : 'You (White)'],
+      side: pc === 'black' ? 'Black' : 'White',
+      round: Math.max(1, Math.ceil(moves.length / 2)),
+      moved: moves.length > 0,
+    };
+    }
+
+    function persistPausedTrifangxBoardSave(opts) {
+    opts = opts || {};
+    if (!window.BoardSaves || typeof window.BoardSaves.put !== 'function') return;
+    if (!game || gameOver) return;
+    const moves = game.history ? game.history() : [];
+    if (!opts.allowFresh && !moves.length) return;
+    const snap = buildLiveSnapshotForPersist();
+    if (!snap.pauseSaveId) return;
+    try {
+      sessionStorage.setItem(TRIFANGX_PAUSED_SAVE_ID_KEY, snap.pauseSaveId);
+    } catch (e) {}
+      window.BoardSaves.put('trifangx', snap.pauseSaveId, snap, pauseSummaryFromSnapshot(snap));
+    }
+
+    function clearPausedTrifangxBoardSave() {
+    let id = '';
+    try {
+      id =
+        sessionStorage.getItem(TRIFANGX_PAUSED_SAVE_ID_KEY) ||
+        (getStoredLiveSnapshotObject() && getStoredLiveSnapshotObject().pauseSaveId) ||
+        '';
+    } catch (e) {}
+    if (id && window.BoardSaves && typeof window.BoardSaves.remove === 'function') {
+      window.BoardSaves.remove('trifangx', id);
+    }
+    try {
+      sessionStorage.removeItem(TRIFANGX_PAUSED_SAVE_ID_KEY);
+    } catch (e2) {}
+    }
+
+    async function startEngineSessionFromSync(moves, playerColorStr) {
+      const uname = getTrifangxEngineAccountUsername();
+      if (!uname) throw new Error('Login required');
+      const hist = Array.isArray(moves) ? moves : [];
+      const data = await sendEngineCommand('sync', {
+        username: uname,
+        moves: hist,
+        player_color: normalizeLobbyPlayerColor(playerColorStr || playerColor),
+      });
+      const gid = data && data.game_id ? String(data.game_id).trim() : '';
+      if (!gid) throw new Error('Sync did not return a game_id');
+      setEngineGameId(gid);
+      return gid;
+    }
+
     /** Persist a fresh game for tryResumeLiveTrifangxFromSnapshot on trifangx_live.html after lobby Start Game. */
     function writeFreshLiveHandoffSnapshot(gameId, opts) {
       if (!gameId || !opts) return;
+      const pauseSaveId = randomTrifangxPauseSaveId();
+      try {
+        sessionStorage.setItem(TRIFANGX_PAUSED_SAVE_ID_KEY, pauseSaveId);
+      } catch (ePs) {}
       let fen = TRIFANGX_START_FEN;
       try {
         fen = new Chess().fen() || TRIFANGX_START_FEN;
@@ -2111,6 +2256,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       const snap = {
         v: 2,
         isFreshStart: true,
+        pauseSaveId: pauseSaveId,
         game_id: String(gameId).trim(),
         fen,
         moves: [],
@@ -2840,55 +2986,53 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         const gid = getEngineGameId();
         if (!gid) return;
         if (!trifangxLivePlayActiveInUrl()) return;
-        const tcEl = document.getElementById('time-control');
-        let gameStatsClone = null;
-        try {
-          gameStatsClone = JSON.parse(JSON.stringify(gameStats));
-        } catch (eGs) {}
-        const snap = {
-          v: 2,
-          game_id: gid,
-          fen: game.fen(),
-          moves: game.history(),
-          gameStats: gameStatsClone,
-          playerColor: playerColor,
-          timeLimited: !!timeLimited,
-          increment: increment != null ? increment : 0,
-          whiteTime: whiteTime != null ? whiteTime : 0,
-          blackTime: blackTime != null ? blackTime : 0,
-          blindfoldMode: !!blindfoldMode,
-          showHistoryInBlindfold: !!showHistoryInBlindfold,
-          moveClockTimes: moveClockTimes.slice(),
-          moveHistory: moveHistory.slice(),
-          lastMoveSquares: {
-            from: lastMoveSquares && lastMoveSquares.from != null ? lastMoveSquares.from : null,
-            to: lastMoveSquares && lastMoveSquares.to != null ? lastMoveSquares.to : null,
-          },
-          capturedPieces: {
-            white: (capturedPieces && capturedPieces.white) ? capturedPieces.white.slice() : [],
-            black: (capturedPieces && capturedPieces.black) ? capturedPieces.black.slice() : [],
-          },
-          currentMoveIndex: typeof currentMoveIndex === 'number' ? currentMoveIndex : -1,
-          lastLiveMoveDisplayText: typeof lastLiveMoveDisplayText !== 'undefined' ? lastLiveMoveDisplayText : 'None',
-          currentTimeControl: typeof currentTimeControl !== 'undefined' ? currentTimeControl : null,
-          timeControlOption: tcEl && tcEl.value ? tcEl.value : null,
-          premoves: Array.isArray(premoves) ? premoves.slice() : [],
-          pendingEngineMove: sanitizePendingEngineMove(pendingEngineMove),
-          // timerStart = performance.now() - resume can be negative after reload; still valid.
-          moveTimerElapsedMs:
-            timerInterval != null &&
-            typeof performance !== 'undefined' &&
-            typeof timerStart === 'number' &&
-            Number.isFinite(timerStart)
-              ? Math.max(0, Math.round(performance.now() - timerStart))
-              : 0,
-        };
+        const snap = buildLiveSnapshotForPersist();
         sessionStorage.setItem(TRIFANGX_LIVE_SNAPSHOT_KEY, JSON.stringify(snap));
+        if (snap.moves && snap.moves.length) {
+          persistPausedTrifangxBoardSave({ allowFresh: false });
+        }
       } catch (e) {}
     }
 
     function touchLiveGameSnapshot() {
       persistTrifangxLiveSnapshot();
+    }
+
+    async function hydrateEngineSessionForSnapshot(snap) {
+      const gid = snap && typeof snap.game_id === 'string' ? snap.game_id.trim() : '';
+      const moves = snap && Array.isArray(snap.moves) ? snap.moves : [];
+      const isFresh = !!(snap && snap.isFreshStart);
+      if (!gid && !moves.length && !isFresh) return false;
+      try {
+        const hbBody = { game_id: gid };
+        const uHb = getTrifangxEngineAccountUsername();
+        if (uHb) hbBody.username = uHb;
+        const hbResp = await fetch(`${ENGINE_BASE}/heartbeat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(hbBody),
+        });
+        if (hbResp.ok) {
+          if (gid) setEngineGameId(gid);
+          return true;
+        }
+      } catch (eHb) {}
+      try {
+        await startEngineSessionFromSync(
+          moves,
+          snap && snap.playerColor ? snap.playerColor : playerColor
+        );
+        if (snap && typeof snap === 'object') {
+          snap.game_id = getEngineGameId();
+          try {
+            sessionStorage.setItem(TRIFANGX_LIVE_SNAPSHOT_KEY, JSON.stringify(snap));
+          } catch (eSt) {}
+        }
+        return true;
+      } catch (eSync) {
+        console.warn('hydrateEngineSessionForSnapshot sync failed:', eSync);
+        return false;
+      }
     }
 
     let _liveGameCancelled = false;
@@ -2979,6 +3123,11 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           const livePath = (window.location.pathname || '').toLowerCase();
           const destPath = (dest.pathname || '').toLowerCase();
           if (destPath === livePath || /trifangx_live\.html$/.test(destPath)) return;
+          try {
+            if (game && !gameOver && game.history().length) {
+              persistPausedTrifangxBoardSave({ allowFresh: false });
+            }
+          } catch (eSave) {}
           cancelActiveLiveTrifangxGame({ source: 'nav-link', silent: true });
         },
         true
@@ -2992,6 +3141,11 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
      */
     function leaveLiveForChessLobby(ev) {
       if (ev && typeof ev.preventDefault === 'function') ev.preventDefault();
+      try {
+        if (hasActiveLiveEngineSession() && game && !gameOver && game.history().length) {
+          persistPausedTrifangxBoardSave({ allowFresh: false });
+        }
+      } catch (eSave) {}
       cancelActiveLiveTrifangxGame({ source: 'lobby-nav', silent: true });
       window.location.href = new URL('chess_engine.html', window.location.href).href;
     }
@@ -3037,6 +3191,11 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         }
       } catch (e2) {}
       if (!skipRelease) {
+        try {
+          if (hasActiveLiveEngineSession() && game && !gameOver && game.history().length) {
+            persistPausedTrifangxBoardSave({ allowFresh: false });
+          }
+        } catch (ePause) {}
         cancelActiveLiveTrifangxGame({ source: 'pagehide', silent: true });
       }
     });
@@ -3087,6 +3246,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       }
       clearEngineTabSession();
       clearTrifangxLiveUrlAndSnapshot();
+      clearPausedTrifangxBoardSave();
       await checkEngineStatus();
     }
 
@@ -5286,11 +5446,16 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         pendingReplayGameId != null ||
         pendingReplayIndex !== null ||
         !!pendingReplaySavedAt;
+      const pausedLocalId = urlParams.get('local');
+      const willTryPausedSave =
+        !hasPendingReplay && !isHistoryReplayMode && !isReplayShell && pausedLocalId;
       const willTryLiveResume =
         !hasPendingReplay &&
         !isHistoryReplayMode &&
         !isReplayShell &&
-        (urlParams.get(TRIFANGX_LIVE_URL_PARAM) === '1' || isTrifangxLiveDedicatedPage());
+        (willTryPausedSave ||
+          urlParams.get(TRIFANGX_LIVE_URL_PARAM) === '1' ||
+          isTrifangxLiveDedicatedPage());
 
       applyQuickBoardCosmeticsFromCloudOrStorage();
 
@@ -5315,7 +5480,11 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         if (willTryLiveResume) {
           revealTrifangxGameShellUnderLoading(isLiveShell);
           setTrifangxShellLoadingMessage(getTrifangxLiveHandoffLoadingMessage());
-          liveResumed = await tryResumeLiveTrifangxFromSnapshot();
+          if (willTryPausedSave) {
+            liveResumed = await tryResumeTrifangxFromPausedSave(pausedLocalId);
+          } else {
+            liveResumed = await tryResumeLiveTrifangxFromSnapshot();
+          }
           if (liveResumed) {
             needsBoardReady = true;
           }
@@ -5329,7 +5498,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
             'max-width:32rem;margin:2rem auto;padding:1.5rem 1.75rem;background:#1a1a24;color:#eee;border-radius:12px;font-family:system-ui,sans-serif;line-height:1.55;box-sizing:border-box;';
           no.innerHTML =
             '<h2 style="margin:0 0 0.75rem;font-size:1.25rem;font-weight:600;">No active live game</h2>' +
-            '<p style="margin:0 0 1rem;opacity:0.92;">Start a game from the main lobby. This address is only for an in-progress engine game (reload is safe here).</p>' +
+            '<p style="margin:0 0 1rem;opacity:0.92;">Start a game from the main lobby, or open a paused game from <a href="ahrens-games.html" style="color:#6cf;">Your games</a>. Reload is safe while a session is active.</p>' +
             '<p style="margin:0"><a href="chess_engine.html" style="color:#6cf;">Return to TrifangX lobby</a></p>';
           const btc = document.getElementById('board-timers-container');
           if (btc && btc.parentNode) {
@@ -13544,34 +13713,14 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         }
 
         setEngineGameId(gid);
-        try {
-          const hbBody = { game_id: gid };
-          const uHb = getTrifangxEngineAccountUsername();
-          if (uHb) hbBody.username = uHb;
-          const hbResp = await fetch(`${ENGINE_BASE}/heartbeat`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(hbBody),
-          });
-          if (!hbResp.ok) {
-            let hbErr = '';
-            try {
-              const hj = await hbResp.json();
-              hbErr = (hj && hj.error) || '';
-            } catch (eJ) {}
-            if (
-              hbResp.status === 400 &&
-              (hbErr.indexOf('Unknown or expired game_id') !== -1 ||
-                hbErr.indexOf('game_id required') !== -1)
-            ) {
-              clearEngineGameId();
-              try {
-                sessionStorage.removeItem(TRIFANGX_LIVE_SNAPSHOT_KEY);
-              } catch (eSnap) {}
-              return false;
-            }
-          }
-        } catch (eHb) {}
+        const sessionOk = await hydrateEngineSessionForSnapshot(snap);
+        if (!sessionOk) {
+          clearEngineGameId();
+          try {
+            sessionStorage.removeItem(TRIFANGX_LIVE_SNAPSHOT_KEY);
+          } catch (eSnap) {}
+          return false;
+        }
 
         resetStaleEngineSessionFlag();
         resetLiveGameCancelFlag();
@@ -13750,6 +13899,18 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         cancelActiveLiveTrifangxGame({ source: 'resume-failed', silent: true });
         return false;
       }
+    }
+
+    async function tryResumeTrifangxFromPausedSave(saveId) {
+      const id = String(saveId || '').trim();
+      if (!id || !window.BoardSaves || typeof window.BoardSaves.load !== 'function') return false;
+      const body = await window.BoardSaves.load('trifangx', id);
+      if (!body || typeof body !== 'object') return false;
+      try {
+        sessionStorage.setItem(TRIFANGX_PAUSED_SAVE_ID_KEY, id);
+        sessionStorage.setItem(TRIFANGX_LIVE_SNAPSHOT_KEY, JSON.stringify(body));
+      } catch (e) {}
+      return tryResumeLiveTrifangxFromSnapshot();
     }
 
     async function startGame() {
