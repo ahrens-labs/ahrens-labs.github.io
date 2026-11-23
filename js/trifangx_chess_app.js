@@ -15552,10 +15552,18 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
     
     // Override localStorage for chess game data - redirect to cloud
     const originalLocalStorage = window.localStorage;
+    /** Board game pause saves and lobby prefs must use real storage (not cloud chess profile). */
+    function trifangxPassthroughLocalStorageKey(key) {
+      if (!key || typeof key !== 'string') return false;
+      if (key.startsWith('ahrenslabs_')) return true;
+      if (key === 'pendingVerificationEmail') return true;
+      if (key.startsWith('ahrensBoardSaves')) return true;
+      if (key.startsWith('ahrensGames.')) return true;
+      return false;
+    }
     const cloudStorage = {
       getItem: function(key) {
-        // Allow unified auth keys to use real localStorage
-        if (key.startsWith('ahrenslabs_')) {
+        if (trifangxPassthroughLocalStorageKey(key)) {
           return originalLocalStorage.getItem(key);
         }
         
@@ -15643,8 +15651,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       },
       
       setItem: function(key, value) {
-        // Allow unified auth keys to use real localStorage
-        if (key.startsWith('ahrenslabs_') || key === 'pendingVerificationEmail') {
+        if (trifangxPassthroughLocalStorageKey(key)) {
           originalLocalStorage.setItem(key, value);
           return;
         }
@@ -15684,8 +15691,9 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       },
       
       removeItem: function(key) {
-        if (key.startsWith('ahrenslabs_')) {
+        if (trifangxPassthroughLocalStorageKey(key)) {
           originalLocalStorage.removeItem(key);
+          return;
         }
         // For cloud items, just ignore removes or set to null
       }
