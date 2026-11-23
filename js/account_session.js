@@ -398,10 +398,20 @@
             host === 'localhost' ||
             host === '127.0.0.1';
         if (!onSite || window.AhrensChallengeAlert) return;
+        const path = String(location.pathname || '').toLowerCase();
+        const skipChallenge =
+          path.includes('chess_engine') ||
+          path.includes('trifangx_live') ||
+          path.includes('chess-replay') ||
+          path.includes('chess-shop') ||
+          path.includes('chess-leaderboard') ||
+          path.includes('chess-season') ||
+          path.includes('achievements.html');
+        if (skipChallenge) return;
         const self = document.querySelector('script[src*="account_session"]');
         const src = self && self.src
-            ? self.src.replace(/account_session[^/?#]*/i, 'challenge-alert.js').replace(/(\?[^#]*)?$/, '?v=1')
-            : '/js/challenge-alert.js?v=1';
+            ? self.src.replace(/account_session[^/?#]*/i, 'challenge-alert.js').replace(/(\?[^#]*)?$/, '?v=2')
+            : '/js/challenge-alert.js?v=2';
         const s = document.createElement('script');
         s.src = src;
         s.async = false;

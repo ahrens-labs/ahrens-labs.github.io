@@ -204,6 +204,12 @@ export async function handleBoardGamesRequest(request, env, corsHeaders, path) {
   const userId = await userIdForSession(env, bearerSession(request));
   if (!userId) return jsonResponse({ error: 'Not authenticated' }, corsHeaders, 401);
 
+  // Online board games only (lobby DOs) — no UserAccount read. Used by challenge/toast polling.
+  if (path === '/api/board-games/online' && request.method === 'GET') {
+    const games = await onlineGames(env, userId);
+    return jsonResponse({ games }, corsHeaders);
+  }
+
   if (path === '/api/board-games/current' && request.method === 'GET') {
     const [games, { saves, introSeen, settings }] = await Promise.all([onlineGames(env, userId), savedGames(env, userId)]);
     return jsonResponse({ games, saves, introSeen, ...(settings ? { settings } : {}) }, corsHeaders);

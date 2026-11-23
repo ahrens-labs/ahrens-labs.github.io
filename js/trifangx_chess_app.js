@@ -3514,7 +3514,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           if (gameOver || !game || !getEngineGameId()) return;
           persistTrifangxLiveSnapshot();
         } catch (eTick) {}
-      }, 25000);
+      }, 45000);
     }
 
     async function persistSnapGameIdAfterEngineSync(snap) {

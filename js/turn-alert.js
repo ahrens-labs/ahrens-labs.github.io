@@ -125,7 +125,7 @@
 
   // Keep game tabs informed even when their own game hasn't been opened. This lets any
   // already-loaded game page show its favicon alert while it sits in the background.
-  // When ChallengeAlert is present it owns the /api/board-games/current poll (one request for both).
+  // When ChallengeAlert is present it owns the /api/board-games/online poll (one request for both).
   async function refreshOnlineTurns() {
     if (window.AhrensChallengeAlert && typeof window.AhrensChallengeAlert.refresh === 'function') {
       window.AhrensChallengeAlert.refresh();
@@ -143,7 +143,7 @@
       return;
     }
     try {
-      const response = await fetch(`${API_BASE}/api/board-games/current`, { headers: { Authorization: `Bearer ${session}` } });
+      const response = await fetch(`${API_BASE}/api/board-games/online`, { headers: { Authorization: `Bearer ${session}` } });
       if (!response.ok) return;
       const data = await response.json();
       applyRemoteGames(data.games || []);
@@ -152,7 +152,7 @@
     }
   }
   refreshOnlineTurns();
-  setInterval(refreshOnlineTurns, 10000);
+  setInterval(refreshOnlineTurns, 30000);
   document.addEventListener('resume', refreshOnlineTurns);
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') refreshOnlineTurns();

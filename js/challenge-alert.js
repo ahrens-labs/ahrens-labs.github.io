@@ -1,5 +1,5 @@
 // Site-wide game challenge toasts (ahrenslabs.com + ahrensgames.com).
-// Polls /api/board-games/current (or accepts sync() from TurnAlert / lobby) and pops an
+// Polls /api/board-games/online (or accepts sync() from TurnAlert / lobby) and pops an
 // achievement-style card with Accept / Decline when someone challenges you.
 (() => {
   if (window.AhrensChallengeAlert) return;
@@ -20,8 +20,10 @@
   let polling = false;
   let styleReady = false;
   let lastFetch = 0;
+  let lastGames = [];
+  let lastGamesAt = 0;
   let bus = null;
-  const POLL_MS = 10000;
+  const POLL_MS = 30000;
 
   function session() {
     try {
@@ -236,6 +238,8 @@
   function sync(games) {
     if (!onSite()) return;
     const list = Array.isArray(games) ? games : [];
+    lastGames = list;
+    lastGamesAt = Date.now();
     const invites = list.filter(isInvite);
     const live = new Set(invites.map(inviteKey));
 
@@ -273,7 +277,7 @@
     if (Date.now() - lastFetch < 2500) return;
     lastFetch = Date.now();
     try {
-      const response = await fetch(`${API_BASE}/api/board-games/current`, {
+      const response = await fetch(`${API_BASE}/api/board-games/online`, {
         headers: { Authorization: `Bearer ${sid}` },
       });
       if (!response.ok) return;
@@ -316,7 +320,12 @@
     document.addEventListener('resume', refresh);
   }
 
-  window.AhrensChallengeAlert = { sync, start, refresh };
+  function getSnapshot() {
+    if (!lastGamesAt) return null;
+    return { games: lastGames, at: lastGamesAt };
+  }
+
+  window.AhrensChallengeAlert = { sync, start, refresh, getSnapshot };
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', start);
   } else {

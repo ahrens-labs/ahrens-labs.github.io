@@ -327,7 +327,7 @@
   const refresh = (afterResume = false) => {
     if (!session() || (!afterResume && Date.now() - lastFetch < 20000)) return;
     lastFetch = Date.now();
-    load();
+    load(false);
   };
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') refresh();
@@ -340,50 +340,90 @@
   // page is resumed so the cached turn state and favicon are updated without opening the tab.
   document.addEventListener('resume', () => refresh(true));
   addEventListener('online', () => refresh(true));
-  lastFetch = Date.now();
-  load();
   // Fallback polling discovers new challenges and recovers if a live socket cannot connect.
   // Check every 30 seconds while an online game is waiting on the other player, otherwise every 90 seconds.
   let quietTicks = 0;
   setInterval(() => {
+    if (document.visibilityState === 'hidden') return;
     if (cached.some((g) => !myMove(g)) || ++quietTicks >= 3) {
       quietTicks = 0;
       refresh();
     }
   }, 30000);
 
-  function load() {
+  const authHeaders = () => ({ Authorization: `Bearer ${session()}` });
+
+  function applyLobbyData(data, gamesRaw) {
+    const games = (gamesRaw || data.games || []).filter((g) => shown(g.game));
+    const allGames = gamesRaw || data.games || [];
+    if (window.AhrensChallengeAlert && typeof window.AhrensChallengeAlert.sync === 'function') {
+      window.AhrensChallengeAlert.sync(allGames);
+    }
+    if (BS && data.saves) BS.merge(data.saves);
+    if (window.AhrensGamesIntro && 'introSeen' in data) window.AhrensGamesIntro.fromServer(data.introSeen);
+    if (data.settings) {
+      try {
+        localStorage.setItem(`ahrensGames.settings:${localStorage.getItem('ahrenslabs_userId') || ''}`, JSON.stringify(data.settings));
+      } catch {
+        /* storage blocked */
+      }
+    }
+    try {
+      sessionStorage.setItem(CACHE_KEY, JSON.stringify(games));
+    } catch {
+      /* storage blocked */
+    }
+    cached = games;
+    syncLiveSockets(games);
+    render(games, 'done');
+    alertTurns();
+  }
+
+  function fetchSavesIndex() {
+    return fetch(`${API_BASE}/api/board-games/saves-index`, { headers: authHeaders() }).then((r) => {
+      if (r.status === 401) return { games: [], signedOut: true };
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    });
+  }
+
+  function load(full) {
     if (session() && window.AhrensPresence) window.AhrensPresence.start();
-    fetch(`${API_BASE}/api/board-games/current`, { headers: { Authorization: `Bearer ${session()}` } })
+    if (!full) {
+      const ca = window.AhrensChallengeAlert;
+      const snap = ca && typeof ca.getSnapshot === 'function' ? ca.getSnapshot() : null;
+      if (snap && Date.now() - snap.at < 50000) {
+        fetchSavesIndex()
+          .then((data) => applyLobbyData(data, snap.games))
+          .catch(() => render(cached, 'error'));
+        return;
+      }
+      Promise.all([
+        fetch(`${API_BASE}/api/board-games/online`, { headers: authHeaders() }),
+        fetch(`${API_BASE}/api/board-games/saves-index`, { headers: authHeaders() }),
+      ])
+        .then(([rg, rs]) => {
+          if (rg.status === 401 || rs.status === 401) return { games: [], signedOut: true };
+          if (!rg.ok || !rs.ok) throw new Error('HTTP');
+          return Promise.all([rg.json(), rs.json()]).then(([og, savesData]) => ({
+            ...savesData,
+            games: (og.games || []),
+          }));
+        })
+        .then((data) => applyLobbyData(data))
+        .catch(() => render(cached, 'error'));
+      return;
+    }
+    fetch(`${API_BASE}/api/board-games/current`, { headers: authHeaders() })
       .then((r) => {
         if (r.status === 401) return { games: [], signedOut: true };
         if (!r.ok) throw new Error('HTTP ' + r.status);
         return r.json();
       })
-      .then((data) => {
-        const games = (data.games || []).filter((g) => shown(g.game));
-        if (window.AhrensChallengeAlert && typeof window.AhrensChallengeAlert.sync === 'function') {
-          window.AhrensChallengeAlert.sync(data.games || []);
-        }
-        if (BS && data.saves) BS.merge(data.saves);
-        if (window.AhrensGamesIntro && 'introSeen' in data) window.AhrensGamesIntro.fromServer(data.introSeen);
-        if (data.settings) {
-          try {
-            localStorage.setItem(`ahrensGames.settings:${localStorage.getItem('ahrenslabs_userId') || ''}`, JSON.stringify(data.settings));
-          } catch {
-            /* storage blocked */
-          }
-        }
-        try {
-          sessionStorage.setItem(CACHE_KEY, JSON.stringify(games));
-        } catch {
-          /* storage blocked */
-        }
-        cached = games;
-        syncLiveSockets(games);
-        render(games, 'done');
-        alertTurns();
-      })
+      .then((data) => applyLobbyData(data))
       .catch(() => render(cached, 'error'));
   }
+
+  lastFetch = Date.now();
+  load(true);
 })();
