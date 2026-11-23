@@ -2635,16 +2635,34 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       const shelf = document.getElementById('trifangx-games-shelf');
       if (shelf && !shelf.dataset.pauseBound) {
         shelf.dataset.pauseBound = '1';
-        shelf.addEventListener('click', (ev) => {
-          const btn = ev.target.closest('[data-pause-id]');
+        shelf.addEventListener('click', async (ev) => {
+          const btn = ev.target.closest('.trifangx-paused-remove[data-pause-id]');
           if (!btn || !window.BoardSaves) return;
           ev.preventDefault();
           const id = btn.getAttribute('data-pause-id');
           if (!id) return;
-          if (window.confirm('Remove this paused game?')) {
-            window.BoardSaves.remove('trifangx', id);
-            renderTrifangxPausedGamesLobby();
-          }
+          const entry = listTrifangxPausedBoardSaves().find((m) => m && m.id === id);
+          const s = entry && entry.summary ? entry.summary : {};
+          const side = s.side || (s.names && s.names[0]) || 'vs TrifangX';
+          const moves = entry && entry._moves != null ? entry._moves : 0;
+          const round =
+            moves > 0 ? Math.max(1, Math.ceil(moves / 2)) : s.round || 0;
+          const detail =
+            moves > 0 || round > 0
+              ? `${side} · move ${round || 1}`
+              : side;
+          const signedIn = trifangxHasAccountSessionForShelf();
+          const ok = await showGenericConfirmModal(
+            'Remove this game?',
+            `${detail} will be removed from Your games${
+              signedIn ? ' on all your devices' : ' on this device'
+            }. This can’t be undone.`,
+            'Remove game',
+            'Keep it'
+          );
+          if (!ok) return;
+          window.BoardSaves.remove('trifangx', id);
+          renderTrifangxPausedGamesLobby();
         });
       }
       refreshTrifangxShelfFromAccount();
