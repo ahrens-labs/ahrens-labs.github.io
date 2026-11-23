@@ -52,6 +52,24 @@ h1, h2 { font-family: "Montserrat", "Fredoka", sans-serif; font-weight: 800; let
 }
 .box-side { position: absolute; left: 10px; right: -10px; bottom: -12px; height: 14px; border-radius: 0 0 10px 10px; background: linear-gradient(180deg, var(--accent-2), rgba(0, 0, 0, 0.6)); transform: rotate(-1.2deg); z-index: -1; }
 .lid img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.6s ease; }
+/* Logo lids (TrifangX): light mat, centered icon — not cropped like cover art. */
+.lid.lid--brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.1rem 1rem 3.35rem;
+  box-sizing: border-box;
+  background: linear-gradient(165deg, #ffffff 0%, #f0f5fc 55%, #e3ecfa 100%);
+}
+.lid.lid--brand img {
+  width: auto;
+  height: auto;
+  max-width: min(52%, 10.5rem);
+  max-height: 100%;
+  object-fit: contain;
+  object-position: center;
+  filter: drop-shadow(0 3px 10px rgba(15, 23, 42, 0.14));
+}
 .lid-title {
   position: absolute; left: 0; right: 0; bottom: 0; padding: 1.4rem 1rem 0.7rem;
   font-family: "Montserrat", sans-serif; font-weight: 800; font-size: 1.7rem; color: #fff; text-shadow: 0 3px 0 rgba(0, 0, 0, 0.6);
