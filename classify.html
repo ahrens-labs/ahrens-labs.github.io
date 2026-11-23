@@ -4469,6 +4469,18 @@
                 plannerStorageKey('plannerRepeatFixedWeekdayTimesV1'),
                 JSON.stringify(normalizeRepeatGroupFixedWeekdayTimes(repeatGroupFixedWeekdayTimes))
             );
+            const lastUpdated = String(Math.max(Date.now(), Number(plannerGet('plannerClassifyLastUpdatedV1')) || 0));
+            localStorage.setItem(plannerStorageKey('plannerClassifyLastUpdatedV1'), lastUpdated);
+            if(typeof classifyUndoStack !== 'undefined') {
+                try {
+                    localStorage.setItem(
+                        plannerStorageKey(CLASSIFY_UNDO_STORAGE_KEY),
+                        JSON.stringify(classifyUndoStack)
+                    );
+                } catch {
+                    /* undo stack trim handled elsewhere */
+                }
+            }
             if (calendarViewMode) localStorage.setItem(plannerStorageKey('calendarViewMode'), calendarViewMode);
             if (plannerGet('walkthroughCompleted') === 'true' || plannerGet('orientationCompleted') === 'true') {
                 localStorage.setItem(plannerStorageKey('walkthroughCompleted'), 'true');
@@ -4613,6 +4625,7 @@
         }
 
         function handleClassifyPause() {
+            flushClassifyDurabilityOnExit({ includeCloud: true });
             clearTimeout(classifyResumeTimer);
             stopClassifySyncPoll();
             disconnectClassifySync();
@@ -5049,6 +5062,42 @@
             return false;
         }
 
+        function restoreFullClassifyStateFromLocalStorage() {
+            const localTasks = readLocalClassifyTasksFromStorage();
+            if(localTasks.length === 0) return false;
+            tasks = localTasks.map(normalizeStoredTask);
+            const localHistory = safeJsonParse(plannerGet('plannerCompletionHistoryV1'), []);
+            if(Array.isArray(localHistory) && localHistory.length > 0) {
+                completionHistory = localHistory.filter(Boolean).map(normalizeCompletionEntry);
+            }
+            const localColors = safeJsonParse(plannerGet('plannerSubjectColors'), null);
+            if(localColors && typeof localColors === 'object') {
+                subjectColors = localColors;
+            }
+            blockedTimes = normalizeBlockedTimes(safeJsonParse(plannerGet('plannerBlockedTimesV1'), []));
+            scheduleRules = normalizeScheduleRules(safeJsonParse(plannerGet('plannerScheduleRulesV1'), null));
+            vacationRanges = normalizeVacationRanges(safeJsonParse(plannerGet('plannerVacationsV1'), []));
+            repeatSkips = normalizeRepeatSkips(safeJsonParse(plannerGet('plannerRepeatSkipsV1'), {}));
+            repeatGroupFixedWeekdayTimes = normalizeRepeatGroupFixedWeekdayTimes(
+                safeJsonParse(plannerGet('plannerRepeatFixedWeekdayTimesV1'), {})
+            );
+            const storedCalendarMode = plannerGet('calendarViewMode');
+            if(storedCalendarMode) calendarViewMode = storedCalendarMode;
+            return true;
+        }
+
+        function restoreLocalClassifyIfNewerThanCloud(cloudPayload) {
+            const localUpdated = Number(plannerGet('plannerClassifyLastUpdatedV1')) || 0;
+            const cloudUpdated = classifyCloudLastUpdated(cloudPayload);
+            if(localUpdated === 0) return false;
+            if(cloudUpdated > 0 && localUpdated <= cloudUpdated + 1500) return false;
+            const localTasks = readLocalClassifyTasksFromStorage();
+            if(localTasks.length === 0) return false;
+            const cloudCount = getClassifyPayloadTaskCount(cloudPayload);
+            if(cloudCount > 0 && localTasks.length + 10 < cloudCount) return false;
+            return restoreFullClassifyStateFromLocalStorage();
+        }
+
         function recoverClassifyDataFromLocalStorageIfNeeded(cloudPayload) {
             const memoryCount = (tasks || []).length;
             if(memoryCount > 0) return false;
@@ -5056,22 +5105,7 @@
             if(localTasks.length === 0) return false;
             const cloudCount = cloudPayload ? getClassifyPayloadTaskCount(cloudPayload) : 0;
             if(cloudCount > 0) return false;
-            tasks = localTasks.map(normalizeStoredTask);
-            const localHistory = safeJsonParse(plannerGet('plannerCompletionHistoryV1'), []);
-            if(
-                Array.isArray(localHistory) &&
-                localHistory.length > 0 &&
-                (!Array.isArray(completionHistory) || completionHistory.length === 0)
-            ) {
-                completionHistory = localHistory.filter(Boolean).map(normalizeCompletionEntry);
-            }
-            const localColors = safeJsonParse(plannerGet('plannerSubjectColors'), null);
-            if(localColors && typeof localColors === 'object' && Object.keys(localColors).length > 0) {
-                if(!subjectColors || Object.keys(subjectColors).length === 0) {
-                    subjectColors = localColors;
-                }
-            }
-            return true;
+            return restoreFullClassifyStateFromLocalStorage();
         }
 
         function applyClassifyCloudPayload(payload = {}) {
@@ -5125,7 +5159,13 @@
                 if (!response.ok) return false;
                 const data = await response.json();
                 suppressCloudSync = true;
-                applyClassifyCloudPayload(data);
+                if(restoreLocalClassifyIfNewerThanCloud(data)) {
+                    applyClassifyCloudPreferences(data);
+                    if(data.calendarViewMode) calendarViewMode = data.calendarViewMode || calendarViewMode;
+                    classifyPendingCloudUploadAfterLocalRecovery = true;
+                } else {
+                    applyClassifyCloudPayload(data);
+                }
                 suppressCloudSync = false;
                 return true;
             } catch (error) {
@@ -5209,6 +5249,27 @@
                 });
             }
             return runClassifyCloudSyncPass();
+        }
+
+        function queueClassifyCloudSyncKeepalive() {
+            if (!cloudSyncEnabled || suppressCloudSync) return false;
+            const sessionId = localStorage.getItem('ahrenslabs_sessionId');
+            if (!sessionId) return false;
+            try {
+                const url = `${window.AHRENS_LABS_API_BASE || window.AHRENS_API_URL}/api/classify/sync`;
+                return fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${sessionId}`,
+                        'X-Classify-Sync-Client': classifySyncClientId,
+                    },
+                    body: JSON.stringify(buildClassifyCloudPayload()),
+                    keepalive: true
+                }).catch(() => false);
+            } catch {
+                return false;
+            }
         }
 
         async function syncClassifyDataToCloud() {
@@ -5450,10 +5511,11 @@
             applyClassifyRouteFromUrl();
         });
 
+        window.addEventListener('pagehide', () => {
+            flushClassifyDurabilityOnExit({ includeCloud: true });
+        });
         window.addEventListener('beforeunload', () => {
-            if (cloudSyncEnabled && !suppressCloudSync) {
-                flushClassifyCloudSync();
-            }
+            flushClassifyDurabilityOnExit({ includeCloud: true });
         });
 
         // --- Dark Mode ---
@@ -11006,6 +11068,53 @@
                 classifyPersistPendingOptions = null;
                 saveData(persistOptions);
             }, 80);
+        }
+
+        function flushClassifyPendingPersistence() {
+            if(classifyPersistTimer) {
+                clearTimeout(classifyPersistTimer);
+                classifyPersistTimer = null;
+                const persistOptions = {
+                    skipUndoRecord: true,
+                    skipAutoSchedule: true,
+                    skipRender: true,
+                    lightRender: true,
+                    skipOverlapEnforce: true,
+                    skipUndoBaseline: false,
+                    ...(classifyPersistPendingOptions || {})
+                };
+                classifyPersistPendingOptions = null;
+                try {
+                    saveData(persistOptions);
+                } catch (error) {
+                    console.warn('flushClassifyPendingPersistence save failed:', error);
+                }
+            } else if(classifyPersistPendingOptions) {
+                classifyPersistPendingOptions = null;
+            }
+            if(classifyUndoPersistTimer) {
+                clearTimeout(classifyUndoPersistTimer);
+                classifyUndoPersistTimer = null;
+            }
+            persistClassifyUndoStack();
+        }
+
+        function flushClassifyDurabilityOnExit(options = {}) {
+            if(typeof tasks === 'undefined') return;
+            const { includeCloud = false } = options || {};
+            try {
+                flushClassifyPendingPersistence();
+            } catch (error) {
+                console.warn('Pending classify persistence flush failed:', error);
+            }
+            try {
+                persistClassifyLocally();
+            } catch (error) {
+                console.warn('Classify local persist on exit failed:', error);
+            }
+            if(includeCloud) {
+                queueClassifyCloudSyncKeepalive();
+            }
         }
 
         function setClassifyScheduleBusy(busy) {
