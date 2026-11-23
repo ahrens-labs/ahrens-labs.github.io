@@ -427,6 +427,15 @@ nav a.active::after {
 }
 
 /* Hide login/signup until checkLoginStatus resolves (no flash of guest buttons) */
+/* Sign-in / password pages: one header bar — forms own login & signup actions. */
+body.account-auth-page #header-auth-buttons {
+    display: none !important;
+}
+
+body.account-auth-page .header-content {
+    padding-bottom: 0;
+}
+
 html:not(.header-auth-ready) #header-login-btn,
 html:not(.header-auth-ready) #header-signup-btn,
 html:not(.header-auth-ready) #header-username {

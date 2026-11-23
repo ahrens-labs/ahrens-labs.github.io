@@ -19,7 +19,7 @@
       padding: 28px;
       box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
     }
-    .delete-wrap h1 { margin: 0 0 14px 0; color: #1f2937; }
+    .delete-wrap h2 { margin: 0 0 14px 0; color: #1f2937; }
     .danger-text { color: #7f1d1d; line-height: 1.5; }
     .form-group { margin-top: 18px; }
     .form-group label { display: block; margin-bottom: 8px; font-weight: 600; color: #334155; }
@@ -70,9 +70,31 @@
   </style>
 <link rel="stylesheet" href="/css/emoji.css">
 </head>
-<body>
+<body class="account-auth-page">
+  <div class="wrapper">
+    <header>
+      <div class="header-content">
+        <a href="index.html" class="logo-link">
+          <img src="img/EagleLogo.png" alt="Ahrens Labs logo" class="header-logo">
+        </a>
+        <h1>Ahrens Labs</h1>
+        <nav>
+          <ul>
+            <li><a href="index.html">Home</a></li>
+            <li><a href="labs.html">Labs & Projects</a></li>
+            <li><a href="account-dashboard.html">Account</a></li>
+            <li><a href="chess_engine.html">Chess Engine</a></li>
+          </ul>
+        </nav>
+      </div>
+      <div id="header-auth-buttons" style="position: absolute; top: 10px; right: 10px; display: flex; gap: 8px; align-items: center; z-index: 1000;">
+        <button type="button" id="header-login-btn" onclick="window.location.href='account.html'" style="padding: 6px 14px; background: #3498db; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85em; transition: all 0.3s; white-space: nowrap;">Login</button>
+        <button type="button" id="header-signup-btn" onclick="window.location.href='account.html'" style="padding: 6px 14px; background: #2ecc71; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85em; transition: all 0.3s; white-space: nowrap;">Sign Up</button>
+        <span id="header-username" style="display: none; padding: 6px 14px; color: white; font-weight: 600; font-size: 0.9em; white-space: nowrap;"></span>
+      </div>
+    </header>
   <main class="delete-wrap">
-    <h1>Delete account</h1>
+    <h2>Delete account</h2>
     <p class="danger-text">
       This action is permanent. It deletes your account and all cloud data
       (chess progress, dungeon saves, Classify planner data, and Kyrachyng lessons).
@@ -91,6 +113,11 @@
     <p class="note">You will receive a final email confirmation after successful deletion.</p>
     <p id="status" class="status" aria-live="polite"></p>
   </main>
+  <div class="push"></div>
+  </div>
+  <footer>
+    <p>&copy; 2025-2026 Ahrens Labs. All rights reserved.</p>
+  </footer>
 
   <div id="delete-final-modal" class="delete-final-overlay" aria-hidden="true">
     <div class="delete-final-dialog" role="dialog" aria-modal="true" aria-labelledby="delete-final-title">

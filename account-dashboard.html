@@ -18,7 +18,7 @@
   <script src="js/games-presence.js?v=2"></script>
   <style>
     .dash-wrap { max-width: 920px; margin: 0 auto; padding: 28px 20px 48px; font-family: Inter, system-ui, sans-serif; }
-    .dash-wrap h1 { margin: 0 0 8px 0; color: #1e293b; font-size: 1.85rem; }
+    .dash-topbar h2 { margin: 0 0 8px 0; color: #1e293b; font-size: 1.85rem; }
     .dash-sub { color: #64748b; margin: 0 0 28px 0; font-size: 0.98rem; }
     .dash-grid { display: grid; gap: 18px; }
     @media (min-width: 840px) { .dash-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
@@ -51,6 +51,7 @@
     .status { font-size: 0.86rem; margin-top: 10px; min-height: 1.2em; color: #64748b; }
     .status.ok { color: #047857; }
     .status.err { color: #b91c1c; }
+    .wrapper > header .header-content { position: relative; }
     .dash-topbar {
       display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between;
       margin-bottom: 20px; padding: 16px 18px; border: 1px solid #e2e8f0; border-radius: 14px;
@@ -699,7 +700,7 @@
     }
     @media (max-width: 640px) {
       .dash-wrap { padding: 18px 12px 40px; }
-      .dash-wrap h1 { font-size: 1.55rem; }
+      .dash-topbar h2 { font-size: 1.55rem; }
       .dash-card { padding: 18px 16px; }
       .dash-topbar { flex-direction: column; align-items: flex-start; gap: 10px; }
       .dash-card .row {
@@ -731,16 +732,21 @@
           <ul>
             <li><a href="index.html">Home</a></li>
             <li><a href="labs.html">Labs &amp; Projects</a></li>
-            <li><a href="account-dashboard.html">Account</a></li>
+            <li><a href="account-dashboard.html" class="active">Account</a></li>
             <li><a href="chess_engine.html">Chess Engine</a></li>
           </ul>
         </nav>
+      </div>
+      <div id="header-auth-buttons" style="position: absolute; top: 10px; right: 10px; display: flex; gap: 8px; align-items: center; z-index: 1000;">
+        <button type="button" id="header-login-btn" onclick="window.location.href='account.html'" style="padding: 6px 14px; background: #3498db; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85em; transition: all 0.3s; white-space: nowrap;">Login</button>
+        <button type="button" id="header-signup-btn" onclick="window.location.href='account.html'" style="padding: 6px 14px; background: #2ecc71; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85em; transition: all 0.3s; white-space: nowrap;">Sign Up</button>
+        <span id="header-username" style="display: none; padding: 6px 14px; color: white; font-weight: 600; font-size: 0.9em; white-space: nowrap;"></span>
       </div>
     </header>
     <main class="dash-wrap">
       <div class="dash-topbar">
         <div>
-          <h1>Account dashboard</h1>
+          <h2>Account dashboard</h2>
           <p class="dash-sub" id="dash-welcome">Loading…</p>
         </div>
         <div class="dash-links">

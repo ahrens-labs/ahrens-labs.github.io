@@ -406,7 +406,11 @@
           path.includes('chess-shop') ||
           path.includes('chess-leaderboard') ||
           path.includes('chess-season') ||
-          path.includes('achievements.html');
+          path.includes('achievements.html') ||
+          path.includes('account.html') ||
+          path.includes('account-dashboard') ||
+          path.includes('reset-password') ||
+          path.includes('delete-account');
         if (skipChallenge) return;
         const self = document.querySelector('script[src*="account_session"]');
         const src = self && self.src

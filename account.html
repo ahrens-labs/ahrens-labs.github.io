@@ -45,7 +45,7 @@
             margin-bottom: 40px;
         }
         
-        .account-header h1 {
+        .account-header h2 {
             font-size: 2em;
             color: #2c3e50;
             margin-bottom: 10px;
@@ -400,7 +400,7 @@
                 margin: 16px 10px 24px;
                 padding: 22px 16px;
             }
-            .account-header h1 {
+            .account-header h2 {
                 font-size: 1.55rem;
             }
             .account-tab {
@@ -417,7 +417,7 @@
     </style>
 <link rel="stylesheet" href="/css/emoji.css">
 </head>
-<body>
+<body class="account-auth-page">
     <div class="wrapper">
         <header>
             <div class="header-content">
@@ -433,17 +433,17 @@
                         <li><a href="chess_engine.html">Chess Engine</a></li>
                     </ul>
                 </nav>
-                <div id="header-auth-buttons" style="position: absolute; top: 10px; right: 10px; display: flex; gap: 8px; align-items: center; z-index: 1000;">
-                    <button id="header-login-btn" onclick="window.location.href='account.html'" style="padding: 6px 14px; background: #3498db; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85em; transition: all 0.3s; white-space: nowrap;">Login</button>
-                    <button id="header-signup-btn" onclick="window.location.href='account.html'" style="padding: 6px 14px; background: #2ecc71; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85em; transition: all 0.3s; white-space: nowrap;">Sign Up</button>
-                    <span id="header-username" style="display: none; padding: 6px 14px; color: white; font-weight: 600; font-size: 0.9em; white-space: nowrap;"></span>
-                </div>
+            </div>
+            <div id="header-auth-buttons" style="position: absolute; top: 10px; right: 10px; display: flex; gap: 8px; align-items: center; z-index: 1000;">
+                <button id="header-login-btn" onclick="window.location.href='account.html'" style="padding: 6px 14px; background: #3498db; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85em; transition: all 0.3s; white-space: nowrap;">Login</button>
+                <button id="header-signup-btn" onclick="window.location.href='account.html'" style="padding: 6px 14px; background: #2ecc71; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85em; transition: all 0.3s; white-space: nowrap;">Sign Up</button>
+                <span id="header-username" style="display: none; padding: 6px 14px; color: white; font-weight: 600; font-size: 0.9em; white-space: nowrap;"></span>
             </div>
         </header>
     <main>
     <div class="account-container">
         <div class="account-header">
-            <h1>Ahrens Labs Account</h1>
+            <h2>Ahrens Labs Account</h2>
             <p>One account for all projects</p>
             <p style="margin-top: 12px; font-size: 0.92em;"><a href="account-dashboard.html" style="color: #3b82f6; font-weight: 600;">Already signed in? Open your account dashboard →</a></p>
         </div>
