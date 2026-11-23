@@ -2365,8 +2365,8 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
     }
 
     const TRIFANGX_SHELF_THUMB_PX = 96;
-    const TRIFANGX_SHELF_THUMB_PIECES = 'lib/img/chesspieces/wikipedia/{piece}.png';
     const _trifangxShelfPieceImgCache = Object.create(null);
+    let _trifangxShelfThemeProbe = null;
 
     function fenPositionFromPausedSave(fen) {
       const raw = String(fen || '').trim();
@@ -2399,12 +2399,77 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       return board;
     }
 
+    function resolveTrifangxShelfBoardStyleId() {
+      const bsEl = document.getElementById('board-style');
+      let style =
+        (bsEl && bsEl.value != null ? String(bsEl.value).trim() : '') ||
+        (typeof localStorage !== 'undefined' && localStorage.getItem('chessboardStyle')) ||
+        'classic';
+      if (!style) style = 'classic';
+      if (typeof isUnlocked === 'function' && !isUnlocked('boards', style)) {
+        const unlocked = typeof getUnlockedItems === 'function' ? getUnlockedItems() : null;
+        style = unlocked && unlocked.boards && unlocked.boards.length ? unlocked.boards[0] : 'classic';
+      }
+      return style;
+    }
+
+    function cssSquareFillColor(el, fallback) {
+      if (!el) return fallback;
+      const cs = getComputedStyle(el);
+      const bc = cs.backgroundColor;
+      if (bc && bc !== 'rgba(0, 0, 0, 0)' && bc !== 'transparent') return bc;
+      const bg = cs.backgroundImage || '';
+      if (bg && bg !== 'none') {
+        const m = bg.match(/rgba?\([^)]+\)|#[0-9a-fA-F]{3,8}/i);
+        if (m) return m[0];
+      }
+      return fallback;
+    }
+
+    function getTrifangxShelfBoardColors() {
+      const styleId = resolveTrifangxShelfBoardStyleId();
+      if (typeof document === 'undefined') {
+        return { light: '#f0d9b5', dark: '#b58863' };
+      }
+      if (!_trifangxShelfThemeProbe) {
+        const wrap = document.createElement('div');
+        wrap.id = 'trifangx-shelf-theme-probe';
+        wrap.setAttribute('aria-hidden', 'true');
+        wrap.style.cssText =
+          'position:fixed;left:-9999px;top:0;width:80px;height:40px;overflow:hidden;opacity:0;pointer-events:none';
+        wrap.innerHTML =
+          '<div id="trifangx-shelf-probe-board" class="board-theme-classic">' +
+          '<div class="square-55d63 white-1e1d7" id="trifangx-shelf-probe-light"></div>' +
+          '<div class="square-55d63 black-3c85d" id="trifangx-shelf-probe-dark"></div></div>';
+        document.body.appendChild(wrap);
+        _trifangxShelfThemeProbe = wrap;
+      }
+      const boardProbe = document.getElementById('trifangx-shelf-probe-board');
+      if (boardProbe) {
+        boardProbe.className = 'board-theme-' + styleId;
+      }
+      return {
+        light: cssSquareFillColor(
+          document.getElementById('trifangx-shelf-probe-light'),
+          '#f0d9b5'
+        ),
+        dark: cssSquareFillColor(document.getElementById('trifangx-shelf-probe-dark'), '#b58863'),
+      };
+    }
+
     function getShelfPieceImage(pieceCode) {
-      if (_trifangxShelfPieceImgCache[pieceCode]) return _trifangxShelfPieceImgCache[pieceCode];
+      const styleKey =
+        typeof currentPieceStyle !== 'undefined' && currentPieceStyle ? currentPieceStyle : 'classic';
+      const cacheKey = styleKey + ':' + pieceCode;
+      if (_trifangxShelfPieceImgCache[cacheKey]) return _trifangxShelfPieceImgCache[cacheKey];
       const img = new Image();
       img.decoding = 'async';
-      img.src = TRIFANGX_SHELF_THUMB_PIECES.replace('{piece}', pieceCode);
-      _trifangxShelfPieceImgCache[pieceCode] = img;
+      const src =
+        typeof getPieceImageUrl === 'function'
+          ? getPieceImageUrl(pieceCode)
+          : 'lib/img/chesspieces/wikipedia/' + pieceCode + '.png';
+      img.src = src;
+      _trifangxShelfPieceImgCache[cacheKey] = img;
       return img;
     }
 
@@ -2416,8 +2481,9 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       canvas.width = n;
       canvas.height = n;
       const board = parseFenRowsForShelf(fen);
-      const light = '#f0d9b5';
-      const dark = '#b58863';
+      const colors = getTrifangxShelfBoardColors();
+      const light = colors.light;
+      const dark = colors.dark;
       for (let r = 0; r < 8; r++) {
         for (let c = 0; c < 8; c++) {
           ctx.fillStyle = (r + c) % 2 === 0 ? light : dark;
@@ -2532,6 +2598,9 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           </li>`;
         })
         .join('');
+      try {
+        applyQuickBoardCosmeticsFromCloudOrStorage();
+      } catch (eCosm) {}
       paintTrifangxPausedShelfThumbs(list);
     }
 
@@ -3818,6 +3887,9 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       // Auto-sync to account
       if (typeof autoSync === 'function') autoSync();
       if (typeof saveChessDataToCloud === 'function') void saveChessDataToCloud(true);
+      if (typeof paintTrifangxPausedShelfThumbs === 'function') {
+        paintTrifangxPausedShelfThumbs(document.getElementById('trifangx-paused-list'));
+      }
     }
 
     // Engine personality functions removed for performance
@@ -3872,6 +3944,9 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         }
         board.position(currentPosition);
         reapplyBoardThemeFromSettings();
+      }
+      if (typeof paintTrifangxPausedShelfThumbs === 'function') {
+        paintTrifangxPausedShelfThumbs(document.getElementById('trifangx-paused-list'));
       }
     }
 
