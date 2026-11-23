@@ -3392,36 +3392,68 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       }, 25000);
     }
 
-    async function hydrateEngineSessionForSnapshot(snap) {
+    async function persistSnapGameIdAfterEngineSync(snap) {
+      if (!snap || typeof snap !== 'object') return;
+      snap.game_id = getEngineGameId();
+      try {
+        sessionStorage.setItem(TRIFANGX_LIVE_SNAPSHOT_KEY, JSON.stringify(snap));
+      } catch (eSt) {}
+      if (snap.pauseSaveId) {
+        persistSnapshotObjectToBoardSaves(snap);
+      }
+    }
+
+    async function reconcileEngineSessionFromMoves() {
+      if (!game || gameOver) return false;
+      const uname = getTrifangxEngineAccountUsername();
+      if (!uname) return false;
+      try {
+        const hist = typeof game.history === 'function' ? game.history() : [];
+        await startEngineSessionFromSync(hist, playerColor);
+        const snap = buildLiveSnapshotForPersist();
+        await persistSnapGameIdAfterEngineSync(snap);
+        resetStaleEngineSessionFlag();
+        markEngineLockHeldByThisTab();
+        startHeartbeat();
+        return true;
+      } catch (e) {
+        console.warn('reconcileEngineSessionFromMoves:', e);
+        return false;
+      }
+    }
+
+    async function hydrateEngineSessionForSnapshot(snap, opts) {
+      opts = opts || {};
+      const forceSync = !!opts.forceSync;
       const gid = snap && typeof snap.game_id === 'string' ? snap.game_id.trim() : '';
       const moves = snap && Array.isArray(snap.moves) ? snap.moves : [];
       const isFresh = !!(snap && snap.isFreshStart);
       if (!gid && !moves.length && !isFresh) return false;
+
+      if (!forceSync && gid) {
+        try {
+          const hbBody = { game_id: gid };
+          const uHb = getTrifangxEngineAccountUsername();
+          if (uHb) hbBody.username = uHb;
+          const hbResp = await fetch(`${ENGINE_BASE}/heartbeat`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(hbBody),
+          });
+          if (hbResp.ok) {
+            setEngineGameId(gid);
+            return true;
+          }
+        } catch (eHb) {}
+      }
+
       try {
-        const hbBody = { game_id: gid };
-        const uHb = getTrifangxEngineAccountUsername();
-        if (uHb) hbBody.username = uHb;
-        const hbResp = await fetch(`${ENGINE_BASE}/heartbeat`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(hbBody),
-        });
-        if (hbResp.ok) {
-          if (gid) setEngineGameId(gid);
-          return true;
-        }
-      } catch (eHb) {}
-      try {
+        clearEngineGameId();
         await startEngineSessionFromSync(
           moves,
           snap && snap.playerColor ? snap.playerColor : playerColor
         );
-        if (snap && typeof snap === 'object') {
-          snap.game_id = getEngineGameId();
-          try {
-            sessionStorage.setItem(TRIFANGX_LIVE_SNAPSHOT_KEY, JSON.stringify(snap));
-          } catch (eSt) {}
-        }
+        await persistSnapGameIdAfterEngineSync(snap);
         return true;
       } catch (eSync) {
         console.warn('hydrateEngineSessionForSnapshot sync failed:', eSync);
@@ -14121,7 +14153,8 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
      * After reload on `trifangx_live.html` (or legacy ?txlive=1), restore from session snapshot.
      * Does not call /stop or clear the snapshot on heartbeat or replay errors — reload is a normal refresh.
      */
-    async function tryResumeLiveTrifangxFromSnapshot() {
+    async function tryResumeLiveTrifangxFromSnapshot(resumeOpts) {
+      resumeOpts = resumeOpts || {};
       try {
         let snap = null;
         try {
@@ -14138,15 +14171,21 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
             : snap && snap.isFreshStart
               ? TRIFANGX_START_FEN
               : '';
-        if (!snap || !gid) {
+        if (!snap || (!gid && !rawMoves.length && !snap.isFreshStart)) {
           return false;
         }
         if (!snap.isFreshStart && rawMoves.length === 0 && !fen) {
           return false;
         }
 
-        setEngineGameId(gid);
-        const sessionOk = await hydrateEngineSessionForSnapshot(snap);
+        if (resumeOpts.forceEngineSync) {
+          clearEngineGameId();
+        } else if (gid) {
+          setEngineGameId(gid);
+        }
+        const sessionOk = await hydrateEngineSessionForSnapshot(snap, {
+          forceSync: !!resumeOpts.forceEngineSync,
+        });
         if (!sessionOk) {
           clearEngineGameId();
           try {
@@ -14343,7 +14382,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         sessionStorage.setItem(TRIFANGX_PAUSED_SAVE_ID_KEY, id);
         sessionStorage.setItem(TRIFANGX_LIVE_SNAPSHOT_KEY, JSON.stringify(body));
       } catch (e) {}
-      return tryResumeLiveTrifangxFromSnapshot();
+      return tryResumeLiveTrifangxFromSnapshot({ forceEngineSync: true });
     }
 
     async function startGame() {
@@ -15154,6 +15193,22 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           msg.indexOf('Unknown or expired game_id') !== -1 ||
           msg.indexOf('Game ended') !== -1
         ) {
+          const recovered = await reconcileEngineSessionFromMoves();
+          if (recovered) {
+            try {
+              await engineMove();
+            } catch (eRetry) {
+              console.error('engineMove after sync recovery:', eRetry);
+              handleTrifangxStaleEngineSession('move');
+              setTimeout(function () {
+                showRematchModal(
+                  'Session ended',
+                  'Could not reconnect this game to the engine. Start again from the lobby?'
+                );
+              }, 500);
+            }
+            return;
+          }
           handleTrifangxStaleEngineSession('move');
           setTimeout(function () {
             showRematchModal(
