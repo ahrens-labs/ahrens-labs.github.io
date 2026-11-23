@@ -2288,6 +2288,15 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       );
     }
 
+    /** Safe before account globals initialize (no `isLoggedIn` TDZ). */
+    function trifangxHasAccountSessionForShelf() {
+      try {
+        return !!localStorage.getItem('ahrenslabs_sessionId');
+      } catch (e) {
+        return false;
+      }
+    }
+
     function renderTrifangxPausedGamesLobby() {
       if (typeof window !== 'undefined' && window.TRIFANGX_PAGE_MODE === 'live') {
         renderTrifangxPausedGamesLiveEmpty();
@@ -2298,7 +2307,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       const hint = document.getElementById('trifangx-paused-hint');
       const empty = document.getElementById('trifangx-paused-empty');
       if (!box || !list) return;
-      const showShelf = !!(typeof isLoggedIn !== 'undefined' && isLoggedIn && currentSessionId);
+      const showShelf = trifangxHasAccountSessionForShelf();
       if (!showShelf) {
         box.hidden = true;
         return;
@@ -3139,7 +3148,11 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
     }
 
     setupTrifangxReloadIntentHooks();
-    setupTrifangxPausedGamesLobbyUi();
+    try {
+      setupTrifangxPausedGamesLobbyUi();
+    } catch (ePauseUiInit) {
+      console.warn('setupTrifangxPausedGamesLobbyUi:', ePauseUiInit);
+    }
 
     function persistTrifangxLiveSnapshot() {
       try {
