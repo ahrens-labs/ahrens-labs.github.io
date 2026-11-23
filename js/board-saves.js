@@ -177,7 +177,7 @@
     adoptLocalGuestSaves();
     const ix = readIndex();
     const k = `${game}:${id}`;
-    if (ix[k] && ix[k].deleted) return;
+    if (ix[k] && ix[k].deleted) delete ix[k].deleted;
     try {
       localStorage.setItem(bodyKey(game, id), JSON.stringify(save));
     } catch {
@@ -225,12 +225,38 @@
     ix[`${game}:${id}`] = { game, id, updatedAt: updatedAt || Date.now(), deleted: true, owner: scopeId() };
   }
 
-  function getLocal(game, id) {
+  function readIndexForScope(scope) {
+    migrateLegacyIfNeeded();
+    const key =
+      scope === 'local'
+        ? 'ahrensBoardSaves.index:local'
+        : scope
+          ? `ahrensBoardSaves.index:${scope}`
+          : indexKey();
     try {
-      return JSON.parse(localStorage.getItem(bodyKey(game, id)) || 'null');
+      return JSON.parse(localStorage.getItem(key) || '{}') || {};
     } catch {
-      return null;
+      return {};
     }
+  }
+
+  function getLocal(game, id) {
+    adoptLocalGuestSaves();
+    const uid = userId();
+    const bodyKeys = [];
+    if (uid) bodyKeys.push(`ahrensBoardSaves.${uid}.${game}.${id}`);
+    bodyKeys.push(`ahrensBoardSaves.local.${game}.${id}`);
+    bodyKeys.push(legacyBodyKey(game, id));
+    bodyKeys.push(bodyKey(game, id));
+    for (const k of bodyKeys) {
+      try {
+        const raw = localStorage.getItem(k);
+        if (raw) return JSON.parse(raw);
+      } catch {
+        /* try next key */
+      }
+    }
+    return null;
   }
 
   // The save body, from this browser or else from the account.
@@ -270,9 +296,25 @@
   // Saved games not deleted, newest first. Entries with local: false live only in the account so far.
   function list(game) {
     adoptLocalGuestSaves();
-    return Object.values(readIndex())
-      .filter((m) => !m.deleted && (!game || m.game === game))
-      .sort((a, b) => b.updatedAt - a.updatedAt);
+    const merged = new Map();
+    const addFrom = (ix) => {
+      Object.values(ix || {}).forEach((m) => {
+        if (!m || m.deleted || (game && m.game !== game)) return;
+        const k = `${m.game}:${m.id}`;
+        const cur = merged.get(k);
+        if (!cur || (m.updatedAt || 0) > (cur.updatedAt || 0)) merged.set(k, m);
+      });
+    };
+    const uid = userId();
+    if (uid) addFrom(readIndexForScope(uid));
+    addFrom(readIndexForScope('local'));
+    try {
+      const legRaw = localStorage.getItem(LEGACY_INDEX_KEY);
+      if (legRaw) addFrom(JSON.parse(legRaw) || {});
+    } catch {
+      /* ignore */
+    }
+    return [...merged.values()].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
   }
 
   // 'removed' (deleted here or on another device), 'elsewhere' (a newer copy is in the account), or 'here'.

@@ -2211,6 +2211,13 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           ? Math.max(0, Math.round(performance.now() - timerStart))
           : 0,
     };
+      try {
+        const prev = getStoredLiveSnapshotObject();
+        const histLen = snap.moves && snap.moves.length ? snap.moves.length : 0;
+        if (prev && prev.isFreshStart && !histLen) {
+          snap.isFreshStart = true;
+        }
+      } catch (ePrev) {}
       return ensurePauseSaveIdOnSnapshot(snap);
     }
 
@@ -2240,7 +2247,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
     function persistPausedTrifangxBoardSave(opts) {
     opts = opts || {};
     if (!window.BoardSaves || typeof window.BoardSaves.put !== 'function') return;
-    if (!game || gameOver) return;
+    if (!game || (!opts.ignoreGameOver && gameOver)) return;
     const moves = game.history ? game.history() : [];
     if (!opts.allowFresh && !moves.length) return;
     const snap = buildLiveSnapshotForPersist();
@@ -2293,17 +2300,29 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         });
     }
 
+    function persistTrifangxBoardSaveFromSessionStorage() {
+      if (!window.BoardSaves || typeof window.BoardSaves.put !== 'function') return;
+      let snap = null;
+      try {
+        const raw = sessionStorage.getItem(TRIFANGX_LIVE_SNAPSHOT_KEY);
+        snap = raw ? JSON.parse(raw) : null;
+      } catch (e) {}
+      if (!snap || !snap.pauseSaveId) return;
+      const moveCount = snap.moves && Array.isArray(snap.moves) ? snap.moves.length : 0;
+      if (!moveCount && !snap.isFreshStart && !snap.game_id) return;
+      persistSnapshotObjectToBoardSaves(snap);
+    }
+
     function persistTrifangxBoardSaveOnExit() {
       try {
-        if (game && !gameOver) {
+        if (game && typeof game.history === 'function') {
           const moves = game.history ? game.history() : [];
-          persistPausedTrifangxBoardSave({ allowFresh: !moves.length });
-        } else {
-          const snap = getStoredLiveSnapshotObject();
-          if (snap && snap.pauseSaveId && (snap.game_id || snap.isFreshStart)) {
-            persistSnapshotObjectToBoardSaves(snap);
-          }
+          persistPausedTrifangxBoardSave({
+            allowFresh: !moves.length,
+            ignoreGameOver: true,
+          });
         }
+        persistTrifangxBoardSaveFromSessionStorage();
         if (window.BoardSaves && window.BoardSaves.flush) window.BoardSaves.flush(true);
       } catch (e) {}
     }
@@ -2825,6 +2844,10 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
      */
     function releaseEngineOccupancyOnPageExit() {
       try {
+        persistTrifangxBoardSaveFromSessionStorage();
+        if (window.BoardSaves && window.BoardSaves.flush) window.BoardSaves.flush(true);
+      } catch (eSaveExit) {}
+      try {
         stopHeartbeat();
         stopPregameStatusPolling();
         if (_statusPollInterval) {
@@ -3216,20 +3239,34 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         if (!game || gameOver) return;
         const gid = getEngineGameId();
         if (!gid) return;
-        if (!trifangxLivePlayActiveInUrl()) return;
         const snap = buildLiveSnapshotForPersist();
+        if (!snap || !snap.pauseSaveId) return;
         sessionStorage.setItem(TRIFANGX_LIVE_SNAPSHOT_KEY, JSON.stringify(snap));
         syncTrifangxGameUrl();
-        if (snap.moves && snap.moves.length) {
-          persistPausedTrifangxBoardSave({ allowFresh: false });
-        } else if (snap.isFreshStart) {
-          persistPausedTrifangxBoardSave({ allowFresh: true });
-        }
+        const moveCount = Array.isArray(snap.moves) ? snap.moves.length : 0;
+        persistPausedTrifangxBoardSave({
+          allowFresh: moveCount === 0,
+          ignoreGameOver: false,
+        });
       } catch (e) {}
     }
 
     function touchLiveGameSnapshot() {
       persistTrifangxLiveSnapshot();
+    }
+
+    let _trifangxLiveBoardSaveInterval = null;
+
+    /** While a live game is in progress, push BoardSaves on a timer (not only after each move). */
+    function setupTrifangxLivePeriodicBoardSave() {
+      if (!isTrifangxLiveDedicatedPage()) return;
+      if (_trifangxLiveBoardSaveInterval != null) return;
+      _trifangxLiveBoardSaveInterval = setInterval(function () {
+        try {
+          if (gameOver || !game || !getEngineGameId()) return;
+          persistTrifangxLiveSnapshot();
+        } catch (eTick) {}
+      }, 25000);
     }
 
     async function hydrateEngineSessionForSnapshot(snap) {
@@ -3367,6 +3404,16 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
     }
 
     setupTrifangxLiveLeaveGuards();
+    setupTrifangxLivePeriodicBoardSave();
+
+    window.addEventListener('beforeunload', function () {
+      if (!isTrifangxLiveDedicatedPage()) return;
+      try {
+        persistTrifangxLiveSnapshot();
+        persistTrifangxBoardSaveFromSessionStorage();
+        if (window.BoardSaves && window.BoardSaves.flush) window.BoardSaves.flush(true);
+      } catch (eBu) {}
+    });
 
     /**
      * "Chess Engine" nav from trifangx_live.html: release the engine (pagehide skips /stop only on reload).
@@ -3405,8 +3452,8 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           skipRelease = true;
         } else if (onLive && isLockHolder && gid && hasActiveLiveEngineSession()) {
           // Only same-tab reload keeps the server game; leaving the page always cancels.
-          if (reloading) {
           persistTrifangxLiveSnapshot();
+          if (reloading) {
             skipRelease = true;
           }
         } else if (
@@ -3451,6 +3498,13 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
     document.addEventListener('visibilitychange', function () {
       if (document.visibilityState === 'hidden') {
         _trifangxDocEverHidden = true;
+        if (isTrifangxLiveDedicatedPage() && (hasActiveLiveEngineSession() || getEngineGameId())) {
+          try {
+            persistTrifangxLiveSnapshot();
+            persistTrifangxBoardSaveFromSessionStorage();
+            if (window.BoardSaves && window.BoardSaves.flush) window.BoardSaves.flush(true);
+          } catch (eVis) {}
+        }
         return;
       }
       if (document.visibilityState === 'visible' && _trifangxDocEverHidden) {
@@ -5733,6 +5787,10 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           }
           if (liveResumed) {
             needsBoardReady = true;
+            try {
+              setupTrifangxLivePeriodicBoardSave();
+              touchLiveGameSnapshot();
+            } catch (eLiveSave) {}
           }
         }
 
@@ -9544,6 +9602,9 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         markEngineLockHeldByThisTab();
         startHeartbeat();
         setTrifangxLivePlayUrl();
+        try {
+          setupTrifangxLivePeriodicBoardSave();
+        } catch (ePer) {}
         touchLiveGameSnapshot();
         if (playerColor === "black") {
           engineMove();
@@ -15892,6 +15953,14 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
             localStorage.setItem('ahrenslabs_sessionId', currentSessionId);
             localStorage.setItem('chessSessionId', currentSessionId);
           }
+          if (userData.userId) {
+            localStorage.setItem('ahrenslabs_userId', String(userData.userId));
+          }
+          if (userData.username) {
+            try {
+              localStorage.setItem('ahrenslabs_username', String(userData.username));
+            } catch (eU) {}
+          }
           updateAccountUI(true, userData.username || userData.email);
           // Sync user data to localStorage
           syncUserDataToLocal(userData);
@@ -15940,6 +16009,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           isLoggedIn = true;
           localStorage.setItem('chessSessionId', currentSessionId);
           localStorage.setItem('ahrenslabs_sessionId', currentSessionId);
+          if (data.userId) localStorage.setItem('ahrenslabs_userId', String(data.userId));
           localStorage.setItem('accountUsername', username);
           updateAccountUI(true, username);
           showNotification(data.message || 'Account created.', 'success', 4500);
@@ -15981,9 +16051,13 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           isLoggedIn = true;
           localStorage.setItem('chessSessionId', currentSessionId);
           localStorage.setItem('ahrenslabs_sessionId', currentSessionId);
+          if (data.userId) localStorage.setItem('ahrenslabs_userId', String(data.userId));
           // Save username from login response
           if (data.username) {
             localStorage.setItem('accountUsername', data.username);
+            try {
+              localStorage.setItem('ahrenslabs_username', String(data.username));
+            } catch (eLu) {}
             updateAccountUI(true, data.username);
           }
           // Load user data from account
