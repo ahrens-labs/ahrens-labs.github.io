@@ -2325,6 +2325,9 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
     }
 
     let _trifangxShelfAccountMergeAt = 0;
+    /** False until chess shell bootstrap finishes (shelf + board cosmetics applied). */
+    let _trifangxShellContentReady = false;
+    let _trifangxShelfThumbPaintPromise = null;
     const TRIFANGX_SHELF_ACCOUNT_MERGE_MS = 90000;
 
     async function refreshTrifangxShelfFromAccount() {
@@ -2514,12 +2517,14 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
             );
         }
       }
-      if (pending.length) Promise.all(pending).catch(() => {});
+      if (!pending.length) return Promise.resolve();
+      return Promise.all(pending).catch(() => {});
     }
 
     function paintTrifangxPausedShelfThumbs(root) {
       const scope = root && root.querySelectorAll ? root : document;
       const thumbs = scope.querySelectorAll('.trifangx-paused-thumb[data-fen]');
+      const jobs = [];
       thumbs.forEach((wrap) => {
         const fen = wrap.getAttribute('data-fen');
         let canvas = wrap.querySelector('canvas.trifangx-paused-thumb-canvas');
@@ -2530,8 +2535,27 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           canvas.setAttribute('aria-label', 'Saved position');
           wrap.appendChild(canvas);
         }
-        drawTrifangxShelfThumb(canvas, fen);
+        jobs.push(drawTrifangxShelfThumb(canvas, fen));
       });
+      return Promise.all(jobs);
+    }
+
+    async function waitForTrifangxShelfThumbsReady() {
+      const box = document.getElementById('trifangx-games-shelf');
+      const livePaused = document.getElementById('trifangx-live-paused');
+      const hasLobbyShelf = box && !box.hidden;
+      const hasLivePaused = livePaused && !livePaused.hidden;
+      if (!hasLobbyShelf && !hasLivePaused) return;
+      const p = _trifangxShelfThumbPaintPromise;
+      if (p && typeof p.then === 'function') {
+        await Promise.race([
+          p,
+          new Promise(function (resolve) {
+            window.setTimeout(resolve, 4500);
+          }),
+        ]);
+      }
+      await waitForTrifangxBoardPaint();
     }
 
     function trifangxPausedSaveFen(entry) {
@@ -2552,6 +2576,9 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
     function renderTrifangxPausedGamesLobby() {
       if (typeof window !== 'undefined' && window.TRIFANGX_PAGE_MODE === 'live') {
         renderTrifangxPausedGamesLiveEmpty();
+        return;
+      }
+      if (isTrifangxChessShellPage() && !_trifangxShellContentReady) {
         return;
       }
       const box = document.getElementById('trifangx-games-shelf');
@@ -2601,10 +2628,13 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       try {
         applyQuickBoardCosmeticsFromCloudOrStorage();
       } catch (eCosm) {}
-      paintTrifangxPausedShelfThumbs(list);
+      _trifangxShelfThumbPaintPromise = paintTrifangxPausedShelfThumbs(list);
     }
 
     function renderTrifangxPausedGamesLiveEmpty() {
+      if (isTrifangxChessShellPage() && !_trifangxShellContentReady) {
+        return;
+      }
       const host = document.getElementById('trifangx-live-paused');
       if (!host) return;
       const entries = listTrifangxPausedBoardSaves();
@@ -2628,7 +2658,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           })
           .join('') +
         '</ul>';
-      paintTrifangxPausedShelfThumbs(host);
+      _trifangxShelfThumbPaintPromise = paintTrifangxPausedShelfThumbs(host);
     }
 
     function setupTrifangxPausedGamesLobbyUi() {
@@ -5689,6 +5719,12 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       }
     }
 
+    function endTrifangxShellBooting() {
+      try {
+        document.documentElement.classList.remove('trifangx-shell-booting');
+      } catch (e) {}
+    }
+
     function hideTrifangxShellLoading() {
       const el = document.getElementById('trifangx-shell-loading');
       if (!el) return;
@@ -5698,6 +5734,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       const gameContainer = document.getElementById('game-container');
       if (chooseSide) chooseSide.classList.remove('trifangx-shell-pending');
       if (gameContainer) gameContainer.classList.remove('trifangx-shell-pending');
+      endTrifangxShellBooting();
       el.classList.add('trifangx-shell-loading--hide');
       el.classList.add('trifangx-shell-loading--gone');
     }
@@ -6162,6 +6199,18 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           }
         }
       } finally {
+        _trifangxShellContentReady = true;
+        try {
+          applyQuickBoardCosmeticsFromCloudOrStorage();
+          if (typeof window !== 'undefined' && window.TRIFANGX_PAGE_MODE === 'live') {
+            if (typeof renderTrifangxPausedGamesLiveEmpty === 'function') {
+              renderTrifangxPausedGamesLiveEmpty();
+            }
+          } else {
+            renderTrifangxPausedGamesLobby();
+          }
+          await waitForTrifangxShelfThumbsReady();
+        } catch (eShelfReady) {}
         updateChessPregameToolsVisibility();
         hideTrifangxShellLoading();
       }
@@ -6253,6 +6302,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         const loaded = await loadChessDataFromCloud();
         if (!loaded) {
           console.log("Failed to load data, redirect should happen...");
+          _trifangxShellContentReady = true;
           hideTrifangxShellLoading();
           if (window.TRIFANGX_DASHBOARD_EMBED && window.parent !== window) {
             try {

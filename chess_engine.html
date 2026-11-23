@@ -6,6 +6,9 @@
     <script>
     (function () {
       try {
+        document.documentElement.classList.add('trifangx-shell-booting');
+      } catch (eBoot) {}
+      try {
         if (new URLSearchParams(location.search).get('dashboardEmbed') === '1') {
           document.documentElement.classList.add('trifangx-dashboard-embed');
           window.TRIFANGX_DASHBOARD_EMBED = true;
@@ -33,7 +36,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/trifangx-season-winter.css?v=20261118">
-    <link rel="stylesheet" href="css/trifangx-shell-loading.css?v=20260626c">
+    <link rel="stylesheet" href="css/trifangx-shell-loading.css?v=20261123a">
     <link rel="icon" type="image/x-icon" href="/img/favicon.ico">
     <script src="js/account_session.js?v=3"></script>
     <script src="js/script.js"></script>
@@ -6237,7 +6240,7 @@
 </script>
 <script>window.TRIFANGX_PAGE_MODE = "lobby";</script>
     <script src="js/board-saves.js?v=5"></script>
-    <script src="js/trifangx_chess_app.js?v=20261123n"></script>
+    <script src="js/trifangx_chess_app.js?v=20261123o"></script>
   <div class="push"></div>
     </div>
   <footer>

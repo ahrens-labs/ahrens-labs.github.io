@@ -70,6 +70,18 @@
   pointer-events: none;
 }
 
+/* Hide lobby/live chess chrome until bootstrap finishes (avoids wrong-theme shelf flash). */
+html.trifangx-shell-booting #game-title,
+html.trifangx-shell-booting #trifangx-games-shelf,
+html.trifangx-shell-booting #choose-side,
+html.trifangx-shell-booting #game-container,
+html.trifangx-shell-booting #chess-pregame-tools,
+html.trifangx-shell-booting #trifangx-live-empty,
+html.trifangx-shell-booting #trifangx-replay-empty {
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
 @keyframes trifangx-shell-spin {
   to {
     transform: rotate(360deg);
