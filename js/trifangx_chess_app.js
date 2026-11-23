@@ -2011,6 +2011,8 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
     const TRIFANGX_PENDING_ENGINE_MOVE_MAX_AGE_MS = 5 * 60 * 1000;
     /** URL flag for an in-progress engine game (legacy; primary flow uses `trifangx_live.html`). */
     const TRIFANGX_LIVE_URL_PARAM = 'txlive';
+    /** Stable BoardSaves id in the URL (same pattern as other Ahrens board games). */
+    const TRIFANGX_LOCAL_SAVE_PARAM = 'local';
     /** Set only immediately before `location.replace(trifangx_live.html)` so lobby pagehide does not /stop mid-handoff. */
     const TRIFANGX_LIVE_PAGEHIDE_HANDOFF_KEY = 'trifangx_live_handoff_pending';
 
@@ -2111,8 +2113,19 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       return 'tx' + [...b].map((x) => x.toString(16).padStart(2, '0')).join('');
     }
 
+    function getTrifangxLocalSaveIdFromUrl() {
+      try {
+        const p = new URL(window.location.href).searchParams.get(TRIFANGX_LOCAL_SAVE_PARAM);
+        return p && /^tx[a-f0-9]{16}$/i.test(String(p).trim()) ? String(p).trim() : '';
+      } catch (e) {
+        return '';
+      }
+    }
+
     function getTrifangxPauseSaveId() {
       try {
+        const urlId = getTrifangxLocalSaveIdFromUrl();
+        if (urlId) return urlId;
         const fromSnap = getStoredLiveSnapshotObject();
         if (fromSnap && typeof fromSnap.pauseSaveId === 'string' && fromSnap.pauseSaveId.trim()) {
           return fromSnap.pauseSaveId.trim();
@@ -2126,6 +2139,25 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       } catch (e) {
         return randomTrifangxPauseSaveId();
       }
+    }
+
+    function buildTrifangxLiveGameUrl(saveId) {
+      const id = String(saveId || getTrifangxPauseSaveId() || '').trim();
+      const u = new URL('trifangx_live.html', window.location.href);
+      if (id) u.searchParams.set(TRIFANGX_LOCAL_SAVE_PARAM, id);
+      return u.href;
+    }
+
+    function syncTrifangxGameUrl() {
+      if (!isTrifangxLiveDedicatedPage()) return;
+      const id = getTrifangxPauseSaveId();
+      if (!id || !window.history || !window.history.replaceState) return;
+      try {
+        const u = new URL(window.location.href);
+        if (u.searchParams.get(TRIFANGX_LOCAL_SAVE_PARAM) === id) return;
+        u.searchParams.set(TRIFANGX_LOCAL_SAVE_PARAM, id);
+        window.history.replaceState({}, document.title, u.pathname + u.search + u.hash);
+      } catch (e) {}
     }
 
     function ensurePauseSaveIdOnSnapshot(snap) {
@@ -2185,13 +2217,14 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
     function pauseSummaryFromSnapshot(snap) {
     const moves = snap && Array.isArray(snap.moves) ? snap.moves : [];
     const pc = snap && snap.playerColor ? String(snap.playerColor).toLowerCase() : 'white';
+    const fresh = !!(snap && snap.isFreshStart);
     return {
       mode: 'ai',
       level: 'trifangx',
       names: [pc === 'black' ? 'You (Black)' : 'You (White)'],
       side: pc === 'black' ? 'Black' : 'White',
-      round: Math.max(1, Math.ceil(moves.length / 2)),
-      moved: moves.length > 0,
+      round: moves.length > 0 ? Math.max(1, Math.ceil(moves.length / 2)) : fresh ? 1 : 0,
+      moved: moves.length > 0 || fresh,
     };
     }
 
@@ -2232,13 +2265,21 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
 
     function listTrifangxPausedBoardSaves() {
       if (!window.BoardSaves || typeof window.BoardSaves.list !== 'function') return [];
-      return window.BoardSaves.list('trifangx').filter((m) => {
-        if (!m || m.deleted) return false;
-        const s = m.summary || {};
-        const ply = Array.isArray(m.moves) ? m.moves.length : 0;
-        const round = s.round || (ply ? Math.ceil(ply / 2) : 0);
-        return s.moved !== false && round > 0;
-      });
+      return window.BoardSaves.list('trifangx')
+        .filter((m) => m && !m.deleted)
+        .map((m) => {
+          let body = null;
+          try {
+            body = window.BoardSaves.getLocal('trifangx', m.id);
+          } catch (e) {}
+          const moves = body && Array.isArray(body.moves) ? body.moves.length : 0;
+          return Object.assign({}, m, { _body: body, _moves: moves });
+        })
+        .filter((m) => {
+          if (m._moves > 0) return true;
+          if (m._body && (m._body.isFreshStart || m._body.game_id)) return true;
+          return (m.summary && m.summary.moved) !== false && (m.summary.round || 0) > 0;
+        });
     }
 
     function escPausedHtml(s) {
@@ -2252,34 +2293,44 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         renderTrifangxPausedGamesLiveEmpty();
         return;
       }
-      const box = document.getElementById('trifangx-paused-games');
+      const box = document.getElementById('trifangx-games-shelf');
       const list = document.getElementById('trifangx-paused-list');
       const hint = document.getElementById('trifangx-paused-hint');
+      const empty = document.getElementById('trifangx-paused-empty');
       if (!box || !list) return;
-      const entries = listTrifangxPausedBoardSaves();
-      if (!entries.length) {
+      const showShelf = !!(typeof isLoggedIn !== 'undefined' && isLoggedIn && currentSessionId);
+      if (!showShelf) {
         box.hidden = true;
-        list.innerHTML = '';
         return;
       }
       box.hidden = false;
+      const entries = listTrifangxPausedBoardSaves();
+      if (empty) empty.hidden = entries.length > 0;
+      list.hidden = !entries.length;
       if (hint) {
         hint.textContent =
-          entries.length === 1
-            ? 'One paused game — continue or start a new match below.'
-            : `${entries.length} paused games — continue one or start a new match below.`;
+          entries.length === 0
+            ? 'Each new game gets its own link (?local=…). Saves appear here after you start or make a move.'
+            : entries.length === 1
+              ? 'One saved game — continue it or start a new match below.'
+              : `${entries.length} saved games — pick one or start another below.`;
       }
       list.innerHTML = entries
         .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
         .map((m) => {
           const s = m.summary || {};
           const side = s.side || (s.names && s.names[0]) || 'vs TrifangX';
-          const round = s.round || 1;
-          const href = `trifangx_live.html?local=${encodeURIComponent(m.id)}`;
+          const moves = m._moves != null ? m._moves : 0;
+          const round = moves > 0 ? Math.max(1, Math.ceil(moves / 2)) : s.round || 0;
+          const moveLabel = moves > 0 ? `move ${round}` : 'just started';
+          const href = buildTrifangxLiveGameUrl(m.id);
           return `<li class="trifangx-paused-item">
-            <span class="trifangx-paused-item-meta"><strong>${escPausedHtml(side)}</strong> · move ${round}</span>
-            <a class="trifangx-paused-continue" href="${escPausedHtml(href)}">Continue</a>
-            <button type="button" class="trifangx-paused-remove" data-pause-id="${escPausedHtml(m.id)}">Remove</button>
+            <span class="trifangx-paused-item-meta"><strong>${escPausedHtml(side)}</strong> · ${escPausedHtml(moveLabel)}</span>
+            <span class="trifangx-paused-id" title="Game id">${escPausedHtml(m.id)}</span>
+            <div class="trifangx-paused-item-actions">
+              <a class="trifangx-paused-continue" href="${escPausedHtml(href)}">Continue</a>
+              <button type="button" class="trifangx-paused-remove" data-pause-id="${escPausedHtml(m.id)}">Remove</button>
+            </div>
           </li>`;
         })
         .join('');
@@ -2311,10 +2362,10 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
     }
 
     function setupTrifangxPausedGamesLobbyUi() {
-      const list = document.getElementById('trifangx-paused-list');
-      if (list && !list.dataset.pauseBound) {
-        list.dataset.pauseBound = '1';
-        list.addEventListener('click', (ev) => {
+      const shelf = document.getElementById('trifangx-games-shelf');
+      if (shelf && !shelf.dataset.pauseBound) {
+        shelf.dataset.pauseBound = '1';
+        shelf.addEventListener('click', (ev) => {
           const btn = ev.target.closest('[data-pause-id]');
           if (!btn || !window.BoardSaves) return;
           ev.preventDefault();
@@ -2991,10 +3042,16 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       } catch (e1) {}
       try {
         const u = new URL(window.location.href);
+        let changed = false;
         if (u.searchParams.get(TRIFANGX_LIVE_URL_PARAM) === '1') {
           u.searchParams.delete(TRIFANGX_LIVE_URL_PARAM);
-          window.history.replaceState({}, document.title, u.pathname + u.search + u.hash);
+          changed = true;
         }
+        if (u.searchParams.has(TRIFANGX_LOCAL_SAVE_PARAM)) {
+          u.searchParams.delete(TRIFANGX_LOCAL_SAVE_PARAM);
+          changed = true;
+        }
+        if (changed) window.history.replaceState({}, document.title, u.pathname + u.search + u.hash);
       } catch (e2) {}
     }
 
@@ -3094,8 +3151,11 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         if (!trifangxLivePlayActiveInUrl()) return;
         const snap = buildLiveSnapshotForPersist();
         sessionStorage.setItem(TRIFANGX_LIVE_SNAPSHOT_KEY, JSON.stringify(snap));
+        syncTrifangxGameUrl();
         if (snap.moves && snap.moves.length) {
           persistPausedTrifangxBoardSave({ allowFresh: false });
+        } else if (snap.isFreshStart) {
+          persistPausedTrifangxBoardSave({ allowFresh: true });
         }
       } catch (e) {}
     }
@@ -14106,9 +14166,13 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           sessionStorage.setItem(TRIFANGX_LIVE_PAGEHIDE_HANDOFF_KEY, '1');
         } catch (eHand) {}
       writeFreshLiveHandoffSnapshot(gameId, lobbyOpts);
+      let pauseId = '';
+      try {
+        pauseId = sessionStorage.getItem(TRIFANGX_PAUSED_SAVE_ID_KEY) || '';
+      } catch (ePid) {}
 
         try {
-          window.location.replace(new URL('trifangx_live.html', window.location.href).href);
+          window.location.replace(buildTrifangxLiveGameUrl(pauseId));
         } catch (eNav) {
           try {
             sessionStorage.removeItem(TRIFANGX_LIVE_PAGEHIDE_HANDOFF_KEY);
@@ -15593,6 +15657,8 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       if (gt) gt.style.display = 'none';
       const cs = document.getElementById('choose-side');
       if (cs) cs.style.display = 'none';
+      const shelf = document.getElementById('trifangx-games-shelf');
+      if (shelf) shelf.hidden = true;
       document.getElementById('game-container').style.display = 'none';
       updateChessPregameToolsVisibility();
       switchLoginPageTab(tab);
@@ -15608,6 +15674,14 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       if (cside) cside.style.display = isLiveShell ? 'none' : 'block';
       document.getElementById('game-container').style.display = 'block';
       updateChessPregameToolsVisibility();
+      if (typeof renderTrifangxPausedGamesLobby === 'function') renderTrifangxPausedGamesLobby();
+      try {
+        const localOnLobby = getTrifangxLocalSaveIdFromUrl();
+        if (localOnLobby && !isTrifangxLiveDedicatedPage()) {
+          window.location.replace(buildTrifangxLiveGameUrl(localOnLobby));
+          return;
+        }
+      } catch (eRedir) {}
       checkEngineStatus().then(() => {
         if (typeof isChessPregamePhase === 'function' && isChessPregamePhase()) ensurePregameStatusPolling();
       }).catch(() => {});
