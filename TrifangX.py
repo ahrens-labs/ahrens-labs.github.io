@@ -429,6 +429,8 @@ _GAMES_LOCK = threading.RLock()
 # game_id (uuid str) -> { 'active_since': epoch seconds, 'snapshot': dict }
 # Process-local only: one WSGI worker (or sticky sessions) so /start, /heartbeat, and /move share GAMES.
 GAMES = {}
+# Set when the engine selects a move (used by convert_long_move for capture SAN).
+_ENGINE_LAST_CAPTURED = '0'
 GAME_LOCK_TTL = 3600  # seconds before a silent-abandoned game is auto-removed
 MAX_CONCURRENT_GAMES = min(8, max(2, (os.cpu_count() or 2) * 2))
 MAX_ACTIVE_GAMES_PER_ACCOUNT = 3
@@ -1305,6 +1307,8 @@ def reset_engine_state():
 
 def _compute_engine_move_reply(move_notation, color):
     """Run one engine reply using current module globals (board, etc.)."""
+    global _ENGINE_LAST_CAPTURED
+    _ENGINE_LAST_CAPTURED = '0'
     with _engine_stdout_context():
         notation_move = None
         if move_notation:
@@ -2675,12 +2679,38 @@ def open_file(board, col, turn):
     return True
 
 def convert_long_move(move):
-    if move[2] == move[4]:
-        return (move[:2] + move[3:])
-    elif move[1] == move[3]:
-        return (move[:1] + move[2:])
+    global _ENGINE_LAST_CAPTURED
+    cleaned = clean_move(str(move))
+    if len(cleaned) != 5:
+        return move
+    is_capture = _ENGINE_LAST_CAPTURED not in ('0', None, '')
+    try:
+        piece_l, from_row_c, from_col_c, to_row_c, to_col_c = extract_long_algebraic(cleaned)
+        to_r, to_c = pos_to_indices(str(to_col_c) + str(to_row_c))
+        dest = indices_to_pos(to_r, to_c)
+        pc = piece_l.upper()
+    except (ValueError, TypeError, IndexError):
+        if move[2] == move[4]:
+            return move[:2] + move[3:]
+        if move[1] == move[3]:
+            return move[:1] + move[2:]
+        return move[:2] + move[3:]
+    disambig = ''
+    if from_col_c == to_col_c:
+        disambig = str(from_row_c)
+    elif from_row_c == to_row_c:
+        disambig = str(from_col_c)
     else:
-        return (move[:2] + move[3:])
+        disambig = str(from_col_c) + str(from_row_c)
+    if disambig:
+        return pc + disambig + ('x' if is_capture else '') + dest
+    if is_capture:
+        return pc + 'x' + dest
+    if move[2] == move[4]:
+        return move[:2] + move[3:]
+    if move[1] == move[3]:
+        return move[:1] + move[2:]
+    return move[:2] + move[3:]
 
 def score_holes(board, stats, white_king_row=None, white_king_col=None, black_king_row=None, black_king_col=None):
     score = 0
@@ -5956,6 +5986,8 @@ def best_move_function(board, bots, en_passant):
             else:
                 captured_piece = board[target_row][target_col]
                 piece = board[target_row][target_col]
+                global _ENGINE_LAST_CAPTURED
+                _ENGINE_LAST_CAPTURED = captured_piece
                 source_piece = board[best_row][best_col]
                 board_before = fast_copy_board(board)
                 board[best_row][best_col] = '0'
@@ -5990,7 +6022,7 @@ def best_move_function(board, bots, en_passant):
                 else:
                     if is_protected_piece(board, target_row, target_col, best_piece):
                         disambiguation = get_move_disambiguation(board_before, best_piece, best_row, best_col, target_row, target_col)
-                        if piece in WHITE_PIECES:
+                        if captured_piece != '0':
                             move_played = best_piece.upper() + disambiguation + 'x' + indices_to_pos(target_row, target_col)
                         else:
                             move_played = best_piece.upper() + disambiguation + indices_to_pos(target_row, target_col)
@@ -8581,6 +8613,8 @@ def best_move_black(board, bots, en_passant):
             else:
                 captured_piece = board[target_row][target_col]
                 piece = board[target_row][target_col]
+                global _ENGINE_LAST_CAPTURED
+                _ENGINE_LAST_CAPTURED = captured_piece
                 source_piece = board[best_row][best_col]
                 board_before = fast_copy_board(board)
                 board[best_row][best_col] = '0'
@@ -8617,7 +8651,7 @@ def best_move_black(board, bots, en_passant):
                 else:
                     if is_protected_piece(board, target_row, target_col, best_piece):
                         disambiguation = get_move_disambiguation(board_before, best_piece, best_row, best_col, target_row, target_col)
-                        if piece in BLACK_PIECES:
+                        if captured_piece != '0':
                             move_played = best_piece.upper() + disambiguation + 'x' + indices_to_pos(target_row, target_col)
                         else:
                             move_played = best_piece.upper() + disambiguation + indices_to_pos(target_row, target_col)

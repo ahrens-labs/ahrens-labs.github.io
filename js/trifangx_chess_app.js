@@ -14958,6 +14958,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         .trim()
         .replace(/e\.p\./gi, "")
         .replace(/[+#]/g, "")
+        .replace(/x/gi, "")
         .replace(/0-0-0/g, "O-O-O")
         .replace(/0-0/g, "O-O");
     }
