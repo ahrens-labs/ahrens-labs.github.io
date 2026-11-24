@@ -421,5 +421,26 @@
   adoptLocalGuestSaves();
   if (session() && userId() && Object.values(readIndex()).some((m) => m.dirty)) schedule(2000);
 
-  window.BoardSaves = { put, remove, load, getLocal, list, status, merge, flush };
+  /** True when a TrifangX save is resumable (in progress), not an empty or finished shell. */
+  function isTrifangxSaveActive(meta) {
+    if (!meta || meta.game !== 'trifangx' || meta.deleted) return false;
+    const s = meta.summary || {};
+    if (s.active === false) return false;
+    if (s.active === true || s.hasLive === true) return true;
+    let body = null;
+    try {
+      body = getLocal('trifangx', meta.id);
+    } catch {
+      body = null;
+    }
+    if (body && body.gameOver) return false;
+    const moveCount = body && Array.isArray(body.moves) ? body.moves.length : 0;
+    if (moveCount > 0) return true;
+    if (body && body.game_id && (body.isFreshStart || moveCount === 0)) return true;
+    if (s.moved === false) return false;
+    if ((s.round || 0) > 0) return true;
+    return false;
+  }
+
+  window.BoardSaves = { put, remove, load, getLocal, list, status, merge, flush, isTrifangxSaveActive };
 })();

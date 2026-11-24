@@ -2226,13 +2226,17 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
     const moves = snap && Array.isArray(snap.moves) ? snap.moves : [];
     const pc = snap && snap.playerColor ? String(snap.playerColor).toLowerCase() : 'white';
     const fresh = !!(snap && snap.isFreshStart);
+    const hasLive = !!(snap && snap.game_id);
+    const active = moves.length > 0 || (hasLive && (fresh || moves.length === 0));
     return {
       mode: 'ai',
       level: 'trifangx',
       names: [pc === 'black' ? 'You (Black)' : 'You (White)'],
       side: pc === 'black' ? 'Black' : 'White',
-      round: moves.length > 0 ? Math.max(1, Math.ceil(moves.length / 2)) : fresh ? 1 : 0,
-      moved: moves.length > 0 || fresh,
+      round: moves.length > 0 ? Math.max(1, Math.ceil(moves.length / 2)) : fresh && hasLive ? 1 : 0,
+      moved: active,
+      active,
+      hasLive,
     };
     }
 
@@ -2289,13 +2293,11 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           const moves = body && Array.isArray(body.moves) ? body.moves.length : 0;
           return Object.assign({}, m, { _body: body, _moves: moves });
         })
-        .filter((m) => {
-          if (m._moves > 0) return true;
-          if (m._body && (m._body.isFreshStart || m._body.game_id)) return true;
-          const s = m.summary || {};
-          if (s.level === 'trifangx' && s.moved !== false) return true;
-          return s.moved !== false && (s.round || 0) > 0;
-        });
+        .filter((m) =>
+          window.BoardSaves && typeof window.BoardSaves.isTrifangxSaveActive === 'function'
+            ? window.BoardSaves.isTrifangxSaveActive(m)
+            : m._moves > 0 || (m._body && m._body.game_id)
+        );
     }
 
     function persistTrifangxBoardSaveFromSessionStorage() {

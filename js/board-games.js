@@ -65,8 +65,11 @@
   const hhMoved = (s) => (s.round || 1) > 1 || (s.log || []).some((e) => e && e.who != null && s.players[e.who] && !s.players[e.who].ai);
   // Dino saves from before the moved flag existed keep showing.
   const dinoMoved = (d) => d.moved !== false;
-  const trifangxMoved = (s) => s.moved !== false && ((s.round || 0) > 0 || s.level === 'trifangx');
   const BS = window.BoardSaves;
+  const trifangxActive = (m) =>
+    BS && typeof BS.isTrifangxSaveActive === 'function'
+      ? BS.isTrifangxSaveActive(m)
+      : (m.summary || {}).moved !== false && ((m.summary || {}).round || 0) > 0;
   const randomId = (prefix) => {
     const b = new Uint8Array(8);
     crypto.getRandomValues(b);
@@ -146,7 +149,7 @@
     return BS.list()
       .filter((m) => {
         if (!shown(m.game)) return false;
-        if (m.game === 'trifangx') return trifangxMoved(m.summary || {});
+        if (m.game === 'trifangx') return trifangxActive(m);
         return !m.summary || m.summary.moved !== false;
       })
       .map(savedItem);

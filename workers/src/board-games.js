@@ -74,6 +74,9 @@ function cleanSummary(s) {
   if (Number.isFinite(s.round)) out.round = Math.max(0, Math.min(99, Math.floor(s.round)));
   if (Number.isFinite(s.rounds)) out.rounds = Math.max(0, Math.min(99, Math.floor(s.rounds)));
   out.moved = s.moved !== false;
+  if (s.active === true) out.active = true;
+  if (s.active === false) out.active = false;
+  if (s.hasLive === true) out.hasLive = true;
   if (typeof s.side === 'string') out.side = str(s.side, 12);
   return out;
 }

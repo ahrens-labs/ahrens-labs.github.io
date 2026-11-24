@@ -2,16 +2,19 @@
 
 import { resolveScheduleTimes } from './sports-digest-teams.js';
 import {
+  centralLocalToUtcMs,
   chicagoDateYmd,
   chicagoTimeHm,
   chicagoWeekdayIndex,
   isQuarterHourHm,
-  SPORTS_DIGEST_CENTRAL_UTC_OFFSET_HOURS,
   utcTimeHm,
 } from './sports-digest-timezone.js';
 
-const CENTRAL_OFFSET_MS = SPORTS_DIGEST_CENTRAL_UTC_OFFSET_HOURS * 60 * 60 * 1000;
+/** Bump when schedule/dedup semantics change (e.g. America/Chicago DST). Clears stale send locks. */
+export const SPORTS_DIGEST_SCHEDULE_EPOCH = 2;
+export const SPORTS_DIGEST_QUARTER_CRON = '0,15,30,45 * * * *';
 const DEFAULT_DIGEST_SINCE_MS = 12 * 60 * 60 * 1000;
+const SLOT_MATCH_MS = 2 * 60 * 1000;
 function normalizeHm(t) {
   const m = /^(\d{1,2}):(\d{2})$/.exec(String(t || '').trim());
   if (!m) return null;
@@ -29,15 +32,42 @@ export function buildSendKey(ymd, hm) {
   return `${ymd}|${hm}`;
 }
 
-export function subscriberAlreadySent(sub, sendKey, ymd, hm) {
-  if (Array.isArray(sub.lastSentKeys) && sub.lastSentKeys.includes(sendKey)) return true;
-  if (hm === '06:00' && sub.lastSentMorningYmd === ymd) return true;
-  if (hm === '18:00' && sub.lastSentEveningYmd === ymd) return true;
-  if (hm === '06:00' && sub.frequency === 'weekly' && sub.lastSentWeeklyYmd === ymd) return true;
+/** Reset dedup after schedule epoch changes (fixed UTC offset used to mark sends at the wrong instant). */
+export function migrateSubscriberSendState(sub) {
+  if (!sub || typeof sub !== 'object') return sub;
+  if (sub.scheduleEpoch === SPORTS_DIGEST_SCHEDULE_EPOCH) return sub;
+  return {
+    ...sub,
+    scheduleEpoch: SPORTS_DIGEST_SCHEDULE_EPOCH,
+    lastSentKeys: [],
+    lastSentSlots: [],
+    lastSentMorningYmd: undefined,
+    lastSentEveningYmd: undefined,
+    lastSentWeeklyYmd: undefined,
+  };
+}
+
+export function subscriberAlreadySent(sub, sendKey, _ymd, _hm, scheduledMs) {
+  if (sub?.scheduleEpoch !== SPORTS_DIGEST_SCHEDULE_EPOCH) return false;
+  const slots = Array.isArray(sub.lastSentSlots) ? sub.lastSentSlots : [];
+  for (const slot of slots) {
+    if (!slot || slot.key !== sendKey) continue;
+    if (typeof slot.scheduledMs === 'number' && typeof scheduledMs === 'number') {
+      if (Math.abs(slot.scheduledMs - scheduledMs) <= SLOT_MATCH_MS) return true;
+      continue;
+    }
+    return true;
+  }
+  if (Array.isArray(sub.lastSentKeys) && sub.lastSentKeys.includes(sendKey)) {
+    const slotMs = parseSendKeyToUtcMs(sendKey);
+    if (slotMs !== null && typeof scheduledMs === 'number' && Math.abs(slotMs - scheduledMs) <= SLOT_MATCH_MS) {
+      return true;
+    }
+  }
   return false;
 }
 
-export function subscriberSendKey(sub, ymd, hm, weekday) {
+export function subscriberSendKey(sub, ymd, hm, weekday, scheduledMs) {
   const tickHm = normalizeHm(hm);
   if (!tickHm || !isQuarterHourHm(tickHm)) return null;
   const { times, days } = resolveSubscriberSchedule(sub);
@@ -45,14 +75,23 @@ export function subscriberSendKey(sub, ymd, hm, weekday) {
   if (!days.includes(weekday)) return null;
   if (!times.includes(tickHm)) return null;
   const key = buildSendKey(ymd, tickHm);
-  if (subscriberAlreadySent(sub, key, ymd, tickHm)) return null;
+  if (subscriberAlreadySent(sub, key, ymd, tickHm, scheduledMs)) return null;
   return key;
 }
 
-export function applySendKey(sub, sendKey) {
+export function applySendKey(sub, sendKey, scheduledMs) {
   const keys = Array.isArray(sub.lastSentKeys) ? [...sub.lastSentKeys] : [];
   if (!keys.includes(sendKey)) keys.push(sendKey);
-  return { ...sub, lastSentKeys: keys.slice(-40) };
+  const slots = Array.isArray(sub.lastSentSlots) ? [...sub.lastSentSlots] : [];
+  if (typeof scheduledMs === 'number' && Number.isFinite(scheduledMs)) {
+    slots.push({ key: sendKey, scheduledMs });
+  }
+  return {
+    ...sub,
+    lastSentKeys: keys.slice(-40),
+    lastSentSlots: slots.slice(-40),
+    scheduleEpoch: SPORTS_DIGEST_SCHEDULE_EPOCH,
+  };
 }
 
 /** Parse `ymd|HH:MM` (Central schedule) to UTC epoch ms. */
@@ -62,7 +101,7 @@ export function parseSendKeyToUtcMs(sendKey) {
   const [y, mo, d] = m[1].split('-').map((x) => parseInt(x, 10));
   const [h, min] = m[2].split(':').map((x) => parseInt(x, 10));
   if (![y, mo, d, h, min].every(Number.isFinite)) return null;
-  return Date.UTC(y, mo - 1, d, h, min) + CENTRAL_OFFSET_MS;
+  return centralLocalToUtcMs(m[1], m[2]);
 }
 
 /** News/social window start: last successful send, or 12h fallback for first digest. */
@@ -96,11 +135,12 @@ export function getSportsDigestCronTick(event) {
     event && typeof event.scheduledTime === 'number' && Number.isFinite(event.scheduledTime)
       ? event.scheduledTime
       : Date.now();
+  const hm = chicagoTimeHm(scheduledMs);
+  if (!hm || !isQuarterHourHm(hm)) return null;
   const utcHm = utcTimeHm(scheduledMs);
-  if (!isQuarterHourHm(utcHm)) return null;
   return {
     ymd: chicagoDateYmd(scheduledMs),
-    hm: chicagoTimeHm(scheduledMs),
+    hm,
     weekday: chicagoWeekdayIndex(scheduledMs),
     utcHm,
     scheduledMs,
@@ -122,7 +162,6 @@ export async function fetchSportsDigestEmailContent(env, { teams, username, sinc
   if (includeTopHeadlines === true) {
     payload.includeTopHeadlines = true;
   }
-  payload.skipAiSummaries = true;
   const init = {
     method: 'POST',
     headers: {

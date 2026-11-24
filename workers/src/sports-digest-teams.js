@@ -53,7 +53,7 @@ export function getSportsDigestLeagues(now = new Date()) {
 /** @deprecated use getSportsDigestLeagues() */
 export const SPORTS_DIGEST_LEAGUES = SPORTS_DIGEST_LEAGUES_BASE;
 
-/** Preset send schedules — Central (CT) HH:MM. Worker sends at UTC = CT + 5 hours. */
+/** Preset send schedules — Central (America/Chicago) HH:MM; UTC send time follows CST/CDT. */
 export const SPORTS_DIGEST_PRESETS = [
   { id: 'twice_daily', label: 'Twice daily', detail: '6:00 AM & 6:00 PM Central', times: ['06:00', '18:00'], days: [0, 1, 2, 3, 4, 5, 6] },
   { id: 'morning', label: 'Once daily — morning', detail: '6:00 AM Central', times: ['06:00'], days: [0, 1, 2, 3, 4, 5, 6] },
