@@ -4752,44 +4752,98 @@ def is_pawn_capture(move):
     return bool(re.match(r'^[a-h]x[a-h][1-8](=?[QRNB])?[\+#]?$', move))
 
 
-def _resolve_san_source(board, to_row, to_col, piece, color, disambig=None):
-    """Locate the moving piece for SAN (uses disambiguation when given, else convert_move)."""
+def _san_can_reach(board, fr, fc, tr, tc, piece, color):
+    """True if side's piece type at (fr,fc) can legally land on (tr,tc) (captures allowed on dest)."""
     piece = (piece or 'p').lower()
-    fr, fc = convert_move(board, to_row, to_col, piece, color)
-    if fr is not None and disambig:
-        d = str(disambig).lower()
-        if d in 'abcdefgh' and indices_to_pos_col(fc) != d:
-            fr, fc = None, None
-        elif d in '12345678' and indices_to_pos_row(fr) != d:
-            fr, fc = None, None
-    if fr is not None:
-        return fr, fc
+    cell = board[fr][fc]
     if color == 'w':
-        sym = piece.upper() if piece != 'p' else 'P'
-    else:
-        sym = piece if piece != 'p' else 'p'
+        if piece == 'p':
+            if cell != 'P':
+                return False
+        elif cell != piece.upper():
+            return False
+    elif piece == 'p':
+        if cell != 'p':
+            return False
+    elif cell != piece:
+        return False
+    if fr == tr and fc == tc:
+        return False
+    dest = board[tr][tc]
+    if piece == 'p':
+        if color == 'w':
+            chess_fr = 7 - fr
+            if fc == tc:
+                if tr <= fr:
+                    return False
+                delta = chess_fr - tr
+                if delta == 1:
+                    return dest == '0' or dest in BLACK_PIECES
+                if delta == 2 and chess_fr == 6:
+                    return dest == '0' and board[fr + 1][tc] == '0'
+                if delta == 2 and tr == fr + 3 and fr == 1:
+                    return (
+                        dest == '0'
+                        and board[fr + 1][tc] == '0'
+                        and board[fr + 2][tc] == '0'
+                    )
+                return False
+            if abs(tc - fc) == 1:
+                if tr == fr + 1:
+                    return dest in BLACK_PIECES or dest == '0'
+                if tr == fr + 2 and chess_fr == 6:
+                    return dest in BLACK_PIECES or dest == '0'
+            return False
+        chess_fr = 7 - fr if fr != 6 else 7
+        chess_tr = 7 - tr
+        if fc == tc:
+            if tr >= fr:
+                return False
+            steps = fr - tr
+            if steps == 1:
+                return dest == '0' or dest in WHITE_PIECES
+            if steps >= 2 and fr == 6 and chess_fr == 7 and steps <= 4:
+                return (dest == '0' or dest in WHITE_PIECES) and board[fr - 1][tc] == '0'
+            return False
+        if abs(tc - fc) == 1 and tr == fr - 1:
+            return dest in WHITE_PIECES or dest == '0'
+        return False
+    if piece == 'n':
+        dr, dc = abs(fr - tr), abs(fc - tc)
+        return (dr == 2 and dc == 1) or (dr == 1 and dc == 2)
+    if piece == 'k':
+        return max(abs(fr - tr), abs(fc - tc)) == 1
+    deltas = BISHOP_DELTAS if piece == 'b' else ROOK_DELTAS if piece == 'r' else QUEEN_DELTAS if piece == 'q' else None
+    if deltas is None:
+        return False
+    for dr, dc in deltas:
+        if dr == 0 and dc == 0:
+            continue
+        r, c = fr + dr, fc + dc
+        while 0 <= r < 8 and 0 <= c < 8:
+            if r == tr and c == tc:
+                return True
+            if board[r][c] != '0':
+                break
+            r += dr
+            c += dc
+    return False
+
+
+def _resolve_san_source(board, to_row, to_col, piece, color, disambig=None):
+    """Locate the moving piece for chess.js SAN on the engine board."""
+    piece = (piece or 'p').lower()
     candidates = []
     for r in range(8):
         for c in range(8):
-            if board[r][c] != sym:
-                continue
             if disambig:
                 d = str(disambig).lower()
                 if d in 'abcdefgh' and indices_to_pos_col(c) != d:
                     continue
                 if d in '12345678' and indices_to_pos_row(r) != d:
                     continue
-            if piece == 'n':
-                dr, dc = abs(r - to_row), abs(c - to_col)
-                if (dr == 2 and dc == 1) or (dr == 1 and dc == 2):
-                    candidates.append((r, c))
-            elif piece == 'k':
-                if max(abs(r - to_row), abs(c - to_col)) == 1:
-                    candidates.append((r, c))
-            else:
-                fr2, fc2 = convert_move(board, to_row, to_col, piece, color)
-                if fr2 == r and fc2 == c:
-                    candidates.append((r, c))
+            if _san_can_reach(board, r, c, to_row, to_col, piece, color):
+                candidates.append((r, c))
     if len(candidates) == 1:
         return candidates[0]
     if len(candidates) > 1:
@@ -4847,13 +4901,13 @@ def convert_move(board, to_row, to_col, piece, color):
                     else:
                         break
         elif piece == 'p':
-            if to_row == 4:
-                if board[to_row+1][to_col] == 'p':
-                    return to_row+1, to_col
-                else:
-                    return to_row+2, to_col
-            else:
-                return to_row+1, to_col
+            if to_row > 0 and board[to_row - 1][to_col] == 'p':
+                return to_row - 1, to_col
+            if to_row > 1 and board[to_row - 2][to_col] == 'p' and board[to_row - 1][to_col] == '0':
+                return to_row - 2, to_col
+            if to_row > 0:
+                return to_row - 1, to_col
+            return None, None
         elif piece == 'k':
               directions = QUEEN_DELTAS
               for direction in directions:
@@ -4870,7 +4924,6 @@ def convert_move(board, to_row, to_col, piece, color):
                 new_col = to_col + direction[1]
                 if 0 <= new_row < 8 and 0 <= new_col < 8:
                     if board[new_row][new_col] == 'N':
-                        print(new_row, new_col)
                         return new_row, new_col
         elif piece == 'b':
             directions = BISHOP_DELTAS
@@ -4912,13 +4965,13 @@ def convert_move(board, to_row, to_col, piece, color):
                     else:
                         break
         elif piece == 'p':
-            if to_row == 3:
-                if board[to_row-1][to_col] == 'P':
-                    return to_row-1, to_col
-                else:
-                    return to_row-2, to_col
-            else:
-                return to_row-1, to_col
+            if to_row + 1 < 8 and board[to_row + 1][to_col] == 'P':
+                return to_row + 1, to_col
+            if to_row + 2 < 8 and board[to_row + 2][to_col] == 'P' and board[to_row + 1][to_col] == '0':
+                return to_row + 2, to_col
+            if to_row + 1 < 8:
+                return to_row + 1, to_col
+            return None, None
         elif piece == 'k':
               directions = QUEEN_DELTAS
               for direction in directions:
