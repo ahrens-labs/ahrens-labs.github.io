@@ -10,7 +10,6 @@
     heroes: { name: 'Hero League', icon: '🦸', page: '/heroes.html', img: '/img/heroes/cover.webp?v=2', logo: '/img/heroes-favicon-128.png?v=3' },
     masquerade: { name: 'The Masquerade Court', icon: '🎭', page: '/masquerade.html', img: '/img/masquerade/cover.webp?v=2', logo: '/img/masquerade-favicon-128.png?v=3' },
     whiteout: { name: 'Whiteout Station', icon: '❄️', page: '/whiteout.html', img: '/img/whiteout/cover.webp', logo: '/img/whiteout-favicon-96.png?v=1' },
-    trifangx: { name: 'TrifangX', icon: '♟️', page: '/trifangx_live.html', img: '/img/trifangx-icon.png', logo: '/img/trifangx-icon.png' },
   };
   // "Surprise me": a random game against a random number of computer rivals (up to as many as the game seats).
   const MAX_RIVALS = { dino: 1, hearthhold: 1, atlantis: 1, cauldron: 3, heroes: 4, masquerade: 4 };
