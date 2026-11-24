@@ -1998,6 +1998,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
 
     // --- Engine occupancy helpers ---
     const ENGINE_BASE = 'https://hedgehoglover23.pythonanywhere.com';
+    const ENGINE_FETCH_INIT = { credentials: 'omit' };
     /** Set in this tab after /start; used with pagehide skip rules so unrelated tabs do not POST /stop. */
     const ENGINE_LOCK_SESSION_KEY = 'trifangx_engine_lock_holder';
     /** Server-issued UUID for this tab's TrifangX session (multi-game API). */
@@ -2976,7 +2977,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         acc.length > 0
           ? `${ENGINE_BASE}/status?account=${encodeURIComponent(acc)}`
           : `${ENGINE_BASE}/status`;
-      return fetch(statusUrl)
+      return fetch(statusUrl, ENGINE_FETCH_INIT)
         .then(r => r.json())
         .then(data => {
           const occ = data && data.occupied;
@@ -3059,9 +3060,11 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         const uname = getTrifangxEngineAccountUsername();
         const hb = { game_id: gid };
         if (uname) hb.username = uname;
-        fetch(`${ENGINE_BASE}/heartbeat`, { method: 'POST',
+        fetch(`${ENGINE_BASE}/heartbeat`, Object.assign({}, ENGINE_FETCH_INIT, {
+          method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(hb) })
+          body: JSON.stringify(hb),
+        }))
           .then(function (r) {
             if (!r || r.ok) return null;
             return r.json().catch(function () { return {}; });
@@ -3119,18 +3122,13 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       if (unameStop) stopPayload.username = unameStop;
       const body = JSON.stringify(stopPayload);
       try {
-        fetch(url, {
+        fetch(url, Object.assign({}, ENGINE_FETCH_INIT, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: body,
-          keepalive: true
-        }).catch(function () {});
+          keepalive: true,
+        })).catch(function () {});
       } catch (e2) {}
-      try {
-        if (typeof navigator !== 'undefined' && navigator.sendBeacon) {
-          navigator.sendBeacon(url, new Blob([body], { type: 'application/json' }));
-        }
-      } catch (e3) {}
       clearEngineTabSession();
       clearTrifangxLiveUrlAndSnapshot();
     }
@@ -3560,11 +3558,11 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           const hbBody = { game_id: gid };
           const uHb = getTrifangxEngineAccountUsername();
           if (uHb) hbBody.username = uHb;
-          const hbResp = await fetch(`${ENGINE_BASE}/heartbeat`, {
+          const hbResp = await fetch(`${ENGINE_BASE}/heartbeat`, Object.assign({}, ENGINE_FETCH_INIT, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(hbBody),
-          });
+          }));
           if (hbResp.ok) {
             setEngineGameId(gid);
             return true;
@@ -3825,22 +3823,22 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           typeof game !== 'undefined' && game && typeof game.history === 'function'
             ? game.history().join(' ')
             : '';
-        fetch(`${ENGINE_BASE}/game_finished`, {
+        fetch(`${ENGINE_BASE}/game_finished`, Object.assign({}, ENGINE_FETCH_INIT, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username: username, outcome: outcome, notation: notation })
-        }).catch(function () {});
+          body: JSON.stringify({ username: username, outcome: outcome, notation: notation }),
+        })).catch(function () {});
       } catch (e) {}
     }
 
     // --- sendEngineCommand function ---
     function sendEngineCommand(endpoint, extraBody) {
       const payload = Object.assign({}, extraBody || {});
-      return fetch(`${ENGINE_BASE}/${endpoint}`, {
+      return fetch(`${ENGINE_BASE}/${endpoint}`, Object.assign({}, ENGINE_FETCH_INIT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      })
+        body: JSON.stringify(payload),
+      }))
         .then(function (response) {
           if (!response.ok) {
             const httpErr = new Error(response.statusText || 'HTTP error');
@@ -15017,10 +15015,10 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       const MOVE_MAX_WAIT_MS = 180000;
       const deadline = Date.now() + MOVE_MAX_WAIT_MS;
       while (Date.now() < deadline) {
-        const pr = await fetch(`${ENGINE_BASE}/move_result/${jobId}`, {
+        const pr = await fetch(`${ENGINE_BASE}/move_result/${jobId}`, Object.assign({}, ENGINE_FETCH_INIT, {
           method: "GET",
           signal: signal,
-        });
+        }));
         const d = await pr.json().catch(() => ({}));
         if (d.status === "done" && d.move) {
           return { move: d.move };
@@ -15085,12 +15083,12 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           });
           const uMv = getTrifangxEngineAccountUsername();
           if (uMv) moveBody.username = uMv;
-          const response = await fetch(`${ENGINE_BASE}/move`, {
+          const response = await fetch(`${ENGINE_BASE}/move`, Object.assign({}, ENGINE_FETCH_INIT, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             signal: signal,
             body: JSON.stringify(moveBody),
-          });
+          }));
 
           if (!response.ok) {
             let detail = '';

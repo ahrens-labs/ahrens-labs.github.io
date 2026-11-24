@@ -952,11 +952,17 @@ board = initialize_board()
 
 # --- Flask App Initialization (ONLY ONCE) ---
 app = Flask(__name__)
+_TRIFANGX_CORS_ORIGINS = [
+    "https://ahrenslabs.com",
+    "https://www.ahrenslabs.com",
+    "http://localhost:8080",
+    "http://127.0.0.1:8080",
+]
 CORS(app, resources={r"/*": {
-    "origins": "https://ahrenslabs.com",
+    "origins": _TRIFANGX_CORS_ORIGINS,
     "methods": ["GET", "POST", "OPTIONS"],
     "allow_headers": ["Content-Type"],
-    "supports_credentials": False
+    "supports_credentials": True,
 }})
 # --- Flask Routes ---
 @app.route('/status', methods=['GET'])
@@ -1106,14 +1112,14 @@ def _replay_san_history(moves):
             notation_move = str(raw or san).strip()
             if i % 2 == 0:
                 if san in ('0-0', '0-0-0'):
-                    players_turn_white(board, san, san)
-                else:
-                    players_turn_white(board, san, notation_move)
-            else:
-                if san in ('0-0', '0-0-0'):
                     players_turn(board, san, san)
                 else:
                     players_turn(board, san, notation_move)
+            else:
+                if san in ('0-0', '0-0-0'):
+                    players_turn_white(board, san, san)
+                else:
+                    players_turn_white(board, san, notation_move)
 
 
 @app.route('/sync', methods=['POST'])
@@ -1310,12 +1316,12 @@ def _compute_engine_move_reply(move_notation, color):
         if color == 'white':
             if move_notation:
                 if move_notation in {'0-0', 'O-O'}:
-                    players_turn_white(board, '0-0', '0-0')
+                    players_turn(board, '0-0', '0-0')
                 elif move_notation in {'0-0-0', 'O-O-O'}:
-                    players_turn_white(board, '0-0-0', '0-0-0')
+                    players_turn(board, '0-0-0', '0-0-0')
                 else:
                     next_move = move_notation.strip()
-                    players_turn_white(board, next_move, notation_move)
+                    players_turn(board, next_move, notation_move)
             return_move = best_move_black(board, 'false', 'false')
             if return_move:
                 cleaned_return = clean_move(return_move)
@@ -1324,12 +1330,12 @@ def _compute_engine_move_reply(move_notation, color):
         else:
             if move_notation:
                 if move_notation in {'0-0', 'O-O'}:
-                    players_turn(board, '0-0', '0-0')
+                    players_turn_white(board, '0-0', '0-0')
                 elif move_notation in {'0-0-0', 'O-O-O'}:
-                    players_turn(board, '0-0-0', '0-0-0')
+                    players_turn_white(board, '0-0-0', '0-0-0')
                 else:
                     next_move = move_notation.strip()
-                    players_turn(board, next_move, notation_move)
+                    players_turn_white(board, next_move, notation_move)
             return_move = best_move_function(board, 'false', 'false')
             if return_move:
                 cleaned_return = clean_move(return_move)
@@ -4716,6 +4722,51 @@ def is_pawn_capture(move):
     return bool(re.match(r'^[a-h]x[a-h][1-8](=?[QRNB])?[\+#]?$', move))
 
 
+def _resolve_san_source(board, to_row, to_col, piece, color, disambig=None):
+    """Locate the moving piece for SAN (uses disambiguation when given, else convert_move)."""
+    piece = (piece or 'p').lower()
+    fr, fc = convert_move(board, to_row, to_col, piece, color)
+    if fr is not None and disambig:
+        d = str(disambig).lower()
+        if d in 'abcdefgh' and indices_to_pos_col(fc) != d:
+            fr, fc = None, None
+        elif d in '12345678' and indices_to_pos_row(fr) != d:
+            fr, fc = None, None
+    if fr is not None:
+        return fr, fc
+    if color == 'w':
+        sym = piece.upper() if piece != 'p' else 'P'
+    else:
+        sym = piece if piece != 'p' else 'p'
+    candidates = []
+    for r in range(8):
+        for c in range(8):
+            if board[r][c] != sym:
+                continue
+            if disambig:
+                d = str(disambig).lower()
+                if d in 'abcdefgh' and indices_to_pos_col(c) != d:
+                    continue
+                if d in '12345678' and indices_to_pos_row(r) != d:
+                    continue
+            if piece == 'n':
+                dr, dc = abs(r - to_row), abs(c - to_col)
+                if (dr == 2 and dc == 1) or (dr == 1 and dc == 2):
+                    candidates.append((r, c))
+            elif piece == 'k':
+                if max(abs(r - to_row), abs(c - to_col)) == 1:
+                    candidates.append((r, c))
+            else:
+                fr2, fc2 = convert_move(board, to_row, to_col, piece, color)
+                if fr2 == r and fc2 == c:
+                    candidates.append((r, c))
+    if len(candidates) == 1:
+        return candidates[0]
+    if len(candidates) > 1:
+        return candidates[0]
+    return None, None
+
+
 def convert_move(board, to_row, to_col, piece, color):
     if color == 'b':
         if piece == 'n':
@@ -5185,7 +5236,7 @@ def players_turn(board, next_move, notation_move):
                 raise ValueError(f"Could not parse move: {next_move}")
             pos = str(to_col) + str(to_row)
             row, col = pos_to_indices(pos)
-            from_row, from_col = convert_move(board, row, col, piece.lower(), 'w')
+            from_row, from_col = _resolve_san_source(board, row, col, piece.lower(), 'w', disambig)
             if from_row is None or from_col is None:
                 raise ValueError(f"Could not find piece for move: {next_move}")
             best_move = [from_row, from_col, row, col]
@@ -5301,7 +5352,7 @@ def players_turn_white(board, next_move, notation_move):
                 raise ValueError(f"Could not parse move: {next_move}")
             pos = str(to_col) + str(to_row)
             row, col = pos_to_indices(pos)
-            from_row, from_col = convert_move(board, row, col, piece.lower(), 'b')
+            from_row, from_col = _resolve_san_source(board, row, col, piece.lower(), 'b', disambig)
             if from_row is None or from_col is None:
                 raise ValueError(f"Could not find piece for move: {next_move}")
             best_move = [from_row, from_col, row, col]
