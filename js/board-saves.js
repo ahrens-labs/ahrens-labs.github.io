@@ -177,7 +177,7 @@
     adoptLocalGuestSaves();
     const ix = readIndex();
     const k = `${game}:${id}`;
-    if (ix[k] && ix[k].deleted) delete ix[k].deleted;
+    if (ix[k] && ix[k].deleted) return;
     try {
       localStorage.setItem(bodyKey(game, id), JSON.stringify(save));
     } catch {
@@ -196,22 +196,56 @@
     schedule();
   }
 
+  function clearSaveBodies(game, id) {
+    const keys = [
+      bodyKey(game, id),
+      legacyBodyKey(game, id),
+      `ahrensBoardSaves.local.${game}.${id}`,
+    ];
+    const uid = userId();
+    if (uid) keys.push(`ahrensBoardSaves.${uid}.${game}.${id}`);
+    keys.forEach((k) => {
+      try {
+        localStorage.removeItem(k);
+      } catch {
+        /* ignore */
+      }
+    });
+  }
+
   function remove(game, id) {
+    if (!game || !id) return;
     const ix = readIndex();
-    try {
-      localStorage.removeItem(bodyKey(game, id));
-    } catch {
-      /* ignore */
-    }
-    ix[`${game}:${id}`] = {
+    const k = `${game}:${id}`;
+    const updatedAt = Date.now();
+    clearSaveBodies(game, id);
+    const tomb = {
       game,
       id,
-      updatedAt: Date.now(),
+      updatedAt,
       deleted: true,
       dirty: !!session() && !!userId(),
       owner: scopeId(),
     };
+    ix[k] = tomb;
     writeIndex(ix);
+    const uid = userId();
+    if (uid) {
+      try {
+        const localIx = JSON.parse(localStorage.getItem('ahrensBoardSaves.index:local') || '{}') || {};
+        if (localIx[k]) {
+          localIx[k] = { ...tomb, dirty: false, owner: 'local' };
+          localStorage.setItem('ahrensBoardSaves.index:local', JSON.stringify(localIx));
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+    try {
+      dispatchEvent(new CustomEvent('boardsaves:removed', { detail: [{ game, id }] }));
+    } catch {
+      /* ignore */
+    }
     flush(document.visibilityState === 'hidden');
   }
 
@@ -299,7 +333,7 @@
     const merged = new Map();
     const addFrom = (ix) => {
       Object.values(ix || {}).forEach((m) => {
-        if (!m || m.deleted || (game && m.game !== game)) return;
+        if (!m || (game && m.game !== game)) return;
         const k = `${m.game}:${m.id}`;
         const cur = merged.get(k);
         if (!cur || (m.updatedAt || 0) > (cur.updatedAt || 0)) merged.set(k, m);
@@ -314,7 +348,9 @@
     } catch {
       /* ignore */
     }
-    return [...merged.values()].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+    return [...merged.values()]
+      .filter((m) => !m.deleted)
+      .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
   }
 
   // 'removed' (deleted here or on another device), 'elsewhere' (a newer copy is in the account), or 'here'.

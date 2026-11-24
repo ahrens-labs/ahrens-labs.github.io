@@ -70,6 +70,24 @@
     BS && typeof BS.isTrifangxSaveActive === 'function'
       ? BS.isTrifangxSaveActive(m)
       : (m.summary || {}).moved !== false && ((m.summary || {}).round || 0) > 0;
+
+  function clearTrifangxPauseStorage(id) {
+    if (!id) return;
+    try {
+      if (sessionStorage.getItem('trifangx_paused_save_id') === id) {
+        sessionStorage.removeItem('trifangx_paused_save_id');
+      }
+      const raw = sessionStorage.getItem('trifangx_live_snapshot');
+      if (raw) {
+        const snap = JSON.parse(raw);
+        if (snap && String(snap.pauseSaveId || '') === id) {
+          sessionStorage.removeItem('trifangx_live_snapshot');
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+  }
   const randomId = (prefix) => {
     const b = new Uint8Array(8);
     crypto.getRandomValues(b);
@@ -210,6 +228,7 @@
         const target = dialog.target;
         dialog.target = null;
         if (dialog.returnValue !== 'remove' || !target) return;
+        if (target.game === 'trifangx') clearTrifangxPauseStorage(target.id);
         BS.remove(target.game, target.id);
         render(lastOnline, lastStatus);
       });
@@ -229,8 +248,15 @@
     const b = e.target.closest('[data-remove]');
     if (!b || !BS) return;
     e.preventDefault();
+    e.stopPropagation();
     const it = lastItems.find((x) => x.game === b.dataset.remove && x.id === b.dataset.id);
     if (it) confirmRemove(it);
+  });
+
+  window.addEventListener('boardsaves:removed', () => render(lastOnline, lastStatus));
+  window.addEventListener('storage', (ev) => {
+    if (!ev || !ev.key || !String(ev.key).includes('ahrensBoardSaves.index')) return;
+    render(lastOnline, lastStatus);
   });
 
   function render(online, status) {
