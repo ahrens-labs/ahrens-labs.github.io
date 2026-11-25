@@ -2271,10 +2271,6 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         sessionStorage.getItem(TRIFANGX_PAUSED_SAVE_ID_KEY) ||
         (getStoredLiveSnapshotObject() && getStoredLiveSnapshotObject().pauseSaveId) ||
         '';
-      if (!id) {
-        const urlId = new URL(window.location.href).searchParams.get(TRIFANGX_LOCAL_SAVE_PARAM);
-        if (urlId) id = String(urlId).trim();
-      }
     } catch (e) {}
     if (id && window.BoardSaves && typeof window.BoardSaves.remove === 'function') {
       window.BoardSaves.remove('trifangx', id);
@@ -2283,35 +2279,6 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       sessionStorage.removeItem(TRIFANGX_PAUSED_SAVE_ID_KEY);
     } catch (e2) {}
       renderTrifangxPausedGamesLobby();
-      try {
-        window.dispatchEvent(new CustomEvent('boardsaves:removed'));
-      } catch (eEv) {}
-    }
-
-    /**
-     * Unrecoverable engine / resume failure: stop the server game, clear tab state, and drop BoardSaves
-     * so the game does not stay on Your games or the TrifangX shelf.
-     */
-    async function abandonTrifangxAfterError(opts) {
-      opts = opts || {};
-      try {
-        clearPendingEngineMove();
-      } catch (e) {}
-      try {
-        gameOver = true;
-        _liveGameCancelled = true;
-      } catch (e2) {}
-      try {
-        if (engineMoveAbortController) {
-          engineMoveAbortController.abort();
-        }
-      } catch (e3) {}
-      if (opts.notify !== false) {
-        try {
-          notifyGameFinishedToEngine('error');
-        } catch (e4) {}
-      }
-      await releaseEngineOnGameEnd();
     }
 
     function listTrifangxPausedBoardSaves() {
@@ -3068,7 +3035,6 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         stopPregameStatusPolling();
       } catch (e) {}
       clearEngineTabSession();
-      clearPausedTrifangxBoardSave();
       clearTrifangxLiveUrlAndSnapshot();
       try {
         gameOver = true;
@@ -3844,8 +3810,8 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         /* still refresh occupancy so UI can recover */
       }
       clearEngineTabSession();
-      clearPausedTrifangxBoardSave();
       clearTrifangxLiveUrlAndSnapshot();
+      clearPausedTrifangxBoardSave();
       await checkEngineStatus();
     }
 
@@ -14327,7 +14293,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
               .catch(function (err) {
                 console.error('engineMove after live resume:', err);
                 if (!(err && err.name === 'AbortError')) {
-                  void abandonTrifangxAfterError({ notify: true });
+                  cancelActiveLiveTrifangxGame({ source: 'engine-resume-error', silent: true });
                 }
               });
           }, 0);
@@ -14378,8 +14344,9 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         });
         if (!sessionOk) {
           clearEngineGameId();
-          clearPausedTrifangxBoardSave();
-          clearTrifangxLiveUrlAndSnapshot();
+          try {
+            sessionStorage.removeItem(TRIFANGX_LIVE_SNAPSHOT_KEY);
+          } catch (eSnap) {}
           return false;
         }
 
@@ -14557,7 +14524,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         return true;
       } catch (err) {
         console.error('tryResumeLiveTrifangxFromSnapshot:', err);
-        void abandonTrifangxAfterError({ notify: false });
+        cancelActiveLiveTrifangxGame({ source: 'resume-failed', silent: true });
         return false;
       }
     }
@@ -15167,7 +15134,9 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           console.log('ERROR: No move returned from engine');
           const moveContainer = document.getElementById("move-timer-container");
           moveContainer.innerHTML = 'ENGINE ERROR: <span style="color:red;">No move returned.</span>';
-          void abandonTrifangxAfterError();
+          gameOver = true;
+          notifyGameFinishedToEngine('error');
+          cancelActiveLiveTrifangxGame({ source: 'engine-no-move', silent: true });
           setTimeout(function () {
             showRematchModal('Engine error', 'The engine returned no move. Start a new game from the lobby?');
           }, 500);
@@ -15183,7 +15152,9 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           console.error('ERROR: Invalid move returned from engine:', data.move);
           const moveContainer = document.getElementById("move-timer-container");
           moveContainer.innerHTML = 'ENGINE ERROR: <span style="color:red;">Invalid move returned.</span>';
-          void abandonTrifangxAfterError();
+          gameOver = true;
+          notifyGameFinishedToEngine('error');
+          cancelActiveLiveTrifangxGame({ source: 'engine-invalid-move', silent: true });
           setTimeout(function () {
             showRematchModal('Engine error', 'The engine returned an invalid move. Start a new game from the lobby?');
           }, 500);
@@ -15408,7 +15379,9 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         const moveContainer = document.getElementById("move-timer-container");
         moveContainer.innerHTML = `CONNECTION ERROR: <span style="color:red;">${err.message || 'Could not reach engine.'}</span>`;
         console.error('Engine connection error:', err);
-        void abandonTrifangxAfterError();
+        gameOver = true;
+        notifyGameFinishedToEngine('error');
+        cancelActiveLiveTrifangxGame({ source: 'engine-connection-error', silent: true });
         setTimeout(function () {
           showRematchModal(
             'Connection error',
