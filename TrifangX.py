@@ -38,7 +38,7 @@ except (AttributeError, OSError, ValueError):
 ENABLE_MULTIPROCESSING = False
 
 # Bump when HTTP contract changes (pause/resume `/sync`, etc.) so deploys are easy to verify.
-TRIFANGX_API_VERSION = '20261123-resume'
+TRIFANGX_API_VERSION = '20261124-resume-min'
 
 # Noisy debug prints can dominate runtime on web servers due to log I/O.
 DEBUG_LOGS = True
@@ -1095,6 +1095,19 @@ def _normalize_san_for_engine_replay(san):
     return s
 
 
+def _engine_move_already_on_board(move_notation, notation_move):
+    """After /sync replay, game_moves already includes the client’s last ply — do not apply it again on /move."""
+    if not game_moves:
+        return False
+    needle = str(notation_move or move_notation or '').strip()
+    if not needle:
+        return False
+    last = str(game_moves[-1]).strip()
+    if last == needle:
+        return True
+    return _normalize_san_for_engine_replay(last) == _normalize_san_for_engine_replay(needle)
+
+
 def _replay_san_history(moves):
     """Apply a full SAN list onto current globals (no engine search). Chess.js order: white, black, …"""
     global board
@@ -1106,14 +1119,14 @@ def _replay_san_history(moves):
             notation_move = str(raw or san).strip()
             if i % 2 == 0:
                 if san in ('0-0', '0-0-0'):
-                    players_turn_white(board, san, san)
-                else:
-                    players_turn_white(board, san, notation_move)
-            else:
-                if san in ('0-0', '0-0-0'):
                     players_turn(board, san, san)
                 else:
                     players_turn(board, san, notation_move)
+            else:
+                if san in ('0-0', '0-0-0'):
+                    players_turn_white(board, san, san)
+                else:
+                    players_turn_white(board, san, notation_move)
 
 
 @app.route('/sync', methods=['POST'])
@@ -1306,23 +1319,12 @@ def _compute_engine_move_reply(move_notation, color):
             cleaned_move = clean_move(move_notation)
             if len(cleaned_move) == 4 and move_notation != '0-0-0':
                 move_notation = convert_to_long_algebraic(cleaned_move, board, color[0])
+        skip_player_apply = bool(
+            move_notation and _engine_move_already_on_board(move_notation, notation_move)
+        )
         return_move = None
         if color == 'white':
-            if move_notation:
-                if move_notation in {'0-0', 'O-O'}:
-                    players_turn_white(board, '0-0', '0-0')
-                elif move_notation in {'0-0-0', 'O-O-O'}:
-                    players_turn_white(board, '0-0-0', '0-0-0')
-                else:
-                    next_move = move_notation.strip()
-                    players_turn_white(board, next_move, notation_move)
-            return_move = best_move_black(board, 'false', 'false')
-            if return_move:
-                cleaned_return = clean_move(return_move)
-                if len(cleaned_return) == 5 and return_move not in {'0-0-0', '0-0'}:
-                    return_move = convert_long_move(return_move)
-        else:
-            if move_notation:
+            if move_notation and not skip_player_apply:
                 if move_notation in {'0-0', 'O-O'}:
                     players_turn(board, '0-0', '0-0')
                 elif move_notation in {'0-0-0', 'O-O-O'}:
@@ -1330,6 +1332,20 @@ def _compute_engine_move_reply(move_notation, color):
                 else:
                     next_move = move_notation.strip()
                     players_turn(board, next_move, notation_move)
+            return_move = best_move_black(board, 'false', 'false')
+            if return_move:
+                cleaned_return = clean_move(return_move)
+                if len(cleaned_return) == 5 and return_move not in {'0-0-0', '0-0'}:
+                    return_move = convert_long_move(return_move)
+        else:
+            if move_notation and not skip_player_apply:
+                if move_notation in {'0-0', 'O-O'}:
+                    players_turn_white(board, '0-0', '0-0')
+                elif move_notation in {'0-0-0', 'O-O-O'}:
+                    players_turn_white(board, '0-0-0', '0-0-0')
+                else:
+                    next_move = move_notation.strip()
+                    players_turn_white(board, next_move, notation_move)
             return_move = best_move_function(board, 'false', 'false')
             if return_move:
                 cleaned_return = clean_move(return_move)
