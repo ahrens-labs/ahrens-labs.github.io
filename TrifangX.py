@@ -38,7 +38,7 @@ except (AttributeError, OSError, ValueError):
 ENABLE_MULTIPROCESSING = False
 
 # Bump when HTTP contract changes (pause/resume `/sync`, etc.) so deploys are easy to verify.
-TRIFANGX_API_VERSION = '20261124-resume-min'
+TRIFANGX_API_VERSION = '20261124-handler-fix'
 
 # Noisy debug prints can dominate runtime on web servers due to log I/O.
 DEBUG_LOGS = True
@@ -1117,16 +1117,17 @@ def _replay_san_history(moves):
             if not san:
                 continue
             notation_move = str(raw or san).strip()
+            # chess.js white/black SAN map to these handlers (names are inverted vs side).
             if i % 2 == 0:
-                if san in ('0-0', '0-0-0'):
-                    players_turn(board, san, san)
-                else:
-                    players_turn(board, san, notation_move)
-            else:
                 if san in ('0-0', '0-0-0'):
                     players_turn_white(board, san, san)
                 else:
                     players_turn_white(board, san, notation_move)
+            else:
+                if san in ('0-0', '0-0-0'):
+                    players_turn(board, san, san)
+                else:
+                    players_turn(board, san, notation_move)
 
 
 @app.route('/sync', methods=['POST'])
@@ -1326,12 +1327,12 @@ def _compute_engine_move_reply(move_notation, color):
         if color == 'white':
             if move_notation and not skip_player_apply:
                 if move_notation in {'0-0', 'O-O'}:
-                    players_turn(board, '0-0', '0-0')
+                    players_turn_white(board, '0-0', '0-0')
                 elif move_notation in {'0-0-0', 'O-O-O'}:
-                    players_turn(board, '0-0-0', '0-0-0')
+                    players_turn_white(board, '0-0-0', '0-0-0')
                 else:
                     next_move = move_notation.strip()
-                    players_turn(board, next_move, notation_move)
+                    players_turn_white(board, next_move, notation_move)
             return_move = best_move_black(board, 'false', 'false')
             if return_move:
                 cleaned_return = clean_move(return_move)
@@ -1340,12 +1341,12 @@ def _compute_engine_move_reply(move_notation, color):
         else:
             if move_notation and not skip_player_apply:
                 if move_notation in {'0-0', 'O-O'}:
-                    players_turn_white(board, '0-0', '0-0')
+                    players_turn(board, '0-0', '0-0')
                 elif move_notation in {'0-0-0', 'O-O-O'}:
-                    players_turn_white(board, '0-0-0', '0-0-0')
+                    players_turn(board, '0-0-0', '0-0-0')
                 else:
                     next_move = move_notation.strip()
-                    players_turn_white(board, next_move, notation_move)
+                    players_turn(board, next_move, notation_move)
             return_move = best_move_function(board, 'false', 'false')
             if return_move:
                 cleaned_return = clean_move(return_move)
@@ -5484,9 +5485,12 @@ def best_move_function(board, bots, en_passant):
                         pos = str(to_col) + str(to_row)
                         row, col = pos_to_indices(pos)
                         from_row, from_col = convert_move(board, row, col, piece.lower(), 'b')
-                        previous_score = score(board, 'w')
-                        kp = _opening_book_key_piece(board, from_row, from_col, row, col, raw_opening_move)
-                        result_scores[(from_row, from_col, row, col, kp)] = previous_score
+                        if from_row is not None and from_col is not None:
+                            previous_score = score(board, 'w')
+                            kp = _opening_book_key_piece(
+                                board, from_row, from_col, row, col, raw_opening_move
+                            )
+                            result_scores[(from_row, from_col, row, col, kp)] = previous_score
                     if piece and to_col and to_row and disambig:
                         pos = str(to_col) + str(to_row)
                         row, col = pos_to_indices(pos)
