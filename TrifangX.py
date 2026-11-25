@@ -429,8 +429,6 @@ _GAMES_LOCK = threading.RLock()
 # game_id (uuid str) -> { 'active_since': epoch seconds, 'snapshot': dict }
 # Process-local only: one WSGI worker (or sticky sessions) so /start, /heartbeat, and /move share GAMES.
 GAMES = {}
-# Set when the engine selects a move (used by convert_long_move for capture SAN).
-_ENGINE_LAST_CAPTURED = '0'
 GAME_LOCK_TTL = 3600  # seconds before a silent-abandoned game is auto-removed
 MAX_CONCURRENT_GAMES = min(8, max(2, (os.cpu_count() or 2) * 2))
 MAX_ACTIVE_GAMES_PER_ACCOUNT = 3
@@ -954,17 +952,11 @@ board = initialize_board()
 
 # --- Flask App Initialization (ONLY ONCE) ---
 app = Flask(__name__)
-_TRIFANGX_CORS_ORIGINS = [
-    "https://ahrenslabs.com",
-    "https://www.ahrenslabs.com",
-    "http://localhost:8080",
-    "http://127.0.0.1:8080",
-]
 CORS(app, resources={r"/*": {
-    "origins": _TRIFANGX_CORS_ORIGINS,
+    "origins": "https://ahrenslabs.com",
     "methods": ["GET", "POST", "OPTIONS"],
     "allow_headers": ["Content-Type"],
-    "supports_credentials": True,
+    "supports_credentials": False
 }})
 # --- Flask Routes ---
 @app.route('/status', methods=['GET'])
@@ -1114,14 +1106,14 @@ def _replay_san_history(moves):
             notation_move = str(raw or san).strip()
             if i % 2 == 0:
                 if san in ('0-0', '0-0-0'):
-                    players_turn(board, san, san)
-                else:
-                    players_turn(board, san, notation_move)
-            else:
-                if san in ('0-0', '0-0-0'):
                     players_turn_white(board, san, san)
                 else:
                     players_turn_white(board, san, notation_move)
+            else:
+                if san in ('0-0', '0-0-0'):
+                    players_turn(board, san, san)
+                else:
+                    players_turn(board, san, notation_move)
 
 
 @app.route('/sync', methods=['POST'])
@@ -1307,8 +1299,6 @@ def reset_engine_state():
 
 def _compute_engine_move_reply(move_notation, color):
     """Run one engine reply using current module globals (board, etc.)."""
-    global _ENGINE_LAST_CAPTURED
-    _ENGINE_LAST_CAPTURED = '0'
     with _engine_stdout_context():
         notation_move = None
         if move_notation:
@@ -1320,12 +1310,12 @@ def _compute_engine_move_reply(move_notation, color):
         if color == 'white':
             if move_notation:
                 if move_notation in {'0-0', 'O-O'}:
-                    players_turn(board, '0-0', '0-0')
+                    players_turn_white(board, '0-0', '0-0')
                 elif move_notation in {'0-0-0', 'O-O-O'}:
-                    players_turn(board, '0-0-0', '0-0-0')
+                    players_turn_white(board, '0-0-0', '0-0-0')
                 else:
                     next_move = move_notation.strip()
-                    players_turn(board, next_move, notation_move)
+                    players_turn_white(board, next_move, notation_move)
             return_move = best_move_black(board, 'false', 'false')
             if return_move:
                 cleaned_return = clean_move(return_move)
@@ -1334,12 +1324,12 @@ def _compute_engine_move_reply(move_notation, color):
         else:
             if move_notation:
                 if move_notation in {'0-0', 'O-O'}:
-                    players_turn_white(board, '0-0', '0-0')
+                    players_turn(board, '0-0', '0-0')
                 elif move_notation in {'0-0-0', 'O-O-O'}:
-                    players_turn_white(board, '0-0-0', '0-0-0')
+                    players_turn(board, '0-0-0', '0-0-0')
                 else:
                     next_move = move_notation.strip()
-                    players_turn_white(board, next_move, notation_move)
+                    players_turn(board, next_move, notation_move)
             return_move = best_move_function(board, 'false', 'false')
             if return_move:
                 cleaned_return = clean_move(return_move)
@@ -2679,38 +2669,12 @@ def open_file(board, col, turn):
     return True
 
 def convert_long_move(move):
-    global _ENGINE_LAST_CAPTURED
-    cleaned = clean_move(str(move))
-    if len(cleaned) != 5:
-        return move
-    is_capture = _ENGINE_LAST_CAPTURED not in ('0', None, '')
-    try:
-        piece_l, from_row_c, from_col_c, to_row_c, to_col_c = extract_long_algebraic(cleaned)
-        to_r, to_c = pos_to_indices(str(to_col_c) + str(to_row_c))
-        dest = indices_to_pos(to_r, to_c)
-        pc = piece_l.upper()
-    except (ValueError, TypeError, IndexError):
-        if move[2] == move[4]:
-            return move[:2] + move[3:]
-        if move[1] == move[3]:
-            return move[:1] + move[2:]
-        return move[:2] + move[3:]
-    disambig = ''
-    if from_col_c == to_col_c:
-        disambig = str(from_row_c)
-    elif from_row_c == to_row_c:
-        disambig = str(from_col_c)
-    else:
-        disambig = str(from_col_c) + str(from_row_c)
-    if disambig:
-        return pc + disambig + ('x' if is_capture else '') + dest
-    if is_capture:
-        return pc + 'x' + dest
     if move[2] == move[4]:
-        return move[:2] + move[3:]
-    if move[1] == move[3]:
-        return move[:1] + move[2:]
-    return move[:2] + move[3:]
+        return (move[:2] + move[3:])
+    elif move[1] == move[3]:
+        return (move[:1] + move[2:])
+    else:
+        return (move[:2] + move[3:])
 
 def score_holes(board, stats, white_king_row=None, white_king_col=None, black_king_row=None, black_king_col=None):
     score = 0
@@ -4752,105 +4716,6 @@ def is_pawn_capture(move):
     return bool(re.match(r'^[a-h]x[a-h][1-8](=?[QRNB])?[\+#]?$', move))
 
 
-def _san_can_reach(board, fr, fc, tr, tc, piece, color):
-    """True if side's piece type at (fr,fc) can legally land on (tr,tc) (captures allowed on dest)."""
-    piece = (piece or 'p').lower()
-    cell = board[fr][fc]
-    if color == 'w':
-        if piece == 'p':
-            if cell != 'P':
-                return False
-        elif cell != piece.upper():
-            return False
-    elif piece == 'p':
-        if cell != 'p':
-            return False
-    elif cell != piece:
-        return False
-    if fr == tr and fc == tc:
-        return False
-    dest = board[tr][tc]
-    if piece == 'p':
-        if color == 'w':
-            chess_fr = 7 - fr
-            if fc == tc:
-                if tr <= fr:
-                    return False
-                delta = chess_fr - tr
-                if delta == 1:
-                    return dest == '0' or dest in BLACK_PIECES
-                if delta == 2 and chess_fr == 6:
-                    return dest == '0' and board[fr + 1][tc] == '0'
-                if delta == 2 and tr == fr + 3 and fr == 1:
-                    return (
-                        dest == '0'
-                        and board[fr + 1][tc] == '0'
-                        and board[fr + 2][tc] == '0'
-                    )
-                return False
-            if abs(tc - fc) == 1:
-                if tr == fr + 1:
-                    return dest in BLACK_PIECES or dest == '0'
-                if tr == fr + 2 and chess_fr == 6:
-                    return dest in BLACK_PIECES or dest == '0'
-            return False
-        chess_fr = 7 - fr if fr != 6 else 7
-        chess_tr = 7 - tr
-        if fc == tc:
-            if tr >= fr:
-                return False
-            steps = fr - tr
-            if steps == 1:
-                return dest == '0' or dest in WHITE_PIECES
-            if steps >= 2 and fr == 6 and chess_fr == 7 and steps <= 4:
-                return (dest == '0' or dest in WHITE_PIECES) and board[fr - 1][tc] == '0'
-            return False
-        if abs(tc - fc) == 1 and tr == fr - 1:
-            return dest in WHITE_PIECES or dest == '0'
-        return False
-    if piece == 'n':
-        dr, dc = abs(fr - tr), abs(fc - tc)
-        return (dr == 2 and dc == 1) or (dr == 1 and dc == 2)
-    if piece == 'k':
-        return max(abs(fr - tr), abs(fc - tc)) == 1
-    deltas = BISHOP_DELTAS if piece == 'b' else ROOK_DELTAS if piece == 'r' else QUEEN_DELTAS if piece == 'q' else None
-    if deltas is None:
-        return False
-    for dr, dc in deltas:
-        if dr == 0 and dc == 0:
-            continue
-        r, c = fr + dr, fc + dc
-        while 0 <= r < 8 and 0 <= c < 8:
-            if r == tr and c == tc:
-                return True
-            if board[r][c] != '0':
-                break
-            r += dr
-            c += dc
-    return False
-
-
-def _resolve_san_source(board, to_row, to_col, piece, color, disambig=None):
-    """Locate the moving piece for chess.js SAN on the engine board."""
-    piece = (piece or 'p').lower()
-    candidates = []
-    for r in range(8):
-        for c in range(8):
-            if disambig:
-                d = str(disambig).lower()
-                if d in 'abcdefgh' and indices_to_pos_col(c) != d:
-                    continue
-                if d in '12345678' and indices_to_pos_row(r) != d:
-                    continue
-            if _san_can_reach(board, r, c, to_row, to_col, piece, color):
-                candidates.append((r, c))
-    if len(candidates) == 1:
-        return candidates[0]
-    if len(candidates) > 1:
-        return candidates[0]
-    return None, None
-
-
 def convert_move(board, to_row, to_col, piece, color):
     if color == 'b':
         if piece == 'n':
@@ -4901,13 +4766,13 @@ def convert_move(board, to_row, to_col, piece, color):
                     else:
                         break
         elif piece == 'p':
-            if to_row > 0 and board[to_row - 1][to_col] == 'p':
-                return to_row - 1, to_col
-            if to_row > 1 and board[to_row - 2][to_col] == 'p' and board[to_row - 1][to_col] == '0':
-                return to_row - 2, to_col
-            if to_row > 0:
-                return to_row - 1, to_col
-            return None, None
+            if to_row == 4:
+                if board[to_row+1][to_col] == 'p':
+                    return to_row+1, to_col
+                else:
+                    return to_row+2, to_col
+            else:
+                return to_row+1, to_col
         elif piece == 'k':
               directions = QUEEN_DELTAS
               for direction in directions:
@@ -4924,6 +4789,7 @@ def convert_move(board, to_row, to_col, piece, color):
                 new_col = to_col + direction[1]
                 if 0 <= new_row < 8 and 0 <= new_col < 8:
                     if board[new_row][new_col] == 'N':
+                        print(new_row, new_col)
                         return new_row, new_col
         elif piece == 'b':
             directions = BISHOP_DELTAS
@@ -4965,13 +4831,13 @@ def convert_move(board, to_row, to_col, piece, color):
                     else:
                         break
         elif piece == 'p':
-            if to_row + 1 < 8 and board[to_row + 1][to_col] == 'P':
-                return to_row + 1, to_col
-            if to_row + 2 < 8 and board[to_row + 2][to_col] == 'P' and board[to_row + 1][to_col] == '0':
-                return to_row + 2, to_col
-            if to_row + 1 < 8:
-                return to_row + 1, to_col
-            return None, None
+            if to_row == 3:
+                if board[to_row-1][to_col] == 'P':
+                    return to_row-1, to_col
+                else:
+                    return to_row-2, to_col
+            else:
+                return to_row-1, to_col
         elif piece == 'k':
               directions = QUEEN_DELTAS
               for direction in directions:
@@ -5319,7 +5185,7 @@ def players_turn(board, next_move, notation_move):
                 raise ValueError(f"Could not parse move: {next_move}")
             pos = str(to_col) + str(to_row)
             row, col = pos_to_indices(pos)
-            from_row, from_col = _resolve_san_source(board, row, col, piece.lower(), 'w', disambig)
+            from_row, from_col = convert_move(board, row, col, piece.lower(), 'w')
             if from_row is None or from_col is None:
                 raise ValueError(f"Could not find piece for move: {next_move}")
             best_move = [from_row, from_col, row, col]
@@ -5435,7 +5301,7 @@ def players_turn_white(board, next_move, notation_move):
                 raise ValueError(f"Could not parse move: {next_move}")
             pos = str(to_col) + str(to_row)
             row, col = pos_to_indices(pos)
-            from_row, from_col = _resolve_san_source(board, row, col, piece.lower(), 'b', disambig)
+            from_row, from_col = convert_move(board, row, col, piece.lower(), 'b')
             if from_row is None or from_col is None:
                 raise ValueError(f"Could not find piece for move: {next_move}")
             best_move = [from_row, from_col, row, col]
@@ -6039,8 +5905,6 @@ def best_move_function(board, bots, en_passant):
             else:
                 captured_piece = board[target_row][target_col]
                 piece = board[target_row][target_col]
-                global _ENGINE_LAST_CAPTURED
-                _ENGINE_LAST_CAPTURED = captured_piece
                 source_piece = board[best_row][best_col]
                 board_before = fast_copy_board(board)
                 board[best_row][best_col] = '0'
@@ -6075,7 +5939,7 @@ def best_move_function(board, bots, en_passant):
                 else:
                     if is_protected_piece(board, target_row, target_col, best_piece):
                         disambiguation = get_move_disambiguation(board_before, best_piece, best_row, best_col, target_row, target_col)
-                        if captured_piece != '0':
+                        if piece in WHITE_PIECES:
                             move_played = best_piece.upper() + disambiguation + 'x' + indices_to_pos(target_row, target_col)
                         else:
                             move_played = best_piece.upper() + disambiguation + indices_to_pos(target_row, target_col)
@@ -8666,8 +8530,6 @@ def best_move_black(board, bots, en_passant):
             else:
                 captured_piece = board[target_row][target_col]
                 piece = board[target_row][target_col]
-                global _ENGINE_LAST_CAPTURED
-                _ENGINE_LAST_CAPTURED = captured_piece
                 source_piece = board[best_row][best_col]
                 board_before = fast_copy_board(board)
                 board[best_row][best_col] = '0'
@@ -8704,7 +8566,7 @@ def best_move_black(board, bots, en_passant):
                 else:
                     if is_protected_piece(board, target_row, target_col, best_piece):
                         disambiguation = get_move_disambiguation(board_before, best_piece, best_row, best_col, target_row, target_col)
-                        if captured_piece != '0':
+                        if piece in BLACK_PIECES:
                             move_played = best_piece.upper() + disambiguation + 'x' + indices_to_pos(target_row, target_col)
                         else:
                             move_played = best_piece.upper() + disambiguation + indices_to_pos(target_row, target_col)
